@@ -35,6 +35,7 @@ public:
 	void GetGoal(airplaneState &s) { s = goal; }
 	void GetStart(airplaneState &s) { s = start; }
 	void SetPath(std::vector<airplaneState> &p);
+
 private:
 	airplaneState start, goal, current;
 	std::vector<airplaneState> myPath;
@@ -66,6 +67,7 @@ public:
 	void OpenGLDraw(const AirplaneEnvironment *, const SimulationInfo<airplaneState,airplaneAction,AirplaneEnvironment> *)  const;
 	double getTime() {return time;}
 	void incrementTime() {time += 1;}
+	bool donePlanning() {return planFinished;}
 private:
 	void ExpandOneCBSNode();
 	void Replan(int location);

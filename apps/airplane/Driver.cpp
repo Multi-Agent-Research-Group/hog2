@@ -187,8 +187,8 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 	
 	if (ae)
 		ae->OpenGLDraw();
-	//if (group)
-	//	group->OpenGLDraw(ae, sim);
+	if (group)
+		group->OpenGLDraw(ae, sim);
 
 	u1->GetLocation(s11);
 	u2->GetLocation(s21);
@@ -197,10 +197,12 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 	{
 		if (group->MakeMove(u1, ae, sim, a))
 		{
+			std::cout << "Moving unit one from " << s11 << " to " << s12 << std::endl;
 			ae->GetNextState(s11,a,s12);
 		}
 		if (group->MakeMove(u2, ae, sim, a))
 		{
+			std::cout << "Moving unit two from " << s21 << " to " << s22 << std::endl;
 			ae->GetNextState(s21,a,s22);
 		}
 
@@ -219,7 +221,10 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 
 	simTime += 0.01;
 	if ((simTime - floor(simTime)) < 0.01)
+	{
 		sim->StepTime(1.00);
+		group->incrementTime();
+	}
 
 
 	/*

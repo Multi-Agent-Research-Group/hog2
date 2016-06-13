@@ -92,7 +92,7 @@ bool AirCBSGroup::MakeMove(Unit<airplaneState, airplaneAction, AirplaneEnvironme
 	
 	if (planFinished && si->GetSimulationTime() > time)
 	{
-		time += 1;
+		//time += 1;
 		return u->MakeMove(e, 0, si, a);
 	}
 	else if ((si->GetSimulationTime() - time) < 0.0001)
@@ -100,7 +100,7 @@ bool AirCBSGroup::MakeMove(Unit<airplaneState, airplaneAction, AirplaneEnvironme
 		return false;
 	}
 	else {
-		time = si->GetSimulationTime();
+		//time = si->GetSimulationTime();
 		// expand 1 CBS node
 		ExpandOneCBSNode();
 	}
@@ -110,6 +110,11 @@ bool AirCBSGroup::MakeMove(Unit<airplaneState, airplaneAction, AirplaneEnvironme
 /** Expand a single CBS node */
 void AirCBSGroup::ExpandOneCBSNode()
 {
+
+	// There's no reason to expand if the plan is finished.
+	if (planFinished)
+		return;
+
 	airConflict c1, c2;
 	bool found = FindFirstConflict(bestNode, c1, c2);
 
@@ -125,7 +130,8 @@ void AirCBSGroup::ExpandOneCBSNode()
 			for (airplaneState p: tree[bestNode].paths[x])
 			{
 				std::cout << p << " ";		
-			}std::cout << std::endl;
+			}
+			std::cout << std::endl;
 		}
 		return;
 	}
@@ -208,6 +214,9 @@ void AirCBSGroup::AddUnit(Unit<airplaneState, airplaneAction, AirplaneEnvironmen
 	{
 		tree[0].paths.back().push_back(thePath[x].l);
 	}
+
+	// Set the plan finished to false, as there's new updates
+	planFinished = false;
 }
 
 /** Replan a state given a constraint */
@@ -360,11 +369,27 @@ void AirCBSGroup::OpenGLDraw(const AirplaneEnvironment *ae, const SimulationInfo
 		AirCBSUnit *unit = (AirCBSUnit*)GetMember(x);
 		unit->GetColor(r, g, b);
 		a2e->SetColor(0, 1, 0);
-		for (unsigned int y = 0; y+1 < tree[bestNode].paths[x].size(); y++)
+		for (unsigned int y = 0; y < tree[bestNode].paths[x].size(); y++)
 		{
 			airtimeState a(tree[bestNode].paths[x][y], y);
-			airtimeState b(tree[bestNode].paths[x][y+1], y+1);
-			a2e->GLDrawLine(a, b);
+			//airtimeState b(tree[bestNode].paths[x][y+1], y+1);	
+			/*
+			if (time == y-1)
+			{
+				a2e->GLDrawLine(a, b);
+			}
+			else if (time == y)
+			{
+				a2e->OpenGLDraw(b);
+			}
+			else
+			{
+				a2e->GLDrawLine(a,b);
+			}*/
+			if (time != y)
+			{
+				a2e->OpenGLDraw(a);
+			}
 		}
 	}
 	glLineWidth(1.0);
