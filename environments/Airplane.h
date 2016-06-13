@@ -11,6 +11,7 @@
 
 #include <vector>
 #include <cassert>
+#include <cmath>
 #include "SearchEnvironment.h"
 
 // turn type:
@@ -40,9 +41,17 @@ public:
 	uint8_t x;
 	uint8_t y;
 	uint8_t height;
-	int speed : 2;
-	int heading : 6;
+	uint8_t speed : 2;
+	uint8_t heading : 6;
 };
+
+/** Output the information in an airplane state */
+static std::ostream& operator <<(std::ostream & out, const airplaneState &loc)
+{
+	out << "(" << unsigned(loc.x) << ", " << unsigned(loc.y)<< ", " << unsigned(loc.height) << ": " << unsigned(loc.speed) <<
+											    ": " << unsigned(loc.heading) <<  ")";
+	return out;
+}
 
 bool operator==(const airplaneState &s1, const airplaneState &s2);
 
@@ -56,8 +65,8 @@ class AirplaneEnvironment : public SearchEnvironment<airplaneState, airplaneActi
 {
 public:
 	AirplaneEnvironment();
-	void GetSuccessors(const airplaneState &nodeID, std::vector<airplaneState> &neighbors) const;
-	void GetActions(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
+	virtual void GetSuccessors(const airplaneState &nodeID, std::vector<airplaneState> &neighbors) const;
+	virtual void GetActions(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
 	virtual void ApplyAction(airplaneState &s, airplaneAction dir) const;
 	virtual void UndoAction(airplaneState &s, airplaneAction dir) const;
 	virtual void GetNextState(const airplaneState &currents, airplaneAction dir, airplaneState &news) const;
@@ -69,26 +78,39 @@ public:
 	virtual double HCost(const airplaneState &)  const { assert(false); return 0; }
 	virtual double GCost(const airplaneState &node1, const airplaneState &node2) const;
 	virtual double GCost(const airplaneState &node1, const airplaneAction &act) const;
-	
+
+	virtual double GetPathLength(const std::vector<airplaneState> &n) const;
+
 //	void SetGoalTest(GoalTester *t) {test = t;}
-	bool GoalTest(const airplaneState &node, const airplaneState &goal) const;
-	bool GoalTest(const airplaneState &) const { assert(false); return false; }
-	uint64_t GetStateHash(const airplaneState &node) const;
-	uint64_t GetActionHash(airplaneAction act) const;
+    virtual airplaneAction GetAction(const airplaneState &node1, const airplaneState &node2) const;
+	virtual bool GoalTest(const airplaneState &node, const airplaneState &goal) const;
+	virtual bool GoalTest(const airplaneState &) const { assert(false); return false; }
+	virtual uint64_t GetStateHash(const airplaneState &node) const;
+	virtual uint64_t GetActionHash(airplaneAction act) const;
+	
 	virtual void OpenGLDraw() const;
 	virtual void OpenGLDraw(const airplaneState &l) const;
 	virtual void OpenGLDraw(const airplaneState& oldState, const airplaneState &newState, float perc) const;
 	virtual void OpenGLDraw(const airplaneState &, const airplaneAction &) const;
 	void GLDrawLine(const airplaneState &a, const airplaneState &b) const;
+	void GLDrawPath(const std::vector<airplaneState> &p) const;
+	
 	recVec GetCoordinate(int x, int y, int z) const;
-private:
+
+
+	std::vector<uint8_t> getGround();
+	std::vector<recVec> getGroundNormals();
+	std::vector<airplaneAction> getInternalActions();
+
+
+protected:
 	void SetGround(int x, int y, uint8_t val);
 	uint8_t GetGround(int x, int y) const;
 	bool Valid(int x, int y);
 	recVec &GetNormal(int x, int y);
 	recVec GetNormal(int x, int y) const;
 	void RecurseGround(int x1, int y1, int x2, int y2);
-	const int width = 80;
+	const int width = 80; 
 	const int length = 80;
 	const int height = 20;
 	std::vector<uint8_t> ground;

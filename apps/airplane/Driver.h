@@ -1,11 +1,13 @@
 /*
  * $Id: sample.h,v 1.6 2006/09/18 06:23:39 nathanst Exp $
  *
- *  sample.h
+ *  Driver.h
  *  hog
  *
- *  Created by Nathan Sturtevant on 5/31/05.
- *  Copyright 2005 Nathan Sturtevant, University of Alberta. All rights reserved.
+ *  Created by Nathan Sturtevant on 6/8/16.
+ *  Copyright 2016 Nathan Sturtevant, University of Denver. All rights reserved.
+ *
+ * 	Modified by David Chan on 6/12/16
  *
  * This file is part of HOG.
  *
@@ -33,3 +35,4 @@ void MyRandomUnitKeyHandler(unsigned long windowID, tKeyboardModifier, char key)
 int MyCLHandler(char *argument[], int maxNumArgs);
 bool MyClickHandler(unsigned long windowID, int x, int y, point3d loc, tButtonType, tMouseEventType);
 void InstallHandlers();
+void InitSim();

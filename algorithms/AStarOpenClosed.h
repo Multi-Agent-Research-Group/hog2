@@ -126,7 +126,7 @@ uint64_t AStarOpenClosed<state, CmpKey, dataStructure>::AddOpenNode(const state 
 	if (table.find(hash) != table.end())
 	{
 		//return -1; // TODO: find correct id and return
-		assert(false);
+		assert(false &&  "Foud the hash in the table already!");
 	}
 	elements.push_back(dataStructure(val, g, h, parent, theHeap.size(), kOpenList));
 	if (parent == kTAStarNoNode)

@@ -236,6 +236,20 @@ void AirplaneEnvironment::GetActions(const airplaneState &nodeID, std::vector<ai
 	actions.push_back(airplaneAction(-kShift, 0, 0));
 }
 
+/** Gets the action required to go from node1 to node2 */
+airplaneAction AirplaneEnvironment::GetAction(const airplaneState &node1, const airplaneState &node2) const
+{
+	//TODO: Implement this function
+	airplaneAction a;
+	a.height = node2.height - node1.height;
+	a.turn = node2.heading - node1.heading;
+	a.speed = 1; // As of right now
+	return a;
+}
+
+
+// Note action application does not account for speed
+// Also, turn is performed, and then the offset is applied
 void AirplaneEnvironment::ApplyAction(airplaneState &s, airplaneAction dir) const
 {
 	int offset[8][2] =
@@ -288,11 +302,13 @@ void AirplaneEnvironment::GetNextState(const airplaneState &currents, airplaneAc
 	ApplyAction(news, dir);
 }
 
-
-
 double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneState &node2) const
 {
-	return 1;
+	return sqrt(
+				((float) node1.x - (float) node2.x) * ((float) node1.x - (float) node2.x) +
+				((float) node1.y - (float) node2.y) * ((float) node1.y - (float) node2.y) +
+				((float) node1.height - (float) node2.height) * ((float) node1.height - (float) node2.height)
+			   );
 }
 
 double AirplaneEnvironment::GCost(const airplaneState &node1, const airplaneState &node2) const
@@ -308,17 +324,45 @@ double AirplaneEnvironment::GCost(const airplaneState &node1, const airplaneActi
 
 bool AirplaneEnvironment::GoalTest(const airplaneState &node, const airplaneState &goal) const
 {
-	return false;
+	return (node.x == goal.x && node.y == goal.y && node.height == goal.height && node.heading == goal.heading); //&& node.speed == goal.speed
 }
+
+double AirplaneEnvironment::GetPathLength(const std::vector<airplaneState> &n) const
+{
+	double length = 0;
+	for (unsigned int x = 1; x < n.size(); x++)
+	{
+		length += HCost(n[x-1], n[x]);
+	}
+	return length;
+}
+
 
 uint64_t AirplaneEnvironment::GetStateHash(const airplaneState &node) const
 {
-	return 0;
+	uint64_t h = 0;
+	h |= node.x;
+	h = h << 8;
+	h |= node.y;
+	h = h << 8;
+	h |= node.height;
+	h = h << 8;
+	h |= node.speed;
+	h = h << 8;
+	h |= node.heading;
+	return h;
 }
 
 uint64_t AirplaneEnvironment::GetActionHash(airplaneAction act) const
 {
-	return 0;
+
+	uint64_t h = 0;
+	h |= act.turn;
+	h = h << 8;
+	h |= act.speed;
+	h = h << 8;
+	h |= act.height;
+	return h;
 }
 
 recVec AirplaneEnvironment::GetCoordinate(int x, int y, int z) const
@@ -425,10 +469,31 @@ void AirplaneEnvironment::OpenGLDraw(const airplaneState& o, const airplaneState
 
 void AirplaneEnvironment::OpenGLDraw(const airplaneState &, const airplaneAction &) const
 {
-	
+	//TODO: Implament this
 }
 
 void AirplaneEnvironment::GLDrawLine(const airplaneState &a, const airplaneState &b) const
 {
-	
+	//TODO: Implement this
+	this->OpenGLDraw(a);
+	this->OpenGLDraw(b);
+}
+
+void AirplaneEnvironment::GLDrawPath(const std::vector<airplaneState> &p) const
+{
+	//TODO: Implemennt this
+}
+
+
+std::vector<uint8_t> AirplaneEnvironment::getGround() 
+{
+	return std::vector<uint8_t>(ground);
+}
+std::vector<recVec> AirplaneEnvironment::getGroundNormals()
+{
+	return std::vector<recVec>(groundNormals);
+}
+std::vector<airplaneAction> AirplaneEnvironment::getInternalActions()
+{
+	return std::vector<airplaneAction>(internalActions);
 }

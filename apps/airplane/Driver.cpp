@@ -13,6 +13,8 @@
 //#include "DirectionalPlanner.h"
 #include "ScenarioLoader.h"
 #include "Airplane.h"
+#include "AirplaneConstrained.h"
+#include "AirplaneCBSUnits.h"
 
 bool mouseTracking;
 int px1, py1, px2, py2;
@@ -30,12 +32,15 @@ double simTime = 0;
 
 //void RunBatchTest(char *file, model mm, heuristicType heuristic, int length);
 
+/*
 AirplaneEnvironment ae;
 airplaneState s;
 airplaneState s2;
 airplaneState s3;
 airplaneState s4;
 airplaneState tmp;
+ */
+
 
 int main(int argc, char* argv[])
 {
@@ -107,13 +112,117 @@ void MyWindowHandler(unsigned long windowID, tWindowEventType eType)
 		glClearColor(0.6, 0.8, 1.0, 1.0);
 		printf("Window %ld created\n", windowID);
 		InstallFrameHandler(MyFrameHandler, windowID, 0);
+		InitSim();
 		CreateSimulation(windowID);
 	}
 }
 
+
+AirplaneEnvironment *ae = 0;
+AirplaneConstrainedEnvironment *ace = 0;
+UnitSimulation<airplaneState, airplaneAction, AirplaneEnvironment> *sim = 0;
+AirCBSGroup* group = 0;
+AirCBSUnit* u1 = 0;
+AirCBSUnit* u2 = 0;
+airplaneState s1, s2, s3, s4, g1, g2, s11, s12, s21, s22;
 std::vector<airplaneAction> acts;
+airplaneAction a;
+
+
+void InitSim(){
+	ae = new AirplaneEnvironment();
+
+	sim = new UnitSimulation<airplaneState, airplaneAction, AirplaneEnvironment>(ae);
+	sim->SetStepType(kLockStep);
+	group = new AirCBSGroup(ae);
+	
+	sim->AddUnitGroup(group);
+	
+	s1.x = 5;
+	s1.y = 5;
+	s1.height = 26;
+	s1.heading = 0;
+	s1.speed = 1;
+
+	g1.x = 45;
+	g1.y = 45;
+	g1.height = 14;
+	g1.heading = 0;
+	g1.speed = 1;
+
+	u1 = new AirCBSUnit(s1, g1);
+	u1->SetColor(1.0, 0.0, 0.0);
+
+	std::cout << "Set unit goal from " << s1 << " to " << g1 << std::endl;
+
+	s2.x = 8;
+	s2.y = 2;
+	s2.height = 26;
+	s2.heading = 3;
+	s2.speed = 1;
+
+	g2.x = 56;
+	g2.y = 38;
+	g2.height = 14;
+	g2.heading = 5;
+	g2.speed = 1;
+
+	std::cout << "Set unit goal from " << s2 << " to " << g2 << std::endl;
+
+	u2 = new AirCBSUnit(s2, g2);
+	u2->SetColor(1.0, 0.0, 0.0);
+	
+	group->AddUnit(u1);
+	group->AddUnit(u2);
+	
+	sim->AddUnit(u1);
+	sim->AddUnit(u2);
+
+}
+
+//std::vector<airplaneAction> acts;
 void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 {
+
+	
+	if (ae)
+		ae->OpenGLDraw();
+	//if (group)
+	//	group->OpenGLDraw(ae, sim);
+
+	u1->GetLocation(s11);
+	u2->GetLocation(s21);
+
+	if (group)
+	{
+		if (group->MakeMove(u1, ae, sim, a))
+		{
+			ae->GetNextState(s11,a,s12);
+		}
+		if (group->MakeMove(u2, ae, sim, a))
+		{
+			ae->GetNextState(s21,a,s22);
+		}
+
+	}
+
+	for (unsigned int x = 0; x < group->GetNumMembers(); x++)
+	{
+		AirCBSUnit *unit = (AirCBSUnit*) group->GetMember(x);
+		ae->SetColor(1,0,0);
+		unit->OpenGLDraw(ae, sim);
+		ae->SetColor(0,1,0);
+	}
+
+	//std::cout << "U1: " << s11 << " to " << s12 << std::endl << "U2: " << s21 << " to " << s22 << std::endl;
+	//std::cout << "Group-Time:" << group->getTime() << " Sim-Time:" << simTime << " Sim-Time-SimInfo:" << sim-> GetSimulationTime()<< std::endl;
+
+	simTime += 0.01;
+	if ((simTime - floor(simTime)) < 0.01)
+		sim->StepTime(1.00);
+
+
+	/*
 	simTime += 0.01;
 	//recVec v = ae.GetCoordinate(s2.x, s2.y, s2.height);
 	//cameraLookAt(v.x, v.y, v.z, 0.01);
@@ -175,7 +284,7 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 		SaveScreenshot(windowID, fname);
 		printf("Saving '%s'\n", fname);
 		index++;
-	}
+	}*/
 }
 
 int MyCLHandler(char *argument[], int maxNumArgs)
@@ -263,6 +372,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 
 void MyDisplayHandler(unsigned long windowID, tKeyboardModifier mod, char key)
 {
+	airplaneState b;
 	switch (key)
 	{
 		case 'r': recording = !recording; break;
@@ -278,12 +388,21 @@ void MyDisplayHandler(unsigned long windowID, tKeyboardModifier mod, char key)
 			break;
 		case 'p': break;//unitSims[windowID]->SetPaused(!unitSims[windowID]->GetPaused()); break;
 		case 'o':
+			std::cout << "Hello world" << std::endl;
+			sim->StepTime(1.00);
+			u1->GetLocation(b);
+			std::cout << "U1 Location: " << b << std::endl;
+			u2->GetLocation(b);
+			std::cout << "U2 Location: " << b << std::endl;
 //			if (unitSims[windowID]->GetPaused())
 //			{
 //				unitSims[windowID]->SetPaused(false);
 //				unitSims[windowID]->StepTime(1.0/30.0);
 //				unitSims[windowID]->SetPaused(true);
 //			}
+			break;
+		case 'd':
+			
 			break;
 		default:
 			break;

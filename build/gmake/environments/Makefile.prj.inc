@@ -31,6 +31,7 @@ default : all
 
 SRC_CPP = \
 	environments/Airplane.cpp \
+	environments/AirplaneConstrained.cpp \
 	environments/GraphEnvironment.cpp \
 	environments/GraphRefinementEnvironment.cpp \
 	environments/Map2DEnvironment.cpp \
