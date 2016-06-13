@@ -28,7 +28,7 @@ struct airtimeState {
 /** Output the information in an airtime state */
 static std::ostream& operator <<(std::ostream & out, const airtimeState &loc)
 {
-	out << "(" << unsigned(loc.l.x) << ", " << unsigned(loc.l.y) << ", " << unsigned(loc.l.height) << ": " << unsigned(loc.l.speed) <<
+	out << "(x:" << unsigned(loc.l.x) << ", y:" << unsigned(loc.l.y) << ", h:" << unsigned(loc.l.height) << ": s:" << unsigned(loc.l.speed) <<
 											    ": " << unsigned(loc.l.heading) << ": " << unsigned(loc.t) << ")";
 	return out;
 }
@@ -103,8 +103,8 @@ public:
 	/** Heuristic value between two arbitrary nodes. **/
 	virtual double HCost(const airtimeState &node1, const airtimeState &node2) const;
 	virtual double HCost(const airtimeState &)  const { assert(false); return 0; } //No single state H-Cost implemented
-	virtual double GCost(const airtimeState &node1, const airtimeState &node2) const { return 1; }
-	virtual double GCost(const airtimeState &node, const airplaneAction &act) const { return 1; }
+	virtual double GCost(const airtimeState &node1, const airtimeState &node2) const { return ae->GCost(node1.l,node2.l); }
+	virtual double GCost(const airtimeState &node, const airplaneAction &act) const { return ae->GCost(node.l,act); }
 	virtual double GetPathLength(const std::vector<airtimeState> &n) const;
 
 	/// GOAL TESTING

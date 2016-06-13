@@ -8,6 +8,7 @@
 
 #include <stdio.h>
 #include "Airplane.h"
+#include <iostream>
 
 bool operator==(const airplaneState &s1, const airplaneState &s2)
 {
@@ -242,18 +243,57 @@ airplaneAction AirplaneEnvironment::GetAction(const airplaneState &node1, const 
 	//TODO: Implement this function
 	airplaneAction a;
 	a.height = node2.height - node1.height;
-	a.turn = node2.heading - node1.heading;
-	a.speed = 1; // As of right now
-	return a;
-}
+	a.turn = (node2.heading - node1.heading)%8;
+        if (node1.heading == node2.heading)
+        {
+          if(node1.heading%2 == 0 && node1.x == node2.x && node1.y == node2.y){
+            a.turn = kShift;
+            switch(node1.heading){
+              case 4:
+                if(node1.x<node2.x) a.turn *=-1;
+              break;
+              case 2:
+                if(node1.y>node2.y) a.turn *=-1;
+              break;
+              case 0:
+                if(node1.x>node2.x) a.turn *=-1;
+              break;
+              case 6:
+                if(node1.y<node2.y) a.turn *=-1;
+              break;
+            }
+          }
+          else if(node1.heading%2 == 1 && 
+              ((node1.x != node2.x && node1.y == node2.y) || 
+               (node1.x == node2.x && node1.y != node2.y))){
+            a.turn = kShift;
+            switch(node1.heading){
+              case 3:
+                if(node1.x<node2.x) a.turn *=-1;
+              break;
+              case 1:
+                if(node1.y<node2.y) a.turn *=-1;
+              break;
+              case 7:
+                if(node1.x>node2.x) a.turn *=-1;
+              break;
+              case 5:
+                if(node1.y>node2.y) a.turn *=-1;
+              break;
+            }
+          }
+
+        }
+          a.speed = 1; // As of right now
+          return a;
+        }
 
 
 // Note action application does not account for speed
 // Also, turn is performed, and then the offset is applied
 void AirplaneEnvironment::ApplyAction(airplaneState &s, airplaneAction dir) const
 {
-	int offset[8][2] =
-	{
+	int offset[8][2] = {
 		{ 0, -1},
 		{ 1, -1},
 		{ 1,  0},
@@ -262,32 +302,16 @@ void AirplaneEnvironment::ApplyAction(airplaneState &s, airplaneAction dir) cons
 		{-1,  1},
 		{-1,  0},
 		{-1, -1}};
-	if (dir.height != 0)
-	{
-		s.height += dir.height;
-		s.x += offset[s.heading][0];
-		s.y += offset[s.heading][1];
-	}
-	else if (dir.turn == k45 || dir.turn == -k45)
-	{
-		s.heading = (s.heading+8+dir.turn)%8;
-		s.x += offset[s.heading][0];
-		s.y += offset[s.heading][1];
-	}
-	else if (dir.turn == 0) // continue in same direction
-	{
-		s.x += offset[s.heading][0];
-		s.y += offset[s.heading][1];
-	}
-	else if (dir.turn == k90 || dir.turn == -k90)
-	{
-		s.x += offset[s.heading][0];
-		s.y += offset[s.heading][1];
-		s.heading = (s.heading+8+dir.turn)%8;
-		s.x += offset[s.heading][0];
-		s.y += offset[s.heading][1];
-	}
-	
+        //std::cout << "Apply turn: " << signed(dir.turn) << ", height: " << signed(dir.height) << ", speed: " << signed(dir.speed) << " to " << s << "\n";
+        uint8_t heading(s.heading);
+        if(dir.turn == kShift) {heading = (s.heading+8+k45)%8;}
+        else if(dir.turn == -kShift) {heading = (s.heading+8-k45)%8;}
+        else { heading = s.heading = (s.heading+8+dir.turn)%8;}
+        s.x += offset[heading][0];
+        s.y += offset[heading][1];
+        s.height += dir.height;
+        s.speed += dir.speed;
+        //std::cout << "Result " << s << "\n";
 }
 
 void AirplaneEnvironment::UndoAction(airplaneState &s, airplaneAction dir) const
@@ -313,11 +337,13 @@ double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneStat
 
 double AirplaneEnvironment::GCost(const airplaneState &node1, const airplaneState &node2) const
 {
+        if(abs(GetAction(node1,node2).turn) == kShift) return 2;
 	return 1;
 }
 
 double AirplaneEnvironment::GCost(const airplaneState &node1, const airplaneAction &act) const
 {
+  if(act.turn == kShift || act.turn == -kShift) return 2;
 	return 1;
 }
 
@@ -332,7 +358,7 @@ double AirplaneEnvironment::GetPathLength(const std::vector<airplaneState> &n) c
 	double length = 0;
 	for (unsigned int x = 1; x < n.size(); x++)
 	{
-		length += HCost(n[x-1], n[x]);
+		length += GCost(n[x-1], n[x]);
 	}
 	return length;
 }

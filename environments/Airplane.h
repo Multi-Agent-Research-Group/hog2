@@ -48,8 +48,8 @@ public:
 /** Output the information in an airplane state */
 static std::ostream& operator <<(std::ostream & out, const airplaneState &loc)
 {
-	out << "(" << unsigned(loc.x) << ", " << unsigned(loc.y)<< ", " << unsigned(loc.height) << ": " << unsigned(loc.speed) <<
-											    ": " << unsigned(loc.heading) <<  ")";
+	out << "(x:" << unsigned(loc.x) << ", y:" << unsigned(loc.y) << ", h:" << unsigned(loc.height) << ": s:" << unsigned(loc.speed) <<
+											    ", hdg: " << unsigned(loc.heading) << ")";
 	return out;
 }
 

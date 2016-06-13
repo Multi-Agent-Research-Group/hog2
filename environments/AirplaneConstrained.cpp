@@ -161,6 +161,8 @@ uint64_t AirplaneConstrainedEnvironment::GetStateHash(const airtimeState &node) 
 	h |= node.l.speed;
 	h = h << 8;
 	h |= node.l.heading;
+	h = h << 16;
+	h |= node.t;
 	
 	return h;
 }
