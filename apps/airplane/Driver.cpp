@@ -187,10 +187,12 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 	
 	if (ae)
 		ae->OpenGLDraw();
-	if (group)
-		group->OpenGLDraw(ae, sim);
+	//if (group)
+	//	group->OpenGLDraw(ae, sim);
+	if (sim)
+		sim->OpenGLDraw();
 
-	u1->GetLocation(s11);
+	/*u1->GetLocation(s11);
 	u2->GetLocation(s21);
 
 	if (group)
@@ -214,7 +216,7 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 		ae->SetColor(1,0,0);
 		unit->OpenGLDraw(ae, sim);
 		ae->SetColor(0,1,0);
-	}
+	}*/
 
 	//std::cout << "U1: " << s11 << " to " << s12 << std::endl << "U2: " << s21 << " to " << s22 << std::endl;
 	//std::cout << "Group-Time:" << group->getTime() << " Sim-Time:" << simTime << " Sim-Time-SimInfo:" << sim-> GetSimulationTime()<< std::endl;
@@ -223,7 +225,6 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 	if ((simTime - floor(simTime)) < 0.01)
 	{
 		sim->StepTime(1.00);
-		group->incrementTime();
 	}
 
 

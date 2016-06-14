@@ -92,7 +92,6 @@ bool AirCBSGroup::MakeMove(Unit<airplaneState, airplaneAction, AirplaneEnvironme
 	
 	if (planFinished && si->GetSimulationTime() > time)
 	{
-		//time += 1;
 		return u->MakeMove(e, 0, si, a);
 	}
 	else if ((si->GetSimulationTime() - time) < 0.0001)
@@ -100,7 +99,7 @@ bool AirCBSGroup::MakeMove(Unit<airplaneState, airplaneAction, AirplaneEnvironme
 		return false;
 	}
 	else {
-		//time = si->GetSimulationTime();
+		time = si->GetSimulationTime();
 		// expand 1 CBS node
 		ExpandOneCBSNode();
 	}
@@ -360,7 +359,7 @@ bool AirCBSGroup::FindFirstConflict(int location, airConflict &c1, airConflict &
 }
 
 /** Draw the AIR CBS group */
-void AirCBSGroup::OpenGLDraw(const AirplaneEnvironment *ae, const SimulationInfo<airplaneState,airplaneAction,AirplaneEnvironment> *)  const
+void AirCBSGroup::OpenGLDraw(const AirplaneEnvironment *ae, const SimulationInfo<airplaneState,airplaneAction,AirplaneEnvironment> * sim)  const
 {
 	GLfloat r, g, b;
 	glLineWidth(2.0);
@@ -372,21 +371,8 @@ void AirCBSGroup::OpenGLDraw(const AirplaneEnvironment *ae, const SimulationInfo
 		for (unsigned int y = 0; y < tree[bestNode].paths[x].size(); y++)
 		{
 			airtimeState a(tree[bestNode].paths[x][y], y);
-			//airtimeState b(tree[bestNode].paths[x][y+1], y+1);	
-			/*
-			if (time == y-1)
-			{
-				a2e->GLDrawLine(a, b);
-			}
-			else if (time == y)
-			{
-				a2e->OpenGLDraw(b);
-			}
-			else
-			{
-				a2e->GLDrawLine(a,b);
-			}*/
-			if (time != y)
+			//airtimeState b(tree[bestNode].paths[x][y+1], y+1);
+			if (sim->GetSimulationTime() < y)
 			{
 				a2e->OpenGLDraw(a);
 			}
