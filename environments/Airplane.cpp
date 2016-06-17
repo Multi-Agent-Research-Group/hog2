@@ -12,7 +12,8 @@
 
 bool operator==(const airplaneState &s1, const airplaneState &s2)
 {
-	return (s1.x == s2.x && s1.y == s2.y && s1.height == s2.height && s1.speed == s2.speed && s1.heading == s2.heading);
+	return (fabs(s1.x-s2.x)<13.0 && fabs(s1.y-s2.y)<13.0 && s1.height==s2.height && s1.speed == s2.speed && s1.heading == s2.heading);
+	//return (fequal(s1.x,s2.x) && fequal(s1.y,s2.y) && s1.height==s2.height && s1.speed == s2.speed && s1.heading == s2.heading);
 }
 
 
@@ -240,13 +241,13 @@ void AirplaneEnvironment::GetActions(const airplaneState &nodeID, std::vector<ai
 /** Gets the action required to go from node1 to node2 */
 airplaneAction AirplaneEnvironment::GetAction(const airplaneState &node1, const airplaneState &node2) const
 {
-	//TODO: Implement this function
 	airplaneAction a;
 	a.height = node2.height - node1.height;
 	a.turn = (node2.heading - node1.heading)%8;
+        // Detect a kshift
         if (node1.heading == node2.heading)
         {
-          if(node1.heading%2 == 0 && node1.x == node2.x && node1.y == node2.y){
+          if(node1.heading%2 == 0 && fequal(node1.x, node2.x) && fequal(node1.y, node2.y)){
             a.turn = kShift;
             switch(node1.heading){
               case 4:
@@ -262,10 +263,9 @@ airplaneAction AirplaneEnvironment::GetAction(const airplaneState &node1, const 
                 if(node1.y<node2.y) a.turn *=-1;
               break;
             }
-          }
-          else if(node1.heading%2 == 1 && 
-              ((node1.x != node2.x && node1.y == node2.y) || 
-               (node1.x == node2.x && node1.y != node2.y))){
+          } else if(node1.heading%2 == 1 && 
+              ((!fequal(node1.x, node2.x) && fequal(node1.y, node2.y)) || 
+               (fequal(node1.x, node2.x) && !fequal(node1.y, node2.y)))){
             a.turn = kShift;
             switch(node1.heading){
               case 3:
@@ -282,7 +282,6 @@ airplaneAction AirplaneEnvironment::GetAction(const airplaneState &node1, const 
               break;
             }
           }
-
         }
           a.speed = 1; // As of right now
           return a;
@@ -293,7 +292,8 @@ airplaneAction AirplaneEnvironment::GetAction(const airplaneState &node1, const 
 // Also, turn is performed, and then the offset is applied
 void AirplaneEnvironment::ApplyAction(airplaneState &s, airplaneAction dir) const
 {
-	int offset[8][2] = {
+        static const double minSpeed(13);
+	static const double offset[8][2] = {
 		{ 0, -1},
 		{ 1, -1},
 		{ 1,  0},
@@ -307,10 +307,12 @@ void AirplaneEnvironment::ApplyAction(airplaneState &s, airplaneAction dir) cons
         if(dir.turn == kShift) {heading = (s.heading+8+k45)%8;}
         else if(dir.turn == -kShift) {heading = (s.heading+8-k45)%8;}
         else { heading = s.heading = (s.heading+8+dir.turn)%8;}
-        s.x += offset[heading][0];
-        s.y += offset[heading][1];
-        s.height += dir.height;
         s.speed += dir.speed;
+        double factor((heading%2==0)?1.0:M_SQRT2/2.0);
+        s.x += offset[heading][0]*factor*(minSpeed+s.speed);
+        s.y += offset[heading][1]*factor*(minSpeed+s.speed);
+        // Note: speed represents ground speed (2D speed) not 3D speed
+        s.height += dir.height;
         //std::cout << "Result " << s << "\n";
 }
 
@@ -350,7 +352,8 @@ double AirplaneEnvironment::GCost(const airplaneState &node1, const airplaneActi
 
 bool AirplaneEnvironment::GoalTest(const airplaneState &node, const airplaneState &goal) const
 {
-	return (node.x == goal.x && node.y == goal.y && node.height == goal.height && node.heading == goal.heading); //&& node.speed == goal.speed
+	return (fabs(node.x-goal.x)<13.0 && fabs(node.y-goal.y)<13.0 && node.height == goal.height && node.heading == goal.heading); //&& node.speed == goal.speed
+	//return (fequal(node.x,goal.x) && fequal(node.y, goal.y) && node.height == goal.height && node.heading == goal.heading); //&& node.speed == goal.speed
 }
 
 double AirplaneEnvironment::GetPathLength(const std::vector<airplaneState> &n) const
@@ -367,15 +370,19 @@ double AirplaneEnvironment::GetPathLength(const std::vector<airplaneState> &n) c
 uint64_t AirplaneEnvironment::GetStateHash(const airplaneState &node) const
 {
 	uint64_t h = 0;
-	h |= node.x;
-	h = h << 8;
-	h |= node.y;
-	h = h << 8;
-	h |= node.height;
-	h = h << 8;
-	h |= node.speed;
-	h = h << 8;
-	h |= node.heading;
+        // Assume x,y discretization of 3 meters
+	h |= unsigned(round(node.x/3.0)) & (0x2000-1);
+	h = h << 17;
+	h |= unsigned(round(node.y/3.0)) & (0x2000-1);
+	h = h << 10;
+        // Assume height discretization of 25 meters
+	h |= node.height & (0x400-1); // 10 bits
+	h = h << 5;
+        // Speed increments are in 1 m/sec
+	h |= node.speed & (0x20-1); // 5 bits
+	h = h << 3;
+        // Heading increments are in 45 degrees
+	h |= node.heading & (0x8-1); // 3 bits
 	return h;
 }
 

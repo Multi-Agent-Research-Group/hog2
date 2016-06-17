@@ -18,7 +18,6 @@
 #include "SearchEnvironment.h"
 #include "UnitSimulation.h"
 #include <cassert>
-#include <cstring>
 
 namespace CanonicalGrid {
 	

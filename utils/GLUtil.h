@@ -27,7 +27,6 @@
 
 #include "FPUtil.h"
 #include <ostream>
-#include <cstring>
 
 #ifdef __APPLE__
 #include "TargetConditionals.h"
