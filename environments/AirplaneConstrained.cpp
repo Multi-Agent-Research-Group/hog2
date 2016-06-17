@@ -152,23 +152,17 @@ uint64_t AirplaneConstrainedEnvironment::GetStateHash(const airtimeState &node) 
 {
 	uint64_t h = 0;
 	
-        // Assume x,y discretization of 3 meters
-	h |= unsigned(round(node.l.x/3.0)) & (0x2000-1);
-	h = h << 17;
-	h |= unsigned(round(node.l.y/3.0)) & (0x2000-1);
-	h = h << 10;
-        // Assume height discretization of 25 meters
-	h |= node.l.height & (0x400-1); // 10 bits
-	h = h << 5;
-        // Speed increments are in 1 m/sec
-	h |= node.l.speed & (0x20-1); // 5 bits
-	h = h << 3;
-        // Heading increments are in 45 degrees
-	h |= node.l.heading & (0x8-1); // 3 bits
-	h = h << 12;
-        // Time increments are in 5 second intervals
-	h |= node.t & (0x1000-1);
-        //std::cout << "Hash: "<<node << std::hex << h << std::dec << "\n";
+	h |= node.l.x;
+	h = h << 8;
+	h |= node.l.y;
+	h = h << 8;
+	h |= node.l.height;
+	h = h << 8;
+	h |= node.l.speed;
+	h = h << 8;
+	h |= node.l.heading;
+	h = h << 16;
+	h |= node.t;
 	
 	return h;
 }
@@ -245,7 +239,7 @@ bool AirplaneConstrainedEnvironment::ViolatesConstraint(const airplaneState &fro
 		// Check to see if the time, height, x and y are the same. Notice that heading has no influence on the 
 		// constraints
 		if (time+1 == constraint.loc.t && 
-		    ( fequal(to.x, constraint.loc.l.x) && fequal(to.y, constraint.loc.l.y) && (to.height == constraint.loc.l.height) ) )
+		    ( (to.x == constraint.loc.l.x) && (to.y == constraint.loc.l.y) && (to.height == constraint.loc.l.height) ) )
 			return true;
 	}
 	return false;

@@ -37,18 +37,18 @@ public:
 // state
 struct airplaneState {
 public:
-	airplaneState() :x(0.0),y(0.0),height(20.0),speed(1),heading(0.0) {}
-	float x;
-	float y;
-	uint16_t height;
-	uint8_t speed;
-	uint8_t heading;
+	airplaneState() { x = y = heading = 0; speed = 1; height = 20; }
+	uint8_t x;
+	uint8_t y;
+	uint8_t height;
+	uint8_t speed : 2;
+	uint8_t heading : 6;
 };
 
 /** Output the information in an airplane state */
 static std::ostream& operator <<(std::ostream & out, const airplaneState &loc)
 {
-	out << "(x:" << loc.x << ", y:" << loc.y << ", h:" << loc.height << ": s:" << unsigned(loc.speed) <<
+	out << "(x:" << unsigned(loc.x) << ", y:" << unsigned(loc.y) << ", h:" << unsigned(loc.height) << ": s:" << unsigned(loc.speed) <<
 											    ", hdg: " << unsigned(loc.heading) << ")";
 	return out;
 }

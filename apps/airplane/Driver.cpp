@@ -144,8 +144,8 @@ void InitSim(){
 	s1.heading = 0;
 	s1.speed = 1;
 
-	g1.x = 65;
-	g1.y = 65;
+	g1.x = 45;
+	g1.y = 45;
 	g1.height = 14;
 	g1.heading = 0;
 	g1.speed = 1;
@@ -161,8 +161,8 @@ void InitSim(){
 	s2.heading = 3;
 	s2.speed = 1;
 
-	g2.x = 76;
-	g2.y = 58;
+	g2.x = 56;
+	g2.y = 38;
 	g2.height = 14;
 	g2.heading = 5;
 	g2.speed = 1;
