@@ -222,13 +222,9 @@ void AirplaneEnvironment::GetActions(const airplaneState &nodeID, std::vector<ai
 	// up / down
 	actions.resize(0);
 
+        // no change
 	actions.push_back(airplaneAction(0, 0, 0));
-	// increase height
-	if (nodeID.height > 1)
-		actions.push_back(airplaneAction(0, 0, -1));
-	if (nodeID.height < 20)
-		actions.push_back(airplaneAction(0, 0, +1));
-	
+
 	// each type of turn
 	actions.push_back(airplaneAction(k45, 0, 0));
 	actions.push_back(airplaneAction(-k45, 0, 0));
@@ -236,6 +232,103 @@ void AirplaneEnvironment::GetActions(const airplaneState &nodeID, std::vector<ai
 	actions.push_back(airplaneAction(-k90, 0, 0));
 	actions.push_back(airplaneAction(kShift, 0, 0));
 	actions.push_back(airplaneAction(-kShift, 0, 0));
+
+	if (nodeID.height > 1)
+        {
+          // decrease height
+          actions.push_back(airplaneAction(0, 0, -1));
+          actions.push_back(airplaneAction(k45, 0, -1));
+          actions.push_back(airplaneAction(-k45, 0, -1));
+          actions.push_back(airplaneAction(k90, 0, -1));
+          actions.push_back(airplaneAction(-k90, 0, -1));
+          actions.push_back(airplaneAction(kShift, 0, -1));
+          actions.push_back(airplaneAction(-kShift, 0, -1));
+
+          // decrease height, decrease speed
+          if (nodeID.speed > 1)
+          {
+            actions.push_back(airplaneAction(0, -1, -1));
+            actions.push_back(airplaneAction(k45, -1, -1));
+            actions.push_back(airplaneAction(-k45, -1, -1));
+            actions.push_back(airplaneAction(k90, -1, -1));
+            actions.push_back(airplaneAction(-k90, -1, -1));
+            actions.push_back(airplaneAction(kShift, -1, -1));
+            actions.push_back(airplaneAction(-kShift, -1, -1));
+          }
+
+          // increase height, decrease speed
+          if (nodeID.speed < 24)
+          {
+            actions.push_back(airplaneAction(0, +1, -1));
+            actions.push_back(airplaneAction(k45, +1, -1));
+            actions.push_back(airplaneAction(-k45, +1, -1));
+            actions.push_back(airplaneAction(k90, +1, -1));
+            actions.push_back(airplaneAction(-k90, +1, -1));
+            actions.push_back(airplaneAction(kShift, +1, -1));
+            actions.push_back(airplaneAction(-kShift, +1, -1));
+          }
+        }
+
+	if (nodeID.height < 20)
+        {
+          // increase height
+          actions.push_back(airplaneAction(0, 0, +1));
+          actions.push_back(airplaneAction(k45, 0, +1));
+          actions.push_back(airplaneAction(-k45, 0, +1));
+          actions.push_back(airplaneAction(k90, 0, +1));
+          actions.push_back(airplaneAction(-k90, 0, +1));
+          actions.push_back(airplaneAction(kShift, 0, +1));
+          actions.push_back(airplaneAction(-kShift, 0, +1));
+
+          if (nodeID.speed > 1)
+          {
+            // increase height, decrease speed
+            actions.push_back(airplaneAction(0, -1, +1));
+            actions.push_back(airplaneAction(k45, -1, +1));
+            actions.push_back(airplaneAction(-k45, -1, +1));
+            actions.push_back(airplaneAction(k90, -1, +1));
+            actions.push_back(airplaneAction(-k90, -1, +1));
+            actions.push_back(airplaneAction(kShift, -1, +1));
+            actions.push_back(airplaneAction(-kShift, -1, +1));
+          }
+
+          if (nodeID.speed < 24)
+          {
+            // increase height, increase speed
+            actions.push_back(airplaneAction(0, +1, +1));
+            actions.push_back(airplaneAction(k45, +1, +1));
+            actions.push_back(airplaneAction(-k45, +1, +1));
+            actions.push_back(airplaneAction(k90, +1, +1));
+            actions.push_back(airplaneAction(-k90, +1, +1));
+            actions.push_back(airplaneAction(kShift, +1, +1));
+            actions.push_back(airplaneAction(-kShift, +1, +1));
+          }
+        }
+	
+	if (nodeID.speed > 1)
+        {
+                // decrease speed
+		actions.push_back(airplaneAction(0, -1, 0));
+                actions.push_back(airplaneAction(k45, -1, 0));
+                actions.push_back(airplaneAction(-k45, -1, 0));
+                actions.push_back(airplaneAction(k90, -1, 0));
+                actions.push_back(airplaneAction(-k90, -1, 0));
+                actions.push_back(airplaneAction(kShift, -1, 0));
+                actions.push_back(airplaneAction(-kShift, -1, 0));
+        }
+
+	if (nodeID.speed < 24)
+        {
+                // increase speed
+		actions.push_back(airplaneAction(0, +1, 0));
+                actions.push_back(airplaneAction(k45, +1, 0));
+                actions.push_back(airplaneAction(-k45, +1, 0));
+                actions.push_back(airplaneAction(k90, +1, 0));
+                actions.push_back(airplaneAction(-k90, +1, 0));
+                actions.push_back(airplaneAction(kShift, +1, 0));
+                actions.push_back(airplaneAction(-kShift, +1, 0));
+        }
+	
 }
 
 /** Gets the action required to go from node1 to node2 */
