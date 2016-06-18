@@ -47,11 +47,12 @@ struct airConflict {
 };
 
 struct AirCBSTreeNode {
-	AirCBSTreeNode() { closed = false; }
+	AirCBSTreeNode() { closed = false; satisfiable = true;}
 	std::vector< std::vector<airplaneState> > paths;
 	airConflict con;
 	unsigned int parent;
 	bool closed;
+	bool satisfiable;
 };
 
 class AirCBSGroup : public UnitGroup<airplaneState, airplaneAction, AirplaneEnvironment>

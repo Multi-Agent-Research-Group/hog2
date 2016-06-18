@@ -138,14 +138,14 @@ void InitSim(){
 	
 	sim->AddUnitGroup(group);
 	
-	s1.x = 5;
-	s1.y = 5;
+	s1.x = 30;
+	s1.y = 40;
 	s1.height = 26;
 	s1.heading = 0;
 	s1.speed = 1;
 
-	g1.x = 65;
-	g1.y = 65;
+	g1.x = 120;
+	g1.y = 18;
 	g1.height = 14;
 	g1.heading = 0;
 	g1.speed = 1;
