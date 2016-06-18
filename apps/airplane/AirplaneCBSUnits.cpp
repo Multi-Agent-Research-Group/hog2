@@ -164,7 +164,7 @@ void AirCBSGroup::ExpandOneCBSNode()
 	double cost = 0;
 	for (unsigned int x = 0; x < tree.size(); x++)
 	{
-		if (tree[x].closed)
+		if (tree[x].closed || !tree[x].satisfiable)
 			continue;
 		cost = 0;
 		for (int y = 0; y < tree[x].paths.size(); y++)
@@ -176,6 +176,11 @@ void AirCBSGroup::ExpandOneCBSNode()
 		}
 	}
 	std::cout << "New best node " << bestNode << std::endl;
+	for (unsigned int x = 0; x < tree[bestNode].paths.size(); x++)
+	{
+		AirCBSUnit *unit = (AirCBSUnit*) GetMember(x);
+		unit->SetPath(tree[bestNode].paths[x]);
+	}
 }
 
 /** Update the location oof a unit */
@@ -208,12 +213,13 @@ void AirCBSGroup::AddUnit(Unit<airplaneState, airplaneAction, AirplaneEnvironmen
 	// Recalculate the optimum path for the root of the tree
 	astar.GetPath(a2e, start, goal, thePath);
 
+
 	// We add the optimal path to the root of the tree
 	for (unsigned int x = 0; x < thePath.size(); x++)
 	{
 		tree[0].paths.back().push_back(thePath[x].l);
 	}
-
+	
 	// Set the plan finished to false, as there's new updates
 	planFinished = false;
 }
@@ -244,10 +250,14 @@ void AirCBSGroup::Replan(int location)
 	c->GetStart(start.l);
 	c->GetGoal(goal.l);
 	start.t = 0;
-	goal.t = 1; // TODO: find the true goal time
+	goal.t = 0; // TODO: find the true goal time
 
 	// Recalculate the path
 	astar.GetPath(a2e, start, goal, thePath);
+
+	if (thePath.size() == 0)
+		tree[location].satisfiable = false;
+
 
 	// Add it back to the tree (new constraint included)
 	tree[location].paths[theUnit].resize(0);
@@ -282,116 +292,68 @@ bool AirCBSGroup::FindFirstConflict(int location, airConflict &c1, airConflict &
 			int maxLength = std::max(tree[location].paths[x].size(), tree[location].paths[y].size());
 
 			// Check each position in the paths for conflicts
-			for (int z = 0; z < maxLength - 1; z++) // There may be an off-by-one error here. Not sure. Will have to check.
+			for (int z = 0; z < maxLength; z++) // There may be an off-by-one error here. Not sure. Will have to check.
 			{
 				// Here we check the goal conflict - in the future if this is an 
 				// airstrip, then we will remove the goal, and just continue if 
 				// the shortest path length is reached.
-				int a1time = min(z, tree[location].paths[x].size()-1);
-				int a2time = min(z, tree[location].paths[y].size()-1);
+				int a1time = max(0, min(z, tree[location].paths[x].size()-1));
+				int a2time = max(0, min(z, tree[location].paths[y].size()-1));
 
 				// Create airtime constraints for each of them
-				a1.l = tree[location].paths[x][a1time]
+				a1.l = tree[location].paths[x][a1time];
 				a1.t = z;
-				a2.l = tree[location].paths[y][a2time]
+				a2.l = tree[location].paths[y][a2time];
 				a2.t = z;
 
 				// Create a point constraint for the first unit
-				pointConstraint p_a1c(a1);
+				airConstraint p_a1c(a1);
+
+				std::cout << "Checking point constraints...." << std::endl;
 
 				if (p_a1c.ViolatesConstraint(a2, a2))
 				{
+					airConstraint p_a2c(a2);
 					// Set the units in the conflict
 					c1.unit1 = x;
 					c2.unit1 = y;
 
 					// Set the constraints in the conflict that were violated
-					c1.c = p_a1c;
-					pointConstraint p_a2c(a2);
-					c2.c = p_a2c;
+					c1.c = p_a2c;
+					c2.c = p_a1c;
 					return true;
 				}
+
+				std::cout << "Checking edge constraints..." << std::endl;
 
 				// Otherwise, there might be an edge constraint
 				// Create an arc or cylinder constraint
 				
 				// Don't do this on the last element in the path
 				if (z + 1 < maxLength) {
-					int a1time1 = min(z + 1, tree[location].paths[x].size()-1);
-					int a2time1 = min(z + 1, tree[location].paths[y].size()-1);
+					int a1time1 = max(0, min(z + 1, tree[location].paths[x].size()-1));
+					int a2time1 = max(0, min(z + 1, tree[location].paths[y].size()-1));
 
-					a3.l = tree[location].paths[x][a1time1]
+					a3.l = tree[location].paths[x][a1time1];
 					a3.t = z + 1;
-					a4.l = tree[location].paths[y][a2time1]
-					a5.t = z + 1;
+					a4.l = tree[location].paths[y][a2time1];
+					a4.t = z + 1;
 
 					u2Action = a2e->GetAction(a2, a4);
-					if (a2e->GetAction(a1, a3).turn != 0)
+
+					airConstraint e_a1c(a1, a3, airConstraint::POINT_DISTANCE_MARGIN);
+					if (e_a1c.ViolatesEdgeConstraint(a2, a4, u2Action))
 					{
-						arcConstraint e_a1c(a1, a3, airConstraint.POINT_DISTANCE_MARGIN);
-						if (e_a1c.ViolatesConstraint(a2, a4, u2Action))
-						{
-							if (a2e->GetAction(a2, a4) != 0)
-							{
-								arcConstraint e_a2c(a1, a3, airConstraint.POINT_DISTANCE_MARGIN);
+						airConstraint e_a2c(a2, a4, airConstraint::POINT_DISTANCE_MARGIN);
 
-								// Set the units in the conflict
-								c1.unit1 = x;
-								c2.unit1 = y;
+						// Set the units in the conflict
+						c1.unit1 = x;
+						c2.unit1 = y;
 
-								// Set the constraints in the conflict that were violated
-								c1.c = e_a1c;
-								c2.c = e_a2c;
-								return true;
-							}
-							else 
-							{
-								cylConstraint e_a2c(a1, a3, airConstraint.POINT_DISTANCE_MARGIN);
-
-								// Set the units in the conflict
-								c1.unit1 = x;
-								c2.unit1 = y;
-
-								// Set the constraints in the conflict that were violated
-								c1.c = e_a1c;
-								c2.c = e_a2c;
-								return true;
-							}
-						}
-
-					} 
-					else 
-					{
-						cylConstraint e_a1c(a1, a3, airConstraint.POINT_DISTANCE_MARGIN);
-						if (e_a1c.ViolatesConstraint(a2, a4, u2Action))
-						{
-							if (a2e->GetAction(a2, a4) != 0)
-							{
-								arcConstraint e_a2c(a1, a3, airConstraint.POINT_DISTANCE_MARGIN);
-
-								// Set the units in the conflict
-								c1.unit1 = x;
-								c2.unit1 = y;
-
-								// Set the constraints in the conflict that were violated
-								c1.c = e_a1c;
-								c2.c = e_a2c;
-								return true;
-							}
-							else 
-							{
-								cylConstraint e_a2c(a1, a3, airConstraint.POINT_DISTANCE_MARGIN);
-
-								// Set the units in the conflict
-								c1.unit1 = x;
-								c2.unit1 = y;
-
-								// Set the constraints in the conflict that were violated
-								c1.c = e_a1c;
-								c2.c = e_a2c;
-								return true;
-							}
-						}
+						// Set the constraints in the conflict that were violated
+						c1.c = e_a2c;
+						c2.c = e_a1c;
+						return true;
 					}
 				} // End edge constraint detection
 			
@@ -405,7 +367,7 @@ bool AirCBSGroup::FindFirstConflict(int location, airConflict &c1, airConflict &
 /** Draw the AIR CBS group */
 void AirCBSGroup::OpenGLDraw(const AirplaneEnvironment *ae, const SimulationInfo<airplaneState,airplaneAction,AirplaneEnvironment> * sim)  const
 {
-	/*
+	
 	GLfloat r, g, b;
 	glLineWidth(2.0);
 	for (unsigned int x = 0; x < tree[bestNode].paths.size(); x++)
@@ -423,6 +385,6 @@ void AirCBSGroup::OpenGLDraw(const AirplaneEnvironment *ae, const SimulationInfo
 			}
 		}
 	}
-	glLineWidth(1.0);*/
+	glLineWidth(1.0);
 }
 

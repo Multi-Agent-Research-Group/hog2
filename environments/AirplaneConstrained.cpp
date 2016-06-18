@@ -32,36 +32,47 @@ AirplaneConstrainedEnvironment::AirplaneConstrainedEnvironment(AirplaneEnvironme
 /// CONSTRAINT MANAGEMENT
 
 // Add a constraint of any type
-void AirplaneConstrainedEnvironment::AddConstraint(airConstraint &c)
+void AirplaneConstrainedEnvironment::AddConstraint(airConstraint c)
 {
 	constraints.push_back(c);
 }
 
 // Add a point constraint
-void AirplaneConstrainedEnvironment::AddPointConstraint(airtimeState &loc)
+void AirplaneConstrainedEnvironment::AddPointConstraint(airtimeState loc)
 {
-	pointConstraint l(loc);
-	constraints.push_back(l);
-}
-
-// Add a sphere constraint
-void AirplaneConstrainedEnvironment::AddSphereConstraint(airtimeState &loc, float rad)
-{
-	sphereConstraint s(loc, rad);
-	constraints.push_back(s);
-}
-
-// Add a cylinder constraint
-void AirplaneConstrainedEnvironment::AddCylConstraint(airtimeState &loc1, airtimeState &loc2, float rad)
-{
-	cylConstraint c(loc1, loc2, rad);
+	airConstraint c(airConstraint::POINT_DISTANCE_MARGIN);
+	cylConstraint cyl(loc, loc, c.radius);
+	c.ics.push_back(cyl);
 	constraints.push_back(c);
 }
 
-// Add a arc constraint
-void AirplaneConstrainedEnvironment::AddArcConstraint(airtimeState &loc1, airtimeState &loc2, float rad)
+// Add a sphere constraint
+void AirplaneConstrainedEnvironment::AddSphereConstraint(airtimeState loc, float rad)
 {
-	arcConstraint c(loc1, loc2, rad);
+	airConstraint c(rad);
+	cylConstraint cyl(loc, loc, c.radius);
+	c.ics.push_back(cyl);
+	constraints.push_back(c);
+}
+
+// Add a cylinder constraint
+void AirplaneConstrainedEnvironment::AddCylConstraint(airtimeState loc1, airtimeState loc2, float rad)
+{
+	airConstraint c(rad);
+	cylConstraint cyl(loc1, loc2, c.radius);
+	c.ics.push_back(cyl);
+	constraints.push_back(c);
+
+}
+
+// Add a arc constraint
+void AirplaneConstrainedEnvironment::AddArcConstraint(airtimeState loc1, airtimeState loc2, float rad)
+{
+	// We'll have to add a lot of code to deal with this
+	// which will have to happen later.
+	airConstraint c(rad);
+	cylConstraint cyl(loc1, loc2, c.radius);
+	c.ics.push_back(cyl);
 	constraints.push_back(c);
 }
 
@@ -257,8 +268,6 @@ bool AirplaneConstrainedEnvironment::ViolatesConstraint(const airplaneState &fro
 
 	for (int i = 0; i < constraints.size(); i++)
 	{
-		// Check to see if the time, height, x and y are the same. Notice that heading has no influence on the 
-		// constraints
 		if (constraints.at(i).ViolatesConstraint(fromtimestate, totimestate) || constraints.at(i).ViolatesEdgeConstraint(fromtimestate, totimestate, act))
 			return true;
 	}
@@ -267,128 +276,10 @@ bool AirplaneConstrainedEnvironment::ViolatesConstraint(const airplaneState &fro
 
 ////////////////////// CONSTRAINT CHECKING /////////////////////////////////////////////////
 
-/// Point constraints
-bool pointConstraint::ViolatesConstraint(airtimeState &startingLoc, airtimeState &endLoc) const {
-	if (startingLoc.t == this-> loc.t && 
-		sqrt(pow((startingLoc.l.x - this->loc.l.x), 2.0) + pow((startingLoc.l.y - this->loc.l.y), 2.0) + pow((startingLoc.l.height - this->loc.l.height), 2.0)) 
-			< airConstraint::POINT_DISTANCE_MARGIN
-		)
-		return true;
-	return false;
-}
-
-bool pointConstraint::ViolatesEdgeConstraint(airtimeState &startingLoc, airtimeState &endLoc, airplaneAction &action) const {
-	if (startingLoc.t <= this->loc.t && startingLoc.t + 1 >= this->loc.t)
-	{
-		// Compute the vector from start to end
-		double AB_x = 0 , AB_y = 0, AB_z = 0, AB_squared = 0;
-		AB_x = endLoc.l.x - startingLoc.l.x;
-		AB_y = endLoc.l.y - startingLoc.l.y;
-		AB_z = endLoc.l.height - startingLoc.l.height;
-		AB_squared = pow(AB_x, 2.0) + pow(AB_y, 2.0) + pow(AB_z, 2.0);
-
-		// If A and B are the same point, then we check if the constraint of this point
-		// violates the single point structure
-		if (AB_squared == 0) 
-		{
-			return sqrt(pow((startingLoc.l.x - this->loc.l.x), 2.0) + pow((startingLoc.l.y - this->loc.l.y), 2.0) + pow((startingLoc.l.height - this->loc.l.height), 2.0)) < airConstraint::POINT_DISTANCE_MARGIN;
-		}
-
-		// Compute the vector from A to the constraint point 
-		double AP_x = 0 , AP_y = 0, AP_z = 0;
-		AP_x = this->loc.l.x - startingLoc.l.x;
-		AP_y = this->loc.l.y - startingLoc.l.y;
-		AP_z = this->loc.l.height - startingLoc.l.height;
-
-		// We then project this vector onto the other vector
-		double t = (AP_x * AB_x + AP_y * AB_y + AP_z * AB_z)/AB_squared;
-
-		// If it's on the line (that is, between 0 and 1, we know that we only have to
-		// look at things projected between the two points, so we just compare against
-		// then endpoints)
-		if (t < 0.0) 
-		{
-			return sqrt(pow((startingLoc.l.x - this->loc.l.x), 2.0) + pow((startingLoc.l.y - this->loc.l.y), 2.0) + pow((startingLoc.l.height - this->loc.l.height), 2.0)) < airConstraint::POINT_DISTANCE_MARGIN;
-		} 
-		else if (t > 1.0)
-		{
-			return sqrt(pow((endLoc.l.x - this->loc.l.x), 2.0) + pow((endLoc.l.y - this->loc.l.y), 2.0) + pow((endLoc.l.height - this->loc.l.height), 2.0)) < airConstraint::POINT_DISTANCE_MARGIN;
-		}
-
-		// Otherwise we compare against the constrained point
-		float C_x = startingLoc.l.x + t * AB_x;
-		float C_y = startingLoc.l.y + t * AB_y;
-		float C_z = startingLoc.l.height + t * AB_z;
-
-		return sqrt(pow((C_x - this->loc.l.x), 2.0) + pow((C_y - this->loc.l.y), 2.0) + pow((C_z - this->loc.l.height), 2.0)) < airConstraint::POINT_DISTANCE_MARGIN;
-	}
-
-	return false;
-}
-
-/// Sphere constraints
-bool sphereConstraint::ViolatesConstraint(airtimeState &startingLoc, airtimeState &endLoc) const {
-	if (startingLoc.t == this-> loc.t && 
-		sqrt(pow((startingLoc.l.x - this->loc.l.x), 2.0) + pow((startingLoc.l.y - this->loc.l.y), 2.0) + pow((startingLoc.l.height - this->loc.l.height), 2.0)) < this->radius
-		)
-		return true;
-	return false;
-}
-
-// The only difference in this method is that the radius is no longer constant
-bool sphereConstraint::ViolatesEdgeConstraint(airtimeState &startingLoc, airtimeState &endLoc, airplaneAction &action) const {
-	if (startingLoc.t <= this->loc.t && startingLoc.t + 1 >= this->loc.t)
-	{
-		// Compute the vector from start to end
-		double AB_x = 0 , AB_y = 0, AB_z = 0, AB_squared = 0;
-		AB_x = endLoc.l.x - startingLoc.l.x;
-		AB_y = endLoc.l.y - startingLoc.l.y;
-		AB_z = endLoc.l.height - startingLoc.l.height;
-		AB_squared = pow(AB_x, 2.0) + pow(AB_y, 2.0) + pow(AB_z, 2.0);
-
-		// If A and B are the same point, then we check if the constraint of this point
-		// violates the single point structure
-		if (AB_squared == 0) 
-		{
-			return sqrt(pow((startingLoc.l.x - this->loc.l.x), 2.0) + pow((startingLoc.l.y - this->loc.l.y), 2.0) + pow((startingLoc.l.height - this->loc.l.height), 2.0)) < this->radius;
-		}
-
-		// Compute the vector from A to the constraint point 
-		double AP_x = 0 , AP_y = 0, AP_z = 0;
-		AP_x = this->loc.l.x - startingLoc.l.x;
-		AP_y = this->loc.l.y - startingLoc.l.y;
-		AP_z = this->loc.l.height - startingLoc.l.height;
-
-		// We then project this vector onto the other vector
-		double t = (AP_x * AB_x + AP_y * AB_y + AP_z * AB_z)/AB_squared;
-
-		// If it's on the line (that is, between 0 and 1, we know that we only have to
-		// look at things projected between the two points, so we just compare against
-		// then endpoints)
-		if (t < 0.0) 
-		{
-			return sqrt(pow((startingLoc.l.x - this->loc.l.x), 2.0) + pow((startingLoc.l.y - this->loc.l.y), 2.0) + pow((startingLoc.l.height - this->loc.l.height), 2.0)) < this->radius;
-		} 
-		else if (t > 1.0)
-		{
-			return sqrt(pow((endLoc.l.x - this->loc.l.x), 2.0) + pow((endLoc.l.y - this->loc.l.y), 2.0) + pow((endLoc.l.height - this->loc.l.height), 2.0)) < this->radius;
-		}
-
-		// Otherwise we compare against the constrained point
-		float C_x = startingLoc.l.x + t * AB_x;
-		float C_y = startingLoc.l.y + t * AB_y;
-		float C_z = startingLoc.l.height + t * AB_z;
-
-		return sqrt(pow((C_x - this->loc.l.x), 2.0) + pow((C_y - this->loc.l.y), 2.0) + pow((C_z - this->loc.l.height), 2.0)) < this->radius;
-	}
-
-	return false;
-}
-
 /// Cylinder constraint
 
 // We project the airtime state onto the cylinder's central arc, and check against the radius
-bool cylConstraint::ViolatesConstraint(airtimeState &startingLoc, airtimeState &endLoc) const {
+bool cylConstraint::ViolatesConstraint(const airtimeState &startingLoc, const airtimeState &endLoc) const {
 
 	// Check if the times are equal
 	if (startingLoc.t >= this->loc1.t && this->loc2.t >= startingLoc.t)
@@ -439,7 +330,7 @@ bool cylConstraint::ViolatesConstraint(airtimeState &startingLoc, airtimeState &
 	return false;
 }
 
-bool cylConstraint::ViolatesEdgeConstraint(airtimeState &startingLoc, airtimeState &endLoc,  airplaneAction &action) const {
+bool cylConstraint::ViolatesEdgeConstraint(const airtimeState &startingLoc, const airtimeState &endLoc,  const airplaneAction &action) const {
 	if ((startingLoc.t >= this->loc1.t && startingLoc.t <= this->loc2.t) || (startingLoc.t + 1 >= this->loc1.t && startingLoc.t + 1 <= this->loc2.t ) || (startingLoc.t <= this->loc1.t && startingLoc.t + 1 >= this->loc2.t))
 	{
 		// Compute the vector of the constraint
@@ -536,21 +427,34 @@ bool cylConstraint::ViolatesEdgeConstraint(airtimeState &startingLoc, airtimeSta
 }
 
 
-/// Arc Constraint - just discretizes an arc with cylinders
-// We project the airtime state onto the cylinder's central arc, and check against the radius
-
-arcConstraint::arcConstraint(airtimeState l1, airtimeState l2, float r) 
+/** Constructors for the different types of constraints */
+airConstraint::airConstraint(airtimeState l1)
 {
-	//TODO: Discretize the arc action, and deal with it all.
-	//right now it just uses a single cylinder
-	
-	this->radius = r;
-	cylConstraint c* = new cylConstraint(l1, l2, r);
-	ics.push_back(c);
-	
+	cylConstraint cyl(l1, l1, airConstraint::POINT_DISTANCE_MARGIN);
+	ics.push_back(cyl);
+}
+airConstraint::airConstraint(airtimeState l1, float r)
+{
+	cylConstraint cyl(l1, l1, r);
+	ics.push_back(cyl);
 }
 
-bool arcConstraint::ViolatesConstraint(airtimeState &loc, airtimeState &endLoc) const
+airConstraint::airConstraint(airtimeState l1, airtimeState l2, float r)
+{
+	cylConstraint cyl(l1, l2, r);
+	ics.push_back(cyl);
+}
+
+airConstraint::airConstraint(airtimeState l1, airtimeState l2, airplaneAction act, float r)
+{
+	// TODO: Deal with arc constraints
+	cylConstraint cyl(l1, l2, r);
+	ics.push_back(cyl);
+}
+
+
+/// Air Constraint - basically just a bunch of cylinder constraints.
+bool airConstraint::ViolatesConstraint(const airtimeState &loc, const airtimeState &endLoc) const
 {
 	for (cylConstraint c : this->ics)
 	{
@@ -559,7 +463,7 @@ bool arcConstraint::ViolatesConstraint(airtimeState &loc, airtimeState &endLoc) 
 	}
 	return false;
 }
-bool arcConstraint::ViolatesEdgeConstraint(airtimeState &startingLoc, airtimeState &endLoc, airplaneAction &action) const
+bool airConstraint::ViolatesEdgeConstraint(const airtimeState &startingLoc, const airtimeState &endLoc, const airplaneAction &action) const
 {
 	for (cylConstraint c : this->ics)
 	{
@@ -567,4 +471,9 @@ bool arcConstraint::ViolatesEdgeConstraint(airtimeState &startingLoc, airtimeSta
 			return true;
 	}
 	return false;
+}
+
+void airConstraint::OpenGLDraw() const
+{
+	// TODO: Draw a outline cylinder around the constraints
 }

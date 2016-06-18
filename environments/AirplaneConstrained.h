@@ -43,58 +43,37 @@ bool operator==(const airtimeState &l1, const airtimeState &l2);
  * which allows us to check for collisions in the environment.
  */
 
+struct airConstrint;
 
-class airConstraint {
-public:
-	static constexpr float POINT_DISTANCE_MARGIN = 5.0f; // Set the minimum distance between two units to be 5m
-	virtual bool ViolatesConstraint(airtimeState &loc, airtimeState &endLoc) const = 0;
-	virtual bool ViolatesEdgeConstraint(airtimeState &startingLoc, airtimeState &endLoc, airplaneAction &action) const = 0;
-	virtual void OpenGLDraw() const = 0;
-};
-
-/** There are a number of different types of constraint. Each has their own methods
-* for checking if something fails. */
-class pointConstraint : public airConstraint {
-public:
-	pointConstraint(airtimeState l) : loc(l) {}
-	airtimeState loc;
-	bool ViolatesConstraint(airtimeState &loc, airtimeState &endLoc) const;
-	bool ViolatesEdgeConstraint(airtimeState &startingLoc, airtimeState &endLoc, airplaneAction &action) const;
-	void OpenGLDraw() const {};
-};
-
-class sphereConstraint : public airConstraint {
-public:
-	sphereConstraint(airtimeState l, float r) : loc(l), radius(r) {}
-	airtimeState loc;
-	float radius;
-	bool ViolatesConstraint(airtimeState &loc, airtimeState &endLoc) const;
-	bool ViolatesEdgeConstraint(airtimeState &startingLoc, airtimeState &endLoc, airplaneAction &action) const;
-	void OpenGLDraw() const {};
-};
-
-class cylConstraint : public airConstraint {
-public:
+struct cylConstraint {
 	cylConstraint(airtimeState l1, airtimeState l2, float r) : loc1(l1), loc2(l2), radius(r) {}
+	cylConstraint(airtimeState l1) : loc1(l1), loc2(l1), radius(5.0f) {}
+	cylConstraint(airtimeState l1, float r) : loc1(l1), loc2(l1), radius(r) {}
 	airtimeState loc1;
 	airtimeState loc2;
 	float radius;
-	bool ViolatesConstraint(airtimeState &loc, airtimeState &endLoc) const;
-	bool ViolatesEdgeConstraint(airtimeState &startingLoc, airtimeState &endLoc, airplaneAction &action) const;
+
+	bool ViolatesConstraint(const airtimeState &loc, const airtimeState &endLoc) const;
+	bool ViolatesEdgeConstraint(const airtimeState &startingLoc, const airtimeState &endLoc, const airplaneAction &action) const;
 	void OpenGLDraw() const {};
 };
 
-class arcConstraint : public airConstraint {
-public:
-	arcConstraint(airtimeState l1, airtimeState l2, float r);
+struct airConstraint {
+	airConstraint() : radius(5.0f) {}
+	airConstraint(float r) : radius(r) {}
+	airConstraint(airtimeState l1);
+	airConstraint(airtimeState l1, float r);
+	airConstraint(airtimeState l1, airtimeState l2, float r);
+	airConstraint(airtimeState l1, airtimeState l2, airplaneAction, float r);
+
 	std::vector<cylConstraint> ics;
 	float radius;
-	bool ViolatesConstraint(airtimeState &loc, airtimeState &endLoc) const;
-	bool ViolatesEdgeConstraint(airtimeState &startingLoc, airtimeState &endLoc, airplaneAction &action) const;
-	void OpenGLDraw() const {};
+
+	bool ViolatesConstraint(const airtimeState &loc, const airtimeState &endLoc) const;
+	bool ViolatesEdgeConstraint(const airtimeState &startingLoc,const airtimeState &endLoc, const airplaneAction &action) const;
+	void OpenGLDraw() const;
+	static constexpr float POINT_DISTANCE_MARGIN = 5.0f; // Set the minimum distance between two units to be 5m
 };
-
-
 	
 
 /**
@@ -116,11 +95,11 @@ public:
 	/// CONSTRAINTS
 	
 	/** Add a constraint to the model */
-	void AddConstraint(airConstraint &c);
-	void AddPointConstraint(airtimeState &loc);
-	void AddSphereConstraint(airtimeState &loc, float rad);
-	void AddCylConstraint(airtimeState &loc1, airtimeState &loc2, float rad);
-	void AddArcConstraint(airtimeState &loc1, airtimeState &loc2, float rad);
+	void AddConstraint(airConstraint c);
+	void AddPointConstraint(airtimeState loc);
+	void AddSphereConstraint(airtimeState loc, float rad);
+	void AddCylConstraint(airtimeState loc1, airtimeState loc2, float rad);
+	void AddArcConstraint(airtimeState loc1, airtimeState loc2, float rad);
 	/** Clear the constraints */
 	void ClearConstraints();
 
@@ -183,7 +162,7 @@ private:
 	bool ViolatesConstraint(const airplaneState &from, const airplaneState &to, int time) const;
 
 	/** Vector holding the current constraints */
-	std::vector<std::unique_ptr<airConstraint>> constraints;
+	std::vector<airConstraint> constraints;
 
 	/** Airplane Environment holder */
 	AirplaneEnvironment *ae;

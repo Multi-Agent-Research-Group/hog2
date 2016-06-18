@@ -155,6 +155,7 @@ void DrawBoxFrame(GLfloat xx, GLfloat yy, GLfloat zz, GLfloat rad);
 void DrawSphere(GLdouble _x, GLdouble _y, GLdouble _z, GLdouble tRadius);
 void DrawSquare(GLdouble _x, GLdouble _y, GLdouble _z, GLdouble tRadius);
 void DrawCylinder(GLfloat xx, GLfloat yy, GLfloat zz, GLfloat innerRad, GLfloat outerRad, GLfloat height);
+void OutlineCylinder(GLfloat xx, GLfloat yy, GLfloat zz, GLfloat innerRad, GLfloat outerRad, GLfloat height);
 void OutlineRect(GLdouble left, GLdouble top, GLdouble right, GLdouble bottom, double zz);
 
 void DrawText(double x, double y, double z, double scale, const char *res);
