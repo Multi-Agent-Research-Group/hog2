@@ -17,7 +17,27 @@ bool operator==(const airplaneState &s1, const airplaneState &s2)
 }
 
 
-AirplaneEnvironment::AirplaneEnvironment()
+AirplaneEnvironment::AirplaneEnvironment(
+  unsigned width,
+  unsigned length,
+  unsigned height,
+  double timeStep,
+  double climbRate,
+  double minSpeed,
+  double cruiseSpeed,
+  double maxSpeed,
+  double cruiseBurnRate,
+  double climbBurnRate
+): width(width),
+  length(length),
+  height(height),
+  timeStep(timeStep),
+  climbRate(climbRate*timeStep),
+  minSpeed(minSpeed*timeStep),
+  cruiseSpeed(cruiseSpeed*timeStep),
+  maxSpeed(maxSpeed*timeStep),
+  cruiseBurnRate(cruiseBurnRate*timeStep),
+  climbBurnRate(climbBurnRate*timeStep)
 {
 	srandom(time(0));
 	ground.resize((width+1)*(length+1));
@@ -376,16 +396,15 @@ airplaneAction AirplaneEnvironment::GetAction(const airplaneState &node1, const 
             }
           }
         }
-          a.speed = 1; // As of right now
-          return a;
-        }
+        a.speed = node2.speed-node1.speed; // As of right now
+        return a;
+}
 
 
 // Note action application does not account for speed
 // Also, turn is performed, and then the offset is applied
 void AirplaneEnvironment::ApplyAction(airplaneState &s, airplaneAction dir) const
 {
-        static const double minSpeed(13);
 	static const double offset[8][2] = {
 		{ 0, -1},
 		{ 1, -1},
@@ -445,7 +464,7 @@ double AirplaneEnvironment::GCost(const airplaneState &node1, const airplaneActi
 
 bool AirplaneEnvironment::GoalTest(const airplaneState &node, const airplaneState &goal) const
 {
-	return (fabs(node.x-goal.x)<13.0 && fabs(node.y-goal.y)<13.0 && node.height == goal.height && node.heading == goal.heading); //&& node.speed == goal.speed
+	return (fabs(node.x-goal.x)<minSpeed && fabs(node.y-goal.y)<minSpeed && node.height == goal.height && node.heading == goal.heading); //&& node.speed == goal.speed
 	//return (fequal(node.x,goal.x) && fequal(node.y, goal.y) && node.height == goal.height && node.heading == goal.heading); //&& node.speed == goal.speed
 }
 

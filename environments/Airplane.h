@@ -64,7 +64,17 @@ bool operator==(const airplaneState &s1, const airplaneState &s2);
 class AirplaneEnvironment : public SearchEnvironment<airplaneState, airplaneAction>
 {
 public:
-	AirplaneEnvironment();
+	AirplaneEnvironment(
+          unsigned width=80,
+          unsigned length=80,
+          unsigned height=20,
+          double timeStep=1, // TODO change to 5
+          double climbRate=5,
+          double minSpeed=13,
+          double cruiseSpeed=22,
+          double maxSpeed=36,
+          double cruiseBurnRate=.0037,
+          double climbBurnRate=.0046);
 	virtual void GetSuccessors(const airplaneState &nodeID, std::vector<airplaneState> &neighbors) const;
 	virtual void GetActions(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
 	virtual void ApplyAction(airplaneState &s, airplaneAction dir) const;
@@ -110,13 +120,25 @@ protected:
 	recVec &GetNormal(int x, int y);
 	recVec GetNormal(int x, int y) const;
 	void RecurseGround(int x1, int y1, int x2, int y2);
-	const int width = 80; 
-	const int length = 80;
-	const int height = 20;
+	const int width;
+	const int length;
+	const int height;
 	std::vector<uint8_t> ground;
 	std::vector<recVec> groundNormals;
 	void DoNormal(recVec pa, recVec pb) const;
 	mutable std::vector<airplaneAction> internalActions;
+
+        const double timeStep;       //Seconds
+        const double climbRate;      //Meters per time step
+        const double minSpeed;       //Meters per time step
+        const double cruiseSpeed;    //Meters per time step
+        const double maxSpeed;       //Meters per time step
+        const double cruiseBurnRate; //Liters per time step
+        const double climbBurnRate;  //Liters per time step
+
+        //TODO Add wind constants
+        //const double windSpeed = 0;
+        //const double windDirection = 0;
 };
 
 #endif /* Airplane_h */
