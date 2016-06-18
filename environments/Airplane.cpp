@@ -283,7 +283,7 @@ airplaneAction AirplaneEnvironment::GetAction(const airplaneState &node1, const 
             }
           }
         }
-          a.speed = 1; // As of right now
+          a.speed = node2.speed - node1.speed; 
           return a;
         }
 

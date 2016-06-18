@@ -10,8 +10,9 @@
 #define __hog2_glut__AirplaneConstrainedEnvironment__
 
 #include <iostream>
-
 #include "Airplane.h"
+#include <cmath>
+#include <memory>
 
 /**
  * The airtimeState struct holds information about airplane state at
@@ -41,10 +42,58 @@ bool operator==(const airtimeState &l1, const airtimeState &l2);
  * The airConstraint struct holds information about a state and direction
  * which allows us to check for collisions in the environment.
  */
-struct airConstraint {
-	airtimeState loc;
-	airplaneAction dir;
+
+
+class airConstraint {
+public:
+	static constexpr float POINT_DISTANCE_MARGIN = 5.0f; // Set the minimum distance between two units to be 5m
+	virtual bool ViolatesConstraint(airtimeState &loc, airtimeState &endLoc) const = 0;
+	virtual bool ViolatesEdgeConstraint(airtimeState &startingLoc, airtimeState &endLoc, airplaneAction &action) const = 0;
+	virtual void OpenGLDraw() const = 0;
 };
+
+/** There are a number of different types of constraint. Each has their own methods
+* for checking if something fails. */
+class pointConstraint : public airConstraint {
+public:
+	pointConstraint(airtimeState l) : loc(l) {}
+	airtimeState loc;
+	bool ViolatesConstraint(airtimeState &loc, airtimeState &endLoc) const;
+	bool ViolatesEdgeConstraint(airtimeState &startingLoc, airtimeState &endLoc, airplaneAction &action) const;
+	void OpenGLDraw() const {};
+};
+
+class sphereConstraint : public airConstraint {
+public:
+	sphereConstraint(airtimeState l, float r) : loc(l), radius(r) {}
+	airtimeState loc;
+	float radius;
+	bool ViolatesConstraint(airtimeState &loc, airtimeState &endLoc) const;
+	bool ViolatesEdgeConstraint(airtimeState &startingLoc, airtimeState &endLoc, airplaneAction &action) const;
+	void OpenGLDraw() const {};
+};
+
+class cylConstraint : public airConstraint {
+public:
+	cylConstraint(airtimeState l1, airtimeState l2, float r) : loc1(l1), loc2(l2), radius(r) {}
+	airtimeState loc1;
+	airtimeState loc2;
+	float radius;
+	bool ViolatesConstraint(airtimeState &loc, airtimeState &endLoc) const;
+	bool ViolatesEdgeConstraint(airtimeState &startingLoc, airtimeState &endLoc, airplaneAction &action) const;
+	void OpenGLDraw() const {};
+};
+
+class arcConstraint : public airConstraint {
+public:
+	arcConstraint(airtimeState l1, airtimeState l2, float r);
+	std::vector<cylConstraint> ics;
+	float radius;
+	bool ViolatesConstraint(airtimeState &loc, airtimeState &endLoc) const;
+	bool ViolatesEdgeConstraint(airtimeState &startingLoc, airtimeState &endLoc, airplaneAction &action) const;
+	void OpenGLDraw() const {};
+};
+
 
 	
 
@@ -67,11 +116,11 @@ public:
 	/// CONSTRAINTS
 	
 	/** Add a constraint to the model */
-	void AddConstraint(airConstraint c);
-	/** Add a constraint consisting of only a location */
-	void AddConstraint(airtimeState loc);
-	/** Add a constraint consisting of a location an direction */
-	void AddConstraint(airtimeState loc, airplaneAction dir);
+	void AddConstraint(airConstraint &c);
+	void AddPointConstraint(airtimeState &loc);
+	void AddSphereConstraint(airtimeState &loc, float rad);
+	void AddCylConstraint(airtimeState &loc1, airtimeState &loc2, float rad);
+	void AddArcConstraint(airtimeState &loc1, airtimeState &loc2, float rad);
 	/** Clear the constraints */
 	void ClearConstraints();
 
@@ -134,7 +183,7 @@ private:
 	bool ViolatesConstraint(const airplaneState &from, const airplaneState &to, int time) const;
 
 	/** Vector holding the current constraints */
-	std::vector<airConstraint> constraints;
+	std::vector<std::unique_ptr<airConstraint>> constraints;
 
 	/** Airplane Environment holder */
 	AirplaneEnvironment *ae;
