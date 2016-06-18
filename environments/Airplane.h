@@ -34,6 +34,13 @@ public:
 	int8_t height;
 };
 
+/** Output the information in an airplane action */
+static std::ostream& operator <<(std::ostream & out, const airplaneAction &act)
+{
+	out << "(turn:" << signed(act.turn) << ", speed:" << signed(act.speed) << ", heading: " << signed(act.height) << ")";
+	return out;
+}
+
 // state
 struct airplaneState {
 public:
@@ -54,6 +61,7 @@ static std::ostream& operator <<(std::ostream & out, const airplaneState &loc)
 }
 
 bool operator==(const airplaneState &s1, const airplaneState &s2);
+bool operator==(const airplaneAction &a1, const airplaneAction &a2);
 
 //class GoalTester {
 //public:

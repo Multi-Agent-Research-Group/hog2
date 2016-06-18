@@ -16,6 +16,11 @@ bool operator==(const airplaneState &s1, const airplaneState &s2)
 	//return (fequal(s1.x,s2.x) && fequal(s1.y,s2.y) && s1.height==s2.height && s1.speed == s2.speed && s1.heading == s2.heading);
 }
 
+bool operator==(const airplaneAction &a1, const airplaneAction &a2)
+{
+  return a1.turn == a2.turn && a1.speed==a2.speed && a1.height==a2.height;
+}
+
 
 AirplaneEnvironment::AirplaneEnvironment(
   unsigned width,
@@ -356,7 +361,14 @@ airplaneAction AirplaneEnvironment::GetAction(const airplaneState &node1, const 
 {
 	airplaneAction a;
 	a.height = node2.height - node1.height;
-	a.turn = (node2.heading - node1.heading)%8;
+        a.turn = node2.heading - node1.heading;
+        if(a.turn>2){
+          if(a.turn == 6) {a.turn = -2;}
+          if(a.turn == 7) {a.turn = -1;}
+          if(a.turn == -6) {a.turn = 2;}
+          if(a.turn == -7) {a.turn = 1;}
+        }
+        
         // Detect a kshift
         if (node1.heading == node2.heading)
         {
