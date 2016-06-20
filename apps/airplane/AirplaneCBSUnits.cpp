@@ -309,8 +309,6 @@ bool AirCBSGroup::FindFirstConflict(int location, airConflict &c1, airConflict &
 				// Create a point constraint for the first unit
 				airConstraint p_a1c(a1);
 
-				std::cout << "Checking point constraints...." << std::endl;
-
 				if (p_a1c.ViolatesConstraint(a2, a2))
 				{
 					airConstraint p_a2c(a2);
@@ -323,8 +321,6 @@ bool AirCBSGroup::FindFirstConflict(int location, airConflict &c1, airConflict &
 					c2.c = p_a1c;
 					return true;
 				}
-
-				std::cout << "Checking edge constraints..." << std::endl;
 
 				// Otherwise, there might be an edge constraint
 				// Create an arc or cylinder constraint
