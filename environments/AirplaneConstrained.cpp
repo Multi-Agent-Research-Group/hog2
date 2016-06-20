@@ -181,9 +181,9 @@ uint64_t AirplaneConstrainedEnvironment::GetStateHash(const airtimeState &node) 
 	uint64_t h = 0;
 	
         // Assume x,y discretization of 3 meters
-	h |= unsigned(round(node.l.x/3.0)) & (0x2000-1);
-	h = h << 17;
-	h |= unsigned(round(node.l.y/3.0)) & (0x2000-1);
+	h |= node.l.x;
+	h = h << 16;
+	h |= node.l.y;
 	h = h << 10;
         // Assume height discretization of 25 meters
 	h |= node.l.height & (0x400-1); // 10 bits
@@ -456,20 +456,20 @@ airConstraint::airConstraint(airtimeState l1, airtimeState l2, airplaneAction ac
 /// Air Constraint - basically just a bunch of cylinder constraints.
 bool airConstraint::ViolatesConstraint(const airtimeState &loc, const airtimeState &endLoc) const
 {
-	for (cylConstraint c : this->ics)
+	/*for (cylConstraint c : this->ics)
 	{
 		if (c.ViolatesConstraint(loc, endLoc))
 			return true;
-	}
+	}*/
 	return false;
 }
 bool airConstraint::ViolatesEdgeConstraint(const airtimeState &startingLoc, const airtimeState &endLoc, const airplaneAction &action) const
 {
-	for (cylConstraint c : this->ics)
+	/*for (cylConstraint c : this->ics)
 	{
 		if (c.ViolatesEdgeConstraint(startingLoc, endLoc, action))
 			return true;
-	}
+	}*/
 	return false;
 }
 

@@ -144,7 +144,7 @@ void InitSim(){
 	s1.heading = 0;
 	s1.speed = 1;
 
-	g1.x = 120;
+	g1.x = 77;
 	g1.y = 18;
 	g1.height = 14;
 	g1.heading = 0;
@@ -153,7 +153,7 @@ void InitSim(){
 	u1 = new AirCBSUnit(s1, g1);
 	u1->SetColor(1.0, 0.0, 0.0);
 
-	std::cout << "Set unit goal from " << s1 << " to " << g1 << std::endl;
+	std::cout << "Set unit goal from " << s1 << " to " << g1 << " rough heading: " << (unsigned)s1.headingTo(g1) << std::endl;
 
 	s2.x = 8;
 	s2.y = 2;
@@ -167,7 +167,7 @@ void InitSim(){
 	g2.heading = 5;
 	g2.speed = 1;
 
-	std::cout << "Set unit goal from " << s2 << " to " << g2 << std::endl;
+	std::cout << "Set unit goal from " << s2 << " to " << g2 << " rough heading: " << (unsigned)s2.headingTo(g2) << std::endl;
 
 	u2 = new AirCBSUnit(s2, g2);
 	u2->SetColor(1.0, 0.0, 0.0);

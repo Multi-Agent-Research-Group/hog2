@@ -12,7 +12,7 @@
 
 bool operator==(const airplaneState &s1, const airplaneState &s2)
 {
-	return (fabs(s1.x-s2.x)<13.0 && fabs(s1.y-s2.y)<13.0 && s1.height==s2.height && s1.speed == s2.speed && s1.heading == s2.heading);
+	return (s1.x==s2.x && s1.y==s2.y && s1.height==s2.height && s1.heading == s2.heading);
 	//return (fequal(s1.x,s2.x) && fequal(s1.y,s2.y) && s1.height==s2.height && s1.speed == s2.speed && s1.heading == s2.heading);
 }
 
@@ -26,23 +26,25 @@ AirplaneEnvironment::AirplaneEnvironment(
   unsigned width,
   unsigned length,
   unsigned height,
-  double timeStep,
   double climbRate,
   double minSpeed,
-  double cruiseSpeed,
   double maxSpeed,
+  uint8_t numSpeeds,
   double cruiseBurnRate,
-  double climbBurnRate
+  double speedBurnDelta,
+  double climbCostRatio,
+  double descendCostRatio
 ): width(width),
   length(length),
   height(height),
-  timeStep(timeStep),
-  climbRate(climbRate*timeStep),
-  minSpeed(minSpeed*timeStep),
-  cruiseSpeed(cruiseSpeed*timeStep),
-  maxSpeed(maxSpeed*timeStep),
-  cruiseBurnRate(cruiseBurnRate*timeStep),
-  climbBurnRate(climbBurnRate*timeStep)
+  climbRate(climbRate),
+  minSpeed(minSpeed),
+  maxSpeed(maxSpeed),
+  numSpeeds(numSpeeds),
+  cruiseBurnRate(cruiseBurnRate),
+  speedBurnDelta(speedBurnDelta),
+  climbCostRatio(climbCostRatio),
+  descendCostRatio(descendCostRatio)
 {
 	srandom(time(0));
 	ground.resize((width+1)*(length+1));
@@ -282,7 +284,7 @@ void AirplaneEnvironment::GetActions(const airplaneState &nodeID, std::vector<ai
           }
 
           // increase height, decrease speed
-          if (nodeID.speed < 24)
+          if (nodeID.speed < numSpeeds)
           {
             actions.push_back(airplaneAction(0, +1, -1));
             actions.push_back(airplaneAction(k45, +1, -1));
@@ -317,7 +319,7 @@ void AirplaneEnvironment::GetActions(const airplaneState &nodeID, std::vector<ai
             actions.push_back(airplaneAction(-kShift, -1, +1));
           }
 
-          if (nodeID.speed < 24)
+          if (nodeID.speed < numSpeeds)
           {
             // increase height, increase speed
             actions.push_back(airplaneAction(0, +1, +1));
@@ -342,7 +344,7 @@ void AirplaneEnvironment::GetActions(const airplaneState &nodeID, std::vector<ai
                 actions.push_back(airplaneAction(-kShift, -1, 0));
         }
 
-	if (nodeID.speed < 24)
+	if (nodeID.speed < numSpeeds)
         {
                 // increase speed
 		actions.push_back(airplaneAction(0, +1, 0));
@@ -372,7 +374,7 @@ airplaneAction AirplaneEnvironment::GetAction(const airplaneState &node1, const 
         // Detect a kshift
         if (node1.heading == node2.heading)
         {
-          if(node1.heading%2 == 0 && fequal(node1.x, node2.x) && fequal(node1.y, node2.y)){
+          if(node1.heading%2 == 0 && !fequal(node1.x, node2.x) && !fequal(node1.y, node2.y)){
             a.turn = kShift;
             switch(node1.heading){
               case 4:
@@ -432,12 +434,11 @@ void AirplaneEnvironment::ApplyAction(airplaneState &s, airplaneAction dir) cons
         else if(dir.turn == -kShift) {heading = (s.heading+8-k45)%8;}
         else { heading = s.heading = (s.heading+8+dir.turn)%8;}
         s.speed += dir.speed;
-        double factor((heading%2==0)?1.0:M_SQRT2/2.0);
-        s.x += offset[heading][0]*factor*(minSpeed+s.speed);
-        s.y += offset[heading][1]*factor*(minSpeed+s.speed);
+        s.x += offset[heading][0];
+        s.y += offset[heading][1];
         // Note: speed represents ground speed (2D speed) not 3D speed
         s.height += dir.height;
-        //std::cout << "Result " << s << "\n";
+        //std::cout << "Moved to " << s << "\n";
 }
 
 void AirplaneEnvironment::UndoAction(airplaneState &s, airplaneAction dir) const
@@ -454,29 +455,48 @@ void AirplaneEnvironment::GetNextState(const airplaneState &currents, airplaneAc
 
 double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneState &node2) const
 {
-	return sqrt(
-				((float) node1.x - (float) node2.x) * ((float) node1.x - (float) node2.x) +
-				((float) node1.y - (float) node2.y) * ((float) node1.y - (float) node2.y) +
-				((float) node1.height - (float) node2.height) * ((float) node1.height - (float) node2.height)
-			   );
+        // Estimate fuel cost...
+        int vertDiff(node2.height-node1.height);
+        double diffx(abs(node1.x-node2.x));
+        double diffy(abs(node1.y-node2.y));
+        double diff(fabs(diffx-diffy));
+        double horizDiff(diff+(fabs((diffx+diffy)-diff)/2)*M_SQRT2);
+
+        double ratio=(vertDiff>0?climbCostRatio:descendCostRatio);
+        unsigned headingChanges(0);//(abs(node1.heading-node1.headingTo(node2))%4-1);
+        if(vertDiff <= abs(horizDiff))
+        {
+          return vertDiff*cruiseBurnRate*ratio+(horizDiff-vertDiff+headingChanges)*cruiseBurnRate;
+        }
+        else
+        {
+          // We'll have to slow down in order to give enough time to climb/descend or turn
+          double hvdiff(vertDiff-horizDiff);
+          return (hvdiff+headingChanges)*(cruiseBurnRate+speedBurnDelta)+vertDiff*cruiseBurnRate*ratio;
+        }
 }
 
 double AirplaneEnvironment::GCost(const airplaneState &node1, const airplaneState &node2) const
 {
-        if(abs(GetAction(node1,node2).turn) == kShift) return 2;
-	return 1;
+        // Compute cost according to fuel consumption
+        double horizCost(cruiseBurnRate+speedBurnDelta*abs(((numSpeeds+1)/2)-(node2.speed)));
+        double ratio(1.0);
+        if(node2.height-node1.height>0){ratio=climbCostRatio;}
+        else if(node2.height-node1.height<0){ratio=descendCostRatio;}
+        return horizCost*ratio*(node2.heading%2?M_SQRT2:1.0);
 }
 
 double AirplaneEnvironment::GCost(const airplaneState &node1, const airplaneAction &act) const
 {
-  if(act.turn == kShift || act.turn == -kShift) return 2;
-	return 1;
+        airplaneState node2(node1);
+        ApplyAction(node2,act);
+        return GCost(node1,node2);
 }
 
 
 bool AirplaneEnvironment::GoalTest(const airplaneState &node, const airplaneState &goal) const
 {
-	return (fabs(node.x-goal.x)<minSpeed && fabs(node.y-goal.y)<minSpeed && node.height == goal.height && node.heading == goal.heading); //&& node.speed == goal.speed
+	return (node.x==goal.x && node.y==goal.y && node.height == goal.height && node.heading == goal.heading); //&& node.speed == goal.speed
 	//return (fequal(node.x,goal.x) && fequal(node.y, goal.y) && node.height == goal.height && node.heading == goal.heading); //&& node.speed == goal.speed
 }
 
@@ -495,9 +515,9 @@ uint64_t AirplaneEnvironment::GetStateHash(const airplaneState &node) const
 {
 	uint64_t h = 0;
         // Assume x,y discretization of 3 meters
-	h |= unsigned(round(node.x/3.0)) & (0x2000-1);
-	h = h << 17;
-	h |= unsigned(round(node.y/3.0)) & (0x2000-1);
+	h |= node.x;
+	h = h << 16;
+	h |= node.y;
 	h = h << 10;
         // Assume height discretization of 25 meters
 	h |= node.height & (0x400-1); // 10 bits

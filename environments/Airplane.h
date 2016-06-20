@@ -44,9 +44,13 @@ static std::ostream& operator <<(std::ostream & out, const airplaneAction &act)
 // state
 struct airplaneState {
 public:
-	airplaneState() :x(0.0),y(0.0),height(20.0),speed(1),heading(0.0) {}
-	float x;
-	float y;
+	airplaneState() :x(0),y(0),height(20),speed(1),heading(0) {}
+	airplaneState(uint16_t x,uint16_t y, uint16_t height, uint8_t speed, uint8_t heading) :x(x),y(y),height(height),speed(speed),heading(heading) {}
+        uint8_t headingTo(airplaneState const& other) const {
+          return uint8_t(round((atan2(other.y-y,other.x-x)+(M_PI/2.0))*4.0/M_PI)+8.0)%8;
+        }
+	uint16_t x;
+	uint16_t y;
 	uint16_t height;
 	uint8_t speed;
 	uint8_t heading;
@@ -55,7 +59,7 @@ public:
 /** Output the information in an airplane state */
 static std::ostream& operator <<(std::ostream & out, const airplaneState &loc)
 {
-	out << "(x:" << loc.x << ", y:" << loc.y << ", h:" << loc.height << ": s:" << unsigned(loc.speed) <<
+	out << "(x:" << loc.x << ", y:" << loc.y << ", h:" << loc.height << ", s:" << unsigned(loc.speed) <<
 											    ", hdg: " << unsigned(loc.heading) << ")";
 	return out;
 }
@@ -76,13 +80,14 @@ public:
           unsigned width=80,
           unsigned length=80,
           unsigned height=20,
-          double timeStep=1, // TODO change to 5
-          double climbRate=5,
-          double minSpeed=13,
-          double cruiseSpeed=22,
-          double maxSpeed=36,
-          double cruiseBurnRate=.0037,
-          double climbBurnRate=.0046);
+          double climbRate=5, // in mps,
+          double minSpeed=17, // in mps,
+          double maxSpeed=32, // in mps
+          uint8_t numSpeeds=5, // Number of discrete speeds
+          double cruiseBurnRate=.0006, // Fuel burn rate in liters per unit distance
+          double speedBurnDelta=0.0001, // Extra fuel cost for non-cruise speed
+          double climbCostRatio=1.0475, // Fuel cost ratio for climbing
+          double descendCostRatio=0.9725); // Fuel cost ratio for descending
 	virtual void GetSuccessors(const airplaneState &nodeID, std::vector<airplaneState> &neighbors) const;
 	virtual void GetActions(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
 	virtual void ApplyAction(airplaneState &s, airplaneAction dir) const;
@@ -136,13 +141,17 @@ protected:
 	void DoNormal(recVec pa, recVec pb) const;
 	mutable std::vector<airplaneAction> internalActions;
 
-        const double timeStep;       //Seconds
         const double climbRate;      //Meters per time step
+        const uint8_t numSpeeds;
         const double minSpeed;       //Meters per time step
-        const double cruiseSpeed;    //Meters per time step
         const double maxSpeed;       //Meters per time step
-        const double cruiseBurnRate; //Liters per time step
-        const double climbBurnRate;  //Liters per time step
+
+        // Assume 1 unit of movement to be 3 meters
+        // 16 liters per hour/ 3600 seconds / 22 mps = 0.0002 liters per meter
+        double const cruiseBurnRate;//0.0002*3.0 liters per unit
+        double const speedBurnDelta;//0.0001 liters per unit
+        double const climbCostRatio;//1.0475);
+        double const descendCostRatio;//0.9725);
 
         //TODO Add wind constants
         //const double windSpeed = 0;
