@@ -285,11 +285,23 @@ bool AirCBSGroup::FindFirstConflict(int location, airConflict &c1, airConflict &
 	{
 		for (int y = x+1; y < GetNumMembers(); y++)
 		{
-
 			// Calculate the last time that either will be in the tree
 			// that is, take the max of the two path sizes for the units
 			// at the given location in the tree
 			int maxLength = std::max(tree[location].paths[x].size(), tree[location].paths[y].size());
+
+                        // NOTE: This looping approach may not work...
+                        // suppose track 1 does 3 k-shifts in a row,
+                        // it is at x+3,y+3 in the 3D grid at time sqrt(2)*3 ~= 4.4sec
+                        // suppose track 2 does 5 straight moves in a row,
+                        // we don't have a conflict, but one is detected at time step 3...
+                        // Diagram shows position of track 1 as "1", 2 as "2" at time 5.0
+                        //      /
+                        //     /
+                        //    /
+                        // --1-2----->
+                        //  /
+                        // /
 
 			// Check each position in the paths for conflicts
 			for (int z = 0; z < maxLength; z++) // There may be an off-by-one error here. Not sure. Will have to check.

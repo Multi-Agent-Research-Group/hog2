@@ -114,13 +114,13 @@ void AirplaneConstrainedEnvironment::ApplyAction(airtimeState &s, airplaneAction
 {
 	// Apply the action on the hidden AE
 	ae->ApplyAction(s.l, a);
-	s.t+=1;
+	s.t+=(abs(a.turn)%2?M_SQRT:1.0);
 }
 void AirplaneConstrainedEnvironment::UndoAction(airtimeState &s, airplaneAction a) const
 {
 	// Undo the action on the hidden AW
 	ae->UndoAction(s.l, a);
-	s.t-=1;
+	s.t-=(abs(a.turn)%2?M_SQRT:1.0);
 }
 airplaneAction AirplaneConstrainedEnvironment::GetAction(const airtimeState &node1, const airtimeState &node2) const 
 {
@@ -194,8 +194,8 @@ uint64_t AirplaneConstrainedEnvironment::GetStateHash(const airtimeState &node) 
         // Heading increments are in 45 degrees
 	h |= node.l.heading & (0x8-1); // 3 bits
 	h = h << 12;
-        // Time increments are in 5 second intervals
-	h |= node.t & (0x1000-1);
+        // Time is continuous
+	h |= unsigned(node.t) & (0x1000-1);
         //std::cout << "Hash: "<<node << std::hex << h << std::dec << "\n";
 	
 	return h;
