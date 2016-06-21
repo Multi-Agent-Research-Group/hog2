@@ -463,6 +463,7 @@ double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneStat
         double horizDiff(diff+(fabs((diffx+diffy)-diff)/2)*M_SQRT2);
 
         double ratio=(vertDiff>0?climbCostRatio:descendCostRatio);
+        vertDiff=abs(vertDiff);
         unsigned headingChanges(0);//(abs(node1.heading-node1.headingTo(node2))%4-1);
         if(vertDiff <= abs(horizDiff))
         {

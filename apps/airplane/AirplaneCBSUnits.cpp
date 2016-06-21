@@ -183,7 +183,7 @@ void AirCBSGroup::ExpandOneCBSNode()
 	}
 }
 
-/** Update the location oof a unit */
+/** Update the location of a unit */
 void AirCBSGroup::UpdateLocation(Unit<airplaneState, airplaneAction, AirplaneEnvironment> *u, AirplaneEnvironment *e, airplaneState &loc, 
 									bool success, SimulationInfo<airplaneState,airplaneAction,AirplaneEnvironment> *si)
 {

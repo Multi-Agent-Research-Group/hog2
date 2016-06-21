@@ -114,13 +114,13 @@ void AirplaneConstrainedEnvironment::ApplyAction(airtimeState &s, airplaneAction
 {
 	// Apply the action on the hidden AE
 	ae->ApplyAction(s.l, a);
-	s.t+=(abs(a.turn)%2?M_SQRT:1.0);
+	s.t+=(abs(a.turn)%2?M_SQRT2:1.0);
 }
 void AirplaneConstrainedEnvironment::UndoAction(airtimeState &s, airplaneAction a) const
 {
 	// Undo the action on the hidden AW
 	ae->UndoAction(s.l, a);
-	s.t-=(abs(a.turn)%2?M_SQRT:1.0);
+	s.t-=(abs(a.turn)%2?M_SQRT2:1.0);
 }
 airplaneAction AirplaneConstrainedEnvironment::GetAction(const airtimeState &node1, const airtimeState &node2) const 
 {

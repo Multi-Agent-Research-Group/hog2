@@ -12,7 +12,7 @@
 //#include "MapSectorAbstraction.h"
 //#include "DirectionalPlanner.h"
 #include "ScenarioLoader.h"
-#include "Airplane.h"
+#include "AirplaneSimple.h"
 #include "AirplaneConstrained.h"
 #include "AirplaneCBSUnits.h"
 
@@ -130,6 +130,7 @@ airplaneAction a;
 
 
 void InitSim(){
+	//ae = new AirplaneSimpleEnvironment();
 	ae = new AirplaneEnvironment();
 
 	sim = new UnitSimulation<airplaneState, airplaneAction, AirplaneEnvironment>(ae);

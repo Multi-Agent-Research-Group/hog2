@@ -9,7 +9,6 @@
 #ifndef __hog2_glut__AirplaneConstrainedEnvironment__
 #define __hog2_glut__AirplaneConstrainedEnvironment__
 
-#include <iostream>
 #include "Airplane.h"
 #include <cmath>
 #include <memory>
