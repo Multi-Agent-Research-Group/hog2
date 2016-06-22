@@ -11,10 +11,11 @@
 /** AIR CBS UNIT DEFINITIONS */
 
 bool AirCBSUnit::MakeMove(AirplaneConstrainedEnvironment *ae, OccupancyInterface<airtimeState,airplaneAction> *,
-							 SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *, airplaneAction& a)
+							 SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> * si, airplaneAction& a)
 {
-	if (myPath.size() > 1)
+	if (myPath.size() > 1 && si->GetSimulationTime() > myPath[myPath.size()-2].t)
 	{
+
 		std::cout << "Moved from " << myPath[myPath.size()-1] << " to " << myPath[myPath.size()-2] << std::endl;
 		a = ae->GetAction(myPath[myPath.size()-1], myPath[myPath.size()-2]);
 		myPath.pop_back();

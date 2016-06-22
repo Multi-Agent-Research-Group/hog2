@@ -55,7 +55,10 @@ struct airConstraint
 	bool ConflictsWith(const airtimeState &state) const;
 	bool ConflictsWith(const airtimeState &from, const airtimeState &to) const;
 	bool ConflictsWith(const airConstraint &x) const;
-	void OpenGLDraw() const {}
+	void OpenGLDraw() const 
+	{
+		
+	}
 };
 
 	
