@@ -7,7 +7,7 @@
 //
 
 #include "AirplaneConstrained.h"
-
+ 
 /////////////////////////////// PUBLIC ////////////////////////////////////////////////////
 
 
@@ -38,42 +38,16 @@ void AirplaneConstrainedEnvironment::AddConstraint(airConstraint c)
 }
 
 // Add a point constraint
-void AirplaneConstrainedEnvironment::AddPointConstraint(airtimeState loc)
+void AirplaneConstrainedEnvironment::AddPointConstraint(const airtimeState &loc)
 {
-	airConstraint c(airConstraint::POINT_DISTANCE_MARGIN);
-	cylConstraint cyl(loc, loc, c.radius);
-	c.ics.push_back(cyl);
-	constraints.push_back(c);
+	airConstraint x(loc);
+	constraints.push_back(x);
 }
 
-// Add a sphere constraint
-void AirplaneConstrainedEnvironment::AddSphereConstraint(airtimeState loc, float rad)
+void AirplaneConstrainedEnvironment::AddBoxConstraint(const airtimeState &loc1, const airtimeState &loc2)
 {
-	airConstraint c(rad);
-	cylConstraint cyl(loc, loc, c.radius);
-	c.ics.push_back(cyl);
-	constraints.push_back(c);
-}
-
-// Add a cylinder constraint
-void AirplaneConstrainedEnvironment::AddCylConstraint(airtimeState loc1, airtimeState loc2, float rad)
-{
-	airConstraint c(rad);
-	cylConstraint cyl(loc1, loc2, c.radius);
-	c.ics.push_back(cyl);
-	constraints.push_back(c);
-
-}
-
-// Add a arc constraint
-void AirplaneConstrainedEnvironment::AddArcConstraint(airtimeState loc1, airtimeState loc2, float rad)
-{
-	// We'll have to add a lot of code to deal with this
-	// which will have to happen later.
-	airConstraint c(rad);
-	cylConstraint cyl(loc1, loc2, c.radius);
-	c.ics.push_back(cyl);
-	constraints.push_back(c);
+	airConstraint x(loc1, loc2);
+	constraints.push_back(x);
 }
 
 void AirplaneConstrainedEnvironment::ClearConstraints()
@@ -93,34 +67,34 @@ void AirplaneConstrainedEnvironment::GetActions(const airtimeState &nodeID, std:
 void AirplaneConstrainedEnvironment::GetSuccessors(const airtimeState &nodeID, std::vector<airtimeState> &neighbors) const
 {
 	// Create a location to hold the states
-	std::vector<airplaneState> n;
+	std::vector<airplaneAction> actions;
 
 	// Get the successors from the hidden AE
-	this->ae->GetSuccessors(nodeID.l, n);
+	this->ae->GetActions(nodeID.l, actions);
 
 	// Check to see if any constraints are violated, and remove them from the actions that are allowed
-	for (unsigned int x = 0; x < n.size(); x++)
+	for (airplaneAction act : actions)
 	{
-		if (!ViolatesConstraint(nodeID.l, n[x], nodeID.t))
-		{
-			airtimeState newLoc;
-			newLoc.l = n[x];
-			newLoc.t = nodeID.t+1;
-			neighbors.push_back(newLoc);
-		}
+		// Construct the followup state
+		airtimeState new_state(nodeID.l, nodeID.t);
+		this->ApplyAction(new_state, act);
+
+		// Check to see if it violates any constraint. If it does not, push it back.
+		if (!ViolatesConstraint(nodeID, new_state))
+			neighbors.push_back(new_state);
 	}
 }
 void AirplaneConstrainedEnvironment::ApplyAction(airtimeState &s, airplaneAction a) const
 {
 	// Apply the action on the hidden AE
 	ae->ApplyAction(s.l, a);
-	s.t+=(abs(a.turn)%2?M_SQRT2:1.0);
+	s.t += (abs(a.turn)%2?M_SQRT2:1.0);
 }
 void AirplaneConstrainedEnvironment::UndoAction(airtimeState &s, airplaneAction a) const
 {
 	// Undo the action on the hidden AW
 	ae->UndoAction(s.l, a);
-	s.t-=(abs(a.turn)%2?M_SQRT2:1.0);
+	s.t -= (abs(a.turn)%2?M_SQRT2:1.0);
 }
 airplaneAction AirplaneConstrainedEnvironment::GetAction(const airtimeState &node1, const airtimeState &node2) const 
 {
@@ -131,7 +105,7 @@ void AirplaneConstrainedEnvironment::GetNextState(const airtimeState &currents, 
 {
 	// Get the next location from the owned AE and then increase the time by 1
 	ae->GetNextState(currents.l, dir, news.l);
-	news.t = currents.t + 1;
+	news.t = currents.t + (abs(dir.turn)%2?M_SQRT2:1.0);
 }
 // Invert action defined in the header
 
@@ -170,7 +144,7 @@ bool AirplaneConstrainedEnvironment::GoalTest(const airtimeState &node, const ai
 {
 	// Notice that we have achieved the goal even if we're late - we might want to check this in
 	// the future.
-	return (node.l == goal.l && node.t >= goal.t);
+	return (this->ae->GoalTest(node.l, goal.l) && node.t >= goal.t);
 }
 
 
@@ -258,222 +232,210 @@ void AirplaneConstrainedEnvironment::GLDrawPath(const std::vector<airtimeState> 
 
 /////////////////////////////// PRIVATE ////////////////////////////////////////////////////
 
+bool airConstraint::ConflictsWith(const airtimeState &state) const
+{
+	if (state.t >= start_state.t - 0.00001 && state.t <= end_state.t + 0.00001)
+		{
+			// Each constraint defines an x, y, z box with corners on the state locations. We 
+			// need to check if they overlap at any point. We do this using the separating 
+			// axis theorem. Note that all of our boxes are non-rotated, and thus, should never have
+			// to worry about non-axis aligned planes of separation. Thus, we check to see if there is 
+			// a separating plane on the X axis, Y axis and Z axis, and if no such plane exists, then
+			// the boxes must intersect.
+			
+			// Generate a well formed set of boxes for the constraint box
+			int c_minx = min(start_state.l.x, end_state.l.x);
+			int c_maxx = max(start_state.l.x, end_state.l.x);
+
+			int c_miny = min(start_state.l.y, end_state.l.y);
+			int c_maxy = max(start_state.l.y, end_state.l.y);
+
+			int c_minz = min(start_state.l.height, end_state.l.height);
+			int c_maxz = max(start_state.l.height, end_state.l.height);
+
+			
+			if (state.l.x >= c_minx && state.l.x <= c_maxx && // Check if overlapping on the X axis
+				state.l.y >= c_miny && state.l.y <= c_maxy && // Check if overlapping on the Y axis
+				state.l.height >= c_minz && state.l.height <= c_maxz // Check if overlapping on the Z axis
+				)
+			{
+				// If we overlap on all three axis, then there must be a common point, and thus
+				// we can return that the constraint was violated
+				return true;
+			}
+		}
+	return false;
+}
+
+bool airConstraint::ConflictsWith(const airtimeState &from, const airtimeState &to) const
+{
+	if (max(start_state.t, from.t) <= min(end_state.t, to.t) + 0.00001) 
+		{
+			// Each constraint defines an x, y, z box with corners on the state locations. We 
+			// need to check if they overlap at any point. We do this using the separating 
+			// axis theorem. Note that all of our boxes are non-rotated, and thus, should never have
+			// to worry about non-axis aligned planes of separation. Thus, we check to see if there is 
+			// a separating plane on the X axis, Y axis and Z axis, and if no such plane exists, then
+			// the boxes must intersect.
+			
+			// Generate a well formed set of boxes for the action box
+			int a_minx = min(from.l.x, to.l.x);
+			int a_maxx = max(from.l.x, to.l.x);
+
+			int a_miny = min(from.l.y, to.l.y);
+			int a_maxy = max(from.l.y, to.l.y);
+
+			int a_minz = min(from.l.height, to.l.height);
+			int a_maxz = max(from.l.height, to.l.height);
+			
+			// Generate a well formed set of boxes for the constraint box
+			int c_minx = min(start_state.l.x, end_state.l.x);
+			int c_maxx = max(start_state.l.x, end_state.l.x);
+
+			int c_miny = min(start_state.l.y, end_state.l.y);
+			int c_maxy = max(start_state.l.y, end_state.l.y);
+
+			int c_minz = min(start_state.l.height, end_state.l.height);
+			int c_maxz = max(start_state.l.height, end_state.l.height);
+
+			
+			if (max(c_minx, a_minx) <= min(c_maxx, a_maxx) && // Check if overlapping on the X axis
+				max(c_miny, a_miny) <= min(c_maxy, a_maxy) && // Check if overlapping on the Y axis
+				max(c_minz, a_minz) <= min(c_maxz, a_maxz)    // Check if overlapping on the Z axis
+				)
+			{
+				// If we overlap on all three axis, then there must be a common point, and thus
+				// we can return that the constraint was violated
+				return true;
+			}
+		}
+	return false;
+}
+
+bool airConstraint::ConflictsWith(const airConstraint &x) const
+{
+	return ConflictsWith(x.start_state, x.end_state);
+}
+
+
 
 
 bool AirplaneConstrainedEnvironment::ViolatesConstraint(const airplaneState &from, const airplaneState &to, int time) const
 {
+	// Generate the two timestates that define the action box
+	airplaneAction act = ae->GetAction(from, to);
 	airtimeState fromtimestate(from, time);
-	airtimeState totimestate(to, time);
-	airplaneAction act = this->GetAction(fromtimestate, totimestate);
+	airtimeState totimestate(from, time);
+	this->ApplyAction(totimestate, act);
 
-	for (int i = 0; i < constraints.size(); i++)
+	// Generate a well formed set of boxes for the action box
+	// which we will need later to compare
+	int a_minx = min(fromtimestate.l.x, totimestate.l.x);
+	int a_maxx = max(fromtimestate.l.x, totimestate.l.x);
+
+	int a_miny = min(fromtimestate.l.y, totimestate.l.y);
+	int a_maxy = max(fromtimestate.l.y, totimestate.l.y);
+
+	int a_minz = min(fromtimestate.l.height, totimestate.l.height);
+	int a_maxz = max(fromtimestate.l.height, totimestate.l.height);
+
+	// Allocate some temp variables
+	int c_minx, c_maxx, c_miny, c_maxy, c_minz, c_maxz;
+	
+	//Check if the action box violates any of the constraints that are in the constraints list
+	for (airConstraint c : constraints)
 	{
-		if (constraints.at(i).ViolatesConstraint(fromtimestate, totimestate) || constraints.at(i).ViolatesEdgeConstraint(fromtimestate, totimestate, act))
-			return true;
-	}
-	return false;
-}
-
-////////////////////// CONSTRAINT CHECKING /////////////////////////////////////////////////
-
-/// Cylinder constraint
-
-// We project the airtime state onto the cylinder's central arc, and check against the radius
-bool cylConstraint::ViolatesConstraint(const airtimeState &startingLoc, const airtimeState &endLoc) const {
-
-	// Check if the times are equal
-	if (startingLoc.t >= this->loc1.t && this->loc2.t >= startingLoc.t)
-	{
-		// Compute the vector from start to end
-		double AB_x = 0 , AB_y = 0, AB_z = 0, AB_squared = 0;
-		AB_x = this->loc2.l.x - this->loc1.l.x;
-		AB_y = this->loc2.l.y - this->loc1.l.y;
-		AB_z = this->loc2.l.height - this->loc1.l.height;
-		AB_squared = pow(AB_x, 2.0) + pow(AB_y, 2.0) + pow(AB_z, 2.0);
-
-		// If A and B are the same point, then we check if the constraint of this point
-		// violates the single point structure
-		if (AB_squared == 0) 
+		// Check if the range of the constraint overlaps in time
+		if (max(c.start_state.t, fromtimestate.t) <= min(c.end_state.t, totimestate.t) + 0.00001) 
 		{
-			return sqrt(pow((startingLoc.l.x - this->loc1.l.x), 2.0) + pow((startingLoc.l.y - this->loc1.l.y), 2.0) + pow((startingLoc.l.height - this->loc1.l.height), 2.0)) < this->radius;
+			// Each constraint defines an x, y, z box with corners on the state locations. We 
+			// need to check if they overlap at any point. We do this using the separating 
+			// axis theorem. Note that all of our boxes are non-rotated, and thus, should never have
+			// to worry about non-axis aligned planes of separation. Thus, we check to see if there is 
+			// a separating plane on the X axis, Y axis and Z axis, and if no such plane exists, then
+			// the boxes must intersect.
+			
+			// Generate a well formed set of boxes for the constraint box
+			c_minx = min(c.start_state.l.x, c.end_state.l.x);
+			c_maxx = max(c.start_state.l.x, c.end_state.l.x);
+
+			c_miny = min(c.start_state.l.y, c.end_state.l.y);
+			c_maxy = max(c.start_state.l.y, c.end_state.l.y);
+
+			c_minz = min(c.start_state.l.height, c.end_state.l.height);
+			c_maxz = max(c.start_state.l.height, c.end_state.l.height);
+
+			
+			if (max(c_minx, a_minx) <= min(c_maxx, a_maxx) && // Check if overlapping on the X axis
+				max(c_miny, a_miny) <= min(c_maxy, a_maxy) && // Check if overlapping on the Y axis
+				max(c_minz, a_minz) <= min(c_maxz, a_maxz)    // Check if overlapping on the Z axis
+				)
+			{
+				// If we overlap on all three axis, then there must be a common point, and thus
+				// we can return that the constraint was violated
+				return true;
+			}
 		}
+	}
 
-		// Compute the vector from the first location in the constraint to the test-point
-		double AP_x = 0 , AP_y = 0, AP_z = 0;
-		AP_x = startingLoc.l.x - this->loc1.l.x;
-		AP_y = startingLoc.l.y - this->loc1.l.y;
-		AP_z = startingLoc.l.height - this->loc1.l.height;
+	// If no constraint is violated, return false
+	return false;
+}
 
-		// We then project this vector onto the other vector
-		double t = (AP_x * AB_x + AP_y * AB_y + AP_z * AB_z)/AB_squared;
+// Basically the same code as above, but overloaded so the first section is not necessary
+bool AirplaneConstrainedEnvironment::ViolatesConstraint(const airtimeState &from, const airtimeState &to) const
+{
+	// Generate a well formed set of boxes for the action box
+	// which we will need later to compare
+	int a_minx = min(from.l.x, to.l.x);
+	int a_maxx = max(from.l.x, to.l.x);
 
-		// If it's on the line (that is, between 0 and 1, we know that we only have to
-		// look at things projected between the two points, so we just compare against
-		// then endpoints)
-		if (t < 0.0) 
+	int a_miny = min(from.l.y, to.l.y);
+	int a_maxy = max(from.l.y, to.l.y);
+
+	int a_minz = min(from.l.height, to.l.height);
+	int a_maxz = max(from.l.height, to.l.height);
+
+	// Allocate some temp variables
+	int c_minx, c_maxx, c_miny, c_maxy, c_minz, c_maxz;
+	
+	//Check if the action box violates any of the constraints that are in the constraints list
+	for (airConstraint c : constraints)
+	{
+		// Check if the range of the constraint overlaps in time
+		if (max(c.start_state.t, from.t) <= min(c.end_state.t, to.t) + 0.00001) 
 		{
-			return sqrt(pow((startingLoc.l.x - this->loc1.l.x), 2.0) + pow((startingLoc.l.y - this->loc1.l.y), 2.0) + pow((startingLoc.l.height - this->loc1.l.height), 2.0)) < this->radius;
-		} 
-		else if (t > 1.0)
-		{
-			return sqrt(pow((startingLoc.l.x - this->loc2.l.x), 2.0) + pow((startingLoc.l.y - this->loc2.l.y), 2.0) + pow((startingLoc.l.height - this->loc2.l.height), 2.0)) < this->radius;
+			// Each constraint defines an x, y, z box with corners on the state locations. We 
+			// need to check if they overlap at any point. We do this using the separating 
+			// axis theorem. Note that all of our boxes are non-rotated, and thus, should never have
+			// to worry about non-axis aligned planes of separation. Thus, we check to see if there is 
+			// a separating plane on the X axis, Y axis and Z axis, and if no such plane exists, then
+			// the boxes must intersect.
+			
+			// Generate a well formed set of boxes for the constraint box
+			c_minx = min(c.start_state.l.x, c.end_state.l.x);
+			c_maxx = max(c.start_state.l.x, c.end_state.l.x);
+
+			c_miny = min(c.start_state.l.y, c.end_state.l.y);
+			c_maxy = max(c.start_state.l.y, c.end_state.l.y);
+
+			c_minz = min(c.start_state.l.height, c.end_state.l.height);
+			c_maxz = max(c.start_state.l.height, c.end_state.l.height);
+
+			
+			if (max(c_minx, a_minx) <= min(c_maxx, a_maxx) && // Check if overlapping on the X axis
+				max(c_miny, a_miny) <= min(c_maxy, a_maxy) && // Check if overlapping on the Y axis
+				max(c_minz, a_minz) <= min(c_maxz, a_maxz)    // Check if overlapping on the Z axis
+				)
+			{
+				// If we overlap on all three axis, then there must be a common point, and thus
+				// we can return that the constraint was violated
+				return true;
+			}
 		}
-
-		// Otherwise we compare against the constrained point
-		float C_x = this->loc1.l.x + t * AB_x;
-		float C_y = this->loc1.l.y + t * AB_y;
-		float C_z = this->loc1.l.height + t * AB_z;
-
-		return sqrt(pow((C_x - startingLoc.l.x), 2.0) + pow((C_y - startingLoc.l.y), 2.0) + pow((C_z - startingLoc.l.height), 2.0)) < this->radius;
 	}
 
+	// If no constraint is violated, return false
 	return false;
 }
 
-bool cylConstraint::ViolatesEdgeConstraint(const airtimeState &startingLoc, const airtimeState &endLoc,  const airplaneAction &action) const {
-	if ((startingLoc.t >= this->loc1.t && startingLoc.t <= this->loc2.t) || (startingLoc.t + 1 >= this->loc1.t && startingLoc.t + 1 <= this->loc2.t ) || (startingLoc.t <= this->loc1.t && startingLoc.t + 1 >= this->loc2.t))
-	{
-		// Compute the vector of the constraint
-		double U_x = 0 , U_y = 0, U_z = 0, U_squared = 0;
-		U_x = this->loc2.l.x - this->loc1.l.x;
-		U_y = this->loc2.l.y - this->loc1.l.y;
-		U_z = this->loc2.l.height - this->loc1.l.height;
-		U_squared = pow(U_x, 2.0) + pow(U_y, 2.0) + pow(U_z, 2.0);
-	    
-		// Compute the vector of the action
-		double V_x = 0 , V_y = 0, V_z = 0, V_squared = 0;
-		V_x = endLoc.l.x - startingLoc.l.x;
-		V_y = endLoc.l.y - startingLoc.l.y;
-		V_z = endLoc.l.height - startingLoc.l.height;
-		V_squared = pow(V_x, 2.0) + pow(V_y, 2.0) + pow(V_z, 2.0);
-
-		// Compute the vector between the first two elements of each segment
-		double W_x = 0 , W_y = 0, W_z = 0;
-		W_x = this->loc1.l.x - startingLoc.l.x;
-		W_y = this->loc1.l.y - startingLoc.l.y;
-		W_z = this->loc1.l.height - startingLoc.l.height;
-
-	    // Compute a number of key dot products
-	    float    a = U_squared;         // always >= 0
-	    float    b = U_x * V_x + U_y * V_y + U_z * V_z;
-	    float    c = V_squared;         // always >= 0
-	    float    d = U_x * W_x + U_y * W_y + U_z * W_z;
-	    float    e = V_x * W_x + V_y * W_y + V_z * W_z;
-
-	    // Create some values that we use to do math
-	    float    D = a*c - b*b;        // always >= 0
-	    float    sc, sN, sD = D;       // sc = sN / sD, default sD = D >= 0
-	    float    tc, tN, tD = D;       // tc = tN / tD, default tD = D >= 0
-
-	    // compute the line parameters of the two closest points
-	    if (D < 0.001) { // the lines are almost parallel
-	        sN = 0.0;         // force using point P0 on segment S1
-	        sD = 1.0;         // to prevent possible division by 0.0 later
-	        tN = e;
-	        tD = c;
-	    }
-	    else {                 // get the closest points on the infinite lines
-	        sN = (b*e - c*d);
-	        tN = (a*e - b*d);
-	        if (sN < 0.0) {        // sc < 0 => the s=0 edge is visible
-	            sN = 0.0;
-	            tN = e;
-	            tD = c;
-	        }
-	        else if (sN > sD) {  // sc > 1  => the s=1 edge is visible
-	            sN = sD;
-	            tN = e + b;
-	            tD = c;
-	        }
-	    }
-
-	    if (tN < 0.0) {            // tc < 0 => the t=0 edge is visible
-	        tN = 0.0;
-	        // recompute sc for this edge
-	        if (-d < 0.0)
-	            sN = 0.0;
-	        else if (-d > a)
-	            sN = sD;
-	        else {
-	            sN = -d;
-	            sD = a;
-	        }
-	    }
-	    else if (tN > tD) {      // tc > 1  => the t=1 edge is visible
-	        tN = tD;
-	        // recompute sc for this edge
-	        if ((-d + b) < 0.0)
-	            sN = 0;
-	        else if ((-d + b) > a)
-	            sN = sD;
-	        else {
-	            sN = (-d +  b);
-	            sD = a;
-	        }
-	    }
-	    // finally do the division to get sc and tc
-	    sc = (abs(sN) < 0.001 ? 0.0 : sN / sD);
-	    tc = (abs(tN) < 0.001 ? 0.0 : tN / tD);
-
-	    // get the difference of the two closest points
-	    float dP_x = W_x + (sc * U_x) - (tc * V_x);  // =  S1(sc) - S2(tc)
-	    float dP_y = W_y + (sc * U_y) - (tc * V_y); 
-	    float dP_z = W_z + (sc * U_z) - (tc * V_z); 
-
-	    return pow(dP_x, 2.0) + pow(dP_y, 2.0) + pow(dP_z, 2.0) <= this->radius;   // return the closest distance
-	}
-
-	return false;
-}
-
-
-/** Constructors for the different types of constraints */
-airConstraint::airConstraint(airtimeState l1)
-{
-	cylConstraint cyl(l1, l1, airConstraint::POINT_DISTANCE_MARGIN);
-	ics.push_back(cyl);
-}
-airConstraint::airConstraint(airtimeState l1, float r)
-{
-	cylConstraint cyl(l1, l1, r);
-	ics.push_back(cyl);
-}
-
-airConstraint::airConstraint(airtimeState l1, airtimeState l2, float r)
-{
-	cylConstraint cyl(l1, l2, r);
-	ics.push_back(cyl);
-}
-
-airConstraint::airConstraint(airtimeState l1, airtimeState l2, airplaneAction act, float r)
-{
-	// TODO: Deal with arc constraints
-	cylConstraint cyl(l1, l2, r);
-	ics.push_back(cyl);
-}
-
-
-/// Air Constraint - basically just a bunch of cylinder constraints.
-bool airConstraint::ViolatesConstraint(const airtimeState &loc, const airtimeState &endLoc) const
-{
-	/*for (cylConstraint c : this->ics)
-	{
-		if (c.ViolatesConstraint(loc, endLoc))
-			return true;
-	}*/
-	return false;
-}
-bool airConstraint::ViolatesEdgeConstraint(const airtimeState &startingLoc, const airtimeState &endLoc, const airplaneAction &action) const
-{
-	/*for (cylConstraint c : this->ics)
-	{
-		if (c.ViolatesEdgeConstraint(startingLoc, endLoc, action))
-			return true;
-	}*/
-	return false;
-}
-
-void airConstraint::OpenGLDraw() const
-{
-	// TODO: Draw a outline cylinder around the constraints
-}

@@ -10,8 +10,8 @@
 
 /** AIR CBS UNIT DEFINITIONS */
 
-bool AirCBSUnit::MakeMove(AirplaneEnvironment *ae, OccupancyInterface<airplaneState,airplaneAction> *,
-							 SimulationInfo<airplaneState,airplaneAction,AirplaneEnvironment> *, airplaneAction& a)
+bool AirCBSUnit::MakeMove(AirplaneConstrainedEnvironment *ae, OccupancyInterface<airtimeState,airplaneAction> *,
+							 SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *, airplaneAction& a)
 {
 	if (myPath.size() > 1)
 	{
@@ -23,14 +23,14 @@ bool AirCBSUnit::MakeMove(AirplaneEnvironment *ae, OccupancyInterface<airplaneSt
 	return false;
 }
 	
-void AirCBSUnit::SetPath(std::vector<airplaneState> &p)
+void AirCBSUnit::SetPath(std::vector<airtimeState> &p)
 {
 	myPath = p;
 	std::reverse(myPath.begin(), myPath.end());
 }
 
-void AirCBSUnit::OpenGLDraw(const AirplaneEnvironment *ae, 
-							const SimulationInfo<airplaneState,airplaneAction,AirplaneEnvironment> *) const
+void AirCBSUnit::OpenGLDraw(const AirplaneConstrainedEnvironment *ae, 
+							const SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *) const
 {
 	GLfloat r, g, b;
 	GetColor(r, g, b);
@@ -40,56 +40,21 @@ void AirCBSUnit::OpenGLDraw(const AirplaneEnvironment *ae,
 
 /** CBS GROUP DEFINITIONS */
 
-AirCBSGroup::AirCBSGroup(AirplaneEnvironment *ae)
+AirCBSGroup::AirCBSGroup(AirplaneConstrainedEnvironment *ae)
 {
 	std::cout << "Constructed an AirCBSGroup" << std::endl;
 	this->ae = ae;
-	this->a2e = new AirplaneConstrainedEnvironment(ae);
 	planFinished = false;
 	time = 0;
 	tree.resize(1);
 	tree[0].parent = 0;
 	bestNode = 0;
-	// Removed the overlay from the Map-2D example, will have to 
-	// add back a similar concept
-}
-
-/** Make a move on the airplane environment for a given unit */
-std::vector<bool> AirCBSGroup::MakeMoveAllUnits(AirplaneEnvironment *e, SimulationInfo<airplaneState, airplaneAction, AirplaneEnvironment> *si, std::vector<airplaneAction> &a)
-{
-	std::vector<bool> ret;
-	a.resize(0);
-
-	if (planFinished && si->GetSimulationTime() > time)
-	{
-		time += 1;
-		for (unsigned int x = 0; x < GetNumMembers(); x++)
-		{
-			std::cout << "Moving member:" << x << std::endl;
-			Unit<airplaneState, airplaneAction, AirplaneEnvironment> *unit = GetMember(x);
-			airplaneAction act;
-			bool val = unit->MakeMove(e, 0, si, act);
-			ret.push_back(val);
-			a.push_back(act);
-		}
-	}
-	else if ((si->GetSimulationTime() - time) < 0.0001) {
-		for (unsigned int x = 0; x < GetNumMembers(); x++)
-			ret.push_back(false);
-		return ret;
-	}
-	else 
-	{
-		time = si->GetSimulationTime();
-		ExpandOneCBSNode();
-	}
 }
 
 
-bool AirCBSGroup::MakeMove(Unit<airplaneState, airplaneAction, AirplaneEnvironment> *u, AirplaneEnvironment *e,
-							 SimulationInfo<airplaneState,airplaneAction,AirplaneEnvironment> *si, airplaneAction& a)
+bool AirCBSGroup::MakeMove(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u, AirplaneConstrainedEnvironment *e,
+							 SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *si, airplaneAction& a)
 {
-	
 	if (planFinished && si->GetSimulationTime() > time)
 	{
 		return u->MakeMove(e, 0, si, a);
@@ -126,7 +91,9 @@ void AirCBSGroup::ExpandOneCBSNode()
 		{
 			AirCBSUnit *unit = (AirCBSUnit*) GetMember(x);
 			unit->SetPath(tree[bestNode].paths[x]);
-			for (airplaneState p: tree[bestNode].paths[x])
+
+			// Print the finished path for the node
+			for (airtimeState p: tree[bestNode].paths[x])
 			{
 				std::cout << p << " ";		
 			}
@@ -175,6 +142,7 @@ void AirCBSGroup::ExpandOneCBSNode()
 			bestCost = cost;
 		}
 	}
+
 	std::cout << "New best node " << bestNode << std::endl;
 	for (unsigned int x = 0; x < tree[bestNode].paths.size(); x++)
 	{
@@ -184,40 +152,38 @@ void AirCBSGroup::ExpandOneCBSNode()
 }
 
 /** Update the location of a unit */
-void AirCBSGroup::UpdateLocation(Unit<airplaneState, airplaneAction, AirplaneEnvironment> *u, AirplaneEnvironment *e, airplaneState &loc, 
-									bool success, SimulationInfo<airplaneState,airplaneAction,AirplaneEnvironment> *si)
+void AirCBSGroup::UpdateLocation(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u, AirplaneConstrainedEnvironment *e, airtimeState &loc, 
+									bool success, SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *si)
 {
 	u->UpdateLocation(e, loc, success, si);
 }
 
 /** Add a new unit with a new start and goal state to the CBS group */
-void AirCBSGroup::AddUnit(Unit<airplaneState, airplaneAction, AirplaneEnvironment> *u)
+void AirCBSGroup::AddUnit(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u)
 {
 	// Add the new unit to the group, and construct an AirCBSUnit
 	UnitGroup::AddUnit(u);
 	AirCBSUnit *c = (AirCBSUnit*)u;
 
 	// Clear the constraints from the constrained-environment
-	a2e->ClearConstraints();
+	ae->ClearConstraints();
 
 	// Setup the state and goal in the graph
 	airtimeState start, goal;
-	c->GetStart(start.l);
-	c->GetGoal(goal.l);
-	start.t = 0;
-	goal.t = 0; // Maybe we will change this in the future
+	c->GetStart(start);
+	c->GetGoal(goal);
 
 	// Resize the number of paths in the root of the tree
 	tree[0].paths.resize(GetNumMembers());
 
 	// Recalculate the optimum path for the root of the tree
-	astar.GetPath(a2e, start, goal, thePath);
+	astar.GetPath(ae, start, goal, thePath);
 
 
 	// We add the optimal path to the root of the tree
 	for (unsigned int x = 0; x < thePath.size(); x++)
 	{
-		tree[0].paths.back().push_back(thePath[x].l);
+		tree[0].paths.back().push_back(thePath[x]);
 	}
 	
 	// Set the plan finished to false, as there's new updates
@@ -231,7 +197,7 @@ void AirCBSGroup::Replan(int location)
 	int theUnit = tree[location].con.unit1;
 
 	// Reset the constraints in the test-environment
-	a2e->ClearConstraints();
+	ae->ClearConstraints();
 
 	// Add all of the constraints in the parents of the current
 	// node to the environment
@@ -239,7 +205,7 @@ void AirCBSGroup::Replan(int location)
 	while (tempLocation != 0)
 	{
 		if (theUnit == tree[tempLocation].con.unit1)
-			a2e->AddConstraint(tree[tempLocation].con.c);
+			ae->AddConstraint(tree[tempLocation].con.c);
 		tempLocation = tree[tempLocation].parent;
 		//TODO: Find constraints on the goals of the agents (need heading and time)
 	}
@@ -247,15 +213,13 @@ void AirCBSGroup::Replan(int location)
 	// Select the air unit from the group
 	AirCBSUnit *c = (AirCBSUnit*)GetMember(theUnit);
 	airtimeState start, goal;
-	c->GetStart(start.l);
-	c->GetGoal(goal.l);
-	start.t = 0;
-	goal.t = 0; // TODO: find the true goal time
+	c->GetStart(start);
+	c->GetGoal(goal);
 
 	// Recalculate the path
-	astar.GetPath(a2e, start, goal, thePath);
+	astar.GetPath(ae, start, goal, thePath);
 
-	if (thePath.size() == 0)
+	if (thePath.size() == 0 && !(goal == start))
 		tree[location].satisfiable = false;
 
 
@@ -263,117 +227,106 @@ void AirCBSGroup::Replan(int location)
 	tree[location].paths[theUnit].resize(0);
 	for (unsigned int x = 0; x < thePath.size(); x++)
 	{
-		tree[location].paths[theUnit].push_back(thePath[x].l);
+		tree[location].paths[theUnit].push_back(thePath[x]);
 	}
 }
 
 /** Find the first place that there is a conflict in the tree */
 bool AirCBSGroup::FindFirstConflict(int location, airConflict &c1, airConflict &c2)
 {
-
-	// Setup some temporary variables (which we will use instead of memory accesses)
-	airtimeState a1;
-	airtimeState a2;
-
-	airtimeState a3;
-	airtimeState a4;
-
-	airplaneAction u2Action;
-
 	// For each pair of units in the group
 	for (int x = 0; x < GetNumMembers(); x++)
 	{
 		for (int y = x+1; y < GetNumMembers(); y++)
 		{
-			// Calculate the last time that either will be in the tree
-			// that is, take the max of the two path sizes for the units
-			// at the given location in the tree
-			int maxLength = std::max(tree[location].paths[x].size(), tree[location].paths[y].size());
 
-                        // NOTE: This looping approach may not work...
-                        // suppose track 1 does 3 k-shifts in a row,
-                        // it is at x+3,y+3 in the 3D grid at time sqrt(2)*3 ~= 4.4sec
-                        // suppose track 2 does 5 straight moves in a row,
-                        // we don't have a conflict, but one is detected at time step 3...
-                        // Diagram shows position of track 1 as "1", 2 as "2" at time 5.0
-                        //      /
-                        //     /
-                        //    /
-                        // --1-2----->
-                        //  /
-                        // /
+			// Unit 1 path is tree[location].paths[x]
+			// Unit 2 path is tree[location].paths[y]
 
-			// Check each position in the paths for conflicts
-			for (int z = 0; z < maxLength; z++) // There may be an off-by-one error here. Not sure. Will have to check.
+			// To check for conflicts, we loop through the timed actions, and check 
+			// each bit to see if a constraint is violated
+			int xmax = tree[location].paths[x].size();
+			int ymax = tree[location].paths[y].size();
+
+			for (int i = 0, j = 0; j > ymax && i > xmax;) // If we've reached the end of one of the paths, then time is up and 
+															// no more conflicts could occur
 			{
-				// Here we check the goal conflict - in the future if this is an 
-				// airstrip, then we will remove the goal, and just continue if 
-				// the shortest path length is reached.
-				int a1time = max(0, min(z, tree[location].paths[x].size()-1));
-				int a2time = max(0, min(z, tree[location].paths[y].size()-1));
+				// I and J hold the current step in the path we are comparing. We need 
+				// to check if the current I and J have a conflict, and if they do, then
+				// we have to deal with it, if not, then we don't.
+				
+				// Figure out which indices we're comparing
+				int xTime = max(0, min(i, xmax-1));
+				int yTime = max(0, min(j, xmax-1));
 
-				// Create airtime constraints for each of them
-				a1.l = tree[location].paths[x][a1time];
-				a1.t = z;
-				a2.l = tree[location].paths[y][a2time];
-				a2.t = z;
+				// Check the point constraints
+				airConstraint x_c(tree[location].paths[x][xTime]);
+				airConstraint y_c(tree[location].paths[x][yTime]);
 
-				// Create a point constraint for the first unit
-				airConstraint p_a1c(a1);
-
-				if (p_a1c.ViolatesConstraint(a2, a2))
+				if (x_c.ConflictsWith(y_c))
 				{
-					airConstraint p_a2c(a2);
-					// Set the units in the conflict
+					c1.c = x_c;
+					c2.c = y_c;
+
 					c1.unit1 = x;
 					c2.unit1 = y;
 
-					// Set the constraints in the conflict that were violated
-					c1.c = p_a2c;
-					c2.c = p_a1c;
 					return true;
 				}
 
-				// Otherwise, there might be an edge constraint
-				// Create an arc or cylinder constraint
+				// Check the edge constraints
+				airConstraint x_e_c(tree[location].paths[x][xTime], tree[location].paths[x][min(xmax-1, xTime+1)]);
+				airConstraint y_e_c(tree[location].paths[y][yTime], tree[location].paths[y][min(ymax-1, yTime+1)]);
+
+				if (x_e_c.ConflictsWith(y_e_c))
+				{
+					c1.c = x_e_c;
+					c2.c = y_e_c;
+
+					c1.unit1 = x;
+					c2.unit1 = y;
+
+					return true;
+				}
+
+				// Increment the counters
 				
-				// Don't do this on the last element in the path
-				if (z + 1 < maxLength) {
-					int a1time1 = max(0, min(z + 1, tree[location].paths[x].size()-1));
-					int a2time1 = max(0, min(z + 1, tree[location].paths[y].size()-1));
+				// First we check to see if either is at the end
+				// of the path. If so, immediately increment the 
+				// other counter.
+				if (i == xmax)
+				{
+					j++;
+					continue;
+				} else if (j == ymax)
+				{
+					i++;
+					continue;
+				}
 
-					a3.l = tree[location].paths[x][a1time1];
-					a3.t = z + 1;
-					a4.l = tree[location].paths[y][a2time1];
-					a4.t = z + 1;
+				// Otherwise, we figure out which ends soonest, and
+				// we increment that counter.
+				if (tree[location].paths[x][min(xmax-1, xTime+1)].t < tree[location].paths[y][min(ymax-1, yTime+1)].t)
+				{
+					// If the end-time of the x unit segment is before the end-time of the y unit segment
+					// we have in increase the x unit but leave the y unit time the same
+					i ++;
+				} 
+				else 
+				{
+					// Otherwise, the y unit time has to be incremented
+					j ++;
+				}
 
-					u2Action = a2e->GetAction(a2, a4);
-
-					airConstraint e_a1c(a1, a3, airConstraint::POINT_DISTANCE_MARGIN);
-					if (e_a1c.ViolatesEdgeConstraint(a2, a4, u2Action))
-					{
-						airConstraint e_a2c(a2, a4, airConstraint::POINT_DISTANCE_MARGIN);
-
-						// Set the units in the conflict
-						c1.unit1 = x;
-						c2.unit1 = y;
-
-						// Set the constraints in the conflict that were violated
-						c1.c = e_a2c;
-						c2.c = e_a1c;
-						return true;
-					}
-				} // End edge constraint detection
-			
-			} // End loop over paths time
-		} // End loop over paths unit 2
-	} // End loop over paths unit 1
+			} // End time loop
+		} // End Unit 2 loop
+	} // End Unit 1 Loop
 	
 	return false;
 }
 
 /** Draw the AIR CBS group */
-void AirCBSGroup::OpenGLDraw(const AirplaneEnvironment *ae, const SimulationInfo<airplaneState,airplaneAction,AirplaneEnvironment> * sim)  const
+void AirCBSGroup::OpenGLDraw(const AirplaneConstrainedEnvironment *ae, const SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> * sim)  const
 {
 	
 	GLfloat r, g, b;
@@ -382,14 +335,13 @@ void AirCBSGroup::OpenGLDraw(const AirplaneEnvironment *ae, const SimulationInfo
 	{
 		AirCBSUnit *unit = (AirCBSUnit*)GetMember(x);
 		unit->GetColor(r, g, b);
-		a2e->SetColor(0, 1, 0);
+		ae->SetColor(0, 1, 0);
 		for (unsigned int y = 0; y < tree[bestNode].paths[x].size(); y++)
 		{
-			airtimeState a(tree[bestNode].paths[x][y], y);
 			//airtimeState b(tree[bestNode].paths[x][y+1], y+1);
-			if (sim->GetSimulationTime() < y)
+			if (sim->GetSimulationTime() < tree[bestNode].paths[x][y].t)
 			{
-				a2e->OpenGLDraw(a);
+				ae->OpenGLDraw(tree[bestNode].paths[x][y]);
 			}
 		}
 	}

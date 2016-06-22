@@ -12,7 +12,7 @@
 //#include "MapSectorAbstraction.h"
 //#include "DirectionalPlanner.h"
 #include "ScenarioLoader.h"
-#include "AirplaneSimple.h"
+//#include "AirplaneSimple.h"
 #include "AirplaneConstrained.h"
 #include "AirplaneCBSUnits.h"
 
@@ -117,58 +117,58 @@ void MyWindowHandler(unsigned long windowID, tWindowEventType eType)
 	}
 }
 
-
-AirplaneEnvironment *ae = 0;
 AirplaneConstrainedEnvironment *ace = 0;
-UnitSimulation<airplaneState, airplaneAction, AirplaneEnvironment> *sim = 0;
+UnitSimulation<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *sim = 0;
 AirCBSGroup* group = 0;
 AirCBSUnit* u1 = 0;
 AirCBSUnit* u2 = 0;
-airplaneState s1, s2, s3, s4, g1, g2, s11, s12, s21, s22;
-std::vector<airplaneAction> acts;
-airplaneAction a;
+airtimeState s1, s2, g1, g2;
 
 
 void InitSim(){
 	//ae = new AirplaneSimpleEnvironment();
-	ae = new AirplaneEnvironment();
+	ace = new AirplaneConstrainedEnvironment();
 
-	sim = new UnitSimulation<airplaneState, airplaneAction, AirplaneEnvironment>(ae);
+	sim = new UnitSimulation<airtimeState, airplaneAction, AirplaneConstrainedEnvironment>(ace);
 	sim->SetStepType(kLockStep);
-	group = new AirCBSGroup(ae);
+	group = new AirCBSGroup(ace);
 	
 	sim->AddUnitGroup(group);
 	
-	s1.x = 30;
-	s1.y = 40;
-	s1.height = 26;
-	s1.heading = 0;
-	s1.speed = 1;
+	s1.l.x = 30;
+	s1.l.y = 40;
+	s1.l.height = 26;
+	s1.l.heading = 0;
+	s1.l.speed = 1;
+	s1.t = 0;
 
-	g1.x = 77;
-	g1.y = 18;
-	g1.height = 14;
-	g1.heading = 0;
-	g1.speed = 1;
+	g1.l.x = 77;
+	g1.l.y = 18;
+	g1.l.height = 14;
+	g1.l.heading = 0;
+	g1.l.speed = 1;
+	g1.t = 0;
 
 	u1 = new AirCBSUnit(s1, g1);
 	u1->SetColor(1.0, 0.0, 0.0);
 
-	std::cout << "Set unit goal from " << s1 << " to " << g1 << " rough heading: " << (unsigned)s1.headingTo(g1) << std::endl;
+	std::cout << "Set unit goal from " << s1 << " to " << g1 << " rough heading: " << (unsigned)s1.l.headingTo(g1.l) << std::endl;
 
-	s2.x = 8;
-	s2.y = 2;
-	s2.height = 26;
-	s2.heading = 3;
-	s2.speed = 1;
+	s2.l.x = 8;
+	s2.l.y = 2;
+	s2.l.height = 26;
+	s2.l.heading = 3;
+	s2.l.speed = 1;
+	s2.t = 0;
 
-	g2.x = 76;
-	g2.y = 58;
-	g2.height = 14;
-	g2.heading = 5;
-	g2.speed = 1;
+	g2.l.x = 76;
+	g2.l.y = 58;
+	g2.l.height = 14;
+	g2.l.heading = 5;
+	g2.l.speed = 1;
+	g2.t = 0;
 
-	std::cout << "Set unit goal from " << s2 << " to " << g2 << " rough heading: " << (unsigned)s2.headingTo(g2) << std::endl;
+	std::cout << "Set unit goal from " << s2 << " to " << g2 << " rough heading: " << (unsigned)s2.l.headingTo(g2.l) << std::endl;
 
 	u2 = new AirCBSUnit(s2, g2);
 	u2->SetColor(1.0, 0.0, 0.0);
@@ -186,8 +186,8 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 {
 
 	
-	if (ae)
-		ae->OpenGLDraw();
+	if (ace)
+		ace->OpenGLDraw();
 	//if (group)
 	//	group->OpenGLDraw(ae, sim);
 	if (sim)
@@ -395,12 +395,6 @@ void MyDisplayHandler(unsigned long windowID, tKeyboardModifier mod, char key)
 			break;
 		case 'p': break;//unitSims[windowID]->SetPaused(!unitSims[windowID]->GetPaused()); break;
 		case 'o':
-			std::cout << "Hello world" << std::endl;
-			sim->StepTime(1.00);
-			u1->GetLocation(b);
-			std::cout << "U1 Location: " << b << std::endl;
-			u2->GetLocation(b);
-			std::cout << "U2 Location: " << b << std::endl;
 //			if (unitSims[windowID]->GetPaused())
 //			{
 //				unitSims[windowID]->SetPaused(false);

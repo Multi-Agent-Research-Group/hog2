@@ -37,42 +37,27 @@ static std::ostream& operator <<(std::ostream & out, const airtimeState &loc)
 bool operator==(const airtimeState &l1, const airtimeState &l2);
 
 
+
 /**
- * The airConstraint struct holds information about a state and direction
- * which allows us to check for collisions in the environment.
+ * The airConstraint struct holds information about a single action
+ * which allows us to check for collisions in the environment. We know that
+ * each one describes a box between two states.
  */
+struct airConstraint 
+{
+	airConstraint() {}
+	airConstraint(airtimeState s1) : start_state(s1), end_state(s1) {}
+	airConstraint(airtimeState s1, airtimeState s2) : start_state(s1), end_state(s2) {}
 
-struct airConstrint;
+	airtimeState start_state;
+	airtimeState end_state;
 
-struct cylConstraint {
-	cylConstraint(airtimeState l1, airtimeState l2, float r) : loc1(l1), loc2(l2), radius(r) {}
-	cylConstraint(airtimeState l1) : loc1(l1), loc2(l1), radius(5.0f) {}
-	cylConstraint(airtimeState l1, float r) : loc1(l1), loc2(l1), radius(r) {}
-	airtimeState loc1;
-	airtimeState loc2;
-	float radius;
-
-	bool ViolatesConstraint(const airtimeState &loc, const airtimeState &endLoc) const;
-	bool ViolatesEdgeConstraint(const airtimeState &startingLoc, const airtimeState &endLoc, const airplaneAction &action) const;
-	void OpenGLDraw() const {};
+	bool ConflictsWith(const airtimeState &state) const;
+	bool ConflictsWith(const airtimeState &from, const airtimeState &to) const;
+	bool ConflictsWith(const airConstraint &x) const;
+	void OpenGLDraw() const {}
 };
 
-struct airConstraint {
-	airConstraint() : radius(5.0f) {}
-	airConstraint(float r) : radius(r) {}
-	airConstraint(airtimeState l1);
-	airConstraint(airtimeState l1, float r);
-	airConstraint(airtimeState l1, airtimeState l2, float r);
-	airConstraint(airtimeState l1, airtimeState l2, airplaneAction, float r);
-
-	std::vector<cylConstraint> ics;
-	float radius;
-
-	bool ViolatesConstraint(const airtimeState &loc, const airtimeState &endLoc) const;
-	bool ViolatesEdgeConstraint(const airtimeState &startingLoc,const airtimeState &endLoc, const airplaneAction &action) const;
-	void OpenGLDraw() const;
-	static constexpr float POINT_DISTANCE_MARGIN = 5.0f; // Set the minimum distance between two units to be 5m
-};
 	
 
 /**
@@ -83,7 +68,7 @@ struct airConstraint {
 class AirplaneConstrainedEnvironment : public SearchEnvironment<airtimeState, airplaneAction>
 {
 public:
-
+ 
 	/// CONSTRUCTORS
 
 	/** Construct a random-ground airplane environment which forms the backbone of the model */
@@ -95,10 +80,8 @@ public:
 	
 	/** Add a constraint to the model */
 	void AddConstraint(airConstraint c);
-	void AddPointConstraint(airtimeState loc);
-	void AddSphereConstraint(airtimeState loc, float rad);
-	void AddCylConstraint(airtimeState loc1, airtimeState loc2, float rad);
-	void AddArcConstraint(airtimeState loc1, airtimeState loc2, float rad);
+	void AddPointConstraint(const airtimeState &loc);
+	void AddBoxConstraint(const airtimeState &loc1, const airtimeState &loc2);
 	/** Clear the constraints */
 	void ClearConstraints();
 
@@ -159,6 +142,7 @@ private:
 	
 	/** Checks to see if any constraint is violated */
 	bool ViolatesConstraint(const airplaneState &from, const airplaneState &to, int time) const;
+	bool ViolatesConstraint(const airtimeState &from, const airtimeState &to) const;
 
 	/** Vector holding the current constraints */
 	std::vector<airConstraint> constraints;
