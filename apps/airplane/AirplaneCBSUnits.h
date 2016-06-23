@@ -10,7 +10,7 @@
 #define __hog2_glut__AirplaneCBSUnits__
 
 #include <iostream>
-#include <limits>
+#include <limits> 
 #include <algorithm>
 #include "Unit.h"
 #include "UnitGroup.h"
@@ -19,26 +19,26 @@
 #include "TemplateAStar.h"
 #include "BFS.h"
 
-class AirCBSUnit : public Unit<airplaneState, airplaneAction, AirplaneEnvironment> {
+class AirCBSUnit : public Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> {
 public:
-	AirCBSUnit(const airplaneState &s, const airplaneState &g)
+	AirCBSUnit(const airtimeState &s, const airtimeState &g)
 	:start(s), goal(g), current(s) {}
 	const char *GetName() { return "AirCBSUnit"; }
-	bool MakeMove(AirplaneEnvironment *, OccupancyInterface<airplaneState,airplaneAction> *, 
-				  SimulationInfo<airplaneState,airplaneAction,AirplaneEnvironment> *, airplaneAction& a);
-	void UpdateLocation(AirplaneEnvironment *, airplaneState &newLoc, bool success, 
-						SimulationInfo<airplaneState,airplaneAction,AirplaneEnvironment> *)
+	bool MakeMove(AirplaneConstrainedEnvironment *, OccupancyInterface<airtimeState,airplaneAction> *, 
+				  SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *, airplaneAction& a);
+	void UpdateLocation(AirplaneConstrainedEnvironment *, airtimeState &newLoc, bool success, 
+						SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *)
 	{ if (success) current = newLoc; else assert(!"CBS Unit: Movement failed"); }
 	
-	void GetLocation(airplaneState &l) { l = current; }
-	void OpenGLDraw(const AirplaneEnvironment *, const SimulationInfo<airplaneState,airplaneAction,AirplaneEnvironment> *) const;
-	void GetGoal(airplaneState &s) { s = goal; }
-	void GetStart(airplaneState &s) { s = start; }
-	void SetPath(std::vector<airplaneState> &p);
+	void GetLocation(airtimeState &l) { l = current; }
+	void OpenGLDraw(const AirplaneConstrainedEnvironment *, const SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *) const;
+	void GetGoal(airtimeState &s) { s = goal; }
+	void GetStart(airtimeState &s) { s = start; }
+	void SetPath(std::vector<airtimeState> &p);
 
 private:
-	airplaneState start, goal, current;
-	std::vector<airplaneState> myPath;
+	airtimeState start, goal, current;
+	std::vector<airtimeState> myPath;
 };
 
 struct airConflict {
@@ -48,24 +48,23 @@ struct airConflict {
 
 struct AirCBSTreeNode {
 	AirCBSTreeNode() { closed = false; satisfiable = true;}
-	std::vector< std::vector<airplaneState> > paths;
+	std::vector< std::vector<airtimeState> > paths;
 	airConflict con;
 	unsigned int parent;
 	bool closed;
 	bool satisfiable;
 };
 
-class AirCBSGroup : public UnitGroup<airplaneState, airplaneAction, AirplaneEnvironment>
+class AirCBSGroup : public UnitGroup<airtimeState, airplaneAction, AirplaneConstrainedEnvironment>
 {
 public:
-	AirCBSGroup(AirplaneEnvironment *me);
-	std::vector<bool> MakeMoveAllUnits(AirplaneEnvironment *e, SimulationInfo<airplaneState, airplaneAction, AirplaneEnvironment> *si, std::vector<airplaneAction> &a);
-	bool MakeMove(Unit<airplaneState, airplaneAction, AirplaneEnvironment> *u, AirplaneEnvironment *e, 
-				  SimulationInfo<airplaneState,airplaneAction,AirplaneEnvironment> *si, airplaneAction& a);
-	void UpdateLocation(Unit<airplaneState, airplaneAction, AirplaneEnvironment> *u, AirplaneEnvironment *e, 
-						airplaneState &loc, bool success, SimulationInfo<airplaneState,airplaneAction,AirplaneEnvironment> *si);
-	void AddUnit(Unit<airplaneState, airplaneAction, AirplaneEnvironment> *u);
-	void OpenGLDraw(const AirplaneEnvironment *, const SimulationInfo<airplaneState,airplaneAction,AirplaneEnvironment> *)  const;
+	AirCBSGroup(AirplaneConstrainedEnvironment *me);
+	bool MakeMove(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u, AirplaneConstrainedEnvironment *e, 
+				  SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *si, airplaneAction& a);
+	void UpdateLocation(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u, AirplaneConstrainedEnvironment *e, 
+						airtimeState &loc, bool success, SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *si);
+	void AddUnit(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u);
+	void OpenGLDraw(const AirplaneConstrainedEnvironment *, const SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *)  const;
 	double getTime() {return time;}
 	void incrementTime() {time += 1;}
 	bool donePlanning() {return planFinished;}
@@ -75,13 +74,12 @@ private:
 	bool FindFirstConflict(int location, airConflict &c1, airConflict &c2);
 	
 	bool planFinished;
-	AirplaneConstrainedEnvironment *a2e;
-	AirplaneEnvironment *ae;
+	AirplaneConstrainedEnvironment *ae;
+
 	std::vector<AirCBSTreeNode> tree;
 	std::vector<airtimeState> thePath;
 	TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> astar;
-	TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> anostar;
-	BFS<airplaneState, airplaneAction> bfs;
+
 	double time;
 	unsigned int bestNode;
 };
