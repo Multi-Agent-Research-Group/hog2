@@ -145,7 +145,7 @@ bool testConstraints() {
 					airplaneState s1(10,10,10,j,i);
 					airtimeState st1(s1, 1.0f);
 
-					airplaneAction a1(k, 1, 0);
+					airplaneAction a1(k, 0, 0);
 					
 					airtimeState st2(s1, 1.0f);
 					ace.ApplyAction(st2, a1);
@@ -187,7 +187,7 @@ bool testConstraints() {
 					airplaneState s1(10,10,10,j,i);
 					airtimeState st1(s1, 1.0f);
 
-					airplaneAction a1(k, 1, 1);
+					airplaneAction a1(k, 0, 1);
 					
 					airtimeState st2(s1, 1.0f);
 					ace.ApplyAction(st2, a1);
