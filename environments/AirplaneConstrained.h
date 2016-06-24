@@ -18,7 +18,7 @@
  * a given time, so we can check constraints
  */
 struct airtimeState {
-	airtimeState(airplaneState loc, int time) :l(loc), t(time) {}
+	airtimeState(airplaneState loc, float time) :l(loc), t(time) {}
 	airtimeState() :l(airplaneState()), t(0) {}
 	airplaneState l;
 	float t;
@@ -141,6 +141,7 @@ public:
 	virtual void GLDrawPath(const std::vector<airtimeState> &p) const;
 	
 	/// UTILS
+	uint8_t GetSpeeds(){return ae->numSpeeds;}
 private:
 	
 	/** Checks to see if any constraint is violated */

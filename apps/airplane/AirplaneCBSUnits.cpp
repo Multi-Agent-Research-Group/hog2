@@ -262,7 +262,7 @@ bool AirCBSGroup::FindFirstConflict(int location, airConflict &c1, airConflict &
 
 				// Check the point constraints
 				airConstraint x_c(tree[location].paths[x][xTime]);
-				airConstraint y_c(tree[location].paths[x][yTime]);
+				airConstraint y_c(tree[location].paths[y][yTime]);
 
 				if (x_c.ConflictsWith(y_c))
 				{
