@@ -37,7 +37,7 @@ public:
 /** Output the information in an airplane action */
 static std::ostream& operator <<(std::ostream & out, const airplaneAction &act)
 {
-	out << "(turn:" << signed(act.turn) << ", speed:" << signed(act.speed) << ", heading: " << signed(act.height) << ")";
+	out << "(turn:" << signed(act.turn) << ", speed:" << signed(act.speed) << ", height: " << signed(act.height) << ")";
 	return out;
 }
 

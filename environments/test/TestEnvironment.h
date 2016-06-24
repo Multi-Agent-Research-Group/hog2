@@ -94,6 +94,34 @@ bool testConstraints() {
 		std::cout << ".";
 	}
 
+	// Don't conflict if times do not overlap
+	{
+		airplaneState s1(10,10,10,0,0);
+		airtimeState st1(s1, 1.0f);
+		airtimeState st2(s1, 2.0f);
+		airConstraint c(st1);
+
+		assert(!c.ConflictsWith(st2));
+
+		// Should not conflict with this
+		assert(!c.ConflictsWith(CO));
+
+		std::cout << ".";
+	}
+
+	// another case..
+	{
+		airplaneState s1(32,40,14,1,6);
+		airplaneState s2(31,41,14,2,6);
+		airtimeState st1(s1, 0.0f);
+		airtimeState st2(s1, 0.204465f);
+		airConstraint c(st1);
+
+		assert(!c.ConflictsWith(st2));
+
+		std::cout << ".";
+	}
+
 	// Check simple straight conflict
 	{
 		// Check over all speeds

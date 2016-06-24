@@ -47,13 +47,19 @@ struct airConflict {
 };
 
 struct AirCBSTreeNode {
-	AirCBSTreeNode() { closed = false; satisfiable = true;}
+	AirCBSTreeNode():parent(0),closed(false),satisfiable(true){}
 	std::vector< std::vector<airtimeState> > paths;
 	airConflict con;
 	unsigned int parent;
 	bool closed;
 	bool satisfiable;
 };
+
+static std::ostream& operator <<(std::ostream & out, const AirCBSTreeNode &act)
+{
+	out << "(paths:"<<act.paths.size()<<", parent:"<<act.parent<<", closed:"<<act.closed<<", satisfiable::"<<act.satisfiable<<")";
+	return out;
+}
 
 class AirCBSGroup : public UnitGroup<airtimeState, airplaneAction, AirplaneConstrainedEnvironment>
 {

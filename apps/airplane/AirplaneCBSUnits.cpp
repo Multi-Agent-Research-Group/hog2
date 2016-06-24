@@ -108,15 +108,17 @@ void AirCBSGroup::ExpandOneCBSNode()
 	unsigned long last = tree.size();
 	tree.resize(last+2);
 	
-	// The fist node contains the conflict c1
+	// The first node contains the conflict c1
 	tree[last] = tree[bestNode];
 	tree[last].con = c1;
 	tree[last].parent = bestNode;
+	tree[last].satisfiable = true;
 
 	// The second node constains the conflict c2
 	tree[last+1] = tree[bestNode];
 	tree[last+1].con = c2;
 	tree[last+1].parent = bestNode;
+	tree[last+1].satisfiable = true;
 	
 	// We set the best-node to closed, as we have already expanded it
 	tree[bestNode].closed = true;
@@ -133,11 +135,13 @@ void AirCBSGroup::ExpandOneCBSNode()
 	double cost = 0;
 	for (unsigned int x = 0; x < tree.size(); x++)
 	{
+                //std::cout << "Checking: " << tree[x] << "\n";
 		if (tree[x].closed || !tree[x].satisfiable)
 			continue;
 		cost = 0;
 		for (int y = 0; y < tree[x].paths.size(); y++)
 			cost += ae->GetPathLength(tree[x].paths[y]);
+//std::cout << "Node " << x << " COST " << cost << "\n";
 		if (cost < bestCost)
 		{
 			bestNode = x;
@@ -145,7 +149,7 @@ void AirCBSGroup::ExpandOneCBSNode()
 		}
 	}
 
-	std::cout << "New best node " << bestNode << std::endl;
+	std::cout << "New best node " << bestNode << " out of " << tree.size() << " nodes" << std::endl;
 	for (unsigned int x = 0; x < tree[bestNode].paths.size(); x++)
 	{
 		AirCBSUnit *unit = (AirCBSUnit*) GetMember(x);
@@ -204,13 +208,17 @@ void AirCBSGroup::Replan(int location)
 	// Add all of the constraints in the parents of the current
 	// node to the environment
 	int tempLocation = location;
-	while (tempLocation != 0)
+	
+        do
 	{
 		if (theUnit == tree[tempLocation].con.unit1)
-			ae->AddConstraint(tree[tempLocation].con.c);
+                {
+                  ae->AddConstraint(tree[tempLocation].con.c);
+                  std::cout << "Add Constraint: " << tree[tempLocation].con.c << "\n";
+                }
 		tempLocation = tree[tempLocation].parent;
 		//TODO: Find constraints on the goals of the agents (need heading and time)
-	}
+	}while (tempLocation != 0);
 
 	// Select the air unit from the group
 	AirCBSUnit *c = (AirCBSUnit*)GetMember(theUnit);

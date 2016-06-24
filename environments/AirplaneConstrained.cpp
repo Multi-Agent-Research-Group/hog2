@@ -82,7 +82,12 @@ void AirplaneConstrainedEnvironment::GetSuccessors(const airtimeState &nodeID, s
 
 		// Check to see if it violates any constraint. If it does not, push it back.
 		if (!ViolatesConstraint(nodeID, new_state))
+                {
+                        //std::cout << "Adding state\n";
 			neighbors.push_back(new_state);
+                }
+                else
+                        std::cout << "VIOLATION: " << act << "," << new_state << "vs" << nodeID << "\n";
 	}
 }
 void AirplaneConstrainedEnvironment::ApplyAction(airtimeState &s, airplaneAction a) const
@@ -401,53 +406,18 @@ bool AirplaneConstrainedEnvironment::ViolatesConstraint(const airplaneState &fro
 // Basically the same code as above, but overloaded so the first section is not necessary
 bool AirplaneConstrainedEnvironment::ViolatesConstraint(const airtimeState &from, const airtimeState &to) const
 {
-	// Generate a well formed set of boxes for the action box
-	// which we will need later to compare
-	int a_minx = min(from.l.x, to.l.x);
-	int a_maxx = max(from.l.x, to.l.x);
-
-	int a_miny = min(from.l.y, to.l.y);
-	int a_maxy = max(from.l.y, to.l.y);
-
-	int a_minz = min(from.l.height, to.l.height);
-	int a_maxz = max(from.l.height, to.l.height);
-
-	// Allocate some temp variables
-	int c_minx, c_maxx, c_miny, c_maxy, c_minz, c_maxz;
-	
 	//Check if the action box violates any of the constraints that are in the constraints list
 	for (airConstraint c : constraints)
 	{
 		// Check if the range of the constraint overlaps in time
 		if (max(c.start_state.t, from.t) <= min(c.end_state.t, to.t) + 0.00001) 
 		{
-			// Each constraint defines an x, y, z box with corners on the state locations. We 
-			// need to check if they overlap at any point. We do this using the separating 
-			// axis theorem. Note that all of our boxes are non-rotated, and thus, should never have
-			// to worry about non-axis aligned planes of separation. Thus, we check to see if there is 
-			// a separating plane on the X axis, Y axis and Z axis, and if no such plane exists, then
-			// the boxes must intersect.
-			
-			// Generate a well formed set of boxes for the constraint box
-			c_minx = min(c.start_state.l.x, c.end_state.l.x);
-			c_maxx = max(c.start_state.l.x, c.end_state.l.x);
+                        // Vertex collision
+                        if(c.end_state.l.x == to.l.x && c.end_state.l.y == to.l.y && c.end_state.l.height == to.l.height) return true;
 
-			c_miny = min(c.start_state.l.y, c.end_state.l.y);
-			c_maxy = max(c.start_state.l.y, c.end_state.l.y);
-
-			c_minz = min(c.start_state.l.height, c.end_state.l.height);
-			c_maxz = max(c.start_state.l.height, c.end_state.l.height);
-
-			
-			if (max(c_minx, a_minx) <= min(c_maxx, a_maxx) && // Check if overlapping on the X axis
-				max(c_miny, a_miny) <= min(c_maxy, a_maxy) && // Check if overlapping on the Y axis
-				max(c_minz, a_minz) <= min(c_maxz, a_maxz)    // Check if overlapping on the Z axis
-				)
-			{
-				// If we overlap on all three axis, then there must be a common point, and thus
-				// we can return that the constraint was violated
-				return true;
-			}
+                        // Edge collision
+                        if((c.end_state.l.x == from.l.x && c.end_state.l.y == from.l.y && c.end_state.l.height == from.l.height) && (c.start_state.l.x == to.l.x && c.start_state.l.y == to.l.y && c.start_state.l.height == to.l.height)) return true;
+                        
 		}
 	}
 

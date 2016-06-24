@@ -146,7 +146,7 @@ void InitSim(){
 
 	g1.l.x = 77;
 	g1.l.y = 18;
-	g1.l.x = 31;
+	g1.l.x = 34;
 	g1.l.y = 40;
 	g1.l.height = 14;
 	g1.l.heading = 0;
@@ -161,7 +161,7 @@ void InitSim(){
 
 	s2.l.x = 8;
 	s2.l.y = 2;
-	s2.l.x = 31;
+	s2.l.x = 34;
 	s2.l.y = 40;
 	s2.l.height = 26;
 	s2.l.height = 14;
