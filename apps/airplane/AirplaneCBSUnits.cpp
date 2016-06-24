@@ -102,6 +102,7 @@ void AirCBSGroup::ExpandOneCBSNode()
 		}
 		return;
 	}
+        std::cout << "Conflict found @time: "<<c2.c.start_state.t << std::endl;
 	
 	// Otherwise, we add two nodes to the tree for each of the children
 	unsigned long last = tree.size();
@@ -248,8 +249,9 @@ bool AirCBSGroup::FindFirstConflict(int location, airConflict &c1, airConflict &
 			// each bit to see if a constraint is violated
 			int xmax = tree[location].paths[x].size();
 			int ymax = tree[location].paths[y].size();
+std::cout << "Checking for conflicts between: "<<x << " and "<<y<<" ranging from:" << xmax <<"," << ymax <<"\n";
 
-			for (int i = 0, j = 0; j > ymax && i > xmax;) // If we've reached the end of one of the paths, then time is up and 
+			for (int i = 0, j = 0; j < ymax && i < xmax;) // If we've reached the end of one of the paths, then time is up and 
 															// no more conflicts could occur
 			{
 				// I and J hold the current step in the path we are comparing. We need 
@@ -258,11 +260,12 @@ bool AirCBSGroup::FindFirstConflict(int location, airConflict &c1, airConflict &
 				
 				// Figure out which indices we're comparing
 				int xTime = max(0, min(i, xmax-1));
-				int yTime = max(0, min(j, xmax-1));
+				int yTime = max(0, min(j, ymax-1));
+std::cout << "Checking for conflict at: "<<xTime << ","<<yTime<<"\n";
 
 				// Check the point constraints
 				airConstraint x_c(tree[location].paths[x][xTime]);
-				airConstraint y_c(tree[location].paths[y][yTime]);
+				airtimeState y_c=tree[location].paths[y][yTime];
 
 				if (x_c.ConflictsWith(y_c))
 				{
@@ -272,10 +275,12 @@ bool AirCBSGroup::FindFirstConflict(int location, airConflict &c1, airConflict &
 					c1.unit1 = x;
 					c2.unit1 = y;
 
+std::cout << "Found vertex conflict\n";
 					return true;
 				}
 
 				// Check the edge constraints
+{
 				airConstraint x_e_c(tree[location].paths[x][xTime], tree[location].paths[x][min(xmax-1, xTime+1)]);
 				airConstraint y_e_c(tree[location].paths[y][yTime], tree[location].paths[y][min(ymax-1, yTime+1)]);
 
@@ -287,8 +292,11 @@ bool AirCBSGroup::FindFirstConflict(int location, airConflict &c1, airConflict &
 					c1.unit1 = x;
 					c2.unit1 = y;
 
+std::cout << "Found edge conflict\n";
 					return true;
 				}
+}
+
 
 				// Increment the counters
 				

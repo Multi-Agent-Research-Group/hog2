@@ -7,6 +7,7 @@
 //
 
 #include "AirplaneConstrained.h"
+#include <iostream>
  
 /////////////////////////////// PUBLIC ////////////////////////////////////////////////////
 
@@ -90,7 +91,7 @@ void AirplaneConstrainedEnvironment::ApplyAction(airtimeState &s, airplaneAction
 	ae->ApplyAction(s.l, a);
         // Calculate how long it will take to move 3 meters (or the diagonal thereof) at speed
         static double speedRange(ae->maxSpeed-ae->minSpeed);
-        double factor(ae->gridSize/(ae->minSpeed+double(ae->numSpeeds-1)*speedRange/double(ae->numSpeeds-1)));
+        double factor(ae->gridSize/(ae->minSpeed+double(s.l.speed-1)*speedRange/double(ae->numSpeeds-1)));
         // Compute time increase based on speed...
         // if speed is more than cruise speed, we arrive sooner, later if speed is less.
 	s.t += (abs(a.turn)%2?M_SQRT2:1.0)*factor;
@@ -100,7 +101,7 @@ void AirplaneConstrainedEnvironment::UndoAction(airtimeState &s, airplaneAction 
 	// Undo the action on the hidden AW
 	ae->UndoAction(s.l, a);
         static double speedRange(ae->maxSpeed-ae->minSpeed);
-        double factor(ae->gridSize/(ae->minSpeed+double(ae->numSpeeds-1)*speedRange/double(ae->numSpeeds-1)));
+        double factor(ae->gridSize/(ae->minSpeed+double(s.l.speed-1)*speedRange/double(ae->numSpeeds-1)));
 	s.t -= (abs(a.turn)%2?M_SQRT2:1.0)*factor;
 }
 airplaneAction AirplaneConstrainedEnvironment::GetAction(const airtimeState &node1, const airtimeState &node2) const 
@@ -113,7 +114,7 @@ void AirplaneConstrainedEnvironment::GetNextState(const airtimeState &currents, 
 	// Get the next location from the owned AE and then increase the time by 1
 	ae->GetNextState(currents.l, dir, news.l);
         static double speedRange(ae->maxSpeed-ae->minSpeed);
-        double factor(ae->gridSize/(ae->minSpeed+double(ae->numSpeeds-1)*speedRange/double(ae->numSpeeds-1)));
+        double factor(ae->gridSize/(ae->minSpeed+double(currents.l.speed-1)*speedRange/double(ae->numSpeeds-1)));
 	news.t = currents.t + (abs(dir.turn)%2?M_SQRT2:1.0)*factor;
 }
 // Invert action defined in the header
@@ -128,9 +129,10 @@ void AirplaneConstrainedEnvironment::GetNextState(const airtimeState &currents, 
 /** Heuristic value between two arbitrary nodes. **/
 double AirplaneConstrainedEnvironment::HCost(const airtimeState &node1, const airtimeState &node2) const
 {
-	double res1 = this->ae->HCost(node1.l, node2.l);
-	double res2 = (node2.t>node1.t)?(node2.t-node1.t):0;
-	return max(res1, res2);
+	//double res1 = this->ae->HCost(node1.l, node2.l);
+	//double res2 = (node2.t>node1.t)?(node2.t-node1.t):0;
+	//return max(res1, res2);
+        return this->ae->HCost(node1.l, node2.l);
 }
 // No single cost H-Cost
 // G-Cost defined in the header
@@ -243,81 +245,83 @@ void AirplaneConstrainedEnvironment::GLDrawPath(const std::vector<airtimeState> 
 
 bool airConstraint::ConflictsWith(const airtimeState &state) const
 {
+std::cout << "VERTEX"<<*this << "ConflictsWith" << state << "...\n";
 	if (state.t >= start_state.t - 0.00001 && state.t <= end_state.t + 0.00001)
-		{
-			// Each constraint defines an x, y, z box with corners on the state locations. We 
-			// need to check if they overlap at any point. We do this using the separating 
-			// axis theorem. Note that all of our boxes are non-rotated, and thus, should never have
-			// to worry about non-axis aligned planes of separation. Thus, we check to see if there is 
-			// a separating plane on the X axis, Y axis and Z axis, and if no such plane exists, then
-			// the boxes must intersect.
-			
-			// Generate a well formed set of boxes for the constraint box
-			int c_minx = min(start_state.l.x, end_state.l.x);
-			int c_maxx = max(start_state.l.x, end_state.l.x);
+        {
+                // Each constraint defines an x, y, z box with corners on the state locations. We 
+                // need to check if they overlap at any point. We do this using the separating 
+                // axis theorem. Note that all of our boxes are non-rotated, and thus, should never have
+                // to worry about non-axis aligned planes of separation. Thus, we check to see if there is 
+                // a separating plane on the X axis, Y axis and Z axis, and if no such plane exists, then
+                // the boxes must intersect.
+                
+                // Generate a well formed set of boxes for the constraint box
+                int c_minx = min(start_state.l.x, end_state.l.x);
+                int c_maxx = max(start_state.l.x, end_state.l.x);
 
-			int c_miny = min(start_state.l.y, end_state.l.y);
-			int c_maxy = max(start_state.l.y, end_state.l.y);
+                int c_miny = min(start_state.l.y, end_state.l.y);
+                int c_maxy = max(start_state.l.y, end_state.l.y);
 
-			int c_minz = min(start_state.l.height, end_state.l.height);
-			int c_maxz = max(start_state.l.height, end_state.l.height);
+                int c_minz = min(start_state.l.height, end_state.l.height);
+                int c_maxz = max(start_state.l.height, end_state.l.height);
 
-			
-			if (state.l.x >= c_minx && state.l.x <= c_maxx && // Check if overlapping on the X axis
-				state.l.y >= c_miny && state.l.y <= c_maxy && // Check if overlapping on the Y axis
-				state.l.height >= c_minz && state.l.height <= c_maxz // Check if overlapping on the Z axis
-				)
-			{
-				// If we overlap on all three axis, then there must be a common point, and thus
-				// we can return that the constraint was violated
-				return true;
-			}
-		}
-	return false;
+                
+                if (state.l.x >= c_minx && state.l.x <= c_maxx && // Check if overlapping on the X axis
+                        state.l.y >= c_miny && state.l.y <= c_maxy && // Check if overlapping on the Y axis
+                        state.l.height >= c_minz && state.l.height <= c_maxz // Check if overlapping on the Z axis
+                        )
+                {
+                        // If we overlap on all three axis, then there must be a common point, and thus
+                        // we can return that the constraint was violated
+                        return true;
+                }
+        }
+return false;
 }
 
 bool airConstraint::ConflictsWith(const airtimeState &from, const airtimeState &to) const
 {
-	if (max(start_state.t, from.t) <= min(end_state.t, to.t) + 0.00001) 
-		{
-			// Each constraint defines an x, y, z box with corners on the state locations. We 
-			// need to check if they overlap at any point. We do this using the separating 
-			// axis theorem. Note that all of our boxes are non-rotated, and thus, should never have
-			// to worry about non-axis aligned planes of separation. Thus, we check to see if there is 
-			// a separating plane on the X axis, Y axis and Z axis, and if no such plane exists, then
-			// the boxes must intersect.
-			
-			// Generate a well formed set of boxes for the action box
-			int a_minx = min(from.l.x, to.l.x);
-			int a_maxx = max(from.l.x, to.l.x);
+std::cout << "EDGE" <<*this << " ConflictsWith from" << from << "to"<<to<< "...\n";
+        if (max(start_state.t, from.t) <= min(end_state.t, to.t) + 0.00001) 
+        {
+                // Each constraint defines an x, y, z box with corners on the state locations. We 
+                // need to check if they overlap at any point. We do this using the separating 
+                // axis theorem. Note that all of our boxes are non-rotated, and thus, should never have
+                // to worry about non-axis aligned planes of separation. Thus, we check to see if there is 
+                // a separating plane on the X axis, Y axis and Z axis, and if no such plane exists, then
+                // the boxes must intersect.
+                
+                // Generate a well formed set of boxes for the action box
+                int a_minx = min(from.l.x, to.l.x);
+                int a_maxx = max(from.l.x, to.l.x);
 
-			int a_miny = min(from.l.y, to.l.y);
-			int a_maxy = max(from.l.y, to.l.y);
+                int a_miny = min(from.l.y, to.l.y);
+                int a_maxy = max(from.l.y, to.l.y);
 
-			int a_minz = min(from.l.height, to.l.height);
-			int a_maxz = max(from.l.height, to.l.height);
-			
-			// Generate a well formed set of boxes for the constraint box
-			int c_minx = min(start_state.l.x, end_state.l.x);
-			int c_maxx = max(start_state.l.x, end_state.l.x);
+                int a_minz = min(from.l.height, to.l.height);
+                int a_maxz = max(from.l.height, to.l.height);
+                
+                // Generate a well formed set of boxes for the constraint box
+                int c_minx = min(start_state.l.x, end_state.l.x);
+                int c_maxx = max(start_state.l.x, end_state.l.x);
 
-			int c_miny = min(start_state.l.y, end_state.l.y);
-			int c_maxy = max(start_state.l.y, end_state.l.y);
+                int c_miny = min(start_state.l.y, end_state.l.y);
+                int c_maxy = max(start_state.l.y, end_state.l.y);
 
-			int c_minz = min(start_state.l.height, end_state.l.height);
-			int c_maxz = max(start_state.l.height, end_state.l.height);
+                int c_minz = min(start_state.l.height, end_state.l.height);
+                int c_maxz = max(start_state.l.height, end_state.l.height);
 
-			
-			if (max(c_minx, a_minx) <= min(c_maxx, a_maxx) && // Check if overlapping on the X axis
-				max(c_miny, a_miny) <= min(c_maxy, a_maxy) && // Check if overlapping on the Y axis
-				max(c_minz, a_minz) <= min(c_maxz, a_maxz)    // Check if overlapping on the Z axis
-				)
-			{
-				// If we overlap on all three axis, then there must be a common point, and thus
-				// we can return that the constraint was violated
-				return true;
-			}
-		}
+                
+                if (max(c_minx, a_minx) <= min(c_maxx, a_maxx) && // Check if overlapping on the X axis
+                        max(c_miny, a_miny) <= min(c_maxy, a_maxy) && // Check if overlapping on the Y axis
+                        max(c_minz, a_minz) <= min(c_maxz, a_maxz)    // Check if overlapping on the Z axis
+                        )
+                {
+                        // If we overlap on all three axis, then there must be a common point, and thus
+                        // we can return that the constraint was violated
+                        return true;
+                }
+        }
 	return false;
 }
 
@@ -336,7 +340,9 @@ bool AirplaneConstrainedEnvironment::ViolatesConstraint(const airplaneState &fro
 	airtimeState fromtimestate(from, time);
 	airtimeState totimestate(from, time);
 	this->ApplyAction(totimestate, act);
+        return ViolatesConstraint(fromtimestate,totimestate);
 
+/*
 	// Generate a well formed set of boxes for the action box
 	// which we will need later to compare
 	int a_minx = min(fromtimestate.l.x, totimestate.l.x);
@@ -389,6 +395,7 @@ bool AirplaneConstrainedEnvironment::ViolatesConstraint(const airplaneState &fro
 
 	// If no constraint is violated, return false
 	return false;
+*/
 }
 
 // Basically the same code as above, but overloaded so the first section is not necessary

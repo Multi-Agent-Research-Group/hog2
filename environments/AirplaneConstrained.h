@@ -61,6 +61,12 @@ struct airConstraint
 	}
 };
 
+static std::ostream& operator <<(std::ostream & out, const airConstraint &loc)
+{
+	out << "[start: " << loc.start_state << ", end: " << loc.end_state << "]";
+	return out;
+}
+
 	
 
 /**

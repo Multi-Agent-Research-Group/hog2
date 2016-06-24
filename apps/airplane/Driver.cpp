@@ -138,14 +138,19 @@ void InitSim(){
 	s1.l.x = 30;
 	s1.l.y = 40;
 	s1.l.height = 26;
+	s1.l.height = 14;
 	s1.l.heading = 0;
+	s1.l.heading = 2;
 	s1.l.speed = 1;
 	s1.t = 0;
 
 	g1.l.x = 77;
 	g1.l.y = 18;
+	g1.l.x = 31;
+	g1.l.y = 40;
 	g1.l.height = 14;
 	g1.l.heading = 0;
+	g1.l.heading = 2;
 	g1.l.speed = 1;
 	g1.t = 0;
 
@@ -156,15 +161,22 @@ void InitSim(){
 
 	s2.l.x = 8;
 	s2.l.y = 2;
+	s2.l.x = 31;
+	s2.l.y = 40;
 	s2.l.height = 26;
+	s2.l.height = 14;
 	s2.l.heading = 3;
+	s2.l.heading = 6;
 	s2.l.speed = 1;
 	s2.t = 0;
 
 	g2.l.x = 76;
 	g2.l.y = 58;
+	g2.l.x = 30;
+	g2.l.y = 40;
 	g2.l.height = 14;
 	g2.l.heading = 5;
+	g2.l.heading = 6;
 	g2.l.speed = 1;
 	g2.t = 0;
 
