@@ -33,7 +33,8 @@ AirplaneEnvironment::AirplaneEnvironment(
   double cruiseBurnRate,
   double speedBurnDelta,
   double climbCostRatio,
-  double descendCostRatio
+  double descendCostRatio,
+  double gridSize
 ): width(width),
   length(length),
   height(height),
@@ -41,6 +42,7 @@ AirplaneEnvironment::AirplaneEnvironment(
   minSpeed(minSpeed),
   maxSpeed(maxSpeed),
   numSpeeds(numSpeeds),
+  gridSize(gridSize),
   cruiseBurnRate(cruiseBurnRate),
   speedBurnDelta(speedBurnDelta),
   climbCostRatio(climbCostRatio),
@@ -480,7 +482,7 @@ double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneStat
 double AirplaneEnvironment::GCost(const airplaneState &node1, const airplaneState &node2) const
 {
         // Compute cost according to fuel consumption
-        double horizCost(cruiseBurnRate+speedBurnDelta*abs(((numSpeeds+1)/2)-(node2.speed)));
+        double horizCost(cruiseBurnRate+speedBurnDelta*fabs((double(numSpeeds+1)/2.0)-(node2.speed)));
         double ratio(1.0);
         if(node2.height-node1.height>0){ratio=climbCostRatio;}
         else if(node2.height-node1.height<0){ratio=descendCostRatio;}

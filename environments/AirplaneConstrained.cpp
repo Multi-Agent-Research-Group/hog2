@@ -88,13 +88,20 @@ void AirplaneConstrainedEnvironment::ApplyAction(airtimeState &s, airplaneAction
 {
 	// Apply the action on the hidden AE
 	ae->ApplyAction(s.l, a);
-	s.t += (abs(a.turn)%2?M_SQRT2:1.0);
+        // Calculate how long it will take to move 3 meters (or the diagonal thereof) at speed
+        static double speedRange(ae->maxSpeed-ae->minSpeed);
+        double factor(ae->gridSize/(ae->minSpeed+double(ae->numSpeeds-1)*speedRange/double(ae->numSpeeds-1)));
+        // Compute time increase based on speed...
+        // if speed is more than cruise speed, we arrive sooner, later if speed is less.
+	s.t += (abs(a.turn)%2?M_SQRT2:1.0)*factor;
 }
 void AirplaneConstrainedEnvironment::UndoAction(airtimeState &s, airplaneAction a) const
 {
 	// Undo the action on the hidden AW
 	ae->UndoAction(s.l, a);
-	s.t -= (abs(a.turn)%2?M_SQRT2:1.0);
+        static double speedRange(ae->maxSpeed-ae->minSpeed);
+        double factor(ae->gridSize/(ae->minSpeed+double(ae->numSpeeds-1)*speedRange/double(ae->numSpeeds-1)));
+	s.t -= (abs(a.turn)%2?M_SQRT2:1.0)*factor;
 }
 airplaneAction AirplaneConstrainedEnvironment::GetAction(const airtimeState &node1, const airtimeState &node2) const 
 {
@@ -105,7 +112,9 @@ void AirplaneConstrainedEnvironment::GetNextState(const airtimeState &currents, 
 {
 	// Get the next location from the owned AE and then increase the time by 1
 	ae->GetNextState(currents.l, dir, news.l);
-	news.t = currents.t + (abs(dir.turn)%2?M_SQRT2:1.0);
+        static double speedRange(ae->maxSpeed-ae->minSpeed);
+        double factor(ae->gridSize/(ae->minSpeed+double(ae->numSpeeds-1)*speedRange/double(ae->numSpeeds-1)));
+	news.t = currents.t + (abs(dir.turn)%2?M_SQRT2:1.0)*factor;
 }
 // Invert action defined in the header
 

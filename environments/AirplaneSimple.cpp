@@ -21,7 +21,8 @@ AirplaneSimpleEnvironment::AirplaneSimpleEnvironment(
   double cruiseBurnRate,
   double speedBurnDelta,
   double climbCostRatio,
-  double descendCostRatio
+  double descendCostRatio,
+  double gridSize
 ): AirplaneEnvironment(
   length,
   height,
@@ -32,7 +33,8 @@ AirplaneSimpleEnvironment::AirplaneSimpleEnvironment(
   cruiseBurnRate,
   speedBurnDelta,
   climbCostRatio,
-  descendCostRatio){}
+  descendCostRatio,
+  gridSize){}
 
 void AirplaneSimpleEnvironment::GetActions(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const
 {

@@ -25,7 +25,8 @@ public:
           double cruiseBurnRate=.0006, // Fuel burn rate in liters per unit distance
           double speedBurnDelta=0.0001, // Extra fuel cost for non-cruise speed
           double climbCostRatio=1.0475, // Fuel cost ratio for climbing
-          double descendCostRatio=0.9725); // Fuel cost ratio for descending
+          double descendCostRatio=0.9725, // Fuel cost ratio for descending
+          double gridSize=3.0); // Horizontal grid width
 
 	virtual void GetActions(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
 	virtual double HCost(const airplaneState &node1, const airplaneState &node2) const;

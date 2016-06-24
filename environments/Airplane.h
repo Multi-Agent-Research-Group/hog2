@@ -87,7 +87,8 @@ public:
           double cruiseBurnRate=.0006, // Fuel burn rate in liters per unit distance
           double speedBurnDelta=0.0001, // Extra fuel cost for non-cruise speed
           double climbCostRatio=1.0475, // Fuel cost ratio for climbing
-          double descendCostRatio=0.9725); // Fuel cost ratio for descending
+          double descendCostRatio=0.9725, // Fuel cost ratio for descending
+          double gridSize=3.0); // Horizontal gird width (meters)
 	virtual void GetSuccessors(const airplaneState &nodeID, std::vector<airplaneState> &neighbors) const;
 	virtual void GetActions(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
 	virtual void ApplyAction(airplaneState &s, airplaneAction dir) const;
@@ -125,6 +126,10 @@ public:
 	std::vector<recVec> getGroundNormals();
 	std::vector<airplaneAction> getInternalActions();
 
+        const uint8_t numSpeeds;
+        const double minSpeed;       //Meters per time step
+        const double maxSpeed;       //Meters per time step
+        double const gridSize; // 3 meters
 
 protected:
 	void SetGround(int x, int y, uint8_t val);
@@ -142,10 +147,6 @@ protected:
 	mutable std::vector<airplaneAction> internalActions;
 
         const double climbRate;      //Meters per time step
-        const uint8_t numSpeeds;
-        const double minSpeed;       //Meters per time step
-        const double maxSpeed;       //Meters per time step
-
         // Assume 1 unit of movement to be 3 meters
         // 16 liters per hour/ 3600 seconds / 22 mps = 0.0002 liters per meter
         double const cruiseBurnRate;//0.0002*3.0 liters per unit
