@@ -120,7 +120,7 @@ bool testConstraints() {
 				assert(c1.ConflictsWith(st1, st2));
 
 				// Should also conflict with something in the middle
-				airtimeState st3(s1, 0.5f);
+				airtimeState st3(s1, 0.9f);
 				ace.ApplyAction(st3, a1);
 				assert(c1.ConflictsWith(st3));
 
@@ -161,7 +161,7 @@ bool testConstraints() {
 					assert(c1.ConflictsWith(st1, st2));
 
 					// Should also conflict with something in the middle
-					airtimeState st3(s1, 0.5f);
+					airtimeState st3(s1, 0.9f);
 					ace.ApplyAction(st3, a1);
 					assert(c1.ConflictsWith(st3));
 
@@ -203,7 +203,7 @@ bool testConstraints() {
 					assert(c1.ConflictsWith(st1, st2));
 
 					// Should also conflict with something in the middle
-					airtimeState st3(s1, 0.5f);
+					airtimeState st3(s1, 0.9f);
 					ace.ApplyAction(st3, a1);
 					assert(c1.ConflictsWith(st3));
 
