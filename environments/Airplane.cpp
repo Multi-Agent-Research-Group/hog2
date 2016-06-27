@@ -673,6 +673,7 @@ void AirplaneEnvironment::OpenGLDraw(const airplaneState& o, const airplaneState
 	glPushMatrix();
 	glTranslatef((1-perc)*x1+perc*x2, (1-perc)*y1+perc*y2, (1-perc)*z1+perc*z2);
 	glRotatef((1-perc)*h1+perc*h2, 0, 0, 1);
+	glRotatef(.1, 1, 0, 0);
 	DrawCylinder(0, 0, 0, 0, 0.01/5.0, 0.01);
 	glPopMatrix();
 }
@@ -684,16 +685,16 @@ void AirplaneEnvironment::OpenGLDraw(const airplaneState &, const airplaneAction
 
 void AirplaneEnvironment::GLDrawLine(const airplaneState &a, const airplaneState &b) const
 {
-	glColor4f(0, 0, 0, .5); // Make it black
+	glColor4f(0, 0, 0, .5); // Make it partially opaque gray
 
 	// Normalize coordinates between (-1, 1)
-	GLfloat x_start = (a.x-40.0)/40.0;
-	GLfloat y_start = (a.y-40.0)/40.0;
-	GLfloat z_start = -a.height/80.0;
+	GLfloat x_start((a.x-40.0)/40.0);
+	GLfloat y_start((a.y-40.0)/40.0);
+	GLfloat z_start(-a.height/80.0);
 
-	GLfloat x_end = (b.x-40.0)/40.0;
-	GLfloat y_end = (b.y-40.0)/40.0;
-	GLfloat z_end = -b.height/80.0;
+	GLfloat x_end((b.x-40.0)/40.0);
+	GLfloat y_end((b.y-40.0)/40.0);
+	GLfloat z_end(-b.height/80.0);
 
 	glDisable(GL_LIGHTING);
 	glPushMatrix();
