@@ -31,12 +31,33 @@ void AirCBSUnit::SetPath(std::vector<airtimeState> &p)
 }
 
 void AirCBSUnit::OpenGLDraw(const AirplaneConstrainedEnvironment *ae, 
-							const SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *) const
+							const SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *si) const
 {
 	GLfloat r, g, b;
 	GetColor(r, g, b);
 	ae->SetColor(r, g, b);
-	ae->OpenGLDraw(current);
+
+	if (myPath.size() > 1) {
+		// Interpolate between the two given the timestep
+		airtimeState start_t = myPath[myPath.size()-1];
+		airtimeState stop_t = myPath[myPath.size()-2];
+
+		if (si->GetSimulationTime() <= stop_t.t && si->GetSimulationTime() >= start_t.t)
+		{
+			float perc = (stop_t.t - si->GetSimulationTime())/(stop_t.t - start_t.t);
+			ae->OpenGLDraw(stop_t, start_t, perc);
+			airConstraint c(stop_t, start_t);
+			c.OpenGLDraw();
+		} else {
+			ae->OpenGLDraw(current);
+			airConstraint c(current);
+			c.OpenGLDraw();
+		}
+	} else {
+		ae->OpenGLDraw(current);
+		airConstraint c(current);
+		c.OpenGLDraw();
+	}
 }
 
 /** CBS GROUP DEFINITIONS */
@@ -102,7 +123,7 @@ void AirCBSGroup::ExpandOneCBSNode()
 		}
 		return;
 	}
-        std::cout << "Conflict found @time: "<<c2.c.start_state.t << std::endl;
+    std::cout << "Conflict found @time: "<<c2.c.start_state.t << std::endl;
 	
 	// Otherwise, we add two nodes to the tree for each of the children
 	unsigned long last = tree.size();
@@ -209,16 +230,15 @@ void AirCBSGroup::Replan(int location)
 	// node to the environment
 	int tempLocation = location;
 	
-        do
-	{
+    do {
 		if (theUnit == tree[tempLocation].con.unit1)
-                {
-                  ae->AddConstraint(tree[tempLocation].con.c);
-                  std::cout << "Add Constraint: " << tree[tempLocation].con.c << "\n";
-                }
+	    {
+	      ae->AddConstraint(tree[tempLocation].con.c);
+	      //std::cout << "Add Constraint: " << tree[tempLocation].con.c << "\n";
+	    }
 		tempLocation = tree[tempLocation].parent;
 		//TODO: Find constraints on the goals of the agents (need heading and time)
-	}while (tempLocation != 0);
+	} while (tempLocation != 0);
 
 	// Select the air unit from the group
 	AirCBSUnit *c = (AirCBSUnit*)GetMember(theUnit);
@@ -257,7 +277,7 @@ bool AirCBSGroup::FindFirstConflict(int location, airConflict &c1, airConflict &
 			// each bit to see if a constraint is violated
 			int xmax = tree[location].paths[x].size();
 			int ymax = tree[location].paths[y].size();
-std::cout << "Checking for conflicts between: "<<x << " and "<<y<<" ranging from:" << xmax <<"," << ymax <<"\n";
+			//std::cout << "Checking for conflicts between: "<<x << " and "<<y<<" ranging from:" << xmax <<"," << ymax <<"\n";
 
 			for (int i = 0, j = 0; j < ymax && i < xmax;) // If we've reached the end of one of the paths, then time is up and 
 															// no more conflicts could occur
@@ -269,7 +289,7 @@ std::cout << "Checking for conflicts between: "<<x << " and "<<y<<" ranging from
 				// Figure out which indices we're comparing
 				int xTime = max(0, min(i, xmax-1));
 				int yTime = max(0, min(j, ymax-1));
-std::cout << "Checking for conflict at: "<<xTime << ","<<yTime<<"\n";
+				//std::cout << "Checking for conflict at: "<<xTime << ","<<yTime<<"\n";
 
 				// Check the point constraints
 				airConstraint x_c(tree[location].paths[x][xTime]);
@@ -283,27 +303,27 @@ std::cout << "Checking for conflict at: "<<xTime << ","<<yTime<<"\n";
 					c1.unit1 = x;
 					c2.unit1 = y;
 
-std::cout << "Found vertex conflict\n";
+					//std::cout << "Found vertex conflict\n";
 					return true;
 				}
 
 				// Check the edge constraints
-{
-				airConstraint x_e_c(tree[location].paths[x][xTime], tree[location].paths[x][min(xmax-1, xTime+1)]);
-				airConstraint y_e_c(tree[location].paths[y][yTime], tree[location].paths[y][min(ymax-1, yTime+1)]);
-
-				if (x_e_c.ConflictsWith(y_e_c))
 				{
-					c1.c = x_e_c;
-					c2.c = y_e_c;
+					airConstraint x_e_c(tree[location].paths[x][xTime], tree[location].paths[x][min(xmax-1, xTime+1)]);
+					airConstraint y_e_c(tree[location].paths[y][yTime], tree[location].paths[y][min(ymax-1, yTime+1)]);
 
-					c1.unit1 = x;
-					c2.unit1 = y;
+					if (x_e_c.ConflictsWith(y_e_c))
+					{
+						c1.c = x_e_c;
+						c2.c = y_e_c;
 
-std::cout << "Found edge conflict\n";
-					return true;
+						c1.unit1 = x;
+						c2.unit1 = y;
+
+						//std::cout << "Found edge conflict\n";
+						return true;
+					}
 				}
-}
 
 
 				// Increment the counters
@@ -345,23 +365,20 @@ std::cout << "Found edge conflict\n";
 /** Draw the AIR CBS group */
 void AirCBSGroup::OpenGLDraw(const AirplaneConstrainedEnvironment *ae, const SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> * sim)  const
 {
-	
+	/*
 	GLfloat r, g, b;
 	glLineWidth(2.0);
 	for (unsigned int x = 0; x < tree[bestNode].paths.size(); x++)
 	{
 		AirCBSUnit *unit = (AirCBSUnit*)GetMember(x);
 		unit->GetColor(r, g, b);
-		ae->SetColor(0, 1, 0);
+		ae->SetColor(r, g, b);
 		for (unsigned int y = 0; y < tree[bestNode].paths[x].size(); y++)
 		{
-			//airtimeState b(tree[bestNode].paths[x][y+1], y+1);
-			if (sim->GetSimulationTime() < tree[bestNode].paths[x][y].t)
-			{
-				ae->OpenGLDraw(tree[bestNode].paths[x][y]);
-			}
+			ae->OpenGLDraw(tree[bestNode].paths[x][y]);
 		}
 	}
 	glLineWidth(1.0);
+	*/
 }
 

@@ -12,6 +12,7 @@
 #include "Airplane.h"
 #include <cmath>
 #include <memory>
+#include <limits>
 
 /**
  * The airtimeState struct holds information about airplane state at
@@ -51,14 +52,12 @@ struct airConstraint
 
 	airtimeState start_state;
 	airtimeState end_state;
+	bool strip = false;
 
 	bool ConflictsWith(const airtimeState &state) const;
 	bool ConflictsWith(const airtimeState &from, const airtimeState &to) const;
 	bool ConflictsWith(const airConstraint &x) const;
-	void OpenGLDraw() const 
-	{
-		
-	}
+	void OpenGLDraw() const;
 };
 
 static std::ostream& operator <<(std::ostream & out, const airConstraint &loc)
@@ -144,7 +143,12 @@ public:
 	virtual void OpenGLDraw(const airtimeState&) const;
 	virtual void OpenGLDraw(const airtimeState&, const airplaneAction&) const;
 	virtual void GLDrawLine(const airtimeState &x, const airtimeState &y) const;
+	virtual void OpenGLDraw(const airtimeState& oldState, const airtimeState &newState, float perc) const;
 	virtual void GLDrawPath(const std::vector<airtimeState> &p) const;
+
+	// Override the color method.
+	virtual void SetColor(double r, double g, double b, double t = 1.0) const {SearchEnvironment::SetColor(r,g,b,t); this->ae->SetColor(r,g,b,t);}
+	virtual void SetColor(double& r, double& g, double& b, double& t) const {SearchEnvironment::SetColor(r,g,b,t); this->ae->SetColor(r,g,b,t);}
 	
 	/// UTILS
 	uint8_t GetSpeeds(){return ae->numSpeeds;}

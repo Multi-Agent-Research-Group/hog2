@@ -22,6 +22,7 @@ int absType = 0;
 int mapSize = 128;
 bool recording = false;
 double simTime = 0;
+double stepsPerFrame = 1.0/1000.0;
 
 //DirectionalPlanner *dp = 0;
 //MapSectorAbstraction *quad = 0;
@@ -141,7 +142,7 @@ void InitSim(){
 	s1.l.height = 14;
 	s1.l.heading = 0;
 	s1.l.heading = 2;
-	s1.l.speed = 1;
+	s1.l.speed = 5;
 	s1.t = 0;
 
 	g1.l.x = 77;
@@ -151,7 +152,7 @@ void InitSim(){
 	g1.l.height = 14;
 	g1.l.heading = 0;
 	g1.l.heading = 2;
-	g1.l.speed = 1;
+	g1.l.speed = 5;
 	g1.t = 0;
 
 	u1 = new AirCBSUnit(s1, g1);
@@ -183,7 +184,7 @@ void InitSim(){
 	std::cout << "Set unit goal from " << s2 << " to " << g2 << " rough heading: " << (unsigned)s2.l.headingTo(g2.l) << std::endl;
 
 	u2 = new AirCBSUnit(s2, g2);
-	u2->SetColor(1.0, 0.0, 0.0);
+	u2->SetColor(0.0, 1.0, 0.0);
 	
 	group->AddUnit(u1);
 	group->AddUnit(u2);
@@ -198,12 +199,13 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 {
 
 	
-	if (ace)
-		ace->OpenGLDraw();
+	//if (ace)
+	//	ace->OpenGLDraw();
 	//if (group)
 	//	group->OpenGLDraw(ae, sim);
 	if (sim)
 		sim->OpenGLDraw();
+	sim->StepTime(stepsPerFrame);
 
 	/*u1->GetLocation(s11);
 	u2->GetLocation(s21);
@@ -234,11 +236,11 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 	//std::cout << "U1: " << s11 << " to " << s12 << std::endl << "U2: " << s21 << " to " << s22 << std::endl;
 	//std::cout << "Group-Time:" << group->getTime() << " Sim-Time:" << simTime << " Sim-Time-SimInfo:" << sim-> GetSimulationTime()<< std::endl;
 
-	simTime += 0.01;
-	if ((simTime - floor(simTime)) < 0.01)
-	{
-		sim->StepTime(1.00);
-	}
+	//simTime += 0.01;
+	//if ((simTime - floor(simTime)) < 0.01)
+	//{
+	//	sim->StepTime(1.00);
+	//}
 
 
 	/*

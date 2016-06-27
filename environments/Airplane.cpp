@@ -158,6 +158,9 @@ AirplaneEnvironment::AirplaneEnvironment(
 			GetNormal(x, y).normalise();
 		}
 	}
+
+  landingStrip l(15, 20, 17, 27);
+  AddLandingStrip(l);
 	
 
 	
@@ -573,6 +576,19 @@ void AirplaneEnvironment::OpenGLDraw() const
 				c = getColor(GetGround(x, y), 0, 255, 5);
 				glColor3f(c.r, c.g, c.b);
 			}
+
+      for (landingStrip st : landingStrips) 
+      {
+        if (x >= min(st.x1,st.x2) && x <= max(st.x1, st.x2))
+        {
+          if (y >= min(st.y1, st.y2) && y <= max(st.y1, st.y2))
+          {
+            glColor3f(0.5, 0.5, 0.5);
+          }
+        }
+      }
+
+
 			recVec tmp = GetNormal(x, y);
 			glNormal3f(tmp.x, tmp.y, tmp.z);
 			glVertex3f(a.x, a.y, a.z);
@@ -585,6 +601,20 @@ void AirplaneEnvironment::OpenGLDraw() const
 				c = getColor(GetGround(x, y+1), 0, 255, 5);
 				glColor3f(c.r, c.g, c.b);
 			}
+
+
+      for (landingStrip st : landingStrips) 
+      {
+        if (x >= min(st.x1,st.x2) && x <= max(st.x1, st.x2))
+        {
+          if (y+1 >= min(st.y1, st.y2) && y+1 <= max(st.y1, st.y2))
+          {
+            glColor3f(0.5, 0.5, 0.5);
+          }
+        }
+      }
+
+
 			tmp = GetNormal(x, y+1);
 			glNormal3f(tmp.x, tmp.y, tmp.z);
 			glVertex3f(b.x, b.y, b.z);
@@ -676,4 +706,70 @@ std::vector<recVec> AirplaneEnvironment::getGroundNormals()
 std::vector<airplaneAction> AirplaneEnvironment::getInternalActions()
 {
 	return std::vector<airplaneAction>(internalActions);
+}
+
+void AirplaneEnvironment::AddLandingStrip(landingStrip strip)
+{
+  // Set the ground to average height on the strip
+  float avgh = 0.0f;
+  int n = 0;
+  for (int i = min(strip.x1, strip.x2); i <= max(strip.x1, strip.x2); i++) 
+  {
+    for (int j = min(strip.y1, strip.y2); j <= max(strip.y1, strip.y2); j++) 
+    {
+      avgh += GetGround(i,j);
+      n++;
+    }
+  }
+
+  avgh = (avgh/n);
+  
+  for (int i = min(strip.x1, strip.x2); i <= max(strip.x1, strip.x2); i++) 
+  {
+    for (int j = min(strip.y1, strip.y2); j <= max(strip.y1, strip.y2); j++) 
+    {
+      SetGround(i, j, (int) avgh);
+    }
+  }
+      
+
+  //Re-Calculate the normals
+  for (int y = 0; y < length; y++)
+  {
+    for (int x = 0; x <= width; x++)
+    {
+      if (x < width)
+      {
+        recVec a = GetCoordinate(x, y, std::max((int)GetGround(x, y), 20));
+        recVec b = GetCoordinate(x, y+1, std::max((int)GetGround(x, y+1), 20));
+        recVec d = GetCoordinate(x+1, y, std::max((int)GetGround(x+1, y), 20));
+        recVec n = (a-b).GetNormal(a-d);
+        GetNormal(x, y) += n;
+        GetNormal(x, y+1) += n;
+        GetNormal(x+1, y) += n;
+      }
+      if (x > 0)
+      {
+        recVec a = GetCoordinate(x, y, std::max((int)GetGround(x, y), 20));
+        recVec b = GetCoordinate(x-1, y+1, std::max((int)GetGround(x-1, y+1), 20));
+        recVec d = GetCoordinate(x, y+1, std::max((int)GetGround(x, y+1), 20));
+        recVec n = (a-b).GetNormal(a-d);
+        GetNormal(x, y) += n;
+        GetNormal(x-1, y+1) += n;
+        GetNormal(x, y+1) += n;
+      }
+    }
+  }
+  for (int y = 0; y <= length; y++)
+  {
+    for (int x = 0; x <= width; x++)
+    {
+      GetNormal(x, y).normalise();
+    }
+  }
+
+  // Add the landing strip
+  strip.z = (uint16_t) avgh;
+  this->landingStrips.push_back(strip);
+
 }

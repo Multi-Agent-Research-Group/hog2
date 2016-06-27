@@ -25,6 +25,15 @@ const uint8_t k45 = 1;
 const uint8_t k90 = 2;
 const uint8_t kShift = 3;
 
+struct landingStrip {
+	landingStrip(uint16_t x1, uint16_t x2, uint16_t y1, uint16_t y2) : x1(x1), x2(x2), y1(y1), y2(y2) {}
+	uint16_t x1;
+	uint16_t x2;
+	uint16_t y1;
+	uint16_t y2;
+	uint16_t z = 0;
+};
+
 struct airplaneAction {
 public:
 	airplaneAction(int8_t t=0, int8_t s=0, int8_t h=0)
@@ -126,6 +135,9 @@ public:
 	std::vector<recVec> getGroundNormals();
 	std::vector<airplaneAction> getInternalActions();
 
+	virtual void AddLandingStrip(landingStrip x);
+	virtual const std::vector<landingStrip>& GetLandingStrips() const {return landingStrips;}
+
         const uint8_t numSpeeds;
         const double minSpeed;       //Meters per time step
         const double maxSpeed;       //Meters per time step
@@ -145,6 +157,8 @@ protected:
 	std::vector<recVec> groundNormals;
 	void DoNormal(recVec pa, recVec pb) const;
 	mutable std::vector<airplaneAction> internalActions;
+
+	std::vector<landingStrip> landingStrips;
 
         const double climbRate;      //Meters per time step
         // Assume 1 unit of movement to be 3 meters
