@@ -12,7 +12,7 @@
 //#include "MapSectorAbstraction.h"
 //#include "DirectionalPlanner.h"
 #include "ScenarioLoader.h"
-//#include "AirplaneSimple.h"
+#include "AirplaneSimple.h"
 #include "AirplaneConstrained.h"
 #include "AirplaneCBSUnits.h"
 
@@ -130,8 +130,8 @@ airtimeState s1, s2, s3, s4, g1, g2, g3, g4;
 
 
 void InitSim(){
-	//ae = new AirplaneSimpleEnvironment();
-	ace = new AirplaneConstrainedEnvironment();
+	ace = new AirplaneConstrainedEnvironment(new AirplaneEnvironment());
+	//ace = new AirplaneConstrainedEnvironment(new AirplaneSimpleEnvironment());
 
 	sim = new UnitSimulation<airtimeState, airplaneAction, AirplaneConstrainedEnvironment>(ace);
 	sim->SetStepType(kLockStep);

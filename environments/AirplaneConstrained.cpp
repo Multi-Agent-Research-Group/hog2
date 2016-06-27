@@ -21,14 +21,14 @@ bool operator==(const airtimeState &l1, const airtimeState &l2)
 
 /// CONSTRUCTORS
 /** Construct a new airplane constrained environemnt with a random ground map */
-AirplaneConstrainedEnvironment::AirplaneConstrainedEnvironment() {
+/*AirplaneConstrainedEnvironment::AirplaneConstrainedEnvironment() {
 	this->ae = new AirplaneEnvironment();
 	ClearConstraints();
-}
+}*/
 /** Construct an Airplane Constrained Environment given a pointer to an Airplane Environment */
 AirplaneConstrainedEnvironment::AirplaneConstrainedEnvironment(AirplaneEnvironment *aire)
+: ae(aire)
 {
-	this->ae = aire;
 	ClearConstraints();
 }
 

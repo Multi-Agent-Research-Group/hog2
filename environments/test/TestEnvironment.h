@@ -5,6 +5,29 @@
 #include "../AirplaneConstrained.h"
 #include <iostream>
 
+bool testHCost(){
+   std::cout << "testHCost()";
+   AirplaneEnvironment env;
+   airplaneState s;
+   s.x = 50;
+   s.y = 50;
+   s.height = 26;
+   s.heading = 0;
+   s.speed = 1;
+
+   airplaneState g;
+   g.x = 50;
+   g.y = 51;
+   g.height = 26;
+   g.heading = 0;
+   g.speed = 1;
+
+   std::cout << env.HCost(s,g) << "\n";
+   assert(env.HCost(s,g)==3.0*0.0002*3.0);
+
+   std::cout << "PASSED\n";
+}
+
 bool testGetAction(){
    std::cout << "testGetAction()";
    AirplaneEnvironment env;
@@ -70,7 +93,7 @@ bool testHeadingTo(){
 
 bool testConstraints() {
 	std::cout << "testConstraints()";
-	AirplaneConstrainedEnvironment ace;
+	AirplaneConstrainedEnvironment ace(new AirplaneEnvironment());
 
 	airplaneState O(0,0,0,0,0);
 	airtimeState OT(O, 1.0f);

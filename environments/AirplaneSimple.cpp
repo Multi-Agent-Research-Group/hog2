@@ -77,19 +77,19 @@ double AirplaneSimpleEnvironment::HCost(const airplaneState &node1, const airpla
         int vertDiff(node2.height-node1.height);
         double diffx(abs(node1.x-node2.x));
         double diffy(abs(node1.y-node2.y));
-        double horizDiff(diffx+diffy);
+        double manhattan(diffx+diffy);
 
         double ratio=(vertDiff>0?climbCostRatio:descendCostRatio);
         vertDiff=abs(vertDiff);
         unsigned headingChanges(0);//(abs(node1.heading-node1.headingTo(node2))%4-1);
-        if(vertDiff <= horizDiff)
+        if(vertDiff <= manhattan)
         {
-          return vertDiff*cruiseBurnRate*ratio+(horizDiff-vertDiff+headingChanges)*cruiseBurnRate;
+          return vertDiff*cruiseBurnRate*ratio+(manhattan+headingChanges)*cruiseBurnRate;
         }
         else
         {
           // We'll have to slow down in order to give enough time to climb/descend or turn
-          double hvdiff(vertDiff-horizDiff);
+          double hvdiff(vertDiff-manhattan);
           return (hvdiff+headingChanges)*(cruiseBurnRate+speedBurnDelta)+vertDiff*cruiseBurnRate*ratio;
         }
 }

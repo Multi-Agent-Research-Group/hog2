@@ -80,7 +80,7 @@ public:
 	/// CONSTRUCTORS
 
 	/** Construct a random-ground airplane environment which forms the backbone of the model */
-	AirplaneConstrainedEnvironment();
+	//AirplaneConstrainedEnvironment();
 	/** Construct a constrained environment from an existing environment */
 	AirplaneConstrainedEnvironment(AirplaneEnvironment* ae);
 
