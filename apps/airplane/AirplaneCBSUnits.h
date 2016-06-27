@@ -35,6 +35,7 @@ public:
 	void GetGoal(airtimeState &s) { s = goal; }
 	void GetStart(airtimeState &s) { s = start; }
 	void SetPath(std::vector<airtimeState> &p);
+        inline std::vector<airtimeState> const& GetPath()const{return myPath;}
 
 private:
 	airtimeState start, goal, current;

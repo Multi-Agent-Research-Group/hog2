@@ -577,16 +577,16 @@ void AirplaneEnvironment::OpenGLDraw() const
 				glColor3f(c.r, c.g, c.b);
 			}
 
-      for (landingStrip st : landingStrips) 
-      {
-        if (x >= min(st.x1,st.x2) && x <= max(st.x1, st.x2))
-        {
-          if (y >= min(st.y1, st.y2) && y <= max(st.y1, st.y2))
-          {
-            glColor3f(0.5, 0.5, 0.5);
-          }
-        }
-      }
+                        for (landingStrip st : landingStrips) 
+                        {
+                          if (x >= min(st.x1,st.x2) && x <= max(st.x1, st.x2))
+                          {
+                            if (y >= min(st.y1, st.y2) && y <= max(st.y1, st.y2))
+                            {
+                              glColor3f(0.5, 0.5, 0.5);
+                            }
+                          }
+                        }
 
 
 			recVec tmp = GetNormal(x, y);
@@ -603,16 +603,16 @@ void AirplaneEnvironment::OpenGLDraw() const
 			}
 
 
-      for (landingStrip st : landingStrips) 
-      {
-        if (x >= min(st.x1,st.x2) && x <= max(st.x1, st.x2))
-        {
-          if (y+1 >= min(st.y1, st.y2) && y+1 <= max(st.y1, st.y2))
-          {
-            glColor3f(0.5, 0.5, 0.5);
-          }
-        }
-      }
+                        for (landingStrip st : landingStrips) 
+                        {
+                          if (x >= min(st.x1,st.x2) && x <= max(st.x1, st.x2))
+                          {
+                            if (y+1 >= min(st.y1, st.y2) && y+1 <= max(st.y1, st.y2))
+                            {
+                              glColor3f(0.5, 0.5, 0.5);
+                            }
+                          }
+                        }
 
 
 			tmp = GetNormal(x, y+1);
@@ -684,14 +684,37 @@ void AirplaneEnvironment::OpenGLDraw(const airplaneState &, const airplaneAction
 
 void AirplaneEnvironment::GLDrawLine(const airplaneState &a, const airplaneState &b) const
 {
-	//TODO: Implement this
-	this->OpenGLDraw(a);
-	this->OpenGLDraw(b);
+	glColor4f(0, 0, 0, .5); // Make it black
+
+	// Normalize coordinates between (-1, 1)
+	GLfloat x_start = (a.x-40.0)/40.0;
+	GLfloat y_start = (a.y-40.0)/40.0;
+	GLfloat z_start = -a.height/80.0;
+
+	GLfloat x_end = (b.x-40.0)/40.0;
+	GLfloat y_end = (b.y-40.0)/40.0;
+	GLfloat z_end = -b.height/80.0;
+
+	glDisable(GL_LIGHTING);
+	glPushMatrix();
+
+	// Draw the edge line segments
+	glBegin(GL_LINES);
+
+	glVertex3f(x_start,y_start,z_start);
+	glVertex3f(x_end,y_end,z_end);
+
+	glEnd();
+
+	glPopMatrix();
 }
 
 void AirplaneEnvironment::GLDrawPath(const std::vector<airplaneState> &p) const
 {
-	//TODO: Implemennt this
+        if(p.size()<2) return;
+        for(auto a(p.begin()+1); a!=p.end(); ++a){
+          GLDrawLine(*(a-1),*a);
+        }
 }
 
 

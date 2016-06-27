@@ -23,6 +23,7 @@ int mapSize = 128;
 bool recording = false;
 double simTime = 0;
 double stepsPerFrame = 1.0/1000.0;
+std::vector<airtimeState> thePath;
 
 //DirectionalPlanner *dp = 0;
 //MapSectorAbstraction *quad = 0;
@@ -123,7 +124,9 @@ UnitSimulation<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *si
 AirCBSGroup* group = 0;
 AirCBSUnit* u1 = 0;
 AirCBSUnit* u2 = 0;
-airtimeState s1, s2, g1, g2;
+AirCBSUnit* u3 = 0;
+AirCBSUnit* u4 = 0;
+airtimeState s1, s2, s3, s4, g1, g2, g3, g4;
 
 
 void InitSim(){
@@ -136,7 +139,7 @@ void InitSim(){
 	
 	sim->AddUnitGroup(group);
 	
-	s1.l.x = 30;
+	s1.l.x = 34;
 	s1.l.y = 40;
 	s1.l.height = 26;
 	s1.l.height = 14;
@@ -147,7 +150,7 @@ void InitSim(){
 
 	g1.l.x = 77;
 	g1.l.y = 18;
-	g1.l.x = 34;
+	g1.l.x = 42;
 	g1.l.y = 40;
 	g1.l.height = 14;
 	g1.l.heading = 0;
@@ -162,7 +165,7 @@ void InitSim(){
 
 	s2.l.x = 8;
 	s2.l.y = 2;
-	s2.l.x = 34;
+	s2.l.x = 46;
 	s2.l.y = 40;
 	s2.l.height = 26;
 	s2.l.height = 14;
@@ -173,7 +176,7 @@ void InitSim(){
 
 	g2.l.x = 76;
 	g2.l.y = 58;
-	g2.l.x = 30;
+	g2.l.x = 38;
 	g2.l.y = 40;
 	g2.l.height = 14;
 	g2.l.heading = 5;
@@ -181,16 +184,58 @@ void InitSim(){
 	g2.l.speed = 1;
 	g2.t = 0;
 
-	std::cout << "Set unit goal from " << s2 << " to " << g2 << " rough heading: " << (unsigned)s2.l.headingTo(g2.l) << std::endl;
-
 	u2 = new AirCBSUnit(s2, g2);
 	u2->SetColor(0.0, 1.0, 0.0);
 	
+	std::cout << "Set unit goal from " << s2 << " to " << g2 << " rough heading: " << (unsigned)s2.l.headingTo(g2.l) << std::endl;
+
+	s3.l.x = 40;
+	s3.l.y = 46;
+	s3.l.height = 14;
+	s3.l.heading = 0;
+	s3.l.speed = 1;
+	s3.t = 0;
+
+	g3.l.x = 40;
+	g3.l.y = 38;
+	g3.l.height = 14;
+	g3.l.heading = 0;
+	g3.l.speed = 1;
+	g3.t = 0;
+
+	u3 = new AirCBSUnit(s3, g3);
+	u3->SetColor(0.0, 0.0, 1.0);
+	
+	std::cout << "Set unit goal from " << s3 << " to " << g3 << " rough heading: " << (unsigned)s3.l.headingTo(g3.l) << std::endl;
+
+	s4.l.x = 40;
+	s4.l.y = 34;
+	s4.l.height = 14;
+	s4.l.heading = 4;
+	s4.l.speed = 1;
+	s4.t = 0;
+
+	g4.l.x = 40;
+	g4.l.y = 42;
+	g4.l.height = 14;
+	g4.l.heading = 4;
+	g4.l.speed = 1;
+	g4.t = 0;
+
+	u4 = new AirCBSUnit(s4, g4);
+	u4->SetColor(1.0, 0.0, 1.0);
+	
+	std::cout << "Set unit goal from " << s4 << " to " << g4 << " rough heading: " << (unsigned)s4.l.headingTo(g4.l) << std::endl;
+
 	group->AddUnit(u1);
 	group->AddUnit(u2);
+	group->AddUnit(u3);
+	group->AddUnit(u4);
 	
 	sim->AddUnit(u1);
 	sim->AddUnit(u2);
+	sim->AddUnit(u3);
+	sim->AddUnit(u4);
 
 }
 
@@ -199,7 +244,13 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 {
 
 	
-	//if (ace)
+	if (ace){
+                for(auto u : group->GetMembers()){
+                        glLineWidth(2.0);
+                        ace->GLDrawPath(((AirCBSUnit const*)u)->GetPath());
+                        glLineWidth(1.0);
+                }
+        }
 	//	ace->OpenGLDraw();
 	//if (group)
 	//	group->OpenGLDraw(ae, sim);
