@@ -127,6 +127,7 @@ public:
 	virtual void OpenGLDraw(const airplaneState &, const airplaneAction &) const;
 	void GLDrawLine(const airplaneState &a, const airplaneState &b) const;
 	void GLDrawPath(const std::vector<airplaneState> &p) const;
+	void DrawAirplane() const;
 	
 	recVec GetCoordinate(int x, int y, int z) const;
 

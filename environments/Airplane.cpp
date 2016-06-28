@@ -577,16 +577,16 @@ void AirplaneEnvironment::OpenGLDraw() const
 				glColor3f(c.r, c.g, c.b);
 			}
 
-                        for (landingStrip st : landingStrips) 
-                        {
-                          if (x >= min(st.x1,st.x2) && x <= max(st.x1, st.x2))
-                          {
-                            if (y >= min(st.y1, st.y2) && y <= max(st.y1, st.y2))
-                            {
-                              glColor3f(0.5, 0.5, 0.5);
-                            }
-                          }
-                        }
+      for (landingStrip st : landingStrips) 
+      {
+        if (x >= min(st.x1,st.x2) && x <= max(st.x1, st.x2))
+        {
+          if (y >= min(st.y1, st.y2) && y <= max(st.y1, st.y2))
+          {
+            glColor3f(0.5, 0.5, 0.5);
+          }
+        }
+      }
 
 
 			recVec tmp = GetNormal(x, y);
@@ -603,16 +603,16 @@ void AirplaneEnvironment::OpenGLDraw() const
 			}
 
 
-                        for (landingStrip st : landingStrips) 
-                        {
-                          if (x >= min(st.x1,st.x2) && x <= max(st.x1, st.x2))
-                          {
-                            if (y+1 >= min(st.y1, st.y2) && y+1 <= max(st.y1, st.y2))
-                            {
-                              glColor3f(0.5, 0.5, 0.5);
-                            }
-                          }
-                        }
+      for (landingStrip st : landingStrips) 
+      {
+        if (x >= min(st.x1,st.x2) && x <= max(st.x1, st.x2))
+        {
+          if (y+1 >= min(st.y1, st.y2) && y+1 <= max(st.y1, st.y2))
+          {
+            glColor3f(0.5, 0.5, 0.5);
+          }
+        }
+      }
 
 
 			tmp = GetNormal(x, y+1);
@@ -642,7 +642,7 @@ void AirplaneEnvironment::OpenGLDraw(const airplaneState &l) const
 	glPushMatrix();
 	glTranslatef(x, y, z);
 	glRotatef(360*l.heading/8.0, 0, 0, 1);
-	DrawCylinder(0, 0, 0, 0, 0.01/5.0, 0.01);
+	DrawAirplane();
 	glPopMatrix();
 	
 	//DrawCylinder(l.x, l.y, l.height, 0, 0.001, 0.01);
@@ -675,13 +675,37 @@ void AirplaneEnvironment::OpenGLDraw(const airplaneState& o, const airplaneState
 	glRotatef((1-perc)*h1+perc*h2, 0, 0, 1);
         if(n.height>o.height) glRotatef(-45, 1, 1, 0);
         else if(n.height<o.height) glRotatef(45, 1, 1, 0);
-	DrawCylinder(0, 0, 0, 0, 0.01/5.0, 0.01);
+	DrawAirplane();
 	glPopMatrix();
 }
 
 void AirplaneEnvironment::OpenGLDraw(const airplaneState &, const airplaneAction &) const
 {
 	//TODO: Implement this
+}
+
+void AirplaneEnvironment::DrawAirplane() const
+{
+  // Body
+  DrawCylinder(0, 0, 0, 0, 0.01/5.0, 0.01);
+
+  // Nose
+  DrawHemisphere(0,-0.005,0,0.01/5.0);
+
+  // Wings
+  glBegin(GL_TRIANGLES);
+  glVertex3f(0,-0.0047,0);
+  glVertex3f(-0.01, 0, 0);
+  glVertex3f(0.01,0,0);
+  glEnd();
+
+  // Tail
+  glBegin(GL_TRIANGLES);
+  glVertex3f(0,0.000,0);
+  glVertex3f(0,0.005,0);
+  glVertex3f(0,0.005,-0.004);
+  glEnd();
+
 }
 
 void AirplaneEnvironment::GLDrawLine(const airplaneState &a, const airplaneState &b) const

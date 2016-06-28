@@ -632,6 +632,19 @@ void DrawCylinder(GLfloat xx, GLfloat yy, GLfloat zz, GLfloat innerRad, GLfloat 
 
 }
 
+void DrawHemisphere(GLfloat xx, GLfloat yy, GLfloat zz, GLfloat rad)
+{
+	const double resolution = 30;
+	const double step = TWOPI/resolution;
+	glBegin(GL_TRIANGLE_STRIP);
+	for(float theta = 0.0; theta < TWOPI; theta += step) {
+    	glVertex3f(xx + rad*cos(theta), yy, zz + rad*sin(theta));
+    	glVertex3f(xx, yy - rad, zz);
+    }
+    glEnd();
+}
+
+
 //
 //void DrawBox(GLfloat xx, GLfloat yy, GLfloat zz, GLfloat rad)
 //{
