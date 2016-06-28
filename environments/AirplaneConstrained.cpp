@@ -30,6 +30,18 @@ AirplaneConstrainedEnvironment::AirplaneConstrainedEnvironment(AirplaneEnvironme
 : ae(aire)
 {
 	ClearConstraints();
+
+	//Add back the air-strip constraints
+	for (landingStrip st : ae->GetLandingStrips())
+	{
+		airplaneState mi(min(st.x1, st.x2), min(st.y1, st.y2), 0, 0,0);
+		airtimeState o(mi, 0);
+		airplaneState ma(max(st.x1, st.x2), max(st.y1, st.y2), 10, 0,0);
+		airtimeState f(ma, std::numeric_limits<float>::max());
+		airConstraint c(o, f);
+		c.strip=true;
+		static_constraints.push_back(c);
+	}
 }
 
 /// CONSTRAINT MANAGEMENT
@@ -56,17 +68,31 @@ void AirplaneConstrainedEnvironment::AddBoxConstraint(const airtimeState &loc1, 
 void AirplaneConstrainedEnvironment::ClearConstraints()
 {
 	constraints.resize(0);
-	//Add back the air-strip constraints
-	for (landingStrip st : ae->GetLandingStrips())
-	{
-		airplaneState mi(min(st.x1, st.x2), min(st.y1, st.y2), 0, 0,0);
-		airtimeState o(mi, 0);
-		airplaneState ma(max(st.x1, st.x2), max(st.y1, st.y2), 10, 0,0);
-		airtimeState f(ma, std::numeric_limits<float>::max());
-		airConstraint c(o, f);
-		c.strip=true;
-		constraints.push_back(c);
-	}
+}
+
+
+// Add a constraint of any type
+void AirplaneConstrainedEnvironment::AddStaticConstraint(airConstraint c)
+{
+	static_constraints.push_back(c);
+}
+
+// Add a point constraint
+void AirplaneConstrainedEnvironment::AddStaticPointConstraint(const airtimeState &loc)
+{
+	airConstraint x(loc);
+	static_constraints.push_back(x);
+}
+
+void AirplaneConstrainedEnvironment::AddStaticBoxConstraint(const airtimeState &loc1, const airtimeState &loc2)
+{
+	airConstraint x(loc1, loc2);
+	static_constraints.push_back(x);
+}
+
+void AirplaneConstrainedEnvironment::ClearStaticConstraints()
+{
+	static_constraints.resize(0);
 }
 
 
@@ -521,6 +547,46 @@ bool AirplaneConstrainedEnvironment::ViolatesConstraint(const airtimeState &from
 
 	//Check if the action box violates any of the constraints that are in the constraints list
 	for (airConstraint c : constraints)
+	{
+		// Check if the range of the constraint overlaps in time
+		if (max(c.start_state.t, from.t) <= min(c.end_state.t, to.t) + 0.00001) 
+		{
+			/*
+	      	// Vertex collision
+	        if(c.end_state.l.x == to.l.x && c.end_state.l.y == to.l.y && c.end_state.l.height == to.l.height) 
+	        	return true;
+
+	        // Edge collision
+	        if((c.end_state.l.x == from.l.x && c.end_state.l.y == from.l.y && c.end_state.l.height == from.l.height) &&
+	           (c.start_state.l.x == to.l.x && c.start_state.l.y == to.l.y && c.start_state.l.height == to.l.height)) 
+	        	return true;
+	        */
+	       // Generate a well formed set of boxes for the constraint box
+			c_minx = min(c.start_state.l.x, c.end_state.l.x);
+			c_maxx = max(c.start_state.l.x, c.end_state.l.x);
+
+			c_miny = min(c.start_state.l.y, c.end_state.l.y);
+			c_maxy = max(c.start_state.l.y, c.end_state.l.y);
+
+			c_minz = min(c.start_state.l.height, c.end_state.l.height);
+			c_maxz = max(c.start_state.l.height, c.end_state.l.height);
+
+			
+			if (max(c_minx, a_minx) <= min(c_maxx, a_maxx) && // Check if overlapping on the X axis
+				max(c_miny, a_miny) <= min(c_maxy, a_maxy) && // Check if overlapping on the Y axis
+				max(c_minz, a_minz) <= min(c_maxz, a_maxz)    // Check if overlapping on the Z axis
+				)
+			{
+				// If we overlap on all three axis, then there must be a common point, and thus
+				// we can return that the constraint was violated
+				return true;
+			}
+
+		}
+	}
+
+	//Check if the action box violates any of the constraints that are in the static constraints list
+	for (airConstraint c : static_constraints)
 	{
 		// Check if the range of the constraint overlaps in time
 		if (max(c.start_state.t, from.t) <= min(c.end_state.t, to.t) + 0.00001) 

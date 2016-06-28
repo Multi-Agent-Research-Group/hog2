@@ -90,8 +90,12 @@ public:
 	void AddConstraint(airConstraint c);
 	void AddPointConstraint(const airtimeState &loc);
 	void AddBoxConstraint(const airtimeState &loc1, const airtimeState &loc2);
+	void AddStaticConstraint(airConstraint c);
+	void AddStaticPointConstraint(const airtimeState &loc);
+	void AddStaticBoxConstraint(const airtimeState &loc1, const airtimeState &loc2);
 	/** Clear the constraints */
 	void ClearConstraints();
+	void ClearStaticConstraints();
 
 
 	/// STATE MANAGEMENT
@@ -160,6 +164,7 @@ private:
 
 	/** Vector holding the current constraints */
 	std::vector<airConstraint> constraints;
+	std::vector<airConstraint> static_constraints;
 
 	/** Airplane Environment holder */
 	AirplaneEnvironment *ae;

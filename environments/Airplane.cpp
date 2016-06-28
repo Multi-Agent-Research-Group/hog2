@@ -159,7 +159,8 @@ AirplaneEnvironment::AirplaneEnvironment(
 		}
 	}
 
-  landingStrip l(15, 20, 17, 27);
+  airplaneState launchLoc(18, 29, 10, 1, 0);
+  landingStrip l(15, 20, 17, 28, launchLoc);
   AddLandingStrip(l);
 	
 
@@ -624,6 +625,28 @@ void AirplaneEnvironment::OpenGLDraw() const
 	glDisable(GL_LIGHTING);
 	glColor3f(1.0, 1.0, 1.0);
 	DrawBoxFrame(0, 0, 0.75, 1.0);
+
+  for (landingStrip st : landingStrips)
+  {
+    //Draw the dashed line down the middle
+    
+    float xval = (max(st.x1, st.x2)-min(st.x1, st.x2))/2.0f + min(st.x1, st.x2);
+  
+    glLineStipple(1, 0x00FF);
+    glLineWidth(100);
+    glEnable(GL_LINE_STIPPLE);
+    glDisable(GL_LIGHTING);
+    glBegin(GL_LINES);
+      glVertex3f((xval-width/2.0)/(width/2.0),(min(st.y1,st.y2)-width/2.0)/(width/2.0) ,-4.0*st.z/(255.0*80));
+      glVertex3f((xval-width/2.0)/(width/2.0),(max(st.y1,st.y2)-width/2.0)/(width/2.0) ,-4.0*st.z/(255.0*80));
+    glEnd();
+    glLineStipple(0, 0xFFFF);
+    glLineWidth(1);
+
+  }
+
+
+
 }
 
 void AirplaneEnvironment::OpenGLDraw(const airplaneState &l) const

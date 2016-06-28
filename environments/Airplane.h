@@ -25,15 +25,6 @@ const uint8_t k45 = 1;
 const uint8_t k90 = 2;
 const uint8_t kShift = 3;
 
-struct landingStrip {
-	landingStrip(uint16_t x1, uint16_t x2, uint16_t y1, uint16_t y2) : x1(x1), x2(x2), y1(y1), y2(y2) {}
-	uint16_t x1;
-	uint16_t x2;
-	uint16_t y1;
-	uint16_t y2;
-	uint16_t z = 0;
-};
-
 struct airplaneAction {
 public:
 	airplaneAction(int8_t t=0, int8_t s=0, int8_t h=0)
@@ -63,6 +54,16 @@ public:
 	uint16_t height;
 	uint8_t speed;
 	uint8_t heading;
+};
+
+struct landingStrip {
+	landingStrip(uint16_t x1, uint16_t x2, uint16_t y1, uint16_t y2, airplaneState &launch_state) : x1(x1), x2(x2), y1(y1), y2(y2), launch_state(launch_state) {}
+	uint16_t x1;
+	uint16_t x2;
+	uint16_t y1;
+	uint16_t y2;
+	uint16_t z = 0;
+	airplaneState launch_state;
 };
 
 /** Output the information in an airplane state */
