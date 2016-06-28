@@ -255,12 +255,13 @@ void AirplaneConstrainedEnvironment::OpenGLDraw() const
 	// Draw the constraints on the map
 	for (int i = 0; i < constraints.size(); i++)
 	{
-		if (constraints.at(i).strip)
-		{
-			this->SetColor(1,0,0);
-			constraints.at(i).OpenGLDraw();	
-		}
-		
+			// Right now we don't draw constraints
+	}
+
+	// Draw all of the static constraints
+	for (int i = 0; i < static_constraints.size(); i++)
+	{
+		static_constraints.at(i).OpenGLDraw();	
 	}
 	
 }
