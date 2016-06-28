@@ -25,6 +25,8 @@ double simTime = 0;
 double stepsPerFrame = 1.0/1000.0;
 std::vector<airtimeState> thePath;
 
+bool paused = false;
+
 //DirectionalPlanner *dp = 0;
 //MapSectorAbstraction *quad = 0;
 //std::vector<DirectionSimulation *> unitSims;
@@ -126,7 +128,9 @@ AirCBSUnit* u1 = 0;
 AirCBSUnit* u2 = 0;
 AirCBSUnit* u3 = 0;
 AirCBSUnit* u4 = 0;
-airtimeState s1, s2, s3, s4, g1, g2, g3, g4;
+AirCBSUnit* u5 = 0;
+AirCBSUnit* u6 = 0;
+airtimeState s1, s2, s3, s4, s5, s6, g1, g2, g3, g4, g5, g6;
 
 
 void InitSim(){
@@ -227,15 +231,63 @@ void InitSim(){
 	
 	std::cout << "Set unit goal from " << s4 << " to " << g4 << " rough heading: " << (unsigned)s4.l.headingTo(g4.l) << std::endl;
 
+
+	s5.l.x = 18;
+	s5.l.y = 23;
+	s5.l.height = 0;
+	s5.l.heading = 0;
+	s5.l.speed = 0;
+	s5.l.landed = true;
+	s5.t = 0;
+
+	g5.l.x = 48;
+	g5.l.y = 7;
+	g5.l.height = 16;
+	g5.l.heading = 2;
+	g5.l.speed = 2;
+	g5.t = 0;
+
+	u5 = new AirCBSUnit(s5, g5);
+	u5->SetColor(1.0, 0.0, 1.0);
+	
+	std::cout << "Set unit goal from " << s5 << " to " << g5 << " rough heading: " << (unsigned)s6.l.headingTo(g6.l) << std::endl;
+
+
+	s6.l.x = 55;
+	s6.l.y = 17;
+	s6.l.height = 23;
+	s6.l.speed = 3;
+	s6.l.heading = 0;
+	s6.l.landed = false;
+	s6.t = 0;
+
+	g6.l.x = 18;
+	g6.l.y = 23;
+	g6.l.height = 0;
+	g6.l.heading = 0;
+	g6.l.speed = 0;
+	g6.l.landed = true;
+	g6.t = 0;
+
+	u6 = new AirCBSUnit(s6, g6);
+	u6->SetColor(1.0, 0.0, 1.0);
+	
+	std::cout << "Set unit goal from " << s6 << " to " << g6 << " rough heading: " << (unsigned)s6.l.headingTo(g6.l) << std::endl;
+
 	group->AddUnit(u1);
 	group->AddUnit(u2);
 	group->AddUnit(u3);
 	group->AddUnit(u4);
-	
+	group->AddUnit(u5);
+	group->AddUnit(u6);
+
 	sim->AddUnit(u1);
 	sim->AddUnit(u2);
 	sim->AddUnit(u3);
 	sim->AddUnit(u4);
+	sim->AddUnit(u5);
+	sim->AddUnit(u6);
+
 
 }
 
@@ -256,7 +308,9 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 	//	group->OpenGLDraw(ae, sim);
 	if (sim)
 		sim->OpenGLDraw();
-	sim->StepTime(stepsPerFrame);
+	
+	if (!paused)
+		sim->StepTime(stepsPerFrame);
 
 	/*u1->GetLocation(s11);
 	u2->GetLocation(s21);
@@ -458,7 +512,9 @@ void MyDisplayHandler(unsigned long windowID, tKeyboardModifier mod, char key)
 				SetNumPorts(windowID, 1+(GetNumPorts(windowID)%MAXPORTS));
 			}
 			break;
-		case 'p': break;//unitSims[windowID]->SetPaused(!unitSims[windowID]->GetPaused()); break;
+		case 'p': 
+			paused = !paused;
+			break;//unitSims[windowID]->SetPaused(!unitSims[windowID]->GetPaused()); break;
 		case 'o':
 //			if (unitSims[windowID]->GetPaused())
 //			{

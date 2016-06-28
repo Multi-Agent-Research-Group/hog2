@@ -30,7 +30,7 @@ struct airtimeState {
 static std::ostream& operator <<(std::ostream & out, const airtimeState &loc)
 {
 	out << "(x:" << loc.l.x << ", y:" << loc.l.y << ", h:" << loc.l.height << ", s:" << unsigned(loc.l.speed) <<
-											    ", hdg:" << unsigned(loc.l.heading) << ", t:" << (loc.t) << ")";
+											    ", hdg:" << unsigned(loc.l.heading) << ", t:" << (loc.t) << ", l: " << unsigned (loc.l.landed) << ")";
 	return out;
 }
 

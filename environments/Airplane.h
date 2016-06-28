@@ -27,25 +27,26 @@ const uint8_t kShift = 3;
 
 struct airplaneAction {
 public:
-	airplaneAction(int8_t t=0, int8_t s=0, int8_t h=0)
-	:turn(t), speed(s), height(h) {}
+	airplaneAction(int8_t t=0, int8_t s=0, int8_t h=0, int8_t takeoff = 0)
+	:turn(t), speed(s), height(h), takeoff(takeoff) {}
 	int8_t turn;
 	int8_t speed;
 	int8_t height;
+	int8_t takeoff; // 0 for no-land, 1 for takeoff, 2 for landing
 };
 
 /** Output the information in an airplane action */
 static std::ostream& operator <<(std::ostream & out, const airplaneAction &act)
 {
-	out << "(turn:" << signed(act.turn) << ", speed:" << signed(act.speed) << ", height: " << signed(act.height) << ")";
+	out << "(turn:" << signed(act.turn) << ", speed:" << signed(act.speed) << ", height: " << signed(act.height) << ", takeoff: " << signed(act.takeoff) << ")";
 	return out;
 }
 
 // state
 struct airplaneState {
 public:
-	airplaneState() :x(0),y(0),height(20),speed(1),heading(0) {}
-	airplaneState(uint16_t x,uint16_t y, uint16_t height, uint8_t speed, uint8_t heading) :x(x),y(y),height(height),speed(speed),heading(heading) {}
+	airplaneState() :x(0),y(0),height(20),speed(1),heading(0),landed(false) {}
+	airplaneState(uint16_t x,uint16_t y, uint16_t height, uint8_t speed, uint8_t heading, bool landed = false) :x(x),y(y),height(height),speed(speed),heading(heading), landed(landed) {}
         uint8_t headingTo(airplaneState const& other) const {
           return uint8_t(round((atan2(other.y-y,other.x-x)+(M_PI/2.0))*4.0/M_PI)+8.0)%8;
         }
@@ -54,23 +55,27 @@ public:
 	uint16_t height;
 	uint8_t speed;
 	uint8_t heading;
+	bool landed;
 };
 
 struct landingStrip {
-	landingStrip(uint16_t x1, uint16_t x2, uint16_t y1, uint16_t y2, airplaneState &launch_state) : x1(x1), x2(x2), y1(y1), y2(y2), launch_state(launch_state) {}
+	landingStrip(uint16_t x1, uint16_t x2, uint16_t y1, uint16_t y2, airplaneState &launch_state, airplaneState &landing_state, airplaneState &goal_state) : x1(x1), x2(x2), y1(y1), y2(y2), 
+				 launch_state(launch_state), landing_state(landing_state), goal_state(goal_state) {}
 	uint16_t x1;
 	uint16_t x2;
 	uint16_t y1;
 	uint16_t y2;
 	uint16_t z = 0;
+	airplaneState goal_state;
 	airplaneState launch_state;
+	airplaneState landing_state;
 };
 
 /** Output the information in an airplane state */
 static std::ostream& operator <<(std::ostream & out, const airplaneState &loc)
 {
 	out << "(x:" << loc.x << ", y:" << loc.y << ", h:" << loc.height << ", s:" << unsigned(loc.speed) <<
-											    ", hdg: " << unsigned(loc.heading) << ")";
+											    ", hdg: " << unsigned(loc.heading) << ", l: " << unsigned (loc.landed) << ")";
 	return out;
 }
 

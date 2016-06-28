@@ -12,7 +12,7 @@
 
 bool operator==(const airplaneState &s1, const airplaneState &s2)
 {
-	return (s1.x==s2.x && s1.y==s2.y && s1.height==s2.height && s1.heading == s2.heading);
+	return (s1.x==s2.x && s1.y==s2.y && s1.height==s2.height && s1.heading == s2.heading && s1.speed == s2.speed);
 	//return (fequal(s1.x,s2.x) && fequal(s1.y,s2.y) && s1.height==s2.height && s1.speed == s2.speed && s1.heading == s2.heading);
 }
 
@@ -159,8 +159,10 @@ AirplaneEnvironment::AirplaneEnvironment(
 		}
 	}
 
-  airplaneState launchLoc(18, 29, 10, 1, 0);
-  landingStrip l(15, 20, 17, 28, launchLoc);
+  airplaneState launchLoc(18, 29, 7, 1, 4);
+  airplaneState landingLoc(18, 29, 7, 1, 0);
+  airplaneState goalLoc(18, 23, 0, 0, 0);
+  landingStrip l(15, 20, 17, 28, launchLoc, landingLoc, goalLoc);
   AddLandingStrip(l);
 	
 
@@ -255,7 +257,38 @@ void AirplaneEnvironment::GetActions(const airplaneState &nodeID, std::vector<ai
 	// up / down
 	actions.resize(0);
 
-        // no change
+  // If the airplane is on the ground, the only option is to takeoff
+  if (nodeID.landed)
+  {
+    // Figure out which landing strip we're at
+    for (landingStrip st : landingStrips)
+    {
+      //std::cout << "Comparing " << nodeID << " and " << st.goal_state << std::endl;
+      if (nodeID == st.goal_state)
+      {
+        // Add the takeoff action
+        actions.push_back(airplaneAction(0,0,0,1));
+        return;
+      }
+    }
+    // There should never be a situation where we get here
+    assert(false && "Airplane trying to takeoff, but not at a landing strip");
+  } 
+  else 
+  {
+    // Check to see if we can land
+    for (landingStrip st : landingStrips)
+    {
+      if (nodeID == st.landing_state)
+      {
+        // Add the takeoff action
+        actions.push_back(airplaneAction(0,0,0,2));
+      }
+    }
+    // We don't have to land though, so we keep going.
+  }
+
+  // no change
 	actions.push_back(airplaneAction(0, 0, 0));
 
 	// each type of turn
@@ -368,6 +401,14 @@ void AirplaneEnvironment::GetActions(const airplaneState &nodeID, std::vector<ai
 airplaneAction AirplaneEnvironment::GetAction(const airplaneState &node1, const airplaneState &node2) const
 {
 	airplaneAction a;
+
+  // Deal with actions that setup landing
+  if (node1.landed && !node2.landed){
+    return(airplaneAction(0,0,0,1));
+  } else if (node2.landed && !node1.landed) {
+    return(airplaneAction(0,0,0,2));
+  }
+
 	a.height = node2.height - node1.height;
         a.turn = node2.heading - node1.heading;
         if(a.turn>2){
@@ -425,6 +466,40 @@ airplaneAction AirplaneEnvironment::GetAction(const airplaneState &node1, const 
 // Also, turn is performed, and then the offset is applied
 void AirplaneEnvironment::ApplyAction(airplaneState &s, airplaneAction dir) const
 {
+
+  if (dir.takeoff == 1) {
+    // Takeoff action
+    // Find the airstrip that we're at
+    for (landingStrip st : landingStrips)
+    {
+      
+      if (s == st.goal_state)
+      {
+        s = st.launch_state;
+        s.landed = false;
+        return;
+      }
+    }
+    assert (false && "Tried to takeoff from a non-existant landing strip");
+  }
+
+  if (dir.takeoff == 2) {
+    // Landing action
+    // Find the airstrip that we're at
+    for (landingStrip st : landingStrips)
+    {
+      if (s == st.landing_state)
+      {
+        s = st.goal_state;
+        s.landed = true;
+        return;
+      }
+    }
+    assert (false && "Tried to land at a non-existant landing strip");
+  }
+
+
+
 	static const double offset[8][2] = {
 		{ 0, -1},
 		{ 1, -1},
@@ -461,6 +536,19 @@ void AirplaneEnvironment::GetNextState(const airplaneState &currents, airplaneAc
 
 double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneState &node2) const
 {
+      if (node2.landed)
+      {
+        // We want to estimate the heuristic to the landing state
+        // Figure out which landing strip we're going to
+         for (landingStrip st : landingStrips)
+          {
+            if (node2 == st.goal_state)
+            {
+             return HCost(node1, st.landing_state);
+            }
+          }
+      }
+
         // Estimate fuel cost...
         int vertDiff(node2.height-node1.height);
         double diffx(abs(node1.x-node2.x));
@@ -530,10 +618,14 @@ uint64_t AirplaneEnvironment::GetStateHash(const airplaneState &node) const
 	h |= node.height & (0x400-1); // 10 bits
 	h = h << 5;
         // Speed increments are in 1 m/sec
-	h |= node.speed & (0x20-1); // 5 bits
+	h |= node.speed & (0x20-1); // 4 bits
 	h = h << 3;
         // Heading increments are in 45 degrees
 	h |= node.heading & (0x8-1); // 3 bits
+  
+  h = h << 1;
+  h |= node.landed;
+
 	return h;
 }
 
@@ -546,6 +638,8 @@ uint64_t AirplaneEnvironment::GetActionHash(airplaneAction act) const
 	h |= act.speed;
 	h = h << 8;
 	h |= act.height;
+  h = h << 8;
+  h |= act.takeoff;
 	return h;
 }
 
@@ -642,6 +736,10 @@ void AirplaneEnvironment::OpenGLDraw() const
     glEnd();
     glLineStipple(0, 0xFFFF);
     glLineWidth(1);
+
+    // Draw the launch location
+    this->SetColor(0.5,0.5,0.5, 0.3);
+    this->OpenGLDraw(st.launch_state);
 
   }
 

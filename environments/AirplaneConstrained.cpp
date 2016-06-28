@@ -36,7 +36,7 @@ AirplaneConstrainedEnvironment::AirplaneConstrainedEnvironment(AirplaneEnvironme
 	{
 		airplaneState mi(min(st.x1, st.x2), min(st.y1, st.y2), 0, 0,0);
 		airtimeState o(mi, 0);
-		airplaneState ma(max(st.x1, st.x2), max(st.y1, st.y2), 10, 0,0);
+		airplaneState ma(max(st.x1, st.x2), max(st.y1, st.y2), 7, 0,0);
 		airtimeState f(ma, std::numeric_limits<float>::max());
 		airConstraint c(o, f);
 		c.strip=true;
@@ -112,12 +112,21 @@ void AirplaneConstrainedEnvironment::GetSuccessors(const airtimeState &nodeID, s
 	// Get the successors from the hidden AE
 	this->ae->GetActions(nodeID.l, actions);
 
+	//std::cout << "Getting successors from given state: " << nodeID << std::endl;
+	//std::cout << "Succs are: " << std::endl;
+	//for (airplaneAction a : actions)
+	//{
+	//	std::cout << "\t" << a << std::endl;
+	//}
+
 	// Check to see if any constraints are violated, and remove them from the actions that are allowed
 	for (airplaneAction act : actions)
 	{
 		// Construct the followup state
 		airtimeState new_state(nodeID.l, nodeID.t);
 		this->ApplyAction(new_state, act);
+
+		//std::cout << "Applied the action " << act << " to state " << nodeID << " to get " << new_state << std::endl;
 
 		// Check to see if it violates any constraint. If it does not, push it back.
 		if (!ViolatesConstraint(nodeID, new_state))
@@ -216,9 +225,11 @@ uint64_t AirplaneConstrainedEnvironment::GetStateHash(const airtimeState &node) 
 	h = h << 10;
         // Assume height discretization of 25 meters
 	h |= node.l.height & (0x400-1); // 10 bits
-	h = h << 5;
+	h = h << 4;
         // Speed increments are in 1 m/sec
-	h |= node.l.speed & (0x20-1); // 5 bits
+	h |= node.l.speed & (0xF); // 5 bits
+	h = h << 1;
+	h |= node.l.landed;
 	h = h << 3;
         // Heading increments are in 45 degrees
 	h |= node.l.heading & (0x8-1); // 3 bits
@@ -239,6 +250,8 @@ uint64_t AirplaneConstrainedEnvironment::GetActionHash(airplaneAction act) const
 	h |= act.speed;
 	h = h << 8;
 	h |= act.height;
+	h = h << 8;
+	h |= act.takeoff;
 	
 	return h;
 }
@@ -584,6 +597,12 @@ bool AirplaneConstrainedEnvironment::ViolatesConstraint(const airtimeState &from
 			}
 
 		}
+	}
+
+	// If the plane is taking off or landing, then don't worry about static constraints
+	if (from.l.landed || to.l.landed)
+	{
+		return false;
 	}
 
 	//Check if the action box violates any of the constraints that are in the static constraints list

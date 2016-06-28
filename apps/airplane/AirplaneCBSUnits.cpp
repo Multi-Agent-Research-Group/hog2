@@ -123,7 +123,7 @@ void AirCBSGroup::ExpandOneCBSNode()
 		}
 		return;
 	}
-    std::cout << "Conflict found @time: "<<c2.c.start_state.t << std::endl;
+    std::cout << "Conflict found between unit " << c1.unit1 << " and unit " << c2.unit1 << " @time: " << c2.c.start_state.t << std::endl;
 	
 	// Otherwise, we add two nodes to the tree for each of the children
 	unsigned long last = tree.size();
