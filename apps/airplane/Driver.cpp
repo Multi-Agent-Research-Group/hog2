@@ -122,6 +122,7 @@ void MyWindowHandler(unsigned long windowID, tWindowEventType eType)
 }
 
 AirplaneConstrainedEnvironment *ace = 0;
+AirplaneConstrainedEnvironment *aces = 0;
 UnitSimulation<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *sim = 0;
 AirCBSGroup* group = 0;
 AirCBSUnit* u1 = 0;
@@ -134,145 +135,191 @@ airtimeState s1, s2, s3, s4, s5, s6, g1, g2, g3, g4, g5, g6;
 
 
 void InitSim(){
-	ace = new AirplaneConstrainedEnvironment(new AirplaneEnvironment());
-	//ace = new AirplaneConstrainedEnvironment(new AirplaneSimpleEnvironment());
+        AirplaneEnvironment*const ae(new AirplaneEnvironment());
+        //ae->loadEndGameHeuristic("heuristic.bin");
+        AirplaneSimpleEnvironment*const ase(new AirplaneSimpleEnvironment());
+        //ae->loadEndGameHeuristic("heuristic.bin");
+	ace = new AirplaneConstrainedEnvironment(ae);
+	aces = new AirplaneConstrainedEnvironment(ase);
 
 	sim = new UnitSimulation<airtimeState, airplaneAction, AirplaneConstrainedEnvironment>(ace);
 	sim->SetStepType(kLockStep);
-	group = new AirCBSGroup(ace);
+	group = new AirCBSGroup(ace,ace,100);
+        // TODO: Have it use teh simple environment and switch to the complex one
+        //       after too many conflicts
+	//group = new AirCBSGroup(ace,aces,4);
 	
 	sim->AddUnitGroup(group);
-	
-	s1.l.x = 34;
-	s1.l.y = 40;
-	s1.l.height = 26;
-	s1.l.height = 14;
-	s1.l.heading = 0;
-	s1.l.heading = 2;
-	s1.l.speed = 5;
+
+	s1.x = 36;
+	s1.y = 40;
+	s1.height = 14;
+	s1.heading = 2;
+	s1.speed = 5;
 	s1.t = 0;
 
-	g1.l.x = 77;
-	g1.l.y = 18;
-	g1.l.x = 42;
-	g1.l.y = 40;
-	g1.l.height = 14;
-	g1.l.heading = 0;
-	g1.l.heading = 2;
-	g1.l.speed = 5;
+	g1.x = 42;
+	g1.y = 40;
+	g1.height = 14;
+	g1.heading = 6;
+	g1.speed = 5;
 	g1.t = 0;
+
+  // This section is just here to test out different heuristics
+  StraightLineHeuristic<airplaneState> sh;
+  OctileDistanceHeuristic<airplaneState> oh;
+
+    TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> astar;
+    std::vector<airplaneState> sol;
+    astar.GetPath(ae,s1,g1,sol);
+    std::cout << "Orig - hcost: " << ae->HCost(s1,g1) << " pathcost: " <<ae->GetPathLength(sol) <<" expansions: " << astar.GetNodesExpanded()<<"\n";;
+
+    sol.clear();
+    astar.SetWeight(2.0);
+    astar.GetPath(ae,s1,g1,sol);
+    std::cout << "Origx2 - hcost: " << ae->HCost(s1,g1) << " pathcost: " <<ae->GetPathLength(sol) <<" expansions: " << astar.GetNodesExpanded()<<"\n";;
+
+    sol.clear();
+    astar.SetHeuristic(&sh);
+    astar.SetWeight(1.0);
+    astar.GetPath(ae,s1,g1,sol);
+    std::cout << "Line - hcost: " << sh.HCost(s1,g1) << " pathcost: " <<ae->GetPathLength(sol) <<" expansions: " << astar.GetNodesExpanded()<<"\n";;
+
+    sol.clear();
+    astar.SetWeight(2.0);
+    astar.GetPath(ae,s1,g1,sol);
+    std::cout << "linex2 - hcost: " << oh.HCost(s1,g1) << " pathcost: " <<ae->GetPathLength(sol) <<" expansions: " << astar.GetNodesExpanded()<<"\n";;
+
+
+    sol.clear();
+    astar.SetHeuristic(&oh);
+    astar.SetWeight(1.0);
+    astar.GetPath(ae,s1,g1,sol);
+    std::cout << "Octile - hcost: " << oh.HCost(s1,g1) << " pathcost: " <<ae->GetPathLength(sol) <<" expansions: " << astar.GetNodesExpanded()<<"\n";;
+
+    sol.clear();
+    astar.SetWeight(2.0);
+    astar.GetPath(ae,s1,g1,sol);
+    std::cout << "Octilex2 - hcost: " << oh.HCost(s1,g1) << " pathcost: " <<ae->GetPathLength(sol) <<" expansions: " << astar.GetNodesExpanded()<<"\n";;
 
 	u1 = new AirCBSUnit(s1, g1);
 	u1->SetColor(1.0, 0.0, 0.0);
+	group->AddUnit(u1);
+	sim->AddUnit(u1);
 
-	std::cout << "Set unit goal from " << s1 << " to " << g1 << " rough heading: " << (unsigned)s1.l.headingTo(g1.l) << std::endl;
+	std::cout << "Set unit goal from " << s1 << " to " << g1 << " rough heading: " << (unsigned)s1.headingTo(g1) << std::endl;
 
-	s2.l.x = 8;
-	s2.l.y = 2;
-	s2.l.x = 46;
-	s2.l.y = 40;
-	s2.l.height = 26;
-	s2.l.height = 14;
-	s2.l.heading = 3;
-	s2.l.heading = 6;
-	s2.l.speed = 1;
+
+	s2.x = 8;
+	s2.y = 2;
+	s2.x = 46;
+	s2.y = 40;
+	s2.height = 26;
+	s2.height = 14;
+	s2.heading = 3;
+	s2.heading = 6;
+	s2.speed = 1;
 	s2.t = 0;
 
-	g2.l.x = 76;
-	g2.l.y = 58;
-	g2.l.x = 38;
-	g2.l.y = 40;
-	g2.l.height = 14;
-	g2.l.heading = 5;
-	g2.l.heading = 6;
-	g2.l.speed = 1;
+	g2.x = 76;
+	g2.y = 58;
+	g2.x = 38;
+	g2.y = 40;
+	g2.height = 14;
+	g2.heading = 5;
+	g2.heading = 6;
+	g2.speed = 1;
 	g2.t = 0;
 
 	u2 = new AirCBSUnit(s2, g2);
 	u2->SetColor(0.0, 1.0, 0.0);
+	sim->AddUnit(u2);
+	group->AddUnit(u2);
 	
-	std::cout << "Set unit goal from " << s2 << " to " << g2 << " rough heading: " << (unsigned)s2.l.headingTo(g2.l) << std::endl;
+	std::cout << "Set unit goal from " << s2 << " to " << g2 << " rough heading: " << (unsigned)s2.headingTo(g2) << std::endl;
 
-	s3.l.x = 40;
-	s3.l.y = 46;
-	s3.l.height = 14;
-	s3.l.heading = 0;
-	s3.l.speed = 1;
+	s3.x = 40;
+	s3.y = 46;
+	s3.height = 14;
+	s3.heading = 0;
+	s3.speed = 1;
 	s3.t = 0;
 
-	g3.l.x = 40;
-	g3.l.y = 38;
-	g3.l.height = 14;
-	g3.l.heading = 0;
-	g3.l.speed = 1;
+	g3.x = 40;
+	g3.y = 38;
+	g3.height = 14;
+	g3.heading = 0;
+	g3.speed = 1;
 	g3.t = 0;
 
 	u3 = new AirCBSUnit(s3, g3);
 	u3->SetColor(0.0, 0.0, 1.0);
+	sim->AddUnit(u3);
+	group->AddUnit(u3);
 	
-	std::cout << "Set unit goal from " << s3 << " to " << g3 << " rough heading: " << (unsigned)s3.l.headingTo(g3.l) << std::endl;
+	std::cout << "Set unit goal from " << s3 << " to " << g3 << " rough heading: " << (unsigned)s3.headingTo(g3) << std::endl;
 
-	s4.l.x = 40;
-	s4.l.y = 34;
-	s4.l.height = 14;
-	s4.l.heading = 4;
-	s4.l.speed = 1;
+	s4.x = 40;
+	s4.y = 34;
+	s4.height = 14;
+	s4.heading = 4;
+	s4.speed = 1;
 	s4.t = 0;
 
-	g4.l.x = 40;
-	g4.l.y = 42;
-	g4.l.height = 14;
-	g4.l.heading = 4;
-	g4.l.speed = 1;
+	g4.x = 40;
+	g4.y = 42;
+	g4.height = 14;
+	g4.heading = 4;
+	g4.speed = 1;
 	g4.t = 0;
 
 	u4 = new AirCBSUnit(s4, g4);
 	u4->SetColor(1.0, 0.0, 1.0);
 	
-	std::cout << "Set unit goal from " << s4 << " to " << g4 << " rough heading: " << (unsigned)s4.l.headingTo(g4.l) << std::endl;
+	std::cout << "Set unit goal from " << s4 << " to " << g4 << " rough heading: " << (unsigned)s4.headingTo(g4) << std::endl;
 
 
-	s5.l.x = 18;
-	s5.l.y = 23;
-	s5.l.height = 0;
-	s5.l.heading = 0;
-	s5.l.speed = 0;
-	s5.l.landed = true;
+	s5.x = 18;
+	s5.y = 23;
+	s5.height = 0;
+	s5.heading = 0;
+	s5.speed = 0;
+	s5.landed = true;
 	s5.t = 0;
 
-	g5.l.x = 48;
-	g5.l.y = 7;
-	g5.l.height = 16;
-	g5.l.heading = 2;
-	g5.l.speed = 2;
+	g5.x = 48;
+	g5.y = 7;
+	g5.height = 16;
+	g5.heading = 2;
+	g5.speed = 2;
 	g5.t = 0;
 
 	u5 = new AirCBSUnit(s5, g5);
 	u5->SetColor(1.0, 0.0, 1.0);
 	
-	std::cout << "Set unit goal from " << s5 << " to " << g5 << " rough heading: " << (unsigned)s6.l.headingTo(g6.l) << std::endl;
+	std::cout << "Set unit goal from " << s5 << " to " << g5 << " rough heading: " << (unsigned)s5.headingTo(g5) << std::endl;
 
 
-	s6.l.x = 55;
-	s6.l.y = 17;
-	s6.l.height = 23;
-	s6.l.speed = 3;
-	s6.l.heading = 0;
-	s6.l.landed = false;
+	s6.x = 55;
+	s6.y = 17;
+	s6.height = 23;
+	s6.speed = 3;
+	s6.heading = 0;
+	s6.landed = false;
 	s6.t = 0;
 
-	g6.l.x = 18;
-	g6.l.y = 23;
-	g6.l.height = 0;
-	g6.l.heading = 0;
-	g6.l.speed = 0;
-	g6.l.landed = true;
+	g6.x = 18;
+	g6.y = 23;
+	g6.height = 0;
+	g6.heading = 0;
+	g6.speed = 0;
+	g6.landed = true;
 	g6.t = 0;
 
 	u6 = new AirCBSUnit(s6, g6);
 	u6->SetColor(1.0, 0.0, 1.0);
 	
-	std::cout << "Set unit goal from " << s6 << " to " << g6 << " rough heading: " << (unsigned)s6.l.headingTo(g6.l) << std::endl;
+	std::cout << "Set unit goal from " << s6 << " to " << g6 << " rough heading: " << (unsigned)s6.headingTo(g6) << std::endl;
 
 	group->AddUnit(u1);
 	group->AddUnit(u2);

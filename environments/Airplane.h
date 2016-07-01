@@ -25,6 +25,16 @@ const uint8_t k45 = 1;
 const uint8_t k90 = 2;
 const uint8_t kShift = 3;
 
+// Utility function
+namespace{
+template<unsigned fullDegs>
+unsigned hdgDiff(unsigned a, unsigned b){
+  unsigned d(abs(a-b)%fullDegs);
+  return d>(fullDegs/2.0)?fullDegs-d:d;
+}
+};
+
+
 struct airplaneAction {
 public:
 	airplaneAction(int8_t t=0, int8_t s=0, int8_t h=0, int8_t takeoff = 0)
@@ -81,6 +91,28 @@ static std::ostream& operator <<(std::ostream & out, const airplaneState &loc)
 
 bool operator==(const airplaneState &s1, const airplaneState &s2);
 bool operator==(const airplaneAction &a1, const airplaneAction &a2);
+
+template <class state>
+class StraightLineHeuristic : public Heuristic<state> {
+  public:
+  double HCost(const state &a,const state &b) const {
+        static const double cruiseBurnRate(.0006);
+        return sqrt((a.x-b.x)*(a.x-b.x)+(a.y-b.y)*(a.y-b.y)+(a.height-b.height)*(a.height-b.height))*cruiseBurnRate;
+  }
+};
+
+template <class state>
+class OctileDistanceHeuristic : public Heuristic<state> {
+  public:
+  double HCost(const state &a,const state &b) const {
+        static const double cruiseBurnRate(.0006);
+        int vertDiff(b.height-a.height);
+        int diffx(abs(a.x-b.x));
+        int diffy(abs(a.y-b.y));
+        int diff(abs(diffx-diffy));
+        return (diff+double(abs((diffx+diffy)-diff)/2)*M_SQRT2)*cruiseBurnRate;
+  }
+};
 
 //class GoalTester {
 //public:
@@ -144,6 +176,7 @@ public:
 
 	virtual void AddLandingStrip(landingStrip x);
 	virtual const std::vector<landingStrip>& GetLandingStrips() const {return landingStrips;}
+        void loadEndGameHeuristic(std::string const&);
 
         const uint8_t numSpeeds;
         const double minSpeed;       //Meters per time step
@@ -175,6 +208,9 @@ protected:
         double const climbCostRatio;//1.0475);
         double const descendCostRatio;//0.9725);
 
+        // Holds the heuristic for all start/end states near the goal
+        float endGame[5][5][5][8][8];
+        bool endGameLoaded;
         //TODO Add wind constants
         //const double windSpeed = 0;
         //const double windDirection = 0;

@@ -65,7 +65,7 @@ static std::ostream& operator <<(std::ostream & out, const AirCBSTreeNode &act)
 class AirCBSGroup : public UnitGroup<airtimeState, airplaneAction, AirplaneConstrainedEnvironment>
 {
 public:
-	AirCBSGroup(AirplaneConstrainedEnvironment *me);
+	AirCBSGroup(AirplaneConstrainedEnvironment *me, AirplaneConstrainedEnvironment* simple, unsigned threshold);
 	bool MakeMove(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u, AirplaneConstrainedEnvironment *e, 
 				  SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *si, airplaneAction& a);
 	void UpdateLocation(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u, AirplaneConstrainedEnvironment *e, 
@@ -82,6 +82,8 @@ private:
 	
 	bool planFinished;
 	AirplaneConstrainedEnvironment *ae;
+	AirplaneConstrainedEnvironment *simple;
+	AirplaneConstrainedEnvironment *current;
 
 	std::vector<AirCBSTreeNode> tree;
 	std::vector<airtimeState> thePath;
@@ -89,6 +91,7 @@ private:
 
 	double time;
 	unsigned int bestNode;
+        unsigned threshold;
 };
 
 

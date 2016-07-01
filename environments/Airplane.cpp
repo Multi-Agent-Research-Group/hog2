@@ -9,6 +9,8 @@
 #include <stdio.h>
 #include "Airplane.h"
 #include <iostream>
+#include "TemplateAStar.h"
+#include "Heuristic.h"
 
 bool operator==(const airplaneState &s1, const airplaneState &s2)
 {
@@ -20,7 +22,6 @@ bool operator==(const airplaneAction &a1, const airplaneAction &a2)
 {
   return a1.turn == a2.turn && a1.speed==a2.speed && a1.height==a2.height;
 }
-
 
 AirplaneEnvironment::AirplaneEnvironment(
   unsigned width,
@@ -46,7 +47,8 @@ AirplaneEnvironment::AirplaneEnvironment(
   cruiseBurnRate(cruiseBurnRate),
   speedBurnDelta(speedBurnDelta),
   climbCostRatio(climbCostRatio),
-  descendCostRatio(descendCostRatio)
+  descendCostRatio(descendCostRatio),
+  endGameLoaded(false)
 {
 	srandom(time(0));
 	ground.resize((width+1)*(length+1));
@@ -191,6 +193,89 @@ AirplaneEnvironment::AirplaneEnvironment(
 //	SetGround(0, length, random()%256);
 //	SetGround(width, length, random()%256);
 //	RecurseGround(0, 0, width+1, length+1);
+}
+
+void AirplaneEnvironment::loadEndGameHeuristic(std::string const& fname)
+{
+  FILE* fp(0);
+
+  // Attempt to read the heuristic from the file.
+  // On failure, build it from scratch
+  bool error(false);
+  if((fp=fopen(fname.c_str(), "rb"))==NULL) {
+        std::cout << "Cannot open file: " << fname << "\n";
+        error = true;
+  }
+
+  static const size_t egSize(sizeof(endGame)/sizeof(float));
+
+  if(!error){
+    if(fread(endGame, sizeof(float), egSize, fp) != egSize) {
+        if(feof(fp))
+            std::cout << "Premature end of file.\n";
+        else
+            std::cout << "File read error: " << fname << "\n";
+        error = true;
+    } else {
+      endGameLoaded = true;
+      fclose(fp);
+      std::cout << "Successfully loaded heuristic from: " << fname << "\n";
+      return;
+    }
+    fclose(fp);
+  }
+
+  
+  std::cout << "Failed to load end-game heuristic from file. Build it from scratch...\n";
+  airplaneState g;
+  int offset(10);
+  g.x = offset+2;
+  g.y = offset+2;
+  g.height = offset+2;
+  g.heading = 0;
+  g.speed = 3;
+
+  airplaneState s(g);
+  StraightLineHeuristic<airplaneState> sh;
+
+  for(int x(0); x<5; ++x){
+  for(int y(0); y<5; ++y){
+  for(int z(0); z<5; ++z){
+  for(int h(0); h<8; ++h){
+  for(int gh(0); gh<8; ++gh){
+    TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> astar;
+    astar.SetHeuristic(&sh);
+    s.x = offset+x;
+    s.y = offset+y;
+    s.height = offset+z;
+    s.heading = h;
+    g.heading = gh;
+    std::vector<airplaneState> sol;
+    astar.GetPath(this,s,g,sol);
+    double gcost(GetPathLength(sol));
+    if(fequal(gcost,0))
+      gcost=std::numeric_limits<float>::max();
+    endGame[x][y][z][h][gh]=gcost;
+  }
+  }
+  }
+  std::cout << "End-game "<<double(x*5+(y+1))*4.0<<"\% loaded\n";
+  }
+  }
+  endGameLoaded=true;
+
+  if((fp=fopen(fname.c_str(), "wb"))==NULL){
+    std::cout << "Cannot open file: " << fname << "\n";
+    return;
+  }
+
+  if(fwrite(endGame, sizeof(float), egSize, fp) != egSize)
+    std::cout << "File write error: " << fname << "\n";
+  else
+    std::cout << "End-game heuristic saved to " << fname << "\n";
+
+  fclose(fp);
+
 }
 
 void AirplaneEnvironment::SetGround(int x, int y, uint8_t val)
@@ -551,23 +636,76 @@ double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneStat
 
         // Estimate fuel cost...
         int vertDiff(node2.height-node1.height);
-        double diffx(abs(node1.x-node2.x));
-        double diffy(abs(node1.y-node2.y));
-        double diff(fabs(diffx-diffy));
-        double horizDiff(diff+(fabs((diffx+diffy)-diff)/2)*M_SQRT2);
-
+        int cruise((numSpeeds+1)/2.0);
+        int speedDiff1(abs(cruise-node1.speed));
+        int speedDiff2(abs(cruise-node2.speed));
+        int diffx(abs(node1.x-node2.x));
+        int diffy(abs(node1.y-node2.y));
+        int diff(abs(diffx-diffy));
+        int diag(abs((diffx+diffy)-diff)/2);
+        //std::cout << node1 << " " << node2 << " straight: " << diff << " diag: " << diag << "\n";
         double ratio=(vertDiff>0?climbCostRatio:descendCostRatio);
         vertDiff=abs(vertDiff);
-        unsigned headingChanges(0);//(abs(node1.heading-node1.headingTo(node2))%4-1);
-        if(vertDiff <= abs(horizDiff))
+        if(endGameLoaded){
+          if(diffx<3&&diffy<3&&vertDiff<3){
+            return endGame[node1.x-node2.y+2][node1.y-node2.y+2][node1.height-node2.height+2][node1.heading][node2.heading];
+          }else{
+            if(diff>2)
+              diff-=2;
+            else if(diag>2)
+              diag-=2;
+            else if(diff+diag > 2)
+              diag--; diff--;
+
+            float endGameHC(999999999.0);
+
+            int x((node1.x<node2.x+2)?0:(node1.x>node2.x)?4:node1.x);
+            int y((node1.y<node2.y+2)?0:(node1.y>node2.y)?4:node1.y);
+            int z((node1.height<node2.height+2)?0:(node1.height>node2.height)?4:node1.height);
+
+            // get minimum border value
+            if(x == 0 || x == 4)
+              for(int yy(0);yy<5;++yy)
+              for(int zz(0);zz<5;++zz)
+                endGameHC=std::min(endGameHC,endGame[x][yy][zz][node1.heading][node2.heading]);
+                
+            if(y == 0 || y == 4)
+              for(int xx(0);xx<5;++xx)
+              for(int zz(0);zz<5;++zz)
+                endGameHC=std::min(endGameHC,endGame[xx][y][zz][node1.heading][node2.heading]);
+                
+            if(z == 0 || z == 4)
+              for(int xx(0);xx<5;++xx)
+              for(int yy(0);yy<5;++yy)
+                endGameHC=std::min(endGameHC,endGame[xx][yy][z][node1.heading][node2.heading]);
+                
+              
+
+            double horizDiff(diff+diag*M_SQRT2);
+            if(vertDiff <= horizDiff)
+            {
+              return vertDiff*cruiseBurnRate*ratio+(horizDiff-vertDiff)*cruiseBurnRate+endGameHC;
+            }
+            else
+            {
+              // We'll have to slow down in order to give enough time to climb/descend or turn
+              double hvdiff(vertDiff-horizDiff);
+              return hvdiff*(cruiseBurnRate+speedBurnDelta)+vertDiff*cruiseBurnRate*ratio+endGameHC;
+            }
+            
+          }
+        }
+
+        double horizDiff(diff+diag*M_SQRT2);
+        if(vertDiff <= horizDiff)
         {
-          return vertDiff*cruiseBurnRate*ratio+(horizDiff-vertDiff+headingChanges)*cruiseBurnRate;
+          return vertDiff*cruiseBurnRate*ratio+(horizDiff-vertDiff)*cruiseBurnRate;
         }
         else
         {
           // We'll have to slow down in order to give enough time to climb/descend or turn
           double hvdiff(vertDiff-horizDiff);
-          return (hvdiff+headingChanges)*(cruiseBurnRate+speedBurnDelta)+vertDiff*cruiseBurnRate*ratio;
+          return hvdiff*(cruiseBurnRate+speedBurnDelta)+vertDiff*cruiseBurnRate*ratio;
         }
 }
 
@@ -578,7 +716,7 @@ double AirplaneEnvironment::GCost(const airplaneState &node1, const airplaneStat
         double ratio(1.0);
         if(node2.height-node1.height>0){ratio=climbCostRatio;}
         else if(node2.height-node1.height<0){ratio=descendCostRatio;}
-        return horizCost*ratio*(node2.heading%2?M_SQRT2:1.0);
+        return horizCost*ratio*((abs(node1.x-node2.x)&&abs(node1.y-node2.y))?M_SQRT2:1.0);
 }
 
 double AirplaneEnvironment::GCost(const airplaneState &node1, const airplaneAction &act) const
@@ -595,14 +733,13 @@ bool AirplaneEnvironment::GoalTest(const airplaneState &node, const airplaneStat
 	//return (fequal(node.x,goal.x) && fequal(node.y, goal.y) && node.height == goal.height && node.heading == goal.heading); //&& node.speed == goal.speed
 }
 
-double AirplaneEnvironment::GetPathLength(const std::vector<airplaneState> &n) const
+double AirplaneEnvironment::GetPathLength(const std::vector<airplaneState> &sol) const
 {
-	double length = 0;
-	for (unsigned int x = 1; x < n.size(); x++)
-	{
-		length += GCost(n[x-1], n[x]);
-	}
-	return length;
+    double gcost(0.0);
+    if(sol.size()>1)
+      for(auto n(sol.begin()+1); n!=sol.end(); ++n)
+        gcost += GCost(*(n-1),*n);
+    return gcost;
 }
 
 

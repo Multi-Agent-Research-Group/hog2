@@ -18,10 +18,9 @@
  * The airtimeState struct holds information about airplane state at
  * a given time, so we can check constraints
  */
-struct airtimeState {
-	airtimeState(airplaneState loc, float time) :l(loc), t(time) {}
-	airtimeState() :l(airplaneState()), t(0) {}
-	airplaneState l;
+struct airtimeState : public airplaneState {
+	airtimeState(airplaneState loc, float time) :airplaneState(loc), t(time) {}
+	airtimeState() :airplaneState(), t(0) {}
 	float t;
 };
 
@@ -29,8 +28,8 @@ struct airtimeState {
 /** Output the information in an airtime state */
 static std::ostream& operator <<(std::ostream & out, const airtimeState &loc)
 {
-	out << "(x:" << loc.l.x << ", y:" << loc.l.y << ", h:" << loc.l.height << ", s:" << unsigned(loc.l.speed) <<
-											    ", hdg:" << unsigned(loc.l.heading) << ", t:" << (loc.t) << ", l: " << unsigned (loc.l.landed) << ")";
+	out << "(x:" << loc.x << ", y:" << loc.y << ", h:" << loc.height << ", s:" << unsigned(loc.speed) <<
+											    ", hdg:" << unsigned(loc.heading) << ", t:" << (loc.t) << ", l: " << unsigned (loc.landed) << ")";
 	return out;
 }
 
@@ -125,8 +124,8 @@ public:
 	/** Heuristic value between two arbitrary nodes. **/
 	virtual double HCost(const airtimeState &node1, const airtimeState &node2) const;
 	virtual double HCost(const airtimeState &)  const { assert(false); return 0; } //No single state H-Cost implemented
-	virtual double GCost(const airtimeState &node1, const airtimeState &node2) const { return ae->GCost(node1.l,node2.l); }
-	virtual double GCost(const airtimeState &node, const airplaneAction &act) const { return ae->GCost(node.l,act); }
+	virtual double GCost(const airtimeState &node1, const airtimeState &node2) const { return ae->GCost(node1,node2); }
+	virtual double GCost(const airtimeState &node, const airplaneAction &act) const { return ae->GCost(node,act); }
 	virtual double GetPathLength(const std::vector<airtimeState> &n) const;
 
 	/// GOAL TESTING

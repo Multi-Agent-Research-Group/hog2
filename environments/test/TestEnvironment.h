@@ -22,8 +22,41 @@ bool testHCost(){
    g.heading = 0;
    g.speed = 1;
 
-   std::cout << env.HCost(s,g) << "\n";
-   assert(env.HCost(s,g)==3.0*0.0002*3.0);
+   assert(s.headingTo(g)==4);
+
+   // HCost at the goal should be 0
+   assert(fequal(env.HCost(g,g),0.0));
+   std::cout << ".";
+
+   // 2 heading changes
+   assert(fequal(env.HCost(s,g),1.0*0.0002*3.0));
+   std::cout << ".";
+
+   g.y = 49;
+
+   // No heading changes, and 1 grid movement
+   assert(fequal(env.HCost(s,g),1.0*0.0002*3.0));
+   std::cout << ".";
+
+   g.x = 51;
+   g.y = 50;
+
+   // 2 heading changes, and 1 grid movement
+   assert(fequal(env.HCost(s,g),2.0*0.0002*3.0));
+   std::cout << ".";
+
+   g.x = 55;
+   g.y = 50;
+
+   // There is more grid movement than heading changes...
+   assert(fequal(env.HCost(s,g),5.0*0.0002*3.0));
+   std::cout << ".";
+
+   g.x = 49;
+
+   // 2 heading changes, and 1 grid movement
+   assert(fequal(env.HCost(s,g),2.0*0.0002*3.0));
+   std::cout << ".";
 
    std::cout << "PASSED\n";
 }

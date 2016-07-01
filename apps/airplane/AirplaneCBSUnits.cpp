@@ -62,15 +62,15 @@ void AirCBSUnit::OpenGLDraw(const AirplaneConstrainedEnvironment *ae,
 
 /** CBS GROUP DEFINITIONS */
 
-AirCBSGroup::AirCBSGroup(AirplaneConstrainedEnvironment *ae)
+AirCBSGroup::AirCBSGroup(AirplaneConstrainedEnvironment *ae,
+  AirplaneConstrainedEnvironment* simple,
+  unsigned threshold) : ae(ae), simple(simple), current(simple), threshold(threshold), time(0), bestNode(0), planFinished(false)
 {
 	std::cout << "Constructed an AirCBSGroup" << std::endl;
-	this->ae = ae;
-	planFinished = false;
-	time = 0;
 	tree.resize(1);
 	tree[0].parent = 0;
-	bestNode = 0;
+        astar.SetHeuristic(new StraightLineHeuristic<airtimeState>());
+        astar.SetWeight(1.5);
 }
 
 
@@ -161,7 +161,7 @@ void AirCBSGroup::ExpandOneCBSNode()
 			continue;
 		cost = 0;
 		for (int y = 0; y < tree[x].paths.size(); y++)
-			cost += ae->GetPathLength(tree[x].paths[y]);
+			cost += current->GetPathLength(tree[x].paths[y]);
 //std::cout << "Node " << x << " COST " << cost << "\n";
 		if (cost < bestCost)
 		{
@@ -194,6 +194,7 @@ void AirCBSGroup::AddUnit(Unit<airtimeState, airplaneAction, AirplaneConstrained
 
 	// Clear the constraints from the constrained-environment
 	ae->ClearConstraints();
+	simple->ClearConstraints();
 
 	// Setup the state and goal in the graph
 	airtimeState start, goal;
@@ -204,7 +205,8 @@ void AirCBSGroup::AddUnit(Unit<airtimeState, airplaneAction, AirplaneConstrained
 	tree[0].paths.resize(GetNumMembers());
 
 	// Recalculate the optimum path for the root of the tree
-	astar.GetPath(ae, start, goal, thePath);
+	astar.GetPath(current, start, goal, thePath);
+        std::cout << "AddUnit agent: " << (GetNumMembers()-1) << " expansions: " << astar.GetNodesExpanded() << "\n";
 
 
 	// We add the optimal path to the root of the tree
@@ -225,20 +227,26 @@ void AirCBSGroup::Replan(int location)
 
 	// Reset the constraints in the test-environment
 	ae->ClearConstraints();
+	simple->ClearConstraints();
 
 	// Add all of the constraints in the parents of the current
 	// node to the environment
 	int tempLocation = location;
 	
-    do {
+       unsigned numConflicts(0);
+       do {
 		if (theUnit == tree[tempLocation].con.unit1)
-	    {
-	      ae->AddConstraint(tree[tempLocation].con.c);
-	      //std::cout << "Add Constraint: " << tree[tempLocation].con.c << "\n";
-	    }
+                {
+                  numConflicts++;
+                  ae->AddConstraint(tree[tempLocation].con.c);
+                  simple->AddConstraint(tree[tempLocation].con.c);
+                  //std::cout << "Add Constraint: " << tree[tempLocation].con.c << "\n";
+                }
 		tempLocation = tree[tempLocation].parent;
 		//TODO: Find constraints on the goals of the agents (need heading and time)
 	} while (tempLocation != 0);
+        //std::cout << "#conflicts for " << tempLocation << ": " << numConflicts << "\n";
+        current = (numConflicts > threshold)?ae:simple;
 
 	// Select the air unit from the group
 	AirCBSUnit *c = (AirCBSUnit*)GetMember(theUnit);
@@ -247,7 +255,8 @@ void AirCBSGroup::Replan(int location)
 	c->GetGoal(goal);
 
 	// Recalculate the path
-	astar.GetPath(ae, start, goal, thePath);
+	astar.GetPath(current, start, goal, thePath);
+        std::cout << "Replan agent: " << location << " expansions: " << astar.GetNodesExpanded() << "\n";
 
 	if (thePath.size() == 0 && !(goal == start))
 		tree[location].satisfiable = false;
