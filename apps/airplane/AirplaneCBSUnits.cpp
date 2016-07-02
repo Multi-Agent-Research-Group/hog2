@@ -25,8 +25,8 @@ bool AirCBSUnit::MakeMove(AirplaneConstrainedEnvironment *ae, OccupancyInterface
 		{
 			return false;
 		}
-		// Replan the node (in this case, we want it to land)
-		airplaneState land(18, 23, 0, 0, 0, true);
+		// Replan the node to a random location
+		airplaneState land(rand() % 80, rand() % 80, rand() % 4 + 11, rand() % 3 + 1, rand() % 8, false);
 		airtimeState newGoal(land, 0);
 		AirCBSGroup* g = (AirCBSGroup*) this->GetUnitGroup();
 		g->UpdateUnitGoal(this, newGoal);
@@ -84,7 +84,7 @@ AirCBSGroup::AirCBSGroup(AirplaneConstrainedEnvironment *ae, AirplaneConstrained
 	std::cout << "Constructed an AirCBSGroup" << std::endl;
 	tree.resize(1);
 	tree[0].parent = 0;
-    //astar.SetHeuristic(new StraightLineHeuristic<airtimeState>());
+    astar.SetHeuristic(new StraightLineHeuristic<airtimeState>());
     astar.SetWeight(1.2);
 }
 
@@ -308,6 +308,8 @@ void AirCBSGroup::UpdateUnitGoal(Unit<airtimeState, airplaneAction, AirplaneCons
 
 	// Get a new optimal path
 	astar.GetPath(current, start, goal, thePath);
+
+	std::cout << "Got optimal path..." << std::endl;
 	
 	for (int i = 0; i < tree.size(); i ++) {
 		
@@ -361,6 +363,7 @@ void AirCBSGroup::Replan(int location)
 	} while (tempLocation != 0);
 
 	// Add constraints for all locked paths
+	/*
 	for (int x = 0; x < tree[location].paths.size(); x++)
 	{
 		for (int i = 0; i < tree[location].paths[x].size(); i++)
@@ -373,7 +376,7 @@ void AirCBSGroup::Replan(int location)
 				}
 			}
 		}
-	}
+	}*/
     
     //std::cout << "#conflicts for " << tempLocation << ": " << numConflicts << "\n";
     current = (numConflicts > threshold) ? ae : simple;
