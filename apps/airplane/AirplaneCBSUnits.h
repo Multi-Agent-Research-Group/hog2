@@ -12,6 +12,7 @@
 #include <iostream>
 #include <limits> 
 #include <algorithm>
+#include <map>
 #include "Unit.h"
 #include "UnitGroup.h"
 #include "Airplane.h"
@@ -35,7 +36,17 @@ public:
 	void GetGoal(airtimeState &s) { s = goal; }
 	void GetStart(airtimeState &s) { s = start; }
 	void SetPath(std::vector<airtimeState> &p);
-        inline std::vector<airtimeState> const& GetPath()const{return myPath;}
+	void PushFrontPath(std::vector<airtimeState> &s)
+	{
+		std::vector<airtimeState> newPath;
+		for (airtimeState x : s)
+			newPath.push_back(x);
+		for (airtimeState y : myPath)
+			newPath.push_back(y);
+		myPath = newPath;
+	}
+	inline std::vector<airtimeState> const& GetPath()const{return myPath;}
+    void UpdateGoal(airtimeState &start, airtimeState &goal);
 
 private:
 	airtimeState start, goal, current;
@@ -50,6 +61,7 @@ struct airConflict {
 struct AirCBSTreeNode {
 	AirCBSTreeNode():parent(0),closed(false),satisfiable(true){}
 	std::vector< std::vector<airtimeState> > paths;
+	std::map<int,int> freezeLoc;
 	airConflict con;
 	unsigned int parent;
 	bool closed;
@@ -71,6 +83,7 @@ public:
 	void UpdateLocation(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u, AirplaneConstrainedEnvironment *e, 
 						airtimeState &loc, bool success, SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *si);
 	void AddUnit(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u);
+	void UpdateUnitGoal(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u, airtimeState newGoal);
 	void OpenGLDraw(const AirplaneConstrainedEnvironment *, const SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *)  const;
 	double getTime() {return time;}
 	void incrementTime() {time += 1;}
@@ -87,6 +100,7 @@ private:
 
 	std::vector<AirCBSTreeNode> tree;
 	std::vector<airtimeState> thePath;
+	std::map< Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment>*, int> unitMap;
 	TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> astar;
 
 	double time;

@@ -60,8 +60,8 @@ COMMON_CXXFLAGS += -mcpu=970 -mpowerpc64 -mtune=970
 COMMON_CXXFLAGS += -mpowerpc-gpopt -force_cpusubtype_ALL
 endif
 
-DBG_CXXFLAGS = $(PROJ_DBG_CXXFLAGS) $(COMMON_CXXFLAGS) -g -Wno-unused-function -Wno-sign-compare
-REL_CXXFLAGS = $(PROJ_REL_CXXFLAGS) $(COMMON_CXXFLAGS) -g -O3 -Wno-unused-function -Wno-sign-compare#-DNDEBUG
+DBG_CXXFLAGS = $(PROJ_DBG_CXXFLAGS) $(COMMON_CXXFLAGS) -g -Wno-unused-function -Wno-sign-compare -Wno-reorder
+REL_CXXFLAGS = $(PROJ_REL_CXXFLAGS) $(COMMON_CXXFLAGS) -g -O3 -Wno-unused-function -Wno-sign-compare -Wno-reorder#-DNDEBUG
 
 DBG_CFLAGS = $(PROJ_DBG_CFLAGS) $(COMMON_CFLAGS) -g -Wno-sign-compare -Wno-unused-function
 REL_CFLAGS = $(PROJ_REL_CFLAGS) $(COMMON_CFLAGS) -g -O3 -Wno-unused-function -Wno-sign-compare #-DNDEBUG

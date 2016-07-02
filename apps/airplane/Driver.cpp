@@ -326,17 +326,17 @@ void InitSim(){
 	
 	std::cout << "Set unit 6 goal from " << s6 << " to " << g6 << " rough heading: " << (unsigned)s6.headingTo(g6) << std::endl;
 
-	group->AddUnit(u1);
-	group->AddUnit(u2);
+	//group->AddUnit(u1);
+	//group->AddUnit(u2);
 	group->AddUnit(u3);
-	group->AddUnit(u4);
+	//group->AddUnit(u4);
 	group->AddUnit(u5);
 	group->AddUnit(u6);
 
-	sim->AddUnit(u1);
-	sim->AddUnit(u2);
+	//sim->AddUnit(u1);
+	//sim->AddUnit(u2);
 	sim->AddUnit(u3);
-	sim->AddUnit(u4);
+	//sim->AddUnit(u4);
 	sim->AddUnit(u5);
 	sim->AddUnit(u6);
 

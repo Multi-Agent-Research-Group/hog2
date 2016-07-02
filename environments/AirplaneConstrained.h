@@ -152,14 +152,16 @@ public:
 	// Override the color method.
 	virtual void SetColor(double r, double g, double b, double t = 1.0) const {SearchEnvironment::SetColor(r,g,b,t); this->ae->SetColor(r,g,b,t);}
 	virtual void SetColor(double& r, double& g, double& b, double& t) const {SearchEnvironment::SetColor(r,g,b,t); this->ae->SetColor(r,g,b,t);}
+
+	/** Checks to see if any constraint is violated */
+	bool ViolatesConstraint(const airplaneState &from, const airplaneState &to, int time) const;
+	bool ViolatesConstraint(const airtimeState &from, const airtimeState &to) const;
 	
 	/// UTILS
 	uint8_t GetSpeeds(){return ae->numSpeeds;}
 private:
 	
-	/** Checks to see if any constraint is violated */
-	bool ViolatesConstraint(const airplaneState &from, const airplaneState &to, int time) const;
-	bool ViolatesConstraint(const airtimeState &from, const airtimeState &to) const;
+
 
 	/** Vector holding the current constraints */
 	std::vector<airConstraint> constraints;

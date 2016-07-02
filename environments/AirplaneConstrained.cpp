@@ -314,7 +314,7 @@ void AirplaneConstrainedEnvironment::GLDrawPath(const std::vector<airtimeState> 
 bool airConstraint::ConflictsWith(const airtimeState &state) const
 {
 //std::cout << "VERTEX"<<*this << "ConflictsWith" << state << "...\n";
-	if (state.t >= start_state.t - 0.00001 && state.t <= end_state.t + 0.00001)
+	if (state.t >= start_state.t - 0.001 && state.t <= end_state.t + 0.001)
         {
                 // Each constraint defines an x, y, z box with corners on the state locations. We 
                 // need to check if they overlap at any point. We do this using the separating 
@@ -350,7 +350,7 @@ return false;
 bool airConstraint::ConflictsWith(const airtimeState &from, const airtimeState &to) const
 {
 //std::cout << "EDGE" <<*this << " ConflictsWith from" << from << "to"<<to<< "...\n";
-        if (max(start_state.t, from.t) <= min(end_state.t, to.t) + 0.00001) 
+        if (max(start_state.t, from.t) <= min(end_state.t, to.t) + 0.001) 
         {
                 // Each constraint defines an x, y, z box with corners on the state locations. We 
                 // need to check if they overlap at any point. We do this using the separating 
