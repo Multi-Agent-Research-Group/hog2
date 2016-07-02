@@ -185,7 +185,7 @@ double AirplaneConstrainedEnvironment::HCost(const airtimeState &node1, const ai
 	//double res1 = this->ae->HCost(node1, node2);
 	//double res2 = (node2.t>node1.t)?(node2.t-node1.t):0;
 	//return max(res1, res2);
-        return this->ae->HCost(node1, node2);
+    return this->ae->HCost(node1, node2);
 }
 // No single cost H-Cost
 // G-Cost defined in the header

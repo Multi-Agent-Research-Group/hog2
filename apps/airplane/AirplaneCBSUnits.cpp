@@ -62,15 +62,14 @@ void AirCBSUnit::OpenGLDraw(const AirplaneConstrainedEnvironment *ae,
 
 /** CBS GROUP DEFINITIONS */
 
-AirCBSGroup::AirCBSGroup(AirplaneConstrainedEnvironment *ae,
-  AirplaneConstrainedEnvironment* simple,
+AirCBSGroup::AirCBSGroup(AirplaneConstrainedEnvironment *ae, AirplaneConstrainedEnvironment* simple,
   unsigned threshold) : ae(ae), simple(simple), current(simple), threshold(threshold), time(0), bestNode(0), planFinished(false)
 {
 	std::cout << "Constructed an AirCBSGroup" << std::endl;
 	tree.resize(1);
 	tree[0].parent = 0;
-        astar.SetHeuristic(new StraightLineHeuristic<airtimeState>());
-        astar.SetWeight(1.5);
+    //astar.SetHeuristic(new StraightLineHeuristic<airtimeState>());
+    astar.SetWeight(1.1);
 }
 
 
@@ -156,13 +155,13 @@ void AirCBSGroup::ExpandOneCBSNode()
 	double cost = 0;
 	for (unsigned int x = 0; x < tree.size(); x++)
 	{
-                //std::cout << "Checking: " << tree[x] << "\n";
+        //std::cout << "Checking: " << tree[x] << "\n";
 		if (tree[x].closed || !tree[x].satisfiable)
 			continue;
 		cost = 0;
 		for (int y = 0; y < tree[x].paths.size(); y++)
 			cost += current->GetPathLength(tree[x].paths[y]);
-//std::cout << "Node " << x << " COST " << cost << "\n";
+			//std::cout << "Node " << x << " COST " << cost << "\n";
 		if (cost < bestCost)
 		{
 			bestNode = x;
@@ -205,9 +204,9 @@ void AirCBSGroup::AddUnit(Unit<airtimeState, airplaneAction, AirplaneConstrained
 	tree[0].paths.resize(GetNumMembers());
 
 	// Recalculate the optimum path for the root of the tree
+	std::cout << "AddUnit getting path using environment " << (current == simple ? "simple " : "complex ") << std::endl;
 	astar.GetPath(current, start, goal, thePath);
-        std::cout << "AddUnit agent: " << (GetNumMembers()-1) << " expansions: " << astar.GetNodesExpanded() << "\n";
-
+    std::cout << "AddUnit agent: " << (GetNumMembers()-1) << " expansions: " << astar.GetNodesExpanded() << "\n";
 
 	// We add the optimal path to the root of the tree
 	for (unsigned int x = 0; x < thePath.size(); x++)
@@ -232,8 +231,7 @@ void AirCBSGroup::Replan(int location)
 	// Add all of the constraints in the parents of the current
 	// node to the environment
 	int tempLocation = location;
-	
-       unsigned numConflicts(0);
+       unsigned numConflicts = 0;
        do {
 		if (theUnit == tree[tempLocation].con.unit1)
                 {

@@ -135,18 +135,21 @@ airtimeState s1, s2, s3, s4, s5, s6, g1, g2, g3, g4, g5, g6;
 
 
 void InitSim(){
-        AirplaneEnvironment*const ae(new AirplaneEnvironment());
-        //ae->loadEndGameHeuristic("heuristic.bin");
-        AirplaneSimpleEnvironment*const ase(new AirplaneSimpleEnvironment());
-        //ae->loadEndGameHeuristic("heuristic.bin");
+    AirplaneEnvironment* ae = new AirplaneEnvironment();
+    //ae->loadEndGameHeuristic("heuristic.bin");
+    AirplaneSimpleEnvironment* ase = new AirplaneSimpleEnvironment();
+    //ase->loadEndGameHeuristic("heuristic_simple.bin");
+    //
 	ace = new AirplaneConstrainedEnvironment(ae);
-	aces = new AirplaneConstrainedEnvironment(ase);
+	aces = new AirplaneConstrainedEnvironment(reinterpret_cast<AirplaneEnvironment*>(ase));
+
+
 
 	sim = new UnitSimulation<airtimeState, airplaneAction, AirplaneConstrainedEnvironment>(ace);
 	sim->SetStepType(kLockStep);
 	group = new AirCBSGroup(ace,ace,100);
-        // TODO: Have it use teh simple environment and switch to the complex one
-        //       after too many conflicts
+    // TODO: Have it use the simple environment and switch to the complex one
+    //       after too many conflicts
 	//group = new AirCBSGroup(ace,aces,4);
 	
 	sim->AddUnitGroup(group);
@@ -165,9 +168,10 @@ void InitSim(){
 	g1.speed = 5;
 	g1.t = 0;
 
-  // This section is just here to test out different heuristics
-  StraightLineHeuristic<airplaneState> sh;
-  OctileDistanceHeuristic<airplaneState> oh;
+	// This section is just here to test out different heuristics
+	/*
+	StraightLineHeuristic<airplaneState> sh;
+	OctileDistanceHeuristic<airplaneState> oh;
 
     TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> astar;
     std::vector<airplaneState> sol;
@@ -201,13 +205,14 @@ void InitSim(){
     astar.SetWeight(2.0);
     astar.GetPath(ae,s1,g1,sol);
     std::cout << "Octilex2 - hcost: " << oh.HCost(s1,g1) << " pathcost: " <<ae->GetPathLength(sol) <<" expansions: " << astar.GetNodesExpanded()<<"\n";;
+	*/
 
 	u1 = new AirCBSUnit(s1, g1);
 	u1->SetColor(1.0, 0.0, 0.0);
-	group->AddUnit(u1);
-	sim->AddUnit(u1);
+	//group->AddUnit(u1);
+	//sim->AddUnit(u1);
 
-	std::cout << "Set unit goal from " << s1 << " to " << g1 << " rough heading: " << (unsigned)s1.headingTo(g1) << std::endl;
+	std::cout << "Set unit 1 goal from " << s1 << " to " << g1 << " rough heading: " << (unsigned)s1.headingTo(g1) << std::endl;
 
 
 	s2.x = 8;
@@ -233,10 +238,10 @@ void InitSim(){
 
 	u2 = new AirCBSUnit(s2, g2);
 	u2->SetColor(0.0, 1.0, 0.0);
-	sim->AddUnit(u2);
-	group->AddUnit(u2);
+	//sim->AddUnit(u2);
+	//group->AddUnit(u2);
 	
-	std::cout << "Set unit goal from " << s2 << " to " << g2 << " rough heading: " << (unsigned)s2.headingTo(g2) << std::endl;
+	std::cout << "Set unit 2 goal from " << s2 << " to " << g2 << " rough heading: " << (unsigned)s2.headingTo(g2) << std::endl;
 
 	s3.x = 40;
 	s3.y = 46;
@@ -254,10 +259,10 @@ void InitSim(){
 
 	u3 = new AirCBSUnit(s3, g3);
 	u3->SetColor(0.0, 0.0, 1.0);
-	sim->AddUnit(u3);
-	group->AddUnit(u3);
+	//sim->AddUnit(u3);
+	//group->AddUnit(u3);
 	
-	std::cout << "Set unit goal from " << s3 << " to " << g3 << " rough heading: " << (unsigned)s3.headingTo(g3) << std::endl;
+	std::cout << "Set unit 3 goal from " << s3 << " to " << g3 << " rough heading: " << (unsigned)s3.headingTo(g3) << std::endl;
 
 	s4.x = 40;
 	s4.y = 34;
@@ -276,7 +281,7 @@ void InitSim(){
 	u4 = new AirCBSUnit(s4, g4);
 	u4->SetColor(1.0, 0.0, 1.0);
 	
-	std::cout << "Set unit goal from " << s4 << " to " << g4 << " rough heading: " << (unsigned)s4.headingTo(g4) << std::endl;
+	std::cout << "Set unit 4 goal from " << s4 << " to " << g4 << " rough heading: " << (unsigned)s4.headingTo(g4) << std::endl;
 
 
 	s5.x = 18;
@@ -297,7 +302,7 @@ void InitSim(){
 	u5 = new AirCBSUnit(s5, g5);
 	u5->SetColor(1.0, 0.0, 1.0);
 	
-	std::cout << "Set unit goal from " << s5 << " to " << g5 << " rough heading: " << (unsigned)s5.headingTo(g5) << std::endl;
+	std::cout << "Set unit 5 goal from " << s5 << " to " << g5 << " rough heading: " << (unsigned)s5.headingTo(g5) << std::endl;
 
 
 	s6.x = 55;
@@ -319,7 +324,7 @@ void InitSim(){
 	u6 = new AirCBSUnit(s6, g6);
 	u6->SetColor(1.0, 0.0, 1.0);
 	
-	std::cout << "Set unit goal from " << s6 << " to " << g6 << " rough heading: " << (unsigned)s6.headingTo(g6) << std::endl;
+	std::cout << "Set unit 6 goal from " << s6 << " to " << g6 << " rough heading: " << (unsigned)s6.headingTo(g6) << std::endl;
 
 	group->AddUnit(u1);
 	group->AddUnit(u2);
@@ -344,12 +349,12 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 
 	
 	if (ace){
-                for(auto u : group->GetMembers()){
-                        glLineWidth(2.0);
-                        ace->GLDrawPath(((AirCBSUnit const*)u)->GetPath());
-                        glLineWidth(1.0);
-                }
+        for(auto u : group->GetMembers()){
+            glLineWidth(2.0);
+            ace->GLDrawPath(((AirCBSUnit const*)u)->GetPath());
+            glLineWidth(1.0);
         }
+    }
 	//	ace->OpenGLDraw();
 	//if (group)
 	//	group->OpenGLDraw(ae, sim);

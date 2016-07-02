@@ -14,8 +14,8 @@
 
 bool operator==(const airplaneState &s1, const airplaneState &s2)
 {
-	return (s1.x==s2.x && s1.y==s2.y && s1.height==s2.height && s1.heading == s2.heading && s1.speed == s2.speed);
-	//return (fequal(s1.x,s2.x) && fequal(s1.y,s2.y) && s1.height==s2.height && s1.speed == s2.speed && s1.heading == s2.heading);
+    return (s1.x==s2.x && s1.y==s2.y && s1.height==s2.height && s1.heading == s2.heading && s1.speed == s2.speed);
+    //return (fequal(s1.x,s2.x) && fequal(s1.y,s2.y) && s1.height==s2.height && s1.speed == s2.speed && s1.heading == s2.heading);
 }
 
 bool operator==(const airplaneAction &a1, const airplaneAction &a2)
@@ -50,149 +50,147 @@ AirplaneEnvironment::AirplaneEnvironment(
   descendCostRatio(descendCostRatio),
   endGameLoaded(false)
 {
-	srandom(time(0));
-	ground.resize((width+1)*(length+1));
-	groundNormals.resize((width+1)*(length+1));
-	int value = random()%255;
-	int offset = 5;
-	int steps = 5;
+    srandom(time(0));
+    ground.resize((width+1)*(length+1));
+    groundNormals.resize((width+1)*(length+1));
+    int value = random()%255;
+    int offset = 5;
+    int steps = 5;
 
-	// initial strip
-	for (int x = 0; x <= width; x++)
-	{
-		SetGround(x, 0, std::max(std::min(255, value), 0));
-		value += offset;
-		steps--;
-		if (steps == 0)
-		{
-			offset = (random()%70)-35;
-			steps = random()%10;
-		}
-	}
-	
-	for (int y = 1; y <= length; y++)
-	{
-		value = GetGround(0, y-1);
-		offset = (random()%70)-35;
-		if (y > 1)
-			offset = GetGround(0, y-2)-GetGround(0, y-1);
-		steps = random()%10;
+    // initial strip
+    for (int x = 0; x <= width; x++)
+    {
+        SetGround(x, 0, std::max(std::min(255, value), 0));
+        value += offset;
+        steps--;
+        if (steps == 0)
+        {
+            offset = (random()%70)-35;
+            steps = random()%10;
+        }
+    }
+    
+    for (int y = 1; y <= length; y++)
+    {
+        value = GetGround(0, y-1);
+        offset = (random()%70)-35;
+        if (y > 1)
+            offset = GetGround(0, y-2)-GetGround(0, y-1);
+        steps = random()%10;
 
-		for (int x = 0; x <= width; x++)
-		{
-			SetGround(x, y, std::max(std::min(255, value), 0));
-			value += offset;
-			steps--;
-			if (steps == 0)
-			{
-				offset = (random()%70)-35;
-				steps = random()%10;
-			}
-			if (abs(value-GetGround(x, y-1)) > 35)
-				value = value/2 + GetGround(x, y-1)/2;
-		}
-	}
-	// smooth
-	std::vector<int> tmp((width+1)*(length+1));
-	int maxVal = 0;
-	for (int y = 0; y < length; y++)
-	{
-		for (int x = 0; x <= width; x++)
-		{
-			int sum = 0;
-			int cnt = 0;
-			for (int dx = -1; dx <= 1; dx++)
-			{
-				for (int dy = -1; dy <= 1; dy++)
-				{
-					if (Valid(x+dx, y+dy))
-					{
-						sum += GetGround(x+dx, y+dy);
-						cnt++;
-					}
-				}
-			}
-			tmp[x+y*(length+1)] = sum/cnt;
-			maxVal = std::max(sum/cnt, maxVal);
-		}
-	}
-	// extend
-	for (int y = 0; y < length; y++)
-	{
-		for (int x = 0; x <= width; x++)
-		{
-			SetGround(x, y, (255*tmp[x+y*(length+1)])/maxVal);
-		}
-	}
-	
-	
-	// build normals
-	for (int y = 0; y < length; y++)
-	{
-		for (int x = 0; x <= width; x++)
-		{
-			if (x < width)
-			{
-				recVec a = GetCoordinate(x, y, std::max((int)GetGround(x, y), 20));
-				recVec b = GetCoordinate(x, y+1, std::max((int)GetGround(x, y+1), 20));
-				recVec d = GetCoordinate(x+1, y, std::max((int)GetGround(x+1, y), 20));
-				recVec n = (a-b).GetNormal(a-d);
-				GetNormal(x, y) += n;
-				GetNormal(x, y+1) += n;
-				GetNormal(x+1, y) += n;
-			}
-			if (x > 0)
-			{
-				recVec a = GetCoordinate(x, y, std::max((int)GetGround(x, y), 20));
-				recVec b = GetCoordinate(x-1, y+1, std::max((int)GetGround(x-1, y+1), 20));
-				recVec d = GetCoordinate(x, y+1, std::max((int)GetGround(x, y+1), 20));
-				recVec n = (a-b).GetNormal(a-d);
-				GetNormal(x, y) += n;
-				GetNormal(x-1, y+1) += n;
-				GetNormal(x, y+1) += n;
-			}
-		}
-	}
-	for (int y = 0; y <= length; y++)
-	{
-		for (int x = 0; x <= width; x++)
-		{
-			GetNormal(x, y).normalise();
-		}
-	}
+        for (int x = 0; x <= width; x++)
+        {
+            SetGround(x, y, std::max(std::min(255, value), 0));
+            value += offset;
+            steps--;
+            if (steps == 0)
+            {
+                offset = (random()%70)-35;
+                steps = random()%10;
+            }
+            if (abs(value-GetGround(x, y-1)) > 35)
+                value = value/2 + GetGround(x, y-1)/2;
+        }
+    }
+    // smooth
+    std::vector<int> tmp((width+1)*(length+1));
+    int maxVal = 0;
+    for (int y = 0; y < length; y++)
+    {
+        for (int x = 0; x <= width; x++)
+        {
+            int sum = 0;
+            int cnt = 0;
+            for (int dx = -1; dx <= 1; dx++)
+            {
+                for (int dy = -1; dy <= 1; dy++)
+                {
+                    if (Valid(x+dx, y+dy))
+                    {
+                        sum += GetGround(x+dx, y+dy);
+                        cnt++;
+                    }
+                }
+            }
+            tmp[x+y*(length+1)] = sum/cnt;
+            maxVal = std::max(sum/cnt, maxVal);
+        }
+    }
+    // extend
+    for (int y = 0; y < length; y++)
+    {
+        for (int x = 0; x <= width; x++)
+        {
+            SetGround(x, y, (255*tmp[x+y*(length+1)])/maxVal);
+        }
+    }
+    
+    
+    // build normals
+    for (int y = 0; y < length; y++)
+    {
+        for (int x = 0; x <= width; x++)
+        {
+            if (x < width)
+            {
+                recVec a = GetCoordinate(x, y, std::max((int)GetGround(x, y), 20));
+                recVec b = GetCoordinate(x, y+1, std::max((int)GetGround(x, y+1), 20));
+                recVec d = GetCoordinate(x+1, y, std::max((int)GetGround(x+1, y), 20));
+                recVec n = (a-b).GetNormal(a-d);
+                GetNormal(x, y) += n;
+                GetNormal(x, y+1) += n;
+                GetNormal(x+1, y) += n;
+            }
+            if (x > 0)
+            {
+                recVec a = GetCoordinate(x, y, std::max((int)GetGround(x, y), 20));
+                recVec b = GetCoordinate(x-1, y+1, std::max((int)GetGround(x-1, y+1), 20));
+                recVec d = GetCoordinate(x, y+1, std::max((int)GetGround(x, y+1), 20));
+                recVec n = (a-b).GetNormal(a-d);
+                GetNormal(x, y) += n;
+                GetNormal(x-1, y+1) += n;
+                GetNormal(x, y+1) += n;
+            }
+        }
+    }
+    for (int y = 0; y <= length; y++)
+    {
+        for (int x = 0; x <= width; x++)
+        {
+            GetNormal(x, y).normalise();
+        }
+    }
 
   airplaneState launchLoc(18, 29, 7, 1, 4);
   airplaneState landingLoc(18, 29, 7, 1, 0);
   airplaneState goalLoc(18, 23, 0, 0, 0);
   landingStrip l(15, 20, 17, 28, launchLoc, landingLoc, goalLoc);
   AddLandingStrip(l);
-	
+    
+    //SetGround(x, y, (random()%60)-30+255*(sin(0.01*cos(x*y+y^2+3))+sin(0.04*sin(x+y))+2.0)/4.0);
+    //SetGround(x, y, random()%255);
+    
+//  for (int y = 0; y <= length; y++)
+//  {
+//      for (int x = 0; x <= width; x++)
+//      {
+//          if (x < width && y < length)
+//              SetGround(x, y, (GetGround(x, y)+GetGround(x+1, y)+GetGround(x, y+1))/3.0);
+//          else if (x > 0 && y > 0)
+//              SetGround(x, y, (GetGround(x, y)+GetGround(x-1, y)+GetGround(x, y-1))/3.0);
+//          else if (x > 0)
+//              SetGround(x, y, (GetGround(x, y)+GetGround(x-1, y))/2.0);
+//          else if (y > 0)
+//              SetGround(x, y, (GetGround(x, y)+GetGround(x, y-1))/2.0);
+//      }
+//  }
 
-	
-	//SetGround(x, y, (random()%60)-30+255*(sin(0.01*cos(x*y+y^2+3))+sin(0.04*sin(x+y))+2.0)/4.0);
-	//SetGround(x, y, random()%255);
-	
-//	for (int y = 0; y <= length; y++)
-//	{
-//		for (int x = 0; x <= width; x++)
-//		{
-//			if (x < width && y < length)
-//				SetGround(x, y, (GetGround(x, y)+GetGround(x+1, y)+GetGround(x, y+1))/3.0);
-//			else if (x > 0 && y > 0)
-//				SetGround(x, y, (GetGround(x, y)+GetGround(x-1, y)+GetGround(x, y-1))/3.0);
-//			else if (x > 0)
-//				SetGround(x, y, (GetGround(x, y)+GetGround(x-1, y))/2.0);
-//			else if (y > 0)
-//				SetGround(x, y, (GetGround(x, y)+GetGround(x, y-1))/2.0);
-//		}
-//	}
-
-	// set 0,0  width,width  length,0  length,width
-//	SetGround(0, 0, random()%256);
-//	SetGround(width, 0, random()%256);
-//	SetGround(0, length, random()%256);
-//	SetGround(width, length, random()%256);
-//	RecurseGround(0, 0, width+1, length+1);
+    // set 0,0  width,width  length,0  length,width
+//  SetGround(0, 0, random()%256);
+//  SetGround(width, 0, random()%256);
+//  SetGround(0, length, random()%256);
+//  SetGround(width, length, random()%256);
+//  RecurseGround(0, 0, width+1, length+1);
 }
 
 void AirplaneEnvironment::loadEndGameHeuristic(std::string const& fname)
@@ -244,7 +242,7 @@ void AirplaneEnvironment::loadEndGameHeuristic(std::string const& fname)
   for(int h(0); h<8; ++h){
   for(int gh(0); gh<8; ++gh){
     TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> astar;
-    astar.SetHeuristic(&sh);
+    //astar.SetHeuristic(&sh);
     s.x = offset+x;
     s.y = offset+y;
     s.height = offset+z;
@@ -280,67 +278,67 @@ void AirplaneEnvironment::loadEndGameHeuristic(std::string const& fname)
 
 void AirplaneEnvironment::SetGround(int x, int y, uint8_t val)
 {
-	ground[x + y*(length+1)] = val;
+    ground[x + y*(length+1)] = val;
 }
 
 uint8_t AirplaneEnvironment::GetGround(int x, int y) const
 {
-	return ground[x + y*(length+1)];
+    return ground[x + y*(length+1)];
 }
 
 bool AirplaneEnvironment::Valid(int x, int y)
 {
-	return x >= 0 && x <= width && y >= 0 && y <= length;
+    return x >= 0 && x <= width && y >= 0 && y <= length;
 }
 
 
 recVec &AirplaneEnvironment::GetNormal(int x, int y)
 {
-	return groundNormals[x + y*(length+1)];
+    return groundNormals[x + y*(length+1)];
 }
 
 recVec AirplaneEnvironment::GetNormal(int x, int y) const
 {
-	return groundNormals[x + y*(length+1)];
+    return groundNormals[x + y*(length+1)];
 }
 
 void AirplaneEnvironment::RecurseGround(int x1, int y1, int x2, int y2)
 {
-	if (x1 >= x2-1 || y1 >= y2-1)
-		return;
-	int middlex = (x1+x2)/2;
-	int middley = (y1+y2)/2;
-	SetGround(middlex, y1, GetGround(x1, y1)/2+GetGround(x2, y1)/2+random()%(x2/2-x1/2)-(x2-x1)/4);
-	SetGround(middlex, middley, GetGround(x1, y1)/2+GetGround(x2, y2)/2+random()%(x2/2-x1/2)-(x2-x1)/4);
-	SetGround(middlex, y2, GetGround(x1, y2)/2+GetGround(x2, y2)/2+random()%(x2/2-x1/2)-(x2-x1)/4);
-	SetGround(x1, middley, GetGround(x1, y1)/2+GetGround(x1, y2)/2+random()%(y2/2-y1/2)-(y2-y1)/4);
-	SetGround(x2, middley, GetGround(x2, y1)/2+GetGround(x2, y2)/2+random()%(y2/2-y1/2)-(y2-y1)/4);
-	RecurseGround(x1, y1, middlex, middley);
-	RecurseGround(middlex, y1, x2, middley);
-	RecurseGround(x1, middley, middlex, y2);
-	RecurseGround(middlex, middley, x2, y2);
+    if (x1 >= x2-1 || y1 >= y2-1)
+        return;
+    int middlex = (x1+x2)/2;
+    int middley = (y1+y2)/2;
+    SetGround(middlex, y1, GetGround(x1, y1)/2+GetGround(x2, y1)/2+random()%(x2/2-x1/2)-(x2-x1)/4);
+    SetGround(middlex, middley, GetGround(x1, y1)/2+GetGround(x2, y2)/2+random()%(x2/2-x1/2)-(x2-x1)/4);
+    SetGround(middlex, y2, GetGround(x1, y2)/2+GetGround(x2, y2)/2+random()%(x2/2-x1/2)-(x2-x1)/4);
+    SetGround(x1, middley, GetGround(x1, y1)/2+GetGround(x1, y2)/2+random()%(y2/2-y1/2)-(y2-y1)/4);
+    SetGround(x2, middley, GetGround(x2, y1)/2+GetGround(x2, y2)/2+random()%(y2/2-y1/2)-(y2-y1)/4);
+    RecurseGround(x1, y1, middlex, middley);
+    RecurseGround(middlex, y1, x2, middley);
+    RecurseGround(x1, middley, middlex, y2);
+    RecurseGround(middlex, middley, x2, y2);
 }
 
 
 void AirplaneEnvironment::GetSuccessors(const airplaneState &nodeID, std::vector<airplaneState> &neighbors) const
 {
-	GetActions(nodeID, internalActions);
-	for (auto &act : internalActions)
-	{
-		airplaneState s;
-		GetNextState(nodeID, act, s);
-		neighbors.push_back(s);
-	}
+    GetActions(nodeID, internalActions);
+    for (auto &act : internalActions)
+    {
+        airplaneState s;
+        GetNextState(nodeID, act, s);
+        neighbors.push_back(s);
+    }
 }
 
 void AirplaneEnvironment::GetActions(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const
 {
-	// 45, 90, 0, shift
-	// speed:
-	// faster, slower
-	// height:
-	// up / down
-	actions.resize(0);
+    // 45, 90, 0, shift
+    // speed:
+    // faster, slower
+    // height:
+    // up / down
+    actions.resize(0);
 
   // If the airplane is on the ground, the only option is to takeoff
   if (nodeID.landed)
@@ -374,17 +372,17 @@ void AirplaneEnvironment::GetActions(const airplaneState &nodeID, std::vector<ai
   }
 
   // no change
-	actions.push_back(airplaneAction(0, 0, 0));
+    actions.push_back(airplaneAction(0, 0, 0));
 
-	// each type of turn
-	actions.push_back(airplaneAction(k45, 0, 0));
-	actions.push_back(airplaneAction(-k45, 0, 0));
-	actions.push_back(airplaneAction(k90, 0, 0));
-	actions.push_back(airplaneAction(-k90, 0, 0));
-	actions.push_back(airplaneAction(kShift, 0, 0));
-	actions.push_back(airplaneAction(-kShift, 0, 0));
+    // each type of turn
+    actions.push_back(airplaneAction(k45, 0, 0));
+    actions.push_back(airplaneAction(-k45, 0, 0));
+    actions.push_back(airplaneAction(k90, 0, 0));
+    actions.push_back(airplaneAction(-k90, 0, 0));
+    actions.push_back(airplaneAction(kShift, 0, 0));
+    actions.push_back(airplaneAction(-kShift, 0, 0));
 
-	if (nodeID.height > 1)
+    if (nodeID.height > 1)
         {
           // decrease height
           actions.push_back(airplaneAction(0, 0, -1));
@@ -420,7 +418,7 @@ void AirplaneEnvironment::GetActions(const airplaneState &nodeID, std::vector<ai
           }
         }
 
-	if (nodeID.height < 20)
+    if (nodeID.height < height)
         {
           // increase height
           actions.push_back(airplaneAction(0, 0, +1));
@@ -455,11 +453,11 @@ void AirplaneEnvironment::GetActions(const airplaneState &nodeID, std::vector<ai
             actions.push_back(airplaneAction(-kShift, +1, +1));
           }
         }
-	
-	if (nodeID.speed > 1)
+    
+    if (nodeID.speed > 1)
         {
                 // decrease speed
-		actions.push_back(airplaneAction(0, -1, 0));
+        actions.push_back(airplaneAction(0, -1, 0));
                 actions.push_back(airplaneAction(k45, -1, 0));
                 actions.push_back(airplaneAction(-k45, -1, 0));
                 actions.push_back(airplaneAction(k90, -1, 0));
@@ -468,10 +466,10 @@ void AirplaneEnvironment::GetActions(const airplaneState &nodeID, std::vector<ai
                 actions.push_back(airplaneAction(-kShift, -1, 0));
         }
 
-	if (nodeID.speed < numSpeeds)
+    if (nodeID.speed < numSpeeds)
         {
                 // increase speed
-		actions.push_back(airplaneAction(0, +1, 0));
+        actions.push_back(airplaneAction(0, +1, 0));
                 actions.push_back(airplaneAction(k45, +1, 0));
                 actions.push_back(airplaneAction(-k45, +1, 0));
                 actions.push_back(airplaneAction(k90, +1, 0));
@@ -479,13 +477,13 @@ void AirplaneEnvironment::GetActions(const airplaneState &nodeID, std::vector<ai
                 actions.push_back(airplaneAction(kShift, +1, 0));
                 actions.push_back(airplaneAction(-kShift, +1, 0));
         }
-	
+    
 }
 
 /** Gets the action required to go from node1 to node2 */
 airplaneAction AirplaneEnvironment::GetAction(const airplaneState &node1, const airplaneState &node2) const
 {
-	airplaneAction a;
+    airplaneAction a;
 
   // Deal with actions that setup landing
   if (node1.landed && !node2.landed){
@@ -494,7 +492,7 @@ airplaneAction AirplaneEnvironment::GetAction(const airplaneState &node1, const 
     return(airplaneAction(0,0,0,2));
   }
 
-	a.height = node2.height - node1.height;
+    a.height = node2.height - node1.height;
         a.turn = node2.heading - node1.heading;
         if(a.turn>2){
           if(a.turn == 6) {a.turn = -2;}
@@ -585,152 +583,158 @@ void AirplaneEnvironment::ApplyAction(airplaneState &s, airplaneAction dir) cons
 
 
 
-	static const double offset[8][2] = {
-		{ 0, -1},
-		{ 1, -1},
-		{ 1,  0},
-		{ 1,  1},
-		{ 0,  1},
-		{-1,  1},
-		{-1,  0},
-		{-1, -1}};
-        //std::cout << "Apply turn: " << signed(dir.turn) << ", height: " << signed(dir.height) << ", speed: " << signed(dir.speed) << " to " << s << "\n";
-        uint8_t heading(s.heading);
-        if(dir.turn == kShift) {heading = (s.heading+8+k45)%8;}
-        else if(dir.turn == -kShift) {heading = (s.heading+8-k45)%8;}
-        else { heading = s.heading = (s.heading+8+dir.turn)%8;}
-        s.speed += dir.speed;
-        s.x += offset[heading][0];
-        s.y += offset[heading][1];
-        // Note: speed represents ground speed (2D speed) not 3D speed
-        s.height += dir.height;
-        //std::cout << "Moved to " << s << "\n";
+    static const double offset[8][2] = {
+        { 0, -1},
+        { 1, -1},
+        { 1,  0},
+        { 1,  1},
+        { 0,  1},
+        {-1,  1},
+        {-1,  0},
+        {-1, -1}
+  };
+  
+
+  //std::cout << "Apply turn: " << signed(dir.turn) << ", height: " << signed(dir.height) << ", speed: " << signed(dir.speed) << " to " << s << "\n";
+  uint8_t heading(s.heading);
+  if(dir.turn == kShift) {heading = (s.heading+8+k45)%8;}
+  else if(dir.turn == -kShift) {heading = (s.heading+8-k45)%8;}
+  else { heading = s.heading = (s.heading+8+dir.turn)%8;}
+  s.speed += dir.speed;
+  s.x += offset[heading][0];
+  s.y += offset[heading][1];
+  // Note: speed represents ground speed (2D speed) not 3D speed
+  s.height += dir.height;
+  //std::cout << "Moved to " << s << "\n";
 }
 
 void AirplaneEnvironment::UndoAction(airplaneState &s, airplaneAction dir) const
 {
-	// not available
-	assert(false);
+    // not available
+    assert(false);
 }
 
 void AirplaneEnvironment::GetNextState(const airplaneState &currents, airplaneAction dir, airplaneState &news) const
 {
-	news = currents;
-	ApplyAction(news, dir);
+    news = currents;
+    ApplyAction(news, dir);
 }
 
 double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneState &node2) const
 {
-      if (node2.landed)
+    // We want to estimate the heuristic to the landing state
+    // Figure out which landing strip we're going to
+     for (landingStrip st : landingStrips)
       {
-        // We want to estimate the heuristic to the landing state
-        // Figure out which landing strip we're going to
-         for (landingStrip st : landingStrips)
-          {
-            if (node2 == st.goal_state)
-            {
-             return HCost(node1, st.landing_state);
-            }
-          }
+        if (node2 == st.goal_state)
+        {
+         return HCost(node1, st.landing_state);
+        } else if (node1 == st.goal_state)
+        {
+            return HCost(st.landing_state, node2);
+        }
       }
 
-        // Estimate fuel cost...
-        int vertDiff(node2.height-node1.height);
-        int cruise((numSpeeds+1)/2.0);
-        int speedDiff1(abs(cruise-node1.speed));
-        int speedDiff2(abs(cruise-node2.speed));
-        int diffx(abs(node1.x-node2.x));
-        int diffy(abs(node1.y-node2.y));
-        int diff(abs(diffx-diffy));
-        int diag(abs((diffx+diffy)-diff)/2);
-        //std::cout << node1 << " " << node2 << " straight: " << diff << " diag: " << diag << "\n";
-        double ratio=(vertDiff>0?climbCostRatio:descendCostRatio);
-        vertDiff=abs(vertDiff);
-        if(endGameLoaded){
-          if(diffx<3&&diffy<3&&vertDiff<3){
-            return endGame[node1.x-node2.y+2][node1.y-node2.y+2][node1.height-node2.height+2][node1.heading][node2.heading];
-          }else{
-            if(diff>2)
-              diff-=2;
-            else if(diag>2)
-              diag-=2;
-            else if(diff+diag > 2)
-              diag--; diff--;
+    // Estimate fuel cost...
+    int vertDiff(node2.height-node1.height);
+    int cruise((numSpeeds+1)/2.0);
+    int speedDiff1(abs(cruise-node1.speed));
+    int speedDiff2(abs(cruise-node2.speed));
+    int diffx(abs(node1.x-node2.x));
+    int diffy(abs(node1.y-node2.y));
+    int diff(abs(diffx-diffy));
+    int diag(abs((diffx+diffy)-diff)/2);
+    //std::cout << node1 << " " << node2 << " straight: " << diff << " diag: " << diag << "\n";
+    double ratio=(vertDiff>0?climbCostRatio:descendCostRatio);
+    vertDiff=abs(vertDiff);
 
-            float endGameHC(999999999.0);
+    if(endGameLoaded){
+      if(diffx<3&&diffy<3&&vertDiff<3){
+        return endGame[node1.x-node2.y+2][node1.y-node2.y+2][node1.height-node2.height+2][node1.heading][node2.heading];
+      }else{
+        if(diff>2)
+          diff-=2;
+        else if(diag>2)
+          diag-=2;
+        else if(diff+diag > 2)
+          diag--; diff--;
 
-            int x((node1.x<node2.x+2)?0:(node1.x>node2.x)?4:node1.x);
-            int y((node1.y<node2.y+2)?0:(node1.y>node2.y)?4:node1.y);
-            int z((node1.height<node2.height+2)?0:(node1.height>node2.height)?4:node1.height);
+        float endGameHC(999999999.0);
 
-            // get minimum border value
-            if(x == 0 || x == 4)
-              for(int yy(0);yy<5;++yy)
-              for(int zz(0);zz<5;++zz)
-                endGameHC=std::min(endGameHC,endGame[x][yy][zz][node1.heading][node2.heading]);
-                
-            if(y == 0 || y == 4)
-              for(int xx(0);xx<5;++xx)
-              for(int zz(0);zz<5;++zz)
-                endGameHC=std::min(endGameHC,endGame[xx][y][zz][node1.heading][node2.heading]);
-                
-            if(z == 0 || z == 4)
-              for(int xx(0);xx<5;++xx)
-              for(int yy(0);yy<5;++yy)
-                endGameHC=std::min(endGameHC,endGame[xx][yy][z][node1.heading][node2.heading]);
-                
-              
+        int x((node1.x<node2.x+2)?0:(node1.x>node2.x)?4:node1.x);
+        int y((node1.y<node2.y+2)?0:(node1.y>node2.y)?4:node1.y);
+        int z((node1.height<node2.height+2)?0:(node1.height>node2.height)?4:node1.height);
 
-            double horizDiff(diff+diag*M_SQRT2);
-            if(vertDiff <= horizDiff)
-            {
-              return vertDiff*cruiseBurnRate*ratio+(horizDiff-vertDiff)*cruiseBurnRate+endGameHC;
-            }
-            else
-            {
-              // We'll have to slow down in order to give enough time to climb/descend or turn
-              double hvdiff(vertDiff-horizDiff);
-              return hvdiff*(cruiseBurnRate+speedBurnDelta)+vertDiff*cruiseBurnRate*ratio+endGameHC;
-            }
+        // get minimum border value
+        if(x == 0 || x == 4)
+          for(int yy(0);yy<5;++yy)
+          for(int zz(0);zz<5;++zz)
+            endGameHC=std::min(endGameHC,endGame[x][yy][zz][node1.heading][node2.heading]);
             
-          }
-        }
+        if(y == 0 || y == 4)
+          for(int xx(0);xx<5;++xx)
+          for(int zz(0);zz<5;++zz)
+            endGameHC=std::min(endGameHC,endGame[xx][y][zz][node1.heading][node2.heading]);
+            
+        if(z == 0 || z == 4)
+          for(int xx(0);xx<5;++xx)
+          for(int yy(0);yy<5;++yy)
+            endGameHC=std::min(endGameHC,endGame[xx][yy][z][node1.heading][node2.heading]);
+            
+          
 
         double horizDiff(diff+diag*M_SQRT2);
         if(vertDiff <= horizDiff)
         {
-          return vertDiff*cruiseBurnRate*ratio+(horizDiff-vertDiff)*cruiseBurnRate;
+          return vertDiff*cruiseBurnRate*ratio+(horizDiff-vertDiff)*cruiseBurnRate+endGameHC;
         }
         else
         {
           // We'll have to slow down in order to give enough time to climb/descend or turn
           double hvdiff(vertDiff-horizDiff);
-          return hvdiff*(cruiseBurnRate+speedBurnDelta)+vertDiff*cruiseBurnRate*ratio;
+          return hvdiff*(cruiseBurnRate+speedBurnDelta)+vertDiff*cruiseBurnRate*ratio+endGameHC;
         }
+        
+      }
+    }
+
+    double horizDiff(diff+diag*M_SQRT2);
+    if(vertDiff <= horizDiff)
+    {
+      return vertDiff*cruiseBurnRate*ratio+(horizDiff-vertDiff)*cruiseBurnRate;
+    }
+    else
+    {
+      // We'll have to slow down in order to give enough time to climb/descend or turn
+      double hvdiff(vertDiff-horizDiff);
+      return hvdiff*(cruiseBurnRate+speedBurnDelta)+vertDiff*cruiseBurnRate*ratio;
+    }
 }
+
+
 
 double AirplaneEnvironment::GCost(const airplaneState &node1, const airplaneState &node2) const
 {
-        // Compute cost according to fuel consumption
-        double horizCost(cruiseBurnRate+speedBurnDelta*fabs((double(numSpeeds+1)/2.0)-(node2.speed)));
-        double ratio(1.0);
-        if(node2.height-node1.height>0){ratio=climbCostRatio;}
-        else if(node2.height-node1.height<0){ratio=descendCostRatio;}
-        return horizCost*ratio*((abs(node1.x-node2.x)&&abs(node1.y-node2.y))?M_SQRT2:1.0);
+    // Compute cost according to fuel consumption
+    double horizCost(cruiseBurnRate+speedBurnDelta*fabs((double(numSpeeds+1)/2.0)-(node2.speed)));
+    double ratio(1.0);
+    if(node2.height-node1.height>0){ratio=climbCostRatio;}
+    else if(node2.height-node1.height<0){ratio=descendCostRatio;}
+    return horizCost*ratio*((abs(node1.x-node2.x)&&abs(node1.y-node2.y))?M_SQRT2:1.0);
 }
 
 double AirplaneEnvironment::GCost(const airplaneState &node1, const airplaneAction &act) const
 {
-        airplaneState node2(node1);
-        ApplyAction(node2,act);
-        return GCost(node1,node2);
+    airplaneState node2(node1);
+    ApplyAction(node2,act);
+    return GCost(node1,node2);
 }
 
 
 bool AirplaneEnvironment::GoalTest(const airplaneState &node, const airplaneState &goal) const
 {
-	return (node.x==goal.x && node.y==goal.y && node.height == goal.height && node.heading == goal.heading); //&& node.speed == goal.speed
-	//return (fequal(node.x,goal.x) && fequal(node.y, goal.y) && node.height == goal.height && node.heading == goal.heading); //&& node.speed == goal.speed
+    return (node.x==goal.x && node.y==goal.y && node.height == goal.height && node.heading == goal.heading && node.speed == goal.speed);
+    //return (fequal(node.x,goal.x) && fequal(node.y, goal.y) && node.height == goal.height && node.heading == goal.heading); //&& node.speed == goal.speed
 }
 
 double AirplaneEnvironment::GetPathLength(const std::vector<airplaneState> &sol) const
@@ -745,69 +749,73 @@ double AirplaneEnvironment::GetPathLength(const std::vector<airplaneState> &sol)
 
 uint64_t AirplaneEnvironment::GetStateHash(const airplaneState &node) const
 {
-	uint64_t h = 0;
-        // Assume x,y discretization of 3 meters
-	h |= node.x;
-	h = h << 16;
-	h |= node.y;
-	h = h << 10;
-        // Assume height discretization of 25 meters
-	h |= node.height & (0x400-1); // 10 bits
-	h = h << 5;
-        // Speed increments are in 1 m/sec
-	h |= node.speed & (0x20-1); // 4 bits
-	h = h << 3;
-        // Heading increments are in 45 degrees
-	h |= node.heading & (0x8-1); // 3 bits
-  
-  h = h << 1;
-  h |= node.landed;
+    uint64_t h = 0;
+    
+    // Assume x,y discretization of 3 meters
+    h |= node.x;
+    h = h << 16;
+    h |= node.y;
+    h = h << 10;
 
-	return h;
+    // Assume height discretization of 25 meters
+    h |= node.height & (0x400-1); // 10 bits
+    h = h << 5;
+
+    // Speed increments are in 1 m/sec
+    h |= node.speed & (0x20-1); // 4 bits
+    h = h << 3;
+
+    // Heading increments are in 45 degrees
+    h |= node.heading & (0x8-1); // 3 bits
+  
+    h = h << 1;
+    h |= node.landed;
+
+    return h;
 }
 
 uint64_t AirplaneEnvironment::GetActionHash(airplaneAction act) const
 {
 
-	uint64_t h = 0;
-	h |= act.turn;
-	h = h << 8;
-	h |= act.speed;
-	h = h << 8;
-	h |= act.height;
-  h = h << 8;
-  h |= act.takeoff;
-	return h;
+    uint64_t h = 0;
+    h |= act.turn;
+    h = h << 8;
+    h |= act.speed;
+    h = h << 8;
+    h |= act.height;
+    h = h << 8;
+    h |= act.takeoff;
+    return h;
 }
 
 recVec AirplaneEnvironment::GetCoordinate(int x, int y, int z) const
 {
-	return {(x-width/2.0)/(width/2.0), (y-width/2.0)/(width/2.0), -4.0*z/(255.0*80)};
+    return {(x-width/2.0)/(width/2.0), (y-width/2.0)/(width/2.0), -4.0*z/(255.0*80)};
 }
 
 void AirplaneEnvironment::OpenGLDraw() const
 {
-	glEnable(GL_LIGHTING);
-	for (int y = 0; y < length; y++)
-	{
-		glBegin(GL_TRIANGLE_STRIP);
-		for (int x = 0; x <= width; x++)
-		{
-			recColor c;
-			
-			recVec a = GetCoordinate(x, y, std::max((int)GetGround(x, y), 20));
-			recVec b = GetCoordinate(x, y+1, std::max((int)GetGround(x, y+1), 20));
-			
-			//DoNormal(b-a, d-a);
+    glEnable(GL_LIGHTING);
+    for (int y = 0; y < length; y++)
+    {
+        glBegin(GL_TRIANGLE_STRIP);
+        for (int x = 0; x <= width; x++)
+        {
+            recColor c;
+            
+            recVec a = GetCoordinate(x, y, std::max((int)GetGround(x, y), 20));
+            recVec b = GetCoordinate(x, y+1, std::max((int)GetGround(x, y+1), 20));
+            
+            //DoNormal(b-a, d-a);
 
-			if (GetGround(x, y) <= 20)
-			{
-				glColor3f(0, 0, 1);
-			}
-			else {
-				c = getColor(GetGround(x, y), 0, 255, 5);
-				glColor3f(c.r, c.g, c.b);
-			}
+            if (GetGround(x, y) <= 20)
+            {
+                glColor3f(0, 0, 1);
+            }
+            else {
+                c = getColor(GetGround(x, y), 0, 255, 5);
+                glColor3f(c.r, c.g, c.b);
+            }
 
       for (landingStrip st : landingStrips) 
       {
@@ -821,18 +829,18 @@ void AirplaneEnvironment::OpenGLDraw() const
       }
 
 
-			recVec tmp = GetNormal(x, y);
-			glNormal3f(tmp.x, tmp.y, tmp.z);
-			glVertex3f(a.x, a.y, a.z);
+            recVec tmp = GetNormal(x, y);
+            glNormal3f(tmp.x, tmp.y, tmp.z);
+            glVertex3f(a.x, a.y, a.z);
 
-			if (GetGround(x, y+1) < 20)
-			{
-				glColor3f(0, 0, 1);
-			}
-			else {
-				c = getColor(GetGround(x, y+1), 0, 255, 5);
-				glColor3f(c.r, c.g, c.b);
-			}
+            if (GetGround(x, y+1) < 20)
+            {
+                glColor3f(0, 0, 1);
+            }
+            else {
+                c = getColor(GetGround(x, y+1), 0, 255, 5);
+                glColor3f(c.r, c.g, c.b);
+            }
 
 
       for (landingStrip st : landingStrips) 
@@ -847,15 +855,15 @@ void AirplaneEnvironment::OpenGLDraw() const
       }
 
 
-			tmp = GetNormal(x, y+1);
-			glNormal3f(tmp.x, tmp.y, tmp.z);
-			glVertex3f(b.x, b.y, b.z);
-		}
-		glEnd(); // ground up to 5k feet (1 mile = 4 out of 20)
-	}
-	glDisable(GL_LIGHTING);
-	glColor3f(1.0, 1.0, 1.0);
-	DrawBoxFrame(0, 0, 0.75, 1.0);
+            tmp = GetNormal(x, y+1);
+            glNormal3f(tmp.x, tmp.y, tmp.z);
+            glVertex3f(b.x, b.y, b.z);
+        }
+        glEnd(); // ground up to 5k feet (1 mile = 4 out of 20)
+    }
+    glDisable(GL_LIGHTING);
+    glColor3f(1.0, 1.0, 1.0);
+    DrawBoxFrame(0, 0, 0.75, 1.0);
 
   for (landingStrip st : landingStrips)
   {
@@ -886,60 +894,60 @@ void AirplaneEnvironment::OpenGLDraw() const
 
 void AirplaneEnvironment::OpenGLDraw(const airplaneState &l) const
 {
-	{
-		GLfloat r, g, b, t;
-		GetColor(r, g, b, t);
-		glColor3f(r, g, b);
-	}
-	// x & y range from 20*4 = 0 to 80 = -1 to +1
-	// z ranges from 0 to 20 which is 0...
-	GLfloat x = (l.x-40.0)/40.0;
-	GLfloat y = (l.y-40.0)/40.0;
-	GLfloat z = -l.height/80.0;
-	glEnable(GL_LIGHTING);
-	glPushMatrix();
-	glTranslatef(x, y, z);
-	glRotatef(360*l.heading/8.0, 0, 0, 1);
-	DrawAirplane();
-	glPopMatrix();
-	
-	//DrawCylinder(l.x, l.y, l.height, 0, 0.001, 0.01);
+    {
+        GLfloat r, g, b, t;
+        GetColor(r, g, b, t);
+        glColor3f(r, g, b);
+    }
+    // x & y range from 20*4 = 0 to 80 = -1 to +1
+    // z ranges from 0 to 20 which is 0...
+    GLfloat x = (l.x-40.0)/40.0;
+    GLfloat y = (l.y-40.0)/40.0;
+    GLfloat z = -l.height/80.0;
+    glEnable(GL_LIGHTING);
+    glPushMatrix();
+    glTranslatef(x, y, z);
+    glRotatef(360*l.heading/8.0, 0, 0, 1);
+    DrawAirplane();
+    glPopMatrix();
+    
+    //DrawCylinder(l.x, l.y, l.height, 0, 0.001, 0.01);
 }
 
 void AirplaneEnvironment::OpenGLDraw(const airplaneState& o, const airplaneState &n, float perc) const
 {
-	{
-		GLfloat r, g, b, t;
-		GetColor(r, g, b, t);
-		glColor3f(r, g, b);
-	}
-	
-	GLfloat x1 = (o.x-40.0)/40.0;
-	GLfloat y1 = (o.y-40.0)/40.0;
-	GLfloat z1 = -o.height/80.0;
-	GLfloat h1 = 360*o.heading/8.0;
+    {
+        GLfloat r, g, b, t;
+        GetColor(r, g, b, t);
+        glColor3f(r, g, b);
+    }
+    
+    GLfloat x1 = (o.x-40.0)/40.0;
+    GLfloat y1 = (o.y-40.0)/40.0;
+    GLfloat z1 = -o.height/80.0;
+    GLfloat h1 = 360*o.heading/8.0;
 
-	GLfloat x2 = (n.x-40.0)/40.0;
-	GLfloat y2 = (n.y-40.0)/40.0;
-	GLfloat z2 = -n.height/80.0;
-	GLfloat h2 = 360*n.heading/8.0;
-	if (o.heading < 2 && n.heading >= 6)
-		h2 -= 360;
-	if (o.heading >= 6 && n.heading < 2)
-		h1 -= 360;
-	glEnable(GL_LIGHTING);
-	glPushMatrix();
-	glTranslatef((1-perc)*x1+perc*x2, (1-perc)*y1+perc*y2, (1-perc)*z1+perc*z2);
-	glRotatef((1-perc)*h1+perc*h2, 0, 0, 1);
+    GLfloat x2 = (n.x-40.0)/40.0;
+    GLfloat y2 = (n.y-40.0)/40.0;
+    GLfloat z2 = -n.height/80.0;
+    GLfloat h2 = 360*n.heading/8.0;
+    if (o.heading < 2 && n.heading >= 6)
+        h2 -= 360;
+    if (o.heading >= 6 && n.heading < 2)
+        h1 -= 360;
+    glEnable(GL_LIGHTING);
+    glPushMatrix();
+    glTranslatef((1-perc)*x1+perc*x2, (1-perc)*y1+perc*y2, (1-perc)*z1+perc*z2);
+    glRotatef((1-perc)*h1+perc*h2, 0, 0, 1);
         if(n.height>o.height) glRotatef(-45, 1, 1, 0);
         else if(n.height<o.height) glRotatef(45, 1, 1, 0);
-	DrawAirplane();
-	glPopMatrix();
+    DrawAirplane();
+    glPopMatrix();
 }
 
 void AirplaneEnvironment::OpenGLDraw(const airplaneState &, const airplaneAction &) const
 {
-	//TODO: Implement this
+    //TODO: Implement this
 }
 
 void AirplaneEnvironment::DrawAirplane() const
@@ -968,29 +976,29 @@ void AirplaneEnvironment::DrawAirplane() const
 
 void AirplaneEnvironment::GLDrawLine(const airplaneState &a, const airplaneState &b) const
 {
-	glColor4f(1.0, 1.0, 1.0, .5); // Make it partially opaque gray
+    glColor4f(1.0, 1.0, 1.0, .5); // Make it partially opaque gray
 
-	// Normalize coordinates between (-1, 1)
-	GLfloat x_start((a.x-40.0)/40.0);
-	GLfloat y_start((a.y-40.0)/40.0);
-	GLfloat z_start(-a.height/80.0);
+    // Normalize coordinates between (-1, 1)
+    GLfloat x_start((a.x-40.0)/40.0);
+    GLfloat y_start((a.y-40.0)/40.0);
+    GLfloat z_start(-a.height/80.0);
 
-	GLfloat x_end((b.x-40.0)/40.0);
-	GLfloat y_end((b.y-40.0)/40.0);
-	GLfloat z_end(-b.height/80.0);
+    GLfloat x_end((b.x-40.0)/40.0);
+    GLfloat y_end((b.y-40.0)/40.0);
+    GLfloat z_end(-b.height/80.0);
 
-	glDisable(GL_LIGHTING);
-	glPushMatrix();
+    glDisable(GL_LIGHTING);
+    glPushMatrix();
 
-	// Draw the edge line segments
-	glBegin(GL_LINES);
+    // Draw the edge line segments
+    glBegin(GL_LINES);
 
-	glVertex3f(x_start,y_start,z_start);
-	glVertex3f(x_end,y_end,z_end);
+    glVertex3f(x_start,y_start,z_start);
+    glVertex3f(x_end,y_end,z_end);
 
-	glEnd();
+    glEnd();
 
-	glPopMatrix();
+    glPopMatrix();
 }
 
 void AirplaneEnvironment::GLDrawPath(const std::vector<airplaneState> &p) const
@@ -1004,15 +1012,15 @@ void AirplaneEnvironment::GLDrawPath(const std::vector<airplaneState> &p) const
 
 std::vector<uint8_t> AirplaneEnvironment::getGround() 
 {
-	return std::vector<uint8_t>(ground);
+    return std::vector<uint8_t>(ground);
 }
 std::vector<recVec> AirplaneEnvironment::getGroundNormals()
 {
-	return std::vector<recVec>(groundNormals);
+    return std::vector<recVec>(groundNormals);
 }
 std::vector<airplaneAction> AirplaneEnvironment::getInternalActions()
 {
-	return std::vector<airplaneAction>(internalActions);
+    return std::vector<airplaneAction>(internalActions);
 }
 
 void AirplaneEnvironment::AddLandingStrip(landingStrip strip)

@@ -90,8 +90,9 @@ private:
 	TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> astar;
 
 	double time;
+	
 	unsigned int bestNode;
-        unsigned threshold;
+    unsigned threshold;
 };
 
 
