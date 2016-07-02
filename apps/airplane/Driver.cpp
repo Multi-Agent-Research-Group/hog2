@@ -23,6 +23,7 @@ int mapSize = 128;
 bool recording = false;
 double simTime = 0;
 double stepsPerFrame = 1.0/1000.0;
+double frameIncrement = 1.0/10000.0;
 std::vector<airtimeState> thePath;
 
 bool paused = false;
@@ -78,6 +79,8 @@ void InstallHandlers()
 	InstallKeyboardHandler(MyDisplayHandler, "Toggle Abstraction", "Toggle display of the ith level of the abstraction", kAnyModifier, '0', '9');
 	InstallKeyboardHandler(MyDisplayHandler, "Cycle Abs. Display", "Cycle which group abstraction is drawn", kAnyModifier, '\t');
 	InstallKeyboardHandler(MyDisplayHandler, "Pause Simulation", "Pause simulation execution.", kNoModifier, 'p');
+	InstallKeyboardHandler(MyDisplayHandler, "Speed Up Simulation", "Speed Up simulation execution.", kNoModifier, '=');
+	InstallKeyboardHandler(MyDisplayHandler, "Slow Down Simulation", "Slow Down simulation execution.", kNoModifier, '-');
 	InstallKeyboardHandler(MyDisplayHandler, "Step Simulation", "If the simulation is paused, step forward .1 sec.", kNoModifier, 'o');
 	InstallKeyboardHandler(MyDisplayHandler, "Recird", "Toggle recording.", kNoModifier, 'r');
 	InstallKeyboardHandler(MyDisplayHandler, "Step History", "If the simulation is paused, step forward .1 sec in history", kAnyModifier, '}');
@@ -564,6 +567,12 @@ void MyDisplayHandler(unsigned long windowID, tKeyboardModifier mod, char key)
 				SetNumPorts(windowID, 1+(GetNumPorts(windowID)%MAXPORTS));
 			}
 			break;
+		case '-': 
+                        if(stepsPerFrame>0)stepsPerFrame-=frameIncrement;
+                        break;
+		case '=': 
+                        stepsPerFrame+=frameIncrement;
+                        break;
 		case 'p': 
 			paused = !paused;
 			break;//unitSims[windowID]->SetPaused(!unitSims[windowID]->GetPaused()); break;
