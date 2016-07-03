@@ -114,6 +114,23 @@ class OctileDistanceHeuristic : public Heuristic<state> {
   }
 };
 
+template <class state>
+class ManhattanHeuristic : public Heuristic<state> {
+  public:
+  double HCost(const state &a,const state &b) const {
+        static const double cruiseBurnRate(.0006);
+        static const double climbCostRatio(1.0475);
+        static const double descendCostRatio(0.9725);
+        int vertDiff(b.height-a.height);
+        double ratio=(vertDiff>0?climbCostRatio:descendCostRatio);
+        vertDiff=abs(vertDiff);
+        int diffx(abs(a.x-b.x));
+        int diffy(abs(a.y-b.y));
+        if(vertDiff > (diffx+diffy)) return vertDiff*cruiseBurnRate*ratio;
+        return (diffx+diffy-vertDiff+(vertDiff*ratio))*cruiseBurnRate;
+  }
+};
+
 //class GoalTester {
 //public:
 //	virtual ~GoalTester() {}

@@ -19,6 +19,7 @@
 #include "AirplaneConstrained.h"
 #include "TemplateAStar.h"
 #include "BFS.h"
+#include "Heuristic.h"
 
 class AirCBSUnit : public Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> {
 public:
@@ -89,6 +90,7 @@ public:
 	void incrementTime() {time += 1;}
 	bool donePlanning() {return planFinished;}
 private:
+        void SetEnvironment(unsigned);
 	void ExpandOneCBSNode();
 	void Replan(int location);
 	bool FindFirstConflict(int location, airConflict &c1, airConflict &c2);
@@ -106,7 +108,9 @@ private:
 	double time;
 	
 	unsigned int bestNode;
-    unsigned threshold;
+        unsigned threshold;
+        Heuristic<airtimeState>* simpleHeuristic;
+        Heuristic<airtimeState>* complexHeuristic;
 };
 
 

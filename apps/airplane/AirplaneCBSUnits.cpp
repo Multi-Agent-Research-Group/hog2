@@ -84,8 +84,9 @@ AirCBSGroup::AirCBSGroup(AirplaneConstrainedEnvironment *ae, AirplaneConstrained
 	std::cout << "Constructed an AirCBSGroup" << std::endl;
 	tree.resize(1);
 	tree[0].parent = 0;
-    astar.SetHeuristic(new StraightLineHeuristic<airtimeState>());
-    astar.SetWeight(1.2);
+        complexHeuristic = new StraightLineHeuristic<airtimeState>();
+        simpleHeuristic = new ManhattanHeuristic<airtimeState>();
+        SetEnvironment(0);
 }
 
 
@@ -253,6 +254,18 @@ void AirCBSGroup::UpdateLocation(Unit<airtimeState, airplaneAction, AirplaneCons
 	u->UpdateLocation(e, loc, success, si);
 }
 
+void AirCBSGroup::SetEnvironment(unsigned numConflicts){
+    if(numConflicts > threshold){
+       current =  ae;
+       astar.SetHeuristic(complexHeuristic);
+       astar.SetWeight(1.2);
+    }else{
+      current = simple;
+      astar.SetHeuristic(simpleHeuristic);
+      astar.SetWeight(1.0);
+    }
+}
+
 /** Add a new unit with a new start and goal state to the CBS group */
 void AirCBSGroup::AddUnit(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u)
 {
@@ -273,7 +286,7 @@ void AirCBSGroup::AddUnit(Unit<airtimeState, airplaneAction, AirplaneConstrained
 	tree[0].paths.resize(GetNumMembers());
 
 	// Recalculate the optimum path for the root of the tree
-	std::cout << "AddUnit getting path using environment " << (current == simple ? "simple " : "complex ") << std::endl;
+	std::cout << "AddUnit "<<(GetNumMembers()-1) << " getting path using environment " << (current == simple ? "simple " : "complex ") << std::endl;
 	astar.GetPath(current, start, goal, thePath);
     std::cout << "AddUnit agent: " << (GetNumMembers()-1) << " expansions: " << astar.GetNodesExpanded() << "\n";
 
@@ -304,7 +317,8 @@ void AirCBSGroup::UpdateUnitGoal(Unit<airtimeState, airplaneAction, AirplaneCons
 	c->UpdateGoal(start, newGoal);
 	airtimeState goal;
 	c->GetGoal(goal);
-	std::cout << "Replanning unit from " << start << " to " << goal << std::endl;
+	std::cout << "Replanning unit from " << start << " to " << goal
+	<< " using environment " << (current == simple ? "simple " : "complex ") << std::endl;
 
 	// Get a new optimal path
 	astar.GetPath(current, start, goal, thePath);
@@ -379,7 +393,7 @@ void AirCBSGroup::Replan(int location)
 	}*/
     
     //std::cout << "#conflicts for " << tempLocation << ": " << numConflicts << "\n";
-    current = (numConflicts > threshold) ? ae : simple;
+    SetEnvironment(numConflicts);
 
 	// Select the air unit from the group
 	AirCBSUnit *c = (AirCBSUnit*)GetMember(theUnit);

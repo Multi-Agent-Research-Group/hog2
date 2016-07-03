@@ -24,6 +24,7 @@ AirplaneSimpleEnvironment::AirplaneSimpleEnvironment(
   double descendCostRatio,
   double gridSize
 ): AirplaneEnvironment(
+  width,
   length,
   height,
   climbRate,
@@ -75,7 +76,6 @@ void AirplaneSimpleEnvironment::GetActions(const airplaneState &nodeID, std::vec
     }
     // We don't have to land though, so we keep going.
   }
-
   // no change
 	actions.push_back(airplaneAction(0, 0, 0));
 
