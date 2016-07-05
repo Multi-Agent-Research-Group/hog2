@@ -2,63 +2,153 @@
 #define __hog2_glut__TestEnvironment__
 
 #include "../Airplane.h"
+#include "../AirplaneSimple.h"
 #include "../AirplaneConstrained.h"
 #include <iostream>
+#include "TemplateAStar.h"
+#include "Heuristic.h"
 
 bool testHCost(){
-   std::cout << "testHCost()";
-   AirplaneEnvironment env;
-   airplaneState s;
-   s.x = 50;
-   s.y = 50;
-   s.height = 26;
-   s.heading = 0;
-   s.speed = 1;
+  std::cout << "testHCost()";
+  {
+    std::cout << "\nNormal Environment\n";
+    AirplaneEnvironment env;
+    airplaneState s;
+    s.x = 50;
+    s.y = 50;
+    s.height = 16;
+    s.heading = 0;
+    s.speed = 3;
 
-   airplaneState g;
-   g.x = 50;
-   g.y = 51;
-   g.height = 26;
-   g.heading = 0;
-   g.speed = 1;
+    std::vector<airplaneAction> as;
+    env.GetActions(s,as);
 
-   assert(s.headingTo(g)==4);
+    for(auto &a: as){
+      airplaneState g(s);
+      env.ApplyAction(g,a);
+      TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> astar;
+      std::vector<airplaneState> sol;
+      astar.GetPath(&env,s,g,sol);
+      double gcost(env.GetPathLength(sol));
+      if(gcost!=env.GCost(s,g))
+        //std::cout << env.GCost(s,g) << "!=?" << " G " << gcost << " H " << env.HCost(s,g) << "\n";
+        assert(fequal(gcost,env.HCost(s,g))||fgreater(gcost,env.HCost(s,g)));
+      std::cout << "." << std::flush;
+    }
 
-   // HCost at the goal should be 0
-   assert(fequal(env.HCost(g,g),0.0));
-   std::cout << ".";
+    StraightLineHeuristic<airplaneState> z;
+    for(auto &a: as){
+      airplaneState g(s);
+      env.ApplyAction(g,a);
+      TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> astar;
+      astar.SetHeuristic(&z);
+      std::vector<airplaneState> sol;
+      astar.GetPath(&env,g,s,sol);
+      double gcost(env.GetPathLength(sol));
+      if(fless(gcost,env.HCost(g,s)))
+      {
+        for(auto &a : sol)
+          std::cout << "  " << a<<"\n";
+        std::cout << g << s << " G " << gcost << " H " << env.HCost(g,s) << "\n";
+      }
+      assert(fequal(gcost,env.HCost(g,s))||fgreater(gcost,env.HCost(g,s)));
+      std::cout << "." << std::flush;
+    }
 
-   // 2 heading changes
-   assert(fequal(env.HCost(s,g),1.0*0.0002*3.0));
-   std::cout << ".";
+    for(auto &a: as){
+      airplaneState g(s);
+      env.ApplyAction(g,a);
+      for(auto &a2: as){
+        airplaneState g2(g);
+        env.ApplyAction(g2,a2);
+        TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> astar;
+        astar.SetHeuristic(&z);
+        std::vector<airplaneState> sol;
+        astar.GetPath(&env,g2,s,sol);
+        double gcost(env.GetPathLength(sol));
+        if(fless(gcost,env.HCost(g2,s)))
+        {
+          std::cout << "\n";
+          for(auto &a : sol)
+            std::cout << "  " << a<<"\n";
+          std::cout << g2 << s << " G " << gcost << " H " << env.HCost(g2,s) << "\n";
+        }
+        assert(fequal(gcost,env.HCost(g2,s))||fgreater(gcost,env.HCost(g2,s)));
+        std::cout << "." << std::flush;
+      }
+    }
 
-   g.y = 49;
+  }
+  {
+    std::cout << "\nSimple Environment\n";
+    AirplaneSimpleEnvironment env;
+    airplaneState s;
+    s.x = 50;
+    s.y = 50;
+    s.height = 16;
+    s.heading = 0;
+    s.speed = 3;
 
-   // No heading changes, and 1 grid movement
-   assert(fequal(env.HCost(s,g),1.0*0.0002*3.0));
-   std::cout << ".";
+    std::vector<airplaneAction> as;
+    env.GetActions(s,as);
 
-   g.x = 51;
-   g.y = 50;
+    for(auto &a: as){
+      airplaneState g(s);
+      env.ApplyAction(g,a);
+      TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> astar;
+      std::vector<airplaneState> sol;
+      astar.GetPath(&env,s,g,sol);
+      double gcost(env.GetPathLength(sol));
+      if(gcost!=env.GCost(s,g))
+        //std::cout << env.GCost(s,g) << "!=?" << " G " << gcost << " H " << env.HCost(s,g) << "\n";
+        assert(fequal(gcost,env.HCost(s,g))||fgreater(gcost,env.HCost(s,g)));
+      std::cout << "." << std::flush;
+    }
 
-   // 2 heading changes, and 1 grid movement
-   assert(fequal(env.HCost(s,g),2.0*0.0002*3.0));
-   std::cout << ".";
+    StraightLineHeuristic<airplaneState> z;
+    for(auto &a: as){
+      airplaneState g(s);
+      env.ApplyAction(g,a);
+      TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> astar;
+      astar.SetHeuristic(&z);
+      std::vector<airplaneState> sol;
+      astar.GetPath(&env,g,s,sol);
+      double gcost(env.GetPathLength(sol));
+      if(fless(gcost,env.HCost(g,s)))
+      {
+        for(auto &a : sol)
+          std::cout << "  " << a<<"\n";
+        std::cout << g << s << " G " << gcost << " H " << env.HCost(g,s) << "\n";
+      }
+      assert(fequal(gcost,env.HCost(g,s))||fgreater(gcost,env.HCost(g,s)));
+      std::cout << "." << std::flush;
+    }
 
-   g.x = 55;
-   g.y = 50;
+    for(auto &a: as){
+      airplaneState g(s);
+      env.ApplyAction(g,a);
+      for(auto &a2: as){
+        airplaneState g2(g);
+        env.ApplyAction(g2,a2);
+        TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> astar;
+        astar.SetHeuristic(&z);
+        std::vector<airplaneState> sol;
+        astar.GetPath(&env,g2,s,sol);
+        double gcost(env.GetPathLength(sol));
+        if(fless(gcost,env.HCost(g2,s)))
+        {
+          std::cout << "\n";
+          for(auto &a : sol)
+            std::cout << "  " << a<<"\n";
+          std::cout << g2 << s << " G " << gcost << " H " << env.HCost(g2,s) << "\n";
+        }
+        assert(fequal(gcost,env.HCost(g2,s))||fgreater(gcost,env.HCost(g2,s)));
+        std::cout << "." << std::flush;
+      }
+    }
 
-   // There is more grid movement than heading changes...
-   assert(fequal(env.HCost(s,g),5.0*0.0002*3.0));
-   std::cout << ".";
-
-   g.x = 49;
-
-   // 2 heading changes, and 1 grid movement
-   assert(fequal(env.HCost(s,g),2.0*0.0002*3.0));
-   std::cout << ".";
-
-   std::cout << "PASSED\n";
+  }
+  std::cout << "PASSED\n";
 }
 
 bool testGetAction(){

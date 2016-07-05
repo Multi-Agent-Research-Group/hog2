@@ -104,13 +104,66 @@ class StraightLineHeuristic : public Heuristic<state> {
 template <class state>
 class OctileDistanceHeuristic : public Heuristic<state> {
   public:
-  double HCost(const state &a,const state &b) const {
-        static const double cruiseBurnRate(.0006);
-        int vertDiff(b.height-a.height);
-        int diffx(abs(a.x-b.x));
-        int diffy(abs(a.y-b.y));
-        int diff(abs(diffx-diffy));
-        return (diff+double(abs((diffx+diffy)-diff)/2)*M_SQRT2)*cruiseBurnRate;
+  double HCost(const state &node1,const state &node2) const {
+          static const uint8_t numSpeeds(5); // Number of discrete speeds
+          static const double cruiseBurnRate(.0006); // Fuel burn rate in liters per unit distance
+          static const double speedBurnDelta(0.0001); // Extra fuel cost for non-cruise speed
+          static const double climbCostRatio(1.0475); // Fuel cost ratio for climbing
+          static const double descendCostRatio(0.9725); // Fuel cost ratio for descending
+    // Estimate fuel cost...
+    int cruise((numSpeeds+1)/2.0);
+    int speedDiff1(std::max(abs(cruise-node1.speed)-1,0));
+    int speedDiff2(abs(cruise-node2.speed));
+    int diffx(abs(node1.x-node2.x));
+    int diffy(abs(node1.y-node2.y));
+    int diff(abs(diffx-diffy));
+    int diag(abs((diffx+diffy)-diff)/2);
+    double vertDiff(node2.height-node1.height);
+    //std::cout << node1 << " " << node2 << " straight: " << diff << " diag: " << diag << "\n";
+    double ratio=(fgreater(vertDiff,0)?climbCostRatio:fequal(vertDiff,0)?1.0:descendCostRatio);
+    vertDiff=fabs(vertDiff);
+
+    // Change as many diagonal moves into horizontal as we can, if vert is more than horiz
+    while(vertDiff>diff+diag&&diag>0){
+      diag--;
+      diff+=2;
+    }
+      
+    // Going fast or slow is expensive, so we'll go to cruiseSpeed if possible.
+    // Presumably, we'll do most of our accel/decelerationg at the beginning and end
+    // so that most of the track occurs at cruise speed.
+      
+    double total(0);
+    double begin(speedDiff1);
+    double end(speedDiff2);
+
+    // Exhaust straight moves first
+    int vm(vertDiff);
+    int moves1(diff);
+    while(moves1 > 0){
+      total += (std::max(begin,end)*speedBurnDelta+cruiseBurnRate)*(vm>0?ratio:1.0);
+      if(begin>end){begin-=1.0;}else{end-=1.0;}
+      moves1--;
+      vm--;
+    }
+    
+    // Exhaust diagonal moves next
+    moves1 = diag;
+    while(moves1 > 0){
+      total += (std::max(begin,end)*speedBurnDelta+cruiseBurnRate)*(vm>0?ratio:1.0)*M_SQRT2;
+      if(begin>end){begin-=1.0;}else{end-=1.0;}
+      moves1--;
+      vm--;
+    }
+    
+    // Finally, exhaust vertical moves.
+    while(vm > 0){
+      total += (std::max(begin,end)*speedBurnDelta+cruiseBurnRate)*(vm>0?ratio:1.0);
+      if(begin>end){begin-=1.0;}else{end-=1.0;}
+      vm--;
+    }
+      
+    return total; 
   }
 };
 
@@ -193,7 +246,6 @@ public:
 
 	virtual void AddLandingStrip(landingStrip x);
 	virtual const std::vector<landingStrip>& GetLandingStrips() const {return landingStrips;}
-        void loadEndGameHeuristic(std::string const&);
 
         const uint8_t numSpeeds;
         const double minSpeed;       //Meters per time step
@@ -225,9 +277,6 @@ protected:
         double const climbCostRatio;//1.0475);
         double const descendCostRatio;//0.9725);
 
-        // Holds the heuristic for all start/end states near the goal
-        float endGame[5][5][5][8][8];
-        bool endGameLoaded;
         //TODO Add wind constants
         //const double windSpeed = 0;
         //const double windDirection = 0;

@@ -84,7 +84,7 @@ AirCBSGroup::AirCBSGroup(AirplaneConstrainedEnvironment *ae, AirplaneConstrained
 	std::cout << "Constructed an AirCBSGroup" << std::endl;
 	tree.resize(1);
 	tree[0].parent = 0;
-        complexHeuristic = new StraightLineHeuristic<airtimeState>();
+        complexHeuristic = new OctileDistanceHeuristic<airtimeState>();
         simpleHeuristic = new ManhattanHeuristic<airtimeState>();
         SetEnvironment(0);
 }

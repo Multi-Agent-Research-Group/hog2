@@ -171,44 +171,6 @@ void InitSim(){
 	g1.speed = 5;
 	g1.t = 0;
 
-	// This section is just here to test out different heuristics
-	/*
-	StraightLineHeuristic<airplaneState> sh;
-	OctileDistanceHeuristic<airplaneState> oh;
-
-    TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> astar;
-    std::vector<airplaneState> sol;
-    astar.GetPath(ae,s1,g1,sol);
-    std::cout << "Orig - hcost: " << ae->HCost(s1,g1) << " pathcost: " <<ae->GetPathLength(sol) <<" expansions: " << astar.GetNodesExpanded()<<"\n";;
-
-    sol.clear();
-    astar.SetWeight(2.0);
-    astar.GetPath(ae,s1,g1,sol);
-    std::cout << "Origx2 - hcost: " << ae->HCost(s1,g1) << " pathcost: " <<ae->GetPathLength(sol) <<" expansions: " << astar.GetNodesExpanded()<<"\n";;
-
-    sol.clear();
-    astar.SetHeuristic(&sh);
-    astar.SetWeight(1.0);
-    astar.GetPath(ae,s1,g1,sol);
-    std::cout << "Line - hcost: " << sh.HCost(s1,g1) << " pathcost: " <<ae->GetPathLength(sol) <<" expansions: " << astar.GetNodesExpanded()<<"\n";;
-
-    sol.clear();
-    astar.SetWeight(2.0);
-    astar.GetPath(ae,s1,g1,sol);
-    std::cout << "linex2 - hcost: " << oh.HCost(s1,g1) << " pathcost: " <<ae->GetPathLength(sol) <<" expansions: " << astar.GetNodesExpanded()<<"\n";;
-
-
-    sol.clear();
-    astar.SetHeuristic(&oh);
-    astar.SetWeight(1.0);
-    astar.GetPath(ae,s1,g1,sol);
-    std::cout << "Octile - hcost: " << oh.HCost(s1,g1) << " pathcost: " <<ae->GetPathLength(sol) <<" expansions: " << astar.GetNodesExpanded()<<"\n";;
-
-    sol.clear();
-    astar.SetWeight(2.0);
-    astar.GetPath(ae,s1,g1,sol);
-    std::cout << "Octilex2 - hcost: " << oh.HCost(s1,g1) << " pathcost: " <<ae->GetPathLength(sol) <<" expansions: " << astar.GetNodesExpanded()<<"\n";;
-	*/
 
 	u1 = new AirCBSUnit(s1, g1);
 	u1->SetColor(1.0, 0.0, 0.0);

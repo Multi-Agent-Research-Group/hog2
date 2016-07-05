@@ -118,22 +118,12 @@ double AirplaneSimpleEnvironment::HCost(const airplaneState &node1, const airpla
       }
 
 
-  // Estimate fuel cost for cardinal direction movement only.
-  int vertDiff = abs(node2.height - node1.height);
-  double manhattan = abs(node1.x-node2.x)+ abs(node1.y-node2.y);
-
-  double ratio =( vertDiff>0?climbCostRatio:descendCostRatio);
-  unsigned hdgto = node1.headingTo(node2);
-  unsigned headingChanges = (hdgDiff<8>(node1.heading,hdgto)+hdgDiff<8>(node2.heading,hdgto))/2;
-  if(vertDiff <= manhattan)
-  {
-    return vertDiff*cruiseBurnRate*ratio+(manhattan+headingChanges)*cruiseBurnRate;
-  }
-  else
-  {
-    // We'll have to slow down in order to give enough time to climb/descend or turn
-    double hvdiff(vertDiff-manhattan);
-    return (hvdiff+headingChanges)*(cruiseBurnRate+speedBurnDelta)+vertDiff*cruiseBurnRate*ratio;
-  }
+        int vertDiff(node2.height-node1.height);
+        double ratio=(vertDiff>0?climbCostRatio:descendCostRatio);
+        vertDiff=abs(vertDiff);
+        int diffx(abs(node1.x-node2.x));
+        int diffy(abs(node1.y-node2.y));
+        if(vertDiff > (diffx+diffy)) return vertDiff*cruiseBurnRate*ratio;
+        return (diffx+diffy-vertDiff+(vertDiff*ratio))*cruiseBurnRate;
 }
 
