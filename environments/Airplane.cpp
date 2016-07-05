@@ -570,7 +570,7 @@ double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneStat
   // Presumably, we'll do most of our accel/decelerationg at the beginning and end
   // so that most of the track occurs at cruise speed.
 
-  int cruise((numSpeeds+1)/2.0);
+  static const int cruise((numSpeeds+1)/2.0);
   double begin(std::max(abs(cruise-node1.speed)-1,0));
   double end(abs(cruise-node2.speed));
 

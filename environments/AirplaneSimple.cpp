@@ -104,26 +104,41 @@ void AirplaneSimpleEnvironment::GetActions(const airplaneState &nodeID, std::vec
 
 double AirplaneSimpleEnvironment::HCost(const airplaneState &node1, const airplaneState &node2) const
 {
-    // We want to estimate the heuristic to the landing state
-    // Figure out which landing strip we're going to
-   for (landingStrip st : landingStrips)
-      {
-        if (node2 == st.goal_state)
-        {
-         return HCost(node1, st.landing_state);
-        } else if (node1 == st.goal_state)
-        {
-            return HCost(st.landing_state, node2);
-        }
-      }
+  // We want to estimate the heuristic to the landing state
+  // Figure out which landing strip we're going to
+  for (landingStrip st : landingStrips)
+  {
+    if (node2 == st.goal_state)
+    {
+      return HCost(node1, st.landing_state);
+    } else if (node1 == st.goal_state)
+    {
+      return HCost(st.landing_state, node2);
+    }
+  }
 
-
-        int vertDiff(node2.height-node1.height);
-        double ratio=(vertDiff>0?climbCostRatio:descendCostRatio);
-        vertDiff=abs(vertDiff);
-        int diffx(abs(node1.x-node2.x));
-        int diffy(abs(node1.y-node2.y));
-        if(vertDiff > (diffx+diffy)) return vertDiff*cruiseBurnRate*ratio;
-        return (diffx+diffy-vertDiff+(vertDiff*ratio))*cruiseBurnRate;
+  static const int cruise((numSpeeds+1)/2.0);
+  int horiz(abs(node1.x-node2.x)+abs(node1.y-node2.y));
+  int travel(node1.headingTo(node2));
+  int numTurns(std::max(0,signed(hdgDiff<8>(node1.heading,travel)/2+hdgDiff<8>(node2.heading,travel)/2)-1));
+  int speedDiff1(std::max(abs(cruise-node1.speed)-1,0));
+  int speedDiff2(abs(cruise-node2.speed));
+  int vertDiff(node2.height-node1.height);
+  double ratio=(vertDiff>0?climbCostRatio:descendCostRatio);
+  vertDiff=std::max(0,abs(vertDiff));
+  double total(0.0);
+  total += numTurns * cruiseBurnRate;
+  //std::cout << "Added " << numTurns << " turns ";
+  horiz -= numTurns;
+  total += vertDiff*cruiseBurnRate*ratio; 
+  //std::cout << vertDiff << " vert ";
+  horiz -= vertDiff;
+  int speedDiff(std::max(0,speedDiff1+speedDiff2<=horiz?speedDiff1+speedDiff2:abs(node2.speed-node1.speed)-1));
+  total += speedDiff*(cruiseBurnRate+speedBurnDelta);
+  //std::cout << speedDiff << " speed ";
+  horiz -= speedDiff;
+  if(horiz > 0){total += horiz*cruiseBurnRate;}// std::cout << horiz << " horiz";}
+  //std::cout << "\n";
+  return total;
 }
 
