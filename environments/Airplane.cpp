@@ -307,7 +307,7 @@ void AirplaneEnvironment::GetActions(const airplaneState &nodeID, std::vector<ai
           actions.push_back(airplaneAction(-kShift, 0, -1));
 
           // decrease height, decrease speed
-          if (nodeID.speed > 1)
+          if (nodeID.speed > minSpeed)
           {
             actions.push_back(airplaneAction(0, -1, -1));
             actions.push_back(airplaneAction(k45, -1, -1));
@@ -319,7 +319,7 @@ void AirplaneEnvironment::GetActions(const airplaneState &nodeID, std::vector<ai
           }
 
           // increase height, decrease speed
-          if (nodeID.speed < numSpeeds)
+          if (nodeID.speed < numSpeeds+minSpeed)
           {
             actions.push_back(airplaneAction(0, +1, -1));
             actions.push_back(airplaneAction(k45, +1, -1));
@@ -342,7 +342,7 @@ void AirplaneEnvironment::GetActions(const airplaneState &nodeID, std::vector<ai
           actions.push_back(airplaneAction(kShift, 0, +1));
           actions.push_back(airplaneAction(-kShift, 0, +1));
 
-          if (nodeID.speed > 1)
+          if (nodeID.speed > minSpeed)
           {
             // increase height, decrease speed
             actions.push_back(airplaneAction(0, -1, +1));
@@ -354,7 +354,7 @@ void AirplaneEnvironment::GetActions(const airplaneState &nodeID, std::vector<ai
             actions.push_back(airplaneAction(-kShift, -1, +1));
           }
 
-          if (nodeID.speed < numSpeeds)
+          if (nodeID.speed < numSpeeds+minSpeed)
           {
             // increase height, increase speed
             actions.push_back(airplaneAction(0, +1, +1));
@@ -367,7 +367,7 @@ void AirplaneEnvironment::GetActions(const airplaneState &nodeID, std::vector<ai
           }
         }
     
-    if (nodeID.speed > 1)
+    if (nodeID.speed > minSpeed)
         {
                 // decrease speed
         actions.push_back(airplaneAction(0, -1, 0));
@@ -379,7 +379,7 @@ void AirplaneEnvironment::GetActions(const airplaneState &nodeID, std::vector<ai
                 actions.push_back(airplaneAction(-kShift, -1, 0));
         }
 
-    if (nodeID.speed < numSpeeds)
+    if (nodeID.speed < numSpeeds+minSpeed)
         {
                 // increase speed
         actions.push_back(airplaneAction(0, +1, 0));
@@ -389,6 +389,124 @@ void AirplaneEnvironment::GetActions(const airplaneState &nodeID, std::vector<ai
                 actions.push_back(airplaneAction(-k90, +1, 0));
                 actions.push_back(airplaneAction(kShift, +1, 0));
                 actions.push_back(airplaneAction(-kShift, +1, 0));
+        }
+    
+}
+
+void AirplaneEnvironment::GetReverseActions(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const
+{
+    // 45, 90, 0, shift
+    // speed:
+    // faster, slower
+    // height:
+    // up / down
+    actions.resize(0);
+
+  // no change
+    actions.push_back(airplaneAction(0, 0, 0));
+
+    // each type of turn
+    actions.push_back(airplaneAction(k45, 0, 0));
+    actions.push_back(airplaneAction(-k45, 0, 0));
+    actions.push_back(airplaneAction(k90, 0, 0));
+    actions.push_back(airplaneAction(-k90, 0, 0));
+    actions.push_back(airplaneAction(kShift, 0, 0));
+    actions.push_back(airplaneAction(-kShift, 0, 0));
+
+    if (nodeID.height < 1)
+        {
+          // decrease height
+          actions.push_back(airplaneAction(0, 0, -1));
+          actions.push_back(airplaneAction(k45, 0, -1));
+          actions.push_back(airplaneAction(-k45, 0, -1));
+          actions.push_back(airplaneAction(k90, 0, -1));
+          actions.push_back(airplaneAction(-k90, 0, -1));
+          actions.push_back(airplaneAction(kShift, 0, -1));
+          actions.push_back(airplaneAction(-kShift, 0, -1));
+
+          // decrease height, decrease speed
+          if (nodeID.speed > minSpeed)
+          {
+            actions.push_back(airplaneAction(0, +1, -1));
+            actions.push_back(airplaneAction(k45, +1, -1));
+            actions.push_back(airplaneAction(-k45, +1, -1));
+            actions.push_back(airplaneAction(k90, +1, -1));
+            actions.push_back(airplaneAction(-k90, +1, -1));
+            actions.push_back(airplaneAction(kShift, +1, -1));
+            actions.push_back(airplaneAction(-kShift, +1, -1));
+          }
+
+          // increase height, decrease speed
+          if (nodeID.speed < numSpeeds+minSpeed)
+          {
+            actions.push_back(airplaneAction(0, -1, -1));
+            actions.push_back(airplaneAction(k45, -1, -1));
+            actions.push_back(airplaneAction(-k45, -1, -1));
+            actions.push_back(airplaneAction(k90, -1, -1));
+            actions.push_back(airplaneAction(-k90, -1, -1));
+            actions.push_back(airplaneAction(kShift, -1, -1));
+            actions.push_back(airplaneAction(-kShift, -1, -1));
+          }
+        }
+
+    if (nodeID.height < height)
+        {
+          // increase height
+          actions.push_back(airplaneAction(0, 0, +1));
+          actions.push_back(airplaneAction(k45, 0, +1));
+          actions.push_back(airplaneAction(-k45, 0, +1));
+          actions.push_back(airplaneAction(k90, 0, +1));
+          actions.push_back(airplaneAction(-k90, 0, +1));
+          actions.push_back(airplaneAction(kShift, 0, +1));
+          actions.push_back(airplaneAction(-kShift, 0, +1));
+
+          if (nodeID.speed > minSpeed)
+          {
+            // increase height, decrease speed
+            actions.push_back(airplaneAction(0, +1, +1));
+            actions.push_back(airplaneAction(k45, +1, +1));
+            actions.push_back(airplaneAction(-k45, +1, +1));
+            actions.push_back(airplaneAction(k90, +1, +1));
+            actions.push_back(airplaneAction(-k90, +1, +1));
+            actions.push_back(airplaneAction(kShift, +1, +1));
+            actions.push_back(airplaneAction(-kShift, +1, +1));
+          }
+
+          if (nodeID.speed < numSpeeds+minSpeed)
+          {
+            // increase height, increase speed
+            actions.push_back(airplaneAction(0, -1, +1));
+            actions.push_back(airplaneAction(k45, -1, +1));
+            actions.push_back(airplaneAction(-k45, -1, +1));
+            actions.push_back(airplaneAction(k90, -1, +1));
+            actions.push_back(airplaneAction(-k90, -1, +1));
+            actions.push_back(airplaneAction(kShift, -1, +1));
+            actions.push_back(airplaneAction(-kShift, -1, +1));
+          }
+        }
+    
+    if (nodeID.speed > minSpeed)
+        {
+                // decrease speed
+                actions.push_back(airplaneAction(0, +1, 0));
+                actions.push_back(airplaneAction(k45, +1, 0));
+                actions.push_back(airplaneAction(-k45, +1, 0));
+                actions.push_back(airplaneAction(k90, +1, 0));
+                actions.push_back(airplaneAction(-k90, +1, 0));
+                actions.push_back(airplaneAction(kShift, +1, 0));
+                actions.push_back(airplaneAction(-kShift, +1, 0));
+        }
+
+    if (nodeID.speed < numSpeeds+minSpeed)
+        {
+                // increase speed
+                actions.push_back(airplaneAction(0, -1, 0));
+                actions.push_back(airplaneAction(k45, -1, 0));
+                actions.push_back(airplaneAction(-k45, -1, 0));
+                actions.push_back(airplaneAction(k90, -1, 0));
+                actions.push_back(airplaneAction(-k90, -1, 0));
+                actions.push_back(airplaneAction(kShift, -1, 0));
+                actions.push_back(airplaneAction(-kShift, -1, 0));
         }
     
 }
@@ -523,8 +641,27 @@ void AirplaneEnvironment::ApplyAction(airplaneState &s, airplaneAction dir) cons
 
 void AirplaneEnvironment::UndoAction(airplaneState &s, airplaneAction dir) const
 {
-    // not available
-    assert(false);
+    static const double offset[8][2] = {
+        { 0, -1},
+        { 1, -1},
+        { 1,  0},
+        { 1,  1},
+        { 0,  1},
+        {-1,  1},
+        {-1,  0},
+        {-1, -1} };
+  
+  s.height -= dir.height;
+  s.speed -= dir.speed;
+
+  uint8_t heading(s.heading);
+  if(dir.turn == kShift) {heading = (s.heading+8+k45+4)%8;}
+  else if(dir.turn == -kShift) {heading = (s.heading+8-k45+4)%8;}
+  else { heading = (s.heading+4)%8;
+    s.heading = (s.heading+8-dir.turn)%8;
+  }
+  s.x += offset[heading][0];
+  s.y += offset[heading][1];
 }
 
 void AirplaneEnvironment::GetNextState(const airplaneState &currents, airplaneAction dir, airplaneState &news) const

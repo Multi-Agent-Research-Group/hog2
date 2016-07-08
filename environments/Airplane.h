@@ -176,9 +176,9 @@ public:
           unsigned width=80,
           unsigned length=80,
           unsigned height=20,
-          double climbRate=5, // in mps,
-          double minSpeed=17, // in mps,
-          double maxSpeed=32, // in mps
+          double climbRate=5,
+          double minSpeed=1,
+          double maxSpeed=5,
           uint8_t numSpeeds=5, // Number of discrete speeds
           double cruiseBurnRate=.0006, // Fuel burn rate in liters per unit distance
           double speedBurnDelta=0.0001, // Extra fuel cost for non-cruise speed
@@ -186,6 +186,7 @@ public:
           double gridSize=3.0); // Horizontal gird width (meters)
 	virtual void GetSuccessors(const airplaneState &nodeID, std::vector<airplaneState> &neighbors) const;
 	virtual void GetActions(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
+	virtual void GetReverseActions(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
 	virtual void ApplyAction(airplaneState &s, airplaneAction dir) const;
 	virtual void UndoAction(airplaneState &s, airplaneAction dir) const;
 	virtual void GetNextState(const airplaneState &currents, airplaneAction dir, airplaneState &news) const;
