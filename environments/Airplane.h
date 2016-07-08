@@ -104,84 +104,63 @@ class StraightLineHeuristic : public Heuristic<state> {
 template <class state>
 class OctileDistanceHeuristic : public Heuristic<state> {
   public:
-  double HCost(const state &node1,const state &node2) const {
-          static const uint8_t numSpeeds(5); // Number of discrete speeds
-          static const double cruiseBurnRate(.0006); // Fuel burn rate in liters per unit distance
-          static const double speedBurnDelta(0.0001); // Extra fuel cost for non-cruise speed
-          static const double climbCostRatio(1.0475); // Fuel cost ratio for climbing
-          static const double descendCostRatio(0.9725); // Fuel cost ratio for descending
-    // Estimate fuel cost...
-    int cruise((numSpeeds+1)/2.0);
-    int speedDiff1(std::max(abs(cruise-node1.speed)-1,0));
-    int speedDiff2(abs(cruise-node2.speed));
-    int diffx(abs(node1.x-node2.x));
-    int diffy(abs(node1.y-node2.y));
-    int diff(abs(diffx-diffy));
-    int diag(abs((diffx+diffy)-diff)/2);
-    double vertDiff(node2.height-node1.height);
-    //std::cout << node1 << " " << node2 << " straight: " << diff << " diag: " << diag << "\n";
-    double ratio=(fgreater(vertDiff,0)?climbCostRatio:fequal(vertDiff,0)?1.0:descendCostRatio);
-    vertDiff=fabs(vertDiff);
+    double HCost(const state &node1,const state &node2) const {
+      static const int cruise(3);
+      static const double cruiseBurnRate(.0006); // Fuel burn rate in liters per unit distance
+      static const double speedBurnDelta(0.0001); // Extra fuel cost for non-cruise speed
+      static const double climbCost(0.00005); // Fuel cost ratio for climbing
+      // Estimate fuel cost...
+      int diffx(abs(node1.x-node2.x));
+      int diffy(abs(node1.y-node2.y));
+      int diff(abs(diffx-diffy));
+      int diag(abs((diffx+diffy)-diff)/2);
+      int vertDiff(node2.height-node1.height);
+      int speedDiff1(abs(cruise-node1.speed));
+      int speedDiff2(abs(cruise-node2.speed));
+      int speedDiff(abs(node2.speed-node1.speed));
+      int maxMove(std::max(std::max(speedDiff,speedDiff1+speedDiff2),abs(vertDiff)));
 
-    // Change as many diagonal moves into horizontal as we can, if vert is more than horiz
-    while(vertDiff>diff+diag&&diag>0){
-      diag--;
-      diff+=2;
-    }
-      
-    // Going fast or slow is expensive, so we'll go to cruiseSpeed if possible.
-    // Presumably, we'll do most of our accel/decelerationg at the beginning and end
-    // so that most of the track occurs at cruise speed.
-      
-    double total(0);
-    double begin(speedDiff1);
-    double end(speedDiff2);
+      // Change as many diagonal moves into horizontal as we can
+      while(maxMove>diff+diag && diag>0){
+        diag--;
+        diff+=2;
+      }
 
-    // Exhaust straight moves first
-    int vm(vertDiff);
-    int moves1(diff);
-    while(moves1 > 0){
-      total += (std::max(begin,end)*speedBurnDelta+cruiseBurnRate)*(vm>0?ratio:1.0);
-      if(begin>end){begin-=1.0;}else{end-=1.0;}
-      moves1--;
-      vm--;
+      int speedChanges=std::max(0,(diff>=speedDiff1+speedDiff2)?(speedDiff1+speedDiff2-1):(speedDiff-1));
+
+      double total(diff*cruiseBurnRate+std::min(speedChanges,diff)*speedBurnDelta+std::min(abs(vertDiff),diff)*climbCost);
+      speedChanges-=std::min(speedChanges,diff);
+      if(abs(vertDiff)-std::min(abs(vertDiff),diff) != 0){
+        vertDiff = vertDiff>0?vertDiff-diff:vertDiff+diff;
+      }
+      return total+(diag*cruiseBurnRate+speedChanges*speedBurnDelta+vertDiff*climbCost)*M_SQRT2;
     }
-    
-    // Exhaust diagonal moves next
-    moves1 = diag;
-    while(moves1 > 0){
-      total += (std::max(begin,end)*speedBurnDelta+cruiseBurnRate)*(vm>0?ratio:1.0)*M_SQRT2;
-      if(begin>end){begin-=1.0;}else{end-=1.0;}
-      moves1--;
-      vm--;
-    }
-    
-    // Finally, exhaust vertical moves.
-    while(vm > 0){
-      total += (std::max(begin,end)*speedBurnDelta+cruiseBurnRate)*(vm>0?ratio:1.0);
-      if(begin>end){begin-=1.0;}else{end-=1.0;}
-      vm--;
-    }
-      
-    return total; 
-  }
 };
 
 template <class state>
 class ManhattanHeuristic : public Heuristic<state> {
   public:
-  double HCost(const state &a,const state &b) const {
-        static const double cruiseBurnRate(.0006);
-        static const double climbCostRatio(1.0475);
-        static const double descendCostRatio(0.9725);
-        int vertDiff(b.height-a.height);
-        double ratio=(vertDiff>0?climbCostRatio:descendCostRatio);
-        vertDiff=abs(vertDiff);
-        int diffx(abs(a.x-b.x));
-        int diffy(abs(a.y-b.y));
-        if(vertDiff > (diffx+diffy)) return vertDiff*cruiseBurnRate*ratio;
-        return (diffx+diffy-vertDiff+(vertDiff*ratio))*cruiseBurnRate;
-  }
+    double HCost(const state &node1,const state &node2) const {
+      static const double cruiseBurnRate(.0006);
+      static const double speedBurnDelta(0.0001); // Extra fuel cost for non-cruise speed
+      static const unsigned numSpeeds(5);
+      static const double climbCost(.00005);
+      static const int cruise((numSpeeds+1)/2.0);
+      int horiz(abs(node1.x-node2.x)+abs(node1.y-node2.y));
+      return horiz*cruiseBurnRate;
+
+      int travel(node1.headingTo(node2));
+      int numTurns(std::max(0,signed(hdgDiff<8>(node1.heading,travel)/2+hdgDiff<8>(node2.heading,travel)/2)-1));
+      int speedDiff1(std::max(abs(cruise-node1.speed)-1,0));
+      int speedDiff2(abs(cruise-node2.speed));
+      int vertDiff(node2.height-node1.height);
+      double vcost=(vertDiff>0?climbCost:-climbCost);
+      vertDiff=std::max(0,abs(vertDiff));
+      double total(0.0);
+      int speedDiff(std::max(0,speedDiff1+speedDiff2<=horiz?speedDiff1+speedDiff2:abs(node2.speed-node1.speed)-1));
+      horiz=std::max(0,horiz-speedDiff-vertDiff);
+      return (numTurns+horiz+speedDiff+vertDiff)*cruiseBurnRate+speedDiff*speedBurnDelta+vertDiff*vcost;
+    }
 };
 
 //class GoalTester {
@@ -203,8 +182,7 @@ public:
           uint8_t numSpeeds=5, // Number of discrete speeds
           double cruiseBurnRate=.0006, // Fuel burn rate in liters per unit distance
           double speedBurnDelta=0.0001, // Extra fuel cost for non-cruise speed
-          double climbCostRatio=1.0475, // Fuel cost ratio for climbing
-          double descendCostRatio=0.9725, // Fuel cost ratio for descending
+          double climbCost=0.00005, // Fuel cost for climbing
           double gridSize=3.0); // Horizontal gird width (meters)
 	virtual void GetSuccessors(const airplaneState &nodeID, std::vector<airplaneState> &neighbors) const;
 	virtual void GetActions(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
@@ -274,8 +252,7 @@ protected:
         // 16 liters per hour/ 3600 seconds / 22 mps = 0.0002 liters per meter
         double const cruiseBurnRate;//0.0002*3.0 liters per unit
         double const speedBurnDelta;//0.0001 liters per unit
-        double const climbCostRatio;//1.0475);
-        double const descendCostRatio;//0.9725);
+        double const climbCost;//1.0475;
 
         //TODO Add wind constants
         //const double windSpeed = 0;

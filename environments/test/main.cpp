@@ -3,9 +3,10 @@
 #include "../AirplaneSimple.h"
 
 int main(){
+/*
   airtimeState s1, g1;
-  s1.x = 36;
-  s1.y = 40;
+  s1.x = 38;
+  s1.y = 36;
   s1.height = 14;
   s1.heading = 2;
   s1.speed = 5;
@@ -61,30 +62,43 @@ int main(){
 
   sol.clear();
   astar.SetWeight(1.0);
+  astar.SetHeuristic(0);
   astar.GetPath(ase,s1,g1,sol);
   std::cout << "Orig simple - hcost: " << oh.HCost(s1,g1) << " pathcost: " <<ae->GetPathLength(sol) <<" expansions: " << astar.GetNodesExpanded()<<"\n";;
 
   sol.clear();
   astar.SetWeight(2.0);
+  //astar.GetPath(ae,s1,g1,sol);
+  //std::cout << "Origx2 simple - hcost: " << oh.HCost(s1,g1) << " pathcost: " <<ae->GetPathLength(sol) <<" expansions: " << astar.GetNodesExpanded()<<"\n";;
+
+  sol.clear();
+  astar.SetWeight(1.0);
+  astar.SetHeuristic(&sh);
+  //astar.GetPath(ase,s1,g1,sol);
+  //std::cout << "Line simple - hcost: " << oh.HCost(s1,g1) << " pathcost: " <<ae->GetPathLength(sol) <<" expansions: " << astar.GetNodesExpanded()<<"\n";;
+
+  sol.clear();
+  astar.SetWeight(2.0);
   astar.GetPath(ae,s1,g1,sol);
-  std::cout << "Origx2 simple - hcost: " << oh.HCost(s1,g1) << " pathcost: " <<ae->GetPathLength(sol) <<" expansions: " << astar.GetNodesExpanded()<<"\n";;
+  std::cout << "Linex2 simple - hcost: " << oh.HCost(s1,g1) << " pathcost: " <<ae->GetPathLength(sol) <<" expansions: " << astar.GetNodesExpanded()<<"\n";;
 
   ManhattanHeuristic<airplaneState> mh;
   sol.clear();
   astar.SetWeight(1.0);
   astar.SetHeuristic(&mh);
-  astar.GetPath(ase,s1,g1,sol);
-  std::cout << "Manhattan simple - hcost: " << oh.HCost(s1,g1) << " pathcost: " <<ae->GetPathLength(sol) <<" expansions: " << astar.GetNodesExpanded()<<"\n";;
+  //astar.GetPath(ase,s1,g1,sol);
+  //std::cout << "Manhattan simple - hcost: " << oh.HCost(s1,g1) << " pathcost: " <<ae->GetPathLength(sol) <<" expansions: " << astar.GetNodesExpanded()<<"\n";;
 
   sol.clear();
   astar.SetWeight(2.0);
   astar.GetPath(ae,s1,g1,sol);
   std::cout << "Manhattanx2 simple - hcost: " << oh.HCost(s1,g1) << " pathcost: " <<ae->GetPathLength(sol) <<" expansions: " << astar.GetNodesExpanded()<<"\n";;
-
+*/
+  testHCost();
   testGetAction();
   testHeadingTo();
   testConstraints();
-  testHCost();
 
   return 0;
+
 }

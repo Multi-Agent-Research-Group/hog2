@@ -33,8 +33,7 @@ AirplaneEnvironment::AirplaneEnvironment(
   uint8_t numSpeeds,
   double cruiseBurnRate,
   double speedBurnDelta,
-  double climbCostRatio,
-  double descendCostRatio,
+  double climbCost,
   double gridSize
 ): width(width),
   length(length),
@@ -46,8 +45,7 @@ AirplaneEnvironment::AirplaneEnvironment(
   gridSize(gridSize),
   cruiseBurnRate(cruiseBurnRate),
   speedBurnDelta(speedBurnDelta),
-  climbCostRatio(climbCostRatio),
-  descendCostRatio(descendCostRatio)
+  climbCost(climbCost)
 {
     srandom(time(0));
     ground.resize((width+1)*(length+1));
@@ -551,58 +549,35 @@ double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneStat
   }
 
   // Estimate fuel cost...
+  static const int cruise(3);
   int diffx(abs(node1.x-node2.x));
   int diffy(abs(node1.y-node2.y));
   int diff(abs(diffx-diffy));
   int diag(abs((diffx+diffy)-diff)/2);
-  double vertDiff(node2.height-node1.height);
-  //std::cout << node1 << " " << node2 << " straight: " << diff << " diag: " << diag << "\n";
-  double ratio=(fgreater(vertDiff,0)?climbCostRatio:fequal(vertDiff,0)?1.0:descendCostRatio);
-  vertDiff=fabs(vertDiff);
+  int vertDiff(node2.height-node1.height);
+  int speedDiff1(std::max(0,abs(cruise-node1.speed)-1));
+  int speedDiff2(abs(cruise-node2.speed));
+  int speedDiff(abs(node2.speed-node1.speed));
+  int maxMove(std::max(std::max(speedDiff,speedDiff1+speedDiff2),abs(vertDiff)));
+  double vcost(vertDiff>0?climbCost:-climbCost);
+  int travel(node1.headingTo(node2));
+  //int numTurns1(hdgDiff<8>(node1.heading,travel));
+  //int numTurns2(hdgDiff<8>(node2.heading,travel));
 
-  // Change as many diagonal moves into horizontal as we can, if vert is more than horiz
-  while(vertDiff>diff+diag && diag>0){
+  // Change as many diagonal moves into horizontal as we can
+  while(maxMove>diff+diag && diag>0){
     diag--;
     diff+=2;
   }
 
-  // Going fast or slow is expensive, so we'll go to cruiseSpeed if possible.
-  // Presumably, we'll do most of our accel/decelerationg at the beginning and end
-  // so that most of the track occurs at cruise speed.
+  int speedChanges=std::max(0,(diff>=speedDiff1+speedDiff2)?(speedDiff1+speedDiff2):(speedDiff));
 
-  static const int cruise((numSpeeds+1)/2.0);
-  double begin(std::max(abs(cruise-node1.speed)-1,0));
-  double end(abs(cruise-node2.speed));
-
-  double total(0);
-
-  // Exhaust straight moves first
-  int vm(vertDiff);
-  int moves1(diff);
-  while(moves1 > 0){
-    total += (std::max(begin,end)*speedBurnDelta+cruiseBurnRate)*(vm>0?ratio:1.0);
-    if(begin>end){begin-=1.0;}else{end-=1.0;}
-    moves1--;
-    vm--;
-  }
-
-  // Exhaust diagonal moves next
-  moves1 = diag;
-  while(moves1 > 0){
-    total += (std::max(begin,end)*speedBurnDelta+cruiseBurnRate)*(vm>0?ratio:1.0)*M_SQRT2;
-    if(begin>end){begin-=1.0;}else{end-=1.0;}
-    moves1--;
-    vm--;
-  }
-
-  // Finally, exhaust vertical moves.
-  while(vm > 0){
-    total += (std::max(begin,end)*speedBurnDelta+cruiseBurnRate)*(vm>0?ratio:1.0);
-    if(begin>end){begin-=1.0;}else{end-=1.0;}
-    vm--;
-  }
-
-  return total; 
+  
+  //std::cout << "speed:"<<speedChanges<<"v:"<<vertDiff<<"\n";
+  double total(diff*cruiseBurnRate+std::min(speedChanges,diff)*speedBurnDelta+std::min(abs(vertDiff),diff)*vcost);
+  speedChanges-=std::min(speedChanges,diff);
+  vertDiff-=vertDiff>0?std::min(abs(vertDiff),diff):-std::min(abs(vertDiff),diff);
+  return total+(diag*cruiseBurnRate+speedChanges*speedBurnDelta+vertDiff*climbCost)*M_SQRT2;
 }
 
 
@@ -610,11 +585,8 @@ double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneStat
 double AirplaneEnvironment::GCost(const airplaneState &node1, const airplaneState &node2) const
 {
     // Compute cost according to fuel consumption
-    double horizCost(cruiseBurnRate+speedBurnDelta*fabs((double(numSpeeds+1)/2.0)-(node2.speed)));
-    double ratio(1.0);
-    if(node2.height-node1.height>0){ratio=climbCostRatio;}
-    else if(node2.height-node1.height<0){ratio=descendCostRatio;}
-    return horizCost*ratio*((abs(node1.x-node2.x)&&abs(node1.y-node2.y))?M_SQRT2:1.0);
+    double cost(cruiseBurnRate+speedBurnDelta*abs(((numSpeeds+1)/2.0)-(node2.speed))+(node2.height-node1.height)*climbCost);
+    return cost*(((node1.x-node2.x) && (node1.y-node2.y))?M_SQRT2:1.0);
 }
 
 double AirplaneEnvironment::GCost(const airplaneState &node1, const airplaneAction &act) const

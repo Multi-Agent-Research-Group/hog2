@@ -20,8 +20,7 @@ AirplaneSimpleEnvironment::AirplaneSimpleEnvironment(
   uint8_t numSpeeds,
   double cruiseBurnRate,
   double speedBurnDelta,
-  double climbCostRatio,
-  double descendCostRatio,
+  double climbCost,
   double gridSize
 ): AirplaneEnvironment(
   width,
@@ -33,8 +32,7 @@ AirplaneSimpleEnvironment::AirplaneSimpleEnvironment(
   numSpeeds,
   cruiseBurnRate,
   speedBurnDelta,
-  climbCostRatio,
-  descendCostRatio,
+  climbCost,
   gridSize){}
 
 void AirplaneSimpleEnvironment::GetActions(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const
@@ -124,21 +122,11 @@ double AirplaneSimpleEnvironment::HCost(const airplaneState &node1, const airpla
   int speedDiff1(std::max(abs(cruise-node1.speed)-1,0));
   int speedDiff2(abs(cruise-node2.speed));
   int vertDiff(node2.height-node1.height);
-  double ratio=(vertDiff>0?climbCostRatio:descendCostRatio);
+  double vcost=(vertDiff>0?climbCost:-climbCost);
   vertDiff=std::max(0,abs(vertDiff));
   double total(0.0);
-  total += numTurns * cruiseBurnRate;
-  //std::cout << "Added " << numTurns << " turns ";
-  horiz -= numTurns;
-  total += vertDiff*cruiseBurnRate*ratio; 
-  //std::cout << vertDiff << " vert ";
-  horiz -= vertDiff;
   int speedDiff(std::max(0,speedDiff1+speedDiff2<=horiz?speedDiff1+speedDiff2:abs(node2.speed-node1.speed)-1));
-  total += speedDiff*(cruiseBurnRate+speedBurnDelta);
-  //std::cout << speedDiff << " speed ";
-  horiz -= speedDiff;
-  if(horiz > 0){total += horiz*cruiseBurnRate;}// std::cout << horiz << " horiz";}
-  //std::cout << "\n";
-  return total;
+  horiz=std::max(0,horiz-speedDiff-vertDiff);
+  return (numTurns+horiz+speedDiff+vertDiff)*cruiseBurnRate+speedDiff*speedBurnDelta+vertDiff*vcost;
 }
 
