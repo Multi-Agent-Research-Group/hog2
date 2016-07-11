@@ -1,11 +1,9 @@
 //==============================================================================
-// PerimeterDBBuilder
-// HomeworK #2: AStar*
-// Thayne Walker
+// AirplanePerimeterDBBuilder
 //==============================================================================
 
-#ifndef __PerimeterDBBuilder__
-#define __PerimeterDBBuilder__
+#ifndef __AirplanePerimeterDBBuilder__
+#define __AirplanePerimeterDBBuilder__
 
 #include <stdint.h>
 #include <stdio.h>
@@ -14,20 +12,20 @@
 #include <string>
 #include <queue>
 #include <limits>
-//#include <math.h>
+#include <iostream>
 #include <string.h>
 
 template <typename state, typename action, typename environment, unsigned xySize=2, unsigned zSize=2, unsigned numHeadings=8, unsigned numSpeeds=5>
-class PerimeterDBBuilder
+class AirplanePerimeterDBBuilder
 {
   public:
 
-    PerimeterDBBuilder() : expansions(0), openSize(sizeof(list)/sizeof(float)), loaded(false){
+    AirplanePerimeterDBBuilder() : expansions(0), openSize(sizeof(list)/sizeof(float)), loaded(false){
       //uint32_t big(std::numeric_limits<uint32_t>::max());
       memset(list,127,openSize*sizeof(float));
     }
 
-    void loadGCosts(environment &e, state &start, std::string const& fname){
+    bool loadGCosts(environment &e, state &start, std::string const& fname){
       FILE *fp(0);
       // Attempt to read the heuristic from the file.
       // On failure, build it from scratch
@@ -46,15 +44,13 @@ class PerimeterDBBuilder
           error = true;
         } else {
           loaded = true;
-          fclose(fp);
           std::cout << "Successfully loaded heuristic from: " << fname << "\n";
-          return;
         }
         fclose(fp);
-        return;
+        return loaded;
       }
 
-      std::cout << "Generating Perimeter Heuristic\n";
+      std::cout << "Generating AirplanePerimeter Heuristic\n";
       for(int hdg(0); hdg<numHeadings; ++hdg){
         for(int spd(1); spd<=numSpeeds; ++spd){
           //std::cout << "H " << hdg << " S " << spd << "\n";
@@ -89,23 +85,25 @@ class PerimeterDBBuilder
               //std::cout << "   Applying action " << *a << "\n";
               state s2 = s;
               e.UndoAction(s2, *a);
-              q.push(std::make_pair(gcost+e.GCost(s,s2),s2));
+              q.push(std::make_pair(gcost+e.GCost(s2,s),s2));
             }
           }
         }
       }
+      loaded = true;
       std::cout << "DONE" << std::endl;
 
       fp = fopen(fname.c_str(),"w");
       fwrite(list,sizeof(float),openSize,fp);
       fclose(fp);
+      return true;
     }
 
-    float GCost(state const& s, state const& g){
+    float GCost(state const& s, state const& g) const {
             unsigned x(s.x-g.x+xySize);
             unsigned y(s.y-g.y+xySize);
             unsigned z(s.height-g.height+zSize);
-            std::cout << "Fetching " << s << g << "X" << x << " Y " << y << " Z " << z << " : "<< list[x][y][z][s.speed-1][s.heading][g.speed-1][g.heading] << std::endl;
+            //std::cout << "Fetching " << s << g << "X" << x << " Y " << y << " Z " << z << " : "<< list[x][y][z][s.speed-1][s.heading][g.speed-1][g.heading] << std::endl;
       return list[x][y][z][s.speed-1][s.heading][g.speed-1][g.heading];
     }
   

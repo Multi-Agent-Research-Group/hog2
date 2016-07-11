@@ -34,6 +34,8 @@
 // Floating point comparisons 
 static const double TOLERANCE = 0.000001;    // floating point tolerance
 
+inline bool fleq(double a, double b) { return (a <= b - TOLERANCE); }
+inline bool fgeq(double a, double b) { return (a >= b + TOLERANCE); }
 inline bool fless(double a, double b) { return (a < b - TOLERANCE); }
 inline bool fgreater(double a, double b) { return (a > b + TOLERANCE); }
 inline bool fequal(double a, double b)

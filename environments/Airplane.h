@@ -13,6 +13,7 @@
 #include <cassert>
 #include <cmath>
 #include "SearchEnvironment.h"
+#include "AirplanePerimeterDBBuilder.h"
 
 // turn type:
 // 45, 90, 0, shift
@@ -108,7 +109,8 @@ class OctileDistanceHeuristic : public Heuristic<state> {
       static const int cruise(3);
       static const double cruiseBurnRate(.0006); // Fuel burn rate in liters per unit distance
       static const double speedBurnDelta(0.0001); // Extra fuel cost for non-cruise speed
-      static const double climbCost(0.00005); // Fuel cost ratio for climbing
+      static const double climbCost(0.0001); // Fuel cost ratio for climbing
+      static const double descendCost(-0.00005); // Fuel cost ratio for climbing
       // Estimate fuel cost...
       int diffx(abs(node1.x-node2.x));
       int diffy(abs(node1.y-node2.y));
@@ -144,7 +146,8 @@ class ManhattanHeuristic : public Heuristic<state> {
       static const double cruiseBurnRate(.0006);
       static const double speedBurnDelta(0.0001); // Extra fuel cost for non-cruise speed
       static const unsigned numSpeeds(5);
-      static const double climbCost(.00005);
+      static const double climbCost(0.0001); // Fuel cost ratio for climbing
+      static const double descendCost(-0.00005); // Fuel cost ratio for climbing
       static const int cruise((numSpeeds+1)/2.0);
       int horiz(abs(node1.x-node2.x)+abs(node1.y-node2.y));
       return horiz*cruiseBurnRate;
@@ -154,7 +157,7 @@ class ManhattanHeuristic : public Heuristic<state> {
       int speedDiff1(std::max(abs(cruise-node1.speed)-1,0));
       int speedDiff2(abs(cruise-node2.speed));
       int vertDiff(node2.height-node1.height);
-      double vcost=(vertDiff>0?climbCost:-climbCost);
+      double vcost=(vertDiff>0?climbCost:-descendCost);
       vertDiff=std::max(0,abs(vertDiff));
       double total(0.0);
       int speedDiff(std::max(0,speedDiff1+speedDiff2<=horiz?speedDiff1+speedDiff2:abs(node2.speed-node1.speed)-1));
@@ -182,8 +185,9 @@ public:
           uint8_t numSpeeds=5, // Number of discrete speeds
           double cruiseBurnRate=.0006, // Fuel burn rate in liters per unit distance
           double speedBurnDelta=0.0001, // Extra fuel cost for non-cruise speed
-          double climbCost=0.00005, // Fuel cost for climbing
-          double gridSize=3.0); // Horizontal gird width (meters)
+          double climbCost=0.0001, // Fuel cost for climbing
+          double descendCost=-0.00005, // Fuel cost for descending
+          double gridSize=3.0); // Horizontal grid width (meters)
 	virtual void GetSuccessors(const airplaneState &nodeID, std::vector<airplaneState> &neighbors) const;
 	virtual void GetActions(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
 	virtual void GetReverseActions(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
@@ -254,6 +258,14 @@ protected:
         double const cruiseBurnRate;//0.0002*3.0 liters per unit
         double const speedBurnDelta;//0.0001 liters per unit
         double const climbCost;//1.0475;
+        double const descendCost;
+
+private:
+  void loadPerimeterDB(std::string const&);
+	double myHCost(const airplaneState &node1, const airplaneState &node2) const;
+  bool perimeterLoaded;
+
+  AirplanePerimeterDBBuilder<airplaneState, airplaneAction, AirplaneEnvironment> perimeter;
 
         //TODO Add wind constants
         //const double windSpeed = 0;

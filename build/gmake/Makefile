@@ -16,6 +16,7 @@ PROJECTS = \
   abstractionalgorithms \
   algorithms \
   environments \
+  test/airplane \
   generic \
   graph \
   graphalgorithms \
@@ -71,6 +72,7 @@ PROJECTS_ALL = \
   abstractionalgorithms \
   algorithms \
   environments \
+  test/airplane \
   generic \
   graph \
   graphalgorithms \
@@ -141,15 +143,15 @@ clean:
          done
 	@echo ""
 
-check: debug
-check:
-	@for dir in $(PROJECTS); do \
-           if test -f $$dir/test/Makefile; then \
-             echo -e "\n--------------- $$dir (test)"; \
-             $(MAKE) -C $$dir/test debug || exit -1; \
-           fi; \
-        done
-	@echo ""
+#check: debug
+#check:
+	#@for dir in $(PROJECTS); do \
+           #if test -f $$dir/test/Makefile; then \
+             #echo -e "\n--------------- $$dir (test)"; \
+             #$(MAKE) -C $$dir/test debug || exit -1; \
+           #fi; \
+        #done
+	#@echo ""
 
 
 # sequentially to avoid same sub-target in sub-make invoked twice

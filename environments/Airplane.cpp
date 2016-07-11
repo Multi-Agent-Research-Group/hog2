@@ -34,6 +34,7 @@ AirplaneEnvironment::AirplaneEnvironment(
   double cruiseBurnRate,
   double speedBurnDelta,
   double climbCost,
+  double descendCost,
   double gridSize
 ): width(width),
   length(length),
@@ -45,8 +46,12 @@ AirplaneEnvironment::AirplaneEnvironment(
   gridSize(gridSize),
   cruiseBurnRate(cruiseBurnRate),
   speedBurnDelta(speedBurnDelta),
-  climbCost(climbCost)
+  climbCost(climbCost),
+  descendCost(descendCost),
+  perimeterLoaded(false)
 {
+    // Load the perimeter heuristic before we add any obstacles to the environment...
+    loadPerimeterDB("airplanePerimiter.dat");
     srandom(time(0));
     ground.resize((width+1)*(length+1));
     groundNormals.resize((width+1)*(length+1));
@@ -188,6 +193,12 @@ AirplaneEnvironment::AirplaneEnvironment(
 //  SetGround(0, length, random()%256);
 //  SetGround(width, length, random()%256);
 //  RecurseGround(0, 0, width+1, length+1);
+}
+
+void AirplaneEnvironment::loadPerimeterDB(std::string const& fname){
+  // Note, the ref state must be free and clear of obstacles within the perimeter
+  airplaneState ref(40, 40, 10, 1, 1);
+  perimeterLoaded = perimeter.loadGCosts(*this,ref,fname);
 }
 
 void AirplaneEnvironment::SetGround(int x, int y, uint8_t val)
@@ -413,7 +424,7 @@ void AirplaneEnvironment::GetReverseActions(const airplaneState &nodeID, std::ve
     actions.push_back(airplaneAction(kShift, 0, 0));
     actions.push_back(airplaneAction(-kShift, 0, 0));
 
-    if (nodeID.height < 1)
+    if (nodeID.height < height)
         {
           // decrease height
           actions.push_back(airplaneAction(0, 0, -1));
@@ -449,7 +460,7 @@ void AirplaneEnvironment::GetReverseActions(const airplaneState &nodeID, std::ve
           }
         }
 
-    if (nodeID.height < height)
+    if (nodeID.height > 1)
         {
           // increase height
           actions.push_back(airplaneAction(0, 0, +1));
@@ -670,21 +681,8 @@ void AirplaneEnvironment::GetNextState(const airplaneState &currents, airplaneAc
     ApplyAction(news, dir);
 }
 
-double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneState &node2) const
+double AirplaneEnvironment::myHCost(const airplaneState &node1, const airplaneState &node2) const
 {
-  // We want to estimate the heuristic to the landing state
-  // Figure out which landing strip we're going to
-  for (landingStrip st : landingStrips)
-  {
-    if (node2 == st.goal_state)
-    {
-      return HCost(node1, st.landing_state);
-    } else if (node1 == st.goal_state)
-    {
-      return HCost(st.landing_state, node2);
-    }
-  }
-
   // Estimate fuel cost...
   static const int cruise(3);
   int diffx(abs(node1.x-node2.x));
@@ -695,8 +693,9 @@ double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneStat
   int speedDiff1(std::max(0,abs(cruise-node1.speed)-1));
   int speedDiff2(abs(cruise-node2.speed));
   int speedDiff(abs(node2.speed-node1.speed));
-  int maxMove(std::max(std::max(speedDiff,speedDiff1+speedDiff2),abs(vertDiff)));
-  double vcost(vertDiff>0?climbCost:-climbCost);
+  double vcost(vertDiff>0?climbCost:descendCost);
+  vertDiff=abs(vertDiff);
+  int maxMove(std::max(std::max(speedDiff,speedDiff1+speedDiff2),vertDiff));
   int travel(node1.headingTo(node2));
   //int numTurns1(hdgDiff<8>(node1.heading,travel));
   //int numTurns2(hdgDiff<8>(node2.heading,travel));
@@ -711,10 +710,48 @@ double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneStat
 
   
   //std::cout << "speed:"<<speedChanges<<"v:"<<vertDiff<<"\n";
-  double total(diff*cruiseBurnRate+std::min(speedChanges,diff)*speedBurnDelta+std::min(abs(vertDiff),diff)*vcost);
+  double total(diff*cruiseBurnRate+std::min(speedChanges,diff)*speedBurnDelta+std::min(vertDiff,diff)*vcost);
   speedChanges-=std::min(speedChanges,diff);
-  vertDiff-=vertDiff>0?std::min(abs(vertDiff),diff):-std::min(abs(vertDiff),diff);
-  return total+(diag*cruiseBurnRate+speedChanges*speedBurnDelta+vertDiff*climbCost)*M_SQRT2;
+  vertDiff-=std::min(vertDiff,diff);
+  return total+(diag*cruiseBurnRate+speedChanges*speedBurnDelta+vertDiff*vcost)*M_SQRT2;
+}
+
+double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneState &node2) const
+{
+  // We want to estimate the heuristic to the landing state
+  // Figure out which landing strip we're going to
+  for (landingStrip st : landingStrips)
+  {
+    if (node2 == st.goal_state)
+    {
+      return HCost(node1, st.landing_state);
+    } else if (node1 == st.goal_state)
+    {
+      return HCost(st.landing_state, node2);
+    }
+  }
+  
+  airplaneState pNode = node2;
+  double perimeterVal(0);
+  if(perimeterLoaded)
+  {
+    if(abs(node1.x-node2.x)<=2 && abs(node1.y-node2.y)<=2 && abs(node2.height-node1.height) <=2)
+      return perimeter.GCost(node1,node2);
+    // Select a perimeter node
+    double best(9999999);
+    static const int perimeterSize(2);
+    for(int x(std::max(0,node2.x-perimeterSize)); x<std::min(node2.x+perimeterSize,width); ++x){
+      for(int y(std::max(0,node2.y-perimeterSize)); y<std::min(node2.y+perimeterSize,length); ++y){
+        double dist( sqrt((x-node1.x)*(x-node1.x)+(y-node1.y)*(y-node1.y)));
+        if(dist<best){
+          pNode.x = x;
+          pNode.y = y;
+        }
+      }
+    }
+    perimeterVal = perimeter.GCost(pNode,node2);
+  }
+  return myHCost(node1,pNode)+ perimeterVal;
 }
 
 
@@ -722,7 +759,10 @@ double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneStat
 double AirplaneEnvironment::GCost(const airplaneState &node1, const airplaneState &node2) const
 {
     // Compute cost according to fuel consumption
-    double cost(cruiseBurnRate+speedBurnDelta*abs(((numSpeeds+1)/2.0)-(node2.speed))+(node2.height-node1.height)*climbCost);
+    int vertDiff(node2.height-node1.height);
+    double vcost(vertDiff>0?climbCost:descendCost);
+    vertDiff=abs(vertDiff);
+    double cost(cruiseBurnRate+speedBurnDelta*abs(((numSpeeds+1)/2.0)-(node2.speed))+vertDiff*vcost);
     return cost*(((node1.x-node2.x) && (node1.y-node2.y))?M_SQRT2:1.0);
 }
 
