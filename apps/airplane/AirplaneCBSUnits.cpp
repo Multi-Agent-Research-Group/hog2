@@ -459,7 +459,7 @@ bool AirCBSGroup::FindFirstConflict(int location, airConflict &c1, airConflict &
 
 				// Check the point constraints
 				airConstraint x_c(tree[location].paths[x][xTime]);
-				airtimeState y_c(tree[location].paths[y][yTime]);
+				airtimeState y_c =tree[location].paths[y][yTime];
 
 				
 				// Deal with landing conflicts, we dont't conflict if one of the planes stays landed at
