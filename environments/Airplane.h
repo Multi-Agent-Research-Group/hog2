@@ -230,10 +230,10 @@ public:
 	virtual void AddLandingStrip(landingStrip x);
 	virtual const std::vector<landingStrip>& GetLandingStrips() const {return landingStrips;}
 
-        const uint8_t numSpeeds;
-        const double minSpeed;       //Meters per time step
-        const double maxSpeed;       //Meters per time step
-        double const gridSize; // 3 meters
+  const uint8_t numSpeeds;
+  const double minSpeed;       //Meters per time step
+  const double maxSpeed;       //Meters per time step
+  double const gridSize; // 3 meters
 
 protected:
 	void SetGround(int x, int y, uint8_t val);

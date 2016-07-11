@@ -150,7 +150,7 @@ void InitSim(){
 
 	sim = new UnitSimulation<airtimeState, airplaneAction, AirplaneConstrainedEnvironment>(ace);
 	sim->SetStepType(kLockStep);
-	group = new AirCBSGroup(ace,ace,100);
+	group = new AirCBSGroup(ace,ace,4);
     // TODO: Have it use the simple environment and switch to the complex one
     //       after too many conflicts
 	//group = new AirCBSGroup(ace,aces,4);

@@ -13,6 +13,11 @@
 #include <limits> 
 #include <algorithm>
 #include <map>
+
+#include <queue>
+#include <functional>
+#include <vector>
+
 #include "Unit.h"
 #include "UnitGroup.h"
 #include "Airplane.h"
@@ -60,20 +65,29 @@ struct airConflict {
 };
 
 struct AirCBSTreeNode {
-	AirCBSTreeNode():parent(0),closed(false),satisfiable(true){}
+	AirCBSTreeNode():parent(0),satisfiable(true){}
 	std::vector< std::vector<airtimeState> > paths;
-	std::map<int,int> freezeLoc;
 	airConflict con;
 	unsigned int parent;
-	bool closed;
 	bool satisfiable;
 };
 
 static std::ostream& operator <<(std::ostream & out, const AirCBSTreeNode &act)
 {
-	out << "(paths:"<<act.paths.size()<<", parent:"<<act.parent<<", closed:"<<act.closed<<", satisfiable::"<<act.satisfiable<<")";
+	out << "(paths:"<<act.paths.size()<<", parent: "<<act.parent<< ", satisfiable: "<<act.satisfiable<<")";
 	return out;
 }
+
+struct EnvironmentContainer {
+	EnvironmentContainer() : name("NULL ENV"), environment(0), heuristic(0), conflict_cutoff(0), astar_weight(0.0f) {}
+	EnvironmentContainer(std::string n, AirplaneConstrainedEnvironment* e, Heuristic<airtimeState>* h, uint32_t conf, float a) : name(n), environment(e), heuristic(h), conflict_cutoff(conf), astar_weight(a) {}
+	AirplaneConstrainedEnvironment* environment;
+	Heuristic<airtimeState>* heuristic;
+	uint64_t conflict_cutoff;
+	float astar_weight;
+	std::string name;
+};
+
 
 class AirCBSGroup : public UnitGroup<airtimeState, airplaneAction, AirplaneConstrainedEnvironment>
 {
@@ -87,30 +101,44 @@ public:
 	void UpdateUnitGoal(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u, airtimeState newGoal);
 	void OpenGLDraw(const AirplaneConstrainedEnvironment *, const SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *)  const;
 	double getTime() {return time;}
-	void incrementTime() {time += 1;}
 	bool donePlanning() {return planFinished;}
-private:
-        void SetEnvironment(unsigned);
+
+private:    
+
 	void ExpandOneCBSNode();
 	void Replan(int location);
 	bool FindFirstConflict(int location, airConflict &c1, airConflict &c2);
 	
 	bool planFinished;
-	AirplaneConstrainedEnvironment *ae;
-	AirplaneConstrainedEnvironment *simple;
-	AirplaneConstrainedEnvironment *current;
+
+	/* Code for dealing with multiple environments */
+	std::vector<EnvironmentContainer> environments;
+	EnvironmentContainer* currentEnvironment;
+
+	void SetEnvironment(unsigned);
+    void ClearEnvironmentConstraints();
+    void AddEnvironmentConstraint(airConstraint c);
 
 	std::vector<AirCBSTreeNode> tree;
 	std::vector<airtimeState> thePath;
-	std::map< Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment>*, int> unitMap;
 	TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> astar;
 
 	double time;
-	
+
 	unsigned int bestNode;
-        unsigned threshold;
-        Heuristic<airtimeState>* simpleHeuristic;
-        Heuristic<airtimeState>* complexHeuristic;
+	struct OpenListNode {
+		OpenListNode() : location(0), cost(0) {}
+		OpenListNode(uint loc, double c) : location(loc), cost(c) {}
+		uint location;
+		double cost;	
+	};
+	struct OpenListNodeCompare {
+		bool operator() (const OpenListNode& left, const OpenListNode& right) {
+			return left.cost > right.cost;
+		}
+	};
+
+	std::priority_queue<AirCBSGroup::OpenListNode, std::vector<AirCBSGroup::OpenListNode>, AirCBSGroup::OpenListNodeCompare> openList;
 };
 
 
