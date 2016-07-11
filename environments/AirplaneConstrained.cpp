@@ -8,6 +8,7 @@
 
 #include "AirplaneConstrained.h"
 #include <iostream>
+#include <algorithm>
  
 /////////////////////////////// PUBLIC ////////////////////////////////////////////////////
 
@@ -34,9 +35,9 @@ AirplaneConstrainedEnvironment::AirplaneConstrainedEnvironment(AirplaneEnvironme
 	// Add back the air-strip constraints
 	for (landingStrip st : ae->GetLandingStrips())
 	{
-		airplaneState mi(min(st.x1, st.x2), min(st.y1, st.y2), 0, 0,0);
+		airplaneState mi(std::min<int>(st.x1, st.x2), std::min<int>(st.y1, st.y2), 0, 0,0);
 		airtimeState o(mi, 0);
-		airplaneState ma(max(st.x1, st.x2), max(st.y1, st.y2), 7, 0,0);
+		airplaneState ma(std::max<int>(st.x1, st.x2), std::max<int>(st.y1, st.y2), 7, 0,0);
 		airtimeState f(ma, std::numeric_limits<float>::max());
 		airConstraint c(o, f);
 		c.strip=true;
@@ -187,7 +188,7 @@ double AirplaneConstrainedEnvironment::HCost(const airtimeState &node1, const ai
 {
 	//double res1 = this->ae->HCost(node1, node2);
 	//double res2 = (node2.t>node1.t)?(node2.t-node1.t):0;
-	//return max(res1, res2);
+	//return std::max<int>(res1, res2);
     return this->ae->HCost(node1, node2);
 }
 
@@ -329,14 +330,15 @@ bool airConstraint::ConflictsWith(const airtimeState &state) const
         // the boxes must intersect.
         
         // Generate a well formed set of boxes for the constraint box
-        int c_minx = min(start_state.x, end_state.x);
-        int c_maxx = max(start_state.x, end_state.x);
+        
+        int c_minx = start_state.x < end_state.x ? start_state.x : end_state.x;
+        int c_maxx = start_state.x > end_state.x ? start_state.x : end_state.x;
 
-        int c_miny = min(start_state.y, end_state.y);
-        int c_maxy = max(start_state.y, end_state.y);
+        int c_miny = start_state.y < end_state.y ? start_state.y : end_state.y;
+        int c_maxy = start_state.y > end_state.y ? start_state.y : end_state.y;
 
-        int c_minz = min(start_state.height, end_state.height);
-        int c_maxz = max(start_state.height, end_state.height);
+        int c_minz = start_state.height < end_state.height ? start_state.height : end_state.height;
+        int c_maxz = start_state.height > end_state.height ? start_state.height : end_state.height;
 
         
         if (state.x >= c_minx && state.x <= c_maxx && // Check if overlapping on the X axis
@@ -354,7 +356,7 @@ return false;
 
 bool airConstraint::ConflictsWith(const airtimeState &from, const airtimeState &to) const
 {
-    if (max(start_state.t, from.t) <= min(end_state.t, to.t) + 0.001) 
+    if (std::max<int>(start_state.t, from.t) <= std::min<int>(end_state.t, to.t) + 0.001) 
     {
         // Each constraint defines an x, y, z box with corners on the state locations. We 
         // need to check if they overlap at any point. We do this using the separating 
@@ -367,29 +369,29 @@ bool airConstraint::ConflictsWith(const airtimeState &from, const airtimeState &
         // and no unit is alowed inside another unit's box. The boxes may be allowed to overlap however
         
         // Generate a well formed set of boxes for the action box
-        int a_minx = min(from.x, to.x);
-        int a_maxx = max(from.x, to.x);
+        int a_minx = std::min<int>(from.x, to.x);
+        int a_maxx = std::max<int>(from.x, to.x);
 
-        int a_miny = min(from.y, to.y);
-        int a_maxy = max(from.y, to.y);
+        int a_miny = std::min<int>(from.y, to.y);
+        int a_maxy = std::max<int>(from.y, to.y);
 
-        int a_minz = min(from.height, to.height);
-        int a_maxz = max(from.height, to.height);
+        int a_minz = std::min<int>(from.height, to.height);
+        int a_maxz = std::max<int>(from.height, to.height);
         
         // Generate a well formed set of boxes for the constraint box
-        int c_minx = min(start_state.x, end_state.x);
-        int c_maxx = max(start_state.x, end_state.x);
+        int c_minx = start_state.x < end_state.x ? start_state.x : end_state.x;
+        int c_maxx = start_state.x > end_state.x ? start_state.x : end_state.x;
 
-        int c_miny = min(start_state.y, end_state.y);
-        int c_maxy = max(start_state.y, end_state.y);
+        int c_miny = start_state.y < end_state.y ? start_state.y : end_state.y;
+        int c_maxy = start_state.y > end_state.y ? start_state.y : end_state.y;
 
-        int c_minz = min(start_state.height, end_state.height);
-        int c_maxz = max(start_state.height, end_state.height);
+        int c_minz = start_state.height < end_state.height ? start_state.height : end_state.height;
+        int c_maxz = start_state.height > end_state.height ? start_state.height : end_state.height;
 
         
-        if (max(c_minx, a_minx) <= min(c_maxx, a_maxx) && // Check if overlapping on the X axis
-            max(c_miny, a_miny) <= min(c_maxy, a_maxy) && // Check if overlapping on the Y axis
-            max(c_minz, a_minz) <= min(c_maxz, a_maxz)    // Check if overlapping on the Z axis
+        if (std::max<int>(c_minx, a_minx) <= std::min<int>(c_maxx, a_maxx) && // Check if overlapping on the X axis
+            std::max<int>(c_miny, a_miny) <= std::min<int>(c_maxy, a_maxy) && // Check if overlapping on the Y axis
+            std::max<int>(c_minz, a_minz) <= std::min<int>(c_maxz, a_maxz)    // Check if overlapping on the Z axis
             )
         {
                 // If we overlap on all three axis, then there must be a common point, and thus
@@ -425,19 +427,19 @@ void airConstraint::OpenGLDraw() const
 
 	if (strip)
 	{
-		min_x = min(x_start-.5/40.0,x_end-.5/40.0);
-		max_x = max(x_start+.5/40.0,x_end+.5/40.0);
-		min_y = min(y_start-.5/40.0,y_end-.5/40.0);
-		max_y = max(y_start+.5/40.0,y_end+.5/40.0);
-		min_z = min(z_start,z_end);
-		max_z = max(z_start+.5/40.0,z_end+.5/40.0);
+		min_x = std::min<int>(x_start-.5/40.0,x_end-.5/40.0);
+		max_x = std::max<int>(x_start+.5/40.0,x_end+.5/40.0);
+		min_y = std::min<int>(y_start-.5/40.0,y_end-.5/40.0);
+		max_y = std::max<int>(y_start+.5/40.0,y_end+.5/40.0);
+		min_z = std::min<int>(z_start,z_end);
+		max_z = std::max<int>(z_start+.5/40.0,z_end+.5/40.0);
 	} else {
-		min_x = min(x_start-.5/40.0,x_end-.5/40.0);
-		max_x = max(x_start+.5/40.0,x_end+.5/40.0);
-		min_y = min(y_start-.5/40.0,y_end-.5/40.0);
-		max_y = max(y_start+.5/40.0,y_end+.5/40.0);
-		min_z = min(z_start-.5/40.0,z_end-.5/40.0);
-		max_z = max(z_start+.5/40.0,z_end+.5/40.0);
+		min_x = std::min<int>(x_start-.5/40.0,x_end-.5/40.0);
+		max_x = std::max<int>(x_start+.5/40.0,x_end+.5/40.0);
+		min_y = std::min<int>(y_start-.5/40.0,y_end-.5/40.0);
+		max_y = std::max<int>(y_start+.5/40.0,y_end+.5/40.0);
+		min_z = std::min<int>(z_start-.5/40.0,z_end-.5/40.0);
+		max_z = std::max<int>(z_start+.5/40.0,z_end+.5/40.0);
 	}
 
 	glDisable(GL_LIGHTING);
@@ -496,14 +498,14 @@ bool AirplaneConstrainedEnvironment::ViolatesConstraint(const airtimeState &from
 {
 	// Generate a well formed set of boxes for the action box
 	// which we will need later to compare
-	int a_minx = min(from.x, to.x);
-	int a_maxx = max(from.x, to.x);
+	int a_minx = std::min<int>(from.x, to.x);
+	int a_maxx = std::max<int>(from.x, to.x);
 
-	int a_miny = min(from.y, to.y);
-	int a_maxy = max(from.y, to.y);
+	int a_miny = std::min<int>(from.y, to.y);
+	int a_maxy = std::max<int>(from.y, to.y);
 
-	int a_minz = min(from.height, to.height);
-	int a_maxz = max(from.height, to.height);
+	int a_minz = std::min<int>(from.height, to.height);
+	int a_maxz = std::max<int>(from.height, to.height);
 
 	// Allocate some temp variables
 	int c_minx, c_maxx, c_miny, c_maxy, c_minz, c_maxz;
@@ -520,22 +522,22 @@ bool AirplaneConstrainedEnvironment::ViolatesConstraint(const airtimeState &from
 	{
 
 		// Check if the range of the constraint overlaps in time
-		if (max(c.start_state.t, from.t) <= min(c.end_state.t, to.t) + 0.00001) 
+		if (std::max<int>(c.start_state.t, from.t) <= std::min<int>(c.end_state.t, to.t) + 0.00001) 
 		{
 	       // Generate a well formed set of boxes for the constraint box
-			c_minx = min(c.start_state.x, c.end_state.x);
-			c_maxx = max(c.start_state.x, c.end_state.x);
+			c_minx = c.start_state.x < c.end_state.x ? c.start_state.x : c.end_state.x;
+	        c_maxx = c.start_state.x > c.end_state.x ? c.start_state.x : c.end_state.x;
 
-			c_miny = min(c.start_state.y, c.end_state.y);
-			c_maxy = max(c.start_state.y, c.end_state.y);
+	        c_miny = c.start_state.y < c.end_state.y ? c.start_state.y : c.end_state.y;
+	        c_maxy = c.start_state.y > c.end_state.y ? c.start_state.y : c.end_state.y;
 
-			c_minz = min(c.start_state.height, c.end_state.height);
-			c_maxz = max(c.start_state.height, c.end_state.height);
+	        c_minz = c.start_state.height < c.end_state.height ? c.start_state.height : c.end_state.height;
+	        c_maxz = c.start_state.height > c.end_state.height ? c.start_state.height : c.end_state.height;
 
 			
-			if (max(c_minx, a_minx) <= min(c_maxx, a_maxx) && // Check if overlapping on the X axis
-				max(c_miny, a_miny) <= min(c_maxy, a_maxy) && // Check if overlapping on the Y axis
-				max(c_minz, a_minz) <= min(c_maxz, a_maxz)    // Check if overlapping on the Z axis
+			if (std::max<int>(c_minx, a_minx) <= std::min<int>(c_maxx, a_maxx) && // Check if overlapping on the X axis
+				std::max<int>(c_miny, a_miny) <= std::min<int>(c_maxy, a_maxy) && // Check if overlapping on the Y axis
+				std::max<int>(c_minz, a_minz) <= std::min<int>(c_maxz, a_maxz)    // Check if overlapping on the Z axis
 				)
 			{
 				// If we overlap on all three axis, then there must be a common point, and thus
@@ -556,22 +558,22 @@ bool AirplaneConstrainedEnvironment::ViolatesConstraint(const airtimeState &from
 	for (airConstraint c : static_constraints)
 	{
 		// Check if the range of the constraint overlaps in time
-		if (max(c.start_state.t, from.t) <= min(c.end_state.t, to.t) + 0.00001) 
+		if (std::max<int>(c.start_state.t, from.t) <= std::min<int>(c.end_state.t, to.t) + 0.00001) 
 		{
 	       // Generate a well formed set of boxes for the constraint box
-			c_minx = min(c.start_state.x, c.end_state.x);
-			c_maxx = max(c.start_state.x, c.end_state.x);
+			c_minx = c.start_state.x < c.end_state.x ? c.start_state.x : c.end_state.x;
+	        c_maxx = c.start_state.x > c.end_state.x ? c.start_state.x : c.end_state.x;
 
-			c_miny = min(c.start_state.y, c.end_state.y);
-			c_maxy = max(c.start_state.y, c.end_state.y);
+	        c_miny = c.start_state.y < c.end_state.y ? c.start_state.y : c.end_state.y;
+	        c_maxy = c.start_state.y > c.end_state.y ? c.start_state.y : c.end_state.y;
 
-			c_minz = min(c.start_state.height, c.end_state.height);
-			c_maxz = max(c.start_state.height, c.end_state.height);
+	        c_minz = c.start_state.height < c.end_state.height ? c.start_state.height : c.end_state.height;
+	        c_maxz = c.start_state.height > c.end_state.height ? c.start_state.height : c.end_state.height;
 
 			
-			if (max(c_minx, a_minx) <= min(c_maxx, a_maxx) && // Check if overlapping on the X axis
-				max(c_miny, a_miny) <= min(c_maxy, a_maxy) && // Check if overlapping on the Y axis
-				max(c_minz, a_minz) <= min(c_maxz, a_maxz)    // Check if overlapping on the Z axis
+			if (std::max<int>(c_minx, a_minx) <= std::min<int>(c_maxx, a_maxx) && // Check if overlapping on the X axis
+				std::max<int>(c_miny, a_miny) <= std::min<int>(c_maxy, a_maxy) && // Check if overlapping on the Y axis
+				std::max<int>(c_minz, a_minz) <= std::min<int>(c_maxz, a_maxz)    // Check if overlapping on the Z axis
 				)
 			{
 				// If we overlap on all three axis, then there must be a common point, and thus
