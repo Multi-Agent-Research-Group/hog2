@@ -22,7 +22,7 @@ int absType = 0;
 int mapSize = 128;
 bool recording = false;
 double simTime = 0;
-double stepsPerFrame = 1.0/1000.0;
+double stepsPerFrame = 1.0/100.0;
 double frameIncrement = 1.0/10000.0;
 std::vector<airtimeState> thePath;
 
@@ -319,105 +319,14 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
             glLineWidth(1.0);
         }
     }
-	//	ace->OpenGLDraw();
-	//if (group)
-	//	group->OpenGLDraw(ae, sim);
+
 	if (sim)
 		sim->OpenGLDraw();
 	
 	if (!paused)
 		sim->StepTime(stepsPerFrame);
 
-	/*u1->GetLocation(s11);
-	u2->GetLocation(s21);
-
-	if (group)
-	{
-		if (group->MakeMove(u1, ae, sim, a))
-		{
-			std::cout << "Moving unit one from " << s11 << " to " << s12 << std::endl;
-			ae->GetNextState(s11,a,s12);
-		}
-		if (group->MakeMove(u2, ae, sim, a))
-		{
-			std::cout << "Moving unit two from " << s21 << " to " << s22 << std::endl;
-			ae->GetNextState(s21,a,s22);
-		}
-
-	}
-
-	for (unsigned int x = 0; x < group->GetNumMembers(); x++)
-	{
-		AirCBSUnit *unit = (AirCBSUnit*) group->GetMember(x);
-		ae->SetColor(1,0,0);
-		unit->OpenGLDraw(ae, sim);
-		ae->SetColor(0,1,0);
-	}*/
-
-	//std::cout << "U1: " << s11 << " to " << s12 << std::endl << "U2: " << s21 << " to " << s22 << std::endl;
-	//std::cout << "Group-Time:" << group->getTime() << " Sim-Time:" << simTime << " Sim-Time-SimInfo:" << sim-> GetSimulationTime()<< std::endl;
-
-	//simTime += 0.01;
-	//if ((simTime - floor(simTime)) < 0.01)
-	//{
-	//	sim->StepTime(1.00);
-	//}
-
-
 	/*
-	simTime += 0.01;
-	//recVec v = ae.GetCoordinate(s2.x, s2.y, s2.height);
-	//cameraLookAt(v.x, v.y, v.z, 0.01);
-	if (simTime > 1)
-	{
-		simTime = 0;
-		s.heading = 2;
-		s.x++;
-		s.x = s.x%80;
-
-		s2.heading = 3;
-		s2.x++;
-		s2.y++;
-		s2.x = s2.x%80;
-		s2.y = s2.y%80;
-		s2.height = 4;
-	}
-	
-	ae.OpenGLDraw();
-
-	//s.heading = (s.heading+1)%8;
-
-	tmp = s2;
-	tmp.heading = 3;
-	tmp.x++;
-	tmp.y++;
-	tmp.x = tmp.x%80;
-	tmp.y = tmp.y%80;
-	tmp.height = 4;
-	ae.SetColor(0.0, 1.0, 0.0);
-	ae.OpenGLDraw(s2, tmp, simTime);
-	
-	tmp = s;
-	tmp.heading = 2;
-	tmp.x++;
-	tmp.x = tmp.x%80;
-	ae.SetColor(1.0, 0.0, 0.0);
-	ae.OpenGLDraw(s, tmp, simTime);
-	
-	s3.x = 40;
-	s3.y = 40;
-	s3.height = 10;
-	s3.heading = 0;
-	ae.GetActions(s3, acts);
-	ae.SetColor(0, 1, 1);
-	ae.OpenGLDraw(s3);
-	for (const auto &a : acts)
-	{
-		ae.GetNextState(s3, a, s4);
-		ae.SetColor(0, 0, 1);
-		ae.OpenGLDraw(s3, s4, simTime);
-	}
-	
 	if (recording)
 	{
 		static int index = 0;

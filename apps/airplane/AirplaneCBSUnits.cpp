@@ -391,11 +391,15 @@ void AirCBSGroup::Replan(int location)
 	// Add all of the constraints in the parents of the current node to the environment
 	int tempLocation = location;
     unsigned numConflicts = 0;
+    std::vector<airConstraint> constraints;
+
+
     do {
 		if (theUnit == tree[tempLocation].con.unit1)
         {
           numConflicts++;
-          AddEnvironmentConstraint(tree[tempLocation].con.c);     
+          AddEnvironmentConstraint(tree[tempLocation].con.c);
+          constraints.push_back(tree[tempLocation].con.c);
         }
 		tempLocation = tree[tempLocation].parent;
 	} while (tempLocation != 0);
@@ -415,6 +419,14 @@ void AirCBSGroup::Replan(int location)
 	std::cout << "#conflicts for " << tempLocation << ": " << numConflicts << "\n";
 	astar.GetPath(currentEnvironment->environment, start, goal, thePath);
 	std::cout << "Replan agent: " << location << " expansions: " << astar.GetNodesExpanded() << "\n";
+
+	// Check path for conflict assertions (Bad idea to enable this while running)
+	//for (uint x = 0; x < thePath.size(); x++) {
+	//	for (uint i = 0; i < constraints.size(); i++) {
+	//		if (constraints[i].ConflictsWith(thePath[x]) || x < (thePath.size() -1 ) && constraints[i].ConflictsWith(thePath[x], thePath[x+1]))
+	//			assert(false && "Error with constrained environment");
+	//	}
+	//}
 
 	// Make sure that the current location is satisfiable
 	if (thePath.size() == 0 && !(goal == start)) {
@@ -479,8 +491,8 @@ bool AirCBSGroup::FindFirstConflict(int location, airConflict &c1, airConflict &
 					c1.c = x_c;
 					c2.c = y_c;
 
-					c1.unit1 = x;
-					c2.unit1 = y;
+					c1.unit1 = y;
+					c2.unit1 = x;
 					return true;
 				}
 
@@ -494,8 +506,8 @@ bool AirCBSGroup::FindFirstConflict(int location, airConflict &c1, airConflict &
 					c1.c = x_e_c;
 					c2.c = y_e_c;
 
-					c1.unit1 = x;
-					c2.unit1 = y;
+					c1.unit1 = y;
+					c2.unit1 = x;
 					return true;
 				}
 
