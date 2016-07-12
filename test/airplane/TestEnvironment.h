@@ -10,67 +10,136 @@
 #include "Heuristic.h"
 
 bool testLoadPerimeterHeuristic(){
-  AirplanePerimeterDBBuilder<airplaneState,airplaneAction,AirplaneEnvironment> builder;
-  AirplaneEnvironment env;
-  airplaneState target(10,10,10,1,0);
-  std::cout << target << "\n";
-  builder.loadGCosts(env, target, "airplanePerimiter.dat");
-  
-  airplaneState s;
-  s.x = 40;
-  s.y = 40;
-  s.height = 14;
-  s.heading = 0;
-  s.speed = 3;
+  // Simple Env.
+  {
+    AirplanePerimeterDBBuilder<airplaneState,airplaneAction,AirplaneEnvironment> builder;
+    AirplaneSimpleEnvironment env;
+    env.loadPerimeterDB();
+    airplaneState target(10,10,10,1,0);
+    builder.loadGCosts(env, target, "airplaneSimplePerimiter.dat");
 
-  std::vector<airplaneAction> as;
-  env.GetActions(s,as);
-  ZeroHeuristic<airplaneState> z;
+    airplaneState s;
+    s.x = 40;
+    s.y = 40;
+    s.height = 14;
+    s.heading = 0;
+    s.speed = 3;
 
-  for(auto &a: as){
-    airplaneState g(s);
-    env.ApplyAction(g,a);
-    TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> astar;
-    astar.SetHeuristic(&z);
-    std::vector<airplaneState> sol;
-    astar.GetPath(&env,s,g,sol);
-    double gcost(env.GetPathLength(sol));
-    if(!fequal(gcost,builder.GCost(s,g))){
-      std:: cout << s << " " << g << "\n";
-      std::cout << env.GCost(s,g) << "!=?" << " G " << gcost << " P " << builder.GCost(s,g) << "\n";}
-    assert(fequal(gcost,builder.GCost(s,g))&& "Costs of the perimeter and real are not equal");
-    std::cout << "." << std::flush;
+    std::vector<airplaneAction> as;
+    env.GetActions(s,as);
+    ZeroHeuristic<airplaneState> z;
+
+    for(auto &a: as){
+      airplaneState g(s);
+      env.ApplyAction(g,a);
+      TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> astar;
+      astar.SetHeuristic(&z);
+      std::vector<airplaneState> sol;
+      astar.GetPath(&env,s,g,sol);
+      double gcost(env.GetPathLength(sol));
+      if(!fequal(gcost,builder.GCost(s,g))){
+        std:: cout << s << " " << g << "\n";
+        std::cout << env.GCost(s,g) << "!=?" << " G " << gcost << " P " << builder.GCost(s,g) << "\n";}
+      assert(fequal(gcost,builder.GCost(s,g))&& "Costs of the perimeter and real are not equal");
+      std::cout << "." << std::flush;
+    }
+
+    for(auto &a: as){
+      airplaneState g(s);
+      env.ApplyAction(g,a);
+      TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> astar;
+      astar.SetHeuristic(&z);
+      std::vector<airplaneState> sol;
+      astar.GetPath(&env,g,s,sol); // Invert start and goal
+      double gcost(env.GetPathLength(sol));
+      if(!fequal(gcost,builder.GCost(g,s))){
+        std:: cout << s << " " << g << "\n";
+        std::cout << env.GCost(s,g) << "!=?" << " G " << gcost << " P " << builder.GCost(g,s) << "\n";}
+      assert(fequal(gcost,builder.GCost(g,s))&& "Costs of the perimeter and real are not equal");
+      std::cout << "." << std::flush;
+    }
+
+    for(auto &a: as){
+      airplaneState g(s);
+      env.ApplyAction(g,a);
+      TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> astar;
+      std::vector<airplaneState> sol;
+      astar.GetPath(&env,g,s,sol); // Invert start and goal
+      double gcost(env.GetPathLength(sol));
+      //std::cout << "expanded " << astar.GetNodesExpanded() << "\n";
+      if(!fequal(gcost,builder.GCost(g,s))){
+        std:: cout << s << " " << g << "\n";
+        std::cout << env.GCost(s,g) << "!=?" << " G " << gcost << " P " << builder.GCost(g,s) << "\n";}
+      assert(fequal(gcost,builder.GCost(g,s))&& "Costs of the perimeter and real are not equal");
+      std::cout << "." << std::flush;
+    }
+
+  }
+  {
+    AirplanePerimeterDBBuilder<airplaneState,airplaneAction,AirplaneEnvironment> builder;
+    AirplaneEnvironment env;
+    env.loadPerimeterDB();
+    airplaneState target(10,10,10,1,0);
+    builder.loadGCosts(env, target, "airplanePerimiter.dat");
+
+    airplaneState s;
+    s.x = 40;
+    s.y = 40;
+    s.height = 14;
+    s.heading = 0;
+    s.speed = 3;
+
+    std::vector<airplaneAction> as;
+    env.GetActions(s,as);
+    ZeroHeuristic<airplaneState> z;
+
+    for(auto &a: as){
+      airplaneState g(s);
+      env.ApplyAction(g,a);
+      TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> astar;
+      astar.SetHeuristic(&z);
+      std::vector<airplaneState> sol;
+      astar.GetPath(&env,s,g,sol);
+      double gcost(env.GetPathLength(sol));
+      if(!fequal(gcost,builder.GCost(s,g))){
+        std:: cout << s << " " << g << "\n";
+        std::cout << env.GCost(s,g) << "!=?" << " G " << gcost << " P " << builder.GCost(s,g) << "\n";}
+      assert(fequal(gcost,builder.GCost(s,g))&& "Costs of the perimeter and real are not equal");
+      std::cout << "." << std::flush;
+    }
+
+    for(auto &a: as){
+      airplaneState g(s);
+      env.ApplyAction(g,a);
+      TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> astar;
+      astar.SetHeuristic(&z);
+      std::vector<airplaneState> sol;
+      astar.GetPath(&env,g,s,sol); // Invert start and goal
+      double gcost(env.GetPathLength(sol));
+      if(!fequal(gcost,builder.GCost(g,s))){
+        std:: cout << s << " " << g << "\n";
+        std::cout << env.GCost(s,g) << "!=?" << " G " << gcost << " P " << builder.GCost(g,s) << "\n";}
+      assert(fequal(gcost,builder.GCost(g,s))&& "Costs of the perimeter and real are not equal");
+      std::cout << "." << std::flush;
+    }
+
+    for(auto &a: as){
+      airplaneState g(s);
+      env.ApplyAction(g,a);
+      TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> astar;
+      std::vector<airplaneState> sol;
+      astar.GetPath(&env,g,s,sol); // Invert start and goal
+      double gcost(env.GetPathLength(sol));
+      //std::cout << "expanded " << astar.GetNodesExpanded() << "\n";
+      if(!fequal(gcost,builder.GCost(g,s))){
+        std:: cout << s << " " << g << "\n";
+        std::cout << env.GCost(s,g) << "!=?" << " G " << gcost << " P " << builder.GCost(g,s) << "\n";}
+      assert(fequal(gcost,builder.GCost(g,s))&& "Costs of the perimeter and real are not equal");
+      std::cout << "." << std::flush;
+    }
+
   }
 
-  for(auto &a: as){
-    airplaneState g(s);
-    env.ApplyAction(g,a);
-    TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> astar;
-    astar.SetHeuristic(&z);
-    std::vector<airplaneState> sol;
-    astar.GetPath(&env,g,s,sol); // Invert start and goal
-    double gcost(env.GetPathLength(sol));
-    if(!fequal(gcost,builder.GCost(s,g))){
-      std:: cout << s << " " << g << "\n";
-      std::cout << env.GCost(s,g) << "!=?" << " G " << gcost << " P " << builder.GCost(g,s) << "\n";}
-    assert(fequal(gcost,builder.GCost(g,s))&& "Costs of the perimeter and real are not equal");
-    std::cout << "." << std::flush;
-  }
-
-  for(auto &a: as){
-    airplaneState g(s);
-    env.ApplyAction(g,a);
-    TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> astar;
-    std::vector<airplaneState> sol;
-    astar.GetPath(&env,g,s,sol); // Invert start and goal
-    double gcost(env.GetPathLength(sol));
-    //std::cout << "expanded " << astar.GetNodesExpanded() << "\n";
-    if(!fequal(gcost,builder.GCost(g,s))){
-      std:: cout << s << " " << g << "\n";
-      std::cout << env.GCost(s,g) << "!=?" << " G " << gcost << " P " << builder.GCost(g,s) << "\n";}
-    assert(fequal(gcost,builder.GCost(g,s))&& "Costs of the perimeter and real are not equal");
-    std::cout << "." << std::flush;
-  }
 }
 
 bool testHCost(){

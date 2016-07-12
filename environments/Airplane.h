@@ -187,7 +187,8 @@ public:
           double speedBurnDelta=0.0001, // Extra fuel cost for non-cruise speed
           double climbCost=0.0001, // Fuel cost for climbing
           double descendCost=-0.00005, // Fuel cost for descending
-          double gridSize=3.0); // Horizontal grid width (meters)
+          double gridSize=3.0, // Horizontal grid width (meters)
+          std::string const& perimeterFile=std::string("airplanePerimiter.dat"));
 	virtual void GetSuccessors(const airplaneState &nodeID, std::vector<airplaneState> &neighbors) const;
 	virtual void GetActions(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
 	virtual void GetReverseActions(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
@@ -229,6 +230,7 @@ public:
 
 	virtual void AddLandingStrip(landingStrip x);
 	virtual const std::vector<landingStrip>& GetLandingStrips() const {return landingStrips;}
+        void loadPerimeterDB();
 
   const uint8_t numSpeeds;
   const double minSpeed;       //Meters per time step
@@ -236,6 +238,7 @@ public:
   double const gridSize; // 3 meters
 
 protected:
+        virtual AirplaneEnvironment& getRef() {return *this;}
 	void SetGround(int x, int y, uint8_t val);
 	uint8_t GetGround(int x, int y) const;
 	bool Valid(int x, int y);
@@ -261,11 +264,10 @@ protected:
         double const descendCost;
 
 private:
-  void loadPerimeterDB(std::string const&);
-	double myHCost(const airplaneState &node1, const airplaneState &node2) const;
-  bool perimeterLoaded;
-
-  AirplanePerimeterDBBuilder<airplaneState, airplaneAction, AirplaneEnvironment> perimeter;
+	virtual double myHCost(const airplaneState &node1, const airplaneState &node2) const;
+        bool perimeterLoaded;
+        std::string perimeterFile;
+        AirplanePerimeterDBBuilder<airplaneState, airplaneAction, AirplaneEnvironment> perimeter;
 
         //TODO Add wind constants
         //const double windSpeed = 0;

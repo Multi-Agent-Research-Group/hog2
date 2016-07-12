@@ -92,11 +92,13 @@ AirCBSGroup::AirCBSGroup(AirplaneConstrainedEnvironment *complex, AirplaneConstr
 	tree[0].parent = 0;
     
 	// Construct a simple environment container
-	EnvironmentContainer e_simple("Simple", simple, new ManhattanHeuristic<airtimeState>(), 0, 1.2);
+	//EnvironmentContainer e_simple("Simple", simple, new ManhattanHeuristic<airtimeState>(), 0, 1.2);
+	EnvironmentContainer e_simple("Simple", simple, 0, 0, 1.2);
 	this->environments.push_back(e_simple);
 
 	// Construct a complex environment container
-	EnvironmentContainer e_complex("Complex", complex, new OctileDistanceHeuristic<airtimeState>(), threshold, 1.8);
+	//EnvironmentContainer e_complex("Complex", complex, new OctileDistanceHeuristic<airtimeState>(), threshold, 1.8);
+	EnvironmentContainer e_complex("Complex", complex, 0, threshold, 1.8);
 	this->environments.push_back(e_complex);
 
 	// Sort the environment container by the number of conflicts

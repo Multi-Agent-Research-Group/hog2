@@ -35,7 +35,8 @@ AirplaneEnvironment::AirplaneEnvironment(
   double speedBurnDelta,
   double climbCost,
   double descendCost,
-  double gridSize
+  double gridSize,
+  std::string const& perimeterFile
 ): width(width),
   length(length),
   height(height),
@@ -48,10 +49,10 @@ AirplaneEnvironment::AirplaneEnvironment(
   speedBurnDelta(speedBurnDelta),
   climbCost(climbCost),
   descendCost(descendCost),
-  perimeterLoaded(false)
+  perimeterLoaded(false),
+  perimeterFile(perimeterFile)
 {
     // Load the perimeter heuristic before we add any obstacles to the environment...
-    loadPerimeterDB("airplanePerimiter.dat");
     srandom(time(0));
     ground.resize((width+1)*(length+1));
     groundNormals.resize((width+1)*(length+1));
@@ -195,10 +196,10 @@ AirplaneEnvironment::AirplaneEnvironment(
 //  RecurseGround(0, 0, width+1, length+1);
 }
 
-void AirplaneEnvironment::loadPerimeterDB(std::string const& fname){
+void AirplaneEnvironment::loadPerimeterDB(){
   // Note, the ref state must be free and clear of obstacles within the perimeter
   airplaneState ref(40, 40, 10, 1, 1);
-  perimeterLoaded = perimeter.loadGCosts(*this,ref,fname);
+  perimeterLoaded = perimeter.loadGCosts(getRef(),ref,perimeterFile);
 }
 
 void AirplaneEnvironment::SetGround(int x, int y, uint8_t val)
@@ -460,7 +461,7 @@ void AirplaneEnvironment::GetReverseActions(const airplaneState &nodeID, std::ve
           }
         }
 
-    if (nodeID.height > 1)
+    if (nodeID.height > 0)
         {
           // increase height
           actions.push_back(airplaneAction(0, 0, +1));

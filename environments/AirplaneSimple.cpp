@@ -21,7 +21,9 @@ AirplaneSimpleEnvironment::AirplaneSimpleEnvironment(
   double cruiseBurnRate,
   double speedBurnDelta,
   double climbCost,
-  double gridSize
+  double descendCost,
+  double gridSize,
+  std::string const& perimeterFile
 ): AirplaneEnvironment(
   width,
   length,
@@ -33,7 +35,9 @@ AirplaneSimpleEnvironment::AirplaneSimpleEnvironment(
   cruiseBurnRate,
   speedBurnDelta,
   climbCost,
-  gridSize){}
+  descendCost,
+  gridSize,
+  perimeterFile){}
 
 void AirplaneSimpleEnvironment::GetActions(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const
 {
@@ -100,7 +104,42 @@ void AirplaneSimpleEnvironment::GetActions(const airplaneState &nodeID, std::vec
           actions.push_back(airplaneAction(0, 1, 0));
 }
 
-double AirplaneSimpleEnvironment::HCost(const airplaneState &node1, const airplaneState &node2) const
+void AirplaneSimpleEnvironment::GetReverseActions(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const
+{
+	// 45, 90, 0, shift
+	// speed:
+	// faster, slower
+	// height:
+	// up / down
+	actions.resize(0);
+
+	actions.push_back(airplaneAction(0, 0, 0));
+
+	// each type of turn
+	//actions.push_back(airplaneAction(k45, 0, 0));
+	//actions.push_back(airplaneAction(-k45, 0, 0));
+	actions.push_back(airplaneAction(k90, 0, 0));
+	actions.push_back(airplaneAction(-k90, 0, 0));
+	//actions.push_back(airplaneAction(kShift, 0, 0));
+	//actions.push_back(airplaneAction(-kShift, 0, 0));
+
+        // decrease height
+	if (nodeID.height < height)
+          actions.push_back(airplaneAction(0, 0, -1));
+        // increase height
+	if (nodeID.height > 0)
+          actions.push_back(airplaneAction(0, 0, 1));
+
+        // decrease speed
+	if (nodeID.speed < numSpeeds+1)
+          actions.push_back(airplaneAction(0, -1, 0));
+
+        // increase speed
+	if (nodeID.speed > 1)
+          actions.push_back(airplaneAction(0, 1, 0));
+}
+
+double AirplaneSimpleEnvironment::myHCost(const airplaneState &node1, const airplaneState &node2) const
 {
   // We want to estimate the heuristic to the landing state
   // Figure out which landing strip we're going to
@@ -124,7 +163,6 @@ double AirplaneSimpleEnvironment::HCost(const airplaneState &node1, const airpla
   int vertDiff(node2.height-node1.height);
   double vcost=(vertDiff>0?climbCost:-climbCost);
   vertDiff=std::max(0,abs(vertDiff));
-  double total(0.0);
   int speedDiff(std::max(0,speedDiff1+speedDiff2<=horiz?speedDiff1+speedDiff2:abs(node2.speed-node1.speed)-1));
   horiz=std::max(0,horiz-speedDiff-vertDiff);
   return (numTurns+horiz+speedDiff+vertDiff)*cruiseBurnRate+speedDiff*speedBurnDelta+vertDiff*vcost;

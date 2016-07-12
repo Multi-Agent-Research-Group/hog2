@@ -139,10 +139,9 @@ airtimeState s1, s2, s3, s4, s5, s6, g1, g2, g3, g4, g5, g6;
 
 void InitSim(){
     AirplaneEnvironment* ae = new AirplaneEnvironment();
-    //ae->loadEndGameHeuristic("heuristic.bin");
+    ae->loadPerimeterDB();
     AirplaneSimpleEnvironment* ase = new AirplaneSimpleEnvironment();
-    //ase->loadEndGameHeuristic("heuristic_simple.bin");
-    //
+    ase->loadPerimeterDB();
 	ace = new AirplaneConstrainedEnvironment(ae);
 	aces = new AirplaneConstrainedEnvironment(reinterpret_cast<AirplaneEnvironment*>(ase));
 
