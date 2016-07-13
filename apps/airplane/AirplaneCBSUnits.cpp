@@ -19,7 +19,7 @@ bool AirCBSUnit::MakeMove(AirplaneConstrainedEnvironment *ae, OccupancyInterface
 	if (myPath.size() > 1 && si->GetSimulationTime() > myPath[myPath.size()-2].t)
 	{
 
-		std::cout << "Moved from " << myPath[myPath.size()-1] << " to " << myPath[myPath.size()-2] << std::endl;
+		//std::cout << "Moved from " << myPath[myPath.size()-1] << " to " << myPath[myPath.size()-2] << std::endl;
 		a = ae->GetAction(myPath[myPath.size()-1], myPath[myPath.size()-2]);
 		myPath.pop_back();
 		return true;
@@ -27,13 +27,25 @@ bool AirCBSUnit::MakeMove(AirplaneConstrainedEnvironment *ae, OccupancyInterface
 		if (current.landed)
 		{
 			return false;
-		}
+		} else {
 
-		// Replan the node to a random location
-		airplaneState land(rand() % 80, rand() % 80, rand() % 4 + 11, rand() % 3 + 1, rand() % 8, false);
-		airtimeState newGoal(land, 0);
-		AirCBSGroup* g = (AirCBSGroup*) this->GetUnitGroup();
-		g->UpdateUnitGoal(this, newGoal);
+			// With a random probability - either land or keep flying around.
+			if (rand()%5 == 0) {
+				// Replan the node to a landing location
+				airplaneState land(18, 23, 0, 0, 0, true);
+				airtimeState newGoal(land, 0);
+				AirCBSGroup* g = (AirCBSGroup*) this->GetUnitGroup();
+				//g->UpdateUnitGoal(this, newGoal);			
+				g->UpdateSingleUnitPath(this, newGoal);
+			} else {
+				// Replan the node to a random location
+				airplaneState rs(rand() % 70 + 5, rand() % 70 + 5, rand() % 7 + 11, rand() % 3 + 1, rand() % 8, false);
+				airtimeState newGoal(rs, 0);
+				AirCBSGroup* g = (AirCBSGroup*) this->GetUnitGroup();
+				//g->UpdateUnitGoal(this, newGoal);
+				g->UpdateSingleUnitPath(this, newGoal);
+			}
+		}
 	}
 	return false;
 }
@@ -62,12 +74,14 @@ void AirCBSUnit::OpenGLDraw(const AirplaneConstrainedEnvironment *ae,
 			ae->OpenGLDraw(stop_t, start_t, perc);
 			airConstraint c(stop_t, start_t);
 			c.OpenGLDraw();
-		} else {
+		} else {		
 			ae->OpenGLDraw(current);
 			airConstraint c(current);
 			c.OpenGLDraw();
 		}
 	} else {
+		if (current.landed)
+		      return;
 		ae->OpenGLDraw(current);
 		airConstraint c(current);
 		c.OpenGLDraw();
@@ -98,7 +112,7 @@ AirCBSGroup::AirCBSGroup(AirplaneConstrainedEnvironment *complex, AirplaneConstr
 
 	// Construct a complex environment container
 	//EnvironmentContainer e_complex("Complex", complex, new OctileDistanceHeuristic<airtimeState>(), threshold, 1.8);
-	EnvironmentContainer e_complex("Complex", complex, 0, threshold, 1.8);
+	EnvironmentContainer e_complex("Complex", complex, 0, threshold, 2.5);
 	this->environments.push_back(e_complex);
 
 	// Sort the environment container by the number of conflicts
@@ -146,7 +160,8 @@ void AirCBSGroup::ExpandOneCBSNode()
 	// If not conflicts are found in this node, then the path is done
 	if (!found)
 	{
-		std::cout << "Finished the plan..." << std::endl;
+		std::cout << "Finished the plan using " << TOTAL_EXPANSIONS << " expansions." << std::endl;
+		TOTAL_EXPANSIONS = 0;
 		planFinished = true;
 		
 		// For every unit in the node
@@ -296,9 +311,10 @@ void AirCBSGroup::AddUnit(Unit<airtimeState, airplaneAction, AirplaneConstrained
 	tree[0].paths.resize(GetNumMembers());
 
 	// Recalculate the optimum path for the root of the tree
-	std::cout << "AddUnit "<<(GetNumMembers()-1) << " getting path." << std::endl;
+	//std::cout << "AddUnit "<<(GetNumMembers()-1) << " getting path." << std::endl;
 	astar.GetPath(currentEnvironment->environment, start, goal, thePath);
     std::cout << "AddUnit agent: " << (GetNumMembers()-1) << " expansions: " << astar.GetNodesExpanded() << "\n";
+    TOTAL_EXPANSIONS += astar.GetNodesExpanded();
 
 	// We add the optimal path to the root of the tree
 	for (unsigned int x = 0; x < thePath.size(); x++)
@@ -320,52 +336,63 @@ void AirCBSGroup::UpdateUnitGoal(Unit<airtimeState, airplaneAction, AirplaneCons
 
 	std::cout << "Replanning units..." << std::endl;
 
-	std::cout << "Clearing open list..." << std::endl;
+	//std::cout << "Clearing open list..." << std::endl;
 	// Clear the tree and the open list
 	tree.resize(1);
 	while(!openList.empty()) openList.pop();
 
-	std::cout << "Resizing the main tree..." << std::endl;
+	//std::cout << "Resizing the main tree..." << std::endl;
 	// Resize the number of paths in the root of the tree
 	tree[0].paths.resize(GetNumMembers());
 
-	std::cout << "Clear the environmental constraints" << std::endl;
+	//std::cout << "Clear the environmental constraints" << std::endl;
 	// Clear the constraints from the environment set
 	ClearEnvironmentConstraints();
 
 
-	std::cout << "Beginning to update members..." << std::endl;
+	//std::cout << "Beginning to update members..." << std::endl;
 	// Update the start for all of the units
 	for (int x = 0; x < GetNumMembers(); x++)
 	{
 
-		std::cout << "Updating member " << (x + 1) << " of " << GetNumMembers() << std::endl;
+		//std::cout << "Updating member " << (x + 1) << " of " << GetNumMembers() << std::endl;
 
 		// Get the unit
 		AirCBSUnit *c = (AirCBSUnit*)GetMember(x);
 
 		// Obtain the unit's current location and current goal
 		airtimeState current, goal;
-		c->GetLocation(current);
+		if (c->GetPath().size() > 1) {
+			current = c->GetPath()[c->GetPath().size()-2];
+		} else {
+			c->GetLocation(current);
+		}
 		c->GetGoal(goal);
 
 		// Update the start of that unit to be their current location and the goal to be the new goal
 		c->UpdateGoal(current, (GetMember(x) != u ? goal : newGoal));
 
 
-		std::cout << "Planning optimal path from " << current << " to " << goal << std::endl;
+		//std::cout << "Planning optimal path from " << current << " to " << goal << std::endl;
 		// Replan the unit's optimal path
 		astar.GetPath(currentEnvironment->environment, current, goal, thePath);
+		TOTAL_EXPANSIONS += astar.GetNodesExpanded();
 
-		std::cout << "Got optimal path" << std::endl;
+		//std::cout << "Got optimal path" << std::endl;
 		// Add the optimal path to the root of the tree
+		tree[0].paths[x].resize(0);
+		if (c->GetPath().size() > 1){
+			airtimeState cur;
+			c->GetLocation(cur);
+			tree[0].paths[x].push_back(cur);
+		}
 		for (unsigned int i = 0; i < thePath.size(); i++)
 		{
 			tree[0].paths[x].push_back(thePath[i]);
 		}
 	}
 
-	std::cout << "Adding the root to the open list" << std::endl;
+	//std::cout << "Adding the root to the open list" << std::endl;
 
 	// Add the root of the node to the open list
 	openList.push(OpenListNode(0, 0));
@@ -377,6 +404,49 @@ void AirCBSGroup::UpdateUnitGoal(Unit<airtimeState, airplaneAction, AirplaneCons
 
 	// Set if the plan is finished to false
 	planFinished = false;
+}
+
+/** Update Unit Path */
+void AirCBSGroup::UpdateSingleUnitPath(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u, airtimeState newGoal)
+{
+
+	std::cout << "Replanning Single Unit Path..." << std::endl;
+
+	//std::cout << "Clear the environmental constraints" << std::endl;
+	// Clear the constraints from the environment set
+	ClearEnvironmentConstraints();
+
+	// Add constraints for the rest of the units' pre-planned paths
+	for (int x = 0; x < GetNumMembers(); x++) {
+		if (GetMember(x) != u) {
+			AirCBSUnit *c = (AirCBSUnit*)GetMember(x);
+			for (int i = 0; i < c->GetPath().size(); i++) {
+				if (!(c->GetPath()[i].landed)) {
+					airConstraint c1(c->GetPath()[i]);
+					AddEnvironmentConstraint(c1);
+				}
+				if (i +1 < c->GetPath().size()) {
+					if (!(c->GetPath()[i].landed && c->GetPath()[i+1].landed)) {
+						airConstraint c2(c->GetPath()[i], c->GetPath()[i+1]);
+						AddEnvironmentConstraint(c2);
+					}
+				}
+			}
+		}
+	}
+
+	// Get the unit location
+	AirCBSUnit *c = (AirCBSUnit*)u;
+	airtimeState current;
+	c->GetLocation(current);
+
+	// Plan a new path for the unit
+	std::cout << "Going from " << current << " to " << newGoal << std::endl;
+	astar.GetPath(currentEnvironment->environment, current, newGoal, thePath);
+	std::cout << "Finished replanning with " << astar.GetNodesExpanded() << " expansions." << std::endl;
+	
+	// Update the Unit Path
+	c->SetPath(thePath);
 }
 
 /** Replan a node given a constraint */
@@ -416,9 +486,10 @@ void AirCBSGroup::Replan(int location)
 	c->GetGoal(goal);
 
 	// Recalculate the path
-	std::cout << "#conflicts for " << tempLocation << ": " << numConflicts << "\n";
+	//std::cout << "#conflicts for " << tempLocation << ": " << numConflicts << "\n";
 	astar.GetPath(currentEnvironment->environment, start, goal, thePath);
-	std::cout << "Replan agent: " << location << " expansions: " << astar.GetNodesExpanded() << "\n";
+	TOTAL_EXPANSIONS += astar.GetNodesExpanded();
+	//std::cout << "Replan agent: " << location << " expansions: " << astar.GetNodesExpanded() << "\n";
 
 	// Check path for conflict assertions (Bad idea to enable this while running)
 	//for (uint x = 0; x < thePath.size(); x++) {

@@ -938,6 +938,8 @@ void AirplaneEnvironment::OpenGLDraw() const
 
 void AirplaneEnvironment::OpenGLDraw(const airplaneState &l) const
 {
+    if (l.landed)
+      return;
     {
         GLfloat r, g, b, t;
         GetColor(r, g, b, t);

@@ -156,6 +156,8 @@ void InitSim(){
 	
 	sim->AddUnitGroup(group);
 
+
+	/*
 	s1.x = 36;
 	s1.y = 40;
 	s1.height = 14;
@@ -303,6 +305,64 @@ void InitSim(){
 	sim->AddUnit(u4);
 	sim->AddUnit(u5);
 	//sim->AddUnit(u6);
+	*/
+
+	// Add 100 random units
+	
+	std::vector<airplaneState> starts;
+	std::vector<airplaneState> goals;
+
+	for (int i = 0; i < 40; i++) {
+
+
+		// 0% are landed at the beginning
+		if (false) {
+			airplaneState land(18, 23, 0, 0, 0, true);
+			airtimeState start(land, 0);
+
+			airplaneState rs(rand() % 70 + 5, rand() % 70 + 5, rand() % 7 + 11, rand() % 3 + 1, rand() % 8, false);
+			airtimeState goal(rs, 0);
+
+			AirCBSUnit* unit = new AirCBSUnit(start, goal);
+			unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
+			group->AddUnit(unit); // Add to the group
+			sim->AddUnit(unit); // Add the unit to the simulation
+			std::cout << "Set unit " << i << " directive from " << start << " to " << goal << " rough heading: " << (unsigned)start.headingTo(goal) << std::endl;
+
+		} else {
+			airplaneState rs1(rand() % 70 + 5, rand() % 70 + 5, rand() % 7 + 11, rand() % 3 + 1, rand() % 8, false);
+			airtimeState start(rs1, 0);
+
+			// 0% total are landing intially
+			if (false) {
+				// Replan the node to a landing location
+				airplaneState land(18, 23, 0, 0, 0, true);
+				airtimeState goal(land, 0);
+
+				AirCBSUnit* unit = new AirCBSUnit(start, goal);
+				unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
+				group->AddUnit(unit); // Add to the group
+				sim->AddUnit(unit); // Add the unit to the simulation
+				std::cout << "Set unit " << i << " directive from " << start << " to " << goal << " rough heading: " << (unsigned)start.headingTo(goal) << std::endl;
+
+			} else {
+				// Replan the node to a random location
+				airplaneState rs(rand() % 70 + 5, rand() % 70 + 5, rand() % 7 + 11, rand() % 3 + 1, rand() % 8, false);
+				airtimeState goal(rs, 0);
+				
+				AirCBSUnit* unit = new AirCBSUnit(start, goal);
+				unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
+				group->AddUnit(unit); // Add to the group
+				sim->AddUnit(unit); // Add the unit to the simulation
+				std::cout << "Set unit " << i << " directive from " << start << " to " << goal << " rough heading: " << (unsigned)start.headingTo(goal) << std::endl;
+			}
+
+		}
+			
+
+
+
+	}
 
 
 }
@@ -316,13 +376,11 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
         for(auto u : group->GetMembers()){
             glLineWidth(2.0);
             ace->GLDrawPath(((AirCBSUnit const*)u)->GetPath());
-            glLineWidth(1.0);
         }
     }
 
 	if (sim)
 		sim->OpenGLDraw();
-	
 	if (!paused)
 		sim->StepTime(stepsPerFrame);
 
