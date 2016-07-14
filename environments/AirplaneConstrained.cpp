@@ -35,9 +35,9 @@ AirplaneConstrainedEnvironment::AirplaneConstrainedEnvironment(AirplaneEnvironme
 	// Add back the air-strip constraints
 	for (landingStrip st : ae->GetLandingStrips())
 	{
-		airplaneState mi(std::min<int>(st.x1, st.x2), std::min<int>(st.y1, st.y2), 0, 0,0);
+		airplaneState mi(min(st.x1, st.x2), min(st.y1, st.y2), 0, 0,0);
 		airtimeState o(mi, 0);
-		airplaneState ma(std::max<int>(st.x1, st.x2), std::max<int>(st.y1, st.y2), 7, 0,0);
+		airplaneState ma(max(st.x1, st.x2), max(st.y1, st.y2), 10, 0,0);
 		airtimeState f(ma, std::numeric_limits<float>::max());
 		airConstraint c(o, f);
 		c.strip=true;
@@ -47,7 +47,7 @@ AirplaneConstrainedEnvironment::AirplaneConstrainedEnvironment(AirplaneEnvironme
 	// Add a constraint for the ground
 	airplaneState mi(0,0, 0, 0,0);
 	airtimeState o(mi, 0);
-	airplaneState ma(80, 80, 3, 0,0);
+	airplaneState ma(80, 80, 5, 0,0);
 	airtimeState f(ma, std::numeric_limits<float>::max());
 	airConstraint c(o, f);
 	c.strip=false;
@@ -280,6 +280,7 @@ void AirplaneConstrainedEnvironment::OpenGLDraw() const
 	// Draw all of the static constraints
 	for (int i = 0; i < static_constraints.size(); i++)
 	{
+		glLineWidth(2.0);
 		static_constraints.at(i).OpenGLDraw();	
 	}
 	
@@ -356,7 +357,7 @@ return false;
 
 bool airConstraint::ConflictsWith(const airtimeState &from, const airtimeState &to) const
 {
-    if (std::max<int>(start_state.t, from.t) <= std::min<int>(end_state.t, to.t) + 0.001) 
+    if (max(start_state.t, from.t) <= min(end_state.t, to.t) + 0.001) 
     {
         // Each constraint defines an x, y, z box with corners on the state locations. We 
         // need to check if they overlap at any point. We do this using the separating 
@@ -411,6 +412,7 @@ bool airConstraint::ConflictsWith(const airConstraint &x) const
 
 void airConstraint::OpenGLDraw() const 
 {
+	glLineWidth(2.0); // Make it wide
 	glColor3f(1, 0, 0); // Make it red
 
 	// Normalize coordinates between (-1, 1)
@@ -427,19 +429,19 @@ void airConstraint::OpenGLDraw() const
 
 	if (strip)
 	{
-		min_x = std::min<int>(x_start-.5/40.0,x_end-.5/40.0);
-		max_x = std::max<int>(x_start+.5/40.0,x_end+.5/40.0);
-		min_y = std::min<int>(y_start-.5/40.0,y_end-.5/40.0);
-		max_y = std::max<int>(y_start+.5/40.0,y_end+.5/40.0);
-		min_z = std::min<int>(z_start,z_end);
-		max_z = std::max<int>(z_start+.5/40.0,z_end+.5/40.0);
+		min_x = min(x_start-.5/40.0,x_end-.5/40.0);
+		max_x = max(x_start+.5/40.0,x_end+.5/40.0);
+		min_y = min(y_start-.5/40.0,y_end-.5/40.0);
+		max_y = max(y_start+.5/40.0,y_end+.5/40.0);
+		min_z = min(z_start,z_end);
+		max_z = max(z_start+.5/40.0,z_end+.5/40.0);
 	} else {
-		min_x = std::min<int>(x_start-.5/40.0,x_end-.5/40.0);
-		max_x = std::max<int>(x_start+.5/40.0,x_end+.5/40.0);
-		min_y = std::min<int>(y_start-.5/40.0,y_end-.5/40.0);
-		max_y = std::max<int>(y_start+.5/40.0,y_end+.5/40.0);
-		min_z = std::min<int>(z_start-.5/40.0,z_end-.5/40.0);
-		max_z = std::max<int>(z_start+.5/40.0,z_end+.5/40.0);
+		min_x = min(x_start-.5/40.0,x_end-.5/40.0);
+		max_x = max(x_start+.5/40.0,x_end+.5/40.0);
+		min_y = min(y_start-.5/40.0,y_end-.5/40.0);
+		max_y = max(y_start+.5/40.0,y_end+.5/40.0);
+		min_z = min(z_start-.5/40.0,z_end-.5/40.0);
+		max_z = max(z_start+.5/40.0,z_end+.5/40.0);
 	}
 
 	glDisable(GL_LIGHTING);
@@ -511,18 +513,16 @@ bool AirplaneConstrainedEnvironment::ViolatesConstraint(const airtimeState &from
 	int c_minx, c_maxx, c_miny, c_maxy, c_minz, c_maxz;
 
 
-	// If the plane is staying on the ground
+	// If both are landed, then the plane's not going anywhere - and we're good
 	if (from.landed && to.landed)
-	{
 		return false;
-	}
 
 	//Check if the action box violates any of the constraints that are in the constraints list
 	for (airConstraint c : constraints)
 	{
 
 		// Check if the range of the constraint overlaps in time
-		if (std::max<int>(c.start_state.t, from.t) <= std::min<int>(c.end_state.t, to.t) + 0.00001) 
+		if (max(c.start_state.t, from.t) <= min(c.end_state.t, to.t) + 0.00001) 
 		{
 	       // Generate a well formed set of boxes for the constraint box
 			c_minx = c.start_state.x < c.end_state.x ? c.start_state.x : c.end_state.x;
@@ -548,7 +548,9 @@ bool AirplaneConstrainedEnvironment::ViolatesConstraint(const airtimeState &from
 		}
 	}
 
-	// We don't need to check static decisions when taking off and landing, but we do need to check point-wise collisions.
+
+	// If landing, we don't want to check the static constraints - but we don't want planes taking off and landing
+	// at the same time
 	if (from.landed || to.landed)
 	{
 		return false;
@@ -558,7 +560,7 @@ bool AirplaneConstrainedEnvironment::ViolatesConstraint(const airtimeState &from
 	for (airConstraint c : static_constraints)
 	{
 		// Check if the range of the constraint overlaps in time
-		if (std::max<int>(c.start_state.t, from.t) <= std::min<int>(c.end_state.t, to.t) + 0.00001) 
+		if (max(c.start_state.t, from.t) <= min(c.end_state.t, to.t) + 0.00001) 
 		{
 	       // Generate a well formed set of boxes for the constraint box
 			c_minx = c.start_state.x < c.end_state.x ? c.start_state.x : c.end_state.x;
