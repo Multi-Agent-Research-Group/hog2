@@ -140,19 +140,19 @@ airtimeState s1, s2, s3, s4, s5, s6, g1, g2, g3, g4, g5, g6;
 void InitSim(){
     AirplaneEnvironment* ae = new AirplaneEnvironment();
     ae->loadPerimeterDB();
-    AirplaneSimpleEnvironment* ase = new AirplaneSimpleEnvironment();
+    AirplaneEnvironment* ase = new AirplaneSimpleEnvironment();
     ase->loadPerimeterDB();
 	ace = new AirplaneConstrainedEnvironment(ae);
-	aces = new AirplaneConstrainedEnvironment(reinterpret_cast<AirplaneEnvironment*>(ase));
+	aces = new AirplaneConstrainedEnvironment(ase);
 
 
 
 	sim = new UnitSimulation<airtimeState, airplaneAction, AirplaneConstrainedEnvironment>(ace);
 	sim->SetStepType(kLockStep);
-	group = new AirCBSGroup(ace,ace,4);
+	//group = new AirCBSGroup(ace,ace,4);
     // TODO: Have it use the simple environment and switch to the complex one
     //       after too many conflicts
-	//group = new AirCBSGroup(ace,aces,4);
+	group = new AirCBSGroup(ace,aces,2);
 	
 	sim->AddUnitGroup(group);
 
