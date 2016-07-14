@@ -82,8 +82,8 @@ void AirplaneSimpleEnvironment::GetActions(const airplaneState &nodeID, std::vec
 	actions.push_back(airplaneAction(0, 0, 0));
 
 	// each type of turn
-	//actions.push_back(airplaneAction(k45, 0, 0));
-	//actions.push_back(airplaneAction(-k45, 0, 0));
+	actions.push_back(airplaneAction(k45, 0, 0));
+	actions.push_back(airplaneAction(-k45, 0, 0));
 	actions.push_back(airplaneAction(k90, 0, 0));
 	actions.push_back(airplaneAction(-k90, 0, 0));
 	//actions.push_back(airplaneAction(kShift, 0, 0));
@@ -116,8 +116,8 @@ void AirplaneSimpleEnvironment::GetReverseActions(const airplaneState &nodeID, s
 	actions.push_back(airplaneAction(0, 0, 0));
 
 	// each type of turn
-	//actions.push_back(airplaneAction(k45, 0, 0));
-	//actions.push_back(airplaneAction(-k45, 0, 0));
+	actions.push_back(airplaneAction(k45, 0, 0));
+	actions.push_back(airplaneAction(-k45, 0, 0));
 	actions.push_back(airplaneAction(k90, 0, 0));
 	actions.push_back(airplaneAction(-k90, 0, 0));
 	//actions.push_back(airplaneAction(kShift, 0, 0));
@@ -141,30 +141,36 @@ void AirplaneSimpleEnvironment::GetReverseActions(const airplaneState &nodeID, s
 
 double AirplaneSimpleEnvironment::myHCost(const airplaneState &node1, const airplaneState &node2) const
 {
-  // We want to estimate the heuristic to the landing state
-  // Figure out which landing strip we're going to
-  for (landingStrip st : landingStrips)
-  {
-    if (node2 == st.goal_state)
-    {
-      return HCost(node1, st.landing_state);
-    } else if (node1 == st.goal_state)
-    {
-      return HCost(st.landing_state, node2);
-    }
+  // Estimate fuel cost...
+  static const int cruise(3);
+  int diffx(abs(node1.x-node2.x));
+  int diffy(abs(node1.y-node2.y));
+  int diff(abs(diffx-diffy));
+  int diag(abs((diffx+diffy)-diff)/2);
+  int vertDiff(node2.height-node1.height);
+  int speedDiff1(std::max(0,abs(cruise-node1.speed)-1));
+  int speedDiff2(abs(cruise-node2.speed));
+  int speedDiff(abs(node2.speed-node1.speed));
+  double vcost(vertDiff>0?climbCost:descendCost);
+  vertDiff=abs(vertDiff);
+  int travel(node1.headingTo(node2));
+  int numTurns(std::max(0,signed(hdgDiff<8>(node1.heading,travel)/2)-1));
+  int maxMove(speedDiff1+speedDiff2+vertDiff<=diff?(speedDiff1+speedDiff2+vertDiff):speedDiff+vertDiff);
+
+  // Change as many diagonal moves into horizontal as we can
+  while(maxMove>diff+diag && diag>0){
+    diag--;
+    diff+=2;
   }
 
-  static const int cruise((numSpeeds+1)/2.0);
-  int horiz(abs(node1.x-node2.x)+abs(node1.y-node2.y));
-  int travel(node1.headingTo(node2));
-  int numTurns(std::max(0,signed(hdgDiff<8>(node1.heading,travel)/2+hdgDiff<8>(node2.heading,travel)/2)-1));
-  int speedDiff1(std::max(abs(cruise-node1.speed)-1,0));
-  int speedDiff2(abs(cruise-node2.speed));
-  int vertDiff(node2.height-node1.height);
-  double vcost=(vertDiff>0?climbCost:-climbCost);
-  vertDiff=std::max(0,abs(vertDiff));
-  int speedDiff(std::max(0,speedDiff1+speedDiff2<=horiz?speedDiff1+speedDiff2:abs(node2.speed-node1.speed)-1));
-  horiz=std::max(0,horiz-speedDiff-vertDiff);
-  return (numTurns+horiz+speedDiff+vertDiff)*cruiseBurnRate+speedDiff*speedBurnDelta+vertDiff*vcost;
+  int speedChanges(((diff-vertDiff)>=speedDiff1+speedDiff2)?(speedDiff1+speedDiff2):speedDiff);
+
+  if(diff+diag<vertDiff+speedChanges){ diff+=(vertDiff+speedChanges)-(diff+diag); }
+  
+  //std::cout << "speed:"<<speedChanges<<"v:"<<vertDiff<<"\n";
+  double total(diff*cruiseBurnRate+std::min(speedChanges,diff)*speedBurnDelta+std::min(vertDiff,diff)*vcost);
+  speedChanges-=std::min(speedChanges,diff);
+  vertDiff-=std::min(vertDiff,diff);
+  return total+(diag*cruiseBurnRate+speedChanges*speedBurnDelta+vertDiff*vcost)*M_SQRT2;
 }
 

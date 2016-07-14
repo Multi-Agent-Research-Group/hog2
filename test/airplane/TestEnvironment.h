@@ -140,12 +140,13 @@ bool testLoadPerimeterHeuristic(){
 
   }
 
+  std::cout << "PASSED\n";
 }
 
 bool testHCost(){
   std::cout << "testHCost()";
   {
-    std::cout << "\nNormal Environment\n";
+    std::cout << " Normal Environment: ";
     AirplaneEnvironment env;
     airplaneState s;
     s.x = 50;
@@ -166,7 +167,7 @@ bool testHCost(){
       double gcost(env.GetPathLength(sol));
       if(!fequal(gcost,env.HCost(s,g))){
         std::cout << env.GCost(s,g) << "!=?" << " G " << gcost << " H " << env.HCost(s,g) << "\n";}
-        assert(fequal(gcost,env.HCost(s,g)));//||fgreater(gcost,env.HCost(s,g)));
+        assert(fequal(gcost,env.HCost(s,g)));
       std::cout << "." << std::flush;
     }
 
@@ -179,17 +180,16 @@ bool testHCost(){
       std::vector<airplaneState> sol;
       astar.GetPath(&env,g,s,sol);
       double gcost(env.GetPathLength(sol));
-      //if(fequal(gcost,env.HCost(g,s)))
+      if(fless(gcost,env.HCost(g,s)))
       {
         std::cout << "\n";
         for(auto &a : sol)
           std::cout << "  " << a<<"\n";
         std::cout << g << s << " G " << gcost << " H " << env.HCost(g,s) << "\n";
       }
-      assert(fequal(gcost,env.HCost(g,s))||fgreater(gcost,env.HCost(g,s)));
+      assert(fgeq(gcost,env.HCost(g,s)));
       std::cout << "." << std::flush;
     }
-return 1;
 
     for(auto &a: as){
       airplaneState g(s);
@@ -209,14 +209,14 @@ return 1;
             std::cout << "  " << a<<"\n";
           std::cout << g2 << s << " G " << gcost << " H " << env.HCost(g2,s) << "\n";
         }
-        assert(fequal(gcost,env.HCost(g2,s))||fgreater(gcost,env.HCost(g2,s)));
+        assert(fgeq(gcost,env.HCost(g2,s)));
         std::cout << "." << std::flush;
       }
     }
 
   }
   {
-    std::cout << "\nSimple Environment\n";
+    std::cout << " Simple Environment: ";
     AirplaneSimpleEnvironment env;
     airplaneState s;
     s.x = 50;
@@ -261,8 +261,6 @@ return 1;
       std::cout << "." << std::flush;
     }
 
-    StraightLineHeuristic<airplaneState> sh;
-    ManhattanHeuristic<airplaneState> mh;
     {
       airplaneState s(6,9,8,3,2,false);
       airplaneState g(9,12,6,3,2,false);
@@ -284,22 +282,6 @@ return 1;
       airplaneState s(rand() % 8+5, rand() % 8+5, rand() % 5+5, rand() % 5 + 1, rand() % 4*2, false);
       airplaneState g(rand() % 8+5, rand() % 8+5, rand() % 5+5, rand() % 5 + 1, rand() % 4*2, false);
       if(s==g)continue;
-      //std::cout << s << g << std::endl;
-      /*{
-        TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> astar;
-        astar.SetHeuristic(&sh);
-        std::vector<airplaneState> sol;
-        astar.GetPath(&env,g,s,sol);
-        double gcost(env.GetPathLength(sol));
-        if(fless(gcost,env.HCost(g,s)))
-        {
-          std::cout << "\n";
-          for(auto &a : sol)
-            std::cout << "  " << a<<"\n";
-          std::cout << g << s << " G " << gcost << " H " << env.HCost(g,s) << "\n";
-        }
-        assert(fequal(gcost,env.HCost(g,s))||fgreater(gcost,env.HCost(g,s)));
-      }*/
       {
         TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> astar;
         std::vector<airplaneState> sol;
@@ -308,11 +290,12 @@ return 1;
         if(fless(gcost,env.HCost(g,s)))
         {
           std::cout << "\n";
-          for(auto &a : sol)
-            std::cout << "  " << a<<"\n";
+          std::cout << "  " << *(sol.begin()) <<"\n";
+          for(auto a(sol.begin()+1); a!=sol.end(); ++a)
+            std::cout << "  " << *a << " " <<env.GCost(*(a-1),*a)<<"\n";
           std::cout << g << s << " G " << gcost << " H " << env.HCost(g,s) << "\n";
         }
-        assert(fequal(gcost,env.HCost(g,s))||fgreater(gcost,env.HCost(g,s)));
+        assert(fgeq(gcost,env.HCost(g,s)));
       }
       std::cout << "." << std::flush;
     }
@@ -323,27 +306,55 @@ return 1;
 
 bool testGetAction(){
    std::cout << "testGetAction()";
-   AirplaneEnvironment env;
-   airplaneAction a(0,0,0);
-   airplaneState s;
-   s.x = 50;
-   s.y = 50;
-   s.height = 26;
-   s.heading = 0;
-   s.speed = 1;
-   std::vector<airplaneAction> actions;
-   env.GetActions(s,actions);
-   for (auto &a : actions)
    {
-     airplaneState s1=s;
-     env.ApplyAction(s,a);
-     airplaneAction a2(env.GetAction(s1,s));
-     env.UndoAction(s,a);
-     //std::cout << a << s << s1 << "\n";
-     assert(s==s1 && "Action not reversed properly");
-     assert(a==a2 && "Action not inferred properly");
-     std::cout << ".";
-     s=s1; // Reset
+     std::cout << " simple:";
+     AirplaneSimpleEnvironment env;
+     airplaneAction a(0,0,0);
+     airplaneState s;
+     s.x = 50;
+     s.y = 50;
+     s.height = 26;
+     s.heading = 0;
+     s.speed = 1;
+     std::vector<airplaneAction> actions;
+     env.GetActions(s,actions);
+     for (auto &a : actions)
+     {
+       airplaneState s1=s;
+       env.ApplyAction(s,a);
+       airplaneAction a2(env.GetAction(s1,s));
+       env.UndoAction(s,a);
+       //std::cout << a << s << s1 << "\n";
+       assert(s==s1 && "Action not reversed properly");
+       assert(a==a2 && "Action not inferred properly");
+       std::cout << ".";
+       s=s1; // Reset
+     }
+   }
+   {
+     std::cout << " normal:";
+     AirplaneEnvironment env;
+     airplaneAction a(0,0,0);
+     airplaneState s;
+     s.x = 50;
+     s.y = 50;
+     s.height = 26;
+     s.heading = 0;
+     s.speed = 1;
+     std::vector<airplaneAction> actions;
+     env.GetActions(s,actions);
+     for (auto &a : actions)
+     {
+       airplaneState s1=s;
+       env.ApplyAction(s,a);
+       airplaneAction a2(env.GetAction(s1,s));
+       env.UndoAction(s,a);
+       //std::cout << a << s << s1 << "\n";
+       assert(s==s1 && "Action not reversed properly");
+       assert(a==a2 && "Action not inferred properly");
+       std::cout << ".";
+       s=s1; // Reset
+     }
    }
    std::cout << "PASSED\n";
 }
