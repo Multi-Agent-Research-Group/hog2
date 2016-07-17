@@ -161,11 +161,11 @@ void InitSim(){
 	std::vector<airplaneState> starts;
 	std::vector<airplaneState> goals;
 
-	for (int i = 0; i < 20; i++) {
+	for (int i = 0; i < 40; i++) {
 
 
 		// 0% are landed at the beginning
-		if (false) {
+		if (rand() % 10 == 0) {
 			airplaneState land(18, 23, 0, 0, 0, true);
 			airtimeState start(land, 0);
 
@@ -183,7 +183,7 @@ void InitSim(){
 			airtimeState start(rs1, 0);
 
 			// 0% total are landing intially
-			if (false) {
+			if (rand() % 10 == 0) {
 				// Replan the node to a landing location
 				airplaneState land(18, 23, 0, 0, 0, true);
 				airtimeState goal(land, 0);
