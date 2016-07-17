@@ -152,167 +152,16 @@ void InitSim(){
 	//group = new AirCBSGroup(ace,ace,4);
     // TODO: Have it use the simple environment and switch to the complex one
     //       after too many conflicts
-	group = new AirCBSGroup(ace,aces,2);
+	group = new AirCBSGroup(ace,aces,6);
 	
 	sim->AddUnitGroup(group);
-
-
-	/*
-	s1.x = 36;
-	s1.y = 40;
-	s1.height = 14;
-	s1.heading = 2;
-	s1.speed = 5;
-	s1.t = 0;
-
-	g1.x = 42;
-	g1.y = 40;
-	g1.height = 14;
-	g1.heading = 6;
-	g1.speed = 5;
-	g1.t = 0;
-
-
-	u1 = new AirCBSUnit(s1, g1);
-	u1->SetColor(1.0, 0.0, 0.0);
-	//group->AddUnit(u1);
-	//sim->AddUnit(u1);
-
-	std::cout << "Set unit 1 goal from " << s1 << " to " << g1 << " rough heading: " << (unsigned)s1.headingTo(g1) << std::endl;
-
-
-	s2.x = 8;
-	s2.y = 2;
-	s2.x = 46;
-	s2.y = 40;
-	s2.height = 26;
-	s2.height = 14;
-	s2.heading = 3;
-	s2.heading = 6;
-	s2.speed = 1;
-	s2.t = 0;
-
-	g2.x = 76;
-	g2.y = 58;
-	g2.x = 38;
-	g2.y = 40;
-	g2.height = 14;
-	g2.heading = 5;
-	g2.heading = 6;
-	g2.speed = 1;
-	g2.t = 0;
-
-	u2 = new AirCBSUnit(s2, g2);
-	u2->SetColor(0.0, 1.0, 0.0);
-	//sim->AddUnit(u2);
-	//group->AddUnit(u2);
-	
-	std::cout << "Set unit 2 goal from " << s2 << " to " << g2 << " rough heading: " << (unsigned)s2.headingTo(g2) << std::endl;
-
-	s3.x = 40;
-	s3.y = 46;
-	s3.height = 14;
-	s3.heading = 0;
-	s3.speed = 1;
-	s3.t = 0;
-
-	g3.x = 40;
-	g3.y = 38;
-	g3.height = 14;
-	g3.heading = 0;
-	g3.speed = 1;
-	g3.t = 0;
-
-	u3 = new AirCBSUnit(s3, g3);
-	u3->SetColor(0.0, 0.0, 1.0);
-	//sim->AddUnit(u3);
-	//group->AddUnit(u3);
-	
-	std::cout << "Set unit 3 goal from " << s3 << " to " << g3 << " rough heading: " << (unsigned)s3.headingTo(g3) << std::endl;
-
-	s4.x = 40;
-	s4.y = 34;
-	s4.height = 14;
-	s4.heading = 4;
-	s4.speed = 1;
-	s4.t = 0;
-
-	g4.x = 40;
-	g4.y = 42;
-	g4.height = 14;
-	g4.heading = 4;
-	g4.speed = 1;
-	g4.t = 0;
-
-	u4 = new AirCBSUnit(s4, g4);
-	u4->SetColor(1.0, 0.0, 1.0);
-	
-	std::cout << "Set unit 4 goal from " << s4 << " to " << g4 << " rough heading: " << (unsigned)s4.headingTo(g4) << std::endl;
-
-
-	s5.x = 18;
-	s5.y = 23;
-	s5.height = 0;
-	s5.heading = 0;
-	s5.speed = 0;
-	s5.landed = true;
-	s5.t = 0;
-
-	g5.x = 48;
-	g5.y = 7;
-	g5.height = 16;
-	g5.heading = 2;
-	g5.speed = 2;
-	g5.t = 0;
-
-	u5 = new AirCBSUnit(s5, g5);
-	u5->SetColor(1.0, 0.0, 1.0);
-	
-	std::cout << "Set unit 5 goal from " << s5 << " to " << g5 << " rough heading: " << (unsigned)s5.headingTo(g5) << std::endl;
-
-
-	s6.x = 55;
-	s6.y = 17;
-	s6.height = 23;
-	s6.speed = 3;
-	s6.heading = 0;
-	s6.landed = false;
-	s6.t = 0;
-
-	g6.x = 18;
-	g6.y = 23;
-	g6.height = 0;
-	g6.heading = 0;
-	g6.speed = 0;
-	g6.landed = true;
-	g6.t = 0;
-
-	u6 = new AirCBSUnit(s6, g6);
-	u6->SetColor(1.0, 0.0, 1.0);
-	
-	std::cout << "Set unit 6 goal from " << s6 << " to " << g6 << " rough heading: " << (unsigned)s6.headingTo(g6) << std::endl;
-
-	group->AddUnit(u1);
-	group->AddUnit(u2);
-	group->AddUnit(u3);
-	group->AddUnit(u4);
-	group->AddUnit(u5);
-	//group->AddUnit(u6);
-
-	sim->AddUnit(u1);
-	sim->AddUnit(u2);
-	sim->AddUnit(u3);
-	sim->AddUnit(u4);
-	sim->AddUnit(u5);
-	//sim->AddUnit(u6);
-	*/
 
 	// Add 100 random units
 	
 	std::vector<airplaneState> starts;
 	std::vector<airplaneState> goals;
 
-	for (int i = 0; i < 40; i++) {
+	for (int i = 0; i < 20; i++) {
 
 
 		// 0% are landed at the beginning
@@ -381,8 +230,18 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 
 	if (sim)
 		sim->OpenGLDraw();
-	if (!paused)
+	if (!paused) {
 		sim->StepTime(stepsPerFrame);
+		/*
+		std::cout << "Printing locations at time: " << sim->GetSimulationTime() << std::endl;
+		for (int x = 0; x < group->GetNumMembers(); x ++) {
+			AirCBSUnit *c = (AirCBSUnit*)group->GetMember(x);
+			airtimeState cur;
+			c->GetLocation(cur);
+			std::cout << "\t" << x << ":" << cur << std::endl;
+		}*/
+	}
+
 
 	/*
 	if (recording)

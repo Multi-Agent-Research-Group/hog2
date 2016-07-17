@@ -43,7 +43,7 @@ public:
 	int8_t turn;
 	int8_t speed;
 	int8_t height;
-	int8_t takeoff; // 0 for no-land, 1 for takeoff, 2 for landing
+	int8_t takeoff; // 0 for no-land, 1 for takeoff, 2 for landing, 3 for landed-noop
 };
 
 /** Output the information in an airplane action */
@@ -98,7 +98,7 @@ class StraightLineHeuristic : public Heuristic<state> {
   public:
   double HCost(const state &a,const state &b) const {
         static const double cruiseBurnRate(.0006);
-        return sqrt((a.x-b.x)*(a.x-b.x)+(a.y-b.y)*(a.y-b.y)+(a.height-b.height)*(a.height-b.height))*cruiseBurnRate;
+        return sqrt((a.x-b.x)*(a.x-b.x)+(a.y-b.y)*(a.y-b.y)+(a.height-b.height)*(a.height-b.height))*cruiseBurnRate + (a.landed && b.landed) ? 1.0 : 0.0;
   }
 };
 
@@ -135,6 +135,11 @@ class OctileDistanceHeuristic : public Heuristic<state> {
       if(abs(vertDiff)-std::min(abs(vertDiff),diff) != 0){
         vertDiff = vertDiff>0?vertDiff-diff:vertDiff+diff;
       }
+
+
+      double noop_cost = (node1.landed && node2.landed) ? 1.0 : 0.0;
+      total += noop_cost;
+
       return total+(diag*cruiseBurnRate+speedChanges*speedBurnDelta+vertDiff*climbCost)*M_SQRT2;
     }
 };
@@ -162,7 +167,11 @@ class ManhattanHeuristic : public Heuristic<state> {
       double total(0.0);
       int speedDiff(std::max(0,speedDiff1+speedDiff2<=horiz?speedDiff1+speedDiff2:abs(node2.speed-node1.speed)-1));
       horiz=std::max(0,horiz-speedDiff-vertDiff);
-      return (numTurns+horiz+speedDiff+vertDiff)*cruiseBurnRate+speedDiff*speedBurnDelta+vertDiff*vcost;
+
+
+      double noop_cost = (node1.landed && node2.landed) ? 1.0 : 0.0;
+
+      return (numTurns+horiz+speedDiff+vertDiff)*cruiseBurnRate+speedDiff*speedBurnDelta+vertDiff*vcost+noop_cost;
     }
 };
 

@@ -14,13 +14,13 @@
 
 bool operator==(const airplaneState &s1, const airplaneState &s2)
 {
-    return (s1.x==s2.x && s1.y==s2.y && s1.height==s2.height && s1.heading == s2.heading && s1.speed == s2.speed);
+    return (s1.x==s2.x && s1.y==s2.y && s1.height==s2.height && s1.heading == s2.heading && s1.speed == s2.speed && s1.landed == s2.landed);
     //return (fequal(s1.x,s2.x) && fequal(s1.y,s2.y) && s1.height==s2.height && s1.speed == s2.speed && s1.heading == s2.heading);
 }
 
 bool operator==(const airplaneAction &a1, const airplaneAction &a2)
 {
-  return a1.turn == a2.turn && a1.speed==a2.speed && a1.height==a2.height;
+  return a1.turn == a2.turn && a1.speed==a2.speed && a1.height==a2.height && a1.takeoff == a2.takeoff;
 }
 
 AirplaneEnvironment::AirplaneEnvironment(
@@ -164,9 +164,9 @@ AirplaneEnvironment::AirplaneEnvironment(
         }
     }
 
-  airplaneState launchLoc(18, 29, 7, 1, 4);
-  airplaneState landingLoc(18, 29, 7, 1, 0);
-  airplaneState goalLoc(18, 23, 0, 0, 0);
+  airplaneState launchLoc(18, 29, 7, 1, 4, false);
+  airplaneState landingLoc(18, 29, 7, 1, 0, false);
+  airplaneState goalLoc(18, 23, 0, 0, 0, true);
   landingStrip l(15, 20, 17, 28, launchLoc, landingLoc, goalLoc);
   AddLandingStrip(l);
     
@@ -265,7 +265,7 @@ void AirplaneEnvironment::GetActions(const airplaneState &nodeID, std::vector<ai
     // up / down
     actions.resize(0);
 
-  // If the airplane is on the ground, the only option is to takeoff
+  // If the airplane is on the ground, the only option is to takeoff or stay landed
   if (nodeID.landed)
   {
     // Figure out which landing strip we're at
@@ -276,10 +276,13 @@ void AirplaneEnvironment::GetActions(const airplaneState &nodeID, std::vector<ai
       {
         // Add the takeoff action
         actions.push_back(airplaneAction(0,0,0,1));
+        // Add the landed no-op action
+        actions.push_back(airplaneAction(0,0,0,3));
         return;
       }
     }
     // There should never be a situation where we get here
+    std::cout << nodeID << std::endl;
     assert(false && "Airplane trying to takeoff, but not at a landing strip");
   } 
   else 
@@ -533,6 +536,8 @@ airplaneAction AirplaneEnvironment::GetAction(const airplaneState &node1, const 
     return(airplaneAction(0,0,0,1));
   } else if (node2.landed && !node1.landed) {
     return(airplaneAction(0,0,0,2));
+  } else if (node1.landed && node2.landed) {
+    return(airplaneAction(0,0,0,3));
   }
 
     a.height = node2.height - node1.height;
@@ -593,12 +598,12 @@ airplaneAction AirplaneEnvironment::GetAction(const airplaneState &node1, const 
 void AirplaneEnvironment::ApplyAction(airplaneState &s, airplaneAction dir) const
 {
 
+  // Manage Landing
   if (dir.takeoff == 1) {
     // Takeoff action
     // Find the airstrip that we're at
     for (landingStrip st : landingStrips)
-    {
-      
+    { 
       if (s == st.goal_state)
       {
         s = st.launch_state;
@@ -606,10 +611,8 @@ void AirplaneEnvironment::ApplyAction(airplaneState &s, airplaneAction dir) cons
         return;
       }
     }
-    assert (false && "Tried to takeoff from a non-existant landing strip");
-  }
-
-  if (dir.takeoff == 2) {
+    assert (!"Tried to takeoff from a non-existant landing strip");
+  } else if (dir.takeoff == 2) {
     // Landing action
     // Find the airstrip that we're at
     for (landingStrip st : landingStrips)
@@ -621,7 +624,13 @@ void AirplaneEnvironment::ApplyAction(airplaneState &s, airplaneAction dir) cons
         return;
       }
     }
-    assert (false && "Tried to land at a non-existant landing strip");
+    assert (!"Tried to land at a non-existant landing strip");
+  } else if (dir.takeoff == 3) {
+    // Landed no-op action
+    // Do nothing if there's no action - as the state remains the same.
+    if (!s.landed)
+      assert(!"Tried to do nothing while not landed");
+    return;
   }
 
 
@@ -653,6 +662,43 @@ void AirplaneEnvironment::ApplyAction(airplaneState &s, airplaneAction dir) cons
 
 void AirplaneEnvironment::UndoAction(airplaneState &s, airplaneAction dir) const
 {
+
+    // Manage Landing
+    if (dir.takeoff == 1) {
+    // Takeoff action
+    // Find the airstrip that we're at
+    for (landingStrip st : landingStrips)
+    { 
+      if (s == st.launch_state)
+      {
+        s = st.goal_state;
+        s.landed = true;
+        return;
+      }
+    }
+    assert (!"Tried to UNDO takeoff from a non-existant landing strip");
+  } else if (dir.takeoff == 2) {
+    // Landing action
+    // Find the airstrip that we're at
+    for (landingStrip st : landingStrips)
+    {
+      if (s == st.goal_state)
+      {
+        s = st.landing_state;
+        s.landed = false;
+        return;
+      }
+    }
+    assert (!"Tried to UNDO land at a non-existant landing strip");
+  } else if (dir.takeoff == 3) {
+    // Landed no-op action
+    // Do nothing if there's no action - as the state remains the same.
+    if (!s.landed)
+      assert(!"Tried to UNDO do nothing while not landed");
+    return;
+  }
+
+
     static const double offset[8][2] = {
         { 0, -1},
         { 1, -1},
@@ -708,12 +754,16 @@ double AirplaneEnvironment::myHCost(const airplaneState &node1, const airplaneSt
   }
 
   int speedChanges=std::max(0,(diff>=speedDiff1+speedDiff2)?(speedDiff1+speedDiff2):(speedDiff));
-
-  
+ 
   //std::cout << "speed:"<<speedChanges<<"v:"<<vertDiff<<"\n";
   double total(diff*cruiseBurnRate+std::min(speedChanges,diff)*speedBurnDelta+std::min(vertDiff,diff)*vcost);
   speedChanges-=std::min(speedChanges,diff);
   vertDiff-=std::min(vertDiff,diff);
+
+  // Estimate cost of doing nothing
+  double noop_cost = (node1.landed && node2.landed) ? 1.0 : 0.0;
+  total += noop_cost;
+
   return total+(diag*cruiseBurnRate+speedChanges*speedBurnDelta+vertDiff*vcost)*M_SQRT2;
 }
 
@@ -752,6 +802,7 @@ double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneStat
     }
     perimeterVal = perimeter.GCost(pNode,node2);
   }
+
   return myHCost(node1,pNode)+ perimeterVal;
 }
 
@@ -764,6 +815,12 @@ double AirplaneEnvironment::GCost(const airplaneState &node1, const airplaneStat
     double vcost(vertDiff>0?climbCost:descendCost);
     vertDiff=abs(vertDiff);
     double cost(cruiseBurnRate+speedBurnDelta*abs(((numSpeeds+1)/2.0)-(node2.speed))+vertDiff*vcost);
+
+    // Estimate cost of doing nothing
+  double noop_cost = (node1.landed && node2.landed) ? 1.0 : 0.0;
+  cost += noop_cost;
+
+
     return cost*(((node1.x-node2.x) && (node1.y-node2.y))?M_SQRT2:1.0);
 }
 

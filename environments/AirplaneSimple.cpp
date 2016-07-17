@@ -48,7 +48,8 @@ void AirplaneSimpleEnvironment::GetActions(const airplaneState &nodeID, std::vec
 	// up / down
 	actions.resize(0);
 
-  // If the airplane is on the ground, the only option is to takeoff
+
+  // Handle landing states
   if (nodeID.landed)
   {
     // Figure out which landing strip we're at
@@ -59,8 +60,12 @@ void AirplaneSimpleEnvironment::GetActions(const airplaneState &nodeID, std::vec
       {
         // Add the takeoff action
         actions.push_back(airplaneAction(0,0,0,1));
+        // Add the landed no-op action
+        actions.push_back(airplaneAction(0,0,0,3));
+        //std::cout << "Added a no-op action at state: " << nodeID <<std::endl;
         return;
       }
+      std::cout << "Didn't match " << st.goal_state << " and " << nodeID << std::endl;
     }
     // There should never be a situation where we get here
     assert(false && "Airplane trying to takeoff, but not at a landing strip");
@@ -74,10 +79,13 @@ void AirplaneSimpleEnvironment::GetActions(const airplaneState &nodeID, std::vec
       {
         // Add the land action
         actions.push_back(airplaneAction(0,0,0,2));
+
       }
     }
     // We don't have to land though, so we keep going.
   }
+
+
   // no change
 	actions.push_back(airplaneAction(0, 0, 0));
 
@@ -171,6 +179,7 @@ double AirplaneSimpleEnvironment::myHCost(const airplaneState &node1, const airp
   double total(diff*cruiseBurnRate+std::min(speedChanges,diff)*speedBurnDelta+std::min(vertDiff,diff)*vcost);
   speedChanges-=std::min(speedChanges,diff);
   vertDiff-=std::min(vertDiff,diff);
+
   return total+(diag*cruiseBurnRate+speedChanges*speedBurnDelta+vertDiff*vcost)*M_SQRT2;
 }
 

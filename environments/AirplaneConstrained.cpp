@@ -147,7 +147,7 @@ void AirplaneConstrainedEnvironment::ApplyAction(airtimeState &s, airplaneAction
     
     // Compute time increase based on speed...
     // if speed is more than cruise speed, we arrive sooner, later if speed is less.
-	s.t += (abs(a.turn)%2?M_SQRT2:1.0)*factor;
+	s.t += (abs(a.turn)%2?M_SQRT2:1.0)*factor + ((a.takeoff == 3) ? 1 : 0);
 }
 void AirplaneConstrainedEnvironment::UndoAction(airtimeState &s, airplaneAction a) const
 {
@@ -157,7 +157,7 @@ void AirplaneConstrainedEnvironment::UndoAction(airtimeState &s, airplaneAction 
     static double speedRange(ae->maxSpeed-ae->minSpeed);
     double factor(ae->gridSize/(ae->minSpeed+double(s.speed-1)*speedRange/double(ae->numSpeeds-1)));
 
-	s.t -= (abs(a.turn)%2?M_SQRT2:1.0)*factor;
+	s.t -= (abs(a.turn)%2?M_SQRT2:1.0)*factor + ((a.takeoff == 3) ? 1 : 0);
 }
 airplaneAction AirplaneConstrainedEnvironment::GetAction(const airtimeState &node1, const airtimeState &node2) const 
 {

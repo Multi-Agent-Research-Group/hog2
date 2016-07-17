@@ -154,13 +154,14 @@ void AirCBSGroup::ExpandOneCBSNode()
 	if (planFinished)
 		return;
 
+	std::cout << "Looking for conflicts..." << std::endl;
 	airConflict c1, c2;
 	bool found = FindFirstConflict(bestNode, c1, c2);
 
 	// If not conflicts are found in this node, then the path is done
 	if (!found)
 	{
-		std::cout << "Finished the plan using " << TOTAL_EXPANSIONS << " expansions." << std::endl;
+		std::cout << "None found. Finished the plan using " << TOTAL_EXPANSIONS << " expansions." << std::endl;
 		TOTAL_EXPANSIONS = 0;
 		planFinished = true;
 		
@@ -185,9 +186,9 @@ void AirCBSGroup::ExpandOneCBSNode()
 
 			// Update the actual unit path
 			unit->SetPath(newPath);
-                        std::cout << "Agent " << x << ": " << "\n";
-                        for(auto &a: tree[bestNode].paths[x])
-                          std::cout << "  " << a << "\n";
+            std::cout << "Agent " << x << ": " << "\n";
+            for(auto &a: tree[bestNode].paths[x])
+              std::cout << "  " << a << "\n";
 		}
 	} 
 
@@ -395,9 +396,10 @@ void AirCBSGroup::UpdateUnitGoal(Unit<airtimeState, airplaneAction, AirplaneCons
 		{
 			tree[0].paths[x].push_back(thePath[i]);
 		}
-for(auto &a : tree[0].paths[x]){
-std::cout << " --  " << a << "\n";
-}
+
+		for(auto &a : tree[0].paths[x]){
+			std::cout << " --  " << a << "\n";
+		}
 	}
 
 	//std::cout << "Adding the root to the open list" << std::endl;
@@ -428,30 +430,46 @@ void AirCBSGroup::UpdateSingleUnitPath(Unit<airtimeState, airplaneAction, Airpla
 	for (int x = 0; x < GetNumMembers(); x++) {
 		if (GetMember(x) != u) {
 			AirCBSUnit *c = (AirCBSUnit*)GetMember(x);
+
+			// Loop over the pre-planned path
 			for (int i = 0; i < c->GetPath().size(); i++) {
+				// Add a vertex constraint. If you're landed, you don't collide with
+				// anything
 				if (!(c->GetPath()[i].landed)) {
 					airConstraint c1(c->GetPath()[i]);
 					AddEnvironmentConstraint(c1);
 				}
+
+				// If we can add an edge constraint (because we know where we're going...)
 				if (i +1 < c->GetPath().size()) {
-					if (!(c->GetPath()[i].landed && c->GetPath()[i+1].landed)) {
+					// Add edge consraints if the plane is landing, taking off, or 
+					// just in the air. If both states stay landed, no edge constraint
+					if (!(c->GetPath()[i].landed && !c->GetPath()[i+1].landed) ||
+						!(c->GetPath()[i].landed && c->GetPath()[i+1].landed) || 
+						(c->GetPath()[i].landed && !c->GetPath()[i+1].landed)
+						) 
+					{
 						airConstraint c2(c->GetPath()[i], c->GetPath()[i+1]);
 						AddEnvironmentConstraint(c2);
 					}
 				}
-			}
-		}
-	}
+			} /* End loop over pre-planned path */
+		} /* End if */
+	} /* End for */
 
 	// Get the unit location
 	AirCBSUnit *c = (AirCBSUnit*)u;
-	airtimeState current;
-	c->GetLocation(current);
+	airtimeState current = c->GetPath()[0];
 
 	// Plan a new path for the unit
 	std::cout << "Going from " << current << " to " << newGoal << std::endl;
 	astar.GetPath(currentEnvironment->environment, current, newGoal, thePath);
 	std::cout << "Finished replanning with " << astar.GetNodesExpanded() << " expansions." << std::endl;
+
+	std::cout << "New Path: ";
+	for (auto &a : thePath)
+		std::cout << a << " ";
+	std::cout << std::endl;
 	
 	// Update the Unit Path
 	c->SetPath(thePath);
@@ -528,7 +546,6 @@ bool AirCBSGroup::FindFirstConflict(int location, airConflict &c1, airConflict &
 	{
 		for (int y = x+1; y < GetNumMembers(); y++)
 		{
-
 			// Unit 1 path is tree[location].paths[x]
 			// Unit 2 path is tree[location].paths[y]
 
@@ -545,6 +562,7 @@ bool AirCBSGroup::FindFirstConflict(int location, airConflict &c1, airConflict &
 				// I and J hold the current step in the path we are comparing. We need 
 				// to check if the current I and J have a conflict, and if they do, then
 				// we have to deal with it, if not, then we don't.
+				//std::cout << "Looking at positions " << i << "," << j << std::endl;
 				
 				// Figure out which indices we're comparing
 				int xTime = max(0, min(i, xmax-1));
@@ -557,37 +575,39 @@ bool AirCBSGroup::FindFirstConflict(int location, airConflict &c1, airConflict &
 				
 				// Deal with landing conflicts, we dont't conflict if one of the planes stays landed at
 				// the entire time
-				if (tree[location].paths[x][xTime].landed && tree[location].paths[x][min(xTime + 1, xmax-1)].landed) {
-					continue;
-				} else if (tree[location].paths[y][yTime].landed && tree[location].paths[y][min(yTime + 1, xmax-1)].landed) {
-					continue;
-				}
-
-
-				// Check the vertex conflict
-				if (x_c.ConflictsWith(y_c))
+				if (!(tree[location].paths[x][xTime].landed && tree[location].paths[x][min(xTime + 1, xmax-1)].landed || 
+					tree[location].paths[y][yTime].landed && tree[location].paths[y][min(yTime + 1, xmax-1)].landed)) 
 				{
-					c1.c = x_c;
-					c2.c = y_c;
+					// There are 4 states landed->landed landed->not_landed not_landed->landed and not_landed->not_landed. we
+					// need to check edge conflicts on all except the landed->landed states, which we do above. If one plane
+					// stays landed the whole time, then there's no edge-conflict -> but if they don't stay landed the whole time
+					// then there's obviously a conflict, because they both have to be doing something fishy.
+					
 
-					c1.unit1 = y;
-					c2.unit1 = x;
-					return true;
-				}
+					// Check the vertex conflict
+					if (x_c.ConflictsWith(y_c))
+					{
+						c1.c = x_c;
+						c2.c = y_c;
 
+						c1.unit1 = y;
+						c2.unit1 = x;
+						return true;
+					}
 
-				// Check the edge conflicts
-				airConstraint x_e_c(tree[location].paths[x][xTime], tree[location].paths[x][min(xmax-1, xTime+1)]);
-				airConstraint y_e_c(tree[location].paths[y][yTime], tree[location].paths[y][min(ymax-1, yTime+1)]);
-				
-				if (x_e_c.ConflictsWith(y_e_c))
-				{
-					c1.c = x_e_c;
-					c2.c = y_e_c;
+					// Check the edge conflicts
+					airConstraint x_e_c(tree[location].paths[x][xTime], tree[location].paths[x][min(xmax-1, xTime+1)]);
+					airConstraint y_e_c(tree[location].paths[y][yTime], tree[location].paths[y][min(ymax-1, yTime+1)]);
+					
+					if (x_e_c.ConflictsWith(y_e_c))
+					{
+						c1.c = x_e_c;
+						c2.c = y_e_c;
 
-					c1.unit1 = y;
-					c2.unit1 = x;
-					return true;
+						c1.unit1 = y;
+						c2.unit1 = x;
+						return true;
+					}
 				}
 
 				// Increment the counters based on the time
