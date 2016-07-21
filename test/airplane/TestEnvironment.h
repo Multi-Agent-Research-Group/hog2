@@ -575,4 +575,47 @@ bool testConstraints() {
 	std::cout << "PASSED\n";
 }
 
+bool TestQuadcopterActions() {
+  std::cout << "TestQuadcopterActions()";
+  AirplaneEnvironment ae;
+
+  airplaneState x(40,40,8,0,0,false,AirplaneType::QUAD);
+  std::vector<airplaneAction> actions;
+  ae.GetActions(x, actions);
+
+  bool ns = false;
+
+  for (auto a : actions) {
+    airplaneState y(40,40,8,0,0,false,AirplaneType::QUAD);
+    ae.ApplyAction(y, a);
+    std::vector<airplaneAction> backacts;
+    ae.GetActions(y, backacts);
+    bool valid = false;
+    for (auto b : backacts) {
+      airplaneState g = y;
+      ae.ApplyAction(g, b);
+      if (x.x == g.x && x.y == g.y && x.height == g.height){
+        valid = true;
+        break;
+      }
+    }
+    if (!valid) {
+      assert(!"Broken actions in Quadricopter....");
+    }
+    std::cout <<".";
+
+    if (y.height == 9 && y.x == 40 && y.y == 40)
+      ns = true;
+
+  }
+
+  if (!ns) {
+    assert(!"Error going up.");
+  }
+
+  std::cout << "PASSED\n";
+
+
+}
+
 #endif

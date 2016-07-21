@@ -31,7 +31,7 @@ struct airtimeState : public airplaneState {
 static std::ostream& operator <<(std::ostream & out, const airtimeState &loc)
 {
 	out << "(x:" << loc.x << ", y:" << loc.y << ", h:" << loc.height << ", s:" << unsigned(loc.speed) <<
-											    ", hdg:" << unsigned(loc.heading) << ", t:" << (loc.t) << ", l: " << unsigned (loc.landed) << ")";
+											    ", hdg:" << unsigned(loc.heading) << ", t:" << (loc.t) << ", l: " << unsigned (loc.landed) << ", type: " << (loc.type == AirplaneType::QUAD ? "QUAD": "PLANE") <<  ")";
 	return out;
 }
 

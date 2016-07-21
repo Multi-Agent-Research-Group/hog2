@@ -22,9 +22,14 @@
 // height:
 // up / down
 
-const uint8_t k45 = 1;
-const uint8_t k90 = 2;
-const uint8_t kShift = 3;
+const int8_t k45 = 1;
+const int8_t k90 = 2;
+const int8_t k135 = 3;
+const int8_t k180 = 4;
+const uint8_t kCircleSize = 8;
+
+const int8_t kShift = 5; // Should be outside the range [-kCircleSize/2, kCircleSize/2]
+const int8_t kWait = 6;
 
 // Utility function
 namespace{
@@ -34,6 +39,12 @@ unsigned hdgDiff(unsigned a, unsigned b){
   return d>(fullDegs/2.0)?fullDegs-d:d;
 }
 };
+
+// Define the type of airplane
+enum AirplaneType {
+  QUAD, PLANE
+};
+
 
 
 struct airplaneAction {
@@ -46,6 +57,7 @@ public:
 	int8_t takeoff; // 0 for no-land, 1 for takeoff, 2 for landing, 3 for landed-noop
 };
 
+
 /** Output the information in an airplane action */
 static std::ostream& operator <<(std::ostream & out, const airplaneAction &act)
 {
@@ -53,21 +65,29 @@ static std::ostream& operator <<(std::ostream & out, const airplaneAction &act)
 	return out;
 }
 
+
 // state
 struct airplaneState {
-public:
-	airplaneState() :x(0),y(0),height(20),speed(1),heading(0),landed(false) {}
-	airplaneState(uint16_t x,uint16_t y, uint16_t height, uint8_t speed, uint8_t heading, bool landed = false) :x(x),y(y),height(height),speed(speed),heading(heading), landed(landed) {}
-        uint8_t headingTo(airplaneState const& other) const {
-          return uint8_t(round((atan2(other.y-y,other.x-x)+(M_PI/2.0))*4.0/M_PI)+8.0)%8;
-        }
+  // Constructors
+	airplaneState() :x(0),y(0),height(20),speed(1),heading(0),landed(false) ,type(AirplaneType::PLANE) {}
+	airplaneState(uint16_t x,uint16_t y, uint16_t height, uint8_t speed, uint8_t heading, bool landed = false, AirplaneType t = AirplaneType::PLANE) :
+        x(x),y(y),height(height),speed(speed),heading(heading), landed(landed), type(t) {}
+  
+  // Fields
 	uint16_t x;
 	uint16_t y;
 	uint16_t height;
 	uint8_t speed;
 	uint8_t heading;
 	bool landed;
+  AirplaneType type;
+
+  // Methods
+  uint8_t headingTo(airplaneState const& other) const {
+    return uint8_t(round((atan2(other.y-y,other.x-x)+(M_PI/2.0))*4.0/M_PI)+8.0)%8;
+  }
 };
+
 
 struct landingStrip {
 	landingStrip(uint16_t x1, uint16_t x2, uint16_t y1, uint16_t y2, airplaneState &launch_state, airplaneState &landing_state, airplaneState &goal_state) : x1(x1), x2(x2), y1(y1), y2(y2), 
@@ -82,23 +102,25 @@ struct landingStrip {
 	airplaneState landing_state;
 };
 
+
 /** Output the information in an airplane state */
 static std::ostream& operator <<(std::ostream & out, const airplaneState &loc)
 {
 	out << "(x:" << loc.x << ", y:" << loc.y << ", h:" << loc.height << ", s:" << unsigned(loc.speed) <<
-											    ", hdg: " << unsigned(loc.heading) << ", l: " << unsigned (loc.landed) << ")";
+											    ", hdg: " << unsigned(loc.heading) << ", l: " << unsigned (loc.landed) << ", type: " << (loc.type == AirplaneType::QUAD ? "QUAD" : "PLANE") << ")";
 	return out;
 }
 
 bool operator==(const airplaneState &s1, const airplaneState &s2);
 bool operator==(const airplaneAction &a1, const airplaneAction &a2);
 
+
+// Heuristics
 template <class state>
 class StraightLineHeuristic : public Heuristic<state> {
   public:
   double HCost(const state &a,const state &b) const {
-        static const double cruiseBurnRate(.0006);
-        return sqrt((a.x-b.x)*(a.x-b.x)+(a.y-b.y)*(a.y-b.y)+(a.height-b.height)*(a.height-b.height))*cruiseBurnRate + (a.landed && b.landed) ? 1.0 : 0.0;
+        return sqrt((a.x-b.x)*(a.x-b.x)+(a.y-b.y)*(a.y-b.y)+(a.height-b.height)*(a.height-b.height));
   }
 };
 
@@ -158,7 +180,7 @@ class ManhattanHeuristic : public Heuristic<state> {
       return horiz*cruiseBurnRate;
 
       int travel(node1.headingTo(node2));
-      int numTurns(std::max(0,signed(hdgDiff<8>(node1.heading,travel)/2+hdgDiff<8>(node2.heading,travel)/2)-1));
+      int numTurns(std::max(0,signed(hdgDiff<16>(node1.heading,travel)/2+hdgDiff<16>(node2.heading,travel)/2)-1));
       int speedDiff1(std::max(abs(cruise-node1.speed)-1,0));
       int speedDiff2(abs(cruise-node2.speed));
       int vertDiff(node2.height-node1.height);
@@ -175,16 +197,14 @@ class ManhattanHeuristic : public Heuristic<state> {
     }
 };
 
-//class GoalTester {
-//public:
-//	virtual ~GoalTester() {}
-//	virtual bool goalTest(const airplaneState &i1) const = 0;
-//};
 
+// Actual Environment
 class AirplaneEnvironment : public SearchEnvironment<airplaneState, airplaneAction>
 {
 public:
-	AirplaneEnvironment(
+	
+  // Constructor
+  AirplaneEnvironment(
           unsigned width=80,
           unsigned length=80,
           unsigned height=20,
@@ -198,30 +218,49 @@ public:
           double descendCost=-0.00005, // Fuel cost for descending
           double gridSize=3.0, // Horizontal grid width (meters)
           std::string const& perimeterFile=std::string("airplanePerimiter.dat"));
-	virtual void GetSuccessors(const airplaneState &nodeID, std::vector<airplaneState> &neighbors) const;
-	virtual void GetActions(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
+	
+  // Successors and actions
+  virtual void GetSuccessors(const airplaneState &nodeID, std::vector<airplaneState> &neighbors) const;
+	
+  virtual void GetActions(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
+  virtual void GetActionsPlane(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
+  virtual void GetActionsQuad(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
+
 	virtual void GetReverseActions(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
+  virtual void GetReverseActionsPlane(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
+  virtual void GetReverseActionsQuad(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
+
+  virtual void AppendLandingActionsPlane(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
+  virtual void AppendLandingActionsQuad(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
+
+
 	virtual void ApplyAction(airplaneState &s, airplaneAction dir) const;
 	virtual void UndoAction(airplaneState &s, airplaneAction dir) const;
 	virtual void GetNextState(const airplaneState &currents, airplaneAction dir, airplaneState &news) const;
-	
-	virtual OccupancyInterface<airplaneState,airplaneAction> *GetOccupancyInfo() { return 0; }
 	virtual bool InvertAction(airplaneAction &a) const { return false; }
+  virtual airplaneAction GetAction(const airplaneState &node1, const airplaneState &node2) const;
+  
+
+  // Occupancy Info not supported
+	virtual OccupancyInterface<airplaneState,airplaneAction> *GetOccupancyInfo() { return 0; }
 	
+  // Heuristics and paths
 	virtual double HCost(const airplaneState &node1, const airplaneState &node2) const;
 	virtual double HCost(const airplaneState &)  const { assert(false); return 0; }
 	virtual double GCost(const airplaneState &node1, const airplaneState &node2) const;
 	virtual double GCost(const airplaneState &node1, const airplaneAction &act) const;
-
 	virtual double GetPathLength(const std::vector<airplaneState> &n) const;
+  void loadPerimeterDB();
 
-//	void SetGoalTest(GoalTester *t) {test = t;}
-    virtual airplaneAction GetAction(const airplaneState &node1, const airplaneState &node2) const;
-	virtual bool GoalTest(const airplaneState &node, const airplaneState &goal) const;
+  // Goal testing
+  virtual bool GoalTest(const airplaneState &node, const airplaneState &goal) const;
 	virtual bool GoalTest(const airplaneState &) const { assert(false); return false; }
+
+  // Hashing
 	virtual uint64_t GetStateHash(const airplaneState &node) const;
 	virtual uint64_t GetActionHash(airplaneAction act) const;
 	
+  // Drawing
 	virtual void OpenGLDraw() const;
 	virtual void OpenGLDraw(const airplaneState &l) const;
 	virtual void OpenGLDraw(const airplaneState& oldState, const airplaneState &newState, float perc) const;
@@ -229,25 +268,28 @@ public:
 	void GLDrawLine(const airplaneState &a, const airplaneState &b) const;
 	void GLDrawPath(const std::vector<airplaneState> &p) const;
 	void DrawAirplane() const;
-	
+  void DrawQuadCopter() const;
 	recVec GetCoordinate(int x, int y, int z) const;
 
-
+  // Getters
 	std::vector<uint8_t> getGround();
 	std::vector<recVec> getGroundNormals();
+
 	std::vector<airplaneAction> getInternalActions();
 
+  // Landing Strups
 	virtual void AddLandingStrip(landingStrip x);
 	virtual const std::vector<landingStrip>& GetLandingStrips() const {return landingStrips;}
-        void loadPerimeterDB();
-
-  const uint8_t numSpeeds;
-  const double minSpeed;       //Meters per time step
-  const double maxSpeed;       //Meters per time step
-  double const gridSize; // 3 meters
+        
+  // State information
+  const uint8_t numSpeeds;  // Number of speed steps
+  const double minSpeed;    // Meters per time step
+  const double maxSpeed;    // Meters per time step
+  double const gridSize;    // 3 meters
 
 protected:
-        virtual AirplaneEnvironment& getRef() {return *this;}
+  
+  virtual AirplaneEnvironment& getRef() {return *this;}
 	void SetGround(int x, int y, uint8_t val);
 	uint8_t GetGround(int x, int y) const;
 	bool Valid(int x, int y);
@@ -264,23 +306,27 @@ protected:
 
 	std::vector<landingStrip> landingStrips;
 
-        const double climbRate;      //Meters per time step
-        // Assume 1 unit of movement to be 3 meters
-        // 16 liters per hour/ 3600 seconds / 22 mps = 0.0002 liters per meter
-        double const cruiseBurnRate;//0.0002*3.0 liters per unit
-        double const speedBurnDelta;//0.0001 liters per unit
-        double const climbCost;//1.0475;
-        double const descendCost;
+  const double climbRate;      //Meters per time step
+  // Assume 1 unit of movement to be 3 meters
+  // 16 liters per hour/ 3600 seconds / 22 mps = 0.0002 liters per meter
+  double const cruiseBurnRate;//0.0002*3.0 liters per unit
+  double const speedBurnDelta;//0.0001 liters per unit
+  double const climbCost;//1.0475;
+  double const descendCost;
+
+  // Caching for turn information
+  std::vector<uint8_t> turns;
+  std::vector<uint8_t> quad_turns;
 
 private:
 	virtual double myHCost(const airplaneState &node1, const airplaneState &node2) const;
-        bool perimeterLoaded;
-        std::string perimeterFile;
-        AirplanePerimeterDBBuilder<airplaneState, airplaneAction, AirplaneEnvironment> perimeter;
+  bool perimeterLoaded;
+  std::string perimeterFile;
+  AirplanePerimeterDBBuilder<airplaneState, airplaneAction, AirplaneEnvironment> perimeter;
 
-        //TODO Add wind constants
-        //const double windSpeed = 0;
-        //const double windDirection = 0;
+  //TODO Add wind constants
+  //const double windSpeed = 0;
+  //const double windDirection = 0;
 };
 
 #endif /* Airplane_h */

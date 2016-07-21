@@ -152,15 +152,12 @@ void InitSim(){
 	//group = new AirCBSGroup(ace,ace,4);
     // TODO: Have it use the simple environment and switch to the complex one
     //       after too many conflicts
-	group = new AirCBSGroup(ace,aces,6);
+	group = new AirCBSGroup(ace,ace,6);
 	
 	sim->AddUnitGroup(group);
 
+	/*
 	// Add 100 random units
-	
-	std::vector<airplaneState> starts;
-	std::vector<airplaneState> goals;
-
 	for (int i = 0; i < 40; i++) {
 
 
@@ -211,8 +208,21 @@ void InitSim(){
 
 
 
-	}
+	}*/
 
+	// Add a Quadcopter
+	auto x = 40;
+	auto y = 40;
+	airplaneState ss(x, y, 7, 1, 0, false, AirplaneType::QUAD);
+	airtimeState start(ss, 0);
+	airplaneState gs(x, y, 18, 1, 0, false, AirplaneType::QUAD);
+	airtimeState goal(gs, 0);
+	AirCBSUnit* unit = new AirCBSUnit(start, goal);
+	unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
+	std::cout << "Set quadcopter directive from " << start << " to " << goal << " rough heading: " << (unsigned)start.headingTo(goal) << std::endl;
+	group->AddUnit(unit); // Add to the group
+	sim->AddUnit(unit); // Add the unit to the simulation
+	
 
 }
 
