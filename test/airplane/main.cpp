@@ -3,9 +3,9 @@
 int main(){
 
   TestQuadcopterActions();
+  testGetAction();
   testLoadPerimeterHeuristic();
   testHCost();
-  testGetAction();
   testHeadingTo();
   testConstraints();
 

@@ -13,6 +13,7 @@
 //#include "DirectionalPlanner.h"
 #include "ScenarioLoader.h"
 #include "AirplaneSimple.h"
+#include "AirplaneHighway.h"
 #include "AirplaneConstrained.h"
 #include "AirplaneCBSUnits.h"
 
@@ -141,9 +142,11 @@ void InitSim(){
     AirplaneEnvironment* ae = new AirplaneEnvironment();
     ae->loadPerimeterDB();
     AirplaneEnvironment* ase = new AirplaneSimpleEnvironment();
+    AirplaneEnvironment* ahe = new AirplaneHighwayEnvironment();
     ase->loadPerimeterDB();
+    ahe->loadPerimeterDB();
 	ace = new AirplaneConstrainedEnvironment(ae);
-	aces = new AirplaneConstrainedEnvironment(ase);
+	aces = new AirplaneConstrainedEnvironment(ahe);
 
 
 

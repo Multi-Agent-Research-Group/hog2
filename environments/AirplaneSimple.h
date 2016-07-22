@@ -18,14 +18,14 @@ public:
           unsigned width=80,
           unsigned length=80,
           unsigned height=20,
-          double climbRate=5, // in mps,
-          double minSpeed=17, // in mps,
-          double maxSpeed=32, // in mps
+          double climbRate=5,
+          double minSpeed=1,
+          double maxSpeed=5,
           uint8_t numSpeeds=5, // Number of discrete speeds
           double cruiseBurnRate=.0006, // Fuel burn rate in liters per unit distance
           double speedBurnDelta=0.0001, // Extra fuel cost for non-cruise speed
           double climbCost=0.0001, // Fuel cost ratio for climbing
-          double descendCost=0.0001, // Fuel cost ratio for descending
+          double descendCost=-0.00005, // Fuel cost ratio for descending
           double gridSize=3.0, // Horizontal grid width
           std::string const& perimeterFile=std::string("airplaneSimplePerimiter.dat"));
 

@@ -3,8 +3,8 @@
 
 #include "Airplane.h"
 #include "AirplaneSimple.h"
+#include "AirplaneHighway.h"
 #include "AirplaneConstrained.h"
-//#include "AirplanePerimeterDBBuilder.h"
 #include <iostream>
 #include "TemplateAStar.h"
 #include "Heuristic.h"
@@ -355,6 +355,42 @@ bool testGetAction(){
        std::cout << ".";
        s=s1; // Reset
      }
+   }
+   {
+     std::cout << " highway:";
+     AirplaneHighwayEnvironment env;
+     airplaneAction a(0,0,0);
+     airplaneState s;
+     s.x = 50;
+     s.y = 50;
+     s.height = 16;
+     s.heading = 0;
+     s.speed = 3;
+     std::vector<airplaneAction> actions;
+     env.GetActions(s,actions);
+     // 1. do nothing
+     // 2. slow down
+     // 3. speed up
+     // 4. up and turn right
+     // 5. down and turn left
+     // 6. up and turn right + slow down
+     // 7. up and turn right + speed up
+     // 8. down and turn left + slow down
+     // 9. down and turn left + speed up
+     for (auto &a : actions)
+     {
+       std::cout << "ACTION " << a << "\n";
+       airplaneState s1=s;
+       env.ApplyAction(s,a);
+       airplaneAction a2(env.GetAction(s1,s));
+       env.UndoAction(s,a);
+       //std::cout << a << s << s1 << "\n";
+       //assert(s==s1 && "Action not reversed properly");
+       //assert(a==a2 && "Action not inferred properly");
+       std::cout << ".";
+       s=s1; // Reset
+     }
+     assert(9==actions.size() && "Wrong number of actions generated");
    }
    std::cout << "PASSED\n";
 }

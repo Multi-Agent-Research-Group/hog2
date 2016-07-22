@@ -167,8 +167,8 @@ AirplaneEnvironment::AirplaneEnvironment(
     }
 
   // Create a landing strip
-  airplaneState launchLoc(18, 29, 7, 1, 4, false);
-  airplaneState landingLoc(18, 29, 7, 1, 0, false);
+  airplaneState launchLoc(18, 29, 12, 1, 4, false);
+  airplaneState landingLoc(18, 29, 8, 1, 0, false);
   airplaneState goalLoc(18, 23, 0, 0, 0, true);
   landingStrip l(15, 20, 17, 28, launchLoc, landingLoc, goalLoc);
   AddLandingStrip(l);

@@ -32,6 +32,7 @@ default : all
 SRC_CPP = \
 	environments/Airplane.cpp \
 	environments/AirplaneSimple.cpp \
+	environments/AirplaneHighway.cpp \
 	environments/AirplaneConstrained.cpp \
 	environments/GraphEnvironment.cpp \
 	environments/GraphRefinementEnvironment.cpp \
