@@ -24,7 +24,7 @@ bool AirCBSUnit::MakeMove(AirplaneConstrainedEnvironment *ae, OccupancyInterface
 		myPath.pop_back();
 		return true;
 	} else if (myPath.size() <= 1) {
-		if (current.landed)
+		if (current.landed || current.type == AirplaneType::QUAD)
 		{
 			return false;
 		} else {
@@ -131,7 +131,7 @@ AirCBSGroup::AirCBSGroup(AirplaneConstrainedEnvironment *complex, AirplaneConstr
 	// Add some restricted airspace
 	airplaneState l1(10,15,0,0,0);
 	airplaneState l2(26, 31, 12, 0, 0);
-	ticketAuthority.RegisterAirspace(airtimeState(l1, 0), airtimeState(l2,0), 1);
+	ticketAuthority.RegisterAirspace(airtimeState(l1, FLT_MIN), airtimeState(l2,FLT_MAX), 1);
 
 	// Set the current environment to that with 0 conflicts
     SetEnvironment(0);

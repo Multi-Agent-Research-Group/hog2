@@ -18,6 +18,9 @@
 #include <functional>
 #include <vector>
 
+#include <thread>
+#include <mutex>
+
 #include "Unit.h"
 #include "UnitGroup.h"
 #include "Airplane.h"
@@ -130,6 +133,8 @@ private:
 	double time;
 
 	unsigned int bestNode;
+	std::mutex bestNodeLock;
+
 	struct OpenListNode {
 		OpenListNode() : location(0), cost(0) {}
 		OpenListNode(uint loc, double c) : location(loc), cost(c) {}

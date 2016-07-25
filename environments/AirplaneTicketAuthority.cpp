@@ -59,6 +59,7 @@ RAirspaceRecord&  TicketAuthority::RegisterAirspace(const airtimeState &loc1, co
 
 // Tools for getting tickets
 bool TicketAuthority::CanObtainTicket(airtimeState &nodeID) {
+
     CleanupIssued(nodeID);
     bool valid = true;
     for (RAirspaceRecord& rasp : restricted_airspace) {
