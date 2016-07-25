@@ -73,9 +73,11 @@ void AirCBSUnit::OpenGLDraw(const AirplaneConstrainedEnvironment *ae,
 			float perc = (stop_t.t - si->GetSimulationTime())/(stop_t.t - start_t.t);
 			ae->OpenGLDraw(stop_t, start_t, perc);
 			airConstraint c(stop_t, start_t);
+			glColor3f(1, 0, 0);
 			c.OpenGLDraw();
 		} else {		
 			ae->OpenGLDraw(current);
+			glColor3f(1, 0, 0);
 			airConstraint c(current);
 			c.OpenGLDraw();
 		}
@@ -84,6 +86,7 @@ void AirCBSUnit::OpenGLDraw(const AirplaneConstrainedEnvironment *ae,
 		      return;
 		ae->OpenGLDraw(current);
 		airConstraint c(current);
+		glColor3f(1, 0, 0);
 		c.OpenGLDraw();
 	}
 }
@@ -109,11 +112,13 @@ AirCBSGroup::AirCBSGroup(AirplaneConstrainedEnvironment *complex, AirplaneConstr
 	//EnvironmentContainer e_simple("Simple", simple, new ManhattanHeuristic<airtimeState>(), 0, 1.2);
 	EnvironmentContainer e_simple("Simple", simple, 0, 0, 1.2);
 	this->environments.push_back(e_simple);
+	simple->SetTicketAuthority(&ticketAuthority);
 
 	// Construct a complex environment container
 	//EnvironmentContainer e_complex("Complex", complex, new OctileDistanceHeuristic<airtimeState>(), threshold, 1.8);
 	EnvironmentContainer e_complex("Complex", complex, 0, threshold, 2.5);
 	this->environments.push_back(e_complex);
+	complex->SetTicketAuthority(&ticketAuthority);
 
 	// Sort the environment container by the number of conflicts
 	std::sort(this->environments.begin(), this->environments.end(), 
@@ -122,6 +127,11 @@ AirCBSGroup::AirCBSGroup(AirplaneConstrainedEnvironment *complex, AirplaneConstr
 				return a.conflict_cutoff < b.conflict_cutoff;
 			}
 	);
+
+	// Add some restricted airspace
+	airplaneState l1(10,15,0,0,0);
+	airplaneState l2(26, 31, 12, 0, 0);
+	ticketAuthority.RegisterAirspace(airtimeState(l1, 0), airtimeState(l2,0), 1);
 
 	// Set the current environment to that with 0 conflicts
     SetEnvironment(0);
@@ -457,6 +467,20 @@ void AirCBSGroup::UpdateSingleUnitPath(Unit<airtimeState, airplaneAction, Airpla
 		} /* End if */
 	} /* End for */
 
+	// Issue tickets for restricted airspace
+	ticketAuthority.UnissueAllTickets();
+
+    for (int i = 0; i < GetNumMembers(); i++) {
+    	if (GetMember(i) != u) {
+    		AirCBSUnit *c = (AirCBSUnit*)GetMember(i);
+    		// Issue tickets for the other paths
+    		std::vector<airtimeState> mPath(c->GetPath());
+    		ticketAuthority.IssueTicketsForPath(mPath, i);
+    		std::reverse(mPath.begin(), mPath.end());
+    		c->SetPath(mPath);
+    	}
+    }
+
 	// Get the unit location
 	AirCBSUnit *c = (AirCBSUnit*)u;
 	airtimeState current = c->GetPath()[0];
@@ -489,17 +513,27 @@ void AirCBSGroup::Replan(int location)
     unsigned numConflicts = 0;
     std::vector<airConstraint> constraints;
 
-
     do {
       if (theUnit == tree[tempLocation].con.unit1)
       {
         numConflicts++;
         AddEnvironmentConstraint(tree[tempLocation].con.c);
+        // Reissue tickets for the conflicting unit
         constraints.push_back(tree[tempLocation].con.c);
       }
       tempLocation = tree[tempLocation].parent;
     } while (tempLocation != 0);
-    
+
+    // Unissue all tickets and re-issue for non-conflicting units
+    ticketAuthority.UnissueAllTickets();
+
+    for (int i = 0; i < tree[tempLocation].paths.size(); i++) {
+    	if (theUnit != i) {
+    		// Issue tickets for the other paths
+    		ticketAuthority.IssueTicketsForPathIgnoringCheck(tree[tempLocation].paths[i], i);
+    	}
+    }
+
     // Set the environment based on the number of conflicts
     SetEnvironment(numConflicts);
 
@@ -536,11 +570,22 @@ void AirCBSGroup::Replan(int location)
 	{
 		tree[location].paths[theUnit].push_back(thePath[x]);
 	}
+
+	// Issue tickets on the path
+	ticketAuthority.IssueTicketsForPath(tree[location].paths[theUnit], theUnit);
 }
 
 /** Find the first place that there is a conflict in the tree */
 bool AirCBSGroup::FindFirstConflict(int location, airConflict &c1, airConflict &c2)
 {
+
+	// Check for ticket conflicts while we're searching for normal conflicts
+	ticketAuthority.UnissueAllTickets();
+	for (int x = 0; x < GetNumMembers(); x++) {
+		ticketAuthority.IssueTicketsForPathIgnoringCheck(tree[location].paths[x], x);
+    }
+
+
 	// For each pair of units in the group
 	for (int x = 0; x < GetNumMembers(); x++)
 	{
@@ -609,6 +654,29 @@ bool AirCBSGroup::FindFirstConflict(int location, airConflict &c1, airConflict &
 						return true;
 					}
 				}
+
+				// Check if these states have issued and conflicting tickets
+				for (RAirspaceTicket* tx : tree[location].paths[x][xTime].current_tickets) {
+					for (RAirspaceTicket* ty : tree[location].paths[y][yTime].current_tickets) {
+						// We're looking for tickets with the same issuing airspace at the same time
+						if (tx->issuing_airspace == ty->issuing_airspace && max(ty->GetLowPoint(), tx->GetLowPoint()) <= min(ty->GetHighPoint(), tx->GetHighPoint()) + 0.001) {
+							// There might be a conflict. Check the capacity at this time
+							if (tx->issuing_airspace->GetNumUniqueTicketsAtTime(tx->GetLowPoint(), tx->GetHighPoint()) > tx->issuing_airspace->max_capacity ||
+								ty->issuing_airspace->GetNumUniqueTicketsAtTime(ty->GetLowPoint(), ty->GetHighPoint()) > ty->issuing_airspace->max_capacity) {
+								
+								// We're over capacity in a space
+								c1.c = tx->issuing_airspace->governed_area;
+								c2.c = ty->issuing_airspace->governed_area;
+
+								c1.unit1 = y;
+								c2.unit1 = x;
+
+								return true;
+							}
+						}
+					}	
+				}
+				
 
 				// Increment the counters based on the time
 				

@@ -16,7 +16,6 @@ PROJECTS = \
   abstractionalgorithms \
   algorithms \
   environments \
-  test/airplane \
   generic \
   graph \
   graphalgorithms \
@@ -53,6 +52,7 @@ PROJECTS = \
   demos/dijkstra \
   demos/astar \
   demos/idastar \
+  test/airplane \
 #  apps/multiagent \
 #  apps/measure_inconsistency 
 #  simulation \
@@ -72,7 +72,6 @@ PROJECTS_ALL = \
   abstractionalgorithms \
   algorithms \
   environments \
-  test/airplane \
   generic \
   graph \
   graphalgorithms \
@@ -109,6 +108,7 @@ PROJECTS_ALL = \
   demos/dijkstra \
   demos/astar \
   demos/idastar \
+  test/airplane \
 #	apps/coprobber
 
 # sequentially to avoid same sub-target in sub-make invoked twice

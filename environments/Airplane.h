@@ -223,15 +223,17 @@ public:
   virtual void GetSuccessors(const airplaneState &nodeID, std::vector<airplaneState> &neighbors) const;
 	
   virtual void GetActions(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
+  
   virtual void GetActionsPlane(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
   virtual void GetActionsQuad(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
+  virtual bool AppendLandingActionsPlane(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
+  virtual bool AppendLandingActionsQuad(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
 
 	virtual void GetReverseActions(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
+ 
   virtual void GetReverseActionsPlane(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
   virtual void GetReverseActionsQuad(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
 
-  virtual void AppendLandingActionsPlane(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
-  virtual void AppendLandingActionsQuad(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
 
 
 	virtual void ApplyAction(airplaneState &s, airplaneAction dir) const;

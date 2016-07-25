@@ -108,7 +108,6 @@ void AirplaneConstrainedEnvironment::ClearStaticConstraints()
 
 /// STATE MANAGEMENT
 
-
 void AirplaneConstrainedEnvironment::GetActions(const airtimeState &nodeID, std::vector<airplaneAction> &actions) const
 {
 	// Get the action information from the hidden AE
@@ -129,10 +128,12 @@ void AirplaneConstrainedEnvironment::GetSuccessors(const airtimeState &nodeID, s
 		airtimeState new_state(nodeID, nodeID.t);
 		this->ApplyAction(new_state, act);
 
-		// Check to see if it violates any constraint. If it does not, push it back.
+		// Check to see if it violates any hard constraint. If it does not, push it back.
 		if (!ViolatesConstraint(nodeID, new_state))
         {
-        	neighbors.push_back(new_state);
+        	if (ticket_authority->CanObtainTicket(new_state)) {
+        		neighbors.push_back(new_state);
+        	}
         }
 	}
 }
@@ -280,8 +281,17 @@ void AirplaneConstrainedEnvironment::OpenGLDraw() const
 	// Draw all of the static constraints
 	for (int i = 0; i < static_constraints.size(); i++)
 	{
+		glColor3f(1, 0, 0); // Make it red
 		glLineWidth(2.0);
 		static_constraints.at(i).OpenGLDraw();	
+	}
+
+	// Draw the restricted airspace
+	for (int i = 0; i < ticket_authority->GetRestrictedAirspace().size(); i++)
+	{
+		glColor3f(0, 0, 1); // Make it blue
+		glLineWidth(2.0);
+		ticket_authority->GetRestrictedAirspace().at(i).governed_area.OpenGLDraw();	
 	}
 	
 }
@@ -413,7 +423,6 @@ bool airConstraint::ConflictsWith(const airConstraint &x) const
 void airConstraint::OpenGLDraw() const 
 {
 	glLineWidth(2.0); // Make it wide
-	glColor3f(1, 0, 0); // Make it red
 
 	// Normalize coordinates between (-1, 1)
 	GLfloat x_start = (start_state.x-40.0)/40.0;

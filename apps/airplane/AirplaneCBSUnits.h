@@ -22,9 +22,11 @@
 #include "UnitGroup.h"
 #include "Airplane.h"
 #include "AirplaneConstrained.h"
+#include "AirplaneTicketAuthority.h"
 #include "TemplateAStar.h"
 #include "BFS.h"
 #include "Heuristic.h"
+
 
 class AirCBSUnit : public Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> {
 public:
@@ -143,6 +145,8 @@ private:
 	std::priority_queue<AirCBSGroup::OpenListNode, std::vector<AirCBSGroup::OpenListNode>, AirCBSGroup::OpenListNodeCompare> openList;
 
 	uint TOTAL_EXPANSIONS = 0;
+
+	TicketAuthority ticketAuthority;
 };
 
 
