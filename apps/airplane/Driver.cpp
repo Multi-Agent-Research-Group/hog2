@@ -158,7 +158,7 @@ void InitSim(){
 
 	
 	// Add 100 random units
-	for (int i = 0; i < 40; i++) {
+	for (int i = 0; i < 20; i++) {
 
 
 		// 0% are landed at the beginning

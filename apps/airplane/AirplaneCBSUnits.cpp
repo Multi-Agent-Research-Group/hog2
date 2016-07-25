@@ -131,7 +131,7 @@ AirCBSGroup::AirCBSGroup(AirplaneConstrainedEnvironment *complex, AirplaneConstr
 	// Add some restricted airspace
 	airplaneState l1(10,15,0,0,0);
 	airplaneState l2(26, 31, 12, 0, 0);
-	ticketAuthority.RegisterAirspace(airtimeState(l1, FLT_MIN), airtimeState(l2,FLT_MAX), 1);
+	ticketAuthority.RegisterAirspace(airtimeState(l1, FLT_MIN), airtimeState(l2,FLT_MAX), 3);
 
 	// Set the current environment to that with 0 conflicts
     SetEnvironment(0);
