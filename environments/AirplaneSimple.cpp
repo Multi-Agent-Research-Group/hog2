@@ -41,33 +41,102 @@ AirplaneSimpleEnvironment::AirplaneSimpleEnvironment(
 
 void AirplaneSimpleEnvironment::GetActions(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const
 {
-	// 45, 90, 0, shift
-	// speed:
-	// faster, slower
-	// height:
-	// up / down
-	actions.resize(0);
 
 
-  // Handle landing states
+  actions.resize(0);
+  switch(nodeID.type) {
+    case AirplaneType::QUAD:
+      if (AppendLandingActionsQuad(nodeID, actions))
+        GetActionsQuad(nodeID, actions);
+      break;
+    case AirplaneType::PLANE:
+      if (AppendLandingActionsPlane(nodeID, actions))
+        GetActionsPlane(nodeID, actions);
+      break;
+    default: break;
+  }
+}
+
+
+void AirplaneSimpleEnvironment::GetActionsQuad(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const {
+  
+  // No change
+  actions.push_back(airplaneAction(0, 0, 0));
+
+  // Turns
+  actions.push_back(airplaneAction(k45, 0, 0));
+  actions.push_back(airplaneAction(-k45, 0, 0));
+  actions.push_back(airplaneAction(k90, 0, 0));
+  actions.push_back(airplaneAction(-k90, 0, 0));
+
+  // Do a 180 turn
+  if (nodeID.speed == 1) {
+    actions.push_back(airplaneAction(k135, 0, 0));
+    actions.push_back(airplaneAction(-k135, 0, 0));
+    actions.push_back(airplaneAction(k180, 0, 0));
+  }
+
+  // Height change
+  if (nodeID.height > 1)
+          actions.push_back(airplaneAction(0, 0, -1));
+  if (nodeID.height < height)
+          actions.push_back(airplaneAction(0, 0, 1));
+
+  // Speed Change
+  if (nodeID.speed > 1)
+          actions.push_back(airplaneAction(0, -1, 0));
+  if (nodeID.speed < numSpeeds)
+          actions.push_back(airplaneAction(0, 1, 0));
+
+  // Hover
+  if (nodeID.speed == 1) 
+          actions.push_back(airplaneAction(kWait,0,0));
+}
+
+void AirplaneSimpleEnvironment::GetActionsPlane(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const {
+      // no change
+  actions.push_back(airplaneAction(0, 0, 0));
+
+  // each type of turn
+  actions.push_back(airplaneAction(k45, 0, 0));
+  actions.push_back(airplaneAction(-k45, 0, 0));
+  actions.push_back(airplaneAction(k90, 0, 0));
+  actions.push_back(airplaneAction(-k90, 0, 0));
+
+        // decrease height
+  if (nodeID.height > 1)
+          actions.push_back(airplaneAction(0, 0, -1));
+        // increase height
+  if (nodeID.height < height)
+          actions.push_back(airplaneAction(0, 0, 1));
+
+        // decrease speed
+  if (nodeID.speed > 1)
+          actions.push_back(airplaneAction(0, -1, 0));
+        // increase speed
+  if (nodeID.speed < numSpeeds)
+          actions.push_back(airplaneAction(0, 1, 0));
+}
+
+bool AirplaneSimpleEnvironment::AppendLandingActionsPlane(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const {
   if (nodeID.landed)
   {
     // Figure out which landing strip we're at
     for (landingStrip st : landingStrips)
     {
       //std::cout << "Comparing " << nodeID << " and " << st.goal_state << std::endl;
-      if (nodeID == st.goal_state)
+      if (nodeID.x == st.goal_state.x && nodeID.y == st.goal_state.y && nodeID.height == st.goal_state.height &&
+          nodeID.heading == st.goal_state.heading && nodeID.speed == st.goal_state.speed)
       {
         // Add the takeoff action
         actions.push_back(airplaneAction(0,0,0,1));
         // Add the landed no-op action
         actions.push_back(airplaneAction(0,0,0,3));
-        //std::cout << "Added a no-op action at state: " << nodeID <<std::endl;
-        return;
+        return false;
       }
-      std::cout << "Didn't match " << st.goal_state << " and " << nodeID << std::endl;
     }
     // There should never be a situation where we get here
+    std::cout << nodeID << std::endl;
     assert(false && "Airplane trying to takeoff, but not at a landing strip");
   } 
   else 
@@ -75,76 +144,100 @@ void AirplaneSimpleEnvironment::GetActions(const airplaneState &nodeID, std::vec
     // Check to see if we can land
     for (landingStrip st : landingStrips)
     {
-      if (nodeID == st.landing_state)
+      if (nodeID.x == st.landing_state.x && nodeID.y == st.landing_state.y && nodeID.height == st.landing_state.height &&
+          nodeID.heading == st.landing_state.heading && nodeID.speed == st.landing_state.speed)
       {
-        // Add the land action
+        // Add the landing action
         actions.push_back(airplaneAction(0,0,0,2));
-
       }
     }
-    // We don't have to land though, so we keep going.
+    return true;
   }
-
-
-  // no change
-	actions.push_back(airplaneAction(0, 0, 0));
-
-	// each type of turn
-	actions.push_back(airplaneAction(k45, 0, 0));
-	actions.push_back(airplaneAction(-k45, 0, 0));
-	actions.push_back(airplaneAction(k90, 0, 0));
-	actions.push_back(airplaneAction(-k90, 0, 0));
-	//actions.push_back(airplaneAction(kShift, 0, 0));
-	//actions.push_back(airplaneAction(-kShift, 0, 0));
-
-        // decrease height
-	if (nodeID.height > 1)
-          actions.push_back(airplaneAction(0, 0, -1));
-        // increase height
-	if (nodeID.height < height)
-          actions.push_back(airplaneAction(0, 0, 1));
-
-        // decrease speed
-	if (nodeID.speed > 1)
-          actions.push_back(airplaneAction(0, -1, 0));
-        // increase speed
-	if (nodeID.speed < numSpeeds)
-          actions.push_back(airplaneAction(0, 1, 0));
 }
+
+bool AirplaneSimpleEnvironment::AppendLandingActionsQuad(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const {
+    // Do Nothing
+    return true;
+}
+
 
 void AirplaneSimpleEnvironment::GetReverseActions(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const
 {
-	// 45, 90, 0, shift
-	// speed:
-	// faster, slower
-	// height:
-	// up / down
-	actions.resize(0);
+  actions.resize(0);
+  switch(nodeID.type) {
+    case AirplaneType::QUAD:
+      GetReverseActionsQuad(nodeID, actions);
+      break;
+    case AirplaneType::PLANE:
+      GetReverseActionsPlane(nodeID, actions);
+      break;
+    default: break;
+  }
+}
 
-	actions.push_back(airplaneAction(0, 0, 0));
 
-	// each type of turn
-	actions.push_back(airplaneAction(k45, 0, 0));
-	actions.push_back(airplaneAction(-k45, 0, 0));
-	actions.push_back(airplaneAction(k90, 0, 0));
-	actions.push_back(airplaneAction(-k90, 0, 0));
-	//actions.push_back(airplaneAction(kShift, 0, 0));
-	//actions.push_back(airplaneAction(-kShift, 0, 0));
+void AirplaneSimpleEnvironment::GetReverseActionsPlane(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const 
+{
+    actions.resize(0);
 
-        // decrease height
-	if (nodeID.height < height)
+  actions.push_back(airplaneAction(0, 0, 0));
+
+  // each type of turn
+  actions.push_back(airplaneAction(k45, 0, 0));
+  actions.push_back(airplaneAction(-k45, 0, 0));
+  actions.push_back(airplaneAction(k90, 0, 0));
+  actions.push_back(airplaneAction(-k90, 0, 0));
+  
+  // decrease height
+  if (nodeID.height < height)
           actions.push_back(airplaneAction(0, 0, -1));
-        // increase height
-	if (nodeID.height > 0)
+  
+  // increase height
+  if (nodeID.height > 0)
           actions.push_back(airplaneAction(0, 0, 1));
 
-        // decrease speed
-	if (nodeID.speed < numSpeeds+1)
+  // decrease speed
+  if (nodeID.speed < numSpeeds+1)
+          actions.push_back(airplaneAction(0, -1, 0));
+  // increase speed
+  if (nodeID.speed > 1)
+          actions.push_back(airplaneAction(0, 1, 0));
+}
+
+
+void AirplaneSimpleEnvironment::GetReverseActionsQuad(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const 
+{
+    // No change
+  actions.push_back(airplaneAction(0, 0, 0));
+
+  // Turns
+  actions.push_back(airplaneAction(k45, 0, 0));
+  actions.push_back(airplaneAction(-k45, 0, 0));
+  actions.push_back(airplaneAction(k90, 0, 0));
+  actions.push_back(airplaneAction(-k90, 0, 0));
+
+  // Do a 180 turn
+  if (nodeID.speed == 1) {
+    actions.push_back(airplaneAction(k135, 0, 0));
+    actions.push_back(airplaneAction(-k135, 0, 0));
+    actions.push_back(airplaneAction(k180, 0, 0));
+  }
+
+  // Height change
+  if (nodeID.height > 0)
+          actions.push_back(airplaneAction(0, 0, 1));
+  if (nodeID.height < height)
+          actions.push_back(airplaneAction(0, 0, -1));
+
+  // Speed Change
+  if (nodeID.speed > 1)
+          actions.push_back(airplaneAction(0, 1, 0));
+  if (nodeID.speed <= numSpeeds)
           actions.push_back(airplaneAction(0, -1, 0));
 
-        // increase speed
-	if (nodeID.speed > 1)
-          actions.push_back(airplaneAction(0, 1, 0));
+  // Hover
+  if (nodeID.speed == 1) 
+          actions.push_back(airplaneAction(kWait,0,0));
 }
 
 double AirplaneSimpleEnvironment::myHCost(const airplaneState &node1, const airplaneState &node2) const

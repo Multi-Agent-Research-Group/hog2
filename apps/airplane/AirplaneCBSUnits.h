@@ -18,13 +18,18 @@
 #include <functional>
 #include <vector>
 
+#include <thread>
+#include <mutex>
+
 #include "Unit.h"
 #include "UnitGroup.h"
 #include "Airplane.h"
 #include "AirplaneConstrained.h"
+#include "AirplaneTicketAuthority.h"
 #include "TemplateAStar.h"
 #include "BFS.h"
 #include "Heuristic.h"
+
 
 class AirCBSUnit : public Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> {
 public:
@@ -128,6 +133,8 @@ private:
 	double time;
 
 	unsigned int bestNode;
+	std::mutex bestNodeLock;
+
 	struct OpenListNode {
 		OpenListNode() : location(0), cost(0) {}
 		OpenListNode(uint loc, double c) : location(loc), cost(c) {}
@@ -143,6 +150,8 @@ private:
 	std::priority_queue<AirCBSGroup::OpenListNode, std::vector<AirCBSGroup::OpenListNode>, AirCBSGroup::OpenListNodeCompare> openList;
 
 	uint TOTAL_EXPANSIONS = 0;
+
+	TicketAuthority ticketAuthority;
 };
 
 

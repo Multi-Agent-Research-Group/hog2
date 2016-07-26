@@ -259,12 +259,12 @@ void AirplaneEnvironment::GetActions(const airplaneState &nodeID, std::vector<ai
   actions.resize(0);
   switch(nodeID.type) {
     case AirplaneType::QUAD:
-      AppendLandingActionsQuad(nodeID, actions);
-      GetActionsQuad(nodeID, actions);
+      if (AppendLandingActionsQuad(nodeID, actions))
+        GetActionsQuad(nodeID, actions);
       break;
     case AirplaneType::PLANE:
-      AppendLandingActionsPlane(nodeID, actions);
-      GetActionsPlane(nodeID, actions);
+      if (AppendLandingActionsPlane(nodeID, actions))
+        GetActionsPlane(nodeID, actions);
       break;
     default: break;
   }
@@ -344,20 +344,21 @@ void AirplaneEnvironment::GetActionsPlane(const airplaneState &nodeID, std::vect
     }
 }
 
-void AirplaneEnvironment::AppendLandingActionsPlane(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const {
+bool AirplaneEnvironment::AppendLandingActionsPlane(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const {
   if (nodeID.landed)
   {
     // Figure out which landing strip we're at
     for (landingStrip st : landingStrips)
     {
       //std::cout << "Comparing " << nodeID << " and " << st.goal_state << std::endl;
-      if (nodeID == st.goal_state)
+      if (nodeID.x == st.goal_state.x && nodeID.y == st.goal_state.y && nodeID.height == st.goal_state.height &&
+          nodeID.heading == st.goal_state.heading && nodeID.speed == st.goal_state.speed)
       {
         // Add the takeoff action
         actions.push_back(airplaneAction(0,0,0,1));
         // Add the landed no-op action
         actions.push_back(airplaneAction(0,0,0,3));
-        return;
+        return false;
       }
     }
     // There should never be a situation where we get here
@@ -369,18 +370,20 @@ void AirplaneEnvironment::AppendLandingActionsPlane(const airplaneState &nodeID,
     // Check to see if we can land
     for (landingStrip st : landingStrips)
     {
-      if (nodeID == st.landing_state)
+      if (nodeID.x == st.landing_state.x && nodeID.y == st.landing_state.y && nodeID.height == st.landing_state.height &&
+          nodeID.heading == st.landing_state.heading && nodeID.speed == st.landing_state.speed)
       {
-        // Add the takeoff action
+        // Add the landing action
         actions.push_back(airplaneAction(0,0,0,2));
       }
     }
-    return;
+    return true;
   }
 }
 
-void AirplaneEnvironment::AppendLandingActionsQuad(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const {
+bool AirplaneEnvironment::AppendLandingActionsQuad(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const {
     // Do Nothing
+    return true;
 }
 
 

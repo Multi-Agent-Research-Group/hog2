@@ -34,6 +34,7 @@ SRC_CPP = \
 	environments/AirplaneSimple.cpp \
 	environments/AirplaneHighway.cpp \
 	environments/AirplaneConstrained.cpp \
+	environments/AirplaneTicketAuthority.cpp \
 	environments/GraphEnvironment.cpp \
 	environments/GraphRefinementEnvironment.cpp \
 	environments/Map2DEnvironment.cpp \

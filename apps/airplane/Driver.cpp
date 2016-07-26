@@ -92,7 +92,7 @@ void InstallHandlers()
 	InstallKeyboardHandler(MyPathfindingKeyHandler, "Mapbuilding Unit", "Deploy unit that paths to a target, building a map as it travels", kNoModifier, 'd');
 	InstallKeyboardHandler(MyRandomUnitKeyHandler, "Add A* Unit", "Deploys a simple a* unit", kNoModifier, 'a');
 	InstallKeyboardHandler(MyRandomUnitKeyHandler, "Add simple Unit", "Deploys a randomly moving unit", kShiftDown, 'a');
-	//InstallKeyboardHandler(MyRandomUnitKeyHandler, "Add simple Unit", "Deploys a right-hand-rule unit", kControlDown, '1');
+	InstallKeyboardHandler(MyRandomUnitKeyHandler, "Add simple Unit", "Deploys a right-hand-rule unit", kControlDown, '1');
 
 	InstallCommandLineHandler(MyCLHandler, "-heuristic", "-heuristic <octile, perimeter, extendedPerimeter>", "Selects how many steps of the abstract path will be refined.");
 	InstallCommandLineHandler(MyCLHandler, "-planlen", "-planlen <int>", "Selects how many steps of the abstract path will be refined.");
@@ -155,13 +155,13 @@ void InitSim(){
 	//group = new AirCBSGroup(ace,ace,4);
     // TODO: Have it use the simple environment and switch to the complex one
     //       after too many conflicts
-	group = new AirCBSGroup(ace,ace,6);
+	group = new AirCBSGroup(ace,aces,4);
 	
 	sim->AddUnitGroup(group);
 
-	/*
+	
 	// Add 100 random units
-	for (int i = 0; i < 40; i++) {
+	for (int i = 0; i < 20; i++) {
 
 
 		// 0% are landed at the beginning
@@ -211,7 +211,7 @@ void InitSim(){
 
 
 
-	}*/
+	}
 
 	// Add a Quadcopter
 	auto x = 40;

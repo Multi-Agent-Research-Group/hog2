@@ -30,7 +30,19 @@ public:
           std::string const& perimeterFile=std::string("airplaneSimplePerimiter.dat"));
 
 	virtual void GetActions(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
+
+  virtual void GetActionsPlane(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
+  virtual void GetActionsQuad(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
+
+  virtual bool AppendLandingActionsPlane(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
+  virtual bool AppendLandingActionsQuad(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
+
 	virtual void GetReverseActions(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
+
+  virtual void GetReverseActionsPlane(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
+  virtual void GetReverseActionsQuad(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
+
+
 protected:
         virtual AirplaneEnvironment& getRef() {return *this;}
         virtual double myHCost(const airplaneState &node1, const airplaneState &node2) const;
