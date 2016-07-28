@@ -368,6 +368,8 @@ bool testGetAction(){
      s.speed = 3;
      std::vector<airplaneAction> actions;
      env.GetActions(s,actions);
+     std::vector<airplaneAction> ractions;
+     env.GetReverseActions(s,ractions);
      // 1. do nothing
      // 2. slow down
      // 3. speed up
@@ -377,20 +379,20 @@ bool testGetAction(){
      // 7. up and turn right + speed up
      // 8. down and turn left + slow down
      // 9. down and turn left + speed up
+     assert(9==ractions.size() && "Wrong number of reverse actions generated");
+     assert(9==actions.size() && "Wrong number of actions generated");
      for (auto &a : actions)
      {
-       std::cout << "ACTION " << a << "\n";
        airplaneState s1=s;
        env.ApplyAction(s,a);
        airplaneAction a2(env.GetAction(s1,s));
        env.UndoAction(s,a);
        //std::cout << a << s << s1 << "\n";
-       //assert(s==s1 && "Action not reversed properly");
-       //assert(a==a2 && "Action not inferred properly");
+       assert(s==s1 && "Action not reversed properly");
+       assert(a==a2 && "Action not inferred properly");
        std::cout << ".";
        s=s1; // Reset
      }
-     assert(9==actions.size() && "Wrong number of actions generated");
    }
    std::cout << "PASSED\n";
 }

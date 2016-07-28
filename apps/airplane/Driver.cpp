@@ -146,7 +146,8 @@ void InitSim(){
     ase->loadPerimeterDB();
     ahe->loadPerimeterDB();
 	ace = new AirplaneConstrainedEnvironment(ae);
-	aces = new AirplaneConstrainedEnvironment(ahe);
+	aces = new AirplaneConstrainedEnvironment(ase);
+	//aces = new AirplaneConstrainedEnvironment(ahe);
 
 
 
@@ -155,7 +156,7 @@ void InitSim(){
 	//group = new AirCBSGroup(ace,ace,4);
     // TODO: Have it use the simple environment and switch to the complex one
     //       after too many conflicts
-	group = new AirCBSGroup(ace,aces,4);
+	group = new AirCBSGroup(ace,ace,6);
 	
 	sim->AddUnitGroup(group);
 
@@ -216,9 +217,9 @@ void InitSim(){
 	// Add a Quadcopter
 	auto x = 40;
 	auto y = 40;
-	airplaneState ss(x, y, 7, 1, 0, false, AirplaneType::QUAD);
+	airplaneState ss(x, y, 7, 1, 7, false);
 	airtimeState start(ss, 0);
-	airplaneState gs(x, y, 18, 1, 0, false, AirplaneType::QUAD);
+	airplaneState gs(x, y, 18, 5, 2, false);
 	airtimeState goal(gs, 0);
 	AirCBSUnit* unit = new AirCBSUnit(start, goal);
 	unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
