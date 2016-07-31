@@ -42,7 +42,7 @@ unsigned hdgDiff(unsigned a, unsigned b){
 
 // Define the type of airplane
 enum AirplaneType {
-  QUAD, PLANE
+  QUAD=0, PLANE=1
 };
 
 
@@ -143,7 +143,7 @@ public:
           double climbCost=0.0001, // Fuel cost for climbing
           double descendCost=-0.00005, // Fuel cost for descending
           double gridSize=3.0, // Horizontal grid width (meters)
-          std::string const& perimeterFile=std::string("airplanePerimiter.dat"));
+          std::string const& perimeterFile=std::string("airplanePerimeter.dat"));
 	
   // Successors and actions
   virtual void GetSuccessors(const airplaneState &nodeID, std::vector<airplaneState> &neighbors) const;
@@ -243,14 +243,14 @@ protected:
   double const descendCost;
 
   // Caching for turn information
-  std::vector<uint8_t> turns;
-  std::vector<uint8_t> quad_turns;
+  std::vector<int8_t> turns;
+  std::vector<int8_t> quad_turns;
 
 private:
 	virtual double myHCost(const airplaneState &node1, const airplaneState &node2) const;
   bool perimeterLoaded;
   std::string perimeterFile;
-  AirplanePerimeterDBBuilder<airplaneState, airplaneAction, AirplaneEnvironment> perimeter;
+  AirplanePerimeterDBBuilder<airplaneState, airplaneAction, AirplaneEnvironment> perimeter[2]; // One for each type of aircraft
 
   //TODO Add wind constants
   //const double windSpeed = 0;

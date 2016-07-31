@@ -143,8 +143,10 @@ void AirplaneConstrainedEnvironment::ApplyAction(airtimeState &s, airplaneAction
 	ae->ApplyAction(s, a);
     
     // Calculate how long it will take to move 3 meters (or the diagonal thereof) at speed
-    static double speedRange(ae->maxSpeed-ae->minSpeed);
-    double factor(ae->gridSize/(ae->minSpeed+double(s.speed-1)*speedRange/double(ae->numSpeeds-1)));
+    static double physicalMaxSpeed(32.0); //MPS
+    static double physicalMinSpeed(17.0); //MPS
+    static double speedRange(physicalMaxSpeed-physicalMinSpeed);
+    static double factor(ae->gridSize/(physicalMinSpeed+double(s.speed-ae->minSpeed)*speedRange/double(ae->numSpeeds-ae->minSpeed)));
     
     // Compute time increase based on speed...
     // if speed is more than cruise speed, we arrive sooner, later if speed is less.

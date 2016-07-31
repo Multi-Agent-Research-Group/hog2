@@ -74,6 +74,8 @@ void AirplaneSimpleEnvironment::GetActionsQuad(const airplaneState &nodeID, std:
     actions.push_back(airplaneAction(k135, 0, 0));
     actions.push_back(airplaneAction(-k135, 0, 0));
     actions.push_back(airplaneAction(k180, 0, 0));
+  // Hover
+    actions.push_back(airplaneAction(kWait,0,0));
   }
 
   // Height change
@@ -87,10 +89,6 @@ void AirplaneSimpleEnvironment::GetActionsQuad(const airplaneState &nodeID, std:
           actions.push_back(airplaneAction(0, -1, 0));
   if (nodeID.speed < numSpeeds)
           actions.push_back(airplaneAction(0, 1, 0));
-
-  // Hover
-  if (nodeID.speed == 1) 
-          actions.push_back(airplaneAction(kWait,0,0));
 }
 
 void AirplaneSimpleEnvironment::GetActionsPlane(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const {
@@ -224,7 +222,7 @@ void AirplaneSimpleEnvironment::GetReverseActionsQuad(const airplaneState &nodeI
   }
 
   // Height change
-  if (nodeID.height > 0)
+  if (nodeID.height > 1)
           actions.push_back(airplaneAction(0, 0, 1));
   if (nodeID.height < height)
           actions.push_back(airplaneAction(0, 0, -1));
@@ -232,7 +230,7 @@ void AirplaneSimpleEnvironment::GetReverseActionsQuad(const airplaneState &nodeI
   // Speed Change
   if (nodeID.speed > 1)
           actions.push_back(airplaneAction(0, 1, 0));
-  if (nodeID.speed <= numSpeeds)
+  if (nodeID.speed < numSpeeds)
           actions.push_back(airplaneAction(0, -1, 0));
 
   // Hover
@@ -254,8 +252,8 @@ double AirplaneSimpleEnvironment::myHCost(const airplaneState &node1, const airp
   int speedDiff(abs(node2.speed-node1.speed));
   double vcost(vertDiff>0?climbCost:descendCost);
   vertDiff=abs(vertDiff);
-  int travel(node1.headingTo(node2));
-  int numTurns(std::max(0,signed(hdgDiff<8>(node1.heading,travel)/2)-1));
+  //int travel(node1.headingTo(node2));
+  //int numTurns(std::max(0,signed(hdgDiff<8>(node1.heading,travel)/2)-1));
   int maxMove(speedDiff1+speedDiff2+vertDiff<=diff?(speedDiff1+speedDiff2+vertDiff):speedDiff+vertDiff);
 
   // Change as many diagonal moves into horizontal as we can
@@ -269,10 +267,10 @@ double AirplaneSimpleEnvironment::myHCost(const airplaneState &node1, const airp
   if(diff+diag<vertDiff+speedChanges){ diff+=(vertDiff+speedChanges)-(diff+diag); }
   
   //std::cout << "speed:"<<speedChanges<<"v:"<<vertDiff<<"\n";
-  double total(diff*cruiseBurnRate+std::min(speedChanges,diff)*speedBurnDelta+std::min(vertDiff,diff)*vcost);
+  double total(diff*cruiseBurnRate+std::min(speedChanges,diff)*speedBurnDelta+vertDiff*vcost);
   speedChanges-=std::min(speedChanges,diff);
-  vertDiff-=std::min(vertDiff,diff);
 
-  return total+(diag*cruiseBurnRate+speedChanges*speedBurnDelta+vertDiff*vcost)*M_SQRT2;
+  //std::cout << node1<<"-->"<<node2<<"="<<total+(diag*cruiseBurnRate+speedChanges*speedBurnDelta)*M_SQRT2<<"\n";
+  return total+(diag*cruiseBurnRate+speedChanges*speedBurnDelta)*M_SQRT2;
 }
 

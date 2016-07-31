@@ -27,7 +27,7 @@ public:
           double climbCost=0.0001, // Fuel cost ratio for climbing
           double descendCost=-0.00005, // Fuel cost ratio for descending
           double gridSize=3.0, // Horizontal grid width
-          std::string const& perimeterFile=std::string("airplaneSimplePerimiter.dat"));
+          std::string const& perimeterFile=std::string("airplaneSimplePerimeter.dat"));
 
 	virtual void GetActions(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
 

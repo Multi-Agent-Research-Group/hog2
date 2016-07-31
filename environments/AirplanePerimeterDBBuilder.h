@@ -51,6 +51,7 @@ class AirplanePerimeterDBBuilder
       }
 
       std::cout << "Generating AirplanePerimeter Heuristic\n";
+      std::queue<std::pair<float,state> > q;
       for(int hdg(0); hdg<numHeadings; ++hdg){
         for(int spd(1); spd<=numSpeeds; ++spd){
           //std::cout << "H " << hdg << " S " << spd << "\n";
@@ -68,7 +69,6 @@ class AirplanePerimeterDBBuilder
             unsigned x(s.x-start.x+xySize);
             unsigned y(s.y-start.y+xySize);
             unsigned z(s.height-start.height+zSize);
-            //std::cout << "Check " << s << " ";
             //std::cout << "X" << x << " Y " << y << " Z " << z << std::endl;
             if(x<0||y<0||z<0||x>xySize*2||y>xySize*2||z>zSize*2 || gcost >= list[x][y][z][s.speed-1][s.heading][start.speed-1][start.heading]){continue;}// {std::cout << "Skipping " << s << "X" << x << " Y " << y << " Z " << z << std::endl; continue;}
             //std::cout << "solution at " << s <<  " to " << start << " is "  << "X" << x << " Y " << y << " Z " << z << " "<< gcost << "\n";
@@ -85,25 +85,29 @@ class AirplanePerimeterDBBuilder
               //std::cout << "   Applying action " << *a << "\n";
               state s2 = s;
               e.UndoAction(s2, *a);
+              //if(s2.x==40&&s.x==41&&s2.y==40&&s.y==41&&s.height==10&&s2.height==10&&s.speed==3&&s2.speed==3&&s.heading==0&&s2.heading==0)
+                //std::cout <<"gc"<< s2 << s << gcost <<" "<<e.GCost(s2,s)<<"\n";
               q.push(std::make_pair(gcost+e.GCost(s2,s),s2));
             }
           }
         }
       }
+
       loaded = true;
       std::cout << "DONE" << std::endl;
 
       fp = fopen(fname.c_str(),"w");
       fwrite(list,sizeof(float),openSize,fp);
       fclose(fp);
+      std::cout << "Wrote to " << fname << "\n";
       return true;
     }
 
-    float GCost(state const& s, state const& g) const {
+    float GCost(state const& s, state const& g,bool verbose=false) const {
             unsigned x(s.x-g.x+xySize);
             unsigned y(s.y-g.y+xySize);
             unsigned z(s.height-g.height+zSize);
-            //std::cout << "Fetching " << s << g << "X" << x << " Y " << y << " Z " << z << " : "<< list[x][y][z][s.speed-1][s.heading][g.speed-1][g.heading] << std::endl;
+            //if(verbose)std::cout << "Fetching " << s << g << "X " << x << " Y " << y << " Z " << z << " s" << (s.speed-1) << " h" << (unsigned)s.heading << " s" << (g.speed-1) << " h" << (unsigned)g.heading << " : "<< list[x][y][z][s.speed-1][s.heading][g.speed-1][g.heading] << std::endl;
       return list[x][y][z][s.speed-1][s.heading][g.speed-1][g.heading];
     }
   
@@ -111,7 +115,6 @@ class AirplanePerimeterDBBuilder
     uint64_t GetNodesExpanded() const { return expansions;}
 
   private:
-    std::queue<std::pair<float,state> > q;
 
     uint64_t expansions;
     float list[xySize*2+1][xySize*2+1][zSize*2+1][numSpeeds][numHeadings][numSpeeds][numHeadings];
