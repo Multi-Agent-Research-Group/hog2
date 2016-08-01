@@ -1,11 +1,11 @@
 #-----------------------------------------------------------------------------
 # GNU Makefile for static libraries: project dependent part
 #
-# $Id: Makefile.prj.inc,v 1.3 2006/11/01 23:34:14 nathanst Exp $
-# $Source: /usr/cvsroot/project_hog/build/gmake/utils/Makefile.prj.inc,v $
+# $Id: Makefile.prj.inc,v 1.2 2006/11/01 23:34:14 nathanst Exp $
+# $Source: /usr/cvsroot/project_hog/build/gmake/graph/Makefile.prj.inc,v $
 #-----------------------------------------------------------------------------
 
-NAME = gui
+NAME = grids
 DBG_NAME = lib$(NAME).a
 REL_NAME = lib$(NAME).a
 
@@ -17,7 +17,7 @@ REL_OBJDIR = $(ROOT)/objs/$(NAME)/release
 DBG_BINDIR = $(ROOT)/bin/debug
 REL_BINDIR = $(ROOT)/bin/release
 
-PROJ_CXXFLAGS = -I$(ROOT)/utils
+PROJ_CXXFLAGS = -I$(ROOT)/utils -I$(ROOT)/algorithms -I$(ROOT)/search -I$(ROOT)/environments -I$(ROOT)/generic -I$(ROOT)/abstraction -I$(ROOT)/simulation -I$(ROOT)/graph -I$(ROOT)/graphalgorithms -I$(ROOT)/gui
 PROJ_DBG_CXXFLAGS = $(PROJ_CXXFLAGS)
 PROJ_REL_CXXFLAGS = $(PROJ_CXXFLAGS)
 
@@ -30,10 +30,6 @@ PROJ_REL_LIB =
 default : all
 
 SRC_CPP = \
-  gui/Common.cpp \
-  gui/GLUThog.cpp \
-  gui/TextBox.cpp \
-  gui/Graphics2D.cpp \
-  gui/Trackball.cpp
-
+  grids/CanonicalDijkstra.cpp \
+  grids/JPS.cpp
 

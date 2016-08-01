@@ -1,20 +1,20 @@
 //
-//  gJPS.cpp
+//  CanonicalDijkstra.cpp
 //  hog2 glut
 //
 //  Created by Nathan Sturtevant on 1/31/16.
 //  Copyright © 2016 University of Denver. All rights reserved.
 //
 
-#include "gJPS.h"
+#include "CanonicalDijkstra.h"
 
-gJPS::gJPS()
+CanonicalDijkstra::CanonicalDijkstra()
 {
 	jumpLimit = 16;
 	env = 0;
 }
 
-bool gJPS::InitializeSearch(MapEnvironment *env, const xyLoc& from, const xyLoc& to, std::vector<xyLoc> &thePath)
+bool CanonicalDijkstra::InitializeSearch(MapEnvironment *env, const xyLoc& from, const xyLoc& to, std::vector<xyLoc> &thePath)
 {
 	nodesExpanded = nodesTouched = 0;
 	this->env = env;
@@ -29,7 +29,7 @@ bool gJPS::InitializeSearch(MapEnvironment *env, const xyLoc& from, const xyLoc&
 	return true;
 }
 
-bool gJPS::DoSingleSearchStep(std::vector<xyLoc> &thePath)
+bool CanonicalDijkstra::DoSingleSearchStep(std::vector<xyLoc> &thePath)
 {
 	if (openClosedList.OpenSize() > 0)
 	{
@@ -52,8 +52,8 @@ bool gJPS::DoSingleSearchStep(std::vector<xyLoc> &thePath)
 			{
 				case kClosedList:
 				{
-//					printf("(%d, %d) on closed g: %f [might be %f]\n", s.s.loc.x,  s.s.loc.y,
-//						   openClosedList.Lookup(theID).g, openClosedList.Lookup(next).g+s.cost);
+					//					printf("(%d, %d) on closed g: %f [might be %f]\n", s.s.loc.x,  s.s.loc.y,
+					//						   openClosedList.Lookup(theID).g, openClosedList.Lookup(next).g+s.cost);
 					if (fless(openClosedList.Lookup(next).g+s.cost, openClosedList.Lookup(theID).g))
 					{
 						openClosedList.Lookup(theID).parentID = next;
@@ -70,7 +70,7 @@ bool gJPS::DoSingleSearchStep(std::vector<xyLoc> &thePath)
 				}
 				case kNotFound:
 				{
-//					printf("(%d, %d) added to open\n", s.s.loc.x,  s.s.loc.y);
+					//					printf("(%d, %d) added to open\n", s.s.loc.x,  s.s.loc.y);
 					openClosedList.AddOpenNode(s.s,
 											   hash,
 											   openClosedList.Lookup(next).g+s.cost,
@@ -82,14 +82,14 @@ bool gJPS::DoSingleSearchStep(std::vector<xyLoc> &thePath)
 				{
 					if (openClosedList.Lookup(next).g+s.cost < openClosedList.Lookup(theID).g)
 					{
-//						printf("(%d, %d) updated on open\n", s.s.loc.x,  s.s.loc.y);
+						//						printf("(%d, %d) updated on open\n", s.s.loc.x,  s.s.loc.y);
 						openClosedList.Lookup(theID).parentID = next;
 						openClosedList.Lookup(theID).g = openClosedList.Lookup(next).g+s.cost;
 						openClosedList.Lookup(theID).data.parent = s.s.parent;
 						openClosedList.KeyChanged(theID);
 					}
 					else {
-//						printf("(%d, %d) untouched on open\n", s.s.loc.x,  s.s.loc.y);
+						//						printf("(%d, %d) untouched on open\n", s.s.loc.x,  s.s.loc.y);
 					}
 					break;
 				}
@@ -102,30 +102,30 @@ bool gJPS::DoSingleSearchStep(std::vector<xyLoc> &thePath)
 	return false;
 }
 
-void gJPS::GetPath(MapEnvironment *env, const xyLoc &from, const xyLoc &to, std::vector<xyLoc> &path)
+void CanonicalDijkstra::GetPath(MapEnvironment *env, const xyLoc &from, const xyLoc &to, std::vector<xyLoc> &path)
 {
 	InitializeSearch(env, from, to, path);
 	while (DoSingleSearchStep(path) == false)
 	{}
 }
 
-void gJPS::GetPath(MapEnvironment *env, const xyLoc &from, const xyLoc &to, std::vector<tDirection> &path)
+void CanonicalDijkstra::GetPath(MapEnvironment *env, const xyLoc &from, const xyLoc &to, std::vector<tDirection> &path)
 {
 	
 }
 
-void gJPS::GetJPSSuccessors(const xyLocParent &s, uint64_t pid, double pg)
+void CanonicalDijkstra::GetJPSSuccessors(const xyLocParent &s, uint64_t pid, double pg)
 {
 	// write this and return g-cost too
 	GetJPSSuccessors(s.loc.x, s.loc.y, s.parent, 0, pid, pg, true);
 }
 
-bool gJPS::Passable(int x, int y)
+bool CanonicalDijkstra::Passable(int x, int y)
 {
 	return env->GetMap()->GetTerrainType(x, y) == kGround;
 }
 
-void gJPS::GetJPSSuccessors(int x, int y, uint8_t parent, double cost, uint64_t pid, double pg, bool first)
+void CanonicalDijkstra::GetJPSSuccessors(int x, int y, uint8_t parent, double cost, uint64_t pid, double pg, bool first)
 {
 	// If on closed with lower g-cost, return
 	// else add to closed with current g-cost
@@ -137,21 +137,22 @@ void gJPS::GetJPSSuccessors(int x, int y, uint8_t parent, double cost, uint64_t 
 		dataLocation l = openClosedList.Lookup(hash, theID);
 		if (l == kNotFound) // add to closed
 		{
-//			printf("Setting (%d, %d) to g:%f\n", x, y, pg+cost);
+			//			printf("Setting (%d, %d) to g:%f\n", x, y, pg+cost);
 			openClosedList.AddClosedNode(s, hash, pg+cost, 0, pid);
-//			printf("Value set to: %f\n", GetClosedGCost(s.loc));
+			//			printf("Value set to: %f\n", GetClosedGCost(s.loc));
 		}
 		else if (fless(pg+cost, openClosedList.Lookat(theID).g)) // update on closed
 		{
-//			printf("Updating (%d, %d) to g:%f\n", x, y, pg+cost);
+			//			printf("Updating (%d, %d) to g:%f\n", x, y, pg+cost);
 			openClosedList.Lookup(theID).g = pg+cost;
+			openClosedList.Lookup(theID).reopened = true;
 		}
 		else { // stop!
-//			printf("Skipping (%d, %d) to g:%f cs \n", x, y, pg+cost, openClosedList.Lookat(theID).g);
+			//			printf("Skipping (%d, %d) to g:%f cs \n", x, y, pg+cost, openClosedList.Lookat(theID).g);
 			return;
 		}
 	}
-
+	
 	nodesTouched++;
 	int w = env->GetMap()->GetMapWidth();
 	int h = env->GetMap()->GetMapHeight();
@@ -179,10 +180,10 @@ void gJPS::GetJPSSuccessors(int x, int y, uint8_t parent, double cost, uint64_t 
 				successors.push_back(jpsSuccessor(x, y-1, tDirection(kNE), cost+1));
 			}
 			else {
-//				if (cost >= jumpLimit)
-//					successors.push_back(jpsSuccessor(x, y-1, tDirection(kN), cost+1));
-//				else
-					GetJPSSuccessors(x, y-1, kN, cost+1, pid, pg);
+				//				if (cost >= jumpLimit)
+				//					successors.push_back(jpsSuccessor(x, y-1, tDirection(kN), cost+1));
+				//				else
+				GetJPSSuccessors(x, y-1, kN, cost+1, pid, pg);
 			}
 			n1 = true;
 		}
@@ -211,13 +212,13 @@ void gJPS::GetJPSSuccessors(int x, int y, uint8_t parent, double cost, uint64_t 
 				successors.push_back(jpsSuccessor(x-1, y, tDirection(kSW), cost+1));
 			}
 			else {
-//				if (cost >= jumpLimit)
-//				{
-//					successors.push_back(jpsSuccessor(x-1, y, tDirection(kW), cost+1));
-//				}
-//				else
-					GetJPSSuccessors(x-1, y, kW, cost+1, pid, pg);
-
+				//				if (cost >= jumpLimit)
+				//				{
+				//					successors.push_back(jpsSuccessor(x-1, y, tDirection(kW), cost+1));
+				//				}
+				//				else
+				GetJPSSuccessors(x-1, y, kW, cost+1, pid, pg);
+				
 			}
 			e1 = true;
 		}
@@ -245,12 +246,12 @@ void gJPS::GetJPSSuccessors(int x, int y, uint8_t parent, double cost, uint64_t 
 				successors.push_back(jpsSuccessor(x, y+1, tDirection(kSE), cost+1));
 			}
 			else {
-//				if (cost >= jumpLimit)
-//				{
-//					successors.push_back(jpsSuccessor(x, y+1, tDirection(kS), cost+1));
-//				}
-//				else
-					GetJPSSuccessors(x, y+1, kS, cost+1, pid, pg);
+				//				if (cost >= jumpLimit)
+				//				{
+				//					successors.push_back(jpsSuccessor(x, y+1, tDirection(kS), cost+1));
+				//				}
+				//				else
+				GetJPSSuccessors(x, y+1, kS, cost+1, pid, pg);
 			}
 			s1 = true;
 		}
@@ -279,12 +280,12 @@ void gJPS::GetJPSSuccessors(int x, int y, uint8_t parent, double cost, uint64_t 
 				successors.push_back(jpsSuccessor(x+1, y, tDirection(kSE), cost+1));
 			}
 			else {
-//				if (cost >= jumpLimit)
-//				{
-//					successors.push_back(jpsSuccessor(x+1, y, tDirection(kE), cost+1));
-//				}
-//				else
-					GetJPSSuccessors(x+1, y, kE, cost+1, pid, pg);
+				//				if (cost >= jumpLimit)
+				//				{
+				//					successors.push_back(jpsSuccessor(x+1, y, tDirection(kE), cost+1));
+				//				}
+				//				else
+				GetJPSSuccessors(x+1, y, kE, cost+1, pid, pg);
 				
 			}
 			w1 = true;
@@ -294,12 +295,12 @@ void gJPS::GetJPSSuccessors(int x, int y, uint8_t parent, double cost, uint64_t 
 	{
 		if (x != 0 && y != 0 && Passable(x-1, (y-1)) && n1 && e1)
 		{
-//			if (cost >= jumpLimit)
-//			{
-//				successors.push_back(jpsSuccessor(x-1, y-1, tDirection(kNW), cost+ROOT_TWO));
-//			}
-//			else
-				GetJPSSuccessors(x-1, y-1, kNW, cost+ROOT_TWO, pid, pg);
+			//			if (cost >= jumpLimit)
+			//			{
+			//				successors.push_back(jpsSuccessor(x-1, y-1, tDirection(kNW), cost+ROOT_TWO));
+			//			}
+			//			else
+			GetJPSSuccessors(x-1, y-1, kNW, cost+ROOT_TWO, pid, pg);
 			
 		}
 	}
@@ -307,12 +308,12 @@ void gJPS::GetJPSSuccessors(int x, int y, uint8_t parent, double cost, uint64_t 
 	{
 		if (x != w-1 && y != 0 && Passable(x+1, (y-1)) && n1 && w1)
 		{
-//			if (cost >= jumpLimit)
-//			{
-//				successors.push_back(jpsSuccessor(x+1, y-1, tDirection(kNE), cost+ROOT_TWO));
-//			}
-//			else
-				GetJPSSuccessors(x+1, y-1, kNE, cost+ROOT_TWO, pid, pg);
+			//			if (cost >= jumpLimit)
+			//			{
+			//				successors.push_back(jpsSuccessor(x+1, y-1, tDirection(kNE), cost+ROOT_TWO));
+			//			}
+			//			else
+			GetJPSSuccessors(x+1, y-1, kNE, cost+ROOT_TWO, pid, pg);
 			
 		}
 	}
@@ -320,29 +321,29 @@ void gJPS::GetJPSSuccessors(int x, int y, uint8_t parent, double cost, uint64_t 
 	{
 		if (x != 0 && y != h-1 && Passable(x-1, (y+1)) && s1 && e1)
 		{
-//			if (cost >= jumpLimit)
-//			{
-//				successors.push_back(jpsSuccessor(x-1, y+1, tDirection(kSW), cost+ROOT_TWO));
-//			}
-//			else
-				GetJPSSuccessors(x-1, y+1, kSW, cost+ROOT_TWO, pid, pg);
+			//			if (cost >= jumpLimit)
+			//			{
+			//				successors.push_back(jpsSuccessor(x-1, y+1, tDirection(kSW), cost+ROOT_TWO));
+			//			}
+			//			else
+			GetJPSSuccessors(x-1, y+1, kSW, cost+ROOT_TWO, pid, pg);
 		}
 	}
 	if (parent&kSE)
 	{
 		if (x != w-1 && y != h-1 && Passable(x+1, (y+1)) && s1 && w1)
 		{
-//			if (cost >= jumpLimit)
-//			{
-//				successors.push_back(jpsSuccessor(x+1, y+1, tDirection(kSE), cost+ROOT_TWO));
-//			}
-//			else
-				GetJPSSuccessors(x+1, y+1, kSE, cost+ROOT_TWO, pid, pg);
+			//			if (cost >= jumpLimit)
+			//			{
+			//				successors.push_back(jpsSuccessor(x+1, y+1, tDirection(kSE), cost+ROOT_TWO));
+			//			}
+			//			else
+			GetJPSSuccessors(x+1, y+1, kSE, cost+ROOT_TWO, pid, pg);
 		}
 	}
 }
 
-void gJPS::ExtractPathToStartFromID(uint64_t node, std::vector<xyLoc> &thePath)
+void CanonicalDijkstra::ExtractPathToStartFromID(uint64_t node, std::vector<xyLoc> &thePath)
 {
 	do {
 		thePath.push_back(openClosedList.Lookup(node).data.loc);
@@ -351,17 +352,17 @@ void gJPS::ExtractPathToStartFromID(uint64_t node, std::vector<xyLoc> &thePath)
 	thePath.push_back(openClosedList.Lookup(node).data.loc);
 }
 
-uint64_t gJPS::GetNodesExpanded() const
+uint64_t CanonicalDijkstra::GetNodesExpanded() const
 {
 	return nodesExpanded;
 }
 
-uint64_t gJPS::GetNodesTouched() const
+uint64_t CanonicalDijkstra::GetNodesTouched() const
 {
 	return nodesTouched;
 }
 
-double gJPS::GetClosedGCost(xyLoc s)
+double CanonicalDijkstra::GetClosedGCost(xyLoc s)
 {
 	uint64_t hash = env->GetStateHash(s);
 	uint64_t theID;
@@ -374,12 +375,12 @@ double gJPS::GetClosedGCost(xyLoc s)
 }
 
 
-void gJPS::LogFinalStats(StatCollection *stats)
+void CanonicalDijkstra::LogFinalStats(StatCollection *stats)
 {
 	
 }
 
-void gJPS::OpenGLDraw() const
+void CanonicalDijkstra::OpenGLDraw() const
 {
 	double transparency = 1.0;
 	if (openClosedList.size() == 0)
@@ -432,4 +433,113 @@ void gJPS::OpenGLDraw() const
 	}
 }
 
-void gJPS::OpenGLDraw(const MapEnvironment *env) const {}
+void CanonicalDijkstra::OpenGLDraw(const MapEnvironment *env) const {}
+
+void CanonicalDijkstra::Draw() const
+{
+	double transparency = 1.0;
+	if (openClosedList.size() == 0)
+		return;
+	uint64_t top = -1;
+	double maxGCost = 0;
+	
+	for (unsigned int x = 0; x < openClosedList.size(); x++)
+	{
+		const auto &data = openClosedList.Lookat(x);
+		if (data.round == openClosedList.GetRound())
+			maxGCost = std::max(maxGCost, data.g);
+	}
+	
+	if (openClosedList.OpenSize() > 0)
+	{
+		top = openClosedList.Peek();
+	}
+	for (unsigned int x = 0; x < openClosedList.size(); x++)
+	{
+		const auto &data = openClosedList.Lookat(x);
+		if (data.round != openClosedList.GetRound())
+			continue;
+		
+		if (x == top)
+		{
+			env->SetColor(1.0, 1.0, 0.0, transparency);
+			env->Draw(data.data.loc);
+		}
+		else if ((data.where == kOpenList) && (data.reopened))
+		{
+			env->SetColor(0.0, 0.5, 0.5, transparency);
+			env->Draw(data.data.loc);
+		}
+		else if (data.where == kOpenList)
+		{
+			env->SetColor(0.0, 1.0, 0.0, transparency);
+			env->Draw(data.data.loc);
+		}
+		else if ((data.where == kClosedList) && (data.reopened))
+		{
+			env->SetColor(data.g/maxGCost, 0.0, 1.0, transparency);
+			env->Draw(data.data.loc);
+		}
+		else if (data.where == kClosedList)
+		{
+			env->SetColor(data.g/maxGCost, 0.0, 0.0, transparency);
+			env->Draw(data.data.loc);
+		}
+	}
+}
+
+
+std::string CanonicalDijkstra::SVGDraw() const
+{
+	std::string s;
+	double transparency = 1.0;
+	if (openClosedList.size() == 0)
+		return s;
+	uint64_t top = -1;
+	double maxGCost = 0;
+	
+	for (unsigned int x = 0; x < openClosedList.size(); x++)
+	{
+		const auto &data = openClosedList.Lookat(x);
+		if (data.round == openClosedList.GetRound())
+			maxGCost = std::max(maxGCost, data.g);
+	}
+	
+	if (openClosedList.OpenSize() > 0)
+	{
+		top = openClosedList.Peek();
+	}
+	for (unsigned int x = 0; x < openClosedList.size(); x++)
+	{
+		const auto &data = openClosedList.Lookat(x);
+		if (data.round != openClosedList.GetRound())
+			continue;
+
+		if (x == top)
+		{
+			env->SetColor(1.0, 1.0, 0.0, transparency);
+			s+=env->SVGDraw(data.data.loc);
+		}
+		else if ((data.where == kOpenList) && (data.reopened))
+		{
+			env->SetColor(0.0, 0.5, 0.5, transparency);
+			s+=env->SVGDraw(data.data.loc);
+		}
+		else if (data.where == kOpenList)
+		{
+			env->SetColor(0.0, 1.0, 0.0, transparency);
+			s+=env->SVGDraw(data.data.loc);
+		}
+		else if ((data.where == kClosedList) && (data.reopened))
+		{
+			env->SetColor(data.g/maxGCost, 0.0, 1.0, transparency);
+			s+=env->SVGDraw(data.data.loc);
+		}
+		else if (data.where == kClosedList)
+		{
+			env->SetColor(data.g/maxGCost, 0.0, 0.0, transparency);
+			s+=env->SVGDraw(data.data.loc);
+		}
+	}
+	return s;
+}

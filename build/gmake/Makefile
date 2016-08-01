@@ -18,6 +18,7 @@ PROJECTS = \
   environments \
   generic \
   graph \
+  grids \
   graphalgorithms \
   gui \
   mapalgorithms \
@@ -74,6 +75,7 @@ PROJECTS_ALL = \
   environments \
   generic \
   graph \
+  grids \
   graphalgorithms \
   gui \
   mapalgorithms \
