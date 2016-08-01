@@ -33,6 +33,7 @@ public:
 	//AirplaneConstrainedEnvironment();
 	/** Construct a constrained environment from an existing environment */
 	AirplaneConstrainedEnvironment(AirplaneEnvironment* ae);
+        virtual char const*const name()const{return ae->name();}
 
 	/// CONSTRAINTS
 	
@@ -117,6 +118,7 @@ public:
 	/// UTILS
 	uint8_t GetSpeeds(){return ae->numSpeeds;}
 	void SetTicketAuthority(TicketAuthority* tk) {this->ticket_authority = tk;}
+	TicketAuthority* ticket_authority;
 private:
 	
 
@@ -126,7 +128,6 @@ private:
 	std::vector<airConstraint> static_constraints;
 
 	/** Map holding the current sets of restricted airspace */
-	TicketAuthority* ticket_authority;
 
 
 	/** Airplane Environment holder */

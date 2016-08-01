@@ -29,41 +29,47 @@ double stepsPerFrame = 1.0/100.0;
 double frameIncrement = 1.0/10000.0;
 std::vector<airtimeState> thePath;
 
+int cutoff = 10000;
+int seed = clock();
 int num_airplanes = 5;
+bool complextosimple = false;
+bool complexonly = false;
+bool simpleonly = false;
 bool use_rairspace = false;
 bool use_wait = false;
 
 bool paused = false;
 
+AirplaneConstrainedEnvironment *ace = 0;
+AirplaneConstrainedEnvironment *aces = 0;
+AirplaneConstrainedEnvironment *aceh = 0;
+UnitSimulation<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *sim = 0;
+AirCBSGroup* group = 0;
 
-
-//DirectionalPlanner *dp = 0;
-//MapSectorAbstraction *quad = 0;
-//std::vector<DirectionSimulation *> unitSims;
-//typedef GenericSearchUnit<xySpeedHeading, deltaSpeedHeading, Directional2DEnvironment> DirSearchUnit;
-//typedef RandomUnit<xySpeedHeading, deltaSpeedHeading, Directional2DEnvironment> RandomDirUnit;
-//typedef GenericPatrolUnit<xySpeedHeading, deltaSpeedHeading, Directional2DEnvironment> DirPatrolUnit;
-
-//void RunBatchTest(char *file, model mm, heuristicType heuristic, int length);
-
-/*
-AirplaneEnvironment ae;
-airplaneState s;
-airplaneState s2;
-airplaneState s3;
-airplaneState s4;
-airplaneState tmp;
- */
-
+bool gui=true;
+void InitHeadless();
 
 int main(int argc, char* argv[])
 {
-	if (argc > 1) {
-		num_airplanes = atoi(argv[1]);
-	}
+  if (argc > 1) {
+    num_airplanes = atoi(argv[1]);
+  }
 
-	InstallHandlers();
-	RunHOGGUI(argc, argv);
+
+  InstallHandlers();
+  ProcessCommandLineArgs(argc, argv);
+  if(gui)
+  {
+    RunHOGGUI(argc, argv);
+  }
+  else
+  {
+    InitHeadless();
+    while (true)
+    {
+      group->ExpandOneCBSNode(gui);
+    }
+  }
 }
 
 
@@ -109,8 +115,14 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-rairspace", "-rairspace", "Choose if the restricted airspace is used.");
 	InstallCommandLineHandler(MyCLHandler, "-uwait", "-uwait", "Choose if the wait action is used.");
 	InstallCommandLineHandler(MyCLHandler, "-nairplanes", "-nairplanes <number>", "Select the number of airplanes.");
-	
-	InstallWindowHandler(MyWindowHandler);
+	InstallCommandLineHandler(MyCLHandler, "-seed", "-seed <number>", "Seed for random number generator (defaults to clock)");
+	InstallCommandLineHandler(MyCLHandler, "-cutoff", "-cutoff <number>", "Number of conflicts to tolerate before switching to complex environment");
+	InstallCommandLineHandler(MyCLHandler, "-complexonly", "-complexonly", "Use only the complex environment");
+	InstallCommandLineHandler(MyCLHandler, "-simpleonly", "-simpleonly", "Use only the simple environment");
+	InstallCommandLineHandler(MyCLHandler, "-complextosimple", "-complextosimple", "Switch complex to simple instead of the inverse");
+	InstallCommandLineHandler(MyCLHandler, "-nogui", "-nogui", "Turn off gui");
+
+        InstallWindowHandler(MyWindowHandler);
 
 	InstallMouseClickHandler(MyClickHandler);
 }
@@ -132,114 +144,209 @@ void MyWindowHandler(unsigned long windowID, tWindowEventType eType)
 	}
 }
 
-AirplaneConstrainedEnvironment *ace = 0;
-AirplaneConstrainedEnvironment *aces = 0;
-UnitSimulation<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *sim = 0;
-AirCBSGroup* group = 0;
-AirCBSUnit* u1 = 0;
-AirCBSUnit* u2 = 0;
-AirCBSUnit* u3 = 0;
-AirCBSUnit* u4 = 0;
-AirCBSUnit* u5 = 0;
-AirCBSUnit* u6 = 0;
-airtimeState s1, s2, s3, s4, s5, s6, g1, g2, g3, g4, g5, g6;
 
+void InitHeadless(){
+  std::cout << "Setting seed " << seed << "\n";
+  srand(seed);
+  srandom(seed);
+  AirplaneEnvironment* ae = new AirplaneEnvironment();
+  ae->loadPerimeterDB();
+  AirplaneEnvironment* ase = new AirplaneSimpleEnvironment();
+  ase->loadPerimeterDB();
+  AirplaneEnvironment* ahe = new AirplaneHighwayEnvironment();
+  ahe->loadPerimeterDB();
+  ace = new AirplaneConstrainedEnvironment(ae);
+  aces = new AirplaneConstrainedEnvironment(ase);
+  aceh = new AirplaneConstrainedEnvironment(ahe);
+
+
+
+  if(complexonly)
+    group = new AirCBSGroup(ace,ace,cutoff, use_rairspace, use_wait); // Changed to 10,000 expansions from number of conflicts in the tree
+  else if(simpleonly)
+    group = new AirCBSGroup(aces,aces,cutoff, use_rairspace, use_wait); // Changed to 10,000 expansions from number of conflicts in the tree
+  else if(complextosimple)
+    group = new AirCBSGroup(aces,ace,cutoff, use_rairspace, use_wait); // Changed to 10,000 expansions from number of conflicts in the tree
+  else
+    group = new AirCBSGroup(ace,aces,cutoff, use_rairspace, use_wait); // Changed to 10,000 expansions from number of conflicts in the tree
+
+  // Updated so we're always testing the landing conditions
+  // and forcing the airplane environment to be such that
+  // we are inducing high clonflict areas.
+  std::cout << "Adding " << num_airplanes << "planes." << std::endl;
+  for (int i = 0; i < num_airplanes; i++) {
+
+
+    // 0% are landed at the beginning
+    if (false) {
+      airplaneState land(18, 23, 0, 0, 0, true);
+      airtimeState start(land, 0);
+
+      airplaneState rs(rand() % 70 + 5, rand() % 70 + 5, rand() % 7 + 11, rand() % 3 + 1, rand() % 8, false);
+      airtimeState goal(rs, 0);
+
+      AirCBSUnit* unit = new AirCBSUnit(start, goal);
+      unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
+      group->AddUnit(unit); // Add to the group
+      std::cout << "Set unit " << i << " directive from " << start << " to " << goal << " rough heading: " << (unsigned)start.headingTo(goal) << std::endl;
+
+    } else {
+      airplaneState rs1(rand() % 70 + 5, rand() % 70 + 5, rand() % 7 + 11, rand() % 3 + 1, rand() % 8, false);
+      airtimeState start(rs1, 0);
+
+      // 0% total are landing intially
+      if (false) {
+        // Replan the node to a landing location
+        airplaneState land(18, 23, 0, 0, 0, true);
+        airtimeState goal(land, 0);
+
+        AirCBSUnit* unit = new AirCBSUnit(start, goal);
+        unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
+        group->AddUnit(unit); // Add to the group
+        std::cout << "Set unit " << i << " directive from " << start << " to " << goal << " rough heading: " << (unsigned)start.headingTo(goal) << std::endl;
+
+      } else {
+        // Replan the node to a random location
+        airplaneState rs(rand() % 70 + 5, rand() % 70 + 5, rand() % 7 + 11, rand() % 3 + 1, rand() % 8, false);
+        airtimeState goal(rs, 0);
+
+        AirCBSUnit* unit = new AirCBSUnit(start, goal);
+        unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
+        group->AddUnit(unit); // Add to the group
+        std::cout << "Set unit " << i << " directive from " << start << " to " << goal << " rough heading: " << (unsigned)start.headingTo(goal) << std::endl;
+      }
+
+    }
+
+
+
+
+  }
+
+  std::cout << "cmdflags:" << use_rairspace << use_wait << std::endl;
+
+  // Add a Quadcopter
+  /*auto x = 40;
+    auto y = 40;
+    airplaneState ss(x, y, 7, 1, 7, false, AirplaneType::QUAD);
+    airtimeState start(ss, 0);
+    airplaneState gs(x, y, 18, 5, 2, false, AirplaneType::QUAD);
+    airtimeState goal(gs, 0);
+    AirCBSUnit* unit = new AirCBSUnit(start, goal);
+    unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
+    std::cout << "Set quadcopter directive from " << start << " to " << goal << " rough heading: " << (unsigned)start.headingTo(goal) << std::endl;
+    group->AddUnit(unit); // Add to the group
+    sim->AddUnit(unit); // Add the unit to the simulation
+   */
+
+
+}
 
 void InitSim(){
-    AirplaneEnvironment* ae = new AirplaneEnvironment();
-    ae->loadPerimeterDB();
-    AirplaneEnvironment* ase = new AirplaneSimpleEnvironment();
-    AirplaneEnvironment* ahe = new AirplaneHighwayEnvironment();
-    ase->loadPerimeterDB();
-    ahe->loadPerimeterDB();
-	ace = new AirplaneConstrainedEnvironment(ae);
-	aces = new AirplaneConstrainedEnvironment(ase);
-	//aces = new AirplaneConstrainedEnvironment(ahe);
+  std::cout << "Setting seed " << seed << "\n";
+  srand(seed);
+  srandom(seed);
+  AirplaneEnvironment* ae = new AirplaneEnvironment();
+  ae->loadPerimeterDB();
+  AirplaneEnvironment* ase = new AirplaneSimpleEnvironment();
+  ase->loadPerimeterDB();
+  AirplaneEnvironment* ahe = new AirplaneHighwayEnvironment();
+  ahe->loadPerimeterDB();
+  ace = new AirplaneConstrainedEnvironment(ae);
+  aces = new AirplaneConstrainedEnvironment(ase);
+  aceh = new AirplaneConstrainedEnvironment(ahe);
 
 
 
-	sim = new UnitSimulation<airtimeState, airplaneAction, AirplaneConstrainedEnvironment>(ace);
-	sim->SetStepType(kLockStep);
-	//group = new AirCBSGroup(ace,ace,4);
-    // TODO: Have it use the simple environment and switch to the complex one
-    //       after too many conflicts
-	group = new AirCBSGroup(ace,ace,10000, use_rairspace, use_wait); // Changed to 10,000 expansions from number of conflicts in the tree
-	
-	sim->AddUnitGroup(group);
+  sim = new UnitSimulation<airtimeState, airplaneAction, AirplaneConstrainedEnvironment>(ace);
+  sim->SetStepType(kLockStep);
+  //group = new AirCBSGroup(ace,ace,4);
+  // TODO: Have it use the simple environment and switch to the complex one
+  //       after too many conflicts
+  if(complexonly)
+    group = new AirCBSGroup(ace,ace,cutoff, use_rairspace, use_wait); // Changed to 10,000 expansions from number of conflicts in the tree
+  else if(simpleonly)
+    group = new AirCBSGroup(aces,aces,cutoff, use_rairspace, use_wait); // Changed to 10,000 expansions from number of conflicts in the tree
+  else if(complextosimple)
+    group = new AirCBSGroup(aces,ace,cutoff, use_rairspace, use_wait); // Changed to 10,000 expansions from number of conflicts in the tree
+  else
+    group = new AirCBSGroup(ace,aces,cutoff, use_rairspace, use_wait); // Changed to 10,000 expansions from number of conflicts in the tree
 
-	
-	// Updated so we're always testing the landing conditions
-	// and forcing the airplane environment to be such that
-	// we are inducing high clonflict areas.
-	std::cout << "Adding " << num_airplanes << "planes." << std::endl;
-	for (int i = 0; i < num_airplanes; i++) {
-
-
-		// 0% are landed at the beginning
-		if (false) {
-			airplaneState land(18, 23, 0, 0, 0, true);
-			airtimeState start(land, 0);
-
-			airplaneState rs(rand() % 70 + 5, rand() % 70 + 5, rand() % 7 + 11, rand() % 3 + 1, rand() % 8, false);
-			airtimeState goal(rs, 0);
-
-			AirCBSUnit* unit = new AirCBSUnit(start, goal);
-			unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
-			group->AddUnit(unit); // Add to the group
-			sim->AddUnit(unit); // Add the unit to the simulation
-			std::cout << "Set unit " << i << " directive from " << start << " to " << goal << " rough heading: " << (unsigned)start.headingTo(goal) << std::endl;
-
-		} else {
-			airplaneState rs1(rand() % 70 + 5, rand() % 70 + 5, rand() % 7 + 11, rand() % 3 + 1, rand() % 8, false);
-			airtimeState start(rs1, 0);
-
-			// 0% total are landing intially
-			if (true) {
-				// Replan the node to a landing location
-				airplaneState land(18, 23, 0, 0, 0, true);
-				airtimeState goal(land, 0);
-
-				AirCBSUnit* unit = new AirCBSUnit(start, goal);
-				unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
-				group->AddUnit(unit); // Add to the group
-				sim->AddUnit(unit); // Add the unit to the simulation
-				std::cout << "Set unit " << i << " directive from " << start << " to " << goal << " rough heading: " << (unsigned)start.headingTo(goal) << std::endl;
-
-			} else {
-				// Replan the node to a random location
-				airplaneState rs(rand() % 70 + 5, rand() % 70 + 5, rand() % 7 + 11, rand() % 3 + 1, rand() % 8, false);
-				airtimeState goal(rs, 0);
-				
-				AirCBSUnit* unit = new AirCBSUnit(start, goal);
-				unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
-				group->AddUnit(unit); // Add to the group
-				sim->AddUnit(unit); // Add the unit to the simulation
-				std::cout << "Set unit " << i << " directive from " << start << " to " << goal << " rough heading: " << (unsigned)start.headingTo(goal) << std::endl;
-			}
-
-		}
-			
+  sim->AddUnitGroup(group);
 
 
+  // Updated so we're always testing the landing conditions
+  // and forcing the airplane environment to be such that
+  // we are inducing high clonflict areas.
+  std::cout << "Adding " << num_airplanes << "planes." << std::endl;
+  for (int i = 0; i < num_airplanes; i++) {
 
-	}
 
-	std::cout << "cmdflags:" << use_rairspace << use_wait << std::endl;
+    // 0% are landed at the beginning
+    if (false) {
+      airplaneState land(18, 23, 0, 0, 0, true);
+      airtimeState start(land, 0);
 
-	// Add a Quadcopter
-	/*auto x = 40;
-	auto y = 40;
-	airplaneState ss(x, y, 7, 1, 7, false, AirplaneType::QUAD);
-	airtimeState start(ss, 0);
-	airplaneState gs(x, y, 18, 5, 2, false, AirplaneType::QUAD);
-	airtimeState goal(gs, 0);
-	AirCBSUnit* unit = new AirCBSUnit(start, goal);
-	unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
-	std::cout << "Set quadcopter directive from " << start << " to " << goal << " rough heading: " << (unsigned)start.headingTo(goal) << std::endl;
-	group->AddUnit(unit); // Add to the group
-	sim->AddUnit(unit); // Add the unit to the simulation
-	*/
-	
+      airplaneState rs(rand() % 70 + 5, rand() % 70 + 5, rand() % 7 + 11, rand() % 3 + 1, rand() % 8, false);
+      airtimeState goal(rs, 0);
+
+      AirCBSUnit* unit = new AirCBSUnit(start, goal);
+      unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
+      group->AddUnit(unit); // Add to the group
+      sim->AddUnit(unit); // Add the unit to the simulation
+      std::cout << "Set unit " << i << " directive from " << start << " to " << goal << " rough heading: " << (unsigned)start.headingTo(goal) << std::endl;
+
+    } else {
+      airplaneState rs1(rand() % 70 + 5, rand() % 70 + 5, rand() % 7 + 11, rand() % 3 + 1, rand() % 8, false);
+      airtimeState start(rs1, 0);
+
+      // 0% total are landing intially
+      if (false) {
+        // Replan the node to a landing location
+        airplaneState land(18, 23, 0, 0, 0, true);
+        airtimeState goal(land, 0);
+
+        AirCBSUnit* unit = new AirCBSUnit(start, goal);
+        unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
+        group->AddUnit(unit); // Add to the group
+        sim->AddUnit(unit); // Add the unit to the simulation
+        std::cout << "Set unit " << i << " directive from " << start << " to " << goal << " rough heading: " << (unsigned)start.headingTo(goal) << std::endl;
+
+      } else {
+        // Replan the node to a random location
+        airplaneState rs(rand() % 70 + 5, rand() % 70 + 5, rand() % 7 + 11, rand() % 3 + 1, rand() % 8, false);
+        airtimeState goal(rs, 0);
+
+        AirCBSUnit* unit = new AirCBSUnit(start, goal);
+        unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
+        group->AddUnit(unit); // Add to the group
+        sim->AddUnit(unit); // Add the unit to the simulation
+        std::cout << "Set unit " << i << " directive from " << start << " to " << goal << " rough heading: " << (unsigned)start.headingTo(goal) << std::endl;
+      }
+
+    }
+
+
+
+
+  }
+
+  std::cout << "cmdflags:" << use_rairspace << use_wait << std::endl;
+
+  // Add a Quadcopter
+  /*auto x = 40;
+    auto y = 40;
+    airplaneState ss(x, y, 7, 1, 7, false, AirplaneType::QUAD);
+    airtimeState start(ss, 0);
+    airplaneState gs(x, y, 18, 5, 2, false, AirplaneType::QUAD);
+    airtimeState goal(gs, 0);
+    AirCBSUnit* unit = new AirCBSUnit(start, goal);
+    unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
+    std::cout << "Set quadcopter directive from " << start << " to " << goal << " rough heading: " << (unsigned)start.headingTo(goal) << std::endl;
+    group->AddUnit(unit); // Add to the group
+    sim->AddUnit(unit); // Add the unit to the simulation
+   */
+
 
 }
 
@@ -292,6 +399,26 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 int MyCLHandler(char *argument[], int maxNumArgs)
 {
 
+	if(strcmp(argument[0], "-simpleonly") == 0)
+	{
+		simpleonly = true;
+		return 1;
+	}
+	if(strcmp(argument[0], "-complexonly") == 0)
+	{
+		complexonly = true;
+		return 1;
+	}
+	if(strcmp(argument[0], "-complextosimple") == 0)
+	{
+		complextosimple = true;
+		return 1;
+	}
+	if(strcmp(argument[0], "-nogui") == 0)
+	{
+		gui = false;
+		return 1;
+	}
 	if(strcmp(argument[0], "-rairspace") == 0)
 	{
 		use_rairspace = true;
@@ -301,6 +428,16 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 	{
 		use_wait = true;
 		return 1;
+	}
+	if(strcmp(argument[0], "-cutoff") == 0)
+	{
+		cutoff = atoi(argument[1]);	
+		return 2;
+	}
+	if(strcmp(argument[0], "-seed") == 0)
+	{
+		seed = atoi(argument[1]);	
+		return 2;
 	}
 	if(strcmp(argument[0], "-nairplanes") == 0)
 	{

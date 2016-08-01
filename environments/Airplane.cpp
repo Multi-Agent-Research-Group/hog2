@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include "Airplane.h"
 #include <iostream>
+#include <gl.h>
 #include "TemplateAStar.h"
 #include "Heuristic.h"
 
@@ -53,7 +54,7 @@ AirplaneEnvironment::AirplaneEnvironment(
   perimeterFile(perimeterFile)
 {
     // Load the perimeter heuristic before we add any obstacles to the environment...
-    srandom(time(0));
+    //srandom(time(0));
     ground.resize((width+1)*(length+1));
     groundNormals.resize((width+1)*(length+1));
     int value = random()%255;

@@ -289,6 +289,7 @@ void AirplaneConstrainedEnvironment::OpenGLDraw() const
 	}
 
 	// Draw the restricted airspace
+        if(ticket_authority)
 	for (int i = 0; i < ticket_authority->GetRestrictedAirspace().size(); i++)
 	{
 		glColor3f(0, 0, 1); // Make it blue

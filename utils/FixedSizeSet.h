@@ -11,6 +11,7 @@
 
 #include <string.h>
 #include <functional>
+#include <stddef.h>
 
 template<typename T>
 class fssIterator;

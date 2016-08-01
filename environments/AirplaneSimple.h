@@ -29,6 +29,7 @@ public:
           double gridSize=3.0, // Horizontal grid width
           std::string const& perimeterFile=std::string("airplaneSimplePerimeter.dat"));
 
+  virtual char const*const name()const{return "AirplaneSimpleEnvironment";}
 	virtual void GetActions(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
 
   virtual void GetActionsPlane(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;

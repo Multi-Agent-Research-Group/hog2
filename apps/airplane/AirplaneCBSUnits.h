@@ -29,6 +29,7 @@
 #include "TemplateAStar.h"
 #include "BFS.h"
 #include "Heuristic.h"
+#include "Timer.h"
 
 
 class AirCBSUnit : public Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> {
@@ -109,10 +110,10 @@ public:
 	void OpenGLDraw(const AirplaneConstrainedEnvironment *, const SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *)  const;
 	double getTime() {return time;}
 	bool donePlanning() {return planFinished;}
+	void ExpandOneCBSNode(bool gui=true);
 
 private:    
 
-	void ExpandOneCBSNode();
 	void Replan(int location);
 	bool FindFirstConflict(int location, airConflict &c1, airConflict &c2);
 
@@ -153,6 +154,7 @@ private:
 	std::priority_queue<AirCBSGroup::OpenListNode, std::vector<AirCBSGroup::OpenListNode>, AirCBSGroup::OpenListNodeCompare> openList;
 
 	uint TOTAL_EXPANSIONS = 0;
+        Timer* timer=0;
 
 	TicketAuthority ticketAuthority;
 
