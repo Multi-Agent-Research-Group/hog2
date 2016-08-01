@@ -17,6 +17,8 @@
 #include "AirplaneConstrained.h"
 #include "AirplaneCBSUnits.h"
 
+#include <thread>
+
 bool mouseTracking;
 int px1, py1, px2, py2;
 int absType = 0;
@@ -27,7 +29,13 @@ double stepsPerFrame = 1.0/100.0;
 double frameIncrement = 1.0/10000.0;
 std::vector<airtimeState> thePath;
 
+int num_airplanes = 5;
+bool use_rairspace = false;
+bool use_wait = false;
+
 bool paused = false;
+
+
 
 //DirectionalPlanner *dp = 0;
 //MapSectorAbstraction *quad = 0;
@@ -50,6 +58,10 @@ airplaneState tmp;
 
 int main(int argc, char* argv[])
 {
+	if (argc > 1) {
+		num_airplanes = atoi(argv[1]);
+	}
+
 	InstallHandlers();
 	RunHOGGUI(argc, argv);
 }
@@ -94,14 +106,9 @@ void InstallHandlers()
 	InstallKeyboardHandler(MyRandomUnitKeyHandler, "Add simple Unit", "Deploys a randomly moving unit", kShiftDown, 'a');
 	InstallKeyboardHandler(MyRandomUnitKeyHandler, "Add simple Unit", "Deploys a right-hand-rule unit", kControlDown, '1');
 
-	InstallCommandLineHandler(MyCLHandler, "-heuristic", "-heuristic <octile, perimeter, extendedPerimeter>", "Selects how many steps of the abstract path will be refined.");
-	InstallCommandLineHandler(MyCLHandler, "-planlen", "-planlen <int>", "Selects how many steps of the abstract path will be refined.");
-	InstallCommandLineHandler(MyCLHandler, "-scenario", "-scenario filename", "Selects the scenario to be loaded.");
-	InstallCommandLineHandler(MyCLHandler, "-model", "-model <human, tank, vehicle>", "Selects the motion model.");
-	InstallCommandLineHandler(MyCLHandler, "-map", "-map filename", "Selects the default map to be loaded.");
-	InstallCommandLineHandler(MyCLHandler, "-seed", "-seed integer", "Sets the randomized number generator to use specified key.");
-	InstallCommandLineHandler(MyCLHandler, "-batch", "-batch numScenarios", "Runs a bunch of test scenarios.");
-	InstallCommandLineHandler(MyCLHandler, "-size", "-batch integer", "If size is set, we create a square maze with the x and y dimensions specified.");
+	InstallCommandLineHandler(MyCLHandler, "-rairspace", "-rairspace", "Choose if the restricted airspace is used.");
+	InstallCommandLineHandler(MyCLHandler, "-uwait", "-uwait", "Choose if the wait action is used.");
+	InstallCommandLineHandler(MyCLHandler, "-nairplanes", "-nairplanes <number>", "Select the number of airplanes.");
 	
 	InstallWindowHandler(MyWindowHandler);
 
@@ -156,17 +163,20 @@ void InitSim(){
 	//group = new AirCBSGroup(ace,ace,4);
     // TODO: Have it use the simple environment and switch to the complex one
     //       after too many conflicts
-	group = new AirCBSGroup(ace,ace,6);
+	group = new AirCBSGroup(ace,ace,10000, use_rairspace, use_wait); // Changed to 10,000 expansions from number of conflicts in the tree
 	
 	sim->AddUnitGroup(group);
 
 	
-	// Add 100 random units
-	for (int i = 0; i < 20; i++) {
+	// Updated so we're always testing the landing conditions
+	// and forcing the airplane environment to be such that
+	// we are inducing high clonflict areas.
+	std::cout << "Adding " << num_airplanes << "planes." << std::endl;
+	for (int i = 0; i < num_airplanes; i++) {
 
 
 		// 0% are landed at the beginning
-		if (rand() % 10 == 0) {
+		if (false) {
 			airplaneState land(18, 23, 0, 0, 0, true);
 			airtimeState start(land, 0);
 
@@ -184,7 +194,7 @@ void InitSim(){
 			airtimeState start(rs1, 0);
 
 			// 0% total are landing intially
-			if (rand() % 10 == 0) {
+			if (true) {
 				// Replan the node to a landing location
 				airplaneState land(18, 23, 0, 0, 0, true);
 				airtimeState goal(land, 0);
@@ -214,27 +224,37 @@ void InitSim(){
 
 	}
 
+	std::cout << "cmdflags:" << use_rairspace << use_wait << std::endl;
+
 	// Add a Quadcopter
-	auto x = 40;
+	/*auto x = 40;
 	auto y = 40;
-	airplaneState ss(x, y, 7, 1, 7, false);
+	airplaneState ss(x, y, 7, 1, 7, false, AirplaneType::QUAD);
 	airtimeState start(ss, 0);
-	airplaneState gs(x, y, 18, 5, 2, false);
+	airplaneState gs(x, y, 18, 5, 2, false, AirplaneType::QUAD);
 	airtimeState goal(gs, 0);
 	AirCBSUnit* unit = new AirCBSUnit(start, goal);
 	unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
 	std::cout << "Set quadcopter directive from " << start << " to " << goal << " rough heading: " << (unsigned)start.headingTo(goal) << std::endl;
 	group->AddUnit(unit); // Add to the group
 	sim->AddUnit(unit); // Add the unit to the simulation
+	*/
 	
 
+}
+
+void MyComputationHandler()
+{
+	while (true)
+	{
+		sim->StepTime(stepsPerFrame);
+	}
 }
 
 //std::vector<airplaneAction> acts;
 void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 {
 
-	
 	if (ace){
         for(auto u : group->GetMembers()){
             glLineWidth(2.0);
@@ -271,84 +291,23 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 
 int MyCLHandler(char *argument[], int maxNumArgs)
 {
-//	static model motionModel = kVehicle;
-//	static int length = 3;
-//	static heuristicType hType = kExtendedPerimeterHeuristic;
-//	
-//	if (strcmp(argument[0], "-heuristic") == 0)
-//	{
-//		if (strcmp(argument[1], "octile") == 0)
-//		{
-//			hType = kOctileHeuristic;
-//			printf("Heuristic: octile\n");
-//		}
-//		else if (strcmp(argument[1], "perimeter") == 0)
-//		{
-//			hType = kPerimeterHeuristic;
-//			printf("Heuristic: perimeter\n");
-//		}
-//		else if (strcmp(argument[1], "extendedPerimeter") == 0)
-//		{
-//			hType = kExtendedPerimeterHeuristic;
-//			printf("Heuristic: extended perimeter\n");
-//		}
-//			
-//	}
-//	if (strcmp( argument[0], "-planlen" ) == 0 )
-//	{
-//		length = atoi(argument[1]);
-//		printf("Plan Length: %d\n", length);
-//		return 2;
-//	}
-//	if (strcmp( argument[0], "-model" ) == 0 )
-//	{
-//		if (strcmp(argument[1], "tank") == 0)
-//		{
-//			motionModel = kTank;
-//			printf("Motion Model: Tank\n");
-//		}
-//		else if (strcmp(argument[1], "vehicle") == 0)
-//		{
-//			motionModel = kVehicle;
-//			printf("Motion Model: Vehicle\n");
-//		}
-//		else if (strcmp(argument[1], "human") == 0)
-//		{
-//			motionModel = kHumanoid;
-//			printf("Motion Model: Human\n");
-//		}
-//		return 2;
-//	}
-//	if (strcmp( argument[0], "-map" ) == 0 )
-//	{
-//		if (maxNumArgs <= 1)
-//			return 0;
-//		strncpy(gDefaultMap, argument[1], 1024);
-//		return 2;
-//	}
-//	else if (strcmp( argument[0], "-seed" ) == 0 )
-//	{
-//		if (maxNumArgs <= 1)
-//			return 0;
-//		srand(atoi(argument[1]));
-//		return 2;
-//	}
-//	else if (strcmp( argument[0], "-size" ) == 0 )
-//	{
-//		if (maxNumArgs <= 1)
-//			return 0;
-//		mapSize = atoi(argument[1]);
-//		assert( mapSize > 0 );
-//		printf("mapSize = %d\n", mapSize);
-//		return 2;
-//	}
-//	else if (strcmp(argument[0], "-scenario") == 0)
-//	{
-//		printf("Scenario: %s\n", argument[1]);
-//		RunBatchTest(argument[1], motionModel, hType, length);
-//		exit(0);
-//	}
-	return 2; //ignore typos
+
+	if(strcmp(argument[0], "-rairspace") == 0)
+	{
+		use_rairspace = true;
+		return 1;
+	}
+	if(strcmp(argument[0], "-uwait") == 0)
+	{
+		use_wait = true;
+		return 1;
+	}
+	if(strcmp(argument[0], "-nairplanes") == 0)
+	{
+		num_airplanes = atoi(argument[1]);	
+		return 2;
+	}
+	return 1; //ignore typos
 }
 
 

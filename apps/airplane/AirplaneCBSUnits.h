@@ -97,7 +97,7 @@ struct EnvironmentContainer {
 class AirCBSGroup : public UnitGroup<airtimeState, airplaneAction, AirplaneConstrainedEnvironment>
 {
 public:
-	AirCBSGroup(AirplaneConstrainedEnvironment *me, AirplaneConstrainedEnvironment* simple, unsigned threshold);
+	AirCBSGroup(AirplaneConstrainedEnvironment *me, AirplaneConstrainedEnvironment* simple, unsigned threshold, bool u_r, bool u_w);
 	bool MakeMove(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u, AirplaneConstrainedEnvironment *e, 
 				  SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *si, airplaneAction& a);
 	void UpdateLocation(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u, AirplaneConstrainedEnvironment *e, 
@@ -115,6 +115,9 @@ private:
 	void ExpandOneCBSNode();
 	void Replan(int location);
 	bool FindFirstConflict(int location, airConflict &c1, airConflict &c2);
+
+	void DoHAStar(airtimeState& start, airtimeState& goal, std::vector<airtimeState>& thePath);
+	bool HAStarHelper(airtimeState& start, airtimeState& goal, std::vector<airtimeState>& thePath, unsigned& envConflicts, unsigned& conflicts);
 	
 	bool planFinished;
 
@@ -152,6 +155,9 @@ private:
 	uint TOTAL_EXPANSIONS = 0;
 
 	TicketAuthority ticketAuthority;
+
+	bool use_restricted = false;
+	bool use_waiting = false;
 };
 
 
