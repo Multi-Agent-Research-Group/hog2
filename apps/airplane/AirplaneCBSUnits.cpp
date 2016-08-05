@@ -111,13 +111,13 @@ AirCBSGroup::AirCBSGroup(AirplaneConstrainedEnvironment *complex, AirplaneConstr
     
 	// Construct a simple environment container
 	//EnvironmentContainer e_simple("Simple", simple, new ManhattanHeuristic<airtimeState>(), 0, 1.2);
-	EnvironmentContainer e_simple("Simple", simple, 0, 0, 1.2);
+	EnvironmentContainer e_simple("Simple", simple, 0, 0, 1);
 	this->environments.push_back(e_simple);
 	simple->SetTicketAuthority(&ticketAuthority);
 
 	// Construct a complex environment container
 	//EnvironmentContainer e_complex("Complex", complex, new OctileDistanceHeuristic<airtimeState>(), threshold, 1.8);
-	EnvironmentContainer e_complex("Complex", complex, 0, threshold, 2.5);
+	EnvironmentContainer e_complex("Complex", complex, 0, threshold, 1);
 	this->environments.push_back(e_complex);
 	complex->SetTicketAuthority(&ticketAuthority);
 
@@ -161,126 +161,137 @@ bool AirCBSGroup::MakeMove(Unit<airtimeState, airplaneAction, AirplaneConstraine
 	return false;
 }
 
+void AirCBSGroup::processSolution()
+{
+  std::cout << "Finished the plan using " << TOTAL_EXPANSIONS << " expansions." << std::endl;
+  std::cout << "Time elapsed: " << timer->EndTimer() << std::endl;
+  std::cout << "Total conflicts: " << tree.size() << std::endl;
+  TOTAL_EXPANSIONS = 0;
+  planFinished = true;
+
+  // For every unit in the node
+  for (unsigned int x = 0; x < tree[bestNode].paths.size(); x++)
+  {
+    // Grab the unit
+    AirCBSUnit *unit = (AirCBSUnit*) GetMember(x);
+
+    // Prune these paths to the current simulation time
+    airtimeState current;
+    unit->GetLocation(current);
+    std::vector<airtimeState> newPath;
+    newPath.push_back(current); // Add the current simulation node to the new path
+
+    // For everything in the path that's new, add the path back
+    for (airtimeState xNode : tree[bestNode].paths[x]) {
+      if (current.t < xNode.t - 0.0001) {
+        newPath.push_back(xNode);
+      }
+    }
+
+    // Update the actual unit path
+    unit->SetPath(newPath);
+    //std::cout << "Agent " << x << ": " << "\n";
+    //for(auto &a: tree[bestNode].paths[x])
+      //std::cout << "  " << a << "\n";
+  }
+}
+
 /** Expand a single CBS node */
 void AirCBSGroup::ExpandOneCBSNode(bool gui)
 {
-	// There's no reason to expand if the plan is finished.
-	if (planFinished)
-		return;
-        if(timer == 0){
-          timer = new Timer();
-          timer->StartTimer();
+  // There's no reason to expand if the plan is finished.
+  if (planFinished)
+    return;
+  if(timer == 0){
+    timer = new Timer();
+    timer->StartTimer();
+  }
+
+  //std::cout << "Looking for conflicts..." << std::endl;
+  airConflict c1, c2;
+  unsigned long last = tree.size();
+
+  unsigned numConflicts(FindFirstConflict(tree[bestNode], c1, c2));
+  // If not conflicts are found in this node, then the path is done
+  if (numConflicts==0)
+  {
+    processSolution();
+    if(!gui)exit(0);
+  } 
+
+  // Otherwise, we need to deal with the conflicts
+  else
+  {
+    // Notify the user of the conflict
+    std::cout << "Conflict found between unit " << c1.unit1 << " and unit " << c2.unit1 << " @:" << c2.c.start_state <<  " and " << c1.c.start_state << std::endl;
+
+    // Don't create new nodes if either bypass was successful
+    // Note, these calls will add nodes to the openList
+    if(!Bypass(bestNode,numConflicts,c1,gui) && !Bypass(bestNode,numConflicts,c2,gui))
+    {
+        last = tree.size();
+
+      // Add two nodes to the tree for each of the children
+      tree.resize(last+2);
+      // The first node contains the conflict c1
+      tree[last] = tree[bestNode];
+      tree[last].con = c1;
+      tree[last].parent = bestNode;
+      tree[last].satisfiable = true;
+
+      // The second node constains the conflict c2
+      tree[last+1] = tree[bestNode];
+      tree[last+1].con = c2;
+      tree[last+1].parent = bestNode;
+      tree[last+1].satisfiable = true;
+
+      // We now replan in the tree for both of the child nodes
+      Replan(last);
+      Replan(last+1);
+
+
+      // Add the new nodes to the open list
+      double cost = 0;
+      for (int y = 0; y < tree[last].paths.size(); y++)
+        cost += currentEnvironment->environment->GetPathLength(tree[last].paths[y]);
+      OpenListNode l1(last, cost);
+      openList.push(l1);
+
+      cost = 0;
+      for (int y = 0; y < tree[last+1].paths.size(); y++)
+        cost += currentEnvironment->environment->GetPathLength(tree[last+1].paths[y]);
+      OpenListNode l2(last+1, cost);
+      openList.push(l2);
+    }
+
+    // Get the best node from the top of the open list, and remove it from the list
+    bestNode = openList.top().location;
+    openList.pop();
+
+    // Set the visible paths for every unit in the node
+    for (unsigned int x = 0; x < tree[bestNode].paths.size(); x++)
+    {
+      // Grab the unit
+      AirCBSUnit *unit = (AirCBSUnit*) GetMember(x);
+
+      // Prune these paths to the current simulation time
+      airtimeState current;
+      unit->GetLocation(current);
+      std::vector<airtimeState> newPath;
+      newPath.push_back(current); // Add the current simulation node to the new path
+
+      // For everything in the path that's new, add the path back
+      for (airtimeState xNode : tree[bestNode].paths[x]) {
+        if (current.t < xNode.t - 0.0001) {
+          newPath.push_back(xNode);
         }
+      }
 
-	//std::cout << "Looking for conflicts..." << std::endl;
-	airConflict c1, c2;
-	bool found = FindFirstConflict(bestNode, c1, c2);
+      // Update the actual unit path
+      unit->SetPath(newPath);
+    }
 
-	// If not conflicts are found in this node, then the path is done
-	if (!found)
-        {
-          std::cout << "None found. Finished the plan using " << TOTAL_EXPANSIONS << " expansions." << std::endl;
-          std::cout << "Time elapsed: " << timer->EndTimer() << std::endl;
-          std::cout << "Total conflicts: " << tree.size() << std::endl;
-          if(!gui)exit(0);
-          TOTAL_EXPANSIONS = 0;
-          planFinished = true;
-
-          // For every unit in the node
-          for (unsigned int x = 0; x < tree[bestNode].paths.size(); x++)
-          {
-            // Grab the unit
-            AirCBSUnit *unit = (AirCBSUnit*) GetMember(x);
-
-            // Prune these paths to the current simulation time
-            airtimeState current;
-            unit->GetLocation(current);
-            std::vector<airtimeState> newPath;
-            newPath.push_back(current); // Add the current simulation node to the new path
-
-            // For everything in the path that's new, add the path back
-            for (airtimeState xNode : tree[bestNode].paths[x]) {
-              if (current.t < xNode.t - 0.0001) {
-                newPath.push_back(xNode);
-              }
-            }
-
-            // Update the actual unit path
-            unit->SetPath(newPath);
-            std::cout << "Agent " << x << ": " << "\n";
-            for(auto &a: tree[bestNode].paths[x])
-              std::cout << "  " << a << "\n";
-          }
-        } 
-
-	// Otherwise, we need to deal with the conflicts
-	else {
-
-		// Notify the user of the conflict
-		std::cout << "Conflict found between unit " << c1.unit1 << " and unit " << c2.unit1 << " @:" << c2.c.start_state <<  " and " << c1.c.start_state << std::endl;
-	
-		// Add two nodes to the tree for each of the children
-		unsigned long last = tree.size();
-		tree.resize(last+2);
-		
-		// The first node contains the conflict c1
-		tree[last] = tree[bestNode];
-		tree[last].con = c1;
-		tree[last].parent = bestNode;
-		tree[last].satisfiable = true;
-
-		// The second node constains the conflict c2
-		tree[last+1] = tree[bestNode];
-		tree[last+1].con = c2;
-		tree[last+1].parent = bestNode;
-		tree[last+1].satisfiable = true;
-		
-		// We now replan in the tree for both of the child nodes
-		Replan(last);
-		Replan(last+1);
-
-		// Add the new nodes to the open list
-		double cost = 0;
-		for (int y = 0; y < tree[last].paths.size(); y++)
-                  cost += currentEnvironment->environment->GetPathLength(tree[last].paths[y]);
-		OpenListNode l1(last, cost);
-		openList.push(l1);
-
-		cost = 0;
-		for (int y = 0; y < tree[last+1].paths.size(); y++)
-                  cost += currentEnvironment->environment->GetPathLength(tree[last+1].paths[y]);
-		OpenListNode l2(last, cost);
-		openList.push(l2);
-
-		// Get the best node from the top of the open list, and remove it from the list
-		bestNode = openList.top().location;
-		openList.pop();
-
-
-		// Set the visible paths for every unit in the node
-		for (unsigned int x = 0; x < tree[bestNode].paths.size(); x++)
-		{
-			// Grab the unit
-			AirCBSUnit *unit = (AirCBSUnit*) GetMember(x);
-			
-			// Prune these paths to the current simulation time
-			airtimeState current;
-			unit->GetLocation(current);
-			std::vector<airtimeState> newPath;
-			newPath.push_back(current); // Add the current simulation node to the new path
-
-			// For everything in the path that's new, add the path back
-			for (airtimeState xNode : tree[bestNode].paths[x]) {
-				if (current.t < xNode.t - 0.0001) {
-					newPath.push_back(xNode);
-				}
-			}
-
-			// Update the actual unit path
-			unit->SetPath(newPath);
-		}
-		
-	}
+  }
 }
 
 /** Update the location of a unit */
@@ -340,7 +351,7 @@ void AirCBSGroup::AddUnit(Unit<airtimeState, airplaneAction, AirplaneConstrained
         //std::cout << "Search using " << currentEnvironment->environment->name() << "\n";
 	astar.GetPath(currentEnvironment->environment, start, goal, thePath);
     //std::cout << "AddUnit agent: " << (GetNumMembers()-1) << " expansions: " << astar.GetNodesExpanded() << "\n";
-    TOTAL_EXPANSIONS += astar.GetNodesExpanded();
+        TOTAL_EXPANSIONS += astar.GetNodesExpanded();
 
 	// We add the optimal path to the root of the tree
 	for (unsigned int x = 0; x < thePath.size(); x++)
@@ -443,290 +454,374 @@ void AirCBSGroup::UpdateUnitGoal(Unit<airtimeState, airplaneAction, AirplaneCons
 void AirCBSGroup::UpdateSingleUnitPath(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u, airtimeState newGoal)
 {
 
-	//std::cout << "Replanning Single Unit Path..." << std::endl;
+  //std::cout << "Replanning Single Unit Path..." << std::endl;
 
-	//std::cout << "Clear the environmental constraints" << std::endl;
-	// Clear the constraints from the environment set
-	ClearEnvironmentConstraints();
+  //std::cout << "Clear the environmental constraints" << std::endl;
+  // Clear the constraints from the environment set
+  ClearEnvironmentConstraints();
 
-	// Add constraints for the rest of the units' pre-planned paths
-	for (int x = 0; x < GetNumMembers(); x++) {
-		if (GetMember(x) != u) {
-			AirCBSUnit *c = (AirCBSUnit*)GetMember(x);
+  // Add constraints for the rest of the units' pre-planned paths
+  for (int x = 0; x < GetNumMembers(); x++) {
+    if (GetMember(x) != u) {
+      AirCBSUnit *c = (AirCBSUnit*)GetMember(x);
 
-			// Loop over the pre-planned path
-			for (int i = 0; i < c->GetPath().size(); i++) {
-				// Add a vertex constraint. If you're landed, you don't collide with
-				// anything
-				if (!(c->GetPath()[i].landed)) {
-					airConstraint c1(c->GetPath()[i]);
-					AddEnvironmentConstraint(c1);
-				}
+      // Loop over the pre-planned path
+      for (int i = 0; i < c->GetPath().size(); i++) {
+        // Add a vertex constraint. If you're landed, you don't collide with
+        // anything
+        if (!(c->GetPath()[i].landed)) {
+          airConstraint c1(c->GetPath()[i]);
+          AddEnvironmentConstraint(c1);
+        }
 
-				// If we can add an edge constraint (because we know where we're going...)
-				if (i +1 < c->GetPath().size()) {
-					// Add edge consraints if the plane is landing, taking off, or 
-					// just in the air. If both states stay landed, no edge constraint
-					if (!(c->GetPath()[i].landed && !c->GetPath()[i+1].landed) ||
-						!(c->GetPath()[i].landed && c->GetPath()[i+1].landed) || 
-						(c->GetPath()[i].landed && !c->GetPath()[i+1].landed)
-						) 
-					{
-						airConstraint c2(c->GetPath()[i], c->GetPath()[i+1]);
-						AddEnvironmentConstraint(c2);
-					}
-				}
-			} /* End loop over pre-planned path */
-		} /* End if */
-	} /* End for */
+        // If we can add an edge constraint (because we know where we're going...)
+        if (i +1 < c->GetPath().size()) {
+          // Add edge consraints if the plane is landing, taking off, or 
+          // just in the air. If both states stay landed, no edge constraint
+          if (!(c->GetPath()[i].landed && !c->GetPath()[i+1].landed) ||
+              !(c->GetPath()[i].landed && c->GetPath()[i+1].landed) || 
+              (c->GetPath()[i].landed && !c->GetPath()[i+1].landed)
+             ) 
+          {
+            airConstraint c2(c->GetPath()[i], c->GetPath()[i+1]);
+            AddEnvironmentConstraint(c2);
+          }
+        }
+      } /* End loop over pre-planned path */
+    } /* End if */
+  } /* End for */
 
-	// Issue tickets for restricted airspace
-	ticketAuthority.UnissueAllTickets();
+  // Issue tickets for restricted airspace
+  ticketAuthority.UnissueAllTickets();
 
-    for (int i = 0; i < GetNumMembers(); i++) {
-    	if (GetMember(i) != u) {
-    		AirCBSUnit *c = (AirCBSUnit*)GetMember(i);
-    		// Issue tickets for the other paths
-    		std::vector<airtimeState> mPath(c->GetPath());
-    		ticketAuthority.IssueTicketsForPath(mPath, i);
-    		std::reverse(mPath.begin(), mPath.end());
-    		c->SetPath(mPath);
-    	}
+  for (int i = 0; i < GetNumMembers(); i++) {
+    if (GetMember(i) != u) {
+      AirCBSUnit *c = (AirCBSUnit*)GetMember(i);
+      // Issue tickets for the other paths
+      std::vector<airtimeState> mPath(c->GetPath());
+      ticketAuthority.IssueTicketsForPath(mPath, i);
+      std::reverse(mPath.begin(), mPath.end());
+      c->SetPath(mPath);
     }
+  }
 
-	// Get the unit location
-	AirCBSUnit *c = (AirCBSUnit*)u;
-	airtimeState current = c->GetPath()[0];
+  // Get the unit location
+  AirCBSUnit *c = (AirCBSUnit*)u;
+  airtimeState current = c->GetPath()[0];
 
-	// Plan a new path for the unit
-	//std::cout << "Going from " << current << " to " << newGoal << std::endl;
-	//astar.GetPath(currentEnvironment->environment, current, newGoal, thePath);
-	DoHAStar(current, newGoal, thePath);
-	//std::cout << "Finished replanning with " << astar.GetNodesExpanded() << " expansions." << std::endl;
+  // Plan a new path for the unit
+  //std::cout << "Going from " << current << " to " << newGoal << std::endl;
+  //astar.GetPath(currentEnvironment->environment, current, newGoal, thePath);
+  DoHAStar(current, newGoal, thePath);
+  //std::cout << "Finished replanning with " << astar.GetNodesExpanded() << " expansions." << std::endl;
 
-	//std::cout << "New Path: ";
-	//for (auto &a : thePath)
-		//std::cout << a << " ";
-	//std::cout << std::endl;
-	
-	// Update the Unit Path
-	c->SetPath(thePath);
+  //std::cout << "New Path: ";
+  //for (auto &a : thePath)
+  //std::cout << a << " ";
+  //std::cout << std::endl;
+
+  // Update the Unit Path
+  c->SetPath(thePath);
 }
+
+unsigned AirCBSGroup::IssueTicketsForNode(int location){
+  // Unissue all tickets and re-issue for non-conflicting units
+  ticketAuthority.UnissueAllTickets();
+  int theUnit(tree[location].con.unit1);
+
+  for (int i = 0; i < tree[location].paths.size(); i++) {
+    if (theUnit != i) {
+      // Issue tickets for the other paths
+      ticketAuthority.IssueTicketsForPathIgnoringCheck(tree[location].paths[i], i);
+    }
+  }
+}
+
+// Loads conflicts into environements and returns the number of conflicts loaded.
+unsigned AirCBSGroup::LoadConstraintsForNode(int location){
+  // Select the unit from the tree with the new constraint
+  int theUnit(tree[location].con.unit1);
+  unsigned numConflicts(0);
+
+  // Reset the constraints in the test-environment
+  ClearEnvironmentConstraints();
+
+  // Add all of the constraints in the parents of the current node to the environment
+  do {
+    if(theUnit == tree[location].con.unit1)
+    {
+      numConflicts++;
+      AddEnvironmentConstraint(tree[location].con.c);
+    }
+    location = tree[location].parent;
+  } while (location != 0);
+  return numConflicts;
+}
+
+// Attempts a bypass around the conflict using an alternate optimal path
+// Returns whether the bypass was effective
+bool AirCBSGroup::Bypass(int best, unsigned numConflicts, airConflict const& c1, bool gui)
+{
+  LoadConstraintsForNode(best);
+  //IssueTicketsForNode(location);
+
+  //std::cout << "Attempt to find a bypass.\n";
+
+  bool success(false);
+  airConflict c3, c4;
+  std::vector<airtimeState> newPath;
+  // Re-perform the search with the same constraints (since the start and goal are the same)
+  astar2.GetPath(currentEnvironment->environment, *tree[best].paths[c1.unit1].begin(), *tree[best].paths[c1.unit1].rbegin(), newPath);
+  TOTAL_EXPANSIONS += astar.GetNodesExpanded();
+
+  // Make sure that the current location is satisfiable
+  if (newPath.size() == 0 && !(*tree[best].paths[c1.unit1].begin() == *tree[best].paths[c1.unit1].rbegin()))
+  {
+    return false;
+  }
+
+  AirCBSTreeNode newNode(tree[best]);
+  newNode.paths[c1.unit1] = newPath;
+  unsigned bypassConflicts(FindFirstConflict(newNode, c3, c4));
+  if(bypassConflicts < numConflicts && newPath.size() <= tree[best].paths[c1.unit1].size())
+  {
+    success = true;
+    std::cout << "Found a bypass! expansions:" << astar2.GetNodesExpanded() << " len" <<newPath.size()<<" == "<<tree[best].paths[c1.unit1].size() << "\n\n\n";
+    if(bypassConflicts==0)
+    {
+      tree[best].paths[c1.unit1]=newPath;
+      processSolution();
+      if(!gui)exit(0);
+      return true;
+    }
+    else
+    {
+      // Add two nodes to the tree for each of the children
+      unsigned long last(tree.size());
+
+      tree.resize(last+2);
+      tree[last]=newNode;
+      tree[last].con = c3;
+      // Note: parent does not change
+      tree[last].satisfiable = true;
+
+      tree[last+1] = newNode;
+      tree[last+1].con = c4;
+      // Note: parent does not change
+      tree[last+1].satisfiable = true;
+
+      // Issue tickets on the path
+      //ticketAuthority.IssueTicketsForPath(tree[location].paths[theUnit], theUnit);
+
+      // Add the new nodes to the open list
+      double cost = 0;
+      for (int y = 0; y < tree[last].paths.size(); y++)
+        cost += currentEnvironment->environment->GetPathLength(tree[last].paths[y]);
+      OpenListNode l1(last, cost);
+      openList.push(l1);
+
+      cost = 0;
+      for (int y = 0; y < tree[last+1].paths.size(); y++)
+        cost += currentEnvironment->environment->GetPathLength(tree[last+1].paths[y]);
+      OpenListNode l2(last+1, cost);
+      openList.push(l2);
+    }
+  }
+
+
+  return success;
+}
+
 
 /** Replan a node given a constraint */
 void AirCBSGroup::Replan(int location)
 {
-	// Select the unit from the tree with the new constraint
-	int theUnit = tree[location].con.unit1;
+  // Select the unit from the tree with the new constraint
+  int theUnit = tree[location].con.unit1;
 
-	// Reset the constraints in the test-environment
-	ClearEnvironmentConstraints();
+  unsigned numConflicts(LoadConstraintsForNode(location));
+  IssueTicketsForNode(location);
 
-	// Add all of the constraints in the parents of the current node to the environment
-	int tempLocation = location;
-    unsigned numConflicts = 0;
-    std::vector<airConstraint> constraints;
+  // Set the environment based on the number of conflicts
+  SetEnvironment(numConflicts);
 
-    do {
-      if (theUnit == tree[tempLocation].con.unit1)
+  // Select the air unit from the group
+  AirCBSUnit *c = (AirCBSUnit*)GetMember(theUnit);
+
+  // Retreive the unit start and goal
+  airtimeState start, goal;
+  c->GetStart(start);
+  c->GetGoal(goal);
+
+  // Recalculate the path
+  //std::cout << "#conflicts for " << tempLocation << ": " << numConflicts << "\n";
+  astar.GetPath(currentEnvironment->environment, start, goal, thePath);
+  //DoHAStar(start, goal, thePath);
+  TOTAL_EXPANSIONS += astar.GetNodesExpanded();
+  //std::cout << "Replan agent: " << location << " expansions: " << astar.GetNodesExpanded() << "\n";
+
+  // Make sure that the current location is satisfiable
+  if (thePath.size() == 0 && !(goal == start)) {
+    tree[location].satisfiable = false;
+  }
+
+  // Add the path back to the tree (new constraint included)
+  tree[location].paths[theUnit].resize(0);
+  for (unsigned int x = 0; x < thePath.size(); x++)
+  {
+    tree[location].paths[theUnit].push_back(thePath[x]);
+  }
+
+  // Issue tickets on the path
+  ticketAuthority.IssueTicketsForPath(tree[location].paths[theUnit], theUnit);
+}
+
+unsigned AirCBSGroup::HasConflict(std::vector<airtimeState> const& a, std::vector<airtimeState> const& b, int x, int y, airConflict &c1, airConflict &c2, bool update, bool verbose)
+{
+  unsigned numConflicts(0);
+  // To check for conflicts, we loop through the timed actions, and check 
+  // each bit to see if a constraint is violated
+  int xmax = a.size();
+  int ymax = b.size();
+
+  if(verbose)std::cout << "Checking for conflicts between: "<<x << " and "<<y<<" ranging from:" << xmax <<"," << ymax << " update: " << update << "\n";
+
+  for (int i = 0, j = 0; j < ymax && i < xmax;) // If we've reached the end of one of the paths, then time is up and 
+    // no more conflicts could occur
+  {
+    // I and J hold the current step in the path we are comparing. We need 
+    // to check if the current I and J have a conflict, and if they do, then
+    // we have to deal with it, if not, then we don't.
+
+    // Figure out which indices we're comparing
+    int xTime = max(0, min(i, xmax-1));
+    int yTime = max(0, min(j, ymax-1));
+
+    if(verbose)std::cout << "Looking at positions " << xTime <<":"<<a[xTime].t << "," << j<<":"<<b[yTime].t << std::endl;
+
+    // Check the point constraints
+    airConstraint x_c(a[xTime]);
+    airtimeState y_c =b[yTime];
+
+
+    // Deal with landing conflicts, we dont't conflict if one of the planes stays landed at
+    // the entire time
+    if (!(a[xTime].landed && a[min(xTime + 1, xmax-1)].landed || 
+          b[yTime].landed && b[min(yTime + 1, xmax-1)].landed)) 
+    {
+      // There are 4 states landed->landed landed->not_landed not_landed->landed and not_landed->not_landed. we
+      // need to check edge conflicts on all except the landed->landed states, which we do above. If one plane
+      // stays landed the whole time, then there's no edge-conflict -> but if they don't stay landed the whole time
+      // then there's obviously a conflict, because they both have to be doing something fishy.
+
+
+      // Check the vertex conflict
+      if (x_c.ConflictsWith(y_c) && ++numConflicts && update)
       {
-        numConflicts++;
-        AddEnvironmentConstraint(tree[tempLocation].con.c);
-        // Reissue tickets for the conflicting unit
-        constraints.push_back(tree[tempLocation].con.c);
+        c1.c = x_c;
+        c2.c = y_c;
+
+        c1.unit1 = y;
+        c2.unit1 = x;
+        update = false;
+        return 1;
       }
-      tempLocation = tree[tempLocation].parent;
-    } while (tempLocation != 0);
 
-    // Unissue all tickets and re-issue for non-conflicting units
-    ticketAuthority.UnissueAllTickets();
+      // Check the edge conflicts
+      airConstraint x_e_c(a[xTime], a[min(xmax-1, xTime+1)]);
+      airConstraint y_e_c(b[yTime], b[min(ymax-1, yTime+1)]);
 
-    for (int i = 0; i < tree[tempLocation].paths.size(); i++) {
-    	if (theUnit != i) {
-    		// Issue tickets for the other paths
-    		ticketAuthority.IssueTicketsForPathIgnoringCheck(tree[tempLocation].paths[i], i);
-    	}
+      if (x_e_c.ConflictsWith(y_e_c) && ++numConflicts && update)
+      {
+        c1.c = x_e_c;
+        c2.c = y_e_c;
+
+        c1.unit1 = y;
+        c2.unit1 = x;
+        update = false;
+        return 1;
+      }
     }
 
-    // Set the environment based on the number of conflicts
-    SetEnvironment(numConflicts);
+    // Check if these states have issued and conflicting tickets
+    for (RAirspaceTicket* tx : a[xTime].current_tickets) {
+      for (RAirspaceTicket* ty : b[yTime].current_tickets) {
+        // We're looking for tickets with the same issuing airspace at the same time
+        if (tx->issuing_airspace == ty->issuing_airspace && max(ty->GetLowPoint(), tx->GetLowPoint()) <= min(ty->GetHighPoint(), tx->GetHighPoint()) + 0.001) {
+          // There might be a conflict. Check the capacity at this time
+          if (tx->issuing_airspace->GetNumUniqueTicketsAtTime(tx->GetLowPoint(), tx->GetHighPoint()) > tx->issuing_airspace->max_capacity ||
+              ty->issuing_airspace->GetNumUniqueTicketsAtTime(ty->GetLowPoint(), ty->GetHighPoint()) > ty->issuing_airspace->max_capacity) {
 
-	// Select the air unit from the group
-	AirCBSUnit *c = (AirCBSUnit*)GetMember(theUnit);
-	
-	// Retreive the unit start and goal
-	airtimeState start, goal;
-	c->GetStart(start);
-	c->GetGoal(goal);
+            // We're over capacity in a space
+            c1.c = tx->issuing_airspace->governed_area;
+            c2.c = ty->issuing_airspace->governed_area;
 
-	// Recalculate the path
-	//std::cout << "#conflicts for " << tempLocation << ": " << numConflicts << "\n";
-	//astar.GetPath(currentEnvironment->environment, start, goal, thePath);
-	DoHAStar(start, goal, thePath);
-	TOTAL_EXPANSIONS += astar.GetNodesExpanded();
-	//std::cout << "Replan agent: " << location << " expansions: " << astar.GetNodesExpanded() << "\n";
+            c1.unit1 = y;
+            c2.unit1 = x;
 
-	// Check path for conflict assertions (Bad idea to enable this while running)
-	//for (uint x = 0; x < thePath.size(); x++) {
-	//	for (uint i = 0; i < constraints.size(); i++) {
-	//		if (constraints[i].ConflictsWith(thePath[x]) || x < (thePath.size() -1 ) && constraints[i].ConflictsWith(thePath[x], thePath[x+1]))
-	//			assert(false && "Error with constrained environment");
-	//	}
-	//}
+            return 1;
+          }
+        }
+      }
+    }
 
-	// Make sure that the current location is satisfiable
-	if (thePath.size() == 0 && !(goal == start)) {
-		tree[location].satisfiable = false;
-	}
 
-	// Add the path back to the tree (new constraint included)
-	tree[location].paths[theUnit].resize(0);
-	for (unsigned int x = 0; x < thePath.size(); x++)
-	{
-		tree[location].paths[theUnit].push_back(thePath[x]);
-	}
+    // Increment the counters based on the time
 
-	// Issue tickets on the path
-	ticketAuthority.IssueTicketsForPath(tree[location].paths[theUnit], theUnit);
+    // First we check to see if either is at the end
+    // of the path. If so, immediately increment the 
+    // other counter.
+    if (i == xmax)
+    {
+      j++;
+      continue;
+    } else if (j == ymax)
+    {
+      i++;
+      continue;
+    }
+
+    // Otherwise, we figure out which ends soonest, and
+    // we increment that counter.
+    if (a[min(xmax-1, xTime+1)].t < b[min(ymax-1, yTime+1)].t)
+    {
+      // If the end-time of the x unit segment is before the end-time of the y unit segment
+      // we have in increase the x unit but leave the y unit time the same
+      i ++;
+    } 
+    else 
+    {
+      // Otherwise, the y unit time has to be incremented
+      j ++;
+    }
+
+  } // End time loop
+  return numConflicts;
 }
 
 /** Find the first place that there is a conflict in the tree */
-bool AirCBSGroup::FindFirstConflict(int location, airConflict &c1, airConflict &c2)
+unsigned AirCBSGroup::FindFirstConflict(AirCBSTreeNode const& location, airConflict &c1, airConflict &c2)
 {
 
-	// Check for ticket conflicts while we're searching for normal conflicts
-	ticketAuthority.UnissueAllTickets();
-	for (int x = 0; x < GetNumMembers(); x++) {
-		ticketAuthority.IssueTicketsForPathIgnoringCheck(tree[location].paths[x], x);
+  // Check for ticket conflicts while we're searching for normal conflicts
+  //ticketAuthority.UnissueAllTickets();
+  //for (int x = 0; x < GetNumMembers(); x++) {
+    //ticketAuthority.IssueTicketsForPathIgnoringCheck(location.paths[x], x);
+  //}
+
+  unsigned numConflicts(0);
+
+  // For each pair of units in the group
+  for (int x = 0; x < GetNumMembers(); x++)
+  {
+    for (int y = x+1; y < GetNumMembers(); y++)
+    {
+
+      numConflicts += HasConflict(location.paths[x],location.paths[y],x,y,c1,c2,numConflicts==0);
     }
+  }
 
-
-	// For each pair of units in the group
-	for (int x = 0; x < GetNumMembers(); x++)
-	{
-		for (int y = x+1; y < GetNumMembers(); y++)
-		{
-			// Unit 1 path is tree[location].paths[x]
-			// Unit 2 path is tree[location].paths[y]
-
-			// To check for conflicts, we loop through the timed actions, and check 
-			// each bit to see if a constraint is violated
-			int xmax = tree[location].paths[x].size();
-			int ymax = tree[location].paths[y].size();
-
-			//std::cout << "Checking for conflicts between: "<<x << " and "<<y<<" ranging from:" << xmax <<"," << ymax <<"\n";
-
-			for (int i = 0, j = 0; j < ymax && i < xmax;) // If we've reached the end of one of the paths, then time is up and 
-															// no more conflicts could occur
-			{
-				// I and J hold the current step in the path we are comparing. We need 
-				// to check if the current I and J have a conflict, and if they do, then
-				// we have to deal with it, if not, then we don't.
-				//std::cout << "Looking at positions " << i << "," << j << std::endl;
-				
-				// Figure out which indices we're comparing
-				int xTime = max(0, min(i, xmax-1));
-				int yTime = max(0, min(j, ymax-1));
-
-				// Check the point constraints
-				airConstraint x_c(tree[location].paths[x][xTime]);
-				airtimeState y_c =tree[location].paths[y][yTime];
-
-				
-				// Deal with landing conflicts, we dont't conflict if one of the planes stays landed at
-				// the entire time
-				if (!(tree[location].paths[x][xTime].landed && tree[location].paths[x][min(xTime + 1, xmax-1)].landed || 
-					tree[location].paths[y][yTime].landed && tree[location].paths[y][min(yTime + 1, xmax-1)].landed)) 
-				{
-					// There are 4 states landed->landed landed->not_landed not_landed->landed and not_landed->not_landed. we
-					// need to check edge conflicts on all except the landed->landed states, which we do above. If one plane
-					// stays landed the whole time, then there's no edge-conflict -> but if they don't stay landed the whole time
-					// then there's obviously a conflict, because they both have to be doing something fishy.
-					
-
-					// Check the vertex conflict
-					if (x_c.ConflictsWith(y_c))
-					{
-						c1.c = x_c;
-						c2.c = y_c;
-
-						c1.unit1 = y;
-						c2.unit1 = x;
-						return true;
-					}
-
-					// Check the edge conflicts
-					airConstraint x_e_c(tree[location].paths[x][xTime], tree[location].paths[x][min(xmax-1, xTime+1)]);
-					airConstraint y_e_c(tree[location].paths[y][yTime], tree[location].paths[y][min(ymax-1, yTime+1)]);
-					
-					if (x_e_c.ConflictsWith(y_e_c))
-					{
-						c1.c = x_e_c;
-						c2.c = y_e_c;
-
-						c1.unit1 = y;
-						c2.unit1 = x;
-						return true;
-					}
-				}
-
-				// Check if these states have issued and conflicting tickets
-				for (RAirspaceTicket* tx : tree[location].paths[x][xTime].current_tickets) {
-					for (RAirspaceTicket* ty : tree[location].paths[y][yTime].current_tickets) {
-						// We're looking for tickets with the same issuing airspace at the same time
-						if (tx->issuing_airspace == ty->issuing_airspace && max(ty->GetLowPoint(), tx->GetLowPoint()) <= min(ty->GetHighPoint(), tx->GetHighPoint()) + 0.001) {
-							// There might be a conflict. Check the capacity at this time
-							if (tx->issuing_airspace->GetNumUniqueTicketsAtTime(tx->GetLowPoint(), tx->GetHighPoint()) > tx->issuing_airspace->max_capacity ||
-								ty->issuing_airspace->GetNumUniqueTicketsAtTime(ty->GetLowPoint(), ty->GetHighPoint()) > ty->issuing_airspace->max_capacity) {
-								
-								// We're over capacity in a space
-								c1.c = tx->issuing_airspace->governed_area;
-								c2.c = ty->issuing_airspace->governed_area;
-
-								c1.unit1 = y;
-								c2.unit1 = x;
-
-								return true;
-							}
-						}
-					}	
-				}
-				
-
-				// Increment the counters based on the time
-				
-				// First we check to see if either is at the end
-				// of the path. If so, immediately increment the 
-				// other counter.
-				if (i == xmax)
-				{
-					j++;
-					continue;
-				} else if (j == ymax)
-				{
-					i++;
-					continue;
-				}
-
-				// Otherwise, we figure out which ends soonest, and
-				// we increment that counter.
-				if (tree[location].paths[x][min(xmax-1, xTime+1)].t < tree[location].paths[y][min(ymax-1, yTime+1)].t)
-				{
-					// If the end-time of the x unit segment is before the end-time of the y unit segment
-					// we have in increase the x unit but leave the y unit time the same
-					i ++;
-				} 
-				else 
-				{
-					// Otherwise, the y unit time has to be incremented
-					j ++;
-				}
-
-			} // End time loop
-		} // End Unit 2 loop
-	} // End Unit 1 Loop
-	
-	return false;
+  return numConflicts;
 }
 
 void AirCBSGroup::DoHAStar(airtimeState& start, airtimeState& goal, std::vector<airtimeState>& thePath) 
@@ -758,7 +853,7 @@ bool AirCBSGroup::HAStarHelper(airtimeState& start, airtimeState& goal, std::vec
 {
 	thePath.resize(0);
 	//SetEnvironment(envConflicts);
-        //std::cout << "Search using " << currentEnvironment->environment->name() << envConflicts << "\n";
+        std::cout << "DOH Search using " << currentEnvironment->environment->name() << envConflicts << "\n";
 	if (!astar.InitializeSearch(currentEnvironment->environment, start, goal, thePath))
 		return false;
 

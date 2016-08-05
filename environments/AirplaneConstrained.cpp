@@ -57,7 +57,7 @@ AirplaneConstrainedEnvironment::AirplaneConstrainedEnvironment(AirplaneEnvironme
 /// CONSTRAINT MANAGEMENT
 
 // Add a constraint of any type
-void AirplaneConstrainedEnvironment::AddConstraint(airConstraint c)
+void AirplaneConstrainedEnvironment::AddConstraint(airConstraint const& c)
 {
 	constraints.push_back(c);
 }
@@ -67,12 +67,14 @@ void AirplaneConstrainedEnvironment::AddPointConstraint(const airtimeState &loc)
 {
 	airConstraint x(loc);
 	constraints.push_back(x);
+  std::cout << "1CONSTRAINTS " << constraints.size() << "\n";
 }
 
 void AirplaneConstrainedEnvironment::AddBoxConstraint(const airtimeState &loc1, const airtimeState &loc2)
 {
 	airConstraint x(loc1, loc2);
 	constraints.push_back(x);
+  std::cout << "2CONSTRAINTS " << constraints.size() << "\n";
 }
 
 void AirplaneConstrainedEnvironment::ClearConstraints()
@@ -82,7 +84,7 @@ void AirplaneConstrainedEnvironment::ClearConstraints()
 
 
 // Add a constraint of any type
-void AirplaneConstrainedEnvironment::AddStaticConstraint(airConstraint c)
+void AirplaneConstrainedEnvironment::AddStaticConstraint(airConstraint const& c)
 {
 	static_constraints.push_back(c);
 }
@@ -115,28 +117,29 @@ void AirplaneConstrainedEnvironment::GetActions(const airtimeState &nodeID, std:
 }
 void AirplaneConstrainedEnvironment::GetSuccessors(const airtimeState &nodeID, std::vector<airtimeState> &neighbors) const
 {
-	// Create a location to hold the states
-	std::vector<airplaneAction> actions;
+  // Create a location to hold the states
+  std::vector<airplaneAction> actions;
 
-	// Get the successors from the hidden AE
-	this->ae->GetActions(nodeID, actions);
+  // Get the successors from the hidden AE
+  this->ae->GetActions(nodeID, actions);
 
-	// Check to see if any constraints are violated, and remove them from the actions that are allowed
-	for (airplaneAction act : actions)
-	{
-		// Construct the followup state
-		airtimeState new_state(nodeID, nodeID.t);
-		this->ApplyAction(new_state, act);
+  // Check to see if any constraints are violated, and remove them from the actions that are allowed
+  for (airplaneAction act : actions)
+  {
+    // Construct the followup state
+    airtimeState new_state(nodeID, nodeID.t);
+    this->ApplyAction(new_state, act);
 
-		// Check to see if it violates any hard constraint. If it does not, push it back.
-		if (!ViolatesConstraint(nodeID, new_state))
-        {
-        	if (ticket_authority->CanObtainTicket(new_state)) {
-        		neighbors.push_back(new_state);
-        	}
-        }
-	}
+    // Check to see if it violates any hard constraint. If it does not, push it back.
+    if (!ViolatesConstraint(nodeID, new_state))
+    {
+      if (ticket_authority->CanObtainTicket(new_state)) {
+        neighbors.push_back(new_state);
+      }
+    }
+  }
 }
+
 void AirplaneConstrainedEnvironment::ApplyAction(airtimeState &s, airplaneAction a) const
 {
 	// Apply the action on the hidden AE
@@ -497,109 +500,108 @@ void airConstraint::OpenGLDraw() const
 
 bool AirplaneConstrainedEnvironment::ViolatesConstraint(const airplaneState &from, const airplaneState &to, int time) const
 {
-	// Generate the two timestates that define the action box
-	airplaneAction act = ae->GetAction(from, to);
-	airtimeState fromtimestate(from, time);
-	airtimeState totimestate(from, time);
-	this->ApplyAction(totimestate, act);
-    
-    return ViolatesConstraint(fromtimestate,totimestate);
+  // Generate the two timestates that define the action box
+  airplaneAction act = ae->GetAction(from, to);
+  airtimeState fromtimestate(from, time);
+  airtimeState totimestate(from, time);
+  this->ApplyAction(totimestate, act);
+
+  return ViolatesConstraint(fromtimestate,totimestate);
 
 }
 
 // Basically the same code as above, but overloaded so the first section is not necessary
 bool AirplaneConstrainedEnvironment::ViolatesConstraint(const airtimeState &from, const airtimeState &to) const
 {
-	// Generate a well formed set of boxes for the action box
-	// which we will need later to compare
-	int a_minx = std::min<int>(from.x, to.x);
-	int a_maxx = std::max<int>(from.x, to.x);
+  // Generate a well formed set of boxes for the action box
+  // which we will need later to compare
+  int a_minx = std::min<int>(from.x, to.x);
+  int a_maxx = std::max<int>(from.x, to.x);
 
-	int a_miny = std::min<int>(from.y, to.y);
-	int a_maxy = std::max<int>(from.y, to.y);
+  int a_miny = std::min<int>(from.y, to.y);
+  int a_maxy = std::max<int>(from.y, to.y);
 
-	int a_minz = std::min<int>(from.height, to.height);
-	int a_maxz = std::max<int>(from.height, to.height);
+  int a_minz = std::min<int>(from.height, to.height);
+  int a_maxz = std::max<int>(from.height, to.height);
 
-	// Allocate some temp variables
-	int c_minx, c_maxx, c_miny, c_maxy, c_minz, c_maxz;
-
-
-	// If both are landed, then the plane's not going anywhere - and we're good
-	if (from.landed && to.landed)
-		return false;
-
-	//Check if the action box violates any of the constraints that are in the constraints list
-	for (airConstraint c : constraints)
-	{
-
-		// Check if the range of the constraint overlaps in time
-		if (max(c.start_state.t, from.t) <= min(c.end_state.t, to.t) + 0.00001) 
-		{
-	       // Generate a well formed set of boxes for the constraint box
-			c_minx = c.start_state.x < c.end_state.x ? c.start_state.x : c.end_state.x;
-	        c_maxx = c.start_state.x > c.end_state.x ? c.start_state.x : c.end_state.x;
-
-	        c_miny = c.start_state.y < c.end_state.y ? c.start_state.y : c.end_state.y;
-	        c_maxy = c.start_state.y > c.end_state.y ? c.start_state.y : c.end_state.y;
-
-	        c_minz = c.start_state.height < c.end_state.height ? c.start_state.height : c.end_state.height;
-	        c_maxz = c.start_state.height > c.end_state.height ? c.start_state.height : c.end_state.height;
-
-			
-			if (std::max<int>(c_minx, a_minx) <= std::min<int>(c_maxx, a_maxx) && // Check if overlapping on the X axis
-				std::max<int>(c_miny, a_miny) <= std::min<int>(c_maxy, a_maxy) && // Check if overlapping on the Y axis
-				std::max<int>(c_minz, a_minz) <= std::min<int>(c_maxz, a_maxz)    // Check if overlapping on the Z axis
-				)
-			{
-				// If we overlap on all three axis, then there must be a common point, and thus
-				// we can return that the constraint was violated
-				return true;
-			}
-
-		}
-	}
+  // Allocate some temp variables
+  int c_minx, c_maxx, c_miny, c_maxy, c_minz, c_maxz;
 
 
-	// If landing, we don't want to check the static constraints - but we don't want planes taking off and landing
-	// at the same time
-	if (from.landed || to.landed)
-	{
-		return false;
-	}
+  // If both are landed, then the plane's not going anywhere - and we're good
+  if (from.landed && to.landed)
+    return false;
 
-	//Check if the action box violates any of the constraints that are in the static constraints list
-	for (airConstraint c : static_constraints)
-	{
-		// Check if the range of the constraint overlaps in time
-		if (max(c.start_state.t, from.t) <= min(c.end_state.t, to.t) + 0.00001) 
-		{
-	       // Generate a well formed set of boxes for the constraint box
-			c_minx = c.start_state.x < c.end_state.x ? c.start_state.x : c.end_state.x;
-	        c_maxx = c.start_state.x > c.end_state.x ? c.start_state.x : c.end_state.x;
+  //Check if the action box violates any of the constraints that are in the constraints list
+  for (airConstraint c : constraints)
+  {
 
-	        c_miny = c.start_state.y < c.end_state.y ? c.start_state.y : c.end_state.y;
-	        c_maxy = c.start_state.y > c.end_state.y ? c.start_state.y : c.end_state.y;
+    // Check if the range of the constraint overlaps in time
+    if (max(c.start_state.t, from.t) <= min(c.end_state.t, to.t) + 0.00001) 
+    {
+      // Generate a well formed set of boxes for the constraint box
+      c_minx = c.start_state.x < c.end_state.x ? c.start_state.x : c.end_state.x;
+      c_maxx = c.start_state.x > c.end_state.x ? c.start_state.x : c.end_state.x;
 
-	        c_minz = c.start_state.height < c.end_state.height ? c.start_state.height : c.end_state.height;
-	        c_maxz = c.start_state.height > c.end_state.height ? c.start_state.height : c.end_state.height;
+      c_miny = c.start_state.y < c.end_state.y ? c.start_state.y : c.end_state.y;
+      c_maxy = c.start_state.y > c.end_state.y ? c.start_state.y : c.end_state.y;
 
-			
-			if (std::max<int>(c_minx, a_minx) <= std::min<int>(c_maxx, a_maxx) && // Check if overlapping on the X axis
-				std::max<int>(c_miny, a_miny) <= std::min<int>(c_maxy, a_maxy) && // Check if overlapping on the Y axis
-				std::max<int>(c_minz, a_minz) <= std::min<int>(c_maxz, a_maxz)    // Check if overlapping on the Z axis
-				)
-			{
-				// If we overlap on all three axis, then there must be a common point, and thus
-				// we can return that the constraint was violated
-				return true;
-			}
+      c_minz = c.start_state.height < c.end_state.height ? c.start_state.height : c.end_state.height;
+      c_maxz = c.start_state.height > c.end_state.height ? c.start_state.height : c.end_state.height;
 
-		}
-	}
 
-	// If no constraint is violated, return false
-	return false;
+      if (std::max<int>(c_minx, a_minx) <= std::min<int>(c_maxx, a_maxx) && // Check if overlapping on the X axis
+          std::max<int>(c_miny, a_miny) <= std::min<int>(c_maxy, a_maxy) && // Check if overlapping on the Y axis
+          std::max<int>(c_minz, a_minz) <= std::min<int>(c_maxz, a_maxz)    // Check if overlapping on the Z axis
+         )
+      {
+        // If we overlap on all three axis, then there must be a common point, and thus
+        // we can return that the constraint was violated
+        return true;
+      }
+
+    }
+  }
+
+
+  // If landing, we don't want to check the static constraints - but we don't want planes taking off and landing
+  // at the same time
+  if (from.landed || to.landed)
+  {
+    return false;
+  }
+
+  //Check if the action box violates any of the constraints that are in the static constraints list
+  for (airConstraint c : static_constraints)
+  {
+    // Check if the range of the constraint overlaps in time
+    if (max(c.start_state.t, from.t) <= min(c.end_state.t, to.t) + 0.00001) 
+    {
+      // Generate a well formed set of boxes for the constraint box
+      c_minx = c.start_state.x < c.end_state.x ? c.start_state.x : c.end_state.x;
+      c_maxx = c.start_state.x > c.end_state.x ? c.start_state.x : c.end_state.x;
+
+      c_miny = c.start_state.y < c.end_state.y ? c.start_state.y : c.end_state.y;
+      c_maxy = c.start_state.y > c.end_state.y ? c.start_state.y : c.end_state.y;
+
+      c_minz = c.start_state.height < c.end_state.height ? c.start_state.height : c.end_state.height;
+      c_maxz = c.start_state.height > c.end_state.height ? c.start_state.height : c.end_state.height;
+
+
+      if (std::max<int>(c_minx, a_minx) <= std::min<int>(c_maxx, a_maxx) && // Check if overlapping on the X axis
+          std::max<int>(c_miny, a_miny) <= std::min<int>(c_maxy, a_maxy) && // Check if overlapping on the Y axis
+          std::max<int>(c_minz, a_minz) <= std::min<int>(c_maxz, a_maxz)    // Check if overlapping on the Z axis
+         )
+      {
+        // If we overlap on all three axis, then there must be a common point, and thus
+        // we can return that the constraint was violated
+        return true;
+      }
+
+    }
+  }
+
+  // If no constraint is violated, return false
+  return false;
 }
-
 

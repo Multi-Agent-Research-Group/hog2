@@ -38,12 +38,12 @@ public:
 	/// CONSTRAINTS
 	
 	/** Add a constraint to the model */
-	void AddConstraint(airConstraint c);
+	void AddConstraint(airConstraint const& c);
 	void AddConstraint(Constraint<airtimeState> c) {AddConstraint(airConstraint(c));}
 
 	void AddPointConstraint(const airtimeState &loc);
 	void AddBoxConstraint(const airtimeState &loc1, const airtimeState &loc2);
-	void AddStaticConstraint(airConstraint c);
+	void AddStaticConstraint(airConstraint const& c);
 	void AddStaticPointConstraint(const airtimeState &loc);
 	void AddStaticBoxConstraint(const airtimeState &loc1, const airtimeState &loc2);
 
@@ -119,12 +119,12 @@ public:
 	uint8_t GetSpeeds(){return ae->numSpeeds;}
 	void SetTicketAuthority(TicketAuthority* tk) {this->ticket_authority = tk;}
 	TicketAuthority* ticket_authority;
+	/** Vector holding the current constraints */
+	std::vector<airConstraint> constraints;
 private:
 	
 
 
-	/** Vector holding the current constraints */
-	std::vector<airConstraint> constraints;
 	std::vector<airConstraint> static_constraints;
 
 	/** Map holding the current sets of restricted airspace */

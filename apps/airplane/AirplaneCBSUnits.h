@@ -31,6 +31,18 @@
 #include "Heuristic.h"
 #include "Timer.h"
 
+template <class state>
+struct CompareLowGCost {
+	bool operator()(const AStarOpenClosedData<state> &i1, const AStarOpenClosedData<state> &i2) const
+	{
+		if (fequal(i1.g+i1.h, i2.g+i2.h))
+		{
+			return fless(i1.data.t,i2.data.t);//rand()%2;//(fgreater(i1.g, i2.g));
+		}
+		return (fgreater(i1.g+i1.h, i2.g+i2.h));
+	}
+};
+
 
 class AirCBSUnit : public Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> {
 public:
@@ -114,8 +126,13 @@ public:
 
 private:    
 
+        unsigned IssueTicketsForNode(int location);
+        unsigned LoadConstraintsForNode(int location);
+        bool Bypass(int best, unsigned numConflicts, airConflict const& c1, bool gui);
 	void Replan(int location);
-	bool FindFirstConflict(int location, airConflict &c1, airConflict &c2);
+        unsigned HasConflict(std::vector<airtimeState> const& a, std::vector<airtimeState> const& b, int x, int y, airConflict &c1, airConflict &c2, bool update, bool verbose=false);
+	unsigned FindFirstConflict(AirCBSTreeNode const& location, airConflict &c1, airConflict &c2);
+        void processSolution();
 
 	void DoHAStar(airtimeState& start, airtimeState& goal, std::vector<airtimeState>& thePath);
 	bool HAStarHelper(airtimeState& start, airtimeState& goal, std::vector<airtimeState>& thePath, unsigned& envConflicts, unsigned& conflicts);
@@ -133,7 +150,7 @@ private:
 	std::vector<AirCBSTreeNode> tree;
 	std::vector<airtimeState> thePath;
 	TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> astar;
-
+	TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment, AStarOpenClosed<airtimeState, CompareLowGCost<airtimeState> > > astar2;
 	double time;
 
 	unsigned int bestNode;
