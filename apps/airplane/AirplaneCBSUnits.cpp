@@ -102,7 +102,7 @@ void AirCBSUnit::UpdateGoal(airtimeState &s, airtimeState &g)
 /** CBS GROUP DEFINITIONS */
 
 AirCBSGroup::AirCBSGroup(AirplaneConstrainedEnvironment *complex, AirplaneConstrainedEnvironment* simple,
-  unsigned threshold, bool u_r, bool u_w) : time(0), bestNode(0), planFinished(false), use_restricted(u_r), use_waiting(u_w)
+  unsigned threshold, bool u_r, bool u_w, bool no_bypass) : time(0), bestNode(0), planFinished(false), use_restricted(u_r), use_waiting(u_w), nobypass(no_bypass)
 {
  //std::cout << "THRESHOLD " << threshold << "\n";
 
@@ -562,6 +562,8 @@ unsigned AirCBSGroup::LoadConstraintsForNode(int location){
 // Returns whether the bypass was effective
 bool AirCBSGroup::Bypass(int best, unsigned numConflicts, airConflict const& c1, bool gui)
 {
+  std::cout << "NOBYPASS " << nobypass << "\n";
+  if(nobypass)return false;
   LoadConstraintsForNode(best);
   //IssueTicketsForNode(location);
 

@@ -37,6 +37,7 @@ bool complexonly = false;
 bool simpleonly = false;
 bool use_rairspace = false;
 bool use_wait = false;
+bool nobypass = false;
 
 bool paused = false;
 
@@ -116,6 +117,7 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-uwait", "-uwait", "Choose if the wait action is used.");
 	InstallCommandLineHandler(MyCLHandler, "-nairplanes", "-nairplanes <number>", "Select the number of airplanes.");
 	InstallCommandLineHandler(MyCLHandler, "-seed", "-seed <number>", "Seed for random number generator (defaults to clock)");
+	InstallCommandLineHandler(MyCLHandler, "-nobypass", "-nobypass", "Turn off bypass option");
 	InstallCommandLineHandler(MyCLHandler, "-cutoff", "-cutoff <number>", "Number of conflicts to tolerate before switching to complex environment");
 	InstallCommandLineHandler(MyCLHandler, "-complexonly", "-complexonly", "Use only the complex environment");
 	InstallCommandLineHandler(MyCLHandler, "-simpleonly", "-simpleonly", "Use only the simple environment");
@@ -162,13 +164,13 @@ void InitHeadless(){
 
 
   if(complexonly)
-    group = new AirCBSGroup(ace,ace,cutoff, use_rairspace, use_wait); // Changed to 10,000 expansions from number of conflicts in the tree
+    group = new AirCBSGroup(ace,ace,cutoff, use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
   else if(simpleonly)
-    group = new AirCBSGroup(aces,aces,cutoff, use_rairspace, use_wait); // Changed to 10,000 expansions from number of conflicts in the tree
+    group = new AirCBSGroup(aces,aces,cutoff, use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
   else if(complextosimple)
-    group = new AirCBSGroup(aces,ace,cutoff, use_rairspace, use_wait); // Changed to 10,000 expansions from number of conflicts in the tree
+    group = new AirCBSGroup(aces,ace,cutoff, use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
   else
-    group = new AirCBSGroup(ace,aces,cutoff, use_rairspace, use_wait); // Changed to 10,000 expansions from number of conflicts in the tree
+    group = new AirCBSGroup(ace,aces,cutoff, use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
 
   // Updated so we're always testing the landing conditions
   // and forcing the airplane environment to be such that
@@ -223,7 +225,7 @@ void InitHeadless(){
 
   }
 
-  std::cout << "cmdflags:" << use_rairspace << use_wait << std::endl;
+  //std::cout << "cmdflags:" << use_rairspace << use_wait << std::endl;
 
   // Add a Quadcopter
   /*auto x = 40;
@@ -244,6 +246,7 @@ void InitHeadless(){
 
 void InitSim(){
   std::cout << "Setting seed " << seed << "\n";
+  std::cout << "Setting nobypass " << nobypass << "\n";
   srand(seed);
   srandom(seed);
   AirplaneEnvironment* ae = new AirplaneEnvironment();
@@ -264,13 +267,13 @@ void InitSim(){
   // TODO: Have it use the simple environment and switch to the complex one
   //       after too many conflicts
   if(complexonly)
-    group = new AirCBSGroup(ace,ace,cutoff, use_rairspace, use_wait); // Changed to 10,000 expansions from number of conflicts in the tree
+    group = new AirCBSGroup(ace,ace,cutoff, use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
   else if(simpleonly)
-    group = new AirCBSGroup(aces,aces,cutoff, use_rairspace, use_wait); // Changed to 10,000 expansions from number of conflicts in the tree
+    group = new AirCBSGroup(aces,aces,cutoff, use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
   else if(complextosimple)
-    group = new AirCBSGroup(aces,ace,cutoff, use_rairspace, use_wait); // Changed to 10,000 expansions from number of conflicts in the tree
+    group = new AirCBSGroup(aces,ace,cutoff, use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
   else
-    group = new AirCBSGroup(ace,aces,cutoff, use_rairspace, use_wait); // Changed to 10,000 expansions from number of conflicts in the tree
+    group = new AirCBSGroup(ace,aces,cutoff, use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
 
   sim->AddUnitGroup(group);
 
@@ -331,7 +334,7 @@ void InitSim(){
 
   }
 
-  std::cout << "cmdflags:" << use_rairspace << use_wait << std::endl;
+  //std::cout << "cmdflags:" << use_rairspace << use_wait << std::endl;
 
   // Add a Quadcopter
   /*auto x = 40;
@@ -422,6 +425,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 	if(strcmp(argument[0], "-rairspace") == 0)
 	{
 		use_rairspace = true;
+		return 1;
+	}
+	if(strcmp(argument[0], "-nobypass") == 0)
+	{
+		nobypass = true;
 		return 1;
 	}
 	if(strcmp(argument[0], "-uwait") == 0)
