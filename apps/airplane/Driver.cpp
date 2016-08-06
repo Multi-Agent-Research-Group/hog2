@@ -8,7 +8,7 @@
 //#include "AStar.h"
 //#include "GenericSearchUnit.h"
 //#include "GenericPatrolUnit.h"
-//#include "TemplateAStar.h"
+//#include "TemplateAStar2.h"
 //#include "MapSectorAbstraction.h"
 //#include "DirectionalPlanner.h"
 #include "ScenarioLoader.h"
@@ -29,11 +29,13 @@ double stepsPerFrame = 1.0/100.0;
 double frameIncrement = 1.0/10000.0;
 std::vector<airtimeState> thePath;
 
-int cutoff = 10000;
+int cutoff1 = 3; // for simple
+int cutoff2 = 6; // for complex
 int seed = clock();
 int num_airplanes = 5;
 bool complextosimple = false;
 bool complexonly = false;
+bool highwayonly = false;
 bool simpleonly = false;
 bool use_rairspace = false;
 bool use_wait = false;
@@ -118,7 +120,9 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-nairplanes", "-nairplanes <number>", "Select the number of airplanes.");
 	InstallCommandLineHandler(MyCLHandler, "-seed", "-seed <number>", "Seed for random number generator (defaults to clock)");
 	InstallCommandLineHandler(MyCLHandler, "-nobypass", "-nobypass", "Turn off bypass option");
-	InstallCommandLineHandler(MyCLHandler, "-cutoff", "-cutoff <number>", "Number of conflicts to tolerate before switching to complex environment");
+	InstallCommandLineHandler(MyCLHandler, "-simplecutoff", "-simplecutoff <number>", "Number of conflicts to tolerate before switching to simple environment");
+	InstallCommandLineHandler(MyCLHandler, "-complexcutoff", "-complexcutoff <number>", "Number of conflicts to tolerate before switching to complex environment");
+	InstallCommandLineHandler(MyCLHandler, "-highwayonly", "-highwayonly", "Use only the highway environment");
 	InstallCommandLineHandler(MyCLHandler, "-complexonly", "-complexonly", "Use only the complex environment");
 	InstallCommandLineHandler(MyCLHandler, "-simpleonly", "-simpleonly", "Use only the simple environment");
 	InstallCommandLineHandler(MyCLHandler, "-complextosimple", "-complextosimple", "Switch complex to simple instead of the inverse");
@@ -164,13 +168,15 @@ void InitHeadless(){
 
 
   if(complexonly)
-    group = new AirCBSGroup(ace,ace,cutoff, use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
+    group = new AirCBSGroup(ace,ace,ace,cutoff1,cutoff2,use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
+  else if(highwayonly)
+    group = new AirCBSGroup(aceh,aceh,aceh,cutoff1,cutoff2,use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
   else if(simpleonly)
-    group = new AirCBSGroup(aces,aces,cutoff, use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
+    group = new AirCBSGroup(aces,aces,aces,cutoff1,cutoff2,use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
   else if(complextosimple)
-    group = new AirCBSGroup(aces,ace,cutoff, use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
+    group = new AirCBSGroup(aceh,aces,ace,cutoff1,cutoff2,use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
   else
-    group = new AirCBSGroup(ace,aces,cutoff, use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
+    group = new AirCBSGroup(ace,aces,aceh,cutoff1,cutoff2,use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
 
   // Updated so we're always testing the landing conditions
   // and forcing the airplane environment to be such that
@@ -267,16 +273,17 @@ void InitSim(){
   // TODO: Have it use the simple environment and switch to the complex one
   //       after too many conflicts
   if(complexonly)
-    group = new AirCBSGroup(ace,ace,cutoff, use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
+    group = new AirCBSGroup(ace,ace,ace,cutoff1,cutoff2,use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
+  else if(highwayonly)
+    group = new AirCBSGroup(aceh,aceh,aceh,cutoff1,cutoff2,use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
   else if(simpleonly)
-    group = new AirCBSGroup(aces,aces,cutoff, use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
+    group = new AirCBSGroup(aces,aces,aces,cutoff1,cutoff2,use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
   else if(complextosimple)
-    group = new AirCBSGroup(aces,ace,cutoff, use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
+    group = new AirCBSGroup(aces,aceh,ace,cutoff1,cutoff2,use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
   else
-    group = new AirCBSGroup(ace,aces,cutoff, use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
+    group = new AirCBSGroup(ace,aces,aceh,cutoff1,cutoff2,use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
 
   sim->AddUnitGroup(group);
-
 
   // Updated so we're always testing the landing conditions
   // and forcing the airplane environment to be such that
@@ -407,6 +414,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 		simpleonly = true;
 		return 1;
 	}
+	if(strcmp(argument[0], "-highwayonly") == 0)
+	{
+		highwayonly = true;
+		return 1;
+	}
 	if(strcmp(argument[0], "-complexonly") == 0)
 	{
 		complexonly = true;
@@ -437,9 +449,14 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 		use_wait = true;
 		return 1;
 	}
-	if(strcmp(argument[0], "-cutoff") == 0)
+	if(strcmp(argument[0], "-simplecutoff") == 0)
 	{
-		cutoff = atoi(argument[1]);	
+		cutoff1 = atoi(argument[1]);	
+		return 2;
+	}
+	if(strcmp(argument[0], "-complexcutoff") == 0)
+	{
+		cutoff2 = atoi(argument[1]);	
 		return 2;
 	}
 	if(strcmp(argument[0], "-seed") == 0)
@@ -512,7 +529,7 @@ void MyPathfindingKeyHandler(unsigned long , tKeyboardModifier , char)
 //	__gnu_cxx::hash_map<uint64_t, xySpeedHeading, Hash64 > stateTable;
 //	
 //	std::vector<xySpeedHeading> path;
-//	TemplateAStar<xySpeedHeading, deltaSpeedHeading, Directional2DEnvironment> alg;
+//	TemplateAStar2<xySpeedHeading, deltaSpeedHeading, Directional2DEnvironment> alg;
 //	alg.SetStopAfterGoal(false);
 //	alg.InitializeSearch(&d, l1, l1, path);
 //	for (int x = 0; x < 2000; x++)

@@ -101,44 +101,49 @@ void AirCBSUnit::UpdateGoal(airtimeState &s, airtimeState &g)
 
 /** CBS GROUP DEFINITIONS */
 
-AirCBSGroup::AirCBSGroup(AirplaneConstrainedEnvironment *complex, AirplaneConstrainedEnvironment* simple,
-  unsigned threshold, bool u_r, bool u_w, bool no_bypass) : time(0), bestNode(0), planFinished(false), use_restricted(u_r), use_waiting(u_w), nobypass(no_bypass)
+AirCBSGroup::AirCBSGroup(AirplaneConstrainedEnvironment *complex, AirplaneConstrainedEnvironment* simple, AirplaneConstrainedEnvironment* highway,
+  unsigned simpleThreshold, unsigned complexThreshold, bool u_r, bool u_w, bool no_bypass) : time(0), bestNode(0), planFinished(false), use_restricted(u_r), use_waiting(u_w), nobypass(no_bypass)
 {
- //std::cout << "THRESHOLD " << threshold << "\n";
+  //std::cout << "THRESHOLD " << threshold << "\n";
 
-	tree.resize(1);
-	tree[0].parent = 0;
-    
-	// Construct a simple environment container
-	//EnvironmentContainer e_simple("Simple", simple, new ManhattanHeuristic<airtimeState>(), 0, 1.2);
-	EnvironmentContainer e_simple("Simple", simple, 0, 0, 1);
-	this->environments.push_back(e_simple);
-	simple->SetTicketAuthority(&ticketAuthority);
+  tree.resize(1);
+  tree[0].parent = 0;
 
-	// Construct a complex environment container
-	//EnvironmentContainer e_complex("Complex", complex, new OctileDistanceHeuristic<airtimeState>(), threshold, 1.8);
-	EnvironmentContainer e_complex("Complex", complex, 0, threshold, 1);
-	this->environments.push_back(e_complex);
-	complex->SetTicketAuthority(&ticketAuthority);
+  // Construct a simple environment container
+  //EnvironmentContainer e_simple("Simple", simple, new ManhattanHeuristic<airtimeState>(), 0, 1.2);
+  this->environments.push_back(EnvironmentContainer("Highway", highway, 0, 0, 1));
+  //highway->SetTicketAuthority(&ticketAuthority);
 
-	// Sort the environment container by the number of conflicts
-	std::sort(this->environments.begin(), this->environments.end(), 
-		[](const EnvironmentContainer& a, const EnvironmentContainer& b) -> bool 
-			{
-				return a.conflict_cutoff < b.conflict_cutoff;
-			}
-	);
+  // Construct a simple environment container
+  //EnvironmentContainer e_simple("Simple", simple, new ManhattanHeuristic<airtimeState>(), 0, 1.2);
+  EnvironmentContainer e_simple("Simple", simple, 0, simpleThreshold, 1);
+  this->environments.push_back(e_simple);
+  //simple->SetTicketAuthority(&ticketAuthority);
 
-	// Add some restricted airspace
-	if (use_restricted) 
-	{
-		airplaneState l1(10,15,0,0,0);
-		airplaneState l2(26, 31, 12, 0, 0);
-		ticketAuthority.RegisterAirspace(airtimeState(l1, FLT_MIN), airtimeState(l2,FLT_MAX), 3);
-	}
+  // Construct a complex environment container
+  //EnvironmentContainer e_complex("Complex", complex, new OctileDistanceHeuristic<airtimeState>(), threshold, 1.8);
+  EnvironmentContainer e_complex("Complex", complex, 0, complexThreshold, 1);
+  this->environments.push_back(e_complex);
+  //complex->SetTicketAuthority(&ticketAuthority);
 
-	// Set the current environment to that with 0 conflicts
-    SetEnvironment(0);
+  // Sort the environment container by the number of conflicts
+  std::sort(this->environments.begin(), this->environments.end(), 
+      [](const EnvironmentContainer& a, const EnvironmentContainer& b) -> bool 
+      {
+      return a.conflict_cutoff < b.conflict_cutoff;
+      }
+      );
+
+  // Add some restricted airspace
+  if (use_restricted) 
+  {
+    //airplaneState l1(10,15,0,0,0);
+    //airplaneState l2(26, 31, 12, 0, 0);
+    //ticketAuthority.RegisterAirspace(airtimeState(l1, FLT_MIN), airtimeState(l2,FLT_MAX), 3);
+  }
+
+  // Set the current environment to that with 0 conflicts
+  SetEnvironment(0);
 
 }
 
@@ -229,7 +234,7 @@ void AirCBSGroup::ExpandOneCBSNode(bool gui)
     // Note, these calls will add nodes to the openList
     if(!Bypass(bestNode,numConflicts,c1,gui) && !Bypass(bestNode,numConflicts,c2,gui))
     {
-        last = tree.size();
+      last = tree.size();
 
       // Add two nodes to the tree for each of the children
       tree.resize(last+2);
@@ -348,7 +353,8 @@ void AirCBSGroup::AddUnit(Unit<airtimeState, airplaneAction, AirplaneConstrained
 
 	// Recalculate the optimum path for the root of the tree
 	//std::cout << "AddUnit "<<(GetNumMembers()-1) << " getting path." << std::endl;
-        //std::cout << "Search using " << currentEnvironment->environment->name() << "\n";
+        std::cout << "Search using " << currentEnvironment->environment->name() << "\n";
+        currentEnvironment->environment->setGoal(goal);
 	astar.GetPath(currentEnvironment->environment, start, goal, thePath);
     //std::cout << "AddUnit agent: " << (GetNumMembers()-1) << " expansions: " << astar.GetNodesExpanded() << "\n";
         TOTAL_EXPANSIONS += astar.GetNodesExpanded();
@@ -492,8 +498,9 @@ void AirCBSGroup::UpdateSingleUnitPath(Unit<airtimeState, airplaneAction, Airpla
   } /* End for */
 
   // Issue tickets for restricted airspace
-  ticketAuthority.UnissueAllTickets();
+  //ticketAuthority.UnissueAllTickets();
 
+  /*
   for (int i = 0; i < GetNumMembers(); i++) {
     if (GetMember(i) != u) {
       AirCBSUnit *c = (AirCBSUnit*)GetMember(i);
@@ -504,6 +511,7 @@ void AirCBSGroup::UpdateSingleUnitPath(Unit<airtimeState, airplaneAction, Airpla
       c->SetPath(mPath);
     }
   }
+  */
 
   // Get the unit location
   AirCBSUnit *c = (AirCBSUnit*)u;
@@ -525,6 +533,8 @@ void AirCBSGroup::UpdateSingleUnitPath(Unit<airtimeState, airplaneAction, Airpla
 }
 
 unsigned AirCBSGroup::IssueTicketsForNode(int location){
+  return 0;
+  /*
   // Unissue all tickets and re-issue for non-conflicting units
   ticketAuthority.UnissueAllTickets();
   int theUnit(tree[location].con.unit1);
@@ -534,7 +544,7 @@ unsigned AirCBSGroup::IssueTicketsForNode(int location){
       // Issue tickets for the other paths
       ticketAuthority.IssueTicketsForPathIgnoringCheck(tree[location].paths[i], i);
     }
-  }
+  }*/
 }
 
 // Loads conflicts into environements and returns the number of conflicts loaded.
@@ -562,7 +572,6 @@ unsigned AirCBSGroup::LoadConstraintsForNode(int location){
 // Returns whether the bypass was effective
 bool AirCBSGroup::Bypass(int best, unsigned numConflicts, airConflict const& c1, bool gui)
 {
-  std::cout << "NOBYPASS " << nobypass << "\n";
   if(nobypass)return false;
   LoadConstraintsForNode(best);
   //IssueTicketsForNode(location);
@@ -573,8 +582,10 @@ bool AirCBSGroup::Bypass(int best, unsigned numConflicts, airConflict const& c1,
   airConflict c3, c4;
   std::vector<airtimeState> newPath;
   // Re-perform the search with the same constraints (since the start and goal are the same)
+  currentEnvironment->environment->setGoal(*tree[best].paths[c1.unit1].rbegin());
+  astar2.noncritical=true; // Because it's bypass, we can kill early if the search prolongs. this var is reset internally by the routine.
   astar2.GetPath(currentEnvironment->environment, *tree[best].paths[c1.unit1].begin(), *tree[best].paths[c1.unit1].rbegin(), newPath);
-  TOTAL_EXPANSIONS += astar.GetNodesExpanded();
+  TOTAL_EXPANSIONS += astar2.GetNodesExpanded();
 
   // Make sure that the current location is satisfiable
   if (newPath.size() == 0 && !(*tree[best].paths[c1.unit1].begin() == *tree[best].paths[c1.unit1].rbegin()))
@@ -642,7 +653,7 @@ void AirCBSGroup::Replan(int location)
   int theUnit = tree[location].con.unit1;
 
   unsigned numConflicts(LoadConstraintsForNode(location));
-  IssueTicketsForNode(location);
+  //IssueTicketsForNode(location);
 
   // Set the environment based on the number of conflicts
   SetEnvironment(numConflicts);
@@ -657,6 +668,7 @@ void AirCBSGroup::Replan(int location)
 
   // Recalculate the path
   //std::cout << "#conflicts for " << tempLocation << ": " << numConflicts << "\n";
+  currentEnvironment->environment->setGoal(goal);
   astar.GetPath(currentEnvironment->environment, start, goal, thePath);
   //DoHAStar(start, goal, thePath);
   TOTAL_EXPANSIONS += astar.GetNodesExpanded();
@@ -675,7 +687,7 @@ void AirCBSGroup::Replan(int location)
   }
 
   // Issue tickets on the path
-  ticketAuthority.IssueTicketsForPath(tree[location].paths[theUnit], theUnit);
+  //ticketAuthority.IssueTicketsForPath(tree[location].paths[theUnit], theUnit);
 }
 
 unsigned AirCBSGroup::HasConflict(std::vector<airtimeState> const& a, std::vector<airtimeState> const& b, int x, int y, airConflict &c1, airConflict &c2, bool update, bool verbose)
@@ -746,7 +758,7 @@ unsigned AirCBSGroup::HasConflict(std::vector<airtimeState> const& a, std::vecto
     }
 
     // Check if these states have issued and conflicting tickets
-    for (RAirspaceTicket* tx : a[xTime].current_tickets) {
+    /*for (RAirspaceTicket* tx : a[xTime].current_tickets) {
       for (RAirspaceTicket* ty : b[yTime].current_tickets) {
         // We're looking for tickets with the same issuing airspace at the same time
         if (tx->issuing_airspace == ty->issuing_airspace && max(ty->GetLowPoint(), tx->GetLowPoint()) <= min(ty->GetHighPoint(), tx->GetHighPoint()) + 0.001) {
@@ -765,7 +777,7 @@ unsigned AirCBSGroup::HasConflict(std::vector<airtimeState> const& a, std::vecto
           }
         }
       }
-    }
+    }*/
 
 
     // Increment the counters based on the time
@@ -856,6 +868,7 @@ bool AirCBSGroup::HAStarHelper(airtimeState& start, airtimeState& goal, std::vec
 	thePath.resize(0);
 	//SetEnvironment(envConflicts);
         std::cout << "DOH Search using " << currentEnvironment->environment->name() << envConflicts << "\n";
+        currentEnvironment->environment->setGoal(goal);
 	if (!astar.InitializeSearch(currentEnvironment->environment, start, goal, thePath))
 		return false;
 

@@ -69,7 +69,7 @@ struct AStarCompare {
 template <class state, class action, class environment, class openList = AStarOpenClosed<state, AStarCompare<state>> >
 class TemplateAStar : public GenericSearchAlgorithm<state,action,environment> {
 public:
-	TemplateAStar() { ResetNodeCount(); env = 0; useBPMX = 0; radius = 4.0; stopAfterGoal = true; weight=1; useRadius=false; useOccupancyInfo=false; radEnv = 0; reopenNodes = false; theHeuristic = 0; directed = false; }
+	TemplateAStar() { ResetNodeCount(); env = 0; useBPMX = 0; radius = 4.0; stopAfterGoal = true; weight=1; useRadius=false; useOccupancyInfo=false; radEnv = 0; reopenNodes = false; theHeuristic = 0; directed = false; noncritical=false;}
 	virtual ~TemplateAStar() {}
 	void GetPath(environment *env, const state& from, const state& to, std::vector<state> &thePath);
 	void GetPath(environment *, const state& , const state& , std::vector<action> & );
@@ -78,6 +78,7 @@ public:
 	//AStarOpenClosed<state, AStarCompare<state> > openClosedList;
 	//BucketOpenClosed<state, AStarCompare<state> > openClosedList;
 	state goal, start;
+        bool noncritical;
 	
 	bool InitializeSearch(environment *env, const state& from, const state& to, std::vector<state> &thePath);
 	bool DoSingleSearchStep(std::vector<state> &thePath);
@@ -306,6 +307,13 @@ void TemplateAStar<state,action,environment,openList>::AddAdditionalStartState(s
 template <class state, class action, class environment, class openList>
 bool TemplateAStar<state,action,environment,openList>::DoSingleSearchStep(std::vector<state> &thePath)
 {
+// Special hack... Don't consider paths that take too many expansions
+if(this->nodesExpanded>50000 && this->noncritical){
+  std::cout << "Cutting short!\n";
+  thePath.resize(0);
+  noncritical=false;
+  return true;
+}
 	if (openClosedList.OpenSize() == 0)
 	{
 		thePath.resize(0); // no path found!

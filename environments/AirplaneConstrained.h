@@ -12,7 +12,7 @@
 #include "Airplane.h"
 #include "ConstrainedEnvironment.h"
 #include "AirStates.h"
-#include "AirplaneTicketAuthority.h"
+//#include "AirplaneTicketAuthority.h"
 
 #include <cmath>
 #include <memory>
@@ -117,10 +117,13 @@ public:
 	
 	/// UTILS
 	uint8_t GetSpeeds(){return ae->numSpeeds;}
-	void SetTicketAuthority(TicketAuthority* tk) {this->ticket_authority = tk;}
-	TicketAuthority* ticket_authority;
+	//void SetTicketAuthority(TicketAuthority* tk) {this->ticket_authority = tk;}
+	//TicketAuthority* ticket_authority;
 	/** Vector holding the current constraints */
 	std::vector<airConstraint> constraints;
+
+        airplaneState const& getGoal()const{return ae->getGoal();}
+        void setGoal(airplaneState const& g){ae->setGoal(g);}
 private:
 	
 

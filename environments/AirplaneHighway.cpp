@@ -42,12 +42,48 @@ AirplaneHighwayEnvironment::AirplaneHighwayEnvironment(
 
 void AirplaneHighwayEnvironment::GetActions(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const
 {
+  if(abs(nodeID.x-getGoal().x) <=2 && abs(nodeID.y-getGoal().y) <=2 &&abs(nodeID.height-getGoal().height) <=2)
+  {
+    AirplaneEnvironment::GetActions(nodeID,actions);
+    return;
+  }
+
+  actions.resize(0);
+
+  uint8_t hmod(nodeID.height%8);
+
+  if(hmod != nodeID.heading)
+  {
+    int travel(nodeID.headingTo(getGoal()));
+    int turns(hdgDiff<8>(nodeID.heading,travel));
+    int levels(hdgDiff<8>(hmod,travel));
+    if((travel-nodeID.heading < 0 && abs(travel-nodeID.heading) <= turns) ||
+    (travel-nodeID.heading > 0 && abs(travel-nodeID.heading) > 4)) turns *= -1;
+    if((travel-hmod < 0 && abs(travel-hmod) <= levels) ||
+    (travel-hmod > 0 && abs(travel-hmod) > 4)) levels *= -1;
+    int turn(0);
+    int ht(0);
+    if(turns<-1)
+      turn=-k90;
+    else if(turns<0)
+      turn=-k45;
+    else if(turns>1)
+      turn=k90;
+    else if(turns>0)
+      turn=k45;
+
+    if(levels<0)
+      ht=-1;
+    else if(levels>0)
+      ht=1;
+      actions.push_back(airplaneAction(turn,0,ht));
+      return;
+  }
   // 45, 90, 0, shift
   // speed:
   // faster, slower
   // height:
   // up / down
-  actions.resize(0);
 
   // If the airplane is on the ground, the only option is to takeoff or stay landed
   if (nodeID.landed)
@@ -82,7 +118,6 @@ void AirplaneHighwayEnvironment::GetActions(const airplaneState &nodeID, std::ve
     }
     // We don't have to land though, so we keep going.
   }
-  uint8_t hmod(nodeID.height%8);
 
   // no change
   if(hmod==nodeID.heading) actions.push_back(airplaneAction(0, 0, 0));

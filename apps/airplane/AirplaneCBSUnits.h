@@ -110,7 +110,7 @@ struct EnvironmentContainer {
 class AirCBSGroup : public UnitGroup<airtimeState, airplaneAction, AirplaneConstrainedEnvironment>
 {
 public:
-	AirCBSGroup(AirplaneConstrainedEnvironment *me, AirplaneConstrainedEnvironment* simple, unsigned threshold, bool u_r, bool u_w, bool);
+	AirCBSGroup(AirplaneConstrainedEnvironment *me, AirplaneConstrainedEnvironment* simple, AirplaneConstrainedEnvironment*, unsigned, unsigned threshold, bool u_r, bool u_w, bool);
 	bool MakeMove(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u, AirplaneConstrainedEnvironment *e, 
 				  SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *si, airplaneAction& a);
 	void UpdateLocation(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u, AirplaneConstrainedEnvironment *e, 

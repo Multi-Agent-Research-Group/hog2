@@ -133,9 +133,9 @@ void AirplaneConstrainedEnvironment::GetSuccessors(const airtimeState &nodeID, s
     // Check to see if it violates any hard constraint. If it does not, push it back.
     if (!ViolatesConstraint(nodeID, new_state))
     {
-      if (ticket_authority->CanObtainTicket(new_state)) {
+      //if (ticket_authority->CanObtainTicket(new_state)) {
         neighbors.push_back(new_state);
-      }
+      //}
     }
   }
 }
@@ -292,13 +292,13 @@ void AirplaneConstrainedEnvironment::OpenGLDraw() const
 	}
 
 	// Draw the restricted airspace
-        if(ticket_authority)
+        /*if(ticket_authority)
 	for (int i = 0; i < ticket_authority->GetRestrictedAirspace().size(); i++)
 	{
 		glColor3f(0, 0, 1); // Make it blue
 		glLineWidth(2.0);
 		ticket_authority->GetRestrictedAirspace().at(i).governed_area.OpenGLDraw();	
-	}
+	}*/
 	
 }
 
