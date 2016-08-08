@@ -308,7 +308,7 @@ template <class state, class action, class environment, class openList>
 bool TemplateAStar<state,action,environment,openList>::DoSingleSearchStep(std::vector<state> &thePath)
 {
 // Special hack... Don't consider paths that take too many expansions
-if(this->nodesExpanded>50000 && this->noncritical){
+if(this->nodesExpanded>100000 && this->noncritical){
   std::cout << "Cutting short!\n";
   thePath.resize(0);
   noncritical=false;

@@ -101,30 +101,13 @@ void AirCBSUnit::UpdateGoal(airtimeState &s, airtimeState &g)
 
 /** CBS GROUP DEFINITIONS */
 
-AirCBSGroup::AirCBSGroup(AirplaneConstrainedEnvironment *complex, AirplaneConstrainedEnvironment* simple, AirplaneConstrainedEnvironment* highway,
-  unsigned simpleThreshold, unsigned complexThreshold, bool u_r, bool u_w, bool no_bypass) : time(0), bestNode(0), planFinished(false), use_restricted(u_r), use_waiting(u_w), nobypass(no_bypass)
+AirCBSGroup::AirCBSGroup(std::vector<EnvironmentContainer> const& environs, bool u_r, bool u_w, bool no_bypass) : time(0), bestNode(0), planFinished(false), use_restricted(u_r), use_waiting(u_w), nobypass(no_bypass)
 {
   //std::cout << "THRESHOLD " << threshold << "\n";
 
   tree.resize(1);
   tree[0].parent = 0;
-
-  // Construct a simple environment container
-  //EnvironmentContainer e_simple("Simple", simple, new ManhattanHeuristic<airtimeState>(), 0, 1.2);
-  this->environments.push_back(EnvironmentContainer("Highway", highway, 0, 0, 1));
-  //highway->SetTicketAuthority(&ticketAuthority);
-
-  // Construct a simple environment container
-  //EnvironmentContainer e_simple("Simple", simple, new ManhattanHeuristic<airtimeState>(), 0, 1.2);
-  EnvironmentContainer e_simple("Simple", simple, 0, simpleThreshold, 1);
-  this->environments.push_back(e_simple);
-  //simple->SetTicketAuthority(&ticketAuthority);
-
-  // Construct a complex environment container
-  //EnvironmentContainer e_complex("Complex", complex, new OctileDistanceHeuristic<airtimeState>(), threshold, 1.8);
-  EnvironmentContainer e_complex("Complex", complex, 0, complexThreshold, 1);
-  this->environments.push_back(e_complex);
-  //complex->SetTicketAuthority(&ticketAuthority);
+  environments = environs;
 
   // Sort the environment container by the number of conflicts
   std::sort(this->environments.begin(), this->environments.end(), 
@@ -168,8 +151,16 @@ bool AirCBSGroup::MakeMove(Unit<airtimeState, airplaneAction, AirplaneConstraine
 
 void AirCBSGroup::processSolution()
 {
-  std::cout << "Finished the plan using " << TOTAL_EXPANSIONS << " expansions." << std::endl;
-  std::cout << "Time elapsed: " << timer->EndTimer() << std::endl;
+  std::cout << "Finished the plan using " << TOTAL_EXPANSIONS << " expansions.\n";
+  std::cout << "Time elapsed: " << timer->EndTimer() << "\n";
+  for(auto e:environments)
+  {
+    unsigned total=0;
+    for(auto a: agentEnvs)
+      if(e.environment==a)
+        total++;
+    std::cout << " Environment used: " << e.environment->name() <<": "<< total/double(agentEnvs.size())<<"\n";
+  }
   std::cout << "Total conflicts: " << tree.size() << std::endl;
   TOTAL_EXPANSIONS = 0;
   planFinished = true;
@@ -336,9 +327,10 @@ void AirCBSGroup::AddEnvironmentConstraint(airConstraint  c){
 /** Add a new unit with a new start and goal state to the CBS group */
 void AirCBSGroup::AddUnit(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u)
 {
+	AirCBSUnit *c = (AirCBSUnit*)u;
+        c->setUnitNumber(GetNumMembers());
 	// Add the new unit to the group, and construct an AirCBSUnit
 	UnitGroup::AddUnit(u);
-	AirCBSUnit *c = (AirCBSUnit*)u;
 
 	// Clear the constraints from the environment set
 	ClearEnvironmentConstraints();
@@ -350,11 +342,13 @@ void AirCBSGroup::AddUnit(Unit<airtimeState, airplaneAction, AirplaneConstrained
 
 	// Resize the number of paths in the root of the tree
 	tree[0].paths.resize(GetNumMembers());
+        agentEnvs.resize(GetNumMembers());
 
 	// Recalculate the optimum path for the root of the tree
 	//std::cout << "AddUnit "<<(GetNumMembers()-1) << " getting path." << std::endl;
         std::cout << "Search using " << currentEnvironment->environment->name() << "\n";
         currentEnvironment->environment->setGoal(goal);
+        agentEnvs[c->getUnitNumber()]=currentEnvironment->environment;
 	astar.GetPath(currentEnvironment->environment, start, goal, thePath);
     //std::cout << "AddUnit agent: " << (GetNumMembers()-1) << " expansions: " << astar.GetNodesExpanded() << "\n";
         TOTAL_EXPANSIONS += astar.GetNodesExpanded();
@@ -584,6 +578,7 @@ bool AirCBSGroup::Bypass(int best, unsigned numConflicts, airConflict const& c1,
   // Re-perform the search with the same constraints (since the start and goal are the same)
   currentEnvironment->environment->setGoal(*tree[best].paths[c1.unit1].rbegin());
   astar2.noncritical=true; // Because it's bypass, we can kill early if the search prolongs. this var is reset internally by the routine.
+  astar2.SetWeight(currentEnvironment->astar_weight);
   astar2.GetPath(currentEnvironment->environment, *tree[best].paths[c1.unit1].begin(), *tree[best].paths[c1.unit1].rbegin(), newPath);
   TOTAL_EXPANSIONS += astar2.GetNodesExpanded();
 
@@ -596,7 +591,7 @@ bool AirCBSGroup::Bypass(int best, unsigned numConflicts, airConflict const& c1,
   AirCBSTreeNode newNode(tree[best]);
   newNode.paths[c1.unit1] = newPath;
   unsigned bypassConflicts(FindFirstConflict(newNode, c3, c4));
-  if(bypassConflicts < numConflicts && newPath.size() <= tree[best].paths[c1.unit1].size())
+  if(bypassConflicts < numConflicts)// && newPath.size() <= tree[best].paths[c1.unit1].size())
   {
     success = true;
     std::cout << "Found a bypass! expansions:" << astar2.GetNodesExpanded() << " len" <<newPath.size()<<" == "<<tree[best].paths[c1.unit1].size() << "\n\n\n";
@@ -669,6 +664,8 @@ void AirCBSGroup::Replan(int location)
   // Recalculate the path
   //std::cout << "#conflicts for " << tempLocation << ": " << numConflicts << "\n";
   currentEnvironment->environment->setGoal(goal);
+  std::cout << numConflicts << " conflicts " << " using " << currentEnvironment->environment->name() << " for agent: " << tree[location].con.unit1 << "?="<<c->getUnitNumber()<<"\n";
+  agentEnvs[c->getUnitNumber()]=currentEnvironment->environment;
   astar.GetPath(currentEnvironment->environment, start, goal, thePath);
   //DoHAStar(start, goal, thePath);
   TOTAL_EXPANSIONS += astar.GetNodesExpanded();
@@ -869,6 +866,7 @@ bool AirCBSGroup::HAStarHelper(airtimeState& start, airtimeState& goal, std::vec
 	//SetEnvironment(envConflicts);
         std::cout << "DOH Search using " << currentEnvironment->environment->name() << envConflicts << "\n";
         currentEnvironment->environment->setGoal(goal);
+        //agentEnvs[u->getUnitNumber()]=currentEnvironment->environment;
 	if (!astar.InitializeSearch(currentEnvironment->environment, start, goal, thePath))
 		return false;
 

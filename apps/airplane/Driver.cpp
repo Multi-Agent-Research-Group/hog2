@@ -14,10 +14,11 @@
 #include "ScenarioLoader.h"
 #include "AirplaneSimple.h"
 #include "AirplaneHighway.h"
+#include "AirplaneHighway4.h"
 #include "AirplaneConstrained.h"
 #include "AirplaneCBSUnits.h"
 
-#include <thread>
+#include <sstream>
 
 bool mouseTracking;
 int px1, py1, px2, py2;
@@ -29,32 +30,26 @@ double stepsPerFrame = 1.0/100.0;
 double frameIncrement = 1.0/10000.0;
 std::vector<airtimeState> thePath;
 
-int cutoff1 = 3; // for simple
-int cutoff2 = 6; // for complex
-int seed = clock();
-int num_airplanes = 5;
-bool complextosimple = false;
-bool complexonly = false;
-bool highwayonly = false;
-bool simpleonly = false;
-bool use_rairspace = false;
-bool use_wait = false;
-bool nobypass = false;
+int cutoffs[4] = {0,3,6,9}; // for each env
+  std::vector<EnvironmentContainer> environs;
+  int seed = clock();
+  int num_airplanes = 5;
+  bool use_rairspace = false;
+  bool use_wait = false;
+  bool nobypass = false;
 
-bool paused = false;
+  bool paused = false;
 
-AirplaneConstrainedEnvironment *ace = 0;
-AirplaneConstrainedEnvironment *aces = 0;
-AirplaneConstrainedEnvironment *aceh = 0;
-UnitSimulation<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *sim = 0;
-AirCBSGroup* group = 0;
+  AirplaneConstrainedEnvironment *ace = 0;
+  UnitSimulation<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *sim = 0;
+  AirCBSGroup* group = 0;
 
-bool gui=true;
-void InitHeadless();
+  bool gui=true;
+  void InitHeadless();
 
-int main(int argc, char* argv[])
-{
-  if (argc > 1) {
+  int main(int argc, char* argv[])
+  {
+    if (argc > 1) {
     num_airplanes = atoi(argv[1]);
   }
 
@@ -120,12 +115,7 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-nairplanes", "-nairplanes <number>", "Select the number of airplanes.");
 	InstallCommandLineHandler(MyCLHandler, "-seed", "-seed <number>", "Seed for random number generator (defaults to clock)");
 	InstallCommandLineHandler(MyCLHandler, "-nobypass", "-nobypass", "Turn off bypass option");
-	InstallCommandLineHandler(MyCLHandler, "-simplecutoff", "-simplecutoff <number>", "Number of conflicts to tolerate before switching to simple environment");
-	InstallCommandLineHandler(MyCLHandler, "-complexcutoff", "-complexcutoff <number>", "Number of conflicts to tolerate before switching to complex environment");
-	InstallCommandLineHandler(MyCLHandler, "-highwayonly", "-highwayonly", "Use only the highway environment");
-	InstallCommandLineHandler(MyCLHandler, "-complexonly", "-complexonly", "Use only the complex environment");
-	InstallCommandLineHandler(MyCLHandler, "-simpleonly", "-simpleonly", "Use only the simple environment");
-	InstallCommandLineHandler(MyCLHandler, "-complextosimple", "-complextosimple", "Switch complex to simple instead of the inverse");
+	InstallCommandLineHandler(MyCLHandler, "-cutoffs", "-cutoffs <number>,<number>,<number,...", "Number of conflicts to tolerate before switching to less constrained layer of environment");
 	InstallCommandLineHandler(MyCLHandler, "-nogui", "-nogui", "Turn off gui");
 
         InstallWindowHandler(MyWindowHandler);
@@ -161,22 +151,14 @@ void InitHeadless(){
   ase->loadPerimeterDB();
   AirplaneEnvironment* ahe = new AirplaneHighwayEnvironment();
   ahe->loadPerimeterDB();
-  ace = new AirplaneConstrainedEnvironment(ae);
-  aces = new AirplaneConstrainedEnvironment(ase);
-  aceh = new AirplaneConstrainedEnvironment(ahe);
+  AirplaneEnvironment* ah4e = new AirplaneHighway4Environment();
+  ah4e->loadPerimeterDB();
+  environs.push_back(EnvironmentContainer(ahe->name(),new AirplaneConstrainedEnvironment(ahe),0,cutoffs[0],1));
+  environs.push_back(EnvironmentContainer(ah4e->name(),new AirplaneConstrainedEnvironment(ah4e),0,cutoffs[1],1));
+  environs.push_back(EnvironmentContainer(ase->name(),new AirplaneConstrainedEnvironment(ase),0,cutoffs[2],1));
+  environs.push_back(EnvironmentContainer(ae->name(),new AirplaneConstrainedEnvironment(ae),0,cutoffs[3],1));
 
-
-
-  if(complexonly)
-    group = new AirCBSGroup(ace,ace,ace,cutoff1,cutoff2,use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
-  else if(highwayonly)
-    group = new AirCBSGroup(aceh,aceh,aceh,cutoff1,cutoff2,use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
-  else if(simpleonly)
-    group = new AirCBSGroup(aces,aces,aces,cutoff1,cutoff2,use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
-  else if(complextosimple)
-    group = new AirCBSGroup(aceh,aces,ace,cutoff1,cutoff2,use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
-  else
-    group = new AirCBSGroup(ace,aces,aceh,cutoff1,cutoff2,use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
+    group = new AirCBSGroup(environs,use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
 
   // Updated so we're always testing the landing conditions
   // and forcing the airplane environment to be such that
@@ -261,27 +243,20 @@ void InitSim(){
   ase->loadPerimeterDB();
   AirplaneEnvironment* ahe = new AirplaneHighwayEnvironment();
   ahe->loadPerimeterDB();
-  ace = new AirplaneConstrainedEnvironment(ae);
-  aces = new AirplaneConstrainedEnvironment(ase);
-  aceh = new AirplaneConstrainedEnvironment(ahe);
+  AirplaneEnvironment* ah4e = new AirplaneHighway4Environment();
+  ah4e->loadPerimeterDB();
+  
+  environs.push_back(EnvironmentContainer(ahe->name(),new AirplaneConstrainedEnvironment(ahe),0,cutoffs[0],1));
+  environs.push_back(EnvironmentContainer(ah4e->name(),new AirplaneConstrainedEnvironment(ah4e),0,cutoffs[1],1));
+  environs.push_back(EnvironmentContainer(ase->name(),new AirplaneConstrainedEnvironment(ase),0,cutoffs[2],1));
+  environs.push_back(EnvironmentContainer(ae->name(),new AirplaneConstrainedEnvironment(ae),0,cutoffs[3],1));
+  ace=environs.rbegin()->environment;
 
+  group = new AirCBSGroup(environs,use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
 
 
   sim = new UnitSimulation<airtimeState, airplaneAction, AirplaneConstrainedEnvironment>(ace);
   sim->SetStepType(kLockStep);
-  //group = new AirCBSGroup(ace,ace,4);
-  // TODO: Have it use the simple environment and switch to the complex one
-  //       after too many conflicts
-  if(complexonly)
-    group = new AirCBSGroup(ace,ace,ace,cutoff1,cutoff2,use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
-  else if(highwayonly)
-    group = new AirCBSGroup(aceh,aceh,aceh,cutoff1,cutoff2,use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
-  else if(simpleonly)
-    group = new AirCBSGroup(aces,aces,aces,cutoff1,cutoff2,use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
-  else if(complextosimple)
-    group = new AirCBSGroup(aces,aceh,ace,cutoff1,cutoff2,use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
-  else
-    group = new AirCBSGroup(ace,aces,aceh,cutoff1,cutoff2,use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
 
   sim->AddUnitGroup(group);
 
@@ -409,26 +384,6 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 int MyCLHandler(char *argument[], int maxNumArgs)
 {
 
-	if(strcmp(argument[0], "-simpleonly") == 0)
-	{
-		simpleonly = true;
-		return 1;
-	}
-	if(strcmp(argument[0], "-highwayonly") == 0)
-	{
-		highwayonly = true;
-		return 1;
-	}
-	if(strcmp(argument[0], "-complexonly") == 0)
-	{
-		complexonly = true;
-		return 1;
-	}
-	if(strcmp(argument[0], "-complextosimple") == 0)
-	{
-		complextosimple = true;
-		return 1;
-	}
 	if(strcmp(argument[0], "-nogui") == 0)
 	{
 		gui = false;
@@ -449,16 +404,24 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 		use_wait = true;
 		return 1;
 	}
-	if(strcmp(argument[0], "-simplecutoff") == 0)
-	{
-		cutoff1 = atoi(argument[1]);	
-		return 2;
-	}
-	if(strcmp(argument[0], "-complexcutoff") == 0)
-	{
-		cutoff2 = atoi(argument[1]);	
-		return 2;
-	}
+	if(strcmp(argument[0], "-cutoffs") == 0)
+        {
+          std::string str = argument[1];
+
+          std::stringstream ss(str);
+
+          int i;
+          int index(0);
+
+          while (ss >> i)
+          {
+            cutoffs[index++] = i;
+
+            if (ss.peek() == ',')
+              ss.ignore();
+          }
+          return 2;
+        }
 	if(strcmp(argument[0], "-seed") == 0)
 	{
 		seed = atoi(argument[1]);	

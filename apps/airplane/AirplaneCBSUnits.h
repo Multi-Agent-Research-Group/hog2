@@ -71,10 +71,13 @@ public:
 	}
 	inline std::vector<airtimeState> const& GetPath()const{return myPath;}
     void UpdateGoal(airtimeState &start, airtimeState &goal);
+        void setUnitNumber(unsigned n){number=n;}
+        unsigned getUnitNumber()const{return number;}
 
 private:
 	airtimeState start, goal, current;
 	std::vector<airtimeState> myPath;
+        unsigned number;
 };
 
 struct airConflict {
@@ -110,7 +113,7 @@ struct EnvironmentContainer {
 class AirCBSGroup : public UnitGroup<airtimeState, airplaneAction, AirplaneConstrainedEnvironment>
 {
 public:
-	AirCBSGroup(AirplaneConstrainedEnvironment *me, AirplaneConstrainedEnvironment* simple, AirplaneConstrainedEnvironment*, unsigned, unsigned threshold, bool u_r, bool u_w, bool);
+	AirCBSGroup(std::vector<EnvironmentContainer> const&, bool u_r, bool u_w, bool);
 	bool MakeMove(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u, AirplaneConstrainedEnvironment *e, 
 				  SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *si, airplaneAction& a);
 	void UpdateLocation(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u, AirplaneConstrainedEnvironment *e, 
@@ -178,6 +181,7 @@ private:
 	bool use_restricted = false;
 	bool use_waiting = false;
 	bool nobypass = false;
+        std::vector<AirplaneConstrainedEnvironment*> agentEnvs;
 };
 
 
