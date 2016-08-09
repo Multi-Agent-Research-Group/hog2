@@ -51,34 +51,58 @@ void AirplaneHighway4Environment::GetActions(const airplaneState &nodeID, std::v
   actions.resize(0);
 
   // Allow 4 highways with heading (0,1; 2,3; 4,5; 6,7) etc.
-  uint8_t hmod((nodeID.height%8));
+  uint8_t hmod((nodeID.height%4));
 
-  if(hmod/2 != nodeID.heading/2)
+  if(hmod != nodeID.heading/2)
   {
     int travel(nodeID.headingTo(getGoal()));
     int turns(hdgDiff<8>(nodeID.heading,travel));
-    int levels(hdgDiff<8>(hmod,travel)/2);
+    int levels(hdgDiff<4>(hmod,travel/2));
     if((travel-nodeID.heading < 0 && abs(travel-nodeID.heading) <= turns) ||
-    (travel-nodeID.heading > 0 && abs(travel-nodeID.heading) > 4)) turns *= -1;
+    (travel-nodeID.heading > 0 && abs(travel-nodeID.heading) > 2)) turns *= -1;
+    travel /=2;
     if((travel-hmod < 0 && abs(travel-hmod) <= levels) ||
-    (travel-hmod > 0 && abs(travel-hmod) > 4)) levels *= -1;
+    (travel-hmod > 0 && abs(travel-hmod) > 2)) levels *= -1;
+    //if(levels == -2) levels=2; 
     int turn(0);
     int ht(0);
+    int turnb(0);
+    //if(levels==2 && turns ==2)turns=1;
+    //if(levels==2 && turns ==-2)turns=-1;
+    //if(levels==-2 && turns ==2)turns=1;
+    //if(levels==-2 && turns ==-2)turns=-1;
     if(turns<-1)
+    {
       turn=-k90;
+      turnb=k90;
+    }
     else if(turns<0)
+    {
       turn=-k45;
+      turnb=k90;
+    }
     else if(turns>1)
+    {
       turn=k90;
+      turnb=-k90;
+    }
     else if(turns>0)
+    {
       turn=k45;
+      turnb=-k90;
+    }
 
     if(levels<0)
+    {
       ht=-1;
+    }
     else if(levels>0)
+    {
       ht=1;
-      actions.push_back(airplaneAction(turn,0,ht));
-      return;
+    }
+    actions.push_back(airplaneAction(turn,0,ht));
+    actions.push_back(airplaneAction(turnb,0,ht*-1));
+    return;
   }
   // 45, 90, 0, shift
   // speed:
@@ -119,6 +143,7 @@ void AirplaneHighway4Environment::GetActions(const airplaneState &nodeID, std::v
     }
     // We don't have to land though, so we keep going.
   }
+  //hmod /=2;
 
   // no change
   if(hmod==nodeID.heading/2) actions.push_back(airplaneAction(0, 0, 0));
@@ -128,50 +153,50 @@ void AirplaneHighway4Environment::GetActions(const airplaneState &nodeID, std::v
 
   if (nodeID.height > 1)
   {
-    uint8_t hmodd(((nodeID.height+7)%8)/2);
-    uint8_t hdg((nodeID.heading+7)%8);
-    uint8_t hdg2((nodeID.heading+6)%8);
+    uint8_t hmodd(((nodeID.height+7)%4));
+    uint8_t hdg(((nodeID.heading+7)%8)/2);
+    uint8_t hdg2(((nodeID.heading+6)%8)/2);
     // decrease height
     //actions.push_back(airplaneAction(0, 0, -1));
-    if(hmodd==hdg/2)actions.push_back(airplaneAction(-k45, 0, -1));
-    if(hmodd==hdg2/2)actions.push_back(airplaneAction(-k90, 0, -1));
+    if(hmodd==hdg)actions.push_back(airplaneAction(-k45, 0, -1));
+    if(hmodd==hdg2)actions.push_back(airplaneAction(-k90, 0, -1));
 
     // decrease height, decrease speed
     if (nodeID.speed > minSpeed)
     {
-      if(hmodd==hdg/2)actions.push_back(airplaneAction(-k45, -1, -1));
-      if(hmodd==hdg2/2)actions.push_back(airplaneAction(-k90, -1, -1));
+      if(hmodd==hdg)actions.push_back(airplaneAction(-k45, -1, -1));
+      if(hmodd==hdg2)actions.push_back(airplaneAction(-k90, -1, -1));
     }
 
     // increase height, decrease speed
     if (nodeID.speed < numSpeeds+minSpeed)
     {
-      if(hmodd==hdg/2)actions.push_back(airplaneAction(-k45, 1, -1));
-      if(hmodd==hdg2/2)actions.push_back(airplaneAction(-k90, 1, -1));
+      if(hmodd==hdg)actions.push_back(airplaneAction(-k45, 1, -1));
+      if(hmodd==hdg2)actions.push_back(airplaneAction(-k90, 1, -1));
     }
   }
 
   if (nodeID.height < height)
   {
-    uint8_t hmodd(((nodeID.height+1)%8)/2);
-    uint8_t hdg((nodeID.heading+1)%8);
-    uint8_t hdg2((nodeID.heading+2)%8);
+    uint8_t hmodd(((nodeID.height+1)%4));
+    uint8_t hdg(((nodeID.heading+1)%8)/2);
+    uint8_t hdg2(((nodeID.heading+2)%8)/2);
     // increase height
-    if(hmodd==hdg/2)actions.push_back(airplaneAction(k45, 0, +1));
-    if(hmodd==hdg2/2)actions.push_back(airplaneAction(k90, 0, +1));
+    if(hmodd==hdg)actions.push_back(airplaneAction(k45, 0, +1));
+    if(hmodd==hdg2)actions.push_back(airplaneAction(k90, 0, +1));
 
     if (nodeID.speed > minSpeed)
     {
       // increase height, decrease speed
-      if(hmodd==hdg/2)actions.push_back(airplaneAction(k45, -1, +1));
-      if(hmodd==hdg2/2)actions.push_back(airplaneAction(k90, -1, +1));
+      if(hmodd==hdg)actions.push_back(airplaneAction(k45, -1, +1));
+      if(hmodd==hdg2)actions.push_back(airplaneAction(k90, -1, +1));
     }
 
     if (nodeID.speed < numSpeeds+minSpeed)
     {
       // increase height, increase speed
-      if(hmodd==hdg/2)actions.push_back(airplaneAction(k45, +1, +1));
-      if(hmodd==hdg2/2)actions.push_back(airplaneAction(k90, +1, +1));
+      if(hmodd==hdg)actions.push_back(airplaneAction(k45, +1, +1));
+      if(hmodd==hdg2)actions.push_back(airplaneAction(k90, +1, +1));
     }
   }
 

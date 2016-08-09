@@ -62,22 +62,36 @@ void AirplaneHighwayEnvironment::GetActions(const airplaneState &nodeID, std::ve
     if((travel-hmod < 0 && abs(travel-hmod) <= levels) ||
     (travel-hmod > 0 && abs(travel-hmod) > 4)) levels *= -1;
     int turn(0);
+    int turnb(0);
     int ht(0);
     if(turns<-1)
+    {
       turn=-k90;
+      turnb=k90;
+    }
     else if(turns<0)
+    {
       turn=-k45;
+      turnb=k90;
+    }
     else if(turns>1)
+    {
       turn=k90;
+      turnb=-k90;
+    }
     else if(turns>0)
+    {
       turn=k45;
+      turnb=-k90;
+    }
 
     if(levels<0)
       ht=-1;
     else if(levels>0)
       ht=1;
-      actions.push_back(airplaneAction(turn,0,ht));
-      return;
+    actions.push_back(airplaneAction(turn,0,ht));
+    actions.push_back(airplaneAction(turnb,0,ht*-1));
+    return;
   }
   // 45, 90, 0, shift
   // speed:

@@ -159,7 +159,7 @@ void AirCBSGroup::processSolution()
     for(auto a: agentEnvs)
       if(e.environment==a)
         total++;
-    std::cout << " Environment used: " << e.environment->name() <<": "<< total/double(agentEnvs.size())<<"\n";
+    std::cout << "%Environment used: " << e.environment->name() <<": "<< total/double(agentEnvs.size())<<"\n";
   }
   std::cout << "Total conflicts: " << tree.size() << std::endl;
   TOTAL_EXPANSIONS = 0;
@@ -298,14 +298,17 @@ void AirCBSGroup::UpdateLocation(Unit<airtimeState, airplaneAction, AirplaneCons
 }
 
 void AirCBSGroup::SetEnvironment(unsigned numConflicts){
+        bool set(false);
 	for (int i = 0; i < this->environments.size(); i++) {
 		if (numConflicts >= environments[i].conflict_cutoff) {
 //std::cout << "Setting to env# " << i << " b/c " << numConflicts << " >= " << environments[i].conflict_cutoff<<"\n";
 			currentEnvironment = &(environments[i]);
+                        set=true;
 		} else {
 			break;
 		}
 	}
+        if(!set)assert(false&&"No env ws set - you need -cutoffs of zero...");
 
 	astar.SetHeuristic(currentEnvironment->heuristic);
 	astar.SetWeight(currentEnvironment->astar_weight);
@@ -346,7 +349,7 @@ void AirCBSGroup::AddUnit(Unit<airtimeState, airplaneAction, AirplaneConstrained
 
 	// Recalculate the optimum path for the root of the tree
 	//std::cout << "AddUnit "<<(GetNumMembers()-1) << " getting path." << std::endl;
-        std::cout << "Search using " << currentEnvironment->environment->name() << "\n";
+        //std::cout << "Search using " << currentEnvironment->environment->name() << "\n";
         currentEnvironment->environment->setGoal(goal);
         agentEnvs[c->getUnitNumber()]=currentEnvironment->environment;
 	astar.GetPath(currentEnvironment->environment, start, goal, thePath);
