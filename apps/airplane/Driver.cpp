@@ -164,6 +164,8 @@ void InitHeadless(){
   // and forcing the airplane environment to be such that
   // we are inducing high clonflict areas.
   std::cout << "Adding " << num_airplanes << "planes." << std::endl;
+  std::vector<airtimeState> starts;
+  std::vector<airtimeState> goals;
   for (int i = 0; i < num_airplanes; i++) {
 
 
@@ -178,39 +180,58 @@ void InitHeadless(){
       AirCBSUnit* unit = new AirCBSUnit(start, goal);
       unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
       group->AddUnit(unit); // Add to the group
-      std::cout << "Set unit " << i << " directive from " << start << " to " << goal << " rough heading: " << (unsigned)start.headingTo(goal) << std::endl;
+      //std::cout << "Set unit " << i << " directive from " << start << " to " << goal << " rough heading: " << (unsigned)start.headingTo(goal) << std::endl;
 
     } else {
-      airplaneState rs1(rand() % 70 + 5, rand() % 70 + 5, rand() % 7 + 11, rand() % 3 + 1, rand() % 8, false);
-      airtimeState start(rs1, 0);
+      bool conflict(true);
+      while(conflict){
+        conflict=false;
+        airplaneState rs1(rand() % 40 + 5, rand() % 40 + 5, rand() % 7 + 11, rand() % 3 + 1, rand() % 8, false);
+        airtimeState start(rs1, 0);
+        for(auto a: starts)
+        {
+          // Make sure that no start points have a conflict
+          airConstraint x_c(a);
+          if(x_c.ConflictsWith(start)){conflict=true;break;}
+        }
+        if(!conflict)
+          starts.push_back(start);
+      }
 
       // 0% total are landing intially
       if (false) {
         // Replan the node to a landing location
-        airplaneState land(18, 23, 0, 0, 0, true);
-        airtimeState goal(land, 0);
+        /*airplaneState land(18, 23, 0, 0, 0, true);
+          airtimeState goal(land, 0);
 
-        AirCBSUnit* unit = new AirCBSUnit(start, goal);
-        unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
-        group->AddUnit(unit); // Add to the group
-        std::cout << "Set unit " << i << " directive from " << start << " to " << goal << " rough heading: " << (unsigned)start.headingTo(goal) << std::endl;
+          AirCBSUnit* unit = new AirCBSUnit(start, goal);
+          unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
+          group->AddUnit(unit); // Add to the group
+          std::cout << "Set unit " << i << " directive from " << start << " to " << goal << " rough heading: " << (unsigned)start.headingTo(goal) << std::endl;*/
 
       } else {
-        // Replan the node to a random location
-        airplaneState rs(rand() % 70 + 5, rand() % 70 + 5, rand() % 7 + 11, rand() % 3 + 1, rand() % 8, false);
-        airtimeState goal(rs, 0);
+        conflict=true;
+        while(conflict){
+          conflict=false;
+          airplaneState rs1(rand() % 40 + 5, rand() % 40 + 5, rand() % 7 + 11, rand() % 3 + 1, rand() % 8, false);
+          airtimeState goal(rs1, 0);
+          for(auto a: goals)
+          {
+            // Make sure that no start points have a conflict
+            airConstraint x_c(a);
+            if(x_c.ConflictsWith(goal)){conflict=true;break;}
+          }
+          if(!conflict)
+            goals.push_back(goal);
+        }
 
-        AirCBSUnit* unit = new AirCBSUnit(start, goal);
+        AirCBSUnit* unit = new AirCBSUnit(*starts.rbegin(), *goals.rbegin());
         unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
         group->AddUnit(unit); // Add to the group
-        std::cout << "Set unit " << i << " directive from " << start << " to " << goal << " rough heading: " << (unsigned)start.headingTo(goal) << std::endl;
+        //std::cout << "Set unit " << i << " directive from " << *starts.rbegin() << " to " << *goals.rbegin() << std::endl;
       }
 
     }
-
-
-
-
   }
 
   //std::cout << "cmdflags:" << use_rairspace << use_wait << std::endl;
@@ -264,8 +285,9 @@ void InitSim(){
   // and forcing the airplane environment to be such that
   // we are inducing high clonflict areas.
   std::cout << "Adding " << num_airplanes << "planes." << std::endl;
+  std::vector<airtimeState> starts;
+  std::vector<airtimeState> goals;
   for (int i = 0; i < num_airplanes; i++) {
-
 
     // 0% are landed at the beginning
     if (false) {
@@ -278,43 +300,61 @@ void InitSim(){
       AirCBSUnit* unit = new AirCBSUnit(start, goal);
       unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
       group->AddUnit(unit); // Add to the group
-      sim->AddUnit(unit); // Add the unit to the simulation
-      std::cout << "Set unit " << i << " directive from " << start << " to " << goal << " rough heading: " << (unsigned)start.headingTo(goal) << std::endl;
+      //std::cout << "Set unit " << i << " directive from " << start << " to " << goal << " rough heading: " << (unsigned)start.headingTo(goal) << std::endl;
 
     } else {
-      airplaneState rs1(rand() % 70 + 5, rand() % 70 + 5, rand() % 7 + 11, rand() % 3 + 1, rand() % 8, false);
-      airtimeState start(rs1, 0);
+      bool conflict(true);
+      while(conflict){
+        conflict=false;
+        airplaneState rs1(rand() % 40 + 5, rand() % 40 + 5, rand() % 7 + 11, rand() % 3 + 1, rand() % 8, false);
+        airtimeState start(rs1, 0);
+        for(auto a: starts)
+        {
+          // Make sure that no start points have a conflict
+          airConstraint x_c(a);
+          if(x_c.ConflictsWith(start)){conflict=true;break;std::cout<<a<<" conflictswith "<<start<<"\n";}
+        }
+        if(!conflict){std::cout<<"added start: " << start<<"\n";
+          starts.push_back(start);}
+      }
 
       // 0% total are landing intially
       if (false) {
         // Replan the node to a landing location
-        airplaneState land(18, 23, 0, 0, 0, true);
-        airtimeState goal(land, 0);
+        /*airplaneState land(18, 23, 0, 0, 0, true);
+          airtimeState goal(land, 0);
 
-        AirCBSUnit* unit = new AirCBSUnit(start, goal);
-        unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
-        group->AddUnit(unit); // Add to the group
-        sim->AddUnit(unit); // Add the unit to the simulation
-        std::cout << "Set unit " << i << " directive from " << start << " to " << goal << " rough heading: " << (unsigned)start.headingTo(goal) << std::endl;
+          AirCBSUnit* unit = new AirCBSUnit(start, goal);
+          unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
+          group->AddUnit(unit); // Add to the group
+          std::cout << "Set unit " << i << " directive from " << start << " to " << goal << " rough heading: " << (unsigned)start.headingTo(goal) << std::endl;*/
 
       } else {
-        // Replan the node to a random location
-        airplaneState rs(rand() % 70 + 5, rand() % 70 + 5, rand() % 7 + 11, rand() % 3 + 1, rand() % 8, false);
-        airtimeState goal(rs, 0);
+        conflict=true;
+        while(conflict){
+          conflict=false;
+          airplaneState rs1(rand() % 40 + 5, rand() % 40 + 5, rand() % 7 + 11, rand() % 3 + 1, rand() % 8, false);
+          airtimeState goal(rs1, 0);
+          for(auto a: goals)
+          {
+            // Make sure that no start points have a conflict
+            airConstraint x_c(a);
+            if(x_c.ConflictsWith(goal)){conflict=true;break;std::cout<<a<<" conflictswith "<<goal<<"\n";}
+          }
+          if(!conflict){std::cout<<"added goal: " << goal<<"\n";
+            goals.push_back(goal);}
+        }
 
-        AirCBSUnit* unit = new AirCBSUnit(start, goal);
+        AirCBSUnit* unit = new AirCBSUnit(*starts.rbegin(), *goals.rbegin());
         unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
         group->AddUnit(unit); // Add to the group
-        sim->AddUnit(unit); // Add the unit to the simulation
-        std::cout << "Set unit " << i << " directive from " << start << " to " << goal << " rough heading: " << (unsigned)start.headingTo(goal) << std::endl;
+        sim->AddUnit(unit); // Add to the group
+        std::cout << "Set unit " << i << " directive from " << *starts.rbegin() << " to " << *goals.rbegin() << std::endl;
       }
 
     }
-
-
-
-
   }
+std::cout << "Done adding all units.\n";
 
   //std::cout << "cmdflags:" << use_rairspace << use_wait << std::endl;
 
