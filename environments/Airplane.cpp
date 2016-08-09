@@ -969,6 +969,7 @@ recVec AirplaneEnvironment::GetCoordinate(int x, int y, int z) const
 
 void AirplaneEnvironment::OpenGLDraw() const
 {
+#ifndef NO_OPENGL
     glEnable(GL_LIGHTING);
     for (int y = 0; y < length; y++)
     {
@@ -1062,7 +1063,7 @@ void AirplaneEnvironment::OpenGLDraw() const
 
   }
 
-
+#endif
 
 }
 

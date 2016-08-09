@@ -9,6 +9,8 @@
 #include "TemplateAStar.h"
 #include "Heuristic.h"
 
+void renderScene(){}
+
 bool testLoadPerimeterHeuristic(){
   std::cout << "testLoadPerimeterHeuristic";
   {

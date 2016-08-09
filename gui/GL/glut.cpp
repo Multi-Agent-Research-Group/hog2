@@ -1,6 +1,6 @@
 #include "glut.h"
 
-void renderScene();
+void renderScene(void);
 
 void glutAddMenuEntry (char *label, int value) {};
 void glutAddSubMenu (char *label, int submenu) {};
