@@ -20,6 +20,7 @@
 
 #include <sstream>
 
+bool randomalg = false;
 bool mouseTracking;
 int px1, py1, px2, py2;
 int absType = 0;
@@ -117,6 +118,7 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-nobypass", "-nobypass", "Turn off bypass option");
 	InstallCommandLineHandler(MyCLHandler, "-cutoffs", "-cutoffs <number>,<number>,<number,...", "Number of conflicts to tolerate before switching to less constrained layer of environment");
 	InstallCommandLineHandler(MyCLHandler, "-nogui", "-nogui", "Turn off gui");
+	InstallCommandLineHandler(MyCLHandler, "-random", "-random", "Randomize conflict resolution order");
 
         InstallWindowHandler(MyWindowHandler);
 
@@ -424,6 +426,11 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 int MyCLHandler(char *argument[], int maxNumArgs)
 {
 
+	if(strcmp(argument[0], "-random") == 0)
+	{
+                randomalg = true;
+		return 1;
+	}
 	if(strcmp(argument[0], "-nogui") == 0)
 	{
 		gui = false;

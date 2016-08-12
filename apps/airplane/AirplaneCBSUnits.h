@@ -31,16 +31,33 @@
 #include "Heuristic.h"
 #include "Timer.h"
 
+extern bool randomalg;
+
 template <class state>
 struct CompareLowGCost {
-	bool operator()(const AStarOpenClosedData<state> &i1, const AStarOpenClosedData<state> &i2) const
-	{
-		if (fequal(i1.g+i1.h, i2.g+i2.h))
-		{
-			return fless(i1.data.t,i2.data.t);//rand()%2;//(fgreater(i1.g, i2.g));
-		}
-		return (fgreater(i1.g+i1.h, i2.g+i2.h));
-	}
+  bool operator()(const AStarOpenClosedData<state> &i1, const AStarOpenClosedData<state> &i2) const
+  {
+    if (fequal(i1.g+i1.h, i2.g+i2.h))
+    {
+      return fless(i1.data.t,i2.data.t);
+    }
+    return (fgreater(i1.g+i1.h, i2.g+i2.h));
+  }
+};
+
+template <class state>
+struct RandomTieBreaking {
+  bool operator()(const AStarOpenClosedData<state> &i1, const AStarOpenClosedData<state> &i2) const
+  {
+    if (fequal(i1.g+i1.h, i2.g+i2.h))
+    {
+      if(randomalg && fequal(i1.g,i2.g))
+        return rand()%2;
+      else
+        return (fless(i1.g, i2.g));
+    }
+    return (fgreater(i1.g+i1.h, i2.g+i2.h));
+  }
 };
 
 
@@ -152,7 +169,7 @@ private:
 
 	std::vector<AirCBSTreeNode> tree;
 	std::vector<airtimeState> thePath;
-	TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> astar;
+	TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment, AStarOpenClosed<airtimeState, RandomTieBreaking<airtimeState> > > astar;
 	TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment, AStarOpenClosed<airtimeState, CompareLowGCost<airtimeState> > > astar2;
 	double time;
 
