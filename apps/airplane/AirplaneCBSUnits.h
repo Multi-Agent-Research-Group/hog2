@@ -31,16 +31,35 @@
 #include "Heuristic.h"
 #include "Timer.h"
 
+extern bool highsort;
+extern bool randomalg;
+extern unsigned killtime;
+
 template <class state>
 struct CompareLowGCost {
-	bool operator()(const AStarOpenClosedData<state> &i1, const AStarOpenClosedData<state> &i2) const
-	{
-		if (fequal(i1.g+i1.h, i2.g+i2.h))
-		{
-			return fless(i1.data.t,i2.data.t);//rand()%2;//(fgreater(i1.g, i2.g));
-		}
-		return (fgreater(i1.g+i1.h, i2.g+i2.h));
-	}
+  bool operator()(const AStarOpenClosedData<state> &i1, const AStarOpenClosedData<state> &i2) const
+  {
+    if (fequal(i1.g+i1.h, i2.g+i2.h))
+    {
+      return fless(i1.data.t,i2.data.t);
+    }
+    return (fgreater(i1.g+i1.h, i2.g+i2.h));
+  }
+};
+
+template <class state>
+struct RandomTieBreaking {
+  bool operator()(const AStarOpenClosedData<state> &i1, const AStarOpenClosedData<state> &i2) const
+  {
+    if (fequal(i1.g+i1.h, i2.g+i2.h))
+    {
+      if(randomalg && fequal(i1.g,i2.g))
+        return rand()%2;
+      else
+        return (fless(i1.g, i2.g));
+    }
+    return (fgreater(i1.g+i1.h, i2.g+i2.h));
+  }
 };
 
 
@@ -152,7 +171,7 @@ private:
 
 	std::vector<AirCBSTreeNode> tree;
 	std::vector<airtimeState> thePath;
-	TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> astar;
+	TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment, AStarOpenClosed<airtimeState, RandomTieBreaking<airtimeState> > > astar;
 	TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment, AStarOpenClosed<airtimeState, CompareLowGCost<airtimeState> > > astar2;
 	double time;
 
@@ -160,15 +179,19 @@ private:
 	std::mutex bestNodeLock;
 
 	struct OpenListNode {
-		OpenListNode() : location(0), cost(0) {}
-		OpenListNode(uint loc, double c) : location(loc), cost(c) {}
+		OpenListNode() : location(0), cost(0), nc(0) {}
+		OpenListNode(uint loc, double c, uint16_t n) : location(loc), cost(c),nc(n) {}
 		uint location;
 		double cost;	
+                unsigned nc;
 	};
 	struct OpenListNodeCompare {
-		bool operator() (const OpenListNode& left, const OpenListNode& right) {
-			return left.cost > right.cost;
-		}
+          bool operator() (const OpenListNode& left, const OpenListNode& right) {
+            if(highsort)
+              return (left.cost==right.cost)?(left.nc > right.nc):(left.cost>right.cost);
+            else
+              return (left.nc==right.nc)?(left.cost > right.cost):(left.nc>right.nc);
+          }
 	};
 
 	std::priority_queue<AirCBSGroup::OpenListNode, std::vector<AirCBSGroup::OpenListNode>, AirCBSGroup::OpenListNodeCompare> openList;
