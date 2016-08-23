@@ -31,7 +31,9 @@
 #include "Heuristic.h"
 #include "Timer.h"
 
+extern bool highsort;
 extern bool randomalg;
+extern unsigned killtime;
 
 template <class state>
 struct CompareLowGCost {
@@ -177,15 +179,19 @@ private:
 	std::mutex bestNodeLock;
 
 	struct OpenListNode {
-		OpenListNode() : location(0), cost(0) {}
-		OpenListNode(uint loc, double c) : location(loc), cost(c) {}
+		OpenListNode() : location(0), cost(0), nc(0) {}
+		OpenListNode(uint loc, double c, uint16_t n) : location(loc), cost(c),nc(n) {}
 		uint location;
 		double cost;	
+                unsigned nc;
 	};
 	struct OpenListNodeCompare {
-		bool operator() (const OpenListNode& left, const OpenListNode& right) {
-			return left.cost > right.cost;
-		}
+          bool operator() (const OpenListNode& left, const OpenListNode& right) {
+            if(highsort)
+              return (left.cost==right.cost)?(left.nc > right.nc):(left.cost>right.cost);
+            else
+              return (left.nc==right.nc)?(left.cost > right.cost):(left.nc>right.nc);
+          }
 	};
 
 	std::priority_queue<AirCBSGroup::OpenListNode, std::vector<AirCBSGroup::OpenListNode>, AirCBSGroup::OpenListNodeCompare> openList;

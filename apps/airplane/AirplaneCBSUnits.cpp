@@ -8,6 +8,7 @@
 
 #include "AirplaneCBSUnits.h"
 
+extern bool heuristic;
 
 //----------------------------------------------------------------------------------------------------------------------------------------------//
 
@@ -159,7 +160,10 @@ void AirCBSGroup::processSolution()
     for(auto a: agentEnvs)
       if(e.environment==a)
         total++;
-    std::cout << "%Environment used: " << e.environment->name() <<": "<< total/double(agentEnvs.size())<<"\n";
+    std::string tmp;
+    if(e.astar_weight > 1)
+      tmp = "Weighted";
+    std::cout << "%Environment used: " << tmp<<e.environment->name() <<": "<< total/double(agentEnvs.size())<<"\n";
   }
   std::cout << "Total conflicts: " << tree.size() << std::endl;
   TOTAL_EXPANSIONS = 0;
@@ -201,6 +205,25 @@ void AirCBSGroup::ExpandOneCBSNode(bool gui)
   if(timer == 0){
     timer = new Timer();
     timer->StartTimer();
+  }
+  if(fgeq(timer->EndTimer(), killtime))
+  {
+    std::cout << "FAILED\n";
+    std::cout << "Finished with failure using " << TOTAL_EXPANSIONS << " expansions.\n";
+    std::cout << "Time elapsed: " << killtime << "\n";
+    for(auto e:environments)
+    {
+      unsigned total=0;
+      for(auto a: agentEnvs)
+        if(e.environment==a)
+          total++;
+      std::string tmp;
+      if(e.astar_weight > 1)
+        tmp = "Weighted";
+      std::cout << "%Environment used: " << tmp<<e.environment->name() <<": "<< total/double(agentEnvs.size())<<"\n";
+    }
+    std::cout << "Total conflicts: " << tree.size() << std::endl;
+    exit(0);
   }
 
   //std::cout << "Looking for conflicts..." << std::endl;
@@ -244,19 +267,23 @@ void AirCBSGroup::ExpandOneCBSNode(bool gui)
       // We now replan in the tree for both of the child nodes
       Replan(last);
       Replan(last+1);
+      unsigned nc1(0);
+      unsigned nc2(0);
+      //unsigned nc1(FindFirstConflict(tree[last], c1, c2));
+      //unsigned nc2(FindFirstConflict(tree[last+1], c1, c2));
 
 
       // Add the new nodes to the open list
       double cost = 0;
       for (int y = 0; y < tree[last].paths.size(); y++)
         cost += currentEnvironment->environment->GetPathLength(tree[last].paths[y]);
-      OpenListNode l1(last, cost);
+      OpenListNode l1(last, cost, nc1);
       openList.push(l1);
 
       cost = 0;
       for (int y = 0; y < tree[last+1].paths.size(); y++)
         cost += currentEnvironment->environment->GetPathLength(tree[last+1].paths[y]);
-      OpenListNode l2(last+1, cost);
+      OpenListNode l2(last+1, cost, nc2);
       openList.push(l2);
     }
 
@@ -308,7 +335,7 @@ void AirCBSGroup::SetEnvironment(unsigned numConflicts){
 			break;
 		}
 	}
-        if(!set)assert(false&&"No env ws set - you need -cutoffs of zero...");
+        if(!set)assert(false&&"No env was set - you need -cutoffs of zero...");
 
 	astar.SetHeuristic(currentEnvironment->heuristic);
 	astar.SetWeight(currentEnvironment->astar_weight);
@@ -368,7 +395,7 @@ void AirCBSGroup::AddUnit(Unit<airtimeState, airplaneAction, AirplaneConstrained
 	// Clear up the rest of the tree and clean the open list
 	tree.resize(1);
 	while(!openList.empty()) openList.pop();
-	openList.push(OpenListNode(0, 0));
+	openList.push(OpenListNode(0, 0, 0));
 }
 
 void AirCBSGroup::UpdateUnitGoal(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u, airtimeState newGoal)
@@ -442,7 +469,7 @@ void AirCBSGroup::UpdateUnitGoal(Unit<airtimeState, airplaneAction, AirplaneCons
 	//std::cout << "Adding the root to the open list" << std::endl;
 
 	// Add the root of the node to the open list
-	openList.push(OpenListNode(0, 0));
+	openList.push(OpenListNode(0, 0, 0));
 
 	// Clean up the root node
 	tree[0].parent = 0;
@@ -562,6 +589,9 @@ unsigned AirCBSGroup::LoadConstraintsForNode(int location){
     }
     location = tree[location].parent;
   } while (location != 0);
+  //Implement ECBS prioritization which penalizes the second element in a path.
+  if(heuristic && strstr(currentEnvironment->environment->name(),"Highway")==NULL && tree[location].paths[tree[location].con.unit1].size()>1)
+    AddEnvironmentConstraint(airConstraint(tree[location].paths[tree[location].con.unit1][1]));
   return numConflicts;
 }
 
@@ -623,18 +653,24 @@ bool AirCBSGroup::Bypass(int best, unsigned numConflicts, airConflict const& c1,
 
       // Issue tickets on the path
       //ticketAuthority.IssueTicketsForPath(tree[location].paths[theUnit], theUnit);
+      //Replan(last); //Replan not necessary since we already have the path...
+      //Replan(last+1);
+      unsigned nc1(0);
+      unsigned nc2(0);
+      //unsigned nc1(FindFirstConflict(tree[last], c3, c4));
+      //unsigned nc2(FindFirstConflict(tree[last+1], c3, c4));
 
       // Add the new nodes to the open list
       double cost = 0;
       for (int y = 0; y < tree[last].paths.size(); y++)
         cost += currentEnvironment->environment->GetPathLength(tree[last].paths[y]);
-      OpenListNode l1(last, cost);
+      OpenListNode l1(last, cost, nc1);
       openList.push(l1);
 
       cost = 0;
       for (int y = 0; y < tree[last+1].paths.size(); y++)
         cost += currentEnvironment->environment->GetPathLength(tree[last+1].paths[y]);
-      OpenListNode l2(last+1, cost);
+      OpenListNode l2(last+1, cost, nc2);
       openList.push(l2);
     }
   }
