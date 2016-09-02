@@ -115,6 +115,11 @@ void AirplaneConstrainedEnvironment::GetActions(const airtimeState &nodeID, std:
 	// Get the action information from the hidden AE
 	this->ae->GetActions(nodeID, actions);
 }
+void AirplaneConstrainedEnvironment::GetReverseActions(const airtimeState &nodeID, std::vector<airplaneAction> &actions) const
+{
+	// Get the action information from the hidden AE
+	this->ae->GetReverseActions(nodeID, actions);
+}
 void AirplaneConstrainedEnvironment::GetSuccessors(const airtimeState &nodeID, std::vector<airtimeState> &neighbors) const
 {
   // Create a location to hold the states
@@ -336,6 +341,7 @@ void AirplaneConstrainedEnvironment::GLDrawPath(const std::vector<airtimeState> 
 
 bool airConstraint::ConflictsWith(const airtimeState &state) const
 {
+if(state.landed || end_state.landed && start_state.landed) return false;
 //std::cout << "VERTEX"<<*this << "ConflictsWith" << state << "...\n";
 	if (state.t >= start_state.t - 0.001 && state.t <= end_state.t + 0.001)
     {
@@ -373,6 +379,7 @@ return false;
 
 bool airConstraint::ConflictsWith(const airtimeState &from, const airtimeState &to) const
 {
+if(from.landed && to.landed || end_state.landed && start_state.landed) return false;
     if (max(start_state.t, from.t) <= min(end_state.t, to.t) + 0.001) 
     {
         // Each constraint defines an x, y, z box with corners on the state locations. We 

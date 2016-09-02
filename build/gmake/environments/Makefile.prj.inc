@@ -31,6 +31,7 @@ default : all
 
 SRC_CPP = \
 	environments/Airplane.cpp \
+	environments/AirplaneMultiAgent.cpp \
 	environments/AirplaneSimple.cpp \
 	environments/AirplaneHighway.cpp \
 	environments/AirplaneHighway4.cpp \

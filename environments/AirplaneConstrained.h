@@ -59,6 +59,7 @@ public:
 
 	/** Get the possible actions from a state */
 	virtual void GetActions(const airtimeState &nodeID, std::vector<airplaneAction> &actions) const;
+	virtual void GetReverseActions(const airtimeState &nodeID, std::vector<airplaneAction> &actions) const;
 	/** Get the successor states not violating constraints */
 	virtual void GetSuccessors(const airtimeState &nodeID, std::vector<airtimeState> &neighbors) const;
 	/** Apply an action to the base environment */
