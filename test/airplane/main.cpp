@@ -2,12 +2,13 @@
 
 int main(){
 
-  TestQuadcopterActions();
-  testGetAction();
-  testLoadPerimeterHeuristic();
-  testHCost();
-  testHeadingTo();
-  testConstraints();
+  testMultiAgent();
+  //TestQuadcopterActions();
+  //testGetAction();
+  //testLoadPerimeterHeuristic();
+  //testHCost();
+  //testHeadingTo();
+  //testConstraints();
 
   return 0;
 

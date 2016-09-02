@@ -119,6 +119,14 @@ void AirplaneSimpleEnvironment::GetActionsPlane(const airplaneState &nodeID, std
 bool AirplaneSimpleEnvironment::AppendLandingActionsPlane(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const {
   if (nodeID.landed)
   {
+// No-op action
+        actions.push_back(airplaneAction(0,0,0,3));
+    return false;
+  }else{
+    return true;
+  }
+  if (nodeID.landed)
+  {
     // Figure out which landing strip we're at
     for (landingStrip st : landingStrips)
     {

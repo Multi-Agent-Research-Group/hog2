@@ -4,12 +4,52 @@
 #include "Airplane.h"
 #include "AirplaneSimple.h"
 #include "AirplaneHighway.h"
-#include "AirplaneConstrained.h"
+#include "AirplaneMultiAgent.h"
 #include <iostream>
 #include "TemplateAStar.h"
 #include "Heuristic.h"
 
 void renderScene(){}
+bool testMultiAgent(){
+  std::cout << "multi\n";
+  AirplaneSimpleEnvironment env;
+  AirplaneConstrainedEnvironment cenv(&env);
+  AirplaneMultiAgentEnvironment mae(&cenv);
+  TemplateAStar<MultiAgentState, MultiAgentAction, AirplaneMultiAgentEnvironment> astar;
+  MultiAgentState start;
+  start.push_back(airtimeState(airplaneState(50,45,16,3,4,false,AirplaneType::PLANE),0));
+  start.push_back(airtimeState(airplaneState(55,50,16,3,6,false,AirplaneType::PLANE),0));
+  MultiAgentState goal;
+  goal.push_back(airtimeState(airplaneState(50,46,16,3,4,false,AirplaneType::PLANE),0));
+  goal.push_back(airtimeState(airplaneState(54,50,16,3,6,false,AirplaneType::PLANE),0));
+
+  std::vector<MultiAgentAction> act;
+  mae.GetActions(start,act);
+  //std::cout << act.size() << " actions\n";
+  //for(auto const& ma : act){
+    //std::cout << "\n";
+    //for(auto const& a : ma){
+      //std::cout << a << "\n";
+//}
+//}
+  
+  std::vector<MultiAgentState> st;
+  mae.GetSuccessors(start,st);
+  std::vector<MultiAgentState> sol;
+  astar.GetPath(&mae,start,goal,sol);
+  
+  std::cout <<  "solution\n";
+  std::cout << astar.GetNodesExpanded() << "\n";
+  for(auto const& ma : sol){
+    std::cout << "\n";
+    for(auto const& a : ma){
+      std::cout << a << "\n";
+    }
+  }
+  std::cout << "H " << mae.HCost(start,goal);
+  std::cout << "C " << mae.GetPathLength(sol);
+  return true;
+}
 
 bool testLoadPerimeterHeuristic(){
   std::cout << "testLoadPerimeterHeuristic";

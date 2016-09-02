@@ -246,7 +246,9 @@ void AirCBSGroup::ExpandOneCBSNode(bool gui)
 
     // Don't create new nodes if either bypass was successful
     // Note, these calls will add nodes to the openList
-    if(!Bypass(bestNode,numConflicts,c1,gui) && !Bypass(bestNode,numConflicts,c2,gui))
+    //if(!Bypass(bestNode,numConflicts,c1,gui) && !Bypass(bestNode,numConflicts,c2,gui))
+    Bypass(bestNode,numConflicts,c1,gui);
+    Bypass(bestNode,numConflicts,c2,gui);
     {
       last = tree.size();
 
@@ -328,7 +330,8 @@ void AirCBSGroup::SetEnvironment(unsigned numConflicts){
         bool set(false);
 	for (int i = 0; i < this->environments.size(); i++) {
 		if (numConflicts >= environments[i].conflict_cutoff) {
-//std::cout << "Setting to env# " << i << " b/c " << numConflicts << " >= " << environments[i].conflict_cutoff<<"\n";
+std::cout << "Setting to env# " << i << " b/c " << numConflicts << " >= " << environments[i].conflict_cutoff<<environments[i].environment->name()<<std::endl;
+//std::cout<<environments[i].environment->getGoal()<<"\n";
 			currentEnvironment = &(environments[i]);
                         set=true;
 		} else {

@@ -348,6 +348,13 @@ void AirplaneEnvironment::GetActionsPlane(const airplaneState &nodeID, std::vect
 bool AirplaneEnvironment::AppendLandingActionsPlane(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const {
   if (nodeID.landed)
   {
+        actions.push_back(airplaneAction(0,0,0,3));
+return false;
+}else{
+return true;
+}
+  if (nodeID.landed)
+  {
     // Figure out which landing strip we're at
     for (landingStrip st : landingStrips)
     {
@@ -726,6 +733,9 @@ void AirplaneEnvironment::ApplyAction(airplaneState &s, airplaneAction dir) cons
   
   s.speed += dir.speed;
   s.height += dir.height;
+  if((!s.landed) && GoalTest(s,getGoal())){
+     s.landed = true;
+  }
 }
 
 void AirplaneEnvironment::UndoAction(airplaneState &s, airplaneAction dir) const
