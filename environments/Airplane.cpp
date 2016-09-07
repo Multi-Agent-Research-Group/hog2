@@ -9,7 +9,13 @@
 #include <stdio.h>
 #include "Airplane.h"
 #include <iostream>
-#include <gl.h>
+
+#if defined(__APPLE__)
+	#include <OpenGL/gl.h>
+#else
+	#include <gl.h>
+#endif
+
 #include "TemplateAStar.h"
 #include "Heuristic.h"
 
