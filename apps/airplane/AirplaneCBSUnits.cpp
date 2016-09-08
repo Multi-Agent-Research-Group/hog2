@@ -12,6 +12,7 @@ extern bool heuristic;
 
 //----------------------------------------------------------------------------------------------------------------------------------------------//
 
+
 /** AIR CBS UNIT DEFINITIONS */
 
 bool AirCBSUnit::MakeMove(AirplaneConstrainedEnvironment *ae, OccupancyInterface<airtimeState,airplaneAction> *,
@@ -29,23 +30,23 @@ bool AirCBSUnit::MakeMove(AirplaneConstrainedEnvironment *ae, OccupancyInterface
 		{
 			return false;
 		} else {
-
+      return false;
 			// With a random probability - either land or keep flying around.
-			if (rand()%5 == 0) {
-				// Replan the node to a landing location
-				airplaneState land(18, 23, 0, 0, 0, true);
-				airtimeState newGoal(land, 0);
-				AirCBSGroup* g = (AirCBSGroup*) this->GetUnitGroup();
-				//g->UpdateUnitGoal(this, newGoal);			
-				g->UpdateSingleUnitPath(this, newGoal);
-			} else {
-				// Replan the node to a random location
-				airplaneState rs(rand() % 70 + 5, rand() % 70 + 5, rand() % 7 + 11, rand() % 3 + 1, rand() % 8, false);
-				airtimeState newGoal(rs, 0);
-				AirCBSGroup* g = (AirCBSGroup*) this->GetUnitGroup();
-				//g->UpdateUnitGoal(this, newGoal);
-				g->UpdateSingleUnitPath(this, newGoal);
-			}
+			// if (rand()%5 == 0) {
+			// 	// Replan the node to a landing location
+			// 	airplaneState land(18, 23, 0, 0, 0, true);
+			// 	airtimeState newGoal(land, 0);
+			// 	AirCBSGroup* g = (AirCBSGroup*) this->GetUnitGroup();
+			// 	//g->UpdateUnitGoal(this, newGoal);			
+			// 	g->UpdateSingleUnitPath(this, newGoal);
+			// } else {
+			// 	// Replan the node to a random location
+			// 	airplaneState rs(rand() % 70 + 5, rand() % 70 + 5, rand() % 7 + 11, rand() % 3 + 1, rand() % 8, false);
+			// 	airtimeState newGoal(rs, 0);
+			// 	AirCBSGroup* g = (AirCBSGroup*) this->GetUnitGroup();
+			// 	//g->UpdateUnitGoal(this, newGoal);
+			// 	g->UpdateSingleUnitPath(this, newGoal);
+			// }
 		}
 	}
 	return false;
@@ -108,12 +109,6 @@ AirCBSGroup::AirCBSGroup(AirplaneConstrainedEnvironment* cv, bool u_r, bool u_w,
   tree[0].parent = 0;
   cenv = cv;
   env = new AirplaneMultiAgentEnvironment(cv);
-
-
-
-  // Set the current environment to that with 0 conflicts
-  SetEnvironment(0);
-
 }
 
 
@@ -139,17 +134,6 @@ void AirCBSGroup::processSolution()
 {
   std::cout << "Finished the plan using " << TOTAL_EXPANSIONS << " expansions.\n";
   std::cout << "Time elapsed: " << timer->EndTimer() << "\n";
-  for(auto e:environments)
-  {
-    unsigned total=0;
-    for(auto a: agentEnvs)
-      if(e.environment==a)
-        total++;
-    std::string tmp;
-    if(e.astar_weight > 1)
-      tmp = "Weighted";
-    std::cout << "%Environment used: " << tmp<<e.environment->name() <<": "<< total/double(agentEnvs.size())<<"\n";
-  }
   std::cout << "Total conflicts: " << tree.size() << std::endl;
   TOTAL_EXPANSIONS = 0;
   planFinished = true;
@@ -196,17 +180,6 @@ void AirCBSGroup::ExpandOneCBSNode(bool gui)
     std::cout << "FAILED\n";
     std::cout << "Finished with failure using " << TOTAL_EXPANSIONS << " expansions.\n";
     std::cout << "Time elapsed: " << killtime << "\n";
-    for(auto e:environments)
-    {
-      unsigned total=0;
-      for(auto a: agentEnvs)
-        if(e.environment==a)
-          total++;
-      std::string tmp;
-      if(e.astar_weight > 1)
-        tmp = "Weighted";
-      std::cout << "%Environment used: " << tmp<<e.environment->name() <<": "<< total/double(agentEnvs.size())<<"\n";
-    }
     std::cout << "Total conflicts: " << tree.size() << std::endl;
     exit(0);
   }
@@ -222,12 +195,101 @@ void AirCBSGroup::ExpandOneCBSNode(bool gui)
     processSolution();
     if(!gui)exit(0);
   } 
-
   // Otherwise, we need to deal with the conflicts
   else
   {
+    for (int i = 0; i < activeMetaAgents.size(); i++) {
+      for (int j = 0; j < activeMetaAgents.size(); j++) {
+        if (metaAgentConflictMatrix.at(i).at(j) > 5) {
+          // Merge I and J
+          for (unsigned x : activeMetaAgents.at(j).units) {
+            activeMetaAgents.at(i).units.push_back(x);
+          }
+          // Remove J from the active list
+          activeMetaAgents.erase(activeMetaAgents.begin() + j);
+          // Remove J from the conflict matrix
+          for (int x = 0; x < metaAgentConflictMatrix.size(); x++) {
+          metaAgentConflictMatrix.at(x).erase(metaAgentConflictMatrix.at(x).begin() + j);
+          }
+          metaAgentConflictMatrix.erase(metaAgentConflictMatrix.begin() + j);
+
+          // Reset the search
+          // Clear up the rest of the tree and clean the open list
+          tree.resize(1);
+          while(!openList.empty()) openList.pop();
+          openList.push(OpenListNode(0, 0, 0));
+
+          // Re-Plan the first node
+          for (unsigned a = 0; a < activeMetaAgents.size(); a++) {
+            // Build the MultiAgentState
+            MultiAgentState start;
+            MultiAgentState goal;
+            for (unsigned x = 0; x < activeMetaAgents.at(a).units.size(); x++) {
+              // Select the air unit from the group
+              AirCBSUnit *c = (AirCBSUnit*)GetMember(activeMetaAgents.at(a).units.at(x));
+              // Retreive the unit start and goal
+              airtimeState s, g;
+              c->GetStart(s);
+              c->GetGoal(g);
+              start.push_back(s);
+              start.push_back(g);
+            }
+
+            std::vector<MultiAgentState> tp; 
+            astar.GetPath(env, start, goal, tp);
+
+            TOTAL_EXPANSIONS += astar.GetNodesExpanded();
+            tree[0].paths.resize(GetNumMembers());
+
+            for (unsigned k = 0; k < activeMetaAgents.at(a).units.size(); k++) {
+              // Add the path back to the tree (new constraint included)
+              tree[0].paths[activeMetaAgents.at(a).units.at(k)].resize(0);
+              thePath = tp.at(a);
+              for (unsigned int l = 0; l < thePath.size(); l++)
+              {
+                tree[0].paths[activeMetaAgents.at(a).units.at(k)].push_back(thePath[l]);
+              }
+            }
+          }
+          // Finished merging - return from the unit
+          
+          // Get the best node from the top of the open list, and remove it from the list
+          bestNode = openList.top().location;
+          openList.pop();
+
+          // Set the visible paths for every unit in the node
+          for (unsigned int x = 0; x < tree[bestNode].paths.size(); x++)
+          {
+            // Grab the unit
+            AirCBSUnit *unit = (AirCBSUnit*) GetMember(x);
+
+            // Prune these paths to the current simulation time
+            airtimeState current;
+            unit->GetLocation(current);
+            std::vector<airtimeState> newPath;
+            newPath.push_back(current); // Add the current simulation node to the new path
+
+            // For everything in the path that's new, add the path back
+            for (airtimeState xNode : tree[bestNode].paths[x]) {
+              if (current.t < xNode.t - 0.0001) {
+                newPath.push_back(xNode);
+              }
+            }
+
+            // Update the actual unit path
+            unit->SetPath(newPath);
+          }
+          std::cout << "Merged MAs " << i << " and " << j << std::endl;
+          return;
+        }
+      }
+    }
+
+
+
+
     // Notify the user of the conflict
-    std::cout << "Conflict found between unit " << c1.unit1 << " and unit " << c2.unit1 << " @:" << c2.c.start_state <<  " and " << c1.c.start_state << std::endl;
+    std::cout << "Conflict found between unit " << c1.unit1 << " and unit " << c2.unit1 << std::endl;
 
     {
       last = tree.size();
@@ -337,7 +399,7 @@ void AirCBSGroup::AddUnit(Unit<airtimeState, airplaneAction, AirplaneConstrained
   MultiAgentState s;
   MultiAgentState g;
   s.push_back(start);
-  g.push_back(g);
+  g.push_back(goal);
 
 
 	// Resize the number of paths in the root of the tree
@@ -411,9 +473,9 @@ void AirCBSGroup::Replan(int location)
     // Add the path back to the tree (new constraint included)
     tree[location].paths[activeMetaAgents.at(theMA).units.at(x)].resize(0);
     thePath = tp.at(x);
-    for (unsigned int x = 0; x < thePath.size(); x++)
+    for (unsigned int l = 0; l < thePath.size(); l++)
     {
-      tree[location].paths[theUnit].push_back(thePath[x]);
+      tree[location].paths[activeMetaAgents.at(theMA).units.at(x)].push_back(thePath[l]);
     }
   }
 
@@ -537,9 +599,9 @@ unsigned AirCBSGroup::FindFirstConflict(AirCBSTreeNode const& location, airMetaC
       u2c.unit1 = b;
 
       // Check to see if, for each of the agents in each meta-agent there is a conflict
-      for (int x = 0; x < activeMetaAgents.at(a).units.size()) {
-        for (int y = 0; y < activeMetaAgents.at(b).units.size()) {
-          maInternalConflicts += HasConflict(location.paths[x],location.paths[y],x,y,a,b,maInternalConflicts==0);
+      for (int x = 0; x < activeMetaAgents.at(a).units.size(); x++) {
+        for (int y = 0; y < activeMetaAgents.at(b).units.size(); y++) {
+          maInternalConflicts += HasConflict(location.paths[x],location.paths[y],x,y,u1c,u2c,maInternalConflicts==0,false);
         }
       }
 

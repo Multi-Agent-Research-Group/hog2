@@ -151,18 +151,18 @@ void InitHeadless(){
   srandom(seed);
   AirplaneEnvironment* ae = new AirplaneEnvironment();
   ae->loadPerimeterDB();
-  AirplaneEnvironment* ase = new AirplaneSimpleEnvironment();
-  ase->loadPerimeterDB();
-  AirplaneEnvironment* ahe = new AirplaneHighwayEnvironment();
-  ahe->loadPerimeterDB();
-  AirplaneEnvironment* ah4e = new AirplaneHighway4Environment();
-  ah4e->loadPerimeterDB();
-  environs.push_back(EnvironmentContainer(ahe->name(),new AirplaneConstrainedEnvironment(ahe),0,cutoffs[0],1));
-  environs.push_back(EnvironmentContainer(ah4e->name(),new AirplaneConstrainedEnvironment(ah4e),0,cutoffs[1],1));
-  environs.push_back(EnvironmentContainer(ase->name(),new AirplaneConstrainedEnvironment(ase),0,cutoffs[2],1));
-  environs.push_back(EnvironmentContainer(ae->name(),new AirplaneConstrainedEnvironment(ae),0,cutoffs[3],1));
+  //AirplaneEnvironment* ase = new AirplaneSimpleEnvironment();
+  //ase->loadPerimeterDB();
+  //AirplaneEnvironment* ahe = new AirplaneHighwayEnvironment();
+  //ahe->loadPerimeterDB();
+  //AirplaneEnvironment* ah4e = new AirplaneHighway4Environment();
+  //ah4e->loadPerimeterDB();
+  //environs.push_back(EnvironmentContainer(ahe->name(),new AirplaneConstrainedEnvironment(ahe),0,cutoffs[0],1));
+  //environs.push_back(EnvironmentContainer(ah4e->name(),new AirplaneConstrainedEnvironment(ah4e),0,cutoffs[1],1));
+  //environs.push_back(EnvironmentContainer(ase->name(),new AirplaneConstrainedEnvironment(ase),0,cutoffs[2],1));
+  //environs.push_back(EnvironmentContainer(ae->name(),new AirplaneConstrainedEnvironment(ae),0,cutoffs[3],1));
 
-    group = new AirCBSGroup(environs,use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
+  group = new AirCBSGroup(new AirplaneConstrainedEnvironment(ae),use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
 
   // Updated so we're always testing the landing conditions
   // and forcing the airplane environment to be such that
@@ -264,21 +264,21 @@ void InitSim(){
   srandom(seed);
   AirplaneEnvironment* ae = new AirplaneEnvironment();
   ae->loadPerimeterDB();
-  AirplaneEnvironment* ase = new AirplaneSimpleEnvironment();
-  ase->loadPerimeterDB();
-  AirplaneEnvironment* ahe = new AirplaneHighwayEnvironment();
-  ahe->loadPerimeterDB();
-  AirplaneEnvironment* ah4e = new AirplaneHighway4Environment();
-  ah4e->loadPerimeterDB();
+  // AirplaneEnvironment* ase = new AirplaneSimpleEnvironment();
+  // ase->loadPerimeterDB();
+  // AirplaneEnvironment* ahe = new AirplaneHighwayEnvironment();
+  // ahe->loadPerimeterDB();
+  // AirplaneEnvironment* ah4e = new AirplaneHighway4Environment();
+  // ah4e->loadPerimeterDB();
   
-  environs.push_back(EnvironmentContainer(ahe->name(),new AirplaneConstrainedEnvironment(ahe),0,cutoffs[0],1));
-  environs.push_back(EnvironmentContainer(ah4e->name(),new AirplaneConstrainedEnvironment(ah4e),0,cutoffs[1],1));
-  environs.push_back(EnvironmentContainer(ase->name(),new AirplaneConstrainedEnvironment(ase),0,cutoffs[2],1));
-  environs.push_back(EnvironmentContainer(ae->name(),new AirplaneConstrainedEnvironment(ae),0,cutoffs[3],1));
+  // environs.push_back(EnvironmentContainer(ahe->name(),new AirplaneConstrainedEnvironment(ahe),0,cutoffs[0],1));
+  // environs.push_back(EnvironmentContainer(ah4e->name(),new AirplaneConstrainedEnvironment(ah4e),0,cutoffs[1],1));
+  // environs.push_back(EnvironmentContainer(ase->name(),new AirplaneConstrainedEnvironment(ase),0,cutoffs[2],1));
+  // environs.push_back(EnvironmentContainer(ae->name(),new AirplaneConstrainedEnvironment(ae),0,cutoffs[3],1));
 
-  ace=environs.rbegin()->environment;
+  // ace=environs.rbegin()->environment;
 
-  group = new AirCBSGroup(environs,use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
+  group = new AirCBSGroup(new AirplaneConstrainedEnvironment(ae),use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
 
 
   sim = new UnitSimulation<airtimeState, airplaneAction, AirplaneConstrainedEnvironment>(ace);

@@ -106,12 +106,11 @@ struct AirMetaAgent {
 	AirMetaAgent() {}
 	AirMetaAgent(unsigned x) {units.push_back(x);}
 	std::vector<unsigned> units;
-	static AirMetaAgent Merge(AirMetaAgent a, AirMetaAgent b);
 };
 
 struct airMetaConflict {
 	std::vector<airConstraint> c;
-	AirMetaAgent unit1;
+	unsigned unit1;
 };
 
 struct AirCBSTreeNode {
@@ -155,7 +154,7 @@ public:
 
 private:    
     void Replan(int location);
-    unsigned HasConflict(std::vector<airtimeState> const& a, std::vector<airtimeState> const& b, int x, int y, airConflict &c1, airConflict &c2, bool update, bool verbose=false);
+    unsigned HasConflict(std::vector<airtimeState> const& a, std::vector<airtimeState> const& b, int x, int y, airMetaConflict &c1, airMetaConflict &c2, bool update, bool verbose=false);
 	unsigned FindFirstConflict(AirCBSTreeNode const& location, airMetaConflict &c1, airMetaConflict &c2);
     void processSolution();
 
