@@ -45,6 +45,10 @@ enum AirplaneType {
   QUAD=0, PLANE=1
 };
 
+enum SearchType {
+  FORWARD=0, REVERSE=1
+};
+
 
 
 struct airplaneAction {
@@ -148,6 +152,7 @@ public:
   virtual char const*const name()const{return "AirplaneEnvironment";}
   // Successors and actions
   virtual void GetSuccessors(const airplaneState &nodeID, std::vector<airplaneState> &neighbors) const;
+  virtual void GetReverseSuccessors(const airplaneState &nodeID, std::vector<airplaneState> &neighbors) const;
 	
   virtual void GetActions(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
   
@@ -168,6 +173,7 @@ public:
 	virtual void GetNextState(const airplaneState &currents, airplaneAction dir, airplaneState &news) const;
 	virtual bool InvertAction(airplaneAction &a) const { return false; }
   virtual airplaneAction GetAction(const airplaneState &node1, const airplaneState &node2) const;
+  virtual airplaneAction GetReverseAction(const airplaneState &node1, const airplaneState &node2) const;
   
 
   // Occupancy Info not supported
@@ -220,6 +226,8 @@ public:
   airplaneState const& getGoal()const{return *goal;}
   void setGoal(airplaneState const& g){goal=&g;}
 
+  void setSearchType(SearchType s){searchtype=s;}
+
 protected:
   
   virtual AirplaneEnvironment& getRef() {return *this;}
@@ -250,6 +258,7 @@ protected:
   // Caching for turn information
   std::vector<int8_t> turns;
   std::vector<int8_t> quad_turns;
+  SearchType searchtype;
 
 private:
 	virtual double myHCost(const airplaneState &node1, const airplaneState &node2) const;

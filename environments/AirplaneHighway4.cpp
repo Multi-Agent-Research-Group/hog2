@@ -221,7 +221,7 @@ void AirplaneHighway4Environment::GetActions(const airplaneState &nodeID, std::v
 
 void AirplaneHighway4Environment::GetReverseActions(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const
 {
-  assert(false && "This should never be used... It's not ready.");
+  //assert(false && "This should never be used... It's not ready.");
   actions.resize(0);
   uint8_t hmod(nodeID.height%8);
 

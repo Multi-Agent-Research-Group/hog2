@@ -6,10 +6,36 @@
 #include "AirplaneHighway.h"
 #include "AirplaneMultiAgent.h"
 #include <iostream>
+#include <algorithm>
 #include "TemplateAStar.h"
 #include "Heuristic.h"
 
 bool testMultiAgent(){
+  std::cout << "reverse\n";
+  {
+    airplaneState start(50,45,16,3,4,false,AirplaneType::PLANE);
+    airplaneState goal(55,55,16,3,4,false,AirplaneType::PLANE);
+    AirplaneEnvironment a;
+    std::cout << "H " << a.HCost(start,goal);
+    a.loadPerimeterDB();
+    a.setGoal(goal);
+    TemplateAStar<airplaneState,airplaneAction,AirplaneEnvironment> astar;
+    std::vector<airplaneState> sol;
+    astar.GetPath(&a,start,goal,sol);
+    std::cout << "expansions: " << astar.GetNodesExpanded() << "\n";
+    astar.SetSuccessorFunc(&AirplaneEnvironment::GetReverseSuccessors);
+    a.setSearchType(SearchType::REVERSE);
+    std::vector<airplaneState> solr;
+    astar.GetPath(&a,goal,start,solr);
+    std::cout << "expansions: " << astar.GetNodesExpanded() << "\n";
+    solr.begin()->landed=true;
+    std::reverse(solr.begin(),solr.end());
+    std::cout << "pathlen " << sol.size() << " " << solr.size() << "\n";
+    std::cout << "paths\n";
+    for(int i(0); i<sol.size(); ++i)
+      std::cout << sol[i] << solr[i] << "==?"<< (sol[i]==solr[i]) << "\n";
+    return true;
+  }
   std::cout << "multi\n";
   {
     std::cout << "Highway Environment\n";

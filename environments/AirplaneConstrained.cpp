@@ -145,6 +145,31 @@ void AirplaneConstrainedEnvironment::GetSuccessors(const airtimeState &nodeID, s
   }
 }
 
+void AirplaneConstrainedEnvironment::GetReverseSuccessors(const airtimeState &nodeID, std::vector<airtimeState> &neighbors) const
+{
+  // Create a location to hold the states
+  std::vector<airplaneAction> actions;
+
+  // Get the successors from the hidden AE
+  this->ae->GetReverseActions(nodeID, actions);
+
+  // Check to see if any constraints are violated, and remove them from the actions that are allowed
+  for (airplaneAction act : actions)
+  {
+    // Construct the followup state
+    airtimeState new_state(nodeID, nodeID.t);
+    this->UndoAction(new_state, act);
+
+    // Check to see if it violates any hard constraint. If it does not, push it back.
+    if (!ViolatesConstraint(nodeID, new_state))
+    {
+      //if (ticket_authority->CanObtainTicket(new_state)) {
+        neighbors.push_back(new_state);
+      //}
+    }
+  }
+}
+
 void AirplaneConstrainedEnvironment::ApplyAction(airtimeState &s, airplaneAction a) const
 {
 	// Apply the action on the hidden AE

@@ -173,6 +173,7 @@ private:
 	std::vector<airtimeState> thePath;
 	TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment, AStarOpenClosed<airtimeState, RandomTieBreaking<airtimeState> > > astar;
 	TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment, AStarOpenClosed<airtimeState, CompareLowGCost<airtimeState> > > astar2;
+	TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> astar3;
 	double time;
 
 	unsigned int bestNode;
@@ -188,9 +189,9 @@ private:
 	struct OpenListNodeCompare {
           bool operator() (const OpenListNode& left, const OpenListNode& right) {
             if(highsort)
+               return (left.nc==right.nc)?(left.cost > right.cost):(left.nc>right.nc);
+             else
               return (left.cost==right.cost)?(left.nc > right.nc):(left.cost>right.cost);
-            else
-              return (left.nc==right.nc)?(left.cost > right.cost):(left.nc>right.nc);
           }
 	};
 

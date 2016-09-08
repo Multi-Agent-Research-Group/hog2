@@ -24,7 +24,7 @@ bool highsort = false;
 bool heuristic = false;
 bool randomalg = false;
 bool mouseTracking;
-unsigned killtime(500);
+unsigned killtime(300);
 int px1, py1, px2, py2;
 int absType = 0;
 int mapSize = 128;

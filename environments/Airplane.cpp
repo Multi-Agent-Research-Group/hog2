@@ -51,7 +51,8 @@ AirplaneEnvironment::AirplaneEnvironment(
   climbCost(climbCost),
   descendCost(descendCost),
   perimeterLoaded(false),
-  perimeterFile(perimeterFile)
+  perimeterFile(perimeterFile),
+  searchtype(SearchType::FORWARD)
 {
     // Load the perimeter heuristic before we add any obstacles to the environment...
     //srandom(time(0));
@@ -201,6 +202,8 @@ void AirplaneEnvironment::loadPerimeterDB(){
   perimeterLoaded = perimeter[AirplaneType::PLANE].loadGCosts(getRef(),ref,perimeterFile);
   ref=airplaneState(40, 40, 10, 1, 1,false,AirplaneType::QUAD);
   perimeterLoaded &= perimeter[AirplaneType::QUAD].loadGCosts(getRef(),ref,"quad"+perimeterFile);
+  //perimeterLoaded = perimeter[SearchType::FORWARD].loadGCosts(getRef(),ref,perimeterFile);
+  //perimeterLoaded &= perimeter[SearchType::REVERSE].loadReverseGCosts(getRef(),ref,"reverse"+perimeterFile);
 }
 
 void AirplaneEnvironment::SetGround(int x, int y, uint8_t val)
@@ -253,6 +256,19 @@ void AirplaneEnvironment::GetSuccessors(const airplaneState &nodeID, std::vector
     {
         airplaneState s;
         GetNextState(nodeID, act, s);
+        neighbors.push_back(s);
+    }
+}
+
+void AirplaneEnvironment::GetReverseSuccessors(const airplaneState &nodeID, std::vector<airplaneState> &neighbors) const
+{
+    GetActions(nodeID, internalActions);
+    for (auto &act : internalActions)
+    {
+        airplaneState s;
+        s = nodeID;
+        UndoAction(s, act);
+        if(GoalTest(s,getGoal())){s.landed=true;}
         neighbors.push_back(s);
     }
 }
@@ -668,6 +684,75 @@ airplaneAction AirplaneEnvironment::GetAction(const airplaneState &node1, const 
   return a;
 }
 
+airplaneAction AirplaneEnvironment::GetReverseAction(const airplaneState &node1, const airplaneState &node2) const
+{
+  airplaneAction a;
+
+  a.height = node2.height - node1.height;
+  a.turn = node2.heading - node1.heading;
+  a.speed = node2.speed-node1.speed;
+  
+  //if(a.turn>2){
+    if(abs(a.turn) == 4) {a.turn = 4;}
+    if(a.turn == 5) {a.turn = -3;}
+    if(a.turn == 6) {a.turn = -2;}
+    if(a.turn == 7) {a.turn = -1;}
+    if(a.turn == -5) {a.turn = 3;}
+    if(a.turn == -6) {a.turn = 2;}
+    if(a.turn == -7) {a.turn = 1;}
+  //}
+
+  if (node1.type == AirplaneType::QUAD) {
+    // Detect a no-move action
+    if (node1.x == node2.x && node1.y == node2.y) {
+      a.turn = kWait;
+    }
+  }
+
+  if (node1.type == AirplaneType::PLANE) {
+    // Detect a kshift
+    if (node1.heading == node2.heading)
+    {
+      if(node1.heading%2 == 0 && !fequal(node1.x, node2.x) && !fequal(node1.y, node2.y)){
+        a.turn = kShift;
+        switch(node1.heading){
+          case 4:
+            if(node1.x<node2.x) a.turn *=-1;
+          break;
+          case 2:
+            if(node1.y>node2.y) a.turn *=-1;
+          break;
+          case 0:
+            if(node1.x>node2.x) a.turn *=-1;
+          break;
+          case 6:
+            if(node1.y<node2.y) a.turn *=-1;
+          break;
+        }
+      } else if(node1.heading%2 == 1 && 
+          ((!fequal(node1.x, node2.x) && fequal(node1.y, node2.y)) || 
+           (fequal(node1.x, node2.x) && !fequal(node1.y, node2.y)))){
+        a.turn = kShift;
+        switch(node1.heading){
+          case 3:
+            if(node1.x<node2.x) a.turn *=-1;
+          break;
+          case 1:
+            if(node1.y<node2.y) a.turn *=-1;
+          break;
+          case 7:
+            if(node1.x>node2.x) a.turn *=-1;
+          break;
+          case 5:
+            if(node1.y>node2.y) a.turn *=-1;
+          break;
+        }
+      }
+    }
+  }      
+  return a;
+}
+
 void AirplaneEnvironment::ApplyAction(airplaneState &s, airplaneAction dir) const
 {
   // Manage Landing
@@ -853,6 +938,10 @@ double AirplaneEnvironment::myHCost(const airplaneState &node1, const airplaneSt
 
 double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneState &node2) const
 {
+  //if(searchtype == SearchType::REVERSE)
+  //{
+    //std::cout << "R";
+  //}
   // We want to estimate the heuristic to the landing state
   // Figure out which landing strip we're going to
   for (landingStrip st : landingStrips)
@@ -884,7 +973,7 @@ double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneStat
         }
       }
     }
-    perimeterVal = perimeter[node1.type].GCost(pNode,node2);
+    perimeterVal = (searchtype == SearchType::REVERSE)?perimeter[node1.type].GCost(pNode,node2):perimeter[node1.type].GCost(node2,pNode);
   }
 
   return myHCost(node1,pNode)+ perimeterVal;
