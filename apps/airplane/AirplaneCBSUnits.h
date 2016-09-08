@@ -31,6 +31,8 @@
 #include "Heuristic.h"
 #include "Timer.h"
 
+#include "AirplaneMultiAgent.h"
+
 extern bool highsort;
 extern bool randomalg;
 extern unsigned killtime;
@@ -99,15 +101,23 @@ private:
         unsigned number;
 };
 
-struct airConflict {
-	airConstraint c;
-	int unit1;
+// Code for dealing with meta agents - Replaces all code dealing with units in the CBS
+struct AirMetaAgent {
+	AirMetaAgent() {}
+	AirMetaAgent(unsigned x) {units.push_back(x);}
+	std::vector<unsigned> units;
+	static AirMetaAgent Merge(AirMetaAgent a, AirMetaAgent b);
+};
+
+struct airMetaConflict {
+	std::vector<airConstraint> c;
+	AirMetaAgent unit1;
 };
 
 struct AirCBSTreeNode {
 	AirCBSTreeNode():parent(0),satisfiable(true){}
-	std::vector< std::vector<airtimeState> > paths;
-	airConflict con;
+	std::vector<std::vector<airtimeState> > paths;
+	airMetaConflict con;
 	unsigned int parent;
 	bool satisfiable;
 };
@@ -128,18 +138,15 @@ struct EnvironmentContainer {
 	std::string name;
 };
 
-
 class AirCBSGroup : public UnitGroup<airtimeState, airplaneAction, AirplaneConstrainedEnvironment>
 {
 public:
-	AirCBSGroup(std::vector<EnvironmentContainer> const&, bool u_r, bool u_w, bool);
+	AirCBSGroup(AirplaneConstrainedEnvironment* cv, bool u_r, bool u_w, bool);
 	bool MakeMove(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u, AirplaneConstrainedEnvironment *e, 
 				  SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *si, airplaneAction& a);
 	void UpdateLocation(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u, AirplaneConstrainedEnvironment *e, 
 						airtimeState &loc, bool success, SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *si);
 	void AddUnit(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u);
-	void UpdateUnitGoal(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u, airtimeState newGoal);
-	void UpdateSingleUnitPath(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u, airtimeState newGoal);
 	
 	void OpenGLDraw(const AirplaneConstrainedEnvironment *, const SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *)  const;
 	double getTime() {return time;}
@@ -147,37 +154,34 @@ public:
 	void ExpandOneCBSNode(bool gui=true);
 
 private:    
+    void Replan(int location);
+    unsigned HasConflict(std::vector<airtimeState> const& a, std::vector<airtimeState> const& b, int x, int y, airConflict &c1, airConflict &c2, bool update, bool verbose=false);
+	unsigned FindFirstConflict(AirCBSTreeNode const& location, airMetaConflict &c1, airMetaConflict &c2);
+    void processSolution();
 
-        unsigned IssueTicketsForNode(int location);
-        unsigned LoadConstraintsForNode(int location);
-        bool Bypass(int best, unsigned numConflicts, airConflict const& c1, bool gui);
-	void Replan(int location);
-        unsigned HasConflict(std::vector<airtimeState> const& a, std::vector<airtimeState> const& b, int x, int y, airConflict &c1, airConflict &c2, bool update, bool verbose=false);
-	unsigned FindFirstConflict(AirCBSTreeNode const& location, airConflict &c1, airConflict &c2);
-        void processSolution();
-
-	void DoHAStar(airtimeState& start, airtimeState& goal, std::vector<airtimeState>& thePath);
-	bool HAStarHelper(airtimeState& start, airtimeState& goal, std::vector<airtimeState>& thePath, unsigned& envConflicts, unsigned& conflicts);
 	
 	bool planFinished;
 
-	/* Code for dealing with multiple environments */
-	std::vector<EnvironmentContainer> environments;
-	EnvironmentContainer* currentEnvironment;
-
-	void SetEnvironment(unsigned);
-    void ClearEnvironmentConstraints();
-    void AddEnvironmentConstraint(airConstraint c);
+	AirplaneConstrainedEnvironment* cenv;
+	AirplaneMultiAgentEnvironment* env;
+	TemplateAStar<MultiAgentState, MultiAgentAction, AirplaneMultiAgentEnvironment> astar;
 
 	std::vector<AirCBSTreeNode> tree;
 	std::vector<airtimeState> thePath;
-	TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment, AStarOpenClosed<airtimeState, RandomTieBreaking<airtimeState> > > astar;
-	TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment, AStarOpenClosed<airtimeState, CompareLowGCost<airtimeState> > > astar2;
 	double time;
 
+	// Code for meta-agents
+	std::map<unsigned, AirMetaAgent> unitToMetaAgentMap;
+	std::vector<AirMetaAgent> activeMetaAgents;
+
+	std::vector<std::vector<unsigned>> metaAgentConflictMatrix;
+	bool CheckForMerge(std::pair<unsigned, unsigned> &toMerge);
+
+
+	// New open-list
+	 
 	unsigned int bestNode;
 	std::mutex bestNodeLock;
-
 	struct OpenListNode {
 		OpenListNode() : location(0), cost(0), nc(0) {}
 		OpenListNode(uint loc, double c, uint16_t n) : location(loc), cost(c),nc(n) {}
@@ -193,7 +197,6 @@ private:
               return (left.nc==right.nc)?(left.cost > right.cost):(left.nc>right.nc);
           }
 	};
-
 	std::priority_queue<AirCBSGroup::OpenListNode, std::vector<AirCBSGroup::OpenListNode>, AirCBSGroup::OpenListNodeCompare> openList;
 
 	uint TOTAL_EXPANSIONS = 0;
@@ -204,7 +207,6 @@ private:
 	bool use_restricted = false;
 	bool use_waiting = false;
 	bool nobypass = false;
-        std::vector<AirplaneConstrainedEnvironment*> agentEnvs;
 };
 
 

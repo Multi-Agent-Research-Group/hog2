@@ -53,10 +53,6 @@ int cutoffs[4] = {0,3,6,9}; // for each env
 
   int main(int argc, char* argv[])
   {
-    if (argc > 1) {
-    num_airplanes = atoi(argv[1]);
-  }
-
 
   InstallHandlers();
   ProcessCommandLineArgs(argc, argv);
