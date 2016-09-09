@@ -161,13 +161,26 @@ void AirCBSGroup::processSolution()
     unit->SetPath(newPath);
     //std::cout << "Agent " << x << ": " << "\n";
     //for(auto &a: tree[bestNode].paths[x])
-      //std::cout << "  " << a << "\n";
+    //std::cout << "  " << a << "\n";
   }
 }
 
 /** Expand a single CBS node */
 void AirCBSGroup::ExpandOneCBSNode(bool gui)
 {
+
+  // Dump the paths
+  for (unsigned int x = 0; x < tree[bestNode].paths.size(); x++)
+  {
+    std::cout << "Path for unit " << x << ":" << std::endl;
+    for (airtimeState y : tree[bestNode].paths[x]) {
+      std::cout << "\t" << y << std::endl;
+    }
+  }
+
+
+
+
   // There's no reason to expand if the plan is finished.
   if (planFinished)
     return;
@@ -245,10 +258,9 @@ void AirCBSGroup::ExpandOneCBSNode(bool gui)
             for (unsigned k = 0; k < activeMetaAgents.at(a).units.size(); k++) {
               // Add the path back to the tree (new constraint included)
               tree[0].paths[activeMetaAgents.at(a).units.at(k)].resize(0);
-              thePath = tp.at(a);
-              for (unsigned int l = 0; l < thePath.size(); l++)
+              for (unsigned int l = 0; l < tp.size(); l++)
               {
-                tree[0].paths[activeMetaAgents.at(a).units.at(k)].push_back(thePath[l]);
+                tree[0].paths[activeMetaAgents.at(a).units.at(k)].push_back(tp[l][k]);
               }
             }
           }
@@ -290,7 +302,15 @@ void AirCBSGroup::ExpandOneCBSNode(bool gui)
 
 
     // Notify the user of the conflict
-    std::cout << "Conflict found between unit " << c1.unit1 << " and unit " << c2.unit1 << std::endl;
+    //std::cout << "Conflict found between unit " << c1.unit1 << " and unit " << c2.unit1 << std::endl;
+    //std::cout << "Conflicts c1 (agent " << c1.unit1 << " ) are:" << std::endl;
+    //for (airConstraint x : c1.c) {
+    //  std::cout << "\t" << x.start_state << " " << x.end_state << std::endl;
+    //}
+    //std::cout << "Conflicts c2 (agent " << c2.unit1 << " ) are:" << std::endl;
+    //for (airConstraint x : c2.c) {
+    //  std::cout << "\t" << x.start_state << " " << x.end_state << std::endl;
+    //}
 
     {
       last = tree.size();
@@ -413,12 +433,11 @@ void AirCBSGroup::AddUnit(Unit<airtimeState, airplaneAction, AirplaneConstrained
 
   //std::cout << "AddUnit agent: " << (GetNumMembers()-1) << " expansions: " << astar.GetNodesExpanded() << "\n";
   TOTAL_EXPANSIONS += astar.GetNodesExpanded();
-  thePath = tp.at(0);
 
 	// We add the optimal path to the root of the tree
-	for (unsigned int x = 0; x < thePath.size(); x++)
+	for (unsigned int x = 0; x < tp.size(); x++)
 	{
-		tree[0].paths.back().push_back(thePath[x]);
+		tree[0].paths.back().push_back(tp[x][0]);
 	}
 	
 	// Set the plan finished to false, as there's new updates
@@ -446,8 +465,8 @@ void AirCBSGroup::Replan(int location)
     airtimeState s, g;
     c->GetStart(s);
     c->GetGoal(g);
-    start.push_back(s);
-    start.push_back(g);
+    start.push_back(s); 
+    goal.push_back(g);
   }
 
   // Add all of the constraints
@@ -457,6 +476,7 @@ void AirCBSGroup::Replan(int location)
     if (tree[loc].con.unit1 == theMA) {
       for (airConstraint c : tree[loc].con.c) {
         cenv->AddConstraint(c);
+        //std::cout << "Added constraint: " << c.start_state << " to the environment." << std::endl;
       }
     }
     loc = tree[loc].parent;
@@ -472,13 +492,14 @@ void AirCBSGroup::Replan(int location)
   //std::cout << "AddUnit agent: " << (GetNumMembers()-1) << " expansions: " << astar.GetNodesExpanded() << "\n";
   TOTAL_EXPANSIONS += astar.GetNodesExpanded();
 
+  std::cout << "TheMA: " << theMA << std::endl;
+
   for (unsigned x = 0; x < activeMetaAgents.at(theMA).units.size(); x++) {
     // Add the path back to the tree (new constraint included)
     tree[location].paths[activeMetaAgents.at(theMA).units.at(x)].resize(0);
-    thePath = tp.at(x);
-    for (unsigned int l = 0; l < thePath.size(); l++)
+    for (unsigned int l = 0; l < tp.size(); l++)
     {
-      tree[location].paths[activeMetaAgents.at(theMA).units.at(x)].push_back(thePath[l]);
+      tree[location].paths[activeMetaAgents.at(theMA).units.at(x)].push_back(tp[l][x]);
     }
   }
 
