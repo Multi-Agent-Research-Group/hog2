@@ -236,6 +236,7 @@ void AirCBSGroup::ExpandOneCBSNode(bool gui)
             }
 
             std::vector<MultiAgentState> tp; 
+            env->setGoal(goal);
             astar.GetPath(env, start, goal, tp);
 
             TOTAL_EXPANSIONS += astar.GetNodesExpanded();
@@ -407,6 +408,7 @@ void AirCBSGroup::AddUnit(Unit<airtimeState, airplaneAction, AirplaneConstrained
 
 	// Recalculate the optimum path for the root of the tree
   std::vector<MultiAgentState> tp; 
+  env->setGoal(g);
 	astar.GetPath(env, s, g, tp);
 
   //std::cout << "AddUnit agent: " << (GetNumMembers()-1) << " expansions: " << astar.GetNodesExpanded() << "\n";
@@ -464,6 +466,7 @@ void AirCBSGroup::Replan(int location)
   // Recalculate the path
   // Recalculate the optimum path for the root of the tree
   std::vector<MultiAgentState> tp; 
+  env->setGoal(goal);
   astar.GetPath(env, start, goal, tp);
 
   //std::cout << "AddUnit agent: " << (GetNumMembers()-1) << " expansions: " << astar.GetNodesExpanded() << "\n";
