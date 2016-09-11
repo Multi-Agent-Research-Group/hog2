@@ -168,15 +168,16 @@ void AirCBSGroup::processSolution()
 /** Expand a single CBS node */
 void AirCBSGroup::ExpandOneCBSNode(bool gui)
 {
+  std::cout << "expand 1\n";
 
   // Dump the paths
-  for (unsigned int x = 0; x < tree[bestNode].paths.size(); x++)
+  /*for (unsigned int x = 0; x < tree[bestNode].paths.size(); x++)
   {
     std::cout << "Path for unit " << x << ":" << std::endl;
     for (airtimeState y : tree[bestNode].paths[x]) {
       std::cout << "\t" << y << std::endl;
     }
-  }
+  }*/
 
 
 
@@ -212,8 +213,10 @@ void AirCBSGroup::ExpandOneCBSNode(bool gui)
   else
   {
     for (int i = 0; i < activeMetaAgents.size(); i++) {
-      for (int j = 0; j < activeMetaAgents.size(); j++) {
+      for (int j = i+1; j < activeMetaAgents.size(); j++) {
+        //std::cout << i<<","<<j<<"!"<<metaAgentConflictMatrix.at(i).at(j)<<"\n";
         if (metaAgentConflictMatrix.at(i).at(j) > 5) {
+std::cout << "Merging " << i << " and " << j << "\n";
           // Merge I and J
           for (unsigned x : activeMetaAgents.at(j).units) {
             activeMetaAgents.at(i).units.push_back(x);
@@ -245,12 +248,14 @@ void AirCBSGroup::ExpandOneCBSNode(bool gui)
               c->GetStart(s);
               c->GetGoal(g);
               start.push_back(s);
-              start.push_back(g);
+              goal.push_back(g);
             }
 
             std::vector<MultiAgentState> tp; 
             env->setGoal(goal);
             astar.GetPath(env, start, goal, tp);
+            if(goal.size()>1)
+              std::cout << "Merged plan took " << astar.GetNodesExpanded() << " expansions\n";
 
             TOTAL_EXPANSIONS += astar.GetNodesExpanded();
             tree[0].paths.resize(GetNumMembers());
@@ -302,15 +307,15 @@ void AirCBSGroup::ExpandOneCBSNode(bool gui)
 
 
     // Notify the user of the conflict
-    //std::cout << "Conflict found between unit " << c1.unit1 << " and unit " << c2.unit1 << std::endl;
-    //std::cout << "Conflicts c1 (agent " << c1.unit1 << " ) are:" << std::endl;
-    //for (airConstraint x : c1.c) {
-    //  std::cout << "\t" << x.start_state << " " << x.end_state << std::endl;
-    //}
-    //std::cout << "Conflicts c2 (agent " << c2.unit1 << " ) are:" << std::endl;
-    //for (airConstraint x : c2.c) {
-    //  std::cout << "\t" << x.start_state << " " << x.end_state << std::endl;
-    //}
+    std::cout << "best" << bestNode << " Conflict found between unit " << c1.unit1 << " and unit " << c2.unit1 << std::endl;
+    std::cout << "Conflicts c1 (agent " << c1.unit1 << " ) are:" << std::endl;
+    for (airConstraint x : c1.c) {
+      std::cout << "\t" << x.start_state << " " << x.end_state << std::endl;
+    }
+    std::cout << "Conflicts c2 (agent " << c2.unit1 << " ) are:" << std::endl;
+    for (airConstraint x : c2.c) {
+      std::cout << "\t" << x.start_state << " " << x.end_state << std::endl;
+    }
 
     {
       last = tree.size();
@@ -409,13 +414,14 @@ void AirCBSGroup::AddUnit(Unit<airtimeState, airplaneAction, AirplaneConstrained
   }
 
   // Re-Plan with the new meta-agent
-	// Clear the constraints from the environment set
-	cenv->ClearConstraints();
+  // Clear the constraints from the environment set
+  cenv->ClearConstraints();
 
-	// Setup the state and goal in the graph
-	airtimeState start, goal;
-	c->GetStart(start);
-	c->GetGoal(goal);
+  // Setup the state and goal in the graph
+  airtimeState start, goal;
+  c->GetStart(start);
+  c->GetGoal(goal);
+  std::cout << "Adding Unit " << start << "-->" << goal << "\n";
 
   MultiAgentState s;
   MultiAgentState g;
@@ -492,7 +498,7 @@ void AirCBSGroup::Replan(int location)
   //std::cout << "AddUnit agent: " << (GetNumMembers()-1) << " expansions: " << astar.GetNodesExpanded() << "\n";
   TOTAL_EXPANSIONS += astar.GetNodesExpanded();
 
-  std::cout << "TheMA: " << theMA << std::endl;
+  //std::cout << "TheMA: " << theMA << std::endl;
 
   for (unsigned x = 0; x < activeMetaAgents.at(theMA).units.size(); x++) {
     // Add the path back to the tree (new constraint included)
@@ -623,17 +629,25 @@ unsigned AirCBSGroup::FindFirstConflict(AirCBSTreeNode const& location, airMetaC
       u2c.unit1 = b;
 
       // Check to see if, for each of the agents in each meta-agent there is a conflict
-      for (int x = 0; x < activeMetaAgents.at(a).units.size(); x++) {
-        for (int y = 0; y < activeMetaAgents.at(b).units.size(); y++) {
+      for (unsigned x : activeMetaAgents.at(a).units) {
+        for (unsigned y : activeMetaAgents.at(b).units) {
           maInternalConflicts += HasConflict(location.paths[x],location.paths[y],x,y,u1c,u2c,maInternalConflicts==0,false);
         }
       }
 
-      metaAgentConflictMatrix.at(a).at(b) = maInternalConflicts;
       numConflicts += maInternalConflicts;
 
       if (maInternalConflicts != 0) {
+        metaAgentConflictMatrix.at(a).at(b) += 1;//maInternalConflicts;
         conflicts.push_back(std::make_pair(u1c, u2c));
+    /*std::cout << "Found conflicts (agent " << u1c.unit1 << " ) are:" << std::endl;
+    for (airConstraint x : u1c.c) {
+      std::cout << "\t" << x.start_state << " " << x.end_state << std::endl;
+    }
+    std::cout << "Found conflicts (agent " << u2c.unit1 << " ) are:" << std::endl;
+    for (airConstraint x : u2c.c) {
+      std::cout << "\t" << x.start_state << " " << x.end_state << std::endl;
+    }*/
       }
 
     }

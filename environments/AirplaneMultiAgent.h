@@ -73,6 +73,7 @@ class AirplaneMultiAgentEnvironment : public SearchEnvironment<MultiAgentState, 
 
     //mutable std::vector<MultiAgentAction> internalActions;
 
+    static void generatePermutations(std::vector<MultiAgentState>& actions, std::vector<MultiAgentState>& result, int depth, MultiAgentState const& current);
     static void generatePermutations(std::vector<MultiAgentAction>& actions, std::vector<MultiAgentAction>& result, int depth, MultiAgentAction const& current);
 
 

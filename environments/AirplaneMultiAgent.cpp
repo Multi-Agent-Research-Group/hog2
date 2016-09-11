@@ -19,6 +19,19 @@
 #include "TemplateAStar.h"
 #include "Heuristic.h"
 
+void AirplaneMultiAgentEnvironment::generatePermutations(std::vector<MultiAgentState>& actions, std::vector<MultiAgentState>& result, int depth, MultiAgentState const& current) {
+    if(depth == actions.size()) {
+       result.push_back(current);
+       return;
+     }
+
+    for(int i = 0; i < actions[depth].size(); ++i) {
+        MultiAgentState copy(current);
+        copy.push_back(actions[depth][i]);
+        generatePermutations(actions, result, depth + 1, copy);
+    }
+}
+
 void AirplaneMultiAgentEnvironment::generatePermutations(std::vector<MultiAgentAction>& actions, std::vector<MultiAgentAction>& result, int depth, MultiAgentAction const& current) {
     if(depth == actions.size()) {
        result.push_back(current);
@@ -34,6 +47,39 @@ void AirplaneMultiAgentEnvironment::generatePermutations(std::vector<MultiAgentA
 
 void AirplaneMultiAgentEnvironment::GetSuccessors(const MultiAgentState &nodeID, std::vector<MultiAgentState> &neighbors) const
 {
+  neighbors.resize(0);
+  if(nodeID.size()==1)
+  {
+    MultiAgentState s;
+    env->setGoal((*goal)[0]);
+    env->GetSuccessors(nodeID[0],s);
+    for(auto const& ss:s){
+      MultiAgentState n;
+      n.push_back(ss);
+      neighbors.push_back(n);
+    }
+    return;
+  }
+
+  std::vector<MultiAgentState> temp(nodeID.size());
+  int i(0);
+  for(auto s : nodeID){
+    env->setGoal(getGoal()[i]);
+    env->GetSuccessors(s,temp[i++]); // there is a check in here for constraints
+  }
+  /*std::cout << "Successors: ";
+  for(auto const& a : temp){
+    std::cout << a.size() << " ";
+  }
+  std::cout <<"\n";*/
+  MultiAgentState c;
+  generatePermutations(temp, neighbors, 0, c);
+  //std::cout << "permuted: " << neighbors.size() << " " << nodeID.size() << "\n";
+  
+return;
+
+/// old way...
+/*
   std::vector<MultiAgentAction> actions;
   GetActions(nodeID, actions);
   for (auto &act : actions) {
@@ -60,10 +106,13 @@ void AirplaneMultiAgentEnvironment::GetSuccessors(const MultiAgentState &nodeID,
       //std::cout << ">>>>>>" << s << "\n";
       neighbors.push_back(s);}
   }
+*/
 }
 
 void AirplaneMultiAgentEnvironment::GetActions(MultiAgentState const& nodeID, std::vector<MultiAgentAction> &actions) const
 {
+  assert(false&&"deprecated, just call GetSuccessors");
+/*
   std::vector<MultiAgentAction> temp(nodeID.size());
   actions.resize(0);
   int i(0);
@@ -71,15 +120,16 @@ void AirplaneMultiAgentEnvironment::GetActions(MultiAgentState const& nodeID, st
     env->setGoal(getGoal()[i]);
     env->GetActions(s,temp[i++]);
   }
-  /*std::cout << "Actions: \n";
-  for(auto const& a : temp){
-    std::cout << "\n";
-    for(auto const& aa : a){
-      std::cout << aa <<"\n";
-    }
-  }*/
   MultiAgentAction c;
+  if(nodeID.size()==1){
+    actions.push_back(c);
+    for(auto const& a : temp[0]){
+      actions[0].push_back(a);
+    }
+    return;
+  }
   generatePermutations(temp, actions, 0, c);
+*/
   /*std::cout << "Combined Actions: \n";
   for(auto const& a : actions){
     std::cout << "\n";
