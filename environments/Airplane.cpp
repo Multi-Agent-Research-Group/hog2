@@ -873,6 +873,7 @@ double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneStat
   }
   
   airplaneState pNode = node2;
+  airplaneState tNode = node2;
   double perimeterVal(0);
   if(perimeterLoaded)
   {
@@ -884,7 +885,9 @@ double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneStat
     for(int x(std::max(0,node2.x-perimeterSize)); x<std::min(node2.x+perimeterSize,width); ++x){
       for(int y(std::max(0,node2.y-perimeterSize)); y<std::min(node2.y+perimeterSize,length); ++y){
         double dist( sqrt((x-node1.x)*(x-node1.x)+(y-node1.y)*(y-node1.y)));
-        if(dist<best){
+	tNode.x = x;
+	tNode.y = y;
+        if(myHCost(node1,tNode) + dist < best){
           pNode.x = x;
           pNode.y = y;
         }
