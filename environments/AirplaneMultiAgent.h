@@ -67,6 +67,7 @@ class AirplaneMultiAgentEnvironment : public SearchEnvironment<MultiAgentState, 
     MultiAgentState const* goal;
     MultiAgentState const& getGoal()const{return *goal;}
     void setGoal(MultiAgentState const& g){goal=&g;}
+    AirplaneConstrainedEnvironment const* const getEnv()const{return env;}
 
   protected:
 
@@ -78,5 +79,19 @@ class AirplaneMultiAgentEnvironment : public SearchEnvironment<MultiAgentState, 
   private:
     AirplaneConstrainedEnvironment*const env;
 };
+
+static std::ostream& operator <<(std::ostream& os, MultiAgentState const& s){
+  for(auto const& a : s){
+    os << a << "/";
+  }
+  return os;
+}
+
+static std::ostream& operator <<(std::ostream& os, MultiAgentAction const& s){
+  for(auto const& a : s){
+    os << a << "/";
+  }
+  return os;
+}
 
 #endif /* AirplaneMultiAgent_h */

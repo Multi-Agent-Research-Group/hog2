@@ -12,42 +12,147 @@
 void renderScene(){}
 bool testMultiAgent(){
   std::cout << "multi\n";
-  AirplaneSimpleEnvironment env;
-  AirplaneConstrainedEnvironment cenv(&env);
-  AirplaneMultiAgentEnvironment mae(&cenv);
-  TemplateAStar<MultiAgentState, MultiAgentAction, AirplaneMultiAgentEnvironment> astar;
-  MultiAgentState start;
-  start.push_back(airtimeState(airplaneState(50,45,16,3,4,false,AirplaneType::PLANE),0));
-  start.push_back(airtimeState(airplaneState(55,50,16,3,6,false,AirplaneType::PLANE),0));
-  MultiAgentState goal;
-  goal.push_back(airtimeState(airplaneState(50,46,16,3,4,false,AirplaneType::PLANE),0));
-  goal.push_back(airtimeState(airplaneState(54,50,16,3,6,false,AirplaneType::PLANE),0));
+  {
+    std::cout << "Highway Environment\n";
+    AirplaneHighwayEnvironment env;
+    env.loadPerimeterDB();
+    AirplaneConstrainedEnvironment cenv(&env);
+    AirplaneMultiAgentEnvironment mae(&cenv);
+    TemplateAStar<MultiAgentState, MultiAgentAction, AirplaneMultiAgentEnvironment> astar;
+    MultiAgentState start;
+    start.push_back(airtimeState(airplaneState(50,45,16,3,4,false,AirplaneType::PLANE),0));
+    start.push_back(airtimeState(airplaneState(55,50,16,3,6,false,AirplaneType::PLANE),0));
+    MultiAgentState goal;
+    goal.push_back(airtimeState(airplaneState(50,55,16,3,4,false,AirplaneType::PLANE),0));
+    goal.push_back(airtimeState(airplaneState(45,50,16,3,6,false,AirplaneType::PLANE),0));
+    mae.setGoal(goal);
 
-  std::vector<MultiAgentAction> act;
-  mae.GetActions(start,act);
-  //std::cout << act.size() << " actions\n";
-  //for(auto const& ma : act){
+    std::vector<MultiAgentAction> act;
+    mae.GetActions(start,act);
+    //std::cout << act.size() << " actions\n";
+    //for(auto const& ma : act){
     //std::cout << "\n";
     //for(auto const& a : ma){
-      //std::cout << a << "\n";
-//}
-//}
-  
-  std::vector<MultiAgentState> st;
-  mae.GetSuccessors(start,st);
-  std::vector<MultiAgentState> sol;
-  astar.GetPath(&mae,start,goal,sol);
-  
-  std::cout <<  "solution\n";
-  std::cout << astar.GetNodesExpanded() << "\n";
-  for(auto const& ma : sol){
-    std::cout << "\n";
-    for(auto const& a : ma){
-      std::cout << a << "\n";
+    //std::cout << a << "\n";
+    //}
+    //}
+
+    std::vector<MultiAgentState> st;
+    mae.GetSuccessors(start,st);
+    std::vector<MultiAgentState> sol;
+    astar.GetPath(&mae,start,goal,sol);
+
+    std::cout <<  "solution\n";
+    std::cout << astar.GetNodesExpanded() << " expansions\n";
+    int j(0);
+    for(auto const& ma : sol){
+      std::cout << "\n";
+      int i(0);
+      for(auto const& a : ma){
+        std::cout << a ;
+        if(j>0) std::cout << mae.getEnv()->GCost(sol[j-1][i],a);
+        ++i;
+        std::cout <<"\n";
+      }
+      j++;
     }
+    std::cout << "H " << mae.HCost(start,goal);
+    std::cout << "C " << mae.GetPathLength(sol);
   }
-  std::cout << "H " << mae.HCost(start,goal);
-  std::cout << "C " << mae.GetPathLength(sol);
+  {
+    std::cout << "Simple Environment\n";
+    AirplaneSimpleEnvironment env;
+    env.loadPerimeterDB();
+    AirplaneConstrainedEnvironment cenv(&env);
+    AirplaneMultiAgentEnvironment mae(&cenv);
+    TemplateAStar<MultiAgentState, MultiAgentAction, AirplaneMultiAgentEnvironment> astar;
+    MultiAgentState start;
+    start.push_back(airtimeState(airplaneState(50,45,16,3,4,false,AirplaneType::PLANE),0));
+    start.push_back(airtimeState(airplaneState(55,50,16,3,6,false,AirplaneType::PLANE),0));
+    MultiAgentState goal;
+    goal.push_back(airtimeState(airplaneState(50,55,16,3,4,false,AirplaneType::PLANE),0));
+    goal.push_back(airtimeState(airplaneState(45,50,16,3,6,false,AirplaneType::PLANE),0));
+    mae.setGoal(goal);
+
+    std::vector<MultiAgentAction> act;
+    mae.GetActions(start,act);
+    //std::cout << act.size() << " actions\n";
+    //for(auto const& ma : act){
+    //std::cout << "\n";
+    //for(auto const& a : ma){
+    //std::cout << a << "\n";
+    //}
+    //}
+
+    std::vector<MultiAgentState> st;
+    mae.GetSuccessors(start,st);
+    std::vector<MultiAgentState> sol;
+    astar.GetPath(&mae,start,goal,sol);
+
+    std::cout <<  "solution\n";
+    std::cout << astar.GetNodesExpanded() << "expansions \n";
+    int j(0);
+    for(auto const& ma : sol){
+      std::cout << "\n";
+      int i(0);
+      for(auto const& a : ma){
+        std::cout << a ;
+        if(j>0) std::cout << mae.getEnv()->GCost(sol[j-1][i],a);
+        ++i;
+        std::cout <<"\n";
+      }
+      j++;
+    }
+    std::cout << "H " << mae.HCost(start,goal);
+    std::cout << "C " << mae.GetPathLength(sol);
+  }
+  {
+    std::cout << "Complex Environment\n";
+    AirplaneEnvironment env;
+    env.loadPerimeterDB();
+    AirplaneConstrainedEnvironment cenv(&env);
+    AirplaneMultiAgentEnvironment mae(&cenv);
+    TemplateAStar<MultiAgentState, MultiAgentAction, AirplaneMultiAgentEnvironment> astar;
+    MultiAgentState start;
+    start.push_back(airtimeState(airplaneState(50,45,16,3,4,false,AirplaneType::PLANE),0));
+    start.push_back(airtimeState(airplaneState(55,50,16,3,6,false,AirplaneType::PLANE),0));
+    MultiAgentState goal;
+    goal.push_back(airtimeState(airplaneState(50,55,16,3,4,false,AirplaneType::PLANE),0));
+    goal.push_back(airtimeState(airplaneState(45,50,16,3,6,false,AirplaneType::PLANE),0));
+    mae.setGoal(goal);
+
+    std::vector<MultiAgentAction> act;
+    mae.GetActions(start,act);
+    //std::cout << act.size() << " actions\n";
+    //for(auto const& ma : act){
+    //std::cout << "\n";
+    //for(auto const& a : ma){
+    //std::cout << a << "\n";
+    //}
+    //}
+
+    std::vector<MultiAgentState> st;
+    mae.GetSuccessors(start,st);
+    std::vector<MultiAgentState> sol;
+    astar.GetPath(&mae,start,goal,sol);
+
+    std::cout <<  "solution\n";
+    std::cout << astar.GetNodesExpanded() << "expansions \n";
+    int j(0);
+    for(auto const& ma : sol){
+      std::cout << "\n";
+      int i(0);
+      for(auto const& a : ma){
+        std::cout << a ;
+        if(j>0) std::cout << mae.getEnv()->GCost(sol[j-1][i],a);
+        ++i;
+        std::cout <<"\n";
+      }
+      j++;
+    }
+    std::cout << "H " << mae.HCost(start,goal);
+    std::cout << "C " << mae.GetPathLength(sol);
+  }
   return true;
 }
 

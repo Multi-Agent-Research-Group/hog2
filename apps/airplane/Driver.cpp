@@ -24,7 +24,7 @@ bool highsort = false;
 bool heuristic = false;
 bool randomalg = false;
 bool mouseTracking;
-unsigned killtime(500);
+unsigned killtime(300);
 int px1, py1, px2, py2;
 int absType = 0;
 int mapSize = 128;
@@ -194,7 +194,7 @@ void InitHeadless(){
       bool conflict(true);
       while(conflict){
         conflict=false;
-        airplaneState rs1(rand() % 40 + 5, rand() % 40 + 5, rand() % 7 + 11, rand() % 3 + 1, rand() % 8, false);
+        airplaneState rs1(rand() % 70 + 5, rand() % 70 + 5, rand() % 7 + 11, rand() % 3 + 1, rand() % 8, false);
         airtimeState start(rs1, 0);
         for(auto a: starts)
         {
@@ -221,7 +221,7 @@ void InitHeadless(){
         conflict=true;
         while(conflict){
           conflict=false;
-          airplaneState rs1(rand() % 40 + 5, rand() % 40 + 5, rand() % 7 + 11, rand() % 3 + 1, rand() % 8, false);
+          airplaneState rs1(rand() % 70 + 5, rand() % 70 + 5, rand() % 7 + 11, rand() % 3 + 1, rand() % 8, false);
           airtimeState goal(rs1, 0);
           for(auto a: goals)
           {
@@ -315,7 +315,7 @@ void InitSim(){
       bool conflict(true);
       while(conflict){
         conflict=false;
-        airplaneState rs1(rand() % 40 + 5, rand() % 40 + 5, rand() % 7 + 11, rand() % 3 + 1, rand() % 8, false);
+        airplaneState rs1(rand() % 70 + 5, rand() % 70 + 5, rand() % 7 + 11, rand() % 3 + 1, rand() % 8, false);
         airtimeState start(rs1, 0);
         for(auto a: starts)
         {
@@ -342,7 +342,7 @@ void InitSim(){
         conflict=true;
         while(conflict){
           conflict=false;
-          airplaneState rs1(rand() % 40 + 5, rand() % 40 + 5, rand() % 7 + 11, rand() % 3 + 1, rand() % 8, false);
+          airplaneState rs1(rand() % 70 + 5, rand() % 70 + 5, rand() % 7 + 11, rand() % 3 + 1, rand() % 8, false);
           airtimeState goal(rs1, 0);
           for(auto a: goals)
           {

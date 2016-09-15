@@ -9,7 +9,13 @@
 #include <stdio.h>
 #include "AirplaneMultiAgent.h"
 #include <iostream>
-#include <gl.h>
+
+#if defined(__APPLE__)
+	#include <OpenGL/gl.h>
+#else
+	#include <gl.h>
+#endif
+
 #include "TemplateAStar.h"
 #include "Heuristic.h"
 
@@ -32,18 +38,27 @@ void AirplaneMultiAgentEnvironment::GetSuccessors(const MultiAgentState &nodeID,
   GetActions(nodeID, actions);
   for (auto &act : actions) {
     MultiAgentState s(nodeID);
+    
+    //std::cout << "Generated from: " << s << "->" << act;
     ApplyAction(s,act);
+    bool hasConflict(false);
     for(int i(0); i<s.size(); ++i){
-      for(int j(i); j<s.size(); ++j){
+      for(int j(i+1); j<s.size(); ++j){
         airConstraint ac(s[i]);
         airConstraint ec1(nodeID[i],s[i]);
         airConstraint ec2(nodeID[j],s[j]);
         // Only keep this state if there are no internal conflicts
-        if(!ac.ConflictsWith(s[j]) && !ec1.ConflictsWith(ec2)){
-          neighbors.push_back(s);
+        if(ac.ConflictsWith(s[j]) || ec1.ConflictsWith(ec2)){
+          //std::cout << "CONFLICT: " << (ac.ConflictsWith(s[j])?"vertex":"edge") << s << "\n";
+          hasConflict = true;
+          break;
         }
       }
+      if(hasConflict){break;}
     }
+    if(!hasConflict){
+      //std::cout << ">>>>>>" << s << "\n";
+      neighbors.push_back(s);}
   }
 }
 
@@ -53,10 +68,25 @@ void AirplaneMultiAgentEnvironment::GetActions(MultiAgentState const& nodeID, st
   actions.resize(0);
   int i(0);
   for(auto s : nodeID){
+    env->setGoal(getGoal()[i]);
     env->GetActions(s,temp[i++]);
   }
+  /*std::cout << "Actions: \n";
+  for(auto const& a : temp){
+    std::cout << "\n";
+    for(auto const& aa : a){
+      std::cout << aa <<"\n";
+    }
+  }*/
   MultiAgentAction c;
   generatePermutations(temp, actions, 0, c);
+  /*std::cout << "Combined Actions: \n";
+  for(auto const& a : actions){
+    std::cout << "\n";
+    for(auto const& aa : a){
+      std::cout << " " << aa <<"\n";
+    }
+  }*/
 }
 
 void AirplaneMultiAgentEnvironment::GetReverseActions(const MultiAgentState &nodeID, std::vector<MultiAgentAction> &actions) const
@@ -73,6 +103,7 @@ MultiAgentAction AirplaneMultiAgentEnvironment::GetAction(const MultiAgentState 
 {
   MultiAgentAction a;
   for(int i(0); i<node1.size(); ++i){
+    env->setGoal(getGoal()[i]);
     a.push_back(env->GetAction(node1[i],node2[i])); 
   }
   return a;
@@ -82,6 +113,7 @@ void AirplaneMultiAgentEnvironment::ApplyAction(MultiAgentState &s, MultiAgentAc
 {
   int i(0);
   for(airtimeState& state : s){
+    env->setGoal(getGoal()[i]);
     env->ApplyAction(state,dir[i++]); // Modify state in-place
   }
 }
@@ -201,3 +233,4 @@ void AirplaneMultiAgentEnvironment::GLDrawPath(const std::vector<MultiAgentState
           GLDrawLine(*(a-1),*a);
         }
 }
+
