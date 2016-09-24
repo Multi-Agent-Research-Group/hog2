@@ -169,9 +169,11 @@ void AirCBSGroup::processSolution()
   TOTAL_EXPANSIONS = 0;
   planFinished = true;
 
+  unsigned total(0);
   // For every unit in the node
   for (unsigned int x = 0; x < tree[bestNode].paths.size(); x++)
   {
+    total += tree[bestNode].paths[x].size();
     // Grab the unit
     AirCBSUnit *unit = (AirCBSUnit*) GetMember(x);
 
@@ -194,6 +196,7 @@ void AirCBSGroup::processSolution()
     //for(auto &a: tree[bestNode].paths[x])
       //std::cout << "  " << a << "\n";
   }
+  std::cout << "solution length: " << total << std::endl;
 }
 
 /** Expand a single CBS node */
@@ -223,6 +226,13 @@ void AirCBSGroup::ExpandOneCBSNode(bool gui)
       std::cout << "%Environment used: " << tmp<<e.environment->name() <<": "<< total/double(agentEnvs.size())<<"\n";
     }
     std::cout << "Total conflicts: " << tree.size() << std::endl;
+
+    unsigned total(0);
+    // For every unit in the node
+    for(unsigned int x = 0; x < tree[bestNode].paths.size(); x++){
+      total += tree[bestNode].paths[x].size();
+    }
+    std::cout << "solution length: " << total << std::endl;
     exit(0);
   }
 
@@ -246,9 +256,9 @@ void AirCBSGroup::ExpandOneCBSNode(bool gui)
 
     // Don't create new nodes if either bypass was successful
     // Note, these calls will add nodes to the openList
-    //if(!Bypass(bestNode,numConflicts,c1,gui) && !Bypass(bestNode,numConflicts,c2,gui))
-    Bypass(bestNode,numConflicts,c1,gui);
-    Bypass(bestNode,numConflicts,c2,gui);
+    if(!Bypass(bestNode,numConflicts,c1,gui) && !Bypass(bestNode,numConflicts,c2,gui))
+    //Bypass(bestNode,numConflicts,c1,gui);
+    //Bypass(bestNode,numConflicts,c2,gui);
     {
       last = tree.size();
 
