@@ -881,6 +881,7 @@ unsigned AirCBSGroup::FindFirstConflict(AirCBSTreeNode const& location, airConfl
     {
 
       numConflicts += HasConflict(location.paths[x],location.paths[y],x,y,c1,c2,numConflicts==0);
+      if(!highsort&&numConflicts) return numConflicts;
     }
   }
 

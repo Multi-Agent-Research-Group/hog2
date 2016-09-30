@@ -62,6 +62,7 @@ public:
 	virtual void GetReverseActions(const airtimeState &nodeID, std::vector<airplaneAction> &actions) const;
 	/** Get the successor states not violating constraints */
 	virtual void GetSuccessors(const airtimeState &nodeID, std::vector<airtimeState> &neighbors) const;
+	virtual void GetReverseSuccessors(const airtimeState &nodeID, std::vector<airtimeState> &neighbors) const;
 	/** Apply an action to the base environment */
 	virtual void ApplyAction(airtimeState &s, airplaneAction a) const;
 	/** Undo an action on the base environment */
@@ -125,6 +126,7 @@ public:
 
         airplaneState const& getGoal()const{return ae->getGoal();}
         void setGoal(airplaneState const& g){ae->setGoal(g);}
+	AirplaneEnvironment *ae;
 private:
 	
 
@@ -135,7 +137,6 @@ private:
 
 
 	/** Airplane Environment holder */
-	AirplaneEnvironment *ae;
 };
 
 #endif /* defined(__hog2_glut__AirplaneConstrainedEnvironment__) */

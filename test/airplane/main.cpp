@@ -1,10 +1,13 @@
 #include "TestEnvironment.h"
 
 int main(){
-
-  testMultiAgent();
+  testCardinalEnvHCost();
+  testCardinalActions();
+  testCardinalHighwayActions();
+  testCardinalHeadingTo();
+  //testMultiAgent();
   //TestQuadcopterActions();
-  //testGetAction();
+  testGetAction();
   //testLoadPerimeterHeuristic();
   //testHCost();
   //testHeadingTo();

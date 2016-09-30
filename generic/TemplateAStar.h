@@ -69,7 +69,7 @@ struct AStarCompare {
 template <class state, class action, class environment, class openList = AStarOpenClosed<state, AStarCompare<state>> >
 class TemplateAStar : public GenericSearchAlgorithm<state,action,environment> {
 public:
-	TemplateAStar() { ResetNodeCount(); env = 0; useBPMX = 0; radius = 4.0; stopAfterGoal = true; weight=1; useRadius=false; useOccupancyInfo=false; radEnv = 0; reopenNodes = false; theHeuristic = 0; directed = false; noncritical=false;}
+	TemplateAStar():env(0),useBPMX(0),radius(4.0),stopAfterGoal(true),weight(1),useRadius(false),useOccupancyInfo(false),radEnv(0),reopenNodes(false),theHeuristic(0),directed(false),noncritical(false),SuccessorFunc(&environment::GetSuccessors),ActionFunc(&environment::GetAction){ResetNodeCount();}
 	virtual ~TemplateAStar() {}
 	void GetPath(environment *env, const state& from, const state& to, std::vector<state> &thePath);
 	void GetPath(environment *, const state& , const state& , std::vector<action> & );
@@ -140,6 +140,8 @@ public:
 	std::string SVGDraw() const;
 	
 	void SetWeight(double w) {weight = w;}
+        void SetSuccessorFunc(void (environment::*sf)(const state&, std::vector<state>&) const){SuccessorFunc=sf;}
+        void SetActionFunc(action (environment::*af)(const state&, const state&) const){ActionFunc=af;}
 private:
 	uint64_t nodesTouched, nodesExpanded;
 //	bool GetNextNode(state &next);
@@ -165,6 +167,8 @@ private:
 	uint64_t uniqueNodesExpanded;
 	environment *radEnv;
 	Heuristic<state> *theHeuristic;
+        void (environment::*SuccessorFunc)(const state&, std::vector<state>&) const;
+        action (environment::*ActionFunc)(const state&, const state&) const;
 };
 
 //static const bool verbose = false;
@@ -225,7 +229,7 @@ void TemplateAStar<state,action,environment,openList>::GetPath(environment *_env
 	}
 	for (int x = 0; x < thePath.size()-1; x++)
 	{
-		path.push_back(_env->GetAction(thePath[x], thePath[x+1]));
+		path.push_back((_env->*ActionFunc)(thePath[x], thePath[x+1]));
 	}
 }
 
@@ -344,7 +348,7 @@ if(this->nodesExpanded>1000 && this->noncritical){
 //	std::cout << "Expanding: " << openClosedList.Lookup(nodeid).data << " with f:";
 //	std::cout << openClosedList.Lookup(nodeid).g+openClosedList.Lookup(nodeid).h << std::endl;
 	
- 	env->GetSuccessors(openClosedList.Lookup(nodeid).data, neighbors);
+ 	(env->*SuccessorFunc)(openClosedList.Lookup(nodeid).data, neighbors);
 	double bestH = openClosedList.Lookup(nodeid).h;
 	double lowHC = DBL_MAX;
 	// 1. load all the children
@@ -512,7 +516,7 @@ void TemplateAStar<state, action,environment,openList>::FullBPMX(uint64_t nodeID
 	
 	nodesExpanded++;
 	std::vector<state> succ;
- 	env->GetSuccessors(openClosedList.Lookup(nodeID).data, succ);
+ 	(env->*SuccessorFunc)(openClosedList.Lookup(nodeID).data, succ);
 	double parentH = openClosedList.Lookup(nodeID).h;
 	
 	// load all the children and push parent heuristic value to children
