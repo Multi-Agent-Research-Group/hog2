@@ -4,6 +4,8 @@
 #include "Airplane.h"
 #include "AirplaneSimple.h"
 #include "AirplaneHighway.h"
+#include "AirplaneHighway4Cardinal.h"
+#include "AirplaneCardinal.h"
 #include "AirplaneMultiAgent.h"
 #include <iostream>
 #include <algorithm>
@@ -738,6 +740,162 @@ bool testHCost(){
   std::cout << "PASSED\n";
 }
 
+bool testCardinalActions(){
+  {
+    std::cout << "cardinal:";
+    AirplaneCardinalEnvironment env;
+    airplaneAction a(0,0,0);
+    airplaneState s;
+    s.x = 50;
+    s.y = 50;
+    s.height = 16;
+    s.heading = 0;
+    s.speed = 3;
+    airplaneState g(50,40,18,0,3);
+    env.setGoal(g);
+    std::vector<airplaneAction> actions;
+    env.GetActions(s,actions);
+    assert(27==actions.size() && "Wrong number of actions generated");
+    for (auto &a : actions)
+    {
+      airplaneState s1=s;
+      env.ApplyAction(s,a);
+      airplaneAction a2(env.GetAction(s1,s));
+      env.UndoAction(s,a);
+      //std::cout << a << s << s1 << "\n";
+      assert(s==s1 && "Action not reversed properly");
+      assert(a==a2 && "Action not inferred properly");
+      std::cout << ".";
+      s=s1; // Reset
+    }
+  }
+  {
+    std::cout << "cardinal invalid start state:";
+    AirplaneCardinalEnvironment env;
+    airplaneAction a(0,0,0);
+    airplaneState s;
+    s.x = 50;
+    s.y = 50;
+    s.height = 16;
+    s.heading = 1;
+    s.speed = 3;
+    airplaneState g(50,40,18,0,3);
+    env.setGoal(g);
+    std::vector<airplaneAction> actions;
+    env.GetActions(s,actions);
+    assert(18==actions.size() && "Wrong number of actions generated");
+    for (auto &a : actions)
+    {
+      airplaneState s1=s;
+      env.ApplyAction(s,a);
+      airplaneAction a2(env.GetAction(s1,s));
+      env.UndoAction(s,a);
+      //std::cout << a << s << s1 << "\n";
+      assert(s==s1 && "Action not reversed properly");
+      assert(a==a2 && "Action not inferred properly");
+      std::cout << ".";
+      s=s1; // Reset
+    }
+  }
+  std::cout << "PASSED\n";
+}
+
+bool testCardinalEnvHCost(){
+  {
+    srand(123456);
+    std::cout << " Cardinal Environment HCost: ";
+    AirplaneEnvironment aenv;
+    aenv.loadPerimeterDB();
+    AirplaneCardinalEnvironment env;
+    env.loadPerimeterDB();
+
+    TemplateAStar<airplaneState, airplaneAction, AirplaneCardinalEnvironment> astar;
+    airplaneState s(5,8,5,3,4);
+    airplaneState s1(5,9,6,3,3);
+    airplaneState s2(6,10,7,3,3);
+    airplaneState g(7,11,8,4,4);
+    //TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> astar;
+    std::vector<airplaneState> sol;
+    astar.GetPath(&env,s,g,sol);
+    std::cout << s <<"\n" << s1 << env.GCost(s,s1) << "\n" << s2 << env.GCost(s1,s2) << "\n" << g << env.GCost(s2,g) << "\n";
+    double gcost(env.GetPathLength(sol));
+    std::cout << "HCOST\n";
+    double hcost(env.HCost(s,g));
+    double ahcost(aenv.HCost(s,g));
+    std::cout << "\n";
+    std::cout << "  " << *(sol.begin()) <<"\n";
+    for(auto a(sol.begin()+1); a!=sol.end(); ++a)
+      std::cout << "  " << *a << " " <<env.GCost(*(a-1),*a)<<"\n";
+    std::cout << s << g << " G " << gcost << " H " << hcost << "\n";
+    return false;
+
+    for(int i(0); i<1000; ++i){
+      airplaneState s(rand() % 8+5, rand() % 8+5, rand() % 5+5, rand() % 5 + 1, rand() % 4*2, false);
+      airplaneState g(rand() % 8+5, rand() % 8+5, rand() % 5+5, rand() % 5 + 1, rand() % 4*2, false);
+      if(s==g)continue;
+      TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> astar;
+      std::vector<airplaneState> sol;
+      astar.GetPath(&env,g,s,sol);
+      double gcost(env.GetPathLength(sol));
+      double hcost(env.HCost(g,s));
+      if(fless(gcost,hcost))
+      {
+        double hc(env.HCost(g,s));
+        std::cout << "\n";
+        std::cout << "  " << *(sol.begin()) <<"\n";
+        for(auto a(sol.begin()+1); a!=sol.end(); ++a)
+          std::cout << "  " << *a << " " <<env.GCost(*(a-1),*a)<<"\n";
+        std::cout << g << s << " G " << gcost << " H " << hcost << "\n";
+      }
+      assert(fgeq(gcost,hcost));
+      std::cout << "." << std::flush;
+    }
+  }
+  return true;
+}
+
+bool testCardinalHighwayActions(){
+  std::cout << " highway 4 cardinal:";
+  AirplaneHighway4CardinalEnvironment env;
+  airplaneAction a(0,0,0);
+  airplaneState s;
+  s.x = 50;
+  s.y = 50;
+  s.height = 16;
+  s.heading = 0;
+  s.speed = 3;
+  airplaneState g(50,40,18,0,3);
+  env.setGoal(g);
+  std::vector<airplaneAction> actions;
+  env.GetActions(s,actions);
+  std::vector<airplaneAction> ractions;
+  env.GetReverseActions(s,ractions);
+  // 1. do nothing
+  // 2. slow down
+  // 3. speed up
+  // 4. up and turn right
+  // 5. down and turn left
+  // 6. up and turn right + slow down
+  // 7. up and turn right + speed up
+  // 8. down and turn left + slow down
+  // 9. down and turn left + speed up
+  assert(9==ractions.size() && "Wrong number of reverse actions generated");
+  assert(9==actions.size() && "Wrong number of actions generated");
+  for (auto &a : actions)
+  {
+    airplaneState s1=s;
+    env.ApplyAction(s,a);
+    airplaneAction a2(env.GetAction(s1,s));
+    env.UndoAction(s,a);
+    //std::cout << a << s << s1 << "\n";
+    assert(s==s1 && "Action not reversed properly");
+    assert(a==a2 && "Action not inferred properly");
+    std::cout << ".";
+    s=s1; // Reset
+  }
+  std::cout << "PASSED\n";
+}
+
 bool testGetAction(){
    std::cout << "testGetAction()";
    {
@@ -777,6 +935,8 @@ bool testGetAction(){
      s.speed = 3;
      std::vector<airplaneAction> actions;
      env.GetActions(s,actions);
+     std::vector<airplaneAction> ractions;
+     env.GetReverseActions(s,ractions);
      // 1-7 turns (also includes no turn)
      // 8-14 increase speed x turns
      // 15-21 decrease speed x turns
@@ -787,13 +947,14 @@ bool testGetAction(){
      // 50-56 increase speed, decrease height x turns
      // 57-63 decrease speed, increase height x turns
      assert(actions.size()==63 && "Number of actions differs from expected");
+     assert(ractions.size()==63 && "Number of reverse actions differs from expected");
      for (auto &a : actions)
      {
        airplaneState s1=s;
        env.ApplyAction(s,a);
        airplaneAction a2(env.GetAction(s1,s));
        env.UndoAction(s,a);
-       //std::cout << a << s << s1 << "\n";
+       std::cout << a << s << s1 << "\n";
        assert(s==s1 && "Action not reversed properly");
        assert(a==a2 && "Action not inferred properly");
        std::cout << ".";
@@ -881,6 +1042,44 @@ bool testGetAction(){
      }
    }
    std::cout << "PASSED\n";
+}
+
+bool testCardinalHeadingTo(){
+  std::cout << "testCardinalHeadingTo()";
+  airplaneState s1(10,10,0,0,0);
+  airplaneState s2(10,9,0,0,0);
+  assert(s1.cardinalHeadingTo(s2)==0); // South
+  std::cout << ".";
+
+  s2.x=11;
+  assert(s1.cardinalHeadingTo(s2)==2); // SE
+  std::cout << ".";
+
+  s2.y=10;
+  assert(s1.cardinalHeadingTo(s2)==2); // East
+  std::cout << ".";
+
+  s2.y=11;
+  assert(s1.cardinalHeadingTo(s2)==4); // NE
+  std::cout << ".";
+
+  s2.x=10;
+  assert(s1.cardinalHeadingTo(s2)==4); // North
+  std::cout << ".";
+
+  s2.x=9;
+  assert(s1.cardinalHeadingTo(s2)==6); // NW
+  std::cout << ".";
+
+  s2.y=10;
+  assert(s1.cardinalHeadingTo(s2)==6); // West
+  std::cout << ".";
+
+  s2.y=9;
+  assert(s1.cardinalHeadingTo(s2)==6); // SW
+  std::cout << ".";
+
+  std::cout << "PASSED\n";
 }
 
 bool testHeadingTo(){

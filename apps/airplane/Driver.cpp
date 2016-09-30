@@ -15,6 +15,8 @@
 #include "AirplaneSimple.h"
 #include "AirplaneHighway.h"
 #include "AirplaneHighway4.h"
+#include "AirplaneCardinal.h"
+#include "AirplaneHighway4Cardinal.h"
 #include "AirplaneConstrained.h"
 #include "AirplaneCBSUnits.h"
 
@@ -34,7 +36,7 @@ double stepsPerFrame = 1.0/100.0;
 double frameIncrement = 1.0/10000.0;
 std::vector<airtimeState> thePath;
 
-int cutoffs[4] = {0,3,6,9}; // for each env
+int cutoffs[6] = {0,1,2,3,4,5}; // for each env
   std::vector<EnvironmentContainer> environs;
   int seed = clock();
   int num_airplanes = 5;
@@ -119,7 +121,7 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-nairplanes", "-nairplanes <number>", "Select the number of airplanes.");
 	InstallCommandLineHandler(MyCLHandler, "-seed", "-seed <number>", "Seed for random number generator (defaults to clock)");
 	InstallCommandLineHandler(MyCLHandler, "-nobypass", "-nobypass", "Turn off bypass option");
-	InstallCommandLineHandler(MyCLHandler, "-cutoffs", "-cutoffs <number>,<number>,<number,...", "Number of conflicts to tolerate before switching to less constrained layer of environment");
+	InstallCommandLineHandler(MyCLHandler, "-cutoffs", "-cutoffs <n>,<n>,<n>,<n>,<n><n>", "Number of conflicts to tolerate before switching to less constrained layer of environment. Environments are ordered as: H8,H4,Simple,Complex,H4Cardinal,Cardinal");
 	InstallCommandLineHandler(MyCLHandler, "-killtime", "-killtime", "Kill after this many seconds");
 	InstallCommandLineHandler(MyCLHandler, "-nogui", "-nogui", "Turn off gui");
 	InstallCommandLineHandler(MyCLHandler, "-random", "-random", "Randomize conflict resolution order");
@@ -161,10 +163,16 @@ void InitHeadless(){
   ahe->loadPerimeterDB();
   AirplaneEnvironment* ah4e = new AirplaneHighway4Environment();
   ah4e->loadPerimeterDB();
+  AirplaneEnvironment* ah4c = new AirplaneHighway4CardinalEnvironment();
+  ah4c->loadPerimeterDB();
+  AirplaneEnvironment* ac = new AirplaneCardinalEnvironment();
+  ac->loadPerimeterDB();
   environs.push_back(EnvironmentContainer(ahe->name(),new AirplaneConstrainedEnvironment(ahe),0,cutoffs[0],1));
   environs.push_back(EnvironmentContainer(ah4e->name(),new AirplaneConstrainedEnvironment(ah4e),0,cutoffs[1],1));
   environs.push_back(EnvironmentContainer(ase->name(),new AirplaneConstrainedEnvironment(ase),0,cutoffs[2],1));
   environs.push_back(EnvironmentContainer(ae->name(),new AirplaneConstrainedEnvironment(ae),0,cutoffs[3],1));
+  environs.push_back(EnvironmentContainer(ah4c->name(),new AirplaneConstrainedEnvironment(ah4c),0,cutoffs[4],1));
+  environs.push_back(EnvironmentContainer(ac->name(),new AirplaneConstrainedEnvironment(ac),0,cutoffs[5],1));
 
     group = new AirCBSGroup(environs,use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
 
@@ -274,11 +282,17 @@ void InitSim(){
   ahe->loadPerimeterDB();
   AirplaneEnvironment* ah4e = new AirplaneHighway4Environment();
   ah4e->loadPerimeterDB();
-  
+  AirplaneEnvironment* ah4c = new AirplaneHighway4CardinalEnvironment();
+  ah4c->loadPerimeterDB();
+  AirplaneEnvironment* ac = new AirplaneCardinalEnvironment();
+  ac->loadPerimeterDB();
+
   environs.push_back(EnvironmentContainer(ahe->name(),new AirplaneConstrainedEnvironment(ahe),0,cutoffs[0],1));
   environs.push_back(EnvironmentContainer(ah4e->name(),new AirplaneConstrainedEnvironment(ah4e),0,cutoffs[1],1));
   environs.push_back(EnvironmentContainer(ase->name(),new AirplaneConstrainedEnvironment(ase),0,cutoffs[2],1));
   environs.push_back(EnvironmentContainer(ae->name(),new AirplaneConstrainedEnvironment(ae),0,cutoffs[3],1));
+  environs.push_back(EnvironmentContainer(ah4c->name(),new AirplaneConstrainedEnvironment(ah4c),0,cutoffs[4],1));
+  environs.push_back(EnvironmentContainer(ac->name(),new AirplaneConstrainedEnvironment(ac),0,cutoffs[5],1));
 
   ace=environs.rbegin()->environment;
 
@@ -307,6 +321,7 @@ void InitSim(){
       airtimeState goal(rs, 0);
 
       AirCBSUnit* unit = new AirCBSUnit(start, goal);
+      ace->setGoal(goal);
       unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
       group->AddUnit(unit); // Add to the group
       //std::cout << "Set unit " << i << " directive from " << start << " to " << goal << " rough heading: " << (unsigned)start.headingTo(goal) << std::endl;

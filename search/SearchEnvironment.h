@@ -45,6 +45,8 @@ public:
 		ApplyAction(s2, a);
 	};
 
+        virtual void setGoal(state const& s){}; // Do nothing
+
 	virtual bool InvertAction(action &a) const = 0;
 
 	/** Stores the goal for use by single-state HCost. **/

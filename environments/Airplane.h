@@ -90,6 +90,10 @@ struct airplaneState {
   uint8_t headingTo(airplaneState const& other) const {
     return uint8_t(round((atan2(other.y-y,other.x-x)+(M_PI/2.0))*4.0/M_PI)+8.0)%8;
   }
+  // Returns a heading of 0, 2, 4 or 6
+  uint8_t cardinalHeadingTo(airplaneState const& other) const {
+    return uint8_t(round((atan2(other.y-y,other.x-x)+(M_PI/2.0))*2.0/M_PI)+4.0)%4*2;
+  }
 };
 
 

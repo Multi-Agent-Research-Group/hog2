@@ -453,6 +453,9 @@ bool UnitSimulation<state, action, environment>::MakeUnitMove(UnitInfo<state, ac
 	bool success = false;
 	moveCost = 0;
 	state oldState = theUnit->currentState;
+        state goal;
+        theUnit->agent->GetGoal(goal);
+        env->setGoal(goal);
 	env->ApplyAction(theUnit->currentState, where);
 	OccupancyInterface<state, action> *envInfo = env->GetOccupancyInfo();
 	
