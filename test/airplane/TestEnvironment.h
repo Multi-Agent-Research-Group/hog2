@@ -12,6 +12,50 @@
 #include "TemplateAStar.h"
 #include "Heuristic.h"
 
+bool testAdmissibility(){
+  std::cout << "testAdmissibility";
+  {
+    AirplanePerimeterDBBuilder<airplaneState,airplaneAction,AirplaneEnvironment> builder;
+    airplaneState goal(10,10,10,3,0,false,AirplaneType::PLANE);
+    AirplaneEnvironment env;
+    //env.loadPerimeterDB();
+    airplaneState target(10,10,10,1,0,false,AirplaneType::PLANE);
+    builder.loadGCosts(env, target, "airplanePerimeter.dat");
+    double best=0;
+    // Find largest cost. What are it's characteristics?
+    for(int hh(0); hh<8; ++hh){
+      goal.heading = hh;
+      std::cout <<"H"<<hh<<" ";
+      for(int x(-2); x<3; ++x){
+        for(int y(-2); y<3; ++y){
+          for(int z(-2); z<3; ++z){
+            if(abs(x) != 2 && abs(y) !=2 && abs(z) !=2) {std::cout << "nmid\n"; continue;}
+            double besth=10000;
+            for(int h(0); h<8; ++h){
+              airplaneState s(goal.x+x,goal.y+y,goal.height+z,3,h);
+              uint8_t travel(s.headingTo(goal));
+              double gc(builder.GCost(s,goal));
+              best=(gc<1000&&best<gc)?gc:best;
+              if(fleq(gc,besth)){std::cout << "new besth "; besth=gc; if(((travel-h+8)%8)>1){std::cout<<"badh? ";}}
+              std::cout <<x<<","<<y<<","<<z<<","<<h<<"("<<(unsigned)s.headingTo(goal)<<")="<<gc<<"\n";
+            }
+            bool chrash(true);
+            for(int h(-1); h<2; ++h){
+              airplaneState s(goal.x+x,goal.y+y,goal.height+z,3,0);
+              s.heading = (s.headingTo(goal)+h+8)%8;
+              double gc(builder.GCost(s,goal));
+              if(fequal(gc,besth)){chrash=false;}
+            }
+            if(chrash)std::cout << "CRASH!\n";
+            std::cout << "\n";
+          }
+        }
+      }
+      std::cout << "best " << best << "\n";
+    }
+  }
+}
+
 bool testMultiAgent(){
   std::cout << "reverse\n";
   {
@@ -182,7 +226,6 @@ bool testMultiAgent(){
   }
   return true;
 }
-
 bool testLoadPerimeterHeuristic(){
   std::cout << "testLoadPerimeterHeuristic";
   {

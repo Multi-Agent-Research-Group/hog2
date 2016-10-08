@@ -241,6 +241,7 @@ void InitHeadless(){
             goals.push_back(goal);
         }
 
+        std::cout << "Set unit " << i << " directive from " << *starts.rbegin() << " to " << *goals.rbegin() << " rough heading: " << (unsigned)starts.rbegin()->headingTo(*goals.rbegin()) << std::endl;
         AirCBSUnit* unit = new AirCBSUnit(*starts.rbegin(), *goals.rbegin());
         unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
         group->AddUnit(unit); // Add to the group
@@ -369,11 +370,11 @@ void InitSim(){
             goals.push_back(goal);}
         }
 
+        std::cout << "Set unit " << i << " directive from " << *starts.rbegin() << " to " << *goals.rbegin() << " rough heading: " << (unsigned)starts.rbegin()->headingTo(*goals.rbegin()) << std::endl;
         AirCBSUnit* unit = new AirCBSUnit(*starts.rbegin(), *goals.rbegin());
         unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
         group->AddUnit(unit); // Add to the group
         sim->AddUnit(unit); // Add to the group
-        std::cout << "Set unit " << i << " directive from " << *starts.rbegin() << " to " << *goals.rbegin() << std::endl;
       }
 
     }
