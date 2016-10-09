@@ -203,10 +203,10 @@ void AirplaneSimpleEnvironment::GetReverseActionsPlane(const airplaneState &node
           actions.push_back(airplaneAction(0, 0, 1));
 
   // decrease speed
-  if (nodeID.speed < numSpeeds+1)
+  if (nodeID.speed < numSpeeds)
           actions.push_back(airplaneAction(0, -1, 0));
   // increase speed
-  if (nodeID.speed > 1)
+  if (nodeID.speed > minSpeed)
           actions.push_back(airplaneAction(0, 1, 0));
 }
 

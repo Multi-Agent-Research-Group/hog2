@@ -921,11 +921,13 @@ double AirplaneEnvironment::myHCost(const airplaneState &node1, const airplaneSt
   double vcost(vertDiff>0?climbCost:descendCost);
   vertDiff=abs(vertDiff);
   int maxMove(std::max(speedDiff1,vertDiff));
-  //int travel(node1.headingTo(node2));
-  int numTurns1(hdgDiff<8>(node1.heading,node1.headingTo(node2)));
-  //if(numTurns1 == 3 && diff>1){diff--;diag++;}
-  //else if(numTurns1 == 4){diff++;}
-  //int numTurns2(hdgDiff<8>(node2.heading,travel));
+  int travel(node1.headingTo(node2));
+  int numTurns1(hdgDiff<8>(node1.heading,travel));
+  if(numTurns1 == 3 && diff>1){diff--;diag++;}
+  else if(numTurns1 == 4){diff++;}
+  int numTurns2(hdgDiff<8>(node2.heading,travel));
+  if(numTurns2 == 3 && diff>1){diff--;diag++;}
+  else if(numTurns2 == 4){diff++;}
 
   // Change as many diagonal moves into horizontal as we can
   while(maxMove>diff+diag && diag>0){
@@ -996,7 +998,7 @@ double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneStat
     int zmax(std::min(node2.height+perimeterSize,height));
     int turnAround(hdgDiff<8>(node1.heading,node1.headingTo(node2))/3);
 
-    std::string s1;
+    /*std::string s1;
   {
     for(int x(xmin); x<=xmax; ++x){
       for(int y(ymin); y<=ymax; ++y){
@@ -1010,7 +1012,6 @@ double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneStat
           int heading(tNode.headingTo(node2));
           for(int h(-1); h<2; ++h){
             uint8_t h1((heading+h+kCircleSize)%kCircleSize);
-            //double dist(/*sqrt*/((x-node1.x)*(x-node1.x)+(y-node1.y)*(y-node1.y)));
             tNode.heading = (heading+h+kCircleSize)%kCircleSize;
             //std::cout << "Trying heading: " << (unsigned)tNode.heading << "\n";
             double hc(myHCost(node1,tNode));
@@ -1025,7 +1026,7 @@ double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneStat
       }
     }
     //std::cout << s1;
-  }
+  }*/
 // w/all w/corridors
 //Finished the plan using 7119 expansions.
 //Time elapsed: 1.118e-05
@@ -1040,21 +1041,31 @@ double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneStat
     int diag(abs((diffx+diffy)-diff)/2);
     // Check if we're going to enter the perimeter from the top or bottom
     if(abs(node2.height-node1.height)+2>(diff+diag)){
-      if(node2.height>node1.height){zmin=zmax=node2.height-perimeterSize;std::cout <<"bottom\n";} // From bottom
-      else{zmin=zmax=node2.height+perimeterSize;std::cout <<"top\n";}
+      if(node2.height>node1.height){zmin=zmax=node2.height-perimeterSize;std::cout <<"bottom ";} // From bottom
+      else{zmin=zmax=node2.height+perimeterSize;std::cout <<"top ";}
     }else if(std::max(diffx,diffy)>perimeterSize+1){
-      zmin=node2.height;zmax=node2.height;//std::cout<<"side\n";
-}
+      zmin=node2.height;zmax=node2.height;
+      std::cout<<"side ";
+    }
+std::cout << "\n";
     // See if we're directly in line horizontally
-    if(abs(node1.x-node2.x)+turnAround<perimeterSize){
+    if(diffx+turnAround<perimeterSize&&diffy>perimeterSize){
       if(node1.y<node2.y){ymin=ymax=node2.y-perimeterSize;}else{ymin=ymax=node2.y+perimeterSize;}
-      std::cout<<"y corridor\n";
-    }else if(abs(node1.y-node2.y)+turnAround<perimeterSize){
+    }else if(diffy+turnAround<perimeterSize&&diffx>perimeterSize){
       if(node1.x<node2.x){xmin=xmax=node2.x-perimeterSize;}else{xmin=xmax=node2.x+perimeterSize;}
-      std::cout<<"x corridor\n";
+    }
+    // See if we're directly in line vertically
+    if(abs(node1.height-node2.height)<perimeterSize){
+      zmin=zmax=node2.height;
+    }else if(node2.height>node1.height){
+      zmin = node2.height-perimeterSize;
+      zmax = node2.height;
+    }else{
+      zmin = node2.height;
+      zmax = node2.height+perimeterSize;
     }
 
-    std::string s;
+    //std::string s;
     for(int x(xmin); x<=xmax; ++x){
       for(int y(ymin); y<=ymax; ++y){
         for(int z(zmin); z<=zmax; ++z){
@@ -1066,23 +1077,23 @@ double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneStat
           tNode.height = z;
           int heading(tNode.headingTo(node2));
           for(int h(-1); h<2; ++h){
-            uint8_t h1((heading+h+kCircleSize)%kCircleSize);
+            //uint8_t h1((heading+h+kCircleSize)%kCircleSize);
             //double dist(/*sqrt*/((x-node1.x)*(x-node1.x)+(y-node1.y)*(y-node1.y)));
             tNode.heading = (heading+h+kCircleSize)%kCircleSize;
             //std::cout << "Trying heading: " << (unsigned)tNode.heading << "\n";
             double hc(myHCost(node1,tNode));
             if(hc + perimeter[node1.type].GCost(tNode,node2) < best){
-              std::stringstream ss;
-              ss << "Selected: "<<node1<<"-->"<<tNode<<"-->"<<node2<< x << "," << y << ","<<(unsigned)tNode.height<<","<< (unsigned)tNode.heading << ": " << hc << "+" << perimeter[node1.type].GCost(tNode,node2) << "=" << hc + perimeter[node1.type].GCost(tNode,node2) << "\n";
-              s = ss.str();
+              //std::stringstream ss;
+              std::cout << "Selected: "<<node1<<"-->"<<tNode<<"-->"<<node2<< x << "," << y << ","<<(unsigned)tNode.height<<","<< (unsigned)tNode.heading << ": " << myHCost(node1,tNode) << "+" << perimeter[node1.type].GCost(tNode,node2) << "=" << hc + perimeter[node1.type].GCost(tNode,node2) << " -- " <<xmin <<" "<<xmax<<" "<<ymin<<" "<<ymax<<" "<<zmin<<" " << zmax <<  "\n";
+              //s = ss.str();
               best = hc + perimeter[node1.type].GCost(tNode,node2);
             }
           }
         }
       }
     }
-if(!fleq(best,best1))
-    std::cout << s << s1 << xmin <<" "<<xmax<<" "<<ymin<<" "<<ymax<<" "<<zmin<<" " << zmax << "\n";;
+//if(!fleq(best,best1))
+    //std::cout << s1 << s << xmin <<" "<<xmax<<" "<<ymin<<" "<<ymax<<" "<<zmin<<" " << zmax << "\n";;
     //perimeterVal = (searchtype != SearchType::REVERSE)?perimeter[node1.type].GCost(pNode,node2):perimeter[node1.type].GCost(node2,pNode);
   }else{
     std::cout << "!loaded\n";

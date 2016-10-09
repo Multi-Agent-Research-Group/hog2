@@ -78,6 +78,9 @@ class AirplanePerimeterDBBuilder
             list[x][y][z][s.speed-1][s.heading][start.speed-1][start.heading]=gcost;
 
             std::vector<action> actions;
+            if(s.speed==5){
+              int x = 0;
+            }
             e.GetReverseActions(s,actions);
             //std::cout << "Num Actions " << actions.size() << "\n";
             expansions++;
@@ -95,6 +98,24 @@ class AirplanePerimeterDBBuilder
       }
 
       loaded = true;
+      for(int hdg1(0); hdg1<numHeadings; ++hdg1){
+        for(int spd1(1); spd1<=numSpeeds; ++spd1){
+          for(int hdg(0); hdg<numHeadings; ++hdg){
+            for(int spd(1); spd<=numSpeeds; ++spd){
+              for(int x(0); x<=xySize*2; ++x){
+                for(int y(0); y<=xySize*2; ++y){
+                  for(int z(0); z<=zSize*2; ++z){
+                    // fix any lingering values to zero
+                    if(list[x][y][z][spd1][hdg1][spd][hdg] > 1000000.0)
+                      list[x][y][z][spd1][hdg1][spd][hdg] = 0.0;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
       std::cout << "DONE" << std::endl;
 
       fp = fopen(fname.c_str(),"w");

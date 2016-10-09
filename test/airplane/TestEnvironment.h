@@ -9,11 +9,49 @@
 #include "AirplaneMultiAgent.h"
 #include <iostream>
 #include <algorithm>
+#include <queue>
 #include "TemplateAStar.h"
 #include "Heuristic.h"
 
 bool testAdmissibility(){
   std::cout << "testAdmissibility";
+  {
+    AirplaneEnvironment e;
+    e.loadPerimeterDB();
+    std::queue<std::pair<double,airplaneState> > q;
+    airplaneState start(40,40,10,3,0,false,AirplaneType::PLANE);
+    for(int hdg(0); hdg<8; ++hdg){
+      for(int spd(1); spd<=5; ++spd){
+        start.heading=hdg;
+        start.speed=spd;
+        q.push(std::make_pair(0.0,start));
+        unsigned count(0);
+        while(!q.empty()){
+          auto const& entry(q.front());
+          airplaneState s(entry.second);
+          double gcost(entry.first);
+          double hc(e.HCost(s,start));
+          if(fgreater(hc,gcost)){
+            std::cout << "FAIL " << s << start << hc << " " <<gcost << "\n";
+          }
+          q.pop();
+
+          if(abs(s.x-start.x)>10 || abs(s.y-start.y)>10 || s.height-start.height > 8){
+            continue;
+          }
+          std::vector<airplaneAction> actions;
+          e.GetReverseActions(s,actions);
+          for(typename std::vector<airplaneAction>::const_iterator a(actions.begin());
+              a!=actions.end(); ++a){
+            airplaneState s2 = s;
+            e.UndoAction(s2, *a);
+            q.push(std::make_pair(gcost+e.GCost(s2,s),s2));
+          }
+        }
+      }
+    }
+  }
+return 0;
   {
     AirplanePerimeterDBBuilder<airplaneState,airplaneAction,AirplaneEnvironment> builder;
     airplaneState goal(10,10,10,3,0,false,AirplaneType::PLANE);
