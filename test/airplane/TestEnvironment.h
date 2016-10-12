@@ -13,15 +13,59 @@
 #include "TemplateAStar.h"
 #include "Heuristic.h"
 
+static const int sz(4);
+static const int wd(sz*2+1);
+
+float get(float* list,int x, int y, int z, int s, int h, int v, int o){
+  return list[x*wd*wd*5*5*8*8+
+    y*wd*5*5*8*8+
+    z*5*5*8*8+
+    s*5*8*8+
+    h*8*8+
+    v*8+
+    o];
+}
+
+float set(float* list,int x, int y, int z, int s, int h, int v, int o, float val){
+  list[x*wd*wd*5*5*8*8+
+    y*wd*5*5*8*8+
+    z*5*5*8*8+
+    s*5*8*8+
+    h*8*8+
+    v*8+
+    o] = val;
+}
+
+
 bool testAdmissibility(){
   std::cout << "testAdmissibility";
-  {
+  { 
+    float* list = new float[wd*wd*wd*5*5*8*8];
+    memset(list,127,wd*wd*wd*5*5*8*8*sizeof(float));
     AirplaneEnvironment e;
     e.loadPerimeterDB();
     std::queue<std::pair<double,airplaneState> > q;
-    airplaneState start(40,40,10,3,0,false,AirplaneType::PLANE);
+    //airplaneState start(40,40,10,3,0,false,AirplaneType::PLANE);
+    airplaneState start(40,40,10,1,0,false,AirplaneType::PLANE);
+    airplaneState goal(43,41,14,3,7,false,AirplaneType::PLANE);
+    std::cout << float(e.HCost(goal,start)) << "...\n";
+    StraightLineHeuristic<airplaneState> z;
+      TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> astar;
+      astar.SetHeuristic(&z);
+      std::vector<airplaneState> sol;
+      astar.GetPath(&e,goal,start,sol);
+      std::cout << "Actual " <<  e.GetPathLength(sol) << "\n";
+      for(auto &a : sol)
+        std::cout << "  " << a<<"\n";
+    //exit(0);
+//x:43, y:41, h:14, s:3, hdg: 7
+//(x:40, y:44, h:11, s:1, hdg: 7, l: 0, type: PLANE)
+//x:38, y:44, h:12, s:4, hdg: 2,
+//FAIL (x:41, y:44, h:14, s:1, hdg: 5, l: 0, type: PLANE)(x:40, y:40, h:10, s:1, hdg: 0, l: 0, type: PLANE)0.00346985 0.00333137
     for(int hdg(0); hdg<8; ++hdg){
+      std::cout << "HDG " << hdg << "\n";
       for(int spd(1); spd<=5; ++spd){
+      std::cout << "SPD " << spd << "\n";
         start.heading=hdg;
         start.speed=spd;
         q.push(std::make_pair(0.0,start));
@@ -30,15 +74,26 @@ bool testAdmissibility(){
           auto const& entry(q.front());
           airplaneState s(entry.second);
           double gcost(entry.first);
-          double hc(e.HCost(s,start));
-          if(fgreater(hc,gcost)){
-            std::cout << "FAIL " << s << start << hc << " " <<gcost << "\n";
-          }
           q.pop();
+          double hc(e.HCost(s,start));
 
-          if(abs(s.x-start.x)>10 || abs(s.y-start.y)>10 || s.height-start.height > 8){
-            continue;
+          if(fgreater(hc,gcost)){
+            std::cout << "FAIL " << s << start << hc << " " <<gcost<< "\n";
+            exit(1);
           }
+
+          int x(s.x-start.x+sz);
+          int y(s.y-start.y+sz);
+          int z(s.height-start.height+sz);
+
+          if(x<0||y<0||z<0||x>wd-1||y>wd-1||z>wd-1||
+            gcost >= get(list,x,y,z,s.speed-1,s.heading,start.speed-1,start.heading)){
+              //std::cout << "Continue because " << gcost <<">="<<get(list,x,y,z,s.speed-1,s.heading,start.speed-1,start.heading)<<"\n";
+            continue;}
+          if(get(list,x,y,z,s.speed-1,s.heading,start.speed-1,start.heading) > 10100000)
+            std::cout << count++ << " "<<x-sz<<" "<<y-sz<<" "<<z-sz << "\n";
+          set(list,x,y,z,s.speed-1,s.heading,start.speed-1,start.heading,gcost);
+
           std::vector<airplaneAction> actions;
           e.GetReverseActions(s,actions);
           for(typename std::vector<airplaneAction>::const_iterator a(actions.begin());

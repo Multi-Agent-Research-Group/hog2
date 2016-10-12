@@ -15,7 +15,7 @@
 #include <iostream>
 #include <string.h>
 
-template <typename state, typename action, typename environment, unsigned xySize=2, unsigned zSize=2, unsigned numHeadings=8, unsigned numSpeeds=5>
+template <typename state, typename action, typename environment, unsigned xySize=3, unsigned zSize=3, unsigned numHeadings=8, unsigned numSpeeds=5>
 class AirplanePerimeterDBBuilder
 {
   public:
@@ -60,7 +60,7 @@ class AirplanePerimeterDBBuilder
           start.speed=spd;
           q.push(std::make_pair(0.0,start));
           unsigned count(0);
-          while(!q.empty() && count < (xySize*2+1+xySize*2+1+zSize*2+1+numSpeeds+numHeadings)){ 
+          while(!q.empty()){// && count < (xySize*2+1+xySize*2+1+zSize*2+1+numSpeeds+numHeadings)){ 
             auto const& entry(q.front());
             state s(entry.second);
             float gcost(entry.first);
@@ -70,6 +70,7 @@ class AirplanePerimeterDBBuilder
             unsigned x(s.x-start.x+xySize);
             unsigned y(s.y-start.y+xySize);
             unsigned z(s.height-start.height+zSize);
+
             //std::cout << "X" << x << " Y " << y << " Z " << z << std::endl;
             if(x<0||y<0||z<0||x>xySize*2||y>xySize*2||z>zSize*2 || gcost >= list[x][y][z][s.speed-1][s.heading][start.speed-1][start.heading]){continue;}// {std::cout << "Skipping " << s << "X" << x << " Y " << y << " Z " << z << std::endl; continue;}
             //std::cout << "solution at " << s <<  " to " << start << " is "  << "X" << x << " Y " << y << " Z " << z << " "<< gcost << "\n";
@@ -97,7 +98,7 @@ class AirplanePerimeterDBBuilder
         }
       }
 
-      loaded = true;
+      /*loaded = true;
       for(int hdg1(0); hdg1<numHeadings; ++hdg1){
         for(int spd1(1); spd1<=numSpeeds; ++spd1){
           for(int hdg(0); hdg<numHeadings; ++hdg){
@@ -114,7 +115,7 @@ class AirplanePerimeterDBBuilder
             }
           }
         }
-      }
+      }*/
 
       std::cout << "DONE" << std::endl;
 
