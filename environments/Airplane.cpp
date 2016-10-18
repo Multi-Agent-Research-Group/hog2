@@ -1386,7 +1386,7 @@ void AirplaneEnvironment::DrawAirplane() const
 
   // Tail
   glBegin(GL_TRIANGLES);
-  glVertex3f(0,0.000,0);
+  glVertex3f(0,0.00,0);
   glVertex3f(0,0.005,0);
   glVertex3f(0,0.005,-0.004);
   glEnd();
