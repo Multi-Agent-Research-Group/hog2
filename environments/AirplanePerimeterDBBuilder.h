@@ -15,7 +15,7 @@
 #include <iostream>
 #include <string.h>
 
-template <typename state, typename action, typename environment, unsigned xySize=2, unsigned zSize=2, unsigned numHeadings=8, unsigned numSpeeds=5>
+template <typename state, typename action, typename environment, unsigned xySize=3, unsigned zSize=3, unsigned numHeadings=8, unsigned numSpeeds=5>
 class AirplanePerimeterDBBuilder
 {
   public:
@@ -60,7 +60,7 @@ class AirplanePerimeterDBBuilder
           start.speed=spd;
           q.push(std::make_pair(0.0,start));
           unsigned count(0);
-          while(!q.empty() && count < (xySize*2+1+xySize*2+1+zSize*2+1+numSpeeds+numHeadings)){ 
+          while(!q.empty()){// && count < (xySize*2+1+xySize*2+1+zSize*2+1+numSpeeds+numHeadings)){ 
             auto const& entry(q.front());
             state s(entry.second);
             float gcost(entry.first);
@@ -70,6 +70,7 @@ class AirplanePerimeterDBBuilder
             unsigned x(s.x-start.x+xySize);
             unsigned y(s.y-start.y+xySize);
             unsigned z(s.height-start.height+zSize);
+
             //std::cout << "X" << x << " Y " << y << " Z " << z << std::endl;
             if(x<0||y<0||z<0||x>xySize*2||y>xySize*2||z>zSize*2 || gcost >= list[x][y][z][s.speed-1][s.heading][start.speed-1][start.heading]){continue;}// {std::cout << "Skipping " << s << "X" << x << " Y " << y << " Z " << z << std::endl; continue;}
             //std::cout << "solution at " << s <<  " to " << start << " is "  << "X" << x << " Y " << y << " Z " << z << " "<< gcost << "\n";
@@ -78,6 +79,9 @@ class AirplanePerimeterDBBuilder
             list[x][y][z][s.speed-1][s.heading][start.speed-1][start.heading]=gcost;
 
             std::vector<action> actions;
+            if(s.speed==5){
+              int x = 0;
+            }
             e.GetReverseActions(s,actions);
             //std::cout << "Num Actions " << actions.size() << "\n";
             expansions++;
@@ -94,7 +98,25 @@ class AirplanePerimeterDBBuilder
         }
       }
 
-      loaded = true;
+      /*loaded = true;
+      for(int hdg1(0); hdg1<numHeadings; ++hdg1){
+        for(int spd1(1); spd1<=numSpeeds; ++spd1){
+          for(int hdg(0); hdg<numHeadings; ++hdg){
+            for(int spd(1); spd<=numSpeeds; ++spd){
+              for(int x(0); x<=xySize*2; ++x){
+                for(int y(0); y<=xySize*2; ++y){
+                  for(int z(0); z<=zSize*2; ++z){
+                    // fix any lingering values to zero
+                    if(list[x][y][z][spd1][hdg1][spd][hdg] > 1000000.0)
+                      list[x][y][z][spd1][hdg1][spd][hdg] = 0.0;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }*/
+
       std::cout << "DONE" << std::endl;
 
       fp = fopen(fname.c_str(),"w");

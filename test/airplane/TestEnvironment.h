@@ -9,10 +9,157 @@
 #include "AirplaneMultiAgent.h"
 #include <iostream>
 #include <algorithm>
+#include <queue>
 #include "TemplateAStar.h"
 #include "Heuristic.h"
 
 void renderScene(){}
+static const int sz(16);
+static const int wd(sz*2+1);
+
+float get(float* list,int x, int y, int z, int s, int h, int v, int o){
+  return list[x*wd*wd*5*5*8*8+
+    y*wd*5*5*8*8+
+    z*5*5*8*8+
+    s*5*8*8+
+    h*8*8+
+    v*8+
+    o];
+}
+
+float set(float* list,int x, int y, int z, int s, int h, int v, int o, float val){
+  list[x*wd*wd*5*5*8*8+
+    y*wd*5*5*8*8+
+    z*5*5*8*8+
+    s*5*8*8+
+    h*8*8+
+    v*8+
+    o] = val;
+}
+
+
+bool testAdmissibility(){
+  std::cout << "testAdmissibility";
+  { 
+    float* list = new float[wd*wd*wd*5*5*8*8];
+    memset(list,127,wd*wd*wd*5*5*8*8*sizeof(float));
+    AirplaneEnvironment e;
+    e.loadPerimeterDB();
+    std::queue<std::pair<double,airplaneState> > q;
+    //airplaneState start(40,40,10,3,0,false,AirplaneType::PLANE);
+    airplaneState start(40,40,10,1,0,false,AirplaneType::PLANE);
+    airplaneState goal(43,41,14,3,7,false,AirplaneType::PLANE);
+    std::cout << float(e.HCost(goal,start)) << "...\n";
+    StraightLineHeuristic<airplaneState> z;
+      TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> astar;
+      astar.SetHeuristic(&z);
+      std::vector<airplaneState> sol;
+      astar.GetPath(&e,goal,start,sol);
+      std::cout << "Actual " <<  e.GetPathLength(sol) << "\n";
+      for(auto &a : sol)
+        std::cout << "  " << a<<"\n";
+    //exit(0);
+//x:43, y:41, h:14, s:3, hdg: 7
+//(x:40, y:44, h:11, s:1, hdg: 7, l: 0, type: PLANE)
+//x:38, y:44, h:12, s:4, hdg: 2,
+//FAIL (x:41, y:44, h:14, s:1, hdg: 5, l: 0, type: PLANE)(x:40, y:40, h:10, s:1, hdg: 0, l: 0, type: PLANE)0.00346985 0.00333137
+    for(int hdg(0); hdg<8; ++hdg){
+      std::cout << "HDG " << hdg << std::endl;
+      for(int spd(1); spd<=5; ++spd){
+      std::cout << "SPD " << spd << std::endl;
+        start.heading=hdg;
+        start.speed=spd;
+        q.push(std::make_pair(0.0,start));
+        unsigned count(0);
+        while(!q.empty()){
+          auto const& entry(q.front());
+          airplaneState s(entry.second);
+          double gcost(entry.first);
+          q.pop();
+          double hc(e.HCost(s,start));
+
+          if(fgreater(hc,gcost)){
+            std::cout << "FAIL " << s << start << hc << " " <<gcost<< std::endl;
+            return 1;
+          }
+
+          int x(s.x-start.x+sz);
+          int y(s.y-start.y+sz);
+          int z(s.height-start.height+sz);
+
+          if(x<0||y<0||z<0||x>wd-1||y>wd-1||z>wd-1||
+            gcost >= get(list,x,y,z,s.speed-1,s.heading,start.speed-1,start.heading)){
+              //std::cout << "Continue because " << gcost <<">="<<get(list,x,y,z,s.speed-1,s.heading,start.speed-1,start.heading)<<"\n";
+            continue;}
+          if(get(list,x,y,z,s.speed-1,s.heading,start.speed-1,start.heading) > 10100000)
+            std::cout << count++ << " "<<x-sz<<" "<<y-sz<<" "<<z-sz << "\n";
+          set(list,x,y,z,s.speed-1,s.heading,start.speed-1,start.heading,gcost);
+
+          std::vector<airplaneAction> actions;
+          e.GetReverseActions(s,actions);
+          for(typename std::vector<airplaneAction>::const_iterator a(actions.begin());
+              a!=actions.end(); ++a){
+            airplaneState s2 = s;
+            e.UndoAction(s2, *a);
+
+            int x(s2.x-start.x+sz);
+            int y(s2.y-start.y+sz);
+            int z(s2.height-start.height+sz);
+            double gc(e.GCost(s2,s));
+            if(x<0||y<0||z<0||x>wd-1||y>wd-1||z>wd-1||
+                gcost+gc >= get(list,x,y,z,s2.speed-1,s2.heading,start.speed-1,start.heading)){
+              continue;
+            }
+            
+            q.push(std::make_pair(gcost+gc,s2));
+          }
+        }
+      }
+    }
+  }
+return 0;
+  {
+    AirplanePerimeterDBBuilder<airplaneState,airplaneAction,AirplaneEnvironment> builder;
+    airplaneState goal(10,10,10,3,0,false,AirplaneType::PLANE);
+    AirplaneEnvironment env;
+    //env.loadPerimeterDB();
+    airplaneState target(10,10,10,1,0,false,AirplaneType::PLANE);
+    builder.loadGCosts(env, target, "airplanePerimeter.dat");
+    double best=0;
+    // Find largest cost. What are it's characteristics?
+    for(int hh(0); hh<8; ++hh){
+      goal.heading = hh;
+      std::cout <<"H"<<hh<<" ";
+      for(int x(-2); x<3; ++x){
+        for(int y(-2); y<3; ++y){
+          for(int z(-2); z<3; ++z){
+            if(abs(x) != 2 && abs(y) !=2 && abs(z) !=2) {std::cout << "nmid\n"; continue;}
+            double besth=10000;
+            for(int h(0); h<8; ++h){
+              airplaneState s(goal.x+x,goal.y+y,goal.height+z,3,h);
+              uint8_t travel(s.headingTo(goal));
+              double gc(builder.GCost(s,goal));
+              best=(gc<1000&&best<gc)?gc:best;
+              if(fleq(gc,besth)){std::cout << "new besth "; besth=gc; if(((travel-h+8)%8)>1){std::cout<<"badh? ";}}
+              std::cout <<x<<","<<y<<","<<z<<","<<h<<"("<<(unsigned)s.headingTo(goal)<<")="<<gc<<"\n";
+            }
+            bool chrash(true);
+            for(int h(-1); h<2; ++h){
+              airplaneState s(goal.x+x,goal.y+y,goal.height+z,3,0);
+              s.heading = (s.headingTo(goal)+h+8)%8;
+              double gc(builder.GCost(s,goal));
+              if(fequal(gc,besth)){chrash=false;}
+            }
+            if(chrash)std::cout << "CRASH!\n";
+            std::cout << "\n";
+          }
+        }
+      }
+      std::cout << "best " << best << "\n";
+    }
+  }
+}
+
 bool testMultiAgent(){
   std::cout << "reverse\n";
   {
@@ -183,7 +330,6 @@ bool testMultiAgent(){
   }
   return true;
 }
-
 bool testLoadPerimeterHeuristic(){
   std::cout << "testLoadPerimeterHeuristic";
   {

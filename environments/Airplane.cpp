@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include "Airplane.h"
 #include <iostream>
+#include <sstream>
 
 #if defined(__APPLE__)
 	#include <OpenGL/gl.h>
@@ -477,7 +478,7 @@ void AirplaneEnvironment::GetReverseActionsPlane(const airplaneState &nodeID, st
     }
 
     // increase height, decrease speed
-    if (nodeID.speed < numSpeeds+minSpeed)
+    if (nodeID.speed < numSpeeds)
     {
       actions.push_back(airplaneAction(0, -1, -1));
       actions.push_back(airplaneAction(k45, -1, -1));
@@ -512,7 +513,7 @@ void AirplaneEnvironment::GetReverseActionsPlane(const airplaneState &nodeID, st
       actions.push_back(airplaneAction(-k90, +1, +1));
     }
 
-    if (nodeID.speed < numSpeeds+minSpeed)
+    if (nodeID.speed < numSpeeds)
     {
       // increase height, increase speed
       actions.push_back(airplaneAction(0, -1, +1));
@@ -537,7 +538,7 @@ void AirplaneEnvironment::GetReverseActionsPlane(const airplaneState &nodeID, st
     actions.push_back(airplaneAction(-k90, +1, 0));
   }
 
-  if (nodeID.speed < numSpeeds+minSpeed)
+  if (nodeID.speed < numSpeeds)
   {
     // increase speed
     actions.push_back(airplaneAction(0, -1, 0));
@@ -908,39 +909,62 @@ void AirplaneEnvironment::GetNextState(const airplaneState &currents, airplaneAc
 double AirplaneEnvironment::myHCost(const airplaneState &node1, const airplaneState &node2) const
 {
   // Estimate fuel cost...
-  static const int cruise(3);
+  static const int cruiseSpeed(3);
+  static const int speedcost[5][5] = {{4,2,1,2,4}, //1-->1,1-->2,1-->3,1-->4,1-->5
+                                      {3,1,0,1,3},
+                                      {2,1,0,1,2},
+                                      {3,1,0,1,3},
+                                      {4,2,1,2,4}};
   int diffx(abs(node1.x-node2.x));
   int diffy(abs(node1.y-node2.y));
-  int diff(abs(diffx-diffy));
+  int diff(abs(diffy-diffx));
   int diag(abs((diffx+diffy)-diff)/2);
   int vertDiff(node2.height-node1.height);
-  int speedDiff1(std::max(0,abs(cruise-node1.speed)-1));
-  int speedDiff2(abs(cruise-node2.speed));
+
+  // Make the assumption that the perimeter is at least n steps away (diff+diag >= speedDiff1+speedDiff2)
+  int speedMult=speedcost[node1.speed-1][node2.speed-1];
+  int speedDiff1(std::max(0,abs(cruiseSpeed-node1.speed)));
+
+  // Moving toward cruise speed does not cost extra
+  int speedDiff2(abs(cruiseSpeed-node2.speed));
   int speedDiff(abs(node2.speed-node1.speed));
   double vcost(vertDiff>0?climbCost:descendCost);
   vertDiff=abs(vertDiff);
-  int maxMove(std::max(std::max(speedDiff,speedDiff1+speedDiff2),vertDiff));
-  int travel(node1.headingTo(node2));
-  //int numTurns1(hdgDiff<8>(node1.heading,travel));
-  //int numTurns2(hdgDiff<8>(node2.heading,travel));
+  int maxMove(std::max(speedDiff,vertDiff));
+
+  //int travel(node1.headingTo(node2));
+  /*int numTurns1(hdgDiff<8>(node1.heading,travel));
+  if(numTurns1 == 3 && diff>1){diff--;diag++;}
+  else if(numTurns1 == 4){diff++;}
+  int numTurns2(hdgDiff<8>(node2.heading,travel));
+  if(numTurns2 == 3 && diff>1){diff--;diag++;}
+  else if(numTurns2 == 4){diff++;}*/
 
   // Change as many diagonal moves into horizontal as we can
   while(maxMove>diff+diag && diag>0){
     diag--;
     diff+=2;
   }
+  if(maxMove>diff+diag){diff+=maxMove-(diff+diag);}
 
-  int speedChanges=std::max(0,(diff>=speedDiff1+speedDiff2)?(speedDiff1+speedDiff2):(speedDiff));
+  int speedChanges=std::max(0,(diff+diag>=speedDiff1+speedDiff2)?(speedMult):(speedDiff-1));
  
   //std::cout << "speed:"<<speedChanges<<"v:"<<vertDiff<<"\n";
-  double total(diff*cruiseBurnRate+std::min(speedChanges,diff)*speedBurnDelta+vertDiff*vcost);
-  speedChanges-=std::min(speedChanges,diff);
+  int cspeedMult(std::min(diff,speedChanges));
+  double dspeedDiff=std::max(0,speedChanges-cspeedMult)*speedBurnDelta;
 
-  // Estimate cost of doing nothing
-  double noop_cost = (node1.landed && node2.landed) ? 1.0 : 0.0;
-  total += noop_cost;
+   //std::cout << "("<<diff*cruiseBurnRate+cspeedMult*speedBurnDelta << "+" << (dspeedDiff+diag*cruiseBurnRate)*M_SQRT2 << "+" << vertDiff*vcost << ")";
 
-  return total+(diag*cruiseBurnRate+speedChanges*speedBurnDelta)*M_SQRT2;
+   return diff*cruiseBurnRate+cspeedMult*speedBurnDelta+
+      (dspeedDiff+diag*cruiseBurnRate)*M_SQRT2+
+      vertDiff*vcost+
+      ((node1.landed && node2.landed) ? 1.0 : 0.0);
+
+  //// Estimate cost of doing nothing
+  //double noop_cost = (node1.landed && node2.landed) ? 1.0 : 0.0;
+  //total += noop_cost;
+
+  //return total+(diag*cruiseBurnRate+dspeedDiff*speedBurnDelta)*M_SQRT2;
 }
 
 double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneState &node2) const
@@ -968,43 +992,125 @@ double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneStat
   double best(9999999);
   if(perimeterLoaded)
   {
-    if(abs(node1.x-node2.x)<=2 && abs(node1.y-node2.y)<=2 && abs(node2.height-node1.height) <=2)
+    static const int perimeterSize(2);
+    if(abs(node1.x-node2.x)<=perimeterSize && abs(node1.y-node2.y)<=perimeterSize && abs(node2.height-node1.height) <=perimeterSize)
       return perimeter[node1.type].GCost(node1,node2);
 
     // Select a perimeter node
-    static const int perimeterSize(2);
-    const int xmin(std::max(0,node2.x-perimeterSize));
-    const int xmax(std::min(node2.x+perimeterSize,width));
-    const int ymin(std::max(0,node2.y-perimeterSize));
-    const int ymax(std::min(node2.y+perimeterSize,length));
-    const int zmin(std::max(0,node2.height-perimeterSize));
-    const int zmax(std::min(node2.height+perimeterSize,height));
+    int xmin(std::max(0,node2.x-perimeterSize));
+    int xmax(std::min(node2.x+perimeterSize,width));
+    int ymin(std::max(0,node2.y-perimeterSize));
+    int ymax(std::min(node2.y+perimeterSize,length));
+    int zmin(std::max(0,node2.height-perimeterSize));
+    int zmax(std::min(node2.height+perimeterSize,height));
+    int turnAround(hdgDiff<8>(node1.heading,node1.headingTo(node2))/3);
 
-    for(int x(xmin); x<xmax; ++x){
-      for(int y(ymin); y<ymax; ++y){
-        for(int z(zmin); z<zmax; ++z){
+    int diffx(abs(node1.x-node2.x));
+    int diffy(abs(node1.y-node2.y));
+    //int diff(abs(diffy-diffx));
+    //int diag(abs((diffx+diffy)-diff)/2);
+    int horiz(std::max(diffx,diffy));
+    int vert(abs(node2.height-node1.height));
+    bool overRide(false);
+    uint8_t speed(3);
+    // Check if we're adjacent to the perimeter
+    if(horiz-perimeterSize<=1 && vert-perimeterSize<=1){
+      speed = node1.speed==5?4:speed==1?2:3;
+      overRide = true;
+      //std::cout << "OVERRIDE\n";
+      //if(hdgDiff<8>(node1.heading,node1.headingTo(node2))>2){discount=speedBurnDelta*M_SQRT2;}
+    }
+    // Check if we're going to enter the perimeter from the top or bottom
+    if(vert>=horiz){
+      if(node2.height>node1.height){
+        zmin=zmax=node2.height-perimeterSize;
+        //std::cout <<"bottom ";
+      }else{
+        zmin=zmax=node2.height+perimeterSize;
+        //std::cout <<"top ";
+      }
+    }else if(vert==horiz-1){
+      if(node2.height>node1.height){
+        zmin=zmax=node2.height-perimeterSize+1;
+        //std::cout <<"semi-bottom ";
+      }else{
+        zmin=zmax=node2.height+perimeterSize-1;
+        //std::cout <<"semi-top ";
+      }
+    }else{
+      //std::cout << "side ";
+      zmin=zmax=node2.height;
+    }/*else if(std::max(diffx,diffy)>perimeterSize*2){
+      zmin=node2.height-std::max(0,perimeterSize,(horiz)-perimeterSize);
+      zmax=node2.height;
+      std::cout<<"side ";
+    }else if(node2.height>node1.height){
+      zmin = node2.height-perimeterSize;
+      zmax = node2.height;
+    }else{
+      zmin = node2.height;
+      zmax = node2.height+perimeterSize;
+    }*/
+    // See if we're directly in line horizontally
+    if(vert<horiz){
+      if(diffx+turnAround<=perimeterSize && diffy>perimeterSize){
+        if(node1.y<node2.y){
+          ymin=ymax=node2.y-perimeterSize;
+          //std::cout << "side y- corridor ";
+        }else{
+          ymin=ymax=node2.y+perimeterSize;
+          //std::cout << "side y+ corridor ";
+        }
+      }else if(diffy+turnAround<=perimeterSize&&diffx>perimeterSize){
+        if(node1.x<node2.x){
+          xmin=xmax=node2.x-perimeterSize;
+          //std::cout << "side x- corridor ";
+        }else{
+          xmin=xmax=node2.x+perimeterSize;
+          //std::cout << "side x+ corridor ";
+        }
+      }else{
+        //xmin=node2.x<node1.x?node2.x:node2.x+perimeterSize;
+        //xmax=node2.x<node1.x?node2.x:node2.x+perimeterSize;
+      }
+    }
+    //std::cout << "\n";
+
+    //std::string s;
+    for(int x(xmin); x<=xmax; ++x){
+      for(int y(ymin); y<=ymax; ++y){
+        for(int z(zmin); z<=zmax; ++z){
           if((x!=xmax && x!=xmin) && 
-              (y!=ymin && y!=ymin) &&
-              (z!=zmin && z!=zmin)){continue;} // Only consider outer rings
+              (y!=ymax && y!=ymin) &&
+              (z!=zmax && z!=zmin)){continue;} // Only consider outer rings
           tNode.x = x;
           tNode.y = y;
           tNode.height = z;
+          tNode.speed = speed;
           int heading(tNode.headingTo(node2));
           for(int h(-1); h<2; ++h){
-            uint8_t h1((heading+h+kCircleSize)%kCircleSize);
+            //uint8_t h1((heading+h+kCircleSize)%kCircleSize);
             //double dist(/*sqrt*/((x-node1.x)*(x-node1.x)+(y-node1.y)*(y-node1.y)));
             tNode.heading = (heading+h+kCircleSize)%kCircleSize;
             //std::cout << "Trying heading: " << (unsigned)tNode.heading << "\n";
-            if(myHCost(node1,tNode) + perimeter[node1.type].GCost(tNode,node2) < best){
-              //std::cout << "Selected: " << x << "," << y << ","<<(unsigned)tNode.height<<","<< (unsigned)tNode.heading << ": " << myHCost(node1,tNode) << "+" << perimeter[node1.type].GCost(tNode,node2) << "=" << myHCost(node1,tNode) + perimeter[node1.type].GCost(tNode,node2) << "\n";
-              best = myHCost(node1,tNode) + perimeter[node1.type].GCost(tNode,node2);
+            double vcost((node1.height==tNode.height)?0:((node1.height>tNode.height)?descendCost:climbCost));
+            double hc(overRide?cruiseBurnRate+vcost:myHCost(node1,tNode));
+            if(hc + perimeter[node1.type].GCost(tNode,node2) < best){
+              //std::cout << "Selected: "<<node1<<"-->"<<tNode<<"-->"<<node2<< x << "," << y << ","<<(unsigned)tNode.height<<","<< (unsigned)tNode.heading << ": " << hc << "+" << perimeter[node1.type].GCost(tNode,node2) << "=" << hc + perimeter[node1.type].GCost(tNode,node2) << " -- " <<xmin <<" "<<xmax<<" "<<ymin<<" "<<ymax<<" "<<zmin<<" " << zmax <<  "\n";
+              //std::cout << "^ BEST\n";
+              //std::stringstream ss;
+              //s = ss.str();
+              best = hc + perimeter[node1.type].GCost(tNode,node2);
             }
           }
         }
       }
     }
+//if(!fleq(best,best1))
+    //std::cout << s1 << s << xmin <<" "<<xmax<<" "<<ymin<<" "<<ymax<<" "<<zmin<<" " << zmax << "\n";;
     //perimeterVal = (searchtype != SearchType::REVERSE)?perimeter[node1.type].GCost(pNode,node2):perimeter[node1.type].GCost(node2,pNode);
   }else{
+    std::cout << "!loaded\n";
     best = myHCost(node1,node2);
   }
 
@@ -1019,7 +1125,7 @@ double AirplaneEnvironment::GCost(const airplaneState &node1, const airplaneStat
   if(node1.landed && node2.landed) return 0.0;
   // Compute cost according to fuel consumption
   int vertDiff(node2.height-node1.height);
-  double vcost(vertDiff>0?climbCost:descendCost);
+  double vcost(vertDiff==0?0:(vertDiff>0?climbCost:descendCost));
   vertDiff=abs(vertDiff);
   double cost(cruiseBurnRate+speedBurnDelta*abs(((numSpeeds+1)/2.0)-(node2.speed)));
 
