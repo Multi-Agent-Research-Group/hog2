@@ -169,9 +169,11 @@ void AirCBSGroup::processSolution()
   TOTAL_EXPANSIONS = 0;
   planFinished = true;
 
+  double total(0.0);
   // For every unit in the node
   for (unsigned int x = 0; x < tree[bestNode].paths.size(); x++)
   {
+    total += currentEnvironment->environment->GetPathLength(tree[bestNode].paths[x]);
     // Grab the unit
     AirCBSUnit *unit = (AirCBSUnit*) GetMember(x);
 
@@ -194,6 +196,7 @@ void AirCBSGroup::processSolution()
     //for(auto &a: tree[bestNode].paths[x])
       //std::cout << "  " << a << "\n";
   }
+  if(planFinished){ std::cout << "Solution cost: " << total << "\n"; }
 }
 
 /** Expand a single CBS node */

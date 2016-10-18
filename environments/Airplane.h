@@ -146,10 +146,10 @@ public:
           double minSpeed=1,
           double maxSpeed=5,
           uint8_t numSpeeds=5, // Number of discrete speeds
-          double cruiseBurnRate=.0006, // Fuel burn rate in liters per unit distance
-          double speedBurnDelta=0.0001, // Extra fuel cost for non-cruise speed
-          double climbCost=0.0001, // Fuel cost for climbing
-          double descendCost=-0.00005, // Fuel cost for descending
+          double cruiseBurnRate=.006, // Fuel burn rate in liters per unit distance
+          double speedBurnDelta=0.001, // Extra fuel cost for non-cruise speed
+          double climbCost=0.001, // Fuel cost for climbing
+          double descendCost=-0.0005, // Fuel cost for descending
           double gridSize=3.0, // Horizontal grid width (meters)
           std::string const& perimeterFile=std::string("airplanePerimeter.dat"));
 	
@@ -254,7 +254,7 @@ protected:
   const double climbRate;      //Meters per time step
   // Assume 1 unit of movement to be 3 meters
   // 16 liters per hour/ 3600 seconds / 22 mps = 0.0002 liters per meter
-  double const cruiseBurnRate;//0.0002*3.0 liters per unit
+  double const cruiseBurnRate;//0.0002*30.0 liters per unit
   double const speedBurnDelta;//0.0001 liters per unit
   double const climbCost;//1.0475;
   double const descendCost;
