@@ -967,6 +967,58 @@ double AirplaneEnvironment::myHCost(const airplaneState &node1, const airplaneSt
   //return total+(diag*cruiseBurnRate+dspeedDiff*speedBurnDelta)*M_SQRT2;
 }
 
+double AirplaneEnvironment::OldHCost(const airplaneState &node1, const airplaneState &node2) const{
+  // We want to estimate the heuristic to the landing state
+  // Figure out which landing strip we're going to
+  for (landingStrip st : landingStrips)
+  {
+    if (node2 == st.goal_state)
+    {
+      return HCost(node1, st.landing_state);
+    } else if (node1 == st.goal_state)
+    {
+      return HCost(st.landing_state, node2);
+    }
+  }
+  
+  airplaneState pNode = node2;
+  airplaneState tNode = node2;
+  double perimeterVal(0);
+  if(perimeterLoaded)
+  {
+    unsigned xd(abs(node1.x-node2.x));
+    unsigned yd(abs(node1.y-node2.y));
+    unsigned zd(abs(node1.height-node2.height));
+    if((xd<=3 && yd<=3 && zd<=3)){
+      if((xd<=2 && yd<=2 && zd<=2)||hdgDiff<8>(node1.heading,node1.headingTo(node2))<3){
+        return perimeter[node1.type].GCost(node1,node2);
+      }else{
+        //Replace the heading with one that is facing toward the goal (this gives an admissible estimate)
+        airplaneState s(node1);
+        s.heading=node1.headingTo(node2);
+        std::cout << "Special " << s <<"\n";
+        return perimeter[node1.type].GCost(s,node2);
+      }
+    }
+    // Select a perimeter node
+    double best(9999999);
+    static const int perimeterSize(2);
+    for(int x(std::max(0,node2.x-perimeterSize)); x<std::min(node2.x+perimeterSize,width); ++x){
+      for(int y(std::max(0,node2.y-perimeterSize)); y<std::min(node2.y+perimeterSize,length); ++y){
+        double dist(/*sqrt*/((x-node1.x)*(x-node1.x)+(y-node1.y)*(y-node1.y)));
+  tNode.x = x;
+  tNode.y = y;
+        if(myHCost(node1,tNode) + dist < best){
+          pNode.x = x;
+          pNode.y = y;
+        }
+      }
+    }
+    perimeterVal = perimeter[node1.type].GCost(pNode,node2);
+  }
+
+  return myHCost(node1,pNode)+ perimeterVal;
+}
 double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneState &node2) const
 {
   if(GoalTest(node1,node2)){return 0.0;}
@@ -995,6 +1047,20 @@ double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneStat
     static const int perimeterSize(2);
     if(abs(node1.x-node2.x)<=perimeterSize && abs(node1.y-node2.y)<=perimeterSize && abs(node2.height-node1.height) <=perimeterSize)
       return perimeter[node1.type].GCost(node1,node2);
+    unsigned xd(abs(node1.x-node2.x));
+    unsigned yd(abs(node1.y-node2.y));
+    unsigned zd(abs(node1.height-node2.height));
+    if((xd<=perimeterSize+1 && yd<=perimeterSize+1 && zd<=perimeterSize+1)){
+      if((xd<=perimeterSize && yd<=perimeterSize && zd<=perimeterSize)||hdgDiff<8>(node1.heading,node1.headingTo(node2))<3){
+        return perimeter[node1.type].GCost(node1,node2);
+      }else{
+        //Replace the heading with one that is facing toward the goal (this gives an admissible estimate)
+        airplaneState s(node1);
+        s.heading=node1.headingTo(node2);
+        //std::cout << "Special " << s <<"\n";
+        return std::min(perimeter[node1.type].GCost(s,node2),perimeter[node1.type].GCost(node1,node2));
+      }
+    }
 
     // Select a perimeter node
     int xmin(std::max(0,node2.x-perimeterSize));

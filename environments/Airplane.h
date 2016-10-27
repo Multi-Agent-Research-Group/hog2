@@ -185,6 +185,7 @@ public:
 	
   // Heuristics and paths
 	virtual double HCost(const airplaneState &node1, const airplaneState &node2) const;
+	virtual double OldHCost(const airplaneState &node1, const airplaneState &node2) const;
 	virtual double HCost(const airplaneState &)  const { assert(false); return 0; }
 	virtual double GCost(const airplaneState &node1, const airplaneState &node2) const;
 	virtual double GCost(const airplaneState &node1, const airplaneAction &act) const;

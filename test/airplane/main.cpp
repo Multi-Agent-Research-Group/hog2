@@ -13,6 +13,8 @@ int main(){
   //testHeadingTo();
   //testConstraints();
   testAdmissibility();
+  //compareHeuristicSpeed();
+  foo();
 
   return 0;
 
