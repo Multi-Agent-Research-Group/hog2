@@ -9,6 +9,7 @@
 #include "AirplaneCBSUnits.h"
 
 extern bool heuristic;
+extern int seed;
 
 //----------------------------------------------------------------------------------------------------------------------------------------------//
 
@@ -169,8 +170,8 @@ void AirCBSGroup::processSolution()
   TOTAL_EXPANSIONS = 0;
   planFinished = true;
 
-  unsigned cost(0);
-  double total(0.0);
+  double cost(0.0);
+  unsigned total(0);
   // For every unit in the node
   for (unsigned int x = 0; x < tree[bestNode].paths.size(); x++)
   {
@@ -198,7 +199,7 @@ void AirCBSGroup::processSolution()
     //for(auto &a: tree[bestNode].paths[x])
       //std::cout << "  " << a << "\n";
   }
-  std::cout << "Solution cost: " << cost << "\n"; 
+  std::cout << seed<<":Solution cost: " << cost << "\n"; 
   std::cout << "solution length: " << total << std::endl;
 }
 

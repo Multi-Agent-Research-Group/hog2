@@ -1,7 +1,9 @@
 #ifndef __hog2_glut__TestEnvironment__
 #define __hog2_glut__TestEnvironment__
 
+#include "Timer.h"
 #include "Airplane.h"
+//#include "AirplaneOld.h"
 #include "AirplaneSimple.h"
 #include "AirplaneHighway.h"
 #include "AirplaneHighway4Cardinal.h"
@@ -12,107 +14,184 @@
 #include <queue>
 #include "TemplateAStar.h"
 #include "Heuristic.h"
+#include <stdlib.h>
 
 void renderScene(){}
 static const int sz(16);
 static const int wd(sz*2+1);
 
-float get(float* list,int x, int y, int z, int s, int h, int v, int o){
-  return list[x*wd*wd*5*5*8*8+
-    y*wd*5*5*8*8+
-    z*5*5*8*8+
-    s*5*8*8+
-    h*8*8+
-    v*8+
-    o];
+uint64_t toIndex(airplaneState const& s, airplaneState const& start){
+  return (s.x-start.x+sz)*wd*wd*5*8+
+    (s.y-start.y+sz)*wd*5*8+
+    (s.height-start.height+sz)*5*8+
+    (s.speed-1)*8+
+    s.heading;
+}
+float get(float const* const list,int x, int y, int z, int s, int h){
+  return list[x*wd*wd*5*8+ y*wd*5*8+ z*5*8+ s*8+ h];
+}
+float get(float const* const list, airplaneState const& s, airplaneState const& start){
+  int x(s.x-start.x+sz);
+  int y(s.y-start.y+sz);
+  int z(s.height-start.height+sz);
+
+  if(x>=0||y>=0||z>=0||x<wd||y<wd||z<wd)
+    return  list[toIndex(s,start)];
+  return std::numeric_limits<float>::max();
+}
+/*
+Index = xn ( D1 * ... * D{n-1} ) + x{n-1} ( D1 * ... * D{n-2} ) + ... + x2 * D1 + x1
+
+So for 4D
+
+index = x + y * D1 + z * D1 * D2 + t * D1 * D2 * D3;
+x = Index % D1;
+y = ( ( Index - x ) / D1 ) %  D2;
+z = ( ( Index - y * D1 - x ) / (D1 * D2) ) % D3; 
+t = ( ( Index - z * D2 * D1 - y * D1 - x ) / (D1 * D2 * D3) ) % D4; 
+// Technically the last modulus is not required,
+   since that division SHOULD be bounded by D4 anyways... 
+
+The general formula being of the form
+
+xn = ( ( Index - Index( x1, ..., x{n-1} ) ) / Product( D1, ..., D{N-1} ) ) % Dn
+*/
+airplaneState fromIndex(uint64_t index, airplaneState const& start){
+  unsigned h(index%8);
+  unsigned sp(((index-h)/8)%5);
+  unsigned z(((index-sp*8-h)/(8*5))%wd);
+  unsigned y(((index-z*8*5-sp*8-h)/(wd*8*5))%wd);
+  unsigned x(((index-y*wd*8*5-z*8*5-sp*8-h)/(wd*wd*8*5))%wd);
+  return airplaneState(x+start.x-sz,y+start.y-sz,
+    z+start.height-sz,sp+1,h,false,AirplaneType::PLANE);
 }
 
-float set(float* list,int x, int y, int z, int s, int h, int v, int o, float val){
-  list[x*wd*wd*5*5*8*8+
-    y*wd*5*5*8*8+
-    z*5*5*8*8+
-    s*5*8*8+
-    h*8*8+
-    v*8+
-    o] = val;
+void set(float* list,int x, int y, int z, int s, int h, float val){
+  list[x*wd*wd*5*8+
+    y*wd*5*8+
+    z*5*8+
+    s*8+
+    h] = val;
+}
+bool set(float* list, airplaneState const& s, airplaneState const& start, float val){
+  int x(s.x-start.x+sz);
+  int y(s.y-start.y+sz);
+  int z(s.height-start.height+sz);
+
+  if(x<0||y<0||z<0||x>wd-1||y>wd-1||z>wd-1||fgeq(val,get(list,s,start)))
+    return false;
+  set(list,x,y,z,s.speed-1,s.heading,val);
+  return true;
 }
 
+void foo(){
+std::cout << "foo\n";
+airplaneState start(40,40,10,1,0,false,AirplaneType::PLANE);
+airplaneState goal(43,41,14,3,7,false,AirplaneType::PLANE);
+uint64_t ix(toIndex(goal,start));
+std::cout << goal << "\n";
+std::cout << ix << "\n";
+std::cout << fromIndex(ix,start) << "\n";
+
+}
 
 bool testAdmissibility(){
   std::cout << "testAdmissibility";
   { 
-    float* list = new float[wd*wd*wd*5*5*8*8];
-    memset(list,127,wd*wd*wd*5*5*8*8*sizeof(float));
+    float* list = new float[wd*wd*wd*5*8];
     AirplaneEnvironment e;
     e.loadPerimeterDB();
-    std::queue<std::pair<double,airplaneState> > q;
-    //airplaneState start(40,40,10,3,0,false,AirplaneType::PLANE);
+    //std::queue<std::pair<double,airplaneState> > q;
+    std::queue<uint64_t> q;
     airplaneState start(40,40,10,1,0,false,AirplaneType::PLANE);
     airplaneState goal(43,41,14,3,7,false,AirplaneType::PLANE);
     std::cout << float(e.HCost(goal,start)) << "...\n";
     StraightLineHeuristic<airplaneState> z;
-      TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> astar;
-      astar.SetHeuristic(&z);
-      std::vector<airplaneState> sol;
-      astar.GetPath(&e,goal,start,sol);
-      std::cout << "Actual " <<  e.GetPathLength(sol) << "\n";
-      for(auto &a : sol)
-        std::cout << "  " << a<<"\n";
+    TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> astar;
+    astar.SetHeuristic(&z);
+    std::vector<airplaneState> sol;
+    astar.GetPath(&e,goal,start,sol);
+    std::cout << "Actual " <<  e.GetPathLength(sol) << "\n";
+    for(auto &a : sol)
+      std::cout << "  " << a<<"\n";
     //exit(0);
-//x:43, y:41, h:14, s:3, hdg: 7
-//(x:40, y:44, h:11, s:1, hdg: 7, l: 0, type: PLANE)
-//x:38, y:44, h:12, s:4, hdg: 2,
-//FAIL (x:41, y:44, h:14, s:1, hdg: 5, l: 0, type: PLANE)(x:40, y:40, h:10, s:1, hdg: 0, l: 0, type: PLANE)0.00346985 0.00333137
+    //x:43, y:41, h:14, s:3, hdg: 7
+    //(x:40, y:44, h:11, s:1, hdg: 7, l: 0, type: PLANE)
+    //x:38, y:44, h:12, s:4, hdg: 2,
+    //FAIL (x:41, y:44, h:14, s:1, hdg: 5, l: 0, type: PLANE)(x:40, y:40, h:10, s:1, hdg: 0, l: 0, type: PLANE)0.00346985 0.00333137
     for(int hdg(0); hdg<8; ++hdg){
       std::cout << "HDG " << hdg << std::endl;
       for(int spd(1); spd<=5; ++spd){
-      std::cout << "SPD " << spd << std::endl;
+        std::cout << "SPD " << spd << std::endl;
+        // Initialize all to INF
+        memset(list,127,wd*wd*wd*5*8*sizeof(float));
         start.heading=hdg;
         start.speed=spd;
-        q.push(std::make_pair(0.0,start));
+        uint64_t sindex(toIndex(start,start));
+        q.push(sindex);
+        set(list,start,start,0.0f);
         unsigned count(0);
         while(!q.empty()){
-          auto const& entry(q.front());
-          airplaneState s(entry.second);
-          double gcost(entry.first);
+          uint64_t index(q.front());
+          airplaneState s(fromIndex(index,start));
+          //std::cout << s << index<<"\n";
+          float gcost(list[index]);
+          //if(index != toIndex(s,start)){std::cout << "index error\n";exit(1);}
+          if(!count)gcost=0.0;
           q.pop();
-          double hc(e.HCost(s,start));
+          //std::cout << "qs " << q.size() << "\n";
+          float hc(e.HCost(s,start));
 
+          //std::cout << "Compare "<<s << hc << " " << gcost << "\n";
+          //else std::cout << gcost<<"\n";
           if(fgreater(hc,gcost)){
             std::cout << "FAIL " << s << start << hc << " " <<gcost<< std::endl;
             return 1;
           }
 
-          int x(s.x-start.x+sz);
-          int y(s.y-start.y+sz);
-          int z(s.height-start.height+sz);
+          //int x(s.x-start.x+sz);
+          //int y(s.y-start.y+sz);
+          //int z(s.height-start.height+sz);
+          //std::cout << x << " " << y << " " << z << "\n";
 
-          if(x<0||y<0||z<0||x>wd-1||y>wd-1||z>wd-1||
-            gcost >= get(list,x,y,z,s.speed-1,s.heading,start.speed-1,start.heading)){
-              //std::cout << "Continue because " << gcost <<">="<<get(list,x,y,z,s.speed-1,s.heading,start.speed-1,start.heading)<<"\n";
-            continue;}
-          if(get(list,x,y,z,s.speed-1,s.heading,start.speed-1,start.heading) > 10100000)
-            std::cout << count++ << " "<<x-sz<<" "<<y-sz<<" "<<z-sz << "\n";
-          set(list,x,y,z,s.speed-1,s.heading,start.speed-1,start.heading,gcost);
+          //if(x<0||y<0||z<0||x>wd-1||y>wd-1||z>wd-1){
+          //gcost >= get(list,x,y,z,s.speed-1,s.heading)){
+          //std::cout << "Continue because " << gcost <<">="<<get(list,x,y,z,s.speed-1,s.heading)<<"\n";
+          //continue;}}
+          //set(list,x,y,z,s.speed-1,s.heading,gcost);
+          //std::cout << "set " << s << " to " << gcost << "\n";
 
           std::vector<airplaneAction> actions;
           e.GetReverseActions(s,actions);
+          //std::cout << "Successors " << actions.size() << "\n";
           for(typename std::vector<airplaneAction>::const_iterator a(actions.begin());
               a!=actions.end(); ++a){
             airplaneState s2 = s;
             e.UndoAction(s2, *a);
-
-            int x(s2.x-start.x+sz);
-            int y(s2.y-start.y+sz);
-            int z(s2.height-start.height+sz);
-            double gc(e.GCost(s2,s));
-            if(x<0||y<0||z<0||x>wd-1||y>wd-1||z>wd-1||
-                gcost+gc >= get(list,x,y,z,s2.speed-1,s2.heading,start.speed-1,start.heading)){
-              continue;
+            //q.push(std::make_pair(gcost+e.GCost(s2,s),s2));
+            uint64_t ix(toIndex(s2,start));
+            if(ix<wd*wd*wd*5*8&&gcost+e.GCost(s2,s) < get(list,s2,start)){
+              q.push(ix);
+              set(list,s2,start,gcost+e.GCost(s2,s));
+              //std::cout << "Pushing " << s2<<","<<(gcost+e.GCost(s2,s))<<"\n";
+              //std::cout << count++ << " "<<x-sz<<" "<<y-sz<<" "<<z-sz << "\n";
+              count++;
+            }else{
+              //std::cout << "Not pushing " << s2<<","<<(gcost+e.GCost(s2,s))<<"\n";
             }
-            
-            q.push(std::make_pair(gcost+gc,s2));
           }
+        }
+        float delta(0.0);
+        for(int ix(0); ix<wd*wd*wd*5*8; ++ix){
+          airplaneState s(fromIndex(ix,start));
+          unsigned xd(abs(start.x-s.x));
+          unsigned yd(abs(start.y-s.y));
+          unsigned zd(abs(start.height-s.height));
+          if(xd>sz-1 || yd>sz-1 || zd>sz-1)continue;
+          float gcost(list[ix]);
+          float hc(e.HCost(s,start));
+          float d(fabs(hc-gcost));
+          if(gcost < 10000000&&fgreater(d,delta)){delta=d;std::cout<<"BBB"<<start<<s<<delta<<"("<<hc<<"<"<<gcost<<")\n";}
         }
       }
     }
@@ -158,6 +237,34 @@ return 0;
       std::cout << "best " << best << "\n";
     }
   }
+}
+
+bool compareHeuristicSpeed(){
+  srand(123456);
+  std::cout << "Heuristic relative speed\n";
+  AirplaneEnvironment aenv;
+  //AirplaneOldEnvironment oenv;
+  aenv.loadPerimeterDB();
+  //oenv.loadPerimeterDB();
+
+  Timer timer;
+  double h1(0.0);
+  double h2(0.0);
+  for(int i(0); i<10000000; ++i){
+    airplaneState s(rand() % 8+5, rand() % 8+5, rand() % 5+5, rand() % 5 + 1, rand() % 4*2, false);
+    airplaneState g(rand() % 8+5, rand() % 8+5, rand() % 5+5, rand() % 5 + 1, rand() % 4*2, false);
+    if(s==g)continue;
+
+    timer.StartTimer();
+    aenv.HCost(s,g);
+    h1+=timer.EndTimer();
+    timer.StartTimer();
+    aenv.OldHCost(s,g);
+    h2+=timer.EndTimer();
+  }
+  std::cout << "Old Speed: " << h2 << std::endl;
+  std::cout << "New Speed: " << h1 << std::endl;
+  return 0;
 }
 
 bool testMultiAgent(){
