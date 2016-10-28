@@ -175,12 +175,12 @@ AirplaneEnvironment::AirplaneEnvironment(
         }
     }
 
-  // Create a landing strip
+  // Create a landing controller
+  this->ALC = new AirLandingController();
   airplaneState launchLoc(18, 29, 7, 1, 4, false);
   airplaneState landingLoc(18, 29, 7, 1, 0, false);
   airplaneState goalLoc(18, 23, 0, 0, 0, true);
-  landingStrip l(15, 20, 17, 28, launchLoc, landingLoc, goalLoc);
-  AddLandingStrip(l);
+  this->ALC->AddLandingStrip(this, new AirLandingStrip(15, 20, 17, 28, launchLoc, landingLoc, goalLoc));
 
   // Setup turns vector
   turns.push_back(0);
@@ -369,47 +369,13 @@ void AirplaneEnvironment::GetActionsPlane(const airplaneState &nodeID, std::vect
 }
 
 bool AirplaneEnvironment::AppendLandingActionsPlane(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const {
-  if (nodeID.landed)
-  {
-        actions.push_back(airplaneAction(0,0,0,3));
-return false;
-}else{
-return true;
+
+std::vector<airplaneState> gs;
+if (!this->ALC->GetLandingStates(nodeID, gs) && !this->ALC->GetTakeoffStates(nodeID, gs)) {
+  return true;
 }
-  if (nodeID.landed)
-  {
-    // Figure out which landing strip we're at
-    for (landingStrip st : landingStrips)
-    {
-      //std::cout << "Comparing " << nodeID << " and " << st.goal_state << std::endl;
-      if (nodeID.x == st.goal_state.x && nodeID.y == st.goal_state.y && nodeID.height == st.goal_state.height &&
-          nodeID.heading == st.goal_state.heading && nodeID.speed == st.goal_state.speed)
-      {
-        // Add the takeoff action
-        actions.push_back(airplaneAction(0,0,0,1));
-        // Add the landed no-op action
-        actions.push_back(airplaneAction(0,0,0,3));
-        return false;
-      }
-    }
-    // There should never be a situation where we get here
-    std::cout << nodeID << std::endl;
-    assert(false && "Airplane trying to takeoff, but not at a landing strip");
-  } 
-  else 
-  {
-    // Check to see if we can land
-    for (landingStrip st : landingStrips)
-    {
-      if (nodeID.x == st.landing_state.x && nodeID.y == st.landing_state.y && nodeID.height == st.landing_state.height &&
-          nodeID.heading == st.landing_state.heading && nodeID.speed == st.landing_state.speed)
-      {
-        // Add the landing action
-        actions.push_back(airplaneAction(0,0,0,2));
-      }
-    }
-    return true;
-  }
+for (auto state : gs) actions.push_back(GetAction(nodeID, gs));
+return true;
 }
 
 bool AirplaneEnvironment::AppendLandingActionsQuad(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const {
@@ -1228,16 +1194,9 @@ void AirplaneEnvironment::OpenGLDraw() const
                 glColor3f(c.r, c.g, c.b);
             }
 
-      for (landingStrip st : landingStrips) 
-      {
-        if (x >= min(st.x1,st.x2) && x <= max(st.x1, st.x2))
-        {
-          if (y >= min(st.y1, st.y2) && y <= max(st.y1, st.y2))
-          {
-            glColor3f(0.5, 0.5, 0.5);
-          }
-        }
-      }
+
+            if (this->ALC->GLIsLandingStrip(x,y))
+              glColor3f(0.5,0.5,0.5);
 
 
             recVec tmp = GetNormal(x, y);
@@ -1253,18 +1212,8 @@ void AirplaneEnvironment::OpenGLDraw() const
                 glColor3f(c.r, c.g, c.b);
             }
 
-
-      for (landingStrip st : landingStrips) 
-      {
-        if (x >= min(st.x1,st.x2) && x <= max(st.x1, st.x2))
-        {
-          if (y+1 >= min(st.y1, st.y2) && y+1 <= max(st.y1, st.y2))
-          {
-            glColor3f(0.5, 0.5, 0.5);
-          }
-        }
-      }
-
+            if (this->ALC->GLIsLandingStrip(x,y+1))
+              glColor3f(0.5,0.5,0.5);
 
             tmp = GetNormal(x, y+1);
             glNormal3f(tmp.x, tmp.y, tmp.z);
@@ -1276,37 +1225,15 @@ void AirplaneEnvironment::OpenGLDraw() const
     glColor3f(1.0, 1.0, 1.0);
     DrawBoxFrame(0, 0, 0.75, 1.0);
 
-  for (landingStrip st : landingStrips)
-  {
-    //Draw the dashed line down the middle
-    
-    float xval = (max(st.x1, st.x2)-min(st.x1, st.x2))/2.0f + min(st.x1, st.x2);
-  
-    glLineStipple(1, 0x00FF);
-    glLineWidth(100);
-    glEnable(GL_LINE_STIPPLE);
-    glDisable(GL_LIGHTING);
-    glBegin(GL_LINES);
-      glVertex3f((xval-width/2.0)/(width/2.0),(min(st.y1,st.y2)-width/2.0)/(width/2.0) ,-4.0*st.z/(255.0*80));
-      glVertex3f((xval-width/2.0)/(width/2.0),(max(st.y1,st.y2)-width/2.0)/(width/2.0) ,-4.0*st.z/(255.0*80));
-    glEnd();
-    glLineStipple(0, 0xFFFF);
-    glLineWidth(1);
-
-    // Draw the launch location
-    this->SetColor(0.5,0.5,0.5, 0.3);
-    this->OpenGLDraw(st.launch_state);
-
-  }
-
-
-
+    // Draw each landing strip
+    this->ALC->GLDrawLandingStrips();
 }
 
 void AirplaneEnvironment::OpenGLDraw(const airplaneState &l) const
 {
     if (l.landed)
       return;
+
     {
         GLfloat r, g, b, t;
         GetColor(r, g, b, t);
@@ -1449,14 +1376,15 @@ std::vector<airplaneAction> AirplaneEnvironment::getInternalActions()
     return std::vector<airplaneAction>(internalActions);
 }
 
-void AirplaneEnvironment::AddLandingStrip(landingStrip strip)
+// All this method does is redraw the normals in a particular place in order to deal with a landing strip
+uint16_t AirplaneEnvironment::RedrawLSNormals(uint16_t x1, uint16_t x2, uint16_t y1, uint16_t y2)
 {
   // Set the ground to average height on the strip
   float avgh = 0.0f;
   int n = 0;
-  for (int i = min(strip.x1, strip.x2); i <= max(strip.x1, strip.x2); i++) 
+  for (int i = min(x1, x2); i <= max(x1, x2); i++) 
   {
-    for (int j = min(strip.y1, strip.y2); j <= max(strip.y1, strip.y2); j++) 
+    for (int j = min(y1, y2); j <= max(y1, y2); j++) 
     {
       avgh += GetGround(i,j);
       n++;
@@ -1465,9 +1393,9 @@ void AirplaneEnvironment::AddLandingStrip(landingStrip strip)
 
   avgh = (avgh/n);
   
-  for (int i = min(strip.x1, strip.x2); i <= max(strip.x1, strip.x2); i++) 
+  for (int i = min(x1, x2); i <= max(x1, x2); i++) 
   {
-    for (int j = min(strip.y1, strip.y2); j <= max(strip.y1, strip.y2); j++) 
+    for (int j = min(y1, y2); j <= max(y1, y2); j++) 
     {
       SetGround(i, j, (int) avgh);
     }
@@ -1509,8 +1437,5 @@ void AirplaneEnvironment::AddLandingStrip(landingStrip strip)
     }
   }
 
-  // Add the landing strip
-  strip.z = (uint16_t) avgh;
-  this->landingStrips.push_back(strip);
-
+  return (uint16_t) avgh;
 }

@@ -14,6 +14,7 @@
 #include <cmath>
 #include "SearchEnvironment.h"
 #include "AirplanePerimeterDBBuilder.h"
+#include "AirLandingController.h"
 
 // turn type:
 // 45, 90, 0, shift
@@ -95,21 +96,6 @@ struct airplaneState {
     return uint8_t(round((atan2(other.y-y,other.x-x)+(M_PI/2.0))*2.0/M_PI)+4.0)%4*2;
   }
 };
-
-
-struct landingStrip {
-	landingStrip(uint16_t x1, uint16_t x2, uint16_t y1, uint16_t y2, airplaneState &launch_state, airplaneState &landing_state, airplaneState &goal_state) : x1(x1), x2(x2), y1(y1), y2(y2), 
-				 launch_state(launch_state), landing_state(landing_state), goal_state(goal_state) {}
-	uint16_t x1;
-	uint16_t x2;
-	uint16_t y1;
-	uint16_t y2;
-	uint16_t z = 0;
-	airplaneState goal_state;
-	airplaneState launch_state;
-	airplaneState landing_state;
-};
-
 
 /** Output the information in an airplane state */
 static std::ostream& operator <<(std::ostream & out, const airplaneState &loc)
@@ -216,10 +202,9 @@ public:
 
 	std::vector<airplaneAction> getInternalActions();
 
-  // Landing Strups
-	virtual void AddLandingStrip(landingStrip x);
-	virtual const std::vector<landingStrip>& GetLandingStrips() const {return landingStrips;}
-        
+  // Landing strips
+	virtual uint16_t RedrawLSNormals(uint16_t x1, uint16_t x2, uint16_t y1, uint16_t y2);
+	      
   // State information
   const uint8_t numSpeeds;  // Number of speed steps
   const double minSpeed;    // Meters per time step
@@ -249,8 +234,6 @@ protected:
 	void DoNormal(recVec pa, recVec pb) const;
 	mutable std::vector<airplaneAction> internalActions;
 
-	std::vector<landingStrip> landingStrips;
-
   const double climbRate;      //Meters per time step
   // Assume 1 unit of movement to be 3 meters
   // 16 liters per hour/ 3600 seconds / 22 mps = 0.0002 liters per meter
@@ -269,6 +252,9 @@ private:
   bool perimeterLoaded;
   std::string perimeterFile;
   AirplanePerimeterDBBuilder<airplaneState, airplaneAction, AirplaneEnvironment> perimeter[2]; // One for each type of aircraft
+
+  // This is the airplane landing controller for the environment. Hopefully it's not bugged.
+  AirLandingController* ALC;
 
   //TODO Add wind constants
   //const double windSpeed = 0;
