@@ -12,14 +12,6 @@
  
 /////////////////////////////// PUBLIC ////////////////////////////////////////////////////
 
-
-/** Operator for equivalent airtime states */
-bool operator==(const airtimeState &l1, const airtimeState &l2)
-{
-	return fequal(l1.t,l2.t) && ((airplaneState const&)l1)== ((airplaneState const&)l2);
-}
-
-
 /// CONSTRUCTORS
 /** Construct a new airplane constrained environemnt with a random ground map */
 /*AirplaneConstrainedEnvironment::AirplaneConstrainedEnvironment() {
@@ -32,6 +24,7 @@ AirplaneConstrainedEnvironment::AirplaneConstrainedEnvironment(AirplaneEnvironme
 {
 	ClearConstraints();
 
+  /*
 	// Add back the air-strip constraints
 	for (landingStrip st : ae->GetLandingStrips())
 	{
@@ -42,7 +35,7 @@ AirplaneConstrainedEnvironment::AirplaneConstrainedEnvironment(AirplaneEnvironme
 		airConstraint c(o, f);
 		c.strip=true;
 		static_constraints.push_back(c);
-	}
+	}*/
 
 	// Add a constraint for the ground
 	airplaneState mi(0,0, 0, 0,0);

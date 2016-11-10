@@ -1,4 +1,4 @@
-#include "TestEnvironment.h"
+//#include "TestEnvironment.h"
 
 int main(){
   //testCardinalEnvHCost();
@@ -12,7 +12,7 @@ int main(){
   //testHCost();
   //testHeadingTo();
   //testConstraints();
-  testAdmissibility();
+  //testAdmissibility();
 
   return 0;
 

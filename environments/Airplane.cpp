@@ -20,17 +20,6 @@
 #include "TemplateAStar.h"
 #include "Heuristic.h"
 
-bool operator==(const airplaneState &s1, const airplaneState &s2)
-{
-    return (s1.x==s2.x && s1.y==s2.y && s1.height==s2.height && s1.heading == s2.heading && s1.speed == s2.speed && s1.landed == s2.landed);
-    //return (fequal(s1.x,s2.x) && fequal(s1.y,s2.y) && s1.height==s2.height && s1.speed == s2.speed && s1.heading == s2.heading);
-}
-
-bool operator==(const airplaneAction &a1, const airplaneAction &a2)
-{
-  return a1.turn == a2.turn && a1.speed==a2.speed && a1.height==a2.height && a1.takeoff == a2.takeoff;
-}
-
 AirplaneEnvironment::AirplaneEnvironment(
   unsigned width,
   unsigned length,
@@ -369,12 +358,11 @@ void AirplaneEnvironment::GetActionsPlane(const airplaneState &nodeID, std::vect
 }
 
 bool AirplaneEnvironment::AppendLandingActionsPlane(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const {
-
 std::vector<airplaneState> gs;
 if (!this->ALC->GetLandingStates(nodeID, gs) && !this->ALC->GetTakeoffStates(nodeID, gs)) {
   return true;
 }
-for (auto state : gs) actions.push_back(GetAction(nodeID, gs));
+for (auto state : gs) actions.push_back(GetAction(nodeID, state));
 return true;
 }
 
@@ -515,32 +503,8 @@ void AirplaneEnvironment::GetReverseActionsPlane(const airplaneState &nodeID, st
     actions.push_back(airplaneAction(k90, -1, 0));
     actions.push_back(airplaneAction(-k90, -1, 0));
   }
+}
 
-}/*{
-    for (auto x : turns) 
-      actions.push_back(airplaneAction(x, 0, 0));
-
-    if (nodeID.speed < numSpeeds + minSpeed-1)
-      for (auto x : turns) actions.push_back(airplaneAction(x, -1, 0));
-    if (nodeID.speed > minSpeed) 
-      for (auto x : turns) actions.push_back(airplaneAction(x, 1, 0));
-
-    if (nodeID.height > 1) {
-      for (auto x : turns) actions.push_back(airplaneAction(x, 0, 1));
-      if (nodeID.speed > minSpeed) 
-        for (auto x : turns) actions.push_back(airplaneAction(x, 1, 1));
-      if (nodeID.speed < numSpeeds+minSpeed-1) 
-        for (auto x : turns) actions.push_back(airplaneAction(x, -1, 1));
-    }
-
-    if (nodeID.height < height) {
-      for (auto x : turns) actions.push_back(airplaneAction(x, 0, -1));
-      if (nodeID.speed > minSpeed) 
-        for (auto x : turns) actions.push_back(airplaneAction(x, 1, -1));
-      if (nodeID.speed < numSpeeds+minSpeed-1) 
-        for (auto x : turns) actions.push_back(airplaneAction(x, -1, -1));
-    }
-}*/
 
 void AirplaneEnvironment::GetReverseActionsQuad(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const 
 {
@@ -728,42 +692,28 @@ airplaneAction AirplaneEnvironment::GetReverseAction(const airplaneState &node1,
 
 void AirplaneEnvironment::ApplyAction(airplaneState &s, airplaneAction dir) const
 {
-/*
-  // Manage Landing
+
+  // We need to handle the landing action
   if (dir.takeoff == 1) {
-    // Takeoff action
-    // Find the airstrip that we're at
-    for (landingStrip st : landingStrips)
-    { 
-      if (s == st.goal_state)
-      {
-        s = st.launch_state;
-        s.landed = false;
-        return;
-      }
-    }
-    assert (!"Tried to takeoff from a non-existant landing strip");
-  } else if (dir.takeoff == 2) {
-    // Landing action
-    // Find the airstrip that we're at
-    for (landingStrip st : landingStrips)
-    {
-      if (s == st.landing_state)
-      {
-        s = st.goal_state;
-        s.landed = true;
-        return;
-      }
-    }
-    assert (!"Tried to land at a non-existant landing strip");
-  } else if (dir.takeoff == 3) {
-    // Landed no-op action
-    // Do nothing if there's no action - as the state remains the same.
-    if (!s.landed)
-      assert(!"Tried to do nothing while not landed");
-    return;
+     // We're going to takeoff to the first launch location (For Now)
+     std::vector<airplaneState> temp;
+     this->ALC->GetTakeoffStates(s, temp);
+     s = temp.at(0);
+     s.landed = false;
+     return;
   }
-*/
+  else if (dir.takeoff == 2) {
+     // We're going to land at the first landing state (For Now)
+     std::vector<airplaneState> temp;
+     this->ALC->GetLandingStates(s, temp);
+     s = temp.at(0);
+     s.landed = true;
+     return;
+  } else if (dir.takeoff == 3) {
+     // Wait action
+     return;
+  }
+
   static const double offset[8][2] = {
       { 0, -1},
       { 1, -1},
@@ -799,7 +749,7 @@ void AirplaneEnvironment::ApplyAction(airplaneState &s, airplaneAction dir) cons
 
 void AirplaneEnvironment::UndoAction(airplaneState &s, airplaneAction dir) const
 {
-
+  /*
     // Manage Landing
     if (dir.takeoff == 1) {
     // Takeoff action
@@ -833,7 +783,7 @@ void AirplaneEnvironment::UndoAction(airplaneState &s, airplaneAction dir) const
     if (!s.landed)
       assert(!"Tried to UNDO do nothing while not landed");
     return;
-  }
+  }*/
 
   static const double offset[8][2] = {
       { 0, -1},
@@ -942,6 +892,8 @@ double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneStat
   //}
   // We want to estimate the heuristic to the landing state
   // Figure out which landing strip we're going to
+
+  
   /*for (landingStrip st : landingStrips)
   {
     if (node2 == st.goal_state)
@@ -1082,8 +1034,6 @@ double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneStat
 
   return best;
 }
-
-
 
 double AirplaneEnvironment::GCost(const airplaneState &node1, const airplaneState &node2) const
 {

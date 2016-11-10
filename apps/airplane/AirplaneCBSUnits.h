@@ -25,7 +25,7 @@
 #include "UnitGroup.h"
 #include "Airplane.h"
 #include "AirplaneConstrained.h"
-#include "AirplaneTicketAuthority.h"
+//#include "AirplaneTicketAuthority.h"
 #include "TemplateAStar.h"
 #include "BFS.h"
 #include "Heuristic.h"
@@ -200,7 +200,7 @@ private:
 	uint TOTAL_EXPANSIONS = 0;
         Timer* timer=0;
 
-	TicketAuthority ticketAuthority;
+	//TicketAuthority ticketAuthority;
 
 	bool use_restricted = false;
 	bool use_waiting = false;

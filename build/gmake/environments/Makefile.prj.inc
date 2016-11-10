@@ -31,14 +31,8 @@ default : all
 
 SRC_CPP = \
 	environments/Airplane.cpp \
-	environments/AirplaneMultiAgent.cpp \
-	environments/AirplaneSimple.cpp \
-	environments/AirplaneHighway.cpp \
-	environments/AirplaneHighway4.cpp \
-	environments/AirplaneHighway4Cardinal.cpp \
-	environments/AirplaneCardinal.cpp \
 	environments/AirplaneConstrained.cpp \
-	environments/AirplaneTicketAuthority.cpp \
+	environments/AirplaneLandingController.cpp \
 	environments/GraphEnvironment.cpp \
 	environments/GraphRefinementEnvironment.cpp \
 	environments/Map2DEnvironment.cpp \
