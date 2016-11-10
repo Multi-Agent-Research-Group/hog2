@@ -39,23 +39,6 @@ float get(float const* const list, airplaneState const& s, airplaneState const& 
     return  list[toIndex(s,start)];
   return std::numeric_limits<float>::max();
 }
-/*
-Index = xn ( D1 * ... * D{n-1} ) + x{n-1} ( D1 * ... * D{n-2} ) + ... + x2 * D1 + x1
-
-So for 4D
-
-index = x + y * D1 + z * D1 * D2 + t * D1 * D2 * D3;
-x = Index % D1;
-y = ( ( Index - x ) / D1 ) %  D2;
-z = ( ( Index - y * D1 - x ) / (D1 * D2) ) % D3; 
-t = ( ( Index - z * D2 * D1 - y * D1 - x ) / (D1 * D2 * D3) ) % D4; 
-// Technically the last modulus is not required,
-   since that division SHOULD be bounded by D4 anyways... 
-
-The general formula being of the form
-
-xn = ( ( Index - Index( x1, ..., x{n-1} ) ) / Product( D1, ..., D{N-1} ) ) % Dn
-*/
 airplaneState fromIndex(uint64_t index, airplaneState const& start){
   unsigned h(index%8);
   unsigned sp(((index-h)/8)%5);
@@ -105,21 +88,23 @@ bool testAdmissibility(){
     std::queue<uint64_t> q;
     airplaneState start(40,40,10,1,0,false,AirplaneType::PLANE);
     airplaneState goal(43,41,14,3,7,false,AirplaneType::PLANE);
-    std::cout << float(e.HCost(goal,start)) << "...\n";
+    //std::cout << float(e.HCost(goal,start)) << "...\n";
     StraightLineHeuristic<airplaneState> z;
     TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> astar;
     astar.SetHeuristic(&z);
     std::vector<airplaneState> sol;
     astar.GetPath(&e,goal,start,sol);
-    std::cout << "Actual " <<  e.GetPathLength(sol) << "\n";
-    for(auto &a : sol)
-      std::cout << "  " << a<<"\n";
+    //std::cout << "Actual " <<  e.GetPathLength(sol) << "\n";
+    //for(auto &a : sol)
+      //std::cout << "  " << a<<"\n";
     //exit(0);
     //x:43, y:41, h:14, s:3, hdg: 7
     //(x:40, y:44, h:11, s:1, hdg: 7, l: 0, type: PLANE)
     //x:38, y:44, h:12, s:4, hdg: 2,
     //FAIL (x:41, y:44, h:14, s:1, hdg: 5, l: 0, type: PLANE)(x:40, y:40, h:10, s:1, hdg: 0, l: 0, type: PLANE)0.00346985 0.00333137
+    unsigned grandtotal(0);
     for(int hdg(0); hdg<8; ++hdg){
+      unsigned total(0);
       std::cout << "HDG " << hdg << std::endl;
       for(int spd(1); spd<=5; ++spd){
         std::cout << "SPD " << spd << std::endl;
@@ -149,52 +134,27 @@ bool testAdmissibility(){
             return 1;
           }
 
-          //int x(s.x-start.x+sz);
-          //int y(s.y-start.y+sz);
-          //int z(s.height-start.height+sz);
-          //std::cout << x << " " << y << " " << z << "\n";
-
-          //if(x<0||y<0||z<0||x>wd-1||y>wd-1||z>wd-1){
-          //gcost >= get(list,x,y,z,s.speed-1,s.heading)){
-          //std::cout << "Continue because " << gcost <<">="<<get(list,x,y,z,s.speed-1,s.heading)<<"\n";
-          //continue;}}
-          //set(list,x,y,z,s.speed-1,s.heading,gcost);
-          //std::cout << "set " << s << " to " << gcost << "\n";
-
           std::vector<airplaneAction> actions;
           e.GetReverseActions(s,actions);
-          //std::cout << "Successors " << actions.size() << "\n";
           for(typename std::vector<airplaneAction>::const_iterator a(actions.begin());
               a!=actions.end(); ++a){
             airplaneState s2 = s;
             e.UndoAction(s2, *a);
-            //q.push(std::make_pair(gcost+e.GCost(s2,s),s2));
             uint64_t ix(toIndex(s2,start));
-            if(ix<wd*wd*wd*5*8&&gcost+e.GCost(s2,s) < get(list,s2,start)){
+            if(ix<wd*wd*wd*5*8&&fless(gcost+e.GCost(s2,s), get(list,s2,start))){
               q.push(ix);
               set(list,s2,start,gcost+e.GCost(s2,s));
-              //std::cout << "Pushing " << s2<<","<<(gcost+e.GCost(s2,s))<<"\n";
-              //std::cout << count++ << " "<<x-sz<<" "<<y-sz<<" "<<z-sz << "\n";
               count++;
-            }else{
-              //std::cout << "Not pushing " << s2<<","<<(gcost+e.GCost(s2,s))<<"\n";
             }
           }
         }
-        float delta(0.0);
-        for(int ix(0); ix<wd*wd*wd*5*8; ++ix){
-          airplaneState s(fromIndex(ix,start));
-          unsigned xd(abs(start.x-s.x));
-          unsigned yd(abs(start.y-s.y));
-          unsigned zd(abs(start.height-s.height));
-          if(xd>sz-1 || yd>sz-1 || zd>sz-1)continue;
-          float gcost(list[ix]);
-          float hc(e.HCost(s,start));
-          float d(fabs(hc-gcost));
-          if(gcost < 10000000&&fgreater(d,delta)){delta=d;std::cout<<"BBB"<<start<<s<<delta<<"("<<hc<<"<"<<gcost<<")\n";}
-        }
+        std::cout << "Count " << count << "\n";
+        total += count;
       }
+      std::cout << "Total " << total << "\n";
+      grandtotal += total;
     }
+    std::cout << "Grand Total " << grandtotal << "\n";
   }
 return 0;
   {

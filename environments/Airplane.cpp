@@ -1055,10 +1055,10 @@ double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneStat
         return perimeter[node1.type].GCost(node1,node2);
       }else{
         //Replace the heading with one that is facing toward the goal (this gives an admissible estimate)
-        airplaneState s(node1);
-        s.heading=node1.headingTo(node2);
+        //airplaneState s(node1);
+        //s.heading=node1.headingTo(node2);
         //std::cout << "Special " << s <<"\n";
-        return std::min(perimeter[node1.type].GCost(s,node2),perimeter[node1.type].GCost(node1,node2));
+        //return std::min(perimeter[node1.type].GCost(s,node2),perimeter[node1.type].GCost(node1,node2));
       }
     }
 
