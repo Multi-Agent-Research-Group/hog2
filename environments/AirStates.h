@@ -40,14 +40,14 @@ public:
 
 
 
+	bool operator==(const airplaneAction &a2)const
+	{
+	return turn == a2.turn && speed==a2.speed && height==a2.height && takeoff == a2.takeoff;
+	}
+
 
 
 };
-
-	bool operator==(const airplaneAction &a1, const airplaneAction &a2)
-	{
-	return a1.turn == a2.turn && a1.speed==a2.speed && a1.height==a2.height && a1.takeoff == a2.takeoff;
-	}
 
 	/** Output the information in an airplane action */
 	static std::ostream& operator <<(std::ostream & out, const airplaneAction &act)
@@ -86,6 +86,11 @@ struct airplaneState {
     return uint8_t(round((atan2(other.y-y,other.x-x)+(M_PI/2.0))*2.0/M_PI)+4.0)%4*2;
   }
 
+  bool operator==(const airplaneState &s2)const
+  {
+    return (x==s2.x && y==s2.y && height==s2.height && heading == s2.heading && speed == s2.speed && landed == s2.landed);
+  }
+
 
 };
 
@@ -96,11 +101,6 @@ struct airplaneState {
 		out << "(x:" << loc.x << ", y:" << loc.y << ", h:" << loc.height << ", s:" << unsigned(loc.speed) <<
 													", hdg: " << unsigned(loc.heading) << ", l: " << unsigned (loc.landed) << ", type: " << (loc.type == AirplaneType::QUAD ? "QUAD" : "PLANE") << ")";
 		return out;
-	}
-
-	bool operator==(const airplaneState &s1, const airplaneState &s2)
-	{
-		return (s1.x==s2.x && s1.y==s2.y && s1.height==s2.height && s1.heading == s2.heading && s1.speed == s2.speed && s1.landed == s2.landed);
 	}
 
 
@@ -117,16 +117,15 @@ struct airtimeState : public airplaneState {
 
 
 
+	/** Operator for equivalent airtime states */
+	/*bool operator==(const airtimeState &l2)
+	{
+		return fequal(t,l2.t) && ((airplaneState const&)(*this)== ((airplaneState const&)l2);
+	}*/
+
 
 
 };
-
-	/** Operator for equivalent airtime states */
-	bool operator==(const airtimeState &l1, const airtimeState &l2)
-	{
-		return fequal(l1.t,l2.t) && ((airplaneState const&)l1)== ((airplaneState const&)l2);
-	}
-
 
 	/** Output the information in an airtime state */
 static std::ostream& operator <<(std::ostream & out, const airtimeState &loc)
