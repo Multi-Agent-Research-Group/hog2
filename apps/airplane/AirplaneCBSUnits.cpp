@@ -256,7 +256,7 @@ void AirCBSGroup::ExpandOneCBSNode(bool gui)
   else
   {
     // Notify the user of the conflict
-    std::cout << "Conflict found between unit " << c1.unit1 << " and unit " << c2.unit1 << " @:" << c2.c.start_state <<  " and " << c1.c.start_state << std::endl;
+    std::cout << "Conflict found between unit " << c1.unit1 << " and unit " << c2.unit1 << " @:" << c2.c.start_state <<  " and " << c1.c.start_state << " NC " << numConflicts << "\n";
 
     // Don't create new nodes if either bypass was successful
     // Note, these calls will add nodes to the openList
@@ -268,6 +268,7 @@ void AirCBSGroup::ExpandOneCBSNode(bool gui)
 
       // Add two nodes to the tree for each of the children
       tree.resize(last+2);
+      std::cout << "Tree has " << tree.size() << "\n";
       // The first node contains the conflict c1
       tree[last] = tree[bestNode];
       tree[last].con = c1;
@@ -283,8 +284,8 @@ void AirCBSGroup::ExpandOneCBSNode(bool gui)
       // We now replan in the tree for both of the child nodes
       Replan(last);
       Replan(last+1);
-      unsigned nc1(0);
-      unsigned nc2(0);
+      unsigned nc1(numConflicts);
+      unsigned nc2(numConflicts);
       //unsigned nc1(FindFirstConflict(tree[last], c1, c2));
       //unsigned nc2(FindFirstConflict(tree[last+1], c1, c2));
 
@@ -294,12 +295,14 @@ void AirCBSGroup::ExpandOneCBSNode(bool gui)
       for (int y = 0; y < tree[last].paths.size(); y++)
         cost += currentEnvironment->environment->GetPathLength(tree[last].paths[y]);
       OpenListNode l1(last, cost, nc1);
+      std::cout << "New CT NODE: " << last << " " << cost << " " << nc1 << "\n";
       openList.push(l1);
 
       cost = 0;
       for (int y = 0; y < tree[last+1].paths.size(); y++)
         cost += currentEnvironment->environment->GetPathLength(tree[last+1].paths[y]);
       OpenListNode l2(last+1, cost, nc2);
+      std::cout << "New CT NODE: " << last+1 << " " << cost << " " << nc2 << "\n";
       openList.push(l2);
     }
 
@@ -344,7 +347,7 @@ void AirCBSGroup::SetEnvironment(unsigned numConflicts){
         bool set(false);
 	for (int i = 0; i < this->environments.size(); i++) {
 		if (numConflicts >= environments[i].conflict_cutoff) {
-std::cout << "Setting to env# " << i << " b/c " << numConflicts << " >= " << environments[i].conflict_cutoff<<environments[i].environment->name()<<std::endl;
+//std::cout << "Setting to env# " << i << " b/c " << numConflicts << " >= " << environments[i].conflict_cutoff<<environments[i].environment->name()<<std::endl;
 //std::cout<<environments[i].environment->getGoal()<<"\n";
 			currentEnvironment = &(environments[i]);
                         set=true;
@@ -672,8 +675,8 @@ bool AirCBSGroup::Bypass(int best, unsigned numConflicts, airConflict const& c1,
       //ticketAuthority.IssueTicketsForPath(tree[location].paths[theUnit], theUnit);
       //Replan(last); //Replan not necessary since we already have the path...
       //Replan(last+1);
-      unsigned nc1(0);
-      unsigned nc2(0);
+      unsigned nc1(numConflicts);
+      unsigned nc2(numConflicts);
       //unsigned nc1(FindFirstConflict(tree[last], c3, c4));
       //unsigned nc2(FindFirstConflict(tree[last+1], c3, c4));
 
@@ -682,12 +685,14 @@ bool AirCBSGroup::Bypass(int best, unsigned numConflicts, airConflict const& c1,
       for (int y = 0; y < tree[last].paths.size(); y++)
         cost += currentEnvironment->environment->GetPathLength(tree[last].paths[y]);
       OpenListNode l1(last, cost, nc1);
+      std::cout << "New CT NODE: " << last << " " << cost << " " << nc1 << "\n";
       openList.push(l1);
 
       cost = 0;
       for (int y = 0; y < tree[last+1].paths.size(); y++)
         cost += currentEnvironment->environment->GetPathLength(tree[last+1].paths[y]);
       OpenListNode l2(last+1, cost, nc2);
+      std::cout << "New CT NODE: " << last+1 << " " << cost << " " << nc2 << "\n";
       openList.push(l2);
     }
   }

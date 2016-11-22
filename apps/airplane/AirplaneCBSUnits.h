@@ -182,6 +182,11 @@ private:
 	struct OpenListNode {
 		OpenListNode() : location(0), cost(0), nc(0) {}
 		OpenListNode(uint loc, double c, uint16_t n) : location(loc), cost(c),nc(n) {}
+                std::ostream& operator <<(std::ostream& out)const{
+                  out << "(loc: "<<location<<", nc: "<<nc<< ", cost: "<<cost<<")";
+                  return out;
+                }
+
 		uint location;
 		double cost;	
                 unsigned nc;

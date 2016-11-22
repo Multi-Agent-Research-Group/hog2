@@ -182,9 +182,31 @@ void InitHeadless(){
   std::cout << "Adding " << num_airplanes << "planes." << std::endl;
   std::vector<airtimeState> starts;
   std::vector<airtimeState> goals;
+/*{
+        AirCBSUnit* unit = new AirCBSUnit( airtimeState(airplaneState(40,42,10,3,0),0), airtimeState(airplaneState(40,38,10,3,0),0));
+        unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
+        group->AddUnit(unit); // Add to the group
+        //sim->AddUnit(unit); // Add to the group
+}
+{
+        AirCBSUnit* unit = new AirCBSUnit( airtimeState(airplaneState(40,38,10,3,4),0), airtimeState(airplaneState(40,42,10,3,4),0));
+        unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
+        group->AddUnit(unit); // Add to the group
+        //sim->AddUnit(unit); // Add to the group
+}
+{
+        AirCBSUnit* unit = new AirCBSUnit( airtimeState(airplaneState(42,40,10,3,6),0), airtimeState(airplaneState(37,40,10,3,6),0));
+        unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
+        group->AddUnit(unit); // Add to the group
+        //sim->AddUnit(unit); // Add to the group
+}
+{
+        AirCBSUnit* unit = new AirCBSUnit( airtimeState(airplaneState(38,40,10,3,2),0), airtimeState(airplaneState(42,40,10,3,2),0));
+        unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
+        group->AddUnit(unit); // Add to the group
+        //sim->AddUnit(unit); // Add to the group
+}*/
   for (int i = 0; i < num_airplanes; i++) {
-
-
     // 0% are landed at the beginning
     if (false) {
       airplaneState land(18, 23, 0, 0, 0, true);
@@ -311,6 +333,30 @@ void InitSim(){
   std::cout << "Adding " << num_airplanes << "planes." << std::endl;
   std::vector<airtimeState> starts;
   std::vector<airtimeState> goals;
+/*{
+        AirCBSUnit* unit = new AirCBSUnit( airtimeState(airplaneState(40,42,10,3,0),0), airtimeState(airplaneState(40,38,10,3,0),0));
+        unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
+        group->AddUnit(unit); // Add to the group
+        sim->AddUnit(unit); // Add to the group
+}
+{
+        AirCBSUnit* unit = new AirCBSUnit( airtimeState(airplaneState(40,38,10,3,4),0), airtimeState(airplaneState(40,42,10,3,4),0));
+        unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
+        group->AddUnit(unit); // Add to the group
+        sim->AddUnit(unit); // Add to the group
+}
+{
+        AirCBSUnit* unit = new AirCBSUnit( airtimeState(airplaneState(42,40,10,3,6),0), airtimeState(airplaneState(37,40,10,3,6),0));
+        unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
+        group->AddUnit(unit); // Add to the group
+        sim->AddUnit(unit); // Add to the group
+}
+{
+        AirCBSUnit* unit = new AirCBSUnit( airtimeState(airplaneState(38,40,10,3,2),0), airtimeState(airplaneState(42,40,10,3,2),0));
+        unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
+        group->AddUnit(unit); // Add to the group
+        sim->AddUnit(unit); // Add to the group
+}*/
   for (int i = 0; i < num_airplanes; i++) {
 
     // 0% are landed at the beginning
@@ -434,16 +480,15 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 	}
 
 
-	/*
 	if (recording)
 	{
 		static int index = 0;
 		char fname[255];
-		sprintf(fname, "/Users/nathanst/anim-%d%d%d", index/100, (index/10)%10, index%10);
+		sprintf(fname, "movies/cbs-%05d", index);
 		SaveScreenshot(windowID, fname);
 		printf("Saving '%s'\n", fname);
 		index++;
-	}*/
+	}
 }
 
 int MyCLHandler(char *argument[], int maxNumArgs)
