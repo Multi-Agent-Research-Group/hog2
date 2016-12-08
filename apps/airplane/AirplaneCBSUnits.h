@@ -65,19 +65,21 @@ struct RandomTieBreaking {
 
 class AirCBSUnit : public Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> {
 public:
-	AirCBSUnit(const airtimeState &s, const airtimeState &g)
-	:start(s), goal(g), current(s) {}
+	AirCBSUnit(std::vector<airtimeState> const &gs)
+	:start(0), goal(1), current(gs[0]), waypoints(gs) {}
 	const char *GetName() { return "AirCBSUnit"; }
-	bool MakeMove(AirplaneConstrainedEnvironment *, OccupancyInterface<airtimeState,airplaneAction> *, 
-				  SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *, airplaneAction& a);
+	bool MakeMove(AirplaneConstrainedEnvironment *,
+            OccupancyInterface<airtimeState,airplaneAction> *, 
+            SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *,
+            airplaneAction& a);
 	void UpdateLocation(AirplaneConstrainedEnvironment *, airtimeState &newLoc, bool success, 
 						SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *)
 	{ if (success) current = newLoc; else assert(!"CBS Unit: Movement failed"); }
 	
 	void GetLocation(airtimeState &l) { l = current; }
 	void OpenGLDraw(const AirplaneConstrainedEnvironment *, const SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *) const;
-	void GetGoal(airtimeState &s) { s = goal; }
-	void GetStart(airtimeState &s) { s = start; }
+	void GetGoal(airtimeState &s) { s = waypoints[goal]; }
+	void GetStart(airtimeState &s) { s = waypoints[start]; }
 	void SetPath(std::vector<airtimeState> &p);
 	void PushFrontPath(std::vector<airtimeState> &s)
 	{
@@ -94,7 +96,9 @@ public:
         unsigned getUnitNumber()const{return number;}
 
 private:
-	airtimeState start, goal, current;
+	unsigned start, goal;
+        airtimeState current;
+	std::vector<airtimeState> waypoints;
 	std::vector<airtimeState> myPath;
         unsigned number;
 };

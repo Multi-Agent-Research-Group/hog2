@@ -25,7 +25,7 @@ bool AirCBSUnit::MakeMove(AirplaneConstrainedEnvironment *ae, OccupancyInterface
 		a = ae->GetAction(myPath[myPath.size()-1], myPath[myPath.size()-2]);
 		myPath.pop_back();
 		return true;
-	} else if (false){//myPath.size() <= 1) { // Don't plan a next goal...
+	}/*else if (false){//myPath.size() <= 1) { // Don't plan a next goal...
 		if (current.landed || current.type == AirplaneType::QUAD)
 		{
 			return false;
@@ -48,7 +48,7 @@ bool AirCBSUnit::MakeMove(AirplaneConstrainedEnvironment *ae, OccupancyInterface
 				g->UpdateSingleUnitPath(this, newGoal);
 			}
 		}
-	}
+	}*/
 	return false;
 }
 	
@@ -93,11 +93,11 @@ void AirCBSUnit::OpenGLDraw(const AirplaneConstrainedEnvironment *ae,
 	}
 }
 
-void AirCBSUnit::UpdateGoal(airtimeState &s, airtimeState &g)
+/*void AirCBSUnit::UpdateGoal(airtimeState &s, airtimeState &g)
 {
 	start = s;
 	goal = g;
-}
+}*/
 
 //----------------------------------------------------------------------------------------------------------------------------------------------//
 
@@ -459,7 +459,7 @@ void AirCBSGroup::UpdateUnitGoal(Unit<airtimeState, airplaneAction, AirplaneCons
 		c->GetGoal(goal);
 
 		// Update the start of that unit to be their current location and the goal to be the new goal
-		c->UpdateGoal(current, (GetMember(x) != u ? goal : newGoal));
+		//c->UpdateGoal(current, (GetMember(x) != u ? goal : newGoal));
 
 
 		//std::cout << "Planning optimal path from " << current << " to " << goal << std::endl;
