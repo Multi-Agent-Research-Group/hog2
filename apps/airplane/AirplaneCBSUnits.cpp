@@ -18,86 +18,86 @@ extern int seed;
 bool AirCBSUnit::MakeMove(AirplaneConstrainedEnvironment *ae, OccupancyInterface<airtimeState,airplaneAction> *,
 							 SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> * si, airplaneAction& a)
 {
-	if (myPath.size() > 1 && si->GetSimulationTime() > myPath[myPath.size()-2].t)
-	{
+  if (myPath.size() > 1 && si->GetSimulationTime() > myPath[myPath.size()-2].t)
+  {
 
-		//std::cout << "Moved from " << myPath[myPath.size()-1] << " to " << myPath[myPath.size()-2] << std::endl;
-		a = ae->GetAction(myPath[myPath.size()-1], myPath[myPath.size()-2]);
-		myPath.pop_back();
-		return true;
-	}/*else if (false){//myPath.size() <= 1) { // Don't plan a next goal...
-		if (current.landed || current.type == AirplaneType::QUAD)
-		{
-			return false;
-		} else {
+    //std::cout << "Moved from " << myPath[myPath.size()-1] << " to " << myPath[myPath.size()-2] << std::endl;
+    a = ae->GetAction(myPath[myPath.size()-1], myPath[myPath.size()-2]);
+    myPath.pop_back();
+    return true;
+  }/*else if (false){//myPath.size() <= 1) { // Don't plan a next goal...
+     if (current.landed || current.type == AirplaneType::QUAD)
+     {
+     return false;
+     } else {
 
-			// With a random probability - either land or keep flying around.
-			if (rand()%5 == 0) {
-				// Replan the node to a landing location
-				airplaneState land(18, 23, 0, 0, 0, true);
-				airtimeState newGoal(land, 0);
-				AirCBSGroup* g = (AirCBSGroup*) this->GetUnitGroup();
-				//g->UpdateUnitGoal(this, newGoal);			
-				g->UpdateSingleUnitPath(this, newGoal);
-			} else {
-				// Replan the node to a random location
-				airplaneState rs(rand() % 70 + 5, rand() % 70 + 5, rand() % 7 + 11, rand() % 3 + 1, rand() % 8, false);
-				airtimeState newGoal(rs, 0);
-				AirCBSGroup* g = (AirCBSGroup*) this->GetUnitGroup();
-				//g->UpdateUnitGoal(this, newGoal);
-				g->UpdateSingleUnitPath(this, newGoal);
-			}
-		}
-	}*/
-	return false;
+  // With a random probability - either land or keep flying around.
+  if (rand()%5 == 0) {
+  // Replan the node to a landing location
+  airplaneState land(18, 23, 0, 0, 0, true);
+  airtimeState newGoal(land, 0);
+  AirCBSGroup* g = (AirCBSGroup*) this->GetUnitGroup();
+  //g->UpdateUnitGoal(this, newGoal);			
+  g->UpdateSingleUnitPath(this, newGoal);
+  } else {
+  // Replan the node to a random location
+  airplaneState rs(rand() % 70 + 5, rand() % 70 + 5, rand() % 7 + 11, rand() % 3 + 1, rand() % 8, false);
+  airtimeState newGoal(rs, 0);
+  AirCBSGroup* g = (AirCBSGroup*) this->GetUnitGroup();
+  //g->UpdateUnitGoal(this, newGoal);
+  g->UpdateSingleUnitPath(this, newGoal);
+  }
+  }
+  }*/
+  return false;
 }
-	
+
 void AirCBSUnit::SetPath(std::vector<airtimeState> &p)
 {
-	myPath = p;
-	std::reverse(myPath.begin(), myPath.end());
+  myPath = p;
+  std::reverse(myPath.begin(), myPath.end());
 }
 
 void AirCBSUnit::OpenGLDraw(const AirplaneConstrainedEnvironment *ae, 
-							const SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *si) const
+    const SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *si) const
 {
-	GLfloat r, g, b;
-	GetColor(r, g, b);
-	ae->SetColor(r, g, b);
+  GLfloat r, g, b;
+  GetColor(r, g, b);
+  ae->SetColor(r, g, b);
 
-	if (myPath.size() > 1) {
-		// Interpolate between the two given the timestep
-		airtimeState start_t = myPath[myPath.size()-1];
-		airtimeState stop_t = myPath[myPath.size()-2];
+  if (myPath.size() > 1) {
+    // Interpolate between the two given the timestep
+    airtimeState start_t = myPath[myPath.size()-1];
+    airtimeState stop_t = myPath[myPath.size()-2];
 
-		if (si->GetSimulationTime() <= stop_t.t && si->GetSimulationTime() >= start_t.t)
-		{
-			float perc = (stop_t.t - si->GetSimulationTime())/(stop_t.t - start_t.t);
-			ae->OpenGLDraw(stop_t, start_t, perc);
-			airConstraint c(stop_t, start_t);
-			glColor3f(1, 0, 0);
-			c.OpenGLDraw();
-		} else {		
-			ae->OpenGLDraw(current);
-			glColor3f(1, 0, 0);
-			airConstraint c(current);
-			c.OpenGLDraw();
-		}
-	} else {
-		if (current.landed)
-		      return;
-		ae->OpenGLDraw(current);
-		airConstraint c(current);
-		glColor3f(1, 0, 0);
-		c.OpenGLDraw();
-	}
+    if (si->GetSimulationTime() <= stop_t.t && si->GetSimulationTime() >= start_t.t)
+    {
+      float perc = (stop_t.t - si->GetSimulationTime())/(stop_t.t - start_t.t);
+      ae->OpenGLDraw(stop_t, start_t, perc);
+      airConstraint c(stop_t, start_t);
+      glColor3f(1, 0, 0);
+      c.OpenGLDraw();
+    } else {		
+      ae->OpenGLDraw(current);
+      glColor3f(1, 0, 0);
+      airConstraint c(current);
+      c.OpenGLDraw();
+    }
+  } else {
+    if (current.landed)
+      return;
+    ae->OpenGLDraw(current);
+    airConstraint c(current);
+    glColor3f(1, 0, 0);
+    c.OpenGLDraw();
+  }
 }
 
 /*void AirCBSUnit::UpdateGoal(airtimeState &s, airtimeState &g)
-{
-	start = s;
-	goal = g;
-}*/
+  {
+  start = s;
+  goal = g;
+  }*/
 
 //----------------------------------------------------------------------------------------------------------------------------------------------//
 
@@ -134,21 +134,21 @@ AirCBSGroup::AirCBSGroup(std::vector<EnvironmentContainer> const& environs, bool
 
 
 bool AirCBSGroup::MakeMove(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u, AirplaneConstrainedEnvironment *e,
-							 SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *si, airplaneAction& a)
+    SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *si, airplaneAction& a)
 {
-	if (planFinished && si->GetSimulationTime() > time)
-	{
-		return u->MakeMove(e,0,si,a);
-	}
-	else if ((si->GetSimulationTime() - time) < 0.0001)
-	{
-		return false;
-	}
-	else {
-		time = si->GetSimulationTime();
-		ExpandOneCBSNode();
-	}
-	return false;
+  if (planFinished && si->GetSimulationTime() > time)
+  {
+    return u->MakeMove(e,0,si,a);
+  }
+  else if ((si->GetSimulationTime() - time) < 0.0001)
+  {
+    return false;
+  }
+  else {
+    time = si->GetSimulationTime();
+    ExpandOneCBSNode();
+  }
+  return false;
 }
 
 void AirCBSGroup::processSolution()
@@ -197,7 +197,7 @@ void AirCBSGroup::processSolution()
     unit->SetPath(newPath);
     //std::cout << "Agent " << x << ": " << "\n";
     //for(auto &a: tree[bestNode].paths[x])
-      //std::cout << "  " << a << "\n";
+    //std::cout << "  " << a << "\n";
   }
   std::cout << seed<<":Solution cost: " << cost << "\n"; 
   std::cout << "solution length: " << total << std::endl;
@@ -261,8 +261,8 @@ void AirCBSGroup::ExpandOneCBSNode(bool gui)
     // Don't create new nodes if either bypass was successful
     // Note, these calls will add nodes to the openList
     if(!Bypass(bestNode,numConflicts,c1,gui) && !Bypass(bestNode,numConflicts,c2,gui))
-    //Bypass(bestNode,numConflicts,c1,gui);
-    //Bypass(bestNode,numConflicts,c2,gui);
+      //Bypass(bestNode,numConflicts,c1,gui);
+      //Bypass(bestNode,numConflicts,c2,gui);
     {
       last = tree.size();
 
@@ -338,166 +338,175 @@ void AirCBSGroup::ExpandOneCBSNode(bool gui)
 
 /** Update the location of a unit */
 void AirCBSGroup::UpdateLocation(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u, AirplaneConstrainedEnvironment *e, airtimeState &loc, 
-									bool success, SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *si)
+    bool success, SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *si)
 {
-	u->UpdateLocation(e, loc, success, si);
+  u->UpdateLocation(e, loc, success, si);
 }
 
 void AirCBSGroup::SetEnvironment(unsigned numConflicts){
-        bool set(false);
-	for (int i = 0; i < this->environments.size(); i++) {
-		if (numConflicts >= environments[i].conflict_cutoff) {
-//std::cout << "Setting to env# " << i << " b/c " << numConflicts << " >= " << environments[i].conflict_cutoff<<environments[i].environment->name()<<std::endl;
-//std::cout<<environments[i].environment->getGoal()<<"\n";
-			currentEnvironment = &(environments[i]);
-                        set=true;
-		} else {
-			break;
-		}
-	}
-        if(!set)assert(false&&"No env was set - you need -cutoffs of zero...");
+  bool set(false);
+  for (int i = 0; i < this->environments.size(); i++) {
+    if (numConflicts >= environments[i].conflict_cutoff) {
+      //std::cout << "Setting to env# " << i << " b/c " << numConflicts << " >= " << environments[i].conflict_cutoff<<environments[i].environment->name()<<std::endl;
+      //std::cout<<environments[i].environment->getGoal()<<"\n";
+      currentEnvironment = &(environments[i]);
+      set=true;
+    } else {
+      break;
+    }
+  }
+  if(!set)assert(false&&"No env was set - you need -cutoffs of zero...");
 
-	astar.SetHeuristic(currentEnvironment->heuristic);
-	astar.SetWeight(currentEnvironment->astar_weight);
+  astar.SetHeuristic(currentEnvironment->heuristic);
+  astar.SetWeight(currentEnvironment->astar_weight);
 }
 
 void AirCBSGroup::ClearEnvironmentConstraints(){
-	for (EnvironmentContainer env : this->environments) {
-		env.environment->ClearConstraints();
-	}
+  for (EnvironmentContainer env : this->environments) {
+    env.environment->ClearConstraints();
+  }
 }
 
 
 void AirCBSGroup::AddEnvironmentConstraint(airConstraint  c){
-	for (EnvironmentContainer env : this->environments) {
-		env.environment->AddConstraint(c);
-	}
+  for (EnvironmentContainer env : this->environments) {
+    env.environment->AddConstraint(c);
+  }
 }
 
 /** Add a new unit with a new start and goal state to the CBS group */
 void AirCBSGroup::AddUnit(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u)
 {
-	AirCBSUnit *c = (AirCBSUnit*)u;
-        c->setUnitNumber(GetNumMembers());
-	// Add the new unit to the group, and construct an AirCBSUnit
-	UnitGroup::AddUnit(u);
+  AirCBSUnit *c = (AirCBSUnit*)u;
+  c->setUnitNumber(GetNumMembers());
+  // Add the new unit to the group, and construct an AirCBSUnit
+  UnitGroup::AddUnit(u);
 
-	// Clear the constraints from the environment set
-	ClearEnvironmentConstraints();
+  // Clear the constraints from the environment set
+  ClearEnvironmentConstraints();
 
-	// Setup the state and goal in the graph
-	airtimeState start, goal;
-	c->GetStart(start);
-	c->GetGoal(goal);
+  // Setup the state and goal in the graph
+  //c->GetStart(start);
+  //c->GetGoal(goal);
 
-	// Resize the number of paths in the root of the tree
-	tree[0].paths.resize(GetNumMembers());
-        agentEnvs.resize(GetNumMembers());
+  // Resize the number of paths in the root of the tree
+  tree[0].paths.resize(GetNumMembers());
+  agentEnvs.resize(GetNumMembers());
 
-	// Recalculate the optimum path for the root of the tree
-	//std::cout << "AddUnit "<<(GetNumMembers()-1) << " getting path." << std::endl;
-        //std::cout << "Search using " << currentEnvironment->environment->name() << "\n";
-        currentEnvironment->environment->setGoal(goal);
-        agentEnvs[c->getUnitNumber()]=currentEnvironment->environment;
-	astar.GetPath(currentEnvironment->environment, start, goal, thePath);
-    //std::cout << "AddUnit agent: " << (GetNumMembers()-1) << " expansions: " << astar.GetNodesExpanded() << "\n";
-        TOTAL_EXPANSIONS += astar.GetNodesExpanded();
+  // Recalculate the optimum path for the root of the tree
+  //std::cout << "AddUnit "<<(GetNumMembers()-1) << " getting path." << std::endl;
+  //std::cout << "Search using " << currentEnvironment->environment->name() << "\n";
+  agentEnvs[c->getUnitNumber()]=currentEnvironment->environment;
+  unsigned offset(0);
+  for(int i=0; i<c->GetNumWaypoints()-1; ++i){
+    std::vector<airtimeState> path;
+    airtimeState start(c->GetWaypoint(i));
+    airtimeState goal(c->GetWaypoint(i+1));
+    currentEnvironment->environment->setGoal(goal);
+    astar.GetPath(currentEnvironment->environment, start, goal, path);
+    // Append to the entire path, omitting the first node for lubsequent legs
+    thePath.insert(thePath.end(),path.begin()+offset,path.end());
+    offset=1;
+    std::cout << "Planned leg " << goal << " for Agent " << (GetNumMembers()-1) << "\n";
+    TOTAL_EXPANSIONS += astar.GetNodesExpanded();
+  }
+  //std::cout << "AddUnit agent: " << (GetNumMembers()-1) << " expansions: " << astar.GetNodesExpanded() << "\n";
 
-	// We add the optimal path to the root of the tree
-	for (unsigned int x = 0; x < thePath.size(); x++)
-	{
-		tree[0].paths.back().push_back(thePath[x]);
-	}
-	
-	// Set the plan finished to false, as there's new updates
-	planFinished = false;
+  // We add the optimal path to the root of the tree
+  for (unsigned int x = 0; x < thePath.size(); x++)
+  {
+    tree[0].paths.back().push_back(thePath[x]);
+  }
 
-	// Clear up the rest of the tree and clean the open list
-	tree.resize(1);
-	while(!openList.empty()) openList.pop();
-	openList.push(OpenListNode(0, 0, 0));
+  // Set the plan finished to false, as there's new updates
+  planFinished = false;
+
+  // Clear up the rest of the tree and clean the open list
+  tree.resize(1);
+  while(!openList.empty()) openList.pop();
+  openList.push(OpenListNode(0, 0, 0));
 }
 
 void AirCBSGroup::UpdateUnitGoal(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u, airtimeState newGoal)
 {
 
-	//std::cout << "Replanning units..." << std::endl;
+  //std::cout << "Replanning units..." << std::endl;
 
-	//std::cout << "Clearing open list..." << std::endl;
-	// Clear the tree and the open list
-	tree.resize(1);
-	while(!openList.empty()) openList.pop();
+  //std::cout << "Clearing open list..." << std::endl;
+  // Clear the tree and the open list
+  tree.resize(1);
+  while(!openList.empty()) openList.pop();
 
-	//std::cout << "Resizing the main tree..." << std::endl;
-	// Resize the number of paths in the root of the tree
-	tree[0].paths.resize(GetNumMembers());
+  //std::cout << "Resizing the main tree..." << std::endl;
+  // Resize the number of paths in the root of the tree
+  tree[0].paths.resize(GetNumMembers());
 
-	//std::cout << "Clear the environmental constraints" << std::endl;
-	// Clear the constraints from the environment set
-	ClearEnvironmentConstraints();
-
-
-	//std::cout << "Beginning to update members..." << std::endl;
-	// Update the start for all of the units
-	for (int x = 0; x < GetNumMembers(); x++)
-	{
-
-		//std::cout << "Updating member " << (x + 1) << " of " << GetNumMembers() << std::endl;
-
-		// Get the unit
-		AirCBSUnit *c = (AirCBSUnit*)GetMember(x);
-                if(c!=u) continue;
-
-		// Obtain the unit's current location and current goal
-		//airtimeState current = *(tree[0].paths[x].rbegin());
-		airtimeState current, goal;
-		if (c->GetPath().size() > 1) {
-			current = c->GetPath()[c->GetPath().size()-2];
-		} else {
-			c->GetLocation(current);
-		}
-		c->GetGoal(goal);
-
-		// Update the start of that unit to be their current location and the goal to be the new goal
-		//c->UpdateGoal(current, (GetMember(x) != u ? goal : newGoal));
+  //std::cout << "Clear the environmental constraints" << std::endl;
+  // Clear the constraints from the environment set
+  ClearEnvironmentConstraints();
 
 
-		//std::cout << "Planning optimal path from " << current << " to " << goal << std::endl;
-		// Replan the unit's optimal path
-		//astar.GetPath(currentEnvironment->environment, current, goal, thePath);
-		DoHAStar(current, goal, thePath);
-		TOTAL_EXPANSIONS += astar.GetNodesExpanded();
+  //std::cout << "Beginning to update members..." << std::endl;
+  // Update the start for all of the units
+  for (int x = 0; x < GetNumMembers(); x++)
+  {
 
-		//std::cout << "Got optimal path" << std::endl;
-		// Add the optimal path to the root of the tree
-		tree[0].paths[x].resize(0);
-		if (c->GetPath().size() > 1){
-			airtimeState cur;
-			c->GetLocation(cur);
-			tree[0].paths[x].push_back(cur);
-		}
-		for (unsigned int i = 0; i < thePath.size(); i++)
-		{
-			tree[0].paths[x].push_back(thePath[i]);
-		}
+    //std::cout << "Updating member " << (x + 1) << " of " << GetNumMembers() << std::endl;
 
-		for(auto &a : tree[0].paths[x]){
-			std::cout << " --  " << a << "\n";
-		}
-	}
+    // Get the unit
+    AirCBSUnit *c = (AirCBSUnit*)GetMember(x);
+    if(c!=u) continue;
 
-	//std::cout << "Adding the root to the open list" << std::endl;
+    // Obtain the unit's current location and current goal
+    //airtimeState current = *(tree[0].paths[x].rbegin());
+    airtimeState current, goal;
+    if (c->GetPath().size() > 1) {
+      current = c->GetPath()[c->GetPath().size()-2];
+    } else {
+      c->GetLocation(current);
+    }
+    c->GetGoal(goal);
 
-	// Add the root of the node to the open list
-	openList.push(OpenListNode(0, 0, 0));
+    // Update the start of that unit to be their current location and the goal to be the new goal
+    //c->UpdateGoal(current, (GetMember(x) != u ? goal : newGoal));
 
-	// Clean up the root node
-	tree[0].parent = 0;
-	tree[0].satisfiable = true;
-	bestNode = 0;
 
-	// Set if the plan is finished to false
-	planFinished = false;
+    //std::cout << "Planning optimal path from " << current << " to " << goal << std::endl;
+    // Replan the unit's optimal path
+    //astar.GetPath(currentEnvironment->environment, current, goal, thePath);
+    DoHAStar(current, goal, thePath);
+    TOTAL_EXPANSIONS += astar.GetNodesExpanded();
+
+    //std::cout << "Got optimal path" << std::endl;
+    // Add the optimal path to the root of the tree
+    tree[0].paths[x].resize(0);
+    if (c->GetPath().size() > 1){
+      airtimeState cur;
+      c->GetLocation(cur);
+      tree[0].paths[x].push_back(cur);
+    }
+    for (unsigned int i = 0; i < thePath.size(); i++)
+    {
+      tree[0].paths[x].push_back(thePath[i]);
+    }
+
+    for(auto &a : tree[0].paths[x]){
+      std::cout << " --  " << a << "\n";
+    }
+  }
+
+  //std::cout << "Adding the root to the open list" << std::endl;
+
+  // Add the root of the node to the open list
+  openList.push(OpenListNode(0, 0, 0));
+
+  // Clean up the root node
+  tree[0].parent = 0;
+  tree[0].satisfiable = true;
+  bestNode = 0;
+
+  // Set if the plan is finished to false
+  planFinished = false;
 }
 
 /** Update Unit Path */
@@ -545,15 +554,15 @@ void AirCBSGroup::UpdateSingleUnitPath(Unit<airtimeState, airplaneAction, Airpla
   //ticketAuthority.UnissueAllTickets();
 
   /*
-  for (int i = 0; i < GetNumMembers(); i++) {
-    if (GetMember(i) != u) {
-      AirCBSUnit *c = (AirCBSUnit*)GetMember(i);
-      // Issue tickets for the other paths
-      std::vector<airtimeState> mPath(c->GetPath());
-      ticketAuthority.IssueTicketsForPath(mPath, i);
-      std::reverse(mPath.begin(), mPath.end());
-      c->SetPath(mPath);
-    }
+     for (int i = 0; i < GetNumMembers(); i++) {
+     if (GetMember(i) != u) {
+     AirCBSUnit *c = (AirCBSUnit*)GetMember(i);
+  // Issue tickets for the other paths
+  std::vector<airtimeState> mPath(c->GetPath());
+  ticketAuthority.IssueTicketsForPath(mPath, i);
+  std::reverse(mPath.begin(), mPath.end());
+  c->SetPath(mPath);
+  }
   }
   */
 
@@ -584,10 +593,10 @@ unsigned AirCBSGroup::IssueTicketsForNode(int location){
   int theUnit(tree[location].con.unit1);
 
   for (int i = 0; i < tree[location].paths.size(); i++) {
-    if (theUnit != i) {
-      // Issue tickets for the other paths
-      ticketAuthority.IssueTicketsForPathIgnoringCheck(tree[location].paths[i], i);
-    }
+  if (theUnit != i) {
+  // Issue tickets for the other paths
+  ticketAuthority.IssueTicketsForPathIgnoringCheck(tree[location].paths[i], i);
+  }
   }*/
 }
 
@@ -615,6 +624,48 @@ unsigned AirCBSGroup::LoadConstraintsForNode(int location){
   return numConflicts;
 }
 
+// Plan path between waypoints
+void GetFullPath(AirCBSUnit* c, TemplateAStar& astar, AirplaneEnvironment* env, std::vector<airtimeState>& thePath, unsigned s, unsigned g)
+{
+  auto insertPoint(thePath.end());
+  // Remove points from the original path (if they exist)
+  if(!thePath.empty()){
+    unsigned deletes(0);
+    airtimeState start(c->GetWaypoint(s));
+    airtimeState goal(c->GetWaypoint(g));
+    for(auto n(thePath.begin()); n!=thePath.end(); ++n){
+      if(*n==start){
+        insertPoint=n;
+        break;
+      }
+    }
+    for(auto n(insertPoint); n!=thePath.end(); ++n){
+      if(*n==goal){
+        break;
+      }
+      deletes++;
+    }
+    //Erase the subpath including the start node
+    if(insertPoint!=thePath.end()){ thePath.erase(insertPoint,insertPoint+deletes); }
+  }
+
+  unsigned offset(0);
+  for(int i=s; i<g-1; ++i){
+    std::vector<airtimeState> path;
+    airtimeState start(c->GetWaypoint(i));
+    airtimeState goal(c->GetWaypoint(i+1));
+    //currentEnvironment->environment->setGoal(goal);
+    env->setGoal(goal);
+    astar.GetPath(env, start, goal, path);
+    // Append to the entire path, omitting the first node for lubsequent legs
+    thePath.insert(insertPoint,path.begin()+offset,path.end());
+    insertPoint+=path.size();
+    offset=1;
+    std::cout << "Planned leg " << goal << "\n";
+    TOTAL_EXPANSIONS += astar.GetNodesExpanded();
+  }
+}
+
 // Attempts a bypass around the conflict using an alternate optimal path
 // Returns whether the bypass was effective
 bool AirCBSGroup::Bypass(int best, unsigned numConflicts, airConflict const& c1, bool gui)
@@ -629,11 +680,14 @@ bool AirCBSGroup::Bypass(int best, unsigned numConflicts, airConflict const& c1,
   airConflict c3, c4;
   std::vector<airtimeState> newPath;
   // Re-perform the search with the same constraints (since the start and goal are the same)
-  currentEnvironment->environment->setGoal(*tree[best].paths[c1.unit1].rbegin());
+  AirCBSUnit *c = (AirCBSUnit*)GetMember(c1.unit);
+  //currentEnvironment->environment->setGoal(*tree[best].paths[c1.unit1].rbegin());
   astar2.noncritical=true; // Because it's bypass, we can kill early if the search prolongs. this var is reset internally by the routine.
   astar2.SetWeight(currentEnvironment->astar_weight);
-  astar2.GetPath(currentEnvironment->environment, *tree[best].paths[c1.unit1].begin(), *tree[best].paths[c1.unit1].rbegin(), newPath);
-  TOTAL_EXPANSIONS += astar2.GetNodesExpanded();
+  //astar2.GetPath(currentEnvironment->environment, *tree[best].paths[c1.unit1].begin(), *tree[best].paths[c1.unit1].rbegin(), newPath);
+  //TOTAL_EXPANSIONS += astar2.GetNodesExpanded();
+
+  GetFullPath(c, astar2, currentEnvironment->environment, newPath, c1.prevWpt, c1.prevWpt+1);
 
   // Make sure that the current location is satisfiable
   if (newPath.size() == 0 && !(*tree[best].paths[c1.unit1].begin() == *tree[best].paths[c1.unit1].rbegin()))
@@ -718,18 +772,19 @@ void AirCBSGroup::Replan(int location)
   AirCBSUnit *c = (AirCBSUnit*)GetMember(theUnit);
 
   // Retreive the unit start and goal
-  airtimeState start, goal;
-  c->GetStart(start);
-  c->GetGoal(goal);
+  //airtimeState start, goal;
+  //c->GetStart(start);
+  //c->GetGoal(goal);
 
   // Recalculate the path
   //std::cout << "#conflicts for " << tempLocation << ": " << numConflicts << "\n";
-  currentEnvironment->environment->setGoal(goal);
+  //currentEnvironment->environment->setGoal(goal);
   std::cout << numConflicts << " conflicts " << " using " << currentEnvironment->environment->name() << " for agent: " << tree[location].con.unit1 << "?="<<c->getUnitNumber()<<"\n";
-  agentEnvs[c->getUnitNumber()]=currentEnvironment->environment;
-  astar.GetPath(currentEnvironment->environment, start, goal, thePath);
+  //agentEnvs[c->getUnitNumber()]=currentEnvironment->environment;
+  //astar.GetPath(currentEnvironment->environment, start, goal, thePath);
+  GetFullPath(c, astar, currentEnvironment->environment, thePath, tree[location].con.prevWpt, tree[location].con.prevWpt+1);
   //DoHAStar(start, goal, thePath);
-  TOTAL_EXPANSIONS += astar.GetNodesExpanded();
+  //TOTAL_EXPANSIONS += astar.GetNodesExpanded();
   //std::cout << "Replan agent: " << location << " expansions: " << astar.GetNodesExpanded() << "\n";
 
   // Make sure that the current location is satisfiable
