@@ -256,7 +256,7 @@ void AirCBSGroup::ExpandOneCBSNode(bool gui)
   else
   {
     // Notify the user of the conflict
-    std::cout << "Conflict found between unit " << c1.unit1 << " and unit " << c2.unit1 << " @:" << c2.c.start_state <<  " and " << c1.c.start_state << " NC " << numConflicts << "\n";
+    std::cout << "Conflict found between unit " << c1.unit1 << " and unit " << c2.unit1 << " @:" << c2.c.start_state <<  " and " << c1.c.start_state << " NC " << numConflicts << " prev-W " << c1.prevWpt << " " << c2.prevWpt << "\n";
 
     // Don't create new nodes if either bypass was successful
     // Note, these calls will add nodes to the openList
@@ -625,7 +625,9 @@ unsigned AirCBSGroup::LoadConstraintsForNode(int location){
 }
 
 // Plan path between waypoints
-void GetFullPath(AirCBSUnit* c, TemplateAStar& astar, AirplaneEnvironment* env, std::vector<airtimeState>& thePath, unsigned s, unsigned g)
+	
+template <typename tiebreaking>
+void GetFullPath(AirCBSUnit* c, TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment, AStarOpenClosed<airtimeState, tiebreaking > >& astar, AirplaneConstrainedEnvironment* env, std::vector<airtimeState>& thePath, unsigned s, unsigned g)
 {
   auto insertPoint(thePath.end());
   // Remove points from the original path (if they exist)
@@ -662,7 +664,7 @@ void GetFullPath(AirCBSUnit* c, TemplateAStar& astar, AirplaneEnvironment* env, 
     insertPoint+=path.size();
     offset=1;
     std::cout << "Planned leg " << goal << "\n";
-    TOTAL_EXPANSIONS += astar.GetNodesExpanded();
+    //TOTAL_EXPANSIONS += astar.GetNodesExpanded();
   }
 }
 
@@ -680,14 +682,14 @@ bool AirCBSGroup::Bypass(int best, unsigned numConflicts, airConflict const& c1,
   airConflict c3, c4;
   std::vector<airtimeState> newPath;
   // Re-perform the search with the same constraints (since the start and goal are the same)
-  AirCBSUnit *c = (AirCBSUnit*)GetMember(c1.unit);
+  AirCBSUnit *c = (AirCBSUnit*)GetMember(c1.unit1);
   //currentEnvironment->environment->setGoal(*tree[best].paths[c1.unit1].rbegin());
   astar2.noncritical=true; // Because it's bypass, we can kill early if the search prolongs. this var is reset internally by the routine.
   astar2.SetWeight(currentEnvironment->astar_weight);
   //astar2.GetPath(currentEnvironment->environment, *tree[best].paths[c1.unit1].begin(), *tree[best].paths[c1.unit1].rbegin(), newPath);
-  //TOTAL_EXPANSIONS += astar2.GetNodesExpanded();
+  TOTAL_EXPANSIONS += astar2.GetNodesExpanded();
 
-  GetFullPath(c, astar2, currentEnvironment->environment, newPath, c1.prevWpt, c1.prevWpt+1);
+  GetFullPath<CompareLowGCost<airtimeState> >(c, astar2, currentEnvironment->environment, newPath, c1.prevWpt, c1.prevWpt+1);
 
   // Make sure that the current location is satisfiable
   if (newPath.size() == 0 && !(*tree[best].paths[c1.unit1].begin() == *tree[best].paths[c1.unit1].rbegin()))
@@ -782,13 +784,13 @@ void AirCBSGroup::Replan(int location)
   std::cout << numConflicts << " conflicts " << " using " << currentEnvironment->environment->name() << " for agent: " << tree[location].con.unit1 << "?="<<c->getUnitNumber()<<"\n";
   //agentEnvs[c->getUnitNumber()]=currentEnvironment->environment;
   //astar.GetPath(currentEnvironment->environment, start, goal, thePath);
-  GetFullPath(c, astar, currentEnvironment->environment, thePath, tree[location].con.prevWpt, tree[location].con.prevWpt+1);
+  GetFullPath<RandomTieBreaking<airtimeState> >(c, astar, currentEnvironment->environment, thePath, tree[location].con.prevWpt, tree[location].con.prevWpt+1);
   //DoHAStar(start, goal, thePath);
-  //TOTAL_EXPANSIONS += astar.GetNodesExpanded();
+  TOTAL_EXPANSIONS += astar.GetNodesExpanded();
   //std::cout << "Replan agent: " << location << " expansions: " << astar.GetNodesExpanded() << "\n";
 
   // Make sure that the current location is satisfiable
-  if (thePath.size() == 0 && !(goal == start)) {
+  if (thePath.size() > 1){
     tree[location].satisfiable = false;
   }
 
@@ -813,6 +815,12 @@ unsigned AirCBSGroup::HasConflict(std::vector<airtimeState> const& a, std::vecto
 
   if(verbose)std::cout << "Checking for conflicts between: "<<x << " and "<<y<<" ranging from:" << xmax <<"," << ymax << " update: " << update << "\n";
 
+  AirCBSUnit* A = (AirCBSUnit*) GetMember(x);
+  AirCBSUnit* B = (AirCBSUnit*) GetMember(y);
+  signed pwptA(-1);
+  signed pwptB(-1);
+  int pxTime(-1);
+  int pyTime(-1);
   for (int i = 0, j = 0; j < ymax && i < xmax;) // If we've reached the end of one of the paths, then time is up and 
     // no more conflicts could occur
   {
@@ -824,6 +832,14 @@ unsigned AirCBSGroup::HasConflict(std::vector<airtimeState> const& a, std::vecto
     int xTime = max(0, min(i, xmax-1));
     int yTime = max(0, min(j, ymax-1));
 
+    // Check if we're looking directly at a waypoint.
+    // Increment so that we know we've passed it.
+    if(update){
+        std::cout << "Try " << "\n";
+        if(xTime != pxTime && A->GetWaypoint(pwptA+1)==a[xTime]){++pwptA; pxTime=xTime;}
+        if(yTime != pyTime && B->GetWaypoint(pwptB+1)==b[yTime]){++pwptB; pyTime=yTime;}
+    }
+
     if(verbose)std::cout << "Looking at positions " << xTime <<":"<<a[xTime].t << "," << j<<":"<<b[yTime].t << std::endl;
 
     // Check the point constraints
@@ -831,7 +847,7 @@ unsigned AirCBSGroup::HasConflict(std::vector<airtimeState> const& a, std::vecto
     airtimeState y_c =b[yTime];
 
 
-    // Deal with landing conflicts, we dont't conflict if one of the planes stays landed at
+    // Deal with landing conflicts, we don't conflict if one of the planes stays landed at
     // the entire time
     if (!(a[xTime].landed && a[min(xTime + 1, xmax-1)].landed || 
           b[yTime].landed && b[min(yTime + 1, xmax-1)].landed)) 
@@ -850,6 +866,10 @@ unsigned AirCBSGroup::HasConflict(std::vector<airtimeState> const& a, std::vecto
 
         c1.unit1 = y;
         c2.unit1 = x;
+
+        c1.prevWpt = pwptB;
+        c2.prevWpt = pwptA;
+
         update = false;
         return 1;
       }
@@ -865,6 +885,10 @@ unsigned AirCBSGroup::HasConflict(std::vector<airtimeState> const& a, std::vecto
 
         c1.unit1 = y;
         c2.unit1 = x;
+
+        c1.prevWpt = pwptB;
+        c2.prevWpt = pwptA;
+
         update = false;
         return 1;
       }

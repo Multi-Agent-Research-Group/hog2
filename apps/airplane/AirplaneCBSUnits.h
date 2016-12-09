@@ -80,6 +80,8 @@ public:
 	void OpenGLDraw(const AirplaneConstrainedEnvironment *, const SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *) const;
 	void GetGoal(airtimeState &s) { s = waypoints[goal]; }
 	void GetStart(airtimeState &s) { s = waypoints[start]; }
+	inline airtimeState GetWaypoint(unsigned i)const{ assert(i<waypoints.size()&&"Waypoint index out of bounds"); return waypoints[i]; }
+        inline unsigned GetNumWaypoints()const{return waypoints.size();}
 	void SetPath(std::vector<airtimeState> &p);
 	void PushFrontPath(std::vector<airtimeState> &s)
 	{
@@ -106,6 +108,7 @@ private:
 struct airConflict {
 	airConstraint c;
 	int unit1;
+        int prevWpt;
 };
 
 struct AirCBSTreeNode {
@@ -177,7 +180,7 @@ private:
 	std::vector<airtimeState> thePath;
 	TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment, AStarOpenClosed<airtimeState, RandomTieBreaking<airtimeState> > > astar;
 	TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment, AStarOpenClosed<airtimeState, CompareLowGCost<airtimeState> > > astar2;
-	TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> astar3;
+	//TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> astar3;
 	double time;
 
 	unsigned int bestNode;
