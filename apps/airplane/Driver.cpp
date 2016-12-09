@@ -177,6 +177,8 @@ void InitHeadless(){
   environs.push_back(EnvironmentContainer(ah4c->name(),new AirplaneConstrainedEnvironment(ah4c),0,cutoffs[4],1));
   environs.push_back(EnvironmentContainer(ac->name(),new AirplaneConstrainedEnvironment(ac),0,cutoffs[5],1));
 
+  ace=environs.rbegin()->environment;
+
   group = new AirCBSGroup(environs,use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
   if(gui){
     sim = new UnitSimulation<airtimeState, airplaneAction, AirplaneConstrainedEnvironment>(ace);

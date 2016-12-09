@@ -22,7 +22,7 @@
 
 bool operator==(const airplaneState &s1, const airplaneState &s2)
 {
-    return (s1.x==s2.x && s1.y==s2.y && s1.height==s2.height && s1.heading == s2.heading && s1.speed == s2.speed && s1.landed == s2.landed);
+    return (s1.x==s2.x && s1.y==s2.y && s1.height==s2.height && s1.heading == s2.heading && s1.speed == s2.speed); // && s1.landed == s2.landed);
     //return (fequal(s1.x,s2.x) && fequal(s1.y,s2.y) && s1.height==s2.height && s1.speed == s2.speed && s1.heading == s2.heading);
 }
 
@@ -826,6 +826,7 @@ void AirplaneEnvironment::ApplyAction(airplaneState &s, airplaneAction dir) cons
   
   s.speed += dir.speed;
   s.height += dir.height;
+  // This will make the airplane disappear and not block other agents
   if((!s.landed) && GoalTest(s,getGoal())){
      s.landed = true;
   }

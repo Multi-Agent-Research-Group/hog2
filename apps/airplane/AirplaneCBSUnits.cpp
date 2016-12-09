@@ -154,7 +154,7 @@ bool AirCBSGroup::MakeMove(Unit<airtimeState, airplaneAction, AirplaneConstraine
 void AirCBSGroup::processSolution()
 {
   std::cout << "Finished the plan using " << TOTAL_EXPANSIONS << " expansions.\n";
-  std::cout << "Time elapsed: " << timer->EndTimer() << "\n";
+  std::cout << seed<<":Time elapsed: " << timer->EndTimer() << "\n";
   for(auto e:environments)
   {
     unsigned total=0;
@@ -164,9 +164,9 @@ void AirCBSGroup::processSolution()
     std::string tmp;
     if(e.astar_weight > 1)
       tmp = "Weighted";
-    std::cout << "%Environment used: " << tmp<<e.environment->name() <<": "<< total/double(agentEnvs.size())<<"\n";
+    std::cout << seed<<":%Environment used: " << tmp<<e.environment->name() <<": "<< total/double(agentEnvs.size())<<"\n";
   }
-  std::cout << "Total conflicts: " << tree.size() << std::endl;
+  std::cout << seed<<":Total conflicts: " << tree.size() << std::endl;
   TOTAL_EXPANSIONS = 0;
   planFinished = true;
 
@@ -195,12 +195,24 @@ void AirCBSGroup::processSolution()
 
     // Update the actual unit path
     unit->SetPath(newPath);
-    //std::cout << "Agent " << x << ": " << "\n";
-    //for(auto &a: tree[bestNode].paths[x])
-    //std::cout << "  " << a << "\n";
+    std::cout << "Agent " << x << ": " << "\n";
+    unsigned wpt(0);
+    for(auto &a: tree[bestNode].paths[x])
+    {
+        std::cout << a << " " << wpt << " " << unit->GetWaypoint(wpt) << "\n";
+        if(a==unit->GetWaypoint(wpt))
+        {
+            std::cout << " *" << a << "\n";
+            wpt++;
+        }
+        else
+        {
+            std::cout << "  " << a << "\n";
+        }
+    }
   }
   std::cout << seed<<":Solution cost: " << cost << "\n"; 
-  std::cout << "solution length: " << total << std::endl;
+  std::cout << seed<<":solution length: " << total << std::endl;
 }
 
 /** Expand a single CBS node */
@@ -410,8 +422,13 @@ void GetFullPath(AirCBSUnit* c, TemplateAStar<airtimeState, airplaneAction, Airp
     //currentEnvironment->environment->setGoal(goal);
     env->setGoal(goal);
     astar.GetPath(env, start, goal, path);
+    if(thePath.size()){
+      for(auto &p: path){
+        p.t+=thePath.rbegin()->t;
+      }
+    }
     //std::cout << "Got path of len " << path.size() << "\nAdding to main path of len "<<thePath.size() << "\n";
-    // Append to the entire path, omitting the first node for lubsequent legs
+    // Append to the entire path, omitting the first node for subsequent legs
     bool reset(false);
     if(insertPoint==thePath.end())
       reset=true;
