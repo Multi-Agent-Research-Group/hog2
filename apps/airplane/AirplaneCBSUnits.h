@@ -177,7 +177,7 @@ private:
     void AddEnvironmentConstraint(airConstraint c);
 
 	std::vector<AirCBSTreeNode> tree;
-	std::vector<airtimeState> thePath;
+	//std::vector<airtimeState> thePath;
 	TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment, AStarOpenClosed<airtimeState, RandomTieBreaking<airtimeState> > > astar;
 	TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment, AStarOpenClosed<airtimeState, CompareLowGCost<airtimeState> > > astar2;
 	//TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> astar3;
