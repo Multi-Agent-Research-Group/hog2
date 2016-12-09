@@ -354,12 +354,15 @@ void AirplaneConstrainedEnvironment::GLDrawLine(const airtimeState &x, const air
 	this->ae->GLDrawLine(x, y);
 }
 
-void AirplaneConstrainedEnvironment::GLDrawPath(const std::vector<airtimeState> &p) const
+void AirplaneConstrainedEnvironment::GLDrawPath(const std::vector<airtimeState> &p,const std::vector<airtimeState> &wpts) const
 {
+	std::vector<airplaneState> w_air;
+	for (airtimeState x : wpts)
+		w_air.push_back(x);
 	std::vector<airplaneState> p_air;
 	for (airtimeState x : p)
 		p_air.push_back(x);
-	this->ae->GLDrawPath(p_air);
+	this->ae->GLDrawPath(p_air,w_air);
 }
 
 

@@ -107,7 +107,7 @@ public:
 	virtual void OpenGLDraw(const airtimeState&, const airplaneAction&) const;
 	virtual void GLDrawLine(const airtimeState &x, const airtimeState &y) const;
 	virtual void OpenGLDraw(const airtimeState& oldState, const airtimeState &newState, float perc) const;
-	virtual void GLDrawPath(const std::vector<airtimeState> &p) const;
+	virtual void GLDrawPath(const std::vector<airtimeState> &p,const std::vector<airtimeState> &wpts) const;
 
 	// Override the color method.
 	virtual void SetColor(double r, double g, double b, double t = 1.0) const {SearchEnvironment::SetColor(r,g,b,t); this->ae->SetColor(r,g,b,t);}

@@ -1495,9 +1495,11 @@ void AirplaneEnvironment::GLDrawLine(const airplaneState &a, const airplaneState
     glPopMatrix();
 }
 
-void AirplaneEnvironment::GLDrawPath(const std::vector<airplaneState> &p) const
+void AirplaneEnvironment::GLDrawPath(const std::vector<airplaneState> &p, const std::vector<airplaneState> &waypoints) const
 {
         if(p.size()<2) return;
+        int wpt(0);
+        //TODO Draw waypoints as cubes.
         for(auto a(p.begin()+1); a!=p.end(); ++a){
           GLDrawLine(*(a-1),*a);
         }

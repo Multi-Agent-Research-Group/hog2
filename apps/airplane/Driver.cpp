@@ -254,7 +254,7 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 	if (ace){
         for(auto u : group->GetMembers()){
             glLineWidth(2.0);
-            ace->GLDrawPath(((AirCBSUnit const*)u)->GetPath());
+            ace->GLDrawPath(((AirCBSUnit const*)u)->GetPath(),((AirCBSUnit const*)u)->GetWaypoints());
         }
     }
 

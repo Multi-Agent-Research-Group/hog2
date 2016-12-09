@@ -206,7 +206,7 @@ public:
 	virtual void OpenGLDraw(const airplaneState& oldState, const airplaneState &newState, float perc) const;
 	virtual void OpenGLDraw(const airplaneState &, const airplaneAction &) const;
 	void GLDrawLine(const airplaneState &a, const airplaneState &b) const;
-	void GLDrawPath(const std::vector<airplaneState> &p) const;
+	void GLDrawPath(const std::vector<airplaneState> &p, const std::vector<airplaneState> &wpts) const;
 	void DrawAirplane() const;
   void DrawQuadCopter() const;
 	recVec GetCoordinate(int x, int y, int z) const;

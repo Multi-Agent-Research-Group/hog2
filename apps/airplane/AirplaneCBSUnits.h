@@ -80,6 +80,7 @@ public:
 	void OpenGLDraw(const AirplaneConstrainedEnvironment *, const SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *) const;
 	void GetGoal(airtimeState &s) { s = waypoints[goal]; }
 	void GetStart(airtimeState &s) { s = waypoints[start]; }
+	inline std::vector<airtimeState> const & GetWaypoints()const{return waypoints;}
 	inline airtimeState GetWaypoint(unsigned i)const{ assert(i<waypoints.size()&&"Waypoint index out of bounds"); return waypoints[i]; }
         inline unsigned GetNumWaypoints()const{return waypoints.size();}
 	void SetPath(std::vector<airtimeState> &p);
