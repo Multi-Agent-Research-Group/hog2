@@ -371,6 +371,7 @@ void AirCBSGroup::SetEnvironment(unsigned numConflicts){
 
   astar.SetHeuristic(currentEnvironment->heuristic);
   astar.SetWeight(currentEnvironment->astar_weight);
+  astar.SetStopAfterAllOpt(true);
 }
 
 void AirCBSGroup::ClearEnvironmentConstraints(){
@@ -701,6 +702,7 @@ bool AirCBSGroup::Bypass(int best, unsigned numConflicts, airConflict const& c1,
   // Re-perform the search with the same constraints (since the start and goal are the same)
   AirCBSUnit *c = (AirCBSUnit*)GetMember(c1.unit1);
   //currentEnvironment->environment->setGoal(*tree[best].paths[c1.unit1].rbegin());
+  astar2.SetStopAfterAllOpt(true);
   astar2.noncritical=true; // Because it's bypass, we can kill early if the search prolongs. this var is reset internally by the routine.
   astar2.SetWeight(currentEnvironment->astar_weight);
   //astar2.GetPath(currentEnvironment->environment, *tree[best].paths[c1.unit1].begin(), *tree[best].paths[c1.unit1].rbegin(), newPath);

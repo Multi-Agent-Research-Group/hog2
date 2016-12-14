@@ -69,7 +69,7 @@ struct AStarCompare {
 template <class state, class action, class environment, class openList = AStarOpenClosed<state, AStarCompare<state>> >
 class TemplateAStar : public GenericSearchAlgorithm<state,action,environment> {
 public:
-	TemplateAStar():env(0),useBPMX(0),radius(4.0),stopAfterGoal(true),weight(1),useRadius(false),useOccupancyInfo(false),radEnv(0),reopenNodes(false),theHeuristic(0),directed(false),noncritical(false),SuccessorFunc(&environment::GetSuccessors),ActionFunc(&environment::GetAction){ResetNodeCount();}
+	TemplateAStar():env(0),useBPMX(0),radius(4.0),stopAfterGoal(true),stopAfterAllOpt(false),weight(1),useRadius(false),useOccupancyInfo(false),radEnv(0),reopenNodes(false),theHeuristic(0),directed(false),noncritical(false),SuccessorFunc(&environment::GetSuccessors),ActionFunc(&environment::GetAction){ResetNodeCount();}
 	virtual ~TemplateAStar() {}
 	void GetPath(environment *env, const state& from, const state& to, std::vector<state> &thePath);
 	void GetPath(environment *, const state& , const state& , std::vector<action> & );
@@ -133,6 +133,9 @@ public:
 	void SetStopAfterGoal(bool val) { stopAfterGoal = val; }
 	bool GetStopAfterGoal() { return stopAfterGoal; }
 	
+	inline void SetStopAfterAllOpt(bool val) { stopAfterAllOpt = val; }
+	inline bool GetStopAfterAllOpt() { return stopAfterAllOpt; }
+	
 	void FullBPMX(uint64_t nodeID, int distance);
 	
 	void OpenGLDraw() const;
@@ -156,6 +159,7 @@ private:
 	std::vector<dataLocation> neighborLoc;
 	environment *env;
 	bool stopAfterGoal;
+	bool stopAfterAllOpt;
 	
 	double radius; // how far around do we consider other agents?
 	double weight; 
@@ -332,13 +336,35 @@ if(this->nodesExpanded>1000 && this->noncritical){
 		uniqueNodesExpanded++;
 	nodesExpanded++;
 
+        
+        static double optCost(0);
+        static int numOpt(0);
+        // Check for fcost > optCost and return early if we think there is no other solution
+        if(numOpt && fgreater(openClosedList.Lookup(nodeid).g+openClosedList.Lookup(nodeid).h, optCost)){return true;}
+
 	if ((stopAfterGoal) && (env->GoalTest(openClosedList.Lookup(nodeid).data, goal)))
-	{
-		ExtractPathToStartFromID(nodeid, thePath);
-		// Path is backwards - reverse
-		reverse(thePath.begin(), thePath.end()); 
-		return true;
-	}
+        {
+          if(stopAfterAllOpt){
+            // Return all optimal paths embedded inside "thePath"
+            std::vector<state> path;
+            ExtractPathToStartFromID(nodeid, path);
+            // Path is backwards
+            reverse(path.begin(), path.end()); 
+            double cost(0);
+            for(auto a(path.begin()+1); a<path.end(); ++a)
+            {
+              cost+=env->GCost(*(a-1),*a);
+            }
+            if(fequal(optCost,0.0)){std::cout <<"_numOpt "<< ++numOpt<<"\n"; optCost=cost; thePath.insert(thePath.end(),path.begin(),path.end());} // Append path
+            else if(fless(optCost,cost)){std::cout << "numOpt "<<numOpt<<"\n"; return true;} // We're done because we've breached a new cost level
+            else{std::cout <<"_numOpt "<< ++numOpt<<"\n"; thePath.insert(thePath.end(),path.begin(),path.end());} // Append path
+          }else{
+            ExtractPathToStartFromID(nodeid, thePath);
+            // Path is backwards - reverse
+            reverse(thePath.begin(), thePath.end()); 
+            return true;
+          }
+        }
 	
  	neighbors.resize(0);
 	edgeCosts.resize(0);
