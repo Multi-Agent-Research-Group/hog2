@@ -67,8 +67,8 @@ bool set(float* list, airplaneState const& s, airplaneState const& start, float 
   return true;
 }
 
-void foo(){
-std::cout << "foo\n";
+void testIndexConv(){
+std::cout << "testIndexConv\n";
 airplaneState start(40,40,10,1,0,false,AirplaneType::PLANE);
 airplaneState goal(43,41,14,3,7,false,AirplaneType::PLANE);
 uint64_t ix(toIndex(goal,start));
@@ -76,6 +76,74 @@ std::cout << goal << "\n";
 std::cout << ix << "\n";
 std::cout << fromIndex(ix,start) << "\n";
 
+}
+
+void testPathUniqueness(){
+  std::cout << "testPathUniqueness\n";
+  std::vector<AirplaneEnvironment*> envs;
+
+  AirplaneEnvironment* ae(new AirplaneEnvironment());
+  ae->loadPerimeterDB();
+  envs.push_back(ae);
+
+  AirplaneEnvironment* a8e(new AirplaneHighwayEnvironment());
+  a8e->loadPerimeterDB();
+  envs.push_back(a8e);
+
+  AirplaneEnvironment* ase(new AirplaneSimpleEnvironment());
+  ase->loadPerimeterDB();
+  envs.push_back(ase);
+
+  AirplaneEnvironment* a4e(new AirplaneCardinalEnvironment());
+  a4e->loadPerimeterDB();
+  envs.push_back(a4e);
+
+  AirplaneEnvironment* a4he(new AirplaneHighway4CardinalEnvironment());
+  a4he->loadPerimeterDB();
+  envs.push_back(a4he);
+
+  //airplaneState start(40,40,10,1,0,false,AirplaneType::PLANE);
+  //airplaneState goal(43,41,14,3,7,false,AirplaneType::PLANE);
+  unsigned singular(0);
+  unsigned mx(0);
+  for(auto e:envs){
+    TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> astar;
+    std::cout << e->name() << "\n";
+    for(int i(0); i<1000; ++i){
+      airplaneState start(rand() % 8+5, rand() % 8+5, rand() % 5+5, rand() % 5 + 1, rand() % 4*2, false);
+      airplaneState goal(rand() % 8+5, rand() % 8+5, rand() % 5+5, rand() % 5 + 1, rand() % 4*2, false);
+      if(start==goal)continue;
+      std::vector<airplaneState> soln;
+      astar.GetPath(e,start,goal,soln);
+      double cStar(e->GetPathLength(soln));
+      std::vector<airplaneState> ancestors;
+      e->GetReverseSuccessors(goal,ancestors);
+      unsigned numOpt(1);
+      while(true){
+        astar.DoSingleSearchStep(soln);
+        uint64_t key(astar.openClosedList.Peek());
+        airplaneState current(astar.openClosedList.Lookup(key).data);
+        double f(astar.openClosedList.Lookup(key).g+astar.openClosedList.Lookup(key).h);
+        //double g(current,goal);
+        //std::cout << f << " " << cStar << "\n";
+        if(fgreater(f,cStar)){
+          break;
+        }else{
+          for(auto &s: ancestors){
+            if(s == current){
+              ++numOpt;
+              //std::cout << " " << ++numOpt << "\n";
+              break;
+            }
+          }
+        }
+      }
+      //std::cout << i << ": " << numOpt << "\n";
+      singular += (numOpt > 1);
+      mx = std::max(mx,numOpt);
+    }
+    std::cout << "singular: " << singular << " max: " << mx << "\n";
+  }
 }
 
 bool testAdmissibility(){

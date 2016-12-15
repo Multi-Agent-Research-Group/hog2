@@ -12,9 +12,9 @@ int main(){
   //testHCost();
   //testHeadingTo();
   //testConstraints();
-  testAdmissibility();
+  //testAdmissibility();
   //compareHeuristicSpeed();
-  foo();
+  testPathUniqueness();
 
   return 0;
 
