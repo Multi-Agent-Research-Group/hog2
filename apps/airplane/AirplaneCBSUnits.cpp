@@ -199,7 +199,7 @@ void AirCBSGroup::processSolution()
     unsigned wpt(0);
     for(auto &a: tree[bestNode].paths[x])
     {
-        std::cout << a << " " << wpt << " " << unit->GetWaypoint(wpt) << "\n";
+        //std::cout << a << " " << wpt << " " << unit->GetWaypoint(wpt) << "\n";
         if(a==unit->GetWaypoint(wpt))
         {
             std::cout << " *" << a << "\n";
@@ -432,19 +432,20 @@ void GetFullPath(AirCBSUnit* c, TemplateAStar<airtimeState, airplaneAction, Airp
     }
     //std::cout << "Got path of len " << path.size() << "\nAdding to main path of len "<<thePath.size() << "\n";
     // Append to the entire path, omitting the first node for subsequent legs
-    //bool reset(false);
-    //if(insertPoint==thePath.end())
-      //reset=true;
+    bool reset(insertPoint==thePath.end());
+
     thePath.insert(insertPoint,path.begin()+offset,path.end());
-    // Increase times through the end of the track
-    auto newEnd(insertPoint+deletes+path.size());
-    while(++newEnd != thePath.end()){
-      newEnd->t+=(newTime-origTime);
+    if(!reset){
+        // Increase times through the end of the track
+        auto newEnd(insertPoint+deletes+path.size());
+        while(++newEnd != thePath.end()){
+            newEnd->t+=(newTime-origTime);
+        }
     }
-    //if(!reset)
-        //insertPoint+=path.size()-offset;
+    if(reset)
+       insertPoint=thePath.end();
     //else
-        //insertPoint=thePath.end();
+        //insertPoint+=path.size()-offset;
     offset=1;
     std::cout << "Planned leg " << goal << "\n";
     //TOTAL_EXPANSIONS += astar.GetNodesExpanded();
@@ -813,7 +814,7 @@ void AirCBSGroup::Replan(int location)
   std::cout << numConflicts << " conflicts " << " using " << currentEnvironment->environment->name() << " for agent: " << tree[location].con.unit1 << "?="<<c->getUnitNumber()<<"\n";
   //agentEnvs[c->getUnitNumber()]=currentEnvironment->environment;
   //astar.GetPath(currentEnvironment->environment, start, goal, thePath);
-  std::vector<airtimeState> thePath;
+  std::vector<airtimeState> thePath(tree[location].paths[theUnit]);
   GetFullPath<RandomTieBreaking<airtimeState> >(c, astar, currentEnvironment->environment, thePath, tree[location].con.prevWpt, tree[location].con.prevWpt+1);
   //DoHAStar(start, goal, thePath);
   TOTAL_EXPANSIONS += astar.GetNodesExpanded();

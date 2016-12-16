@@ -82,13 +82,13 @@ void testPathUniqueness(){
   std::cout << "testPathUniqueness\n";
   std::vector<AirplaneEnvironment*> envs;
 
-  AirplaneEnvironment* ae(new AirplaneEnvironment());
-  ae->loadPerimeterDB();
-  envs.push_back(ae);
-
   AirplaneEnvironment* a8e(new AirplaneHighwayEnvironment());
   a8e->loadPerimeterDB();
   envs.push_back(a8e);
+
+  AirplaneEnvironment* ae(new AirplaneEnvironment());
+  ae->loadPerimeterDB();
+  envs.push_back(ae);
 
   AirplaneEnvironment* ase(new AirplaneSimpleEnvironment());
   ase->loadPerimeterDB();
@@ -104,16 +104,18 @@ void testPathUniqueness(){
 
   //airplaneState start(40,40,10,1,0,false,AirplaneType::PLANE);
   //airplaneState goal(43,41,14,3,7,false,AirplaneType::PLANE);
-  unsigned singular(0);
-  unsigned mx(0);
   for(auto e:envs){
+    unsigned singular(0);
+    unsigned mx(0);
     TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> astar;
     std::cout << e->name() << "\n";
+    double total(0.0);
     for(int i(0); i<1000; ++i){
       airplaneState start(rand() % 8+5, rand() % 8+5, rand() % 5+5, rand() % 5 + 1, rand() % 4*2, false);
       airplaneState goal(rand() % 8+5, rand() % 8+5, rand() % 5+5, rand() % 5 + 1, rand() % 4*2, false);
       if(start==goal)continue;
       std::vector<airplaneState> soln;
+      e->setGoal(goal);
       astar.GetPath(e,start,goal,soln);
       double cStar(e->GetPathLength(soln));
       std::vector<airplaneState> ancestors;
@@ -138,11 +140,12 @@ void testPathUniqueness(){
           }
         }
       }
+      total += numOpt;
       //std::cout << i << ": " << numOpt << "\n";
-      singular += (numOpt > 1);
+      singular += (numOpt > 1)?1:0;
       mx = std::max(mx,numOpt);
     }
-    std::cout << "singular: " << singular << " max: " << mx << "\n";
+    std::cout << "singular: " << singular << " max: " << mx << " ave: " << total/1000.0 << "\n";
   }
 }
 
