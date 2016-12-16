@@ -371,7 +371,6 @@ void AirCBSGroup::SetEnvironment(unsigned numConflicts){
 
   astar.SetHeuristic(currentEnvironment->heuristic);
   astar.SetWeight(currentEnvironment->astar_weight);
-  astar.SetStopAfterAllOpt(true);
 }
 
 void AirCBSGroup::ClearEnvironmentConstraints(){
@@ -393,10 +392,12 @@ template <typename tiebreaking>
 void GetFullPath(AirCBSUnit* c, TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment, AStarOpenClosed<airtimeState, tiebreaking > >& astar, AirplaneConstrainedEnvironment* env, std::vector<airtimeState>& thePath, unsigned s, unsigned g)
 {
   auto insertPoint(thePath.end());
+  float origTime(0.0);
+  float newTime(0.0);
+  unsigned deletes(0);
   // Remove points from the original path (if they exist)
   if(!thePath.empty()){
     std::cout << "re-planning path from " << s << " to " << g << " on a path of len:" << thePath.size() << "\n";
-    unsigned deletes(0);
     airtimeState start(c->GetWaypoint(s));
     airtimeState goal(c->GetWaypoint(g));
     for(auto n(thePath.begin()); n!=thePath.end(); ++n){
@@ -407,12 +408,11 @@ void GetFullPath(AirCBSUnit* c, TemplateAStar<airtimeState, airplaneAction, Airp
     }
     for(auto n(insertPoint); n!=thePath.end(); ++n){
       if(*n==goal){
+        origTime=n->t;
         break;
       }
       deletes++;
     }
-    //Erase the subpath including the start node
-    if(insertPoint!=thePath.end()){ thePath.erase(insertPoint,insertPoint+deletes); }
   }
 
   unsigned offset(0);
@@ -424,24 +424,34 @@ void GetFullPath(AirCBSUnit* c, TemplateAStar<airtimeState, airplaneAction, Airp
     env->setGoal(goal);
     astar.GetPath(env, start, goal, path);
     if(thePath.size()){
+      float offsetTime(insertPoint==thePath.end()?thePath.rbegin()->t:insertPoint->t);
       for(auto &p: path){
-        p.t+=thePath.rbegin()->t;
+        p.t+=offsetTime;
       }
+      newTime=path.rbegin()->t; // Save the track end time of the new leg
     }
     //std::cout << "Got path of len " << path.size() << "\nAdding to main path of len "<<thePath.size() << "\n";
     // Append to the entire path, omitting the first node for subsequent legs
-    bool reset(false);
-    if(insertPoint==thePath.end())
-      reset=true;
+    //bool reset(false);
+    //if(insertPoint==thePath.end())
+      //reset=true;
     thePath.insert(insertPoint,path.begin()+offset,path.end());
-    if(!reset)
-        insertPoint+=path.size()-offset;
-    else
-        insertPoint=thePath.end();
+    // Increase times through the end of the track
+    auto newEnd(insertPoint+deletes+path.size());
+    while(++newEnd != thePath.end()){
+      newEnd->t+=(newTime-origTime);
+    }
+    //if(!reset)
+        //insertPoint+=path.size()-offset;
+    //else
+        //insertPoint=thePath.end();
     offset=1;
     std::cout << "Planned leg " << goal << "\n";
     //TOTAL_EXPANSIONS += astar.GetNodesExpanded();
   }
+  //Erase the original subpath including the start node
+  if(insertPoint!=thePath.end()){ thePath.erase(insertPoint,insertPoint+deletes); }
+
 }
 
 /** Add a new unit with a new start and goal state to the CBS group */
