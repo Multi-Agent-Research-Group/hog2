@@ -81,7 +81,7 @@ public:
 	void GetGoal(airtimeState &s) { s = waypoints[goal]; }
 	void GetStart(airtimeState &s) { s = waypoints[start]; }
 	inline std::vector<airtimeState> const & GetWaypoints()const{return waypoints;}
-	inline airtimeState GetWaypoint(unsigned i)const{ assert(i<waypoints.size()&&"Waypoint index out of bounds"); return waypoints[i]; }
+	inline airtimeState GetWaypoint(size_t i)const{ return waypoints[std::min(i,waypoints.size()-1)]; }
         inline unsigned GetNumWaypoints()const{return waypoints.size();}
 	void SetPath(std::vector<airtimeState> &p);
 	void PushFrontPath(std::vector<airtimeState> &s)

@@ -391,7 +391,7 @@ void AirCBSGroup::AddEnvironmentConstraint(airConstraint  c){
 template <typename tiebreaking>
 void GetFullPath(AirCBSUnit* c, TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment, AStarOpenClosed<airtimeState, tiebreaking > >& astar, AirplaneConstrainedEnvironment* env, std::vector<airtimeState>& thePath, unsigned s, unsigned g)
 {
-  auto insertPoint(thePath.end());
+  int insertPoint(-1);
   float origTime(0.0);
   float newTime(0.0);
   unsigned deletes(0);
@@ -400,31 +400,33 @@ void GetFullPath(AirCBSUnit* c, TemplateAStar<airtimeState, airplaneAction, Airp
     std::cout << "re-planning path from " << s << " to " << g << " on a path of len:" << thePath.size() << "\n";
     airtimeState start(c->GetWaypoint(s));
     airtimeState goal(c->GetWaypoint(g));
-    for(auto n(thePath.begin()); n!=thePath.end(); ++n){
-      if(*n==start){
+    for(unsigned n(0); n<thePath.size(); ++n){
+      if(thePath[n]==start){
         insertPoint=n;
         break;
       }
     }
-    for(auto n(insertPoint); n!=thePath.end(); ++n){
+    for(auto n(thePath.begin()+insertPoint); n!=thePath.end(); ++n){
+      deletes++;
       if(*n==goal){
         origTime=n->t;
         break;
       }
-      deletes++;
     }
   }
 
+  // Perform search for all legs
   unsigned offset(0);
-  for(int i=s; i<g-1; ++i){
+  for(int i=s; i<g; ++i){
     std::vector<airtimeState> path;
     airtimeState start(c->GetWaypoint(i));
     airtimeState goal(c->GetWaypoint(i+1));
-    //currentEnvironment->environment->setGoal(goal);
     env->setGoal(goal);
     astar.GetPath(env, start, goal, path);
+    if(path.empty())return; //no solution found
+    // Update path times
     if(thePath.size()){
-      float offsetTime(insertPoint==thePath.end()?thePath.rbegin()->t:insertPoint->t);
+      float offsetTime(insertPoint==-1?thePath.rbegin()->t:thePath[insertPoint].t);
       for(auto &p: path){
         p.t+=offsetTime;
       }
@@ -432,26 +434,28 @@ void GetFullPath(AirCBSUnit* c, TemplateAStar<airtimeState, airplaneAction, Airp
     }
     //std::cout << "Got path of len " << path.size() << "\nAdding to main path of len "<<thePath.size() << "\n";
     // Append to the entire path, omitting the first node for subsequent legs
-    bool reset(insertPoint==thePath.end());
+    bool append(insertPoint==-1);
 
-    thePath.insert(insertPoint,path.begin()+offset,path.end());
-    if(!reset){
-        // Increase times through the end of the track
-        auto newEnd(insertPoint+deletes+path.size());
-        while(++newEnd != thePath.end()){
-            newEnd->t+=(newTime-origTime);
+    // Insert new path in front of the insert point
+    thePath.insert(append?thePath.end():thePath.begin()+insertPoint,path.begin()+offset,path.end());
+    if(!append)
+      insertPoint += path.size()-offset;
+
+    if(!append){
+        //Erase the original subpath including the start node
+        thePath.erase(thePath.begin()+insertPoint,thePath.begin()+insertPoint+deletes);
+        if(thePath.size()>path.size()){
+            // Increase times through the end of the track
+            auto newEnd(thePath.begin()+insertPoint);
+            while(newEnd++ != thePath.end()){
+                newEnd->t+=(newTime-origTime);
+            }
         }
     }
-    if(reset)
-       insertPoint=thePath.end();
-    //else
-        //insertPoint+=path.size()-offset;
     offset=1;
     std::cout << "Planned leg " << goal << "\n";
     //TOTAL_EXPANSIONS += astar.GetNodesExpanded();
   }
-  //Erase the original subpath including the start node
-  if(insertPoint!=thePath.end()){ thePath.erase(insertPoint,insertPoint+deletes); }
 
 }
 
@@ -479,7 +483,7 @@ void AirCBSGroup::AddUnit(Unit<airtimeState, airplaneAction, AirplaneConstrained
   //std::cout << "Search using " << currentEnvironment->environment->name() << "\n";
   std::vector<airtimeState> thePath;
   agentEnvs[c->getUnitNumber()]=currentEnvironment->environment;
-  GetFullPath<RandomTieBreaking<airtimeState> >(c, astar, currentEnvironment->environment, thePath, 0,c->GetNumWaypoints());
+  GetFullPath<RandomTieBreaking<airtimeState> >(c, astar, currentEnvironment->environment, thePath, 0,c->GetNumWaypoints()-1);
   TOTAL_EXPANSIONS += astar.GetNodesExpanded();
   //std::cout << "AddUnit agent: " << (GetNumMembers()-1) << " expansions: " << astar.GetNodesExpanded() << "\n";
 
@@ -709,7 +713,7 @@ bool AirCBSGroup::Bypass(int best, unsigned numConflicts, airConflict const& c1,
 
   bool success(false);
   airConflict c3, c4;
-  std::vector<airtimeState> newPath;
+  std::vector<airtimeState> newPath(tree[best].paths[c1.unit1]);
   // Re-perform the search with the same constraints (since the start and goal are the same)
   AirCBSUnit *c = (AirCBSUnit*)GetMember(c1.unit1);
   //currentEnvironment->environment->setGoal(*tree[best].paths[c1.unit1].rbegin());
@@ -868,9 +872,9 @@ unsigned AirCBSGroup::HasConflict(std::vector<airtimeState> const& a, std::vecto
     // Increment so that we know we've passed it.
     if(update){
         //std::cout << "if(xTime != pxTime && A->GetWaypoint(pwptA+1)==a[xTime]){++pwptA; pxTime=xTime;}\n";
-        //std::cout << " " << xTime << " " << pxTime << " " << pwptA << " " << A->GetWaypoint(pwptA+1) << " " << a[xTime] << "==?" << (A->GetWaypoint(pwptA+1)==a[xTime]) <<  "\n";
+        //std::cout << " " << xTime << " " << pxTime << " " << pwptA;std::cout << " " << A->GetWaypoint(pwptA+1) << " " << a[xTime] << "==?" << (A->GetWaypoint(pwptA+1)==a[xTime]) <<  "\n";
         //std::cout << "if(yTime != pyTime && B->GetWaypoint(pwptB+1)==b[yTime]){++pwptB; pyTime=yTime;}\n";
-        //std::cout << " " << yTime << " " << pyTime << " " << pwptB << " " << B->GetWaypoint(pwptB+1) << " " << b[yTime] << "==?" << (B->GetWaypoint(pwptB+1)==b[yTime]) <<  "\n";
+        //std::cout << " " << yTime << " " << pyTime << " " << pwptB;std::cout << " " << B->GetWaypoint(pwptB+1) << " " << b[yTime] << "==?" << (B->GetWaypoint(pwptB+1)==b[yTime]) <<  "\n";
         if(xTime != pxTime && A->GetWaypoint(pwptA+1)==a[xTime]){++pwptA; pxTime=xTime;}
         if(yTime != pyTime && B->GetWaypoint(pwptB+1)==b[yTime]){++pwptB; pyTime=yTime;}
     }
