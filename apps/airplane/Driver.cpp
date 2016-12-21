@@ -35,6 +35,7 @@ double simTime = 0;
 double stepsPerFrame = 1.0/100.0;
 double frameIncrement = 1.0/10000.0;
 std::vector<airtimeState> thePath;
+std::vector<std::vector<airtimeState> > waypoints;
 
 int cutoffs[6] = {0,1,2,3,4,5}; // for each env
   std::vector<EnvironmentContainer> environs;
@@ -125,6 +126,7 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-seed", "-seed <number>", "Seed for random number generator (defaults to clock)");
 	InstallCommandLineHandler(MyCLHandler, "-nobypass", "-nobypass", "Turn off bypass option");
 	InstallCommandLineHandler(MyCLHandler, "-cutoffs", "-cutoffs <n>,<n>,<n>,<n>,<n><n>", "Number of conflicts to tolerate before switching to less constrained layer of environment. Environments are ordered as: H8,H4,Simple,Complex,H4Cardinal,Cardinal");
+	InstallCommandLineHandler(MyCLHandler, "-probfile", "-probfile", "Load MAPF instance from file");
 	InstallCommandLineHandler(MyCLHandler, "-killtime", "-killtime", "Kill after this many seconds");
 	InstallCommandLineHandler(MyCLHandler, "-nogui", "-nogui", "Turn off gui");
 	InstallCommandLineHandler(MyCLHandler, "-random", "-random", "Randomize conflict resolution order");
@@ -190,45 +192,47 @@ void InitHeadless(){
 
   // Updated so we're always testing the landing conditions
   // and forcing the airplane environment to be such that
-  // we are inducing high clonflict areas.
+  // we are inducing high conflict areas.
   std::cout << "Adding " << num_airplanes << "planes." << std::endl;
-  std::vector<std::vector<airtimeState> > goals;
 
   for (int i = 0; i < num_airplanes; i++) {
-    std::vector<airtimeState> s;
-    unsigned r(maxsubgoals-minsubgoals);
-    int numsubgoals(minsubgoals+1);
-    if(r>0){
-      numsubgoals = rand()%(maxsubgoals-minsubgoals)+minsubgoals+1;
-    }
-    std::cout << "Agent " << i << " add " << numsubgoals << " subgoals\n";
-    for(int n(0); n<numsubgoals; ++n){
-      bool conflict(true);
-      while(conflict){
-        conflict=false;
-        airplaneState rs1(rand() % 70 + 5, rand() % 70 + 5, rand() % 7 + 11, rand() % 3 + 1, rand() % 8, false);
-        airtimeState start(rs1, 0);
-        for (int j = 0; j < goals.size(); j++)
-        {
-          if(i==j){continue;}
-          if(goals[j].size()<n)
-          {
-            airtimeState a(goals[j][n]);
-            // Make sure that no gubgoals at similar times have a conflict
-            airConstraint x_c(a);
-            if(x_c.ConflictsWith(start)){conflict=true;break;}
-          }
-        }
-        if(!conflict) s.push_back(start);
+    if(waypoints.empty()){
+      // Adding random waypoints
+      std::vector<airtimeState> s;
+      unsigned r(maxsubgoals-minsubgoals);
+      int numsubgoals(minsubgoals+1);
+      if(r>0){
+        numsubgoals = rand()%(maxsubgoals-minsubgoals)+minsubgoals+1;
       }
+      std::cout << "Agent " << i << " add " << numsubgoals << " subgoals\n";
+      for(int n(0); n<numsubgoals; ++n){
+        bool conflict(true);
+        while(conflict){
+          conflict=false;
+          airplaneState rs1(rand() % 70 + 5, rand() % 70 + 5, rand() % 7 + 11, rand() % 3 + 1, rand() % 8, false);
+          airtimeState start(rs1, 0);
+          for (int j = 0; j < waypoints.size(); j++)
+          {
+            if(i==j){continue;}
+            if(waypoints[j].size()<n)
+            {
+              airtimeState a(waypoints[j][n]);
+              // Make sure that no gubgoals at similar times have a conflict
+              airConstraint x_c(a);
+              if(x_c.ConflictsWith(start)){conflict=true;break;}
+            }
+          }
+          if(!conflict) s.push_back(start);
+        }
+      }
+      waypoints.push_back(s);
     }
-    goals.push_back(s);
 
     std::cout << "Set unit " << i << " subgoals: ";
-    for(auto &a: goals[i])
+    for(auto &a: waypoints[i])
       std::cout << a << " ";
     std::cout << std::endl;
-    AirCBSUnit* unit = new AirCBSUnit(goals[i]);
+    AirCBSUnit* unit = new AirCBSUnit(waypoints[i]);
     unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
     group->AddUnit(unit); // Add to the group
     if(gui){sim->AddUnit(unit);} // Add to the group
@@ -327,6 +331,27 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 		use_wait = true;
 		return 1;
 	}
+	if(strcmp(argument[0], "-probfile") == 0){
+          std::cout << "Reading instance from file: \""<<argument[1]<<"\"\n";
+          std::ifstream ss(argument[1]);
+          int x,y,z,s,h;
+          std::string line;
+          num_airplanes=0;
+          while(std::getline(ss, line)){
+            std::vector<airtimeState> wpts;
+            std::istringstream is(line);
+            std::string field;
+            while(is >> field){
+              sscanf(field.c_str(),"%d,%d,%d,%d,%d", &x,&y,&z,&s,&h);
+              std::cout << x <<","<<y<<","<<z<<","<<s<<","<<h<<" ";
+              wpts.push_back(airtimeState(airplaneState(x,y,z,s,h,false),0));
+            }
+            waypoints.push_back(wpts);
+            std::cout << "\n";
+            num_airplanes++;
+          }
+          return 2;
+        }
 	if(strcmp(argument[0], "-cutoffs") == 0)
         {
           std::string str = argument[1];

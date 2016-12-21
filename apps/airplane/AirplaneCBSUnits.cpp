@@ -387,7 +387,74 @@ void AirCBSGroup::AddEnvironmentConstraint(airConstraint  c){
 }
 
 // Plan path between waypoints
-	
+template <typename tiebreaking>
+unsigned ReplanLeg(AirCBSUnit* c, TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment, AStarOpenClosed<airtimeState, tiebreaking > >& astar, AirplaneConstrainedEnvironment* env, std::vector<airtimeState>& thePath, unsigned s, unsigned g)
+{
+  int insertPoint(-1);
+  float origTime(0.0);
+  float newTime(0.0);
+  unsigned deletes(0);
+  // Remove points from the original path (if they exist)
+  if(thePath.empty()){
+    assert(false && "Expected a valid path for re-planning.");
+  }
+  std::cout << "re-planning path from " << s << " to " << g << " on a path of len:" << thePath.size() << "\n";
+  airtimeState start(c->GetWaypoint(s));
+  airtimeState goal(c->GetWaypoint(g));
+  std::cout << start << " to " << goal << "\n";
+  for(unsigned n(0); n<thePath.size(); ++n){
+    if(thePath[n]==start){
+      insertPoint=n;
+      break;
+    }
+  }
+  for(auto n(thePath.begin()+insertPoint); n!=thePath.end(); ++n){
+    deletes++;
+    if(*n==goal){
+      origTime=n->t;
+      break;
+    }
+  }
+
+  // Perform search for the leg
+  std::vector<airtimeState> path;
+  env->setGoal(goal);
+  astar.GetPath(env, start, goal, path);
+  std::cout << "New leg " << path.size() << "\n";
+  for(auto &p: path){std::cout << p << "\n";}
+  if(path.empty())return astar.GetNodesExpanded(); //no solution found
+  // Update path times
+  if(thePath.size()){
+    float offsetTime(thePath[insertPoint].t);
+    for(auto &p: path){
+      p.t+=offsetTime;
+    }
+    newTime=path.rbegin()->t; // Save the track end time of the new leg
+  }
+
+  // Insert new path in front of the insert point
+  std::cout << "SIZE " << thePath.size() << "\n";
+  std::cout << "Insert path of len " << path.size() << " before " << insertPoint << "\n";
+  thePath.insert(thePath.begin()+insertPoint,path.begin(),path.end());
+  std::cout << "SIZE " << thePath.size() << "\n";
+  insertPoint += path.size();
+
+  //Erase the original subpath including the start node
+  std::cout << "Erase path from " << insertPoint << " to " << (insertPoint+deletes) << "\n";
+  thePath.erase(thePath.begin()+insertPoint,thePath.begin()+insertPoint+deletes);
+  std::cout << "SIZE " << thePath.size() << "\n";
+  if(thePath.size()>path.size()){
+      // Increase times through the end of the track
+      auto newEnd(thePath.begin()+insertPoint);
+      while(newEnd++ != thePath.end()){
+          newEnd->t+=(newTime-origTime);
+      }
+  }
+  return astar.GetNodesExpanded();
+
+}
+
+// Plan path between waypoints
 template <typename tiebreaking>
 void GetFullPath(AirCBSUnit* c, TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment, AStarOpenClosed<airtimeState, tiebreaking > >& astar, AirplaneConstrainedEnvironment* env, std::vector<airtimeState>& thePath, unsigned s, unsigned g)
 {
@@ -717,13 +784,13 @@ bool AirCBSGroup::Bypass(int best, unsigned numConflicts, airConflict const& c1,
   // Re-perform the search with the same constraints (since the start and goal are the same)
   AirCBSUnit *c = (AirCBSUnit*)GetMember(c1.unit1);
   //currentEnvironment->environment->setGoal(*tree[best].paths[c1.unit1].rbegin());
-  astar2.SetStopAfterAllOpt(true);
+  //astar2.SetStopAfterAllOpt(true);
   astar2.noncritical=true; // Because it's bypass, we can kill early if the search prolongs. this var is reset internally by the routine.
   astar2.SetWeight(currentEnvironment->astar_weight);
   //astar2.GetPath(currentEnvironment->environment, *tree[best].paths[c1.unit1].begin(), *tree[best].paths[c1.unit1].rbegin(), newPath);
-  TOTAL_EXPANSIONS += astar2.GetNodesExpanded();
+  //TOTAL_EXPANSIONS += astar2.GetNodesExpanded();
 
-  GetFullPath<CompareLowGCost<airtimeState> >(c, astar2, currentEnvironment->environment, newPath, c1.prevWpt, c1.prevWpt+1);
+  TOTAL_EXPANSIONS += ReplanLeg<CompareLowGCost<airtimeState> >(c, astar2, currentEnvironment->environment, newPath, c1.prevWpt, c1.prevWpt+1);
 
   // Make sure that the current location is satisfiable
   if (newPath.size() == 0 && !(*tree[best].paths[c1.unit1].begin() == *tree[best].paths[c1.unit1].rbegin()))
@@ -819,9 +886,9 @@ void AirCBSGroup::Replan(int location)
   //agentEnvs[c->getUnitNumber()]=currentEnvironment->environment;
   //astar.GetPath(currentEnvironment->environment, start, goal, thePath);
   std::vector<airtimeState> thePath(tree[location].paths[theUnit]);
-  GetFullPath<RandomTieBreaking<airtimeState> >(c, astar, currentEnvironment->environment, thePath, tree[location].con.prevWpt, tree[location].con.prevWpt+1);
+  TOTAL_EXPANSIONS += ReplanLeg<RandomTieBreaking<airtimeState> >(c, astar, currentEnvironment->environment, thePath, tree[location].con.prevWpt, tree[location].con.prevWpt+1);
   //DoHAStar(start, goal, thePath);
-  TOTAL_EXPANSIONS += astar.GetNodesExpanded();
+  //TOTAL_EXPANSIONS += astar.GetNodesExpanded();
   //std::cout << "Replan agent: " << location << " expansions: " << astar.GetNodesExpanded() << "\n";
 
   // Make sure that the current location is satisfiable
