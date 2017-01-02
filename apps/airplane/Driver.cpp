@@ -196,7 +196,7 @@ void InitHeadless(){
   std::cout << "Adding " << num_airplanes << "planes." << std::endl;
 
   for (int i = 0; i < num_airplanes; i++) {
-    if(waypoints.empty()){
+    if(waypoints.size()<num_airplanes){
       // Adding random waypoints
       std::vector<airtimeState> s;
       unsigned r(maxsubgoals-minsubgoals);
@@ -262,16 +262,19 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
         }
     }
 
+  //static double ptime[500];
+  //memset(ptime,0,500*sizeof(double));
 	if (sim)
 		sim->OpenGLDraw();
 	if (!paused) {
 		sim->StepTime(stepsPerFrame);
-		/*
-		std::cout << "Printing locations at time: " << sim->GetSimulationTime() << std::endl;
+		
+		/*std::cout << "Printing locations at time: " << sim->GetSimulationTime() << std::endl;
 		for (int x = 0; x < group->GetNumMembers(); x ++) {
 			AirCBSUnit *c = (AirCBSUnit*)group->GetMember(x);
 			airtimeState cur;
 			c->GetLocation(cur);
+                        //if(!fequal(ptime[x],sim->GetSimulationTime())
 			std::cout << "\t" << x << ":" << cur << std::endl;
 		}*/
 	}

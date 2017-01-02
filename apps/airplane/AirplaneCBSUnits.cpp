@@ -23,6 +23,7 @@ bool AirCBSUnit::MakeMove(AirplaneConstrainedEnvironment *ae, OccupancyInterface
 
     //std::cout << "Moved from " << myPath[myPath.size()-1] << " to " << myPath[myPath.size()-2] << std::endl;
     a = ae->GetAction(myPath[myPath.size()-1], myPath[myPath.size()-2]);
+    //std::cout << "Used action " << a << "\n";
     myPath.pop_back();
     return true;
   }/*else if (false){//myPath.size() <= 1) { // Don't plan a next goal...
@@ -153,22 +154,6 @@ bool AirCBSGroup::MakeMove(Unit<airtimeState, airplaneAction, AirplaneConstraine
 
 void AirCBSGroup::processSolution()
 {
-  std::cout << "Finished the plan using " << TOTAL_EXPANSIONS << " expansions.\n";
-  std::cout << seed<<":Time elapsed: " << timer->EndTimer() << "\n";
-  for(auto e:environments)
-  {
-    unsigned total=0;
-    for(auto a: agentEnvs)
-      if(e.environment==a)
-        total++;
-    std::string tmp;
-    if(e.astar_weight > 1)
-      tmp = "Weighted";
-    std::cout << seed<<":%Environment used: " << tmp<<e.environment->name() <<": "<< total/double(agentEnvs.size())<<"\n";
-  }
-  std::cout << seed<<":Total conflicts: " << tree.size() << std::endl;
-  TOTAL_EXPANSIONS = 0;
-  planFinished = true;
 
   double cost(0.0);
   unsigned total(0);
@@ -211,6 +196,22 @@ void AirCBSGroup::processSolution()
         }
     }
   }
+  std::cout << "Finished the plan using " << TOTAL_EXPANSIONS << " expansions.\n";
+  std::cout << seed<<":Time elapsed: " << timer->EndTimer() << "\n";
+  for(auto e:environments)
+  {
+    unsigned total=0;
+    for(auto a: agentEnvs)
+      if(e.environment==a)
+        total++;
+    std::string tmp;
+    if(e.astar_weight > 1)
+      tmp = "Weighted";
+    std::cout << seed<<":%Environment used: " << tmp<<e.environment->name() <<": "<< total/double(agentEnvs.size())<<"\n";
+  }
+  std::cout << seed<<":Total conflicts: " << tree.size() << std::endl;
+  TOTAL_EXPANSIONS = 0;
+  planFinished = true;
   std::cout << seed<<":Solution cost: " << cost << "\n"; 
   std::cout << seed<<":solution length: " << total << std::endl;
 }
@@ -398,10 +399,10 @@ unsigned ReplanLeg(AirCBSUnit* c, TemplateAStar<airtimeState, airplaneAction, Ai
   if(thePath.empty()){
     assert(false && "Expected a valid path for re-planning.");
   }
-  std::cout << "re-planning path from " << s << " to " << g << " on a path of len:" << thePath.size() << "\n";
+  //std::cout << "re-planning path from " << s << " to " << g << " on a path of len:" << thePath.size() << "\n";
   airtimeState start(c->GetWaypoint(s));
   airtimeState goal(c->GetWaypoint(g));
-  std::cout << start << " to " << goal << "\n";
+  //std::cout << start << " to " << goal << "\n";
   for(unsigned n(0); n<thePath.size(); ++n){
     if(thePath[n]==start){
       insertPoint=n;
@@ -420,8 +421,8 @@ unsigned ReplanLeg(AirCBSUnit* c, TemplateAStar<airtimeState, airplaneAction, Ai
   std::vector<airtimeState> path;
   env->setGoal(goal);
   astar.GetPath(env, start, goal, path);
-  std::cout << "New leg " << path.size() << "\n";
-  for(auto &p: path){std::cout << p << "\n";}
+  //std::cout << "New leg " << path.size() << "\n";
+  //for(auto &p: path){std::cout << p << "\n";}
   if(path.empty())return astar.GetNodesExpanded(); //no solution found
   // Update path times
   if(thePath.size()){
@@ -433,16 +434,16 @@ unsigned ReplanLeg(AirCBSUnit* c, TemplateAStar<airtimeState, airplaneAction, Ai
   }
 
   // Insert new path in front of the insert point
-  std::cout << "SIZE " << thePath.size() << "\n";
-  std::cout << "Insert path of len " << path.size() << " before " << insertPoint << "\n";
+  //std::cout << "SIZE " << thePath.size() << "\n";
+  //std::cout << "Insert path of len " << path.size() << " before " << insertPoint << "\n";
   thePath.insert(thePath.begin()+insertPoint,path.begin(),path.end());
-  std::cout << "SIZE " << thePath.size() << "\n";
+  //std::cout << "SIZE " << thePath.size() << "\n";
   insertPoint += path.size();
 
   //Erase the original subpath including the start node
-  std::cout << "Erase path from " << insertPoint << " to " << (insertPoint+deletes) << "\n";
+  //std::cout << "Erase path from " << insertPoint << " to " << (insertPoint+deletes) << "\n";
   thePath.erase(thePath.begin()+insertPoint,thePath.begin()+insertPoint+deletes);
-  std::cout << "SIZE " << thePath.size() << "\n";
+  //std::cout << "SIZE " << thePath.size() << "\n";
   if(thePath.size()>path.size()){
       // Increase times through the end of the track
       auto newEnd(thePath.begin()+insertPoint);
@@ -456,15 +457,16 @@ unsigned ReplanLeg(AirCBSUnit* c, TemplateAStar<airtimeState, airplaneAction, Ai
 
 // Plan path between waypoints
 template <typename tiebreaking>
-void GetFullPath(AirCBSUnit* c, TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment, AStarOpenClosed<airtimeState, tiebreaking > >& astar, AirplaneConstrainedEnvironment* env, std::vector<airtimeState>& thePath, unsigned s, unsigned g)
+unsigned GetFullPath(AirCBSUnit* c, TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment, AStarOpenClosed<airtimeState, tiebreaking > >& astar, AirplaneConstrainedEnvironment* env, std::vector<airtimeState>& thePath, unsigned s, unsigned g)
 {
   int insertPoint(-1);
   float origTime(0.0);
   float newTime(0.0);
   unsigned deletes(0);
+  unsigned expansions(0);
   // Remove points from the original path (if they exist)
   if(!thePath.empty()){
-    std::cout << "re-planning path from " << s << " to " << g << " on a path of len:" << thePath.size() << "\n";
+    //std::cout << "re-planning path from " << s << " to " << g << " on a path of len:" << thePath.size() << "\n";
     airtimeState start(c->GetWaypoint(s));
     airtimeState goal(c->GetWaypoint(g));
     for(unsigned n(0); n<thePath.size(); ++n){
@@ -490,7 +492,8 @@ void GetFullPath(AirCBSUnit* c, TemplateAStar<airtimeState, airplaneAction, Airp
     airtimeState goal(c->GetWaypoint(i+1));
     env->setGoal(goal);
     astar.GetPath(env, start, goal, path);
-    if(path.empty())return; //no solution found
+    expansions += astar.GetNodesExpanded();
+    if(path.empty())return expansions; //no solution found
     // Update path times
     if(thePath.size()){
       float offsetTime(insertPoint==-1?thePath.rbegin()->t:thePath[insertPoint].t);
@@ -520,10 +523,9 @@ void GetFullPath(AirCBSUnit* c, TemplateAStar<airtimeState, airplaneAction, Airp
         }
     }
     offset=1;
-    std::cout << "Planned leg " << goal << "\n";
-    //TOTAL_EXPANSIONS += astar.GetNodesExpanded();
+    //std::cout << "Planned leg " << goal << "\n";
   }
-
+  return expansions;
 }
 
 /** Add a new unit with a new start and goal state to the CBS group */
@@ -550,8 +552,7 @@ void AirCBSGroup::AddUnit(Unit<airtimeState, airplaneAction, AirplaneConstrained
   //std::cout << "Search using " << currentEnvironment->environment->name() << "\n";
   std::vector<airtimeState> thePath;
   agentEnvs[c->getUnitNumber()]=currentEnvironment->environment;
-  GetFullPath<RandomTieBreaking<airtimeState> >(c, astar, currentEnvironment->environment, thePath, 0,c->GetNumWaypoints()-1);
-  TOTAL_EXPANSIONS += astar.GetNodesExpanded();
+  TOTAL_EXPANSIONS+=GetFullPath<RandomTieBreaking<airtimeState> >(c, astar, currentEnvironment->environment, thePath, 0,c->GetNumWaypoints()-1);
   //std::cout << "AddUnit agent: " << (GetNumMembers()-1) << " expansions: " << astar.GetNodesExpanded() << "\n";
 
   // We add the optimal path to the root of the tree

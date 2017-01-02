@@ -618,13 +618,13 @@ airplaneAction AirplaneEnvironment::GetAction(const airplaneState &node1, const 
   airplaneAction a;
 
   // Deal with actions that setup landing
-  if (node1.landed && !node2.landed){
+  /*if (node1.landed && !node2.landed){
     return(airplaneAction(0,0,0,1));
   } else if (node2.landed && !node1.landed) {
     return(airplaneAction(0,0,0,2));
   } else if (node1.landed && node2.landed) {
     return(airplaneAction(0,0,0,3));
-  }
+  }*/
 
   a.height = node2.height - node1.height;
   a.turn = node2.heading - node1.heading;
@@ -809,6 +809,7 @@ void AirplaneEnvironment::ApplyAction(airplaneState &s, airplaneAction dir) cons
       {-1, -1}
   };
   
+  //std::cout << "ApplyAction " << dir << " to " << s << "\n";
   int8_t heading(s.heading);
 
   if (dir.turn == kShift) {
@@ -830,6 +831,7 @@ void AirplaneEnvironment::ApplyAction(airplaneState &s, airplaneAction dir) cons
   if((!s.landed) && GoalTest(s,getGoal())){
      s.landed = true;
   }
+  //std::cout << "ApplyAction " << " result " << s << "\n";
 }
 
 void AirplaneEnvironment::UndoAction(airplaneState &s, airplaneAction dir) const
