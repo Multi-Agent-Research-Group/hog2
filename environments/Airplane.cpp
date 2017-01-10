@@ -1258,7 +1258,7 @@ airplaneState AirplaneEnvironment::GetState(uint64_t hash) const
 {
     airplaneState s;
     s.landed=hash&0x1;
-    s.heading=hash&((0xe));
+    s.heading=(hash>>1)&((0x7));
     s.speed=(hash>>4)&(0x20-1);
     s.height=(hash>>9)&(0x400-1);
     s.y=(hash>>19)&(0x10000-1);

@@ -14,9 +14,9 @@ int main(){
   //testConstraints();
   //testAdmissibility();
   //compareHeuristicSpeed();
-  //testPathUniqueness();
-  //testHash();
-  testIntervalTree();
+  testPathUniqueness();
+  testHash();
+  //testIntervalTree();
 
   return 0;
 

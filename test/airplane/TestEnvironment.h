@@ -166,10 +166,10 @@ void testPathUniqueness(){
 
   AirplaneEnvironment* ase(new AirplaneSimpleEnvironment());
   ase->loadPerimeterDB();
-  //envs.push_back(ase);
+  envs.push_back(ase);
   TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> r3;
   r3.SetSuccessorFunc(&AirplaneSimpleEnvironment::GetReverseSuccessors);
-  //ra.push_back((TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment>*)&r3);
+  ra.push_back((TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment>*)&r3);
 
   AirplaneEnvironment* a4e(new AirplaneCardinalEnvironment());
   a4e->loadPerimeterDB();
@@ -187,21 +187,23 @@ void testPathUniqueness(){
 
   //airplaneState start(40,40,10,1,0,false,AirplaneType::PLANE);
   //airplaneState goal(43,41,14,3,7,false,AirplaneType::PLANE);
-  std::set<uint64_t> hashes;
   for(int k(0); k<envs.size(); ++k){
     AirplaneEnvironment* e(envs[k]);
     //AirplaneEnvironment* re(renvs[k]);
     TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment>* rastar = ra[k];
-    unsigned singular(0);
-    unsigned mx(0);
     TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> astar;
+    std::cout << "\n";
     std::cout << e->name() << "\n";
     double total(0.0);
-    for(int i(0); i<1;/*000;*/ ++i){
-      airplaneState start(45,35,10,3,0,false);
-      airplaneState goal(35,30,10,3,0,false);
-      //airplaneState start(rand() % 8+5, rand() % 8+5, rand() % 5+5, rand() % 5 + 1, rand() % 4*2, false);
-      //airplaneState goal(rand() % 8+5, rand() % 8+5, rand() % 5+5, rand() % 5 + 1, rand() % 4*2, false);
+    double numOpt(0);
+    //for(int i(0); i<1; ++i){
+    for(int i(0); i<1000; ++i){
+      std::set<uint64_t> hashes;
+      //airplaneState start(45,35,10,3,0,false);
+      //airplaneState goal(35,30,10,3,0,false);
+      airplaneState start(rand() % 8+5, rand() % 8+5, rand() % 5+5, rand() % 5 + 1, rand() % 4*2, false);
+      airplaneState goal(rand() % 8+5, rand() % 8+5, rand() % 5+5, rand() % 5 + 1, rand() % 4*2, false);
+      std::cout << start << "\n" << goal << "\n";
       if(start==goal)continue;
       std::vector<airplaneState> soln;
       std::vector<airplaneState> rsoln;
@@ -210,14 +212,14 @@ void testPathUniqueness(){
       for(auto const& a: soln)
         hashes.insert(e->GetStateHash(a));
       e->setGoal(start);
-      std::cout << "\n";
+      std::cout << ".\n";
       rastar->GetPath(e,goal,start,rsoln);
       for(auto const& a: rsoln)
         hashes.insert(e->GetStateHash(a));
       double cStar(e->GetPathLength(soln));
       double rcStar(e->GetPathLength(rsoln));
       std::cout << "c*,rc*: " << cStar << " " << rcStar << "\n";
-      float orig(soln.size());
+      numOpt += soln.size();
 
       while(true){
         astar.DoSingleSearchStep(soln);
@@ -259,8 +261,11 @@ void testPathUniqueness(){
       for(auto const& a: hashes){
         std::cout << e->GetState(a) << "\n";
       }
-      std::cout << orig << "/" << hashes.size() << "\n";
+      total+=hashes.size();
+      //astar.Reset();
+      //rastar->Reset();
     }
+    std::cout << numOpt << "/" << total << "=" << (numOpt/1000./total/1000.) << "\n";
   }
 }
 
