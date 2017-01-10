@@ -271,18 +271,33 @@ uint64_t AirplaneConstrainedEnvironment::GetStateHash(const airtimeState &node) 
 	h = h << 4;
         // Speed increments are in 1 m/sec
 	h |= node.speed & (0xF); // 5 bits
-	h = h << 1;
-	h |= node.landed;
 	h = h << 3;
         // Heading increments are in 45 degrees
 	h |= node.heading & (0x8-1); // 3 bits
+	h = h << 1;
+	h |= node.landed;
 	h = h << 12;
-        // Time is continuous
-	h |= unsigned(node.t) & (0x1000-1);
+        // Time is continuous (NOTE: this hashing is worthless; should mult by 1000 or something)
+	h |= unsigned(node.t*16) & (0x1000-1);
         //std::cout << "Hash: "<<node << std::hex << h << std::dec << "\n";
 	
 	return h;
 }
+
+airtimeState AirplaneConstrainedEnvironment::GetState(uint64_t hash) const
+{
+    airtimeState s;
+    s.t=((hash)&(0x1000-1))/16.0; // Can't represent a float like this...
+    s.landed=(hash>>12)&0x1;
+    s.heading=(hash>>13)&((0x7));
+    s.speed=(hash>>16)&(0xf);
+    s.height=(hash>>20)&(0x400-1);
+    s.y=(hash>>30)&(0x10000-1);
+    s.x=(hash>>46)&(0x10000-1);
+
+    return s;
+}
+
 
 uint64_t AirplaneConstrainedEnvironment::GetActionHash(airplaneAction act) const
 {

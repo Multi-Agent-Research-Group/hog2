@@ -1254,6 +1254,19 @@ uint64_t AirplaneEnvironment::GetStateHash(const airplaneState &node) const
     return h;
 }
 
+airplaneState AirplaneEnvironment::GetState(uint64_t hash) const
+{
+    airplaneState s;
+    s.landed=hash&0x1;
+    s.heading=hash&((0xe));
+    s.speed=(hash>>4)&(0x20-1);
+    s.height=(hash>>9)&(0x400-1);
+    s.y=(hash>>19)&(0x10000-1);
+    s.x=(hash>>35)&(0x10000-1);
+
+    return s;
+}
+
 uint64_t AirplaneEnvironment::GetActionHash(airplaneAction act) const
 {
 

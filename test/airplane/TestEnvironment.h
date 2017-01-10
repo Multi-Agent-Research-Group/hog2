@@ -9,12 +9,14 @@
 #include "AirplaneHighway4Cardinal.h"
 #include "AirplaneCardinal.h"
 #include "AirplaneMultiAgent.h"
+#include "TemplateIntervalTree.h"
 #include <iostream>
 #include <algorithm>
 #include <queue>
 #include "TemplateAStar.h"
 #include "Heuristic.h"
 #include <stdlib.h>
+#include <set>
 
 void renderScene(){}
 static const int sz(16);
@@ -67,6 +69,70 @@ bool set(float* list, airplaneState const& s, airplaneState const& start, float 
   return true;
 }
 
+struct IntervalData{
+  IntervalData(uint64_t h, uint8_t a):hash(h),agent(a){}
+  uint64_t hash;
+  uint8_t agent;
+  bool operator==(IntervalData const& other)const{return other.hash==hash && other.agent==agent;}
+};
+  std::ostream& operator<<(std::ostream& ss, IntervalData v) {ss << "<H:"<<v.hash<<" A:"<<unsigned(v.agent)<<">"; return ss;}
+
+void testIntervalTree(){
+  std::cout << "testIntervalTree\n";
+  TemplateIntervalTree<IntervalData,float> i;
+  IntervalData d1(1234,0);
+  IntervalData d2(1234,1);
+  std::cout << "contains " << i.size() << "\n";
+  i.insert(1.0,1.1,d1); std::cout << "insert\n";
+  std::cout << "contains " << i.size() << "\n";
+  auto o(i.findOverlapping(0.9,1.01));
+  std::cout << "found " << o.size() << "\n";
+  std::cout << o[0] << "\n";
+  o = i.findOverlapping(0.9,0.99);
+  std::cout << "found " << o.size() << "\n";
+  i.insert(1.0,1.1,d2); std::cout << "insert\n";
+  std::cout << "contains " << i.size() << "\n";
+  o = i.findOverlapping(0.9,1.01);
+  std::cout << "found " << o.size() << "\n";
+  std::cout << o[0] << "\n";
+  std::cout << o[1] << "\n";
+  i.remove(1.0,1.1,d2); std::cout << "remove\n";
+  std::cout << "contains " << i.size() << "\n";
+  o = i.findOverlapping(0.9,1.01);
+  std::cout << "found " << o.size() << "\n";
+  std::cout << o[0] << "\n";
+  i.insert(2.0,2.1,d2); std::cout << "insert\n";
+  std::cout << "contains " << i.size() << "\n";
+  o = i.findOverlapping(0.9,1.01);
+  std::cout << "found " << o.size() << "\n";
+  std::cout << o[0] << "\n";
+  o = i.findOverlapping(1.9,2.01);
+  std::cout << "found " << o.size() << "\n";
+  std::cout << o[0] << "\n";
+  std::vector<TemplateInterval<IntervalData,float> > data;
+  for(float v(0.0); v<28; v+=1.0){
+    data.push_back(TemplateInterval<IntervalData,float>(v,v+.1,d1));
+  }
+  i=TemplateIntervalTree<IntervalData,float>(data);
+  std::cout << "SIZE " << i.size() << "("<<data.size()<<")" << " DEPTH "<< i.depth() << "\n";
+}
+
+void testHash(){
+  std::cout << "testHash\n";
+  AirplaneEnvironment* env(new AirplaneEnvironment());
+  airplaneState start(40,40,10,1,0,false,AirplaneType::PLANE);
+  uint64_t hash(env->GetStateHash(start));
+  airplaneState after(env->GetState(hash));
+  std::cout << start << "\n";
+  std::cout << after << "\n";
+  AirplaneConstrainedEnvironment* env2(new AirplaneConstrainedEnvironment(env));
+  airtimeState s(start,1.234);
+  uint64_t h(env2->GetStateHash(s));
+  airtimeState a(env2->GetState(h));
+  std::cout << s << "\n";
+  std::cout << a << "\n";
+}
+
 void testIndexConv(){
 std::cout << "testIndexConv\n";
 airplaneState start(40,40,10,1,0,false,AirplaneType::PLANE);
@@ -81,71 +147,120 @@ std::cout << fromIndex(ix,start) << "\n";
 void testPathUniqueness(){
   std::cout << "testPathUniqueness\n";
   std::vector<AirplaneEnvironment*> envs;
+  std::vector<AirplaneEnvironment*> renvs;
+  std::vector<TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment>*> ra;
 
   AirplaneEnvironment* a8e(new AirplaneHighwayEnvironment());
   a8e->loadPerimeterDB();
-  envs.push_back(a8e);
+  //envs.push_back(a8e);
+  TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> r1;
+  r1.SetSuccessorFunc(&AirplaneHighwayEnvironment::GetReverseSuccessors);
+  //ra.push_back((TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment>*)&r1);
 
   AirplaneEnvironment* ae(new AirplaneEnvironment());
   ae->loadPerimeterDB();
   envs.push_back(ae);
+  TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> r2;
+  r2.SetSuccessorFunc(&AirplaneEnvironment::GetReverseSuccessors);
+  ra.push_back(&r2);
 
   AirplaneEnvironment* ase(new AirplaneSimpleEnvironment());
   ase->loadPerimeterDB();
-  envs.push_back(ase);
+  //envs.push_back(ase);
+  TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> r3;
+  r3.SetSuccessorFunc(&AirplaneSimpleEnvironment::GetReverseSuccessors);
+  //ra.push_back((TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment>*)&r3);
 
   AirplaneEnvironment* a4e(new AirplaneCardinalEnvironment());
   a4e->loadPerimeterDB();
-  envs.push_back(a4e);
+  //envs.push_back(a4e);
+  TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> r4;
+  r4.SetSuccessorFunc(&AirplaneCardinalEnvironment::GetReverseSuccessors);
+  //ra.push_back((TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment>*)&r4);
 
   AirplaneEnvironment* a4he(new AirplaneHighway4CardinalEnvironment());
   a4he->loadPerimeterDB();
-  envs.push_back(a4he);
+  //envs.push_back(a4he);
+  TemplateAStar<airplaneState, airplaneAction, AirplaneHighway4CardinalEnvironment> r5;
+  r5.SetSuccessorFunc(&AirplaneHighway4CardinalEnvironment::GetReverseSuccessors);
+  //ra.push_back((TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment>*)&r5);
 
   //airplaneState start(40,40,10,1,0,false,AirplaneType::PLANE);
   //airplaneState goal(43,41,14,3,7,false,AirplaneType::PLANE);
-  for(auto e:envs){
+  std::set<uint64_t> hashes;
+  for(int k(0); k<envs.size(); ++k){
+    AirplaneEnvironment* e(envs[k]);
+    //AirplaneEnvironment* re(renvs[k]);
+    TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment>* rastar = ra[k];
     unsigned singular(0);
     unsigned mx(0);
     TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> astar;
     std::cout << e->name() << "\n";
     double total(0.0);
-    for(int i(0); i<1000; ++i){
-      airplaneState start(rand() % 8+5, rand() % 8+5, rand() % 5+5, rand() % 5 + 1, rand() % 4*2, false);
-      airplaneState goal(rand() % 8+5, rand() % 8+5, rand() % 5+5, rand() % 5 + 1, rand() % 4*2, false);
+    for(int i(0); i<1;/*000;*/ ++i){
+      airplaneState start(45,35,10,3,0,false);
+      airplaneState goal(35,30,10,3,0,false);
+      //airplaneState start(rand() % 8+5, rand() % 8+5, rand() % 5+5, rand() % 5 + 1, rand() % 4*2, false);
+      //airplaneState goal(rand() % 8+5, rand() % 8+5, rand() % 5+5, rand() % 5 + 1, rand() % 4*2, false);
       if(start==goal)continue;
       std::vector<airplaneState> soln;
+      std::vector<airplaneState> rsoln;
       e->setGoal(goal);
       astar.GetPath(e,start,goal,soln);
+      for(auto const& a: soln)
+        hashes.insert(e->GetStateHash(a));
+      e->setGoal(start);
+      std::cout << "\n";
+      rastar->GetPath(e,goal,start,rsoln);
+      for(auto const& a: rsoln)
+        hashes.insert(e->GetStateHash(a));
       double cStar(e->GetPathLength(soln));
-      std::vector<airplaneState> ancestors;
-      e->GetReverseSuccessors(goal,ancestors);
-      unsigned numOpt(1);
+      double rcStar(e->GetPathLength(rsoln));
+      std::cout << "c*,rc*: " << cStar << " " << rcStar << "\n";
+      float orig(soln.size());
+
       while(true){
         astar.DoSingleSearchStep(soln);
         uint64_t key(astar.openClosedList.Peek());
-        airplaneState current(astar.openClosedList.Lookup(key).data);
         double f(astar.openClosedList.Lookup(key).g+astar.openClosedList.Lookup(key).h);
-        //double g(current,goal);
-        //std::cout << f << " " << cStar << "\n";
         if(fgreater(f,cStar)){
           break;
-        }else{
-          for(auto &s: ancestors){
-            if(s == current){
-              ++numOpt;
-              //std::cout << " " << ++numOpt << "\n";
-              break;
+        }
+      }
+
+      while(true){
+        rastar->DoSingleSearchStep(rsoln);
+        uint64_t key(rastar->openClosedList.Peek());
+        std::cout << key << "\n";
+        double f(rastar->openClosedList.Lookup(key).g+rastar->openClosedList.Lookup(key).h);
+        if(fgreater(f,rcStar)){
+          break;
+        }
+      }
+
+      std::queue<airplaneState> q;
+      q.push(goal);
+      while(q.size()){
+        airplaneState s(q.front());
+        q.pop();
+        std::vector<airplaneState> ancestors;
+        e->GetReverseSuccessors(s,ancestors);
+        for(auto const& a: ancestors){
+          uint64_t key(e->GetStateHash(a));
+          double g1,g2;
+          if(rastar->GetClosedListGCost(a,g1) && astar.GetClosedListGCost(a,g2)){
+            if(fequal(g1+g2,cStar)){
+              hashes.insert(key);
+              q.push(a);
             }
           }
         }
       }
-      total += numOpt;
-      //std::cout << i << ": " << numOpt << "\n";
-      singular += (numOpt > 1)?1:0;
-      mx = std::max(mx,numOpt);
+      for(auto const& a: hashes){
+        std::cout << e->GetState(a) << "\n";
+      }
+      std::cout << orig << "/" << hashes.size() << "\n";
     }
-    std::cout << "singular: " << singular << " max: " << mx << " ave: " << total/1000.0 << "\n";
   }
 }
 

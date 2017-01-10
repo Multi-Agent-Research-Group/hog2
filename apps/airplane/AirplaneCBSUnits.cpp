@@ -11,6 +11,7 @@
 extern bool heuristic;
 extern int seed;
 
+std::ostream& operator<<(std::ostream& ss, IntervalData v) {ss << "<H1:"<<v.hash1<<"-->"<<v.hash2<<" A:"<<unsigned(v.agent)<<">"; return ss;}
 //----------------------------------------------------------------------------------------------------------------------------------------------//
 
 /** AIR CBS UNIT DEFINITIONS */
@@ -451,13 +452,14 @@ unsigned ReplanLeg(AirCBSUnit* c, TemplateAStar<airtimeState, airplaneAction, Ai
           newEnd->t+=(newTime-origTime);
       }
   }
+  std::cout << "exp replan " << astar.GetNodesExpanded() << "\n";
   return astar.GetNodesExpanded();
 
 }
 
 // Plan path between waypoints
 template <typename tiebreaking>
-unsigned GetFullPath(AirCBSUnit* c, TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment, AStarOpenClosed<airtimeState, tiebreaking > >& astar, AirplaneConstrainedEnvironment* env, std::vector<airtimeState>& thePath, unsigned s, unsigned g)
+unsigned GetFullPath(AirCBSUnit* c, TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment, AStarOpenClosed<airtimeState, tiebreaking > >& astar, AirplaneConstrainedEnvironment* env, std::vector<airtimeState>& thePath, unsigned s, unsigned g, unsigned agent)
 {
   int insertPoint(-1);
   float origTime(0.0);
@@ -486,6 +488,12 @@ unsigned GetFullPath(AirCBSUnit* c, TemplateAStar<airtimeState, airplaneAction, 
 
   // Perform search for all legs
   unsigned offset(0);
+  if(useCAT){
+    currentAstar=&astar;
+    currentEnv=(AirplaneConstrainedEnvironment*)env;
+    std::cout << currentEnv->name() << " NAME\n";
+    currentAgent=agent;
+  }
   for(int i=s; i<g; ++i){
     std::vector<airtimeState> path;
     airtimeState start(c->GetWaypoint(i));
@@ -493,7 +501,8 @@ unsigned GetFullPath(AirCBSUnit* c, TemplateAStar<airtimeState, airplaneAction, 
     env->setGoal(goal);
     astar.GetPath(env, start, goal, path);
     expansions += astar.GetNodesExpanded();
-    if(path.empty())return expansions; //no solution found
+    std::cout << "exp full " << astar.GetNodesExpanded() << "\n";
+    if(path.empty()){return expansions;} //no solution found
     // Update path times
     if(thePath.size()){
       float offsetTime(insertPoint==-1?thePath.rbegin()->t:thePath[insertPoint].t);
@@ -552,13 +561,35 @@ void AirCBSGroup::AddUnit(Unit<airtimeState, airplaneAction, AirplaneConstrained
   //std::cout << "Search using " << currentEnvironment->environment->name() << "\n";
   std::vector<airtimeState> thePath;
   agentEnvs[c->getUnitNumber()]=currentEnvironment->environment;
-  TOTAL_EXPANSIONS+=GetFullPath<RandomTieBreaking<airtimeState> >(c, astar, currentEnvironment->environment, thePath, 0,c->GetNumWaypoints()-1);
+  CAT=&(tree[0].cat);
+  TOTAL_EXPANSIONS+=GetFullPath<RandomTieBreaking<airtimeState> >(c, astar, currentEnvironment->environment, thePath, 0,c->GetNumWaypoints()-1,GetNumMembers()-1);
   //std::cout << "AddUnit agent: " << (GetNumMembers()-1) << " expansions: " << astar.GetNodesExpanded() << "\n";
 
+  IntervalTree::intervalVector info;
   // We add the optimal path to the root of the tree
-  for (unsigned int x = 0; x < thePath.size(); x++)
-  {
-    tree[0].paths.back().push_back(thePath[x]);
+  for(int i(0); i<thePath.size(); ++i) {
+    // Populate the interval tree
+    if(useCAT){
+      if(i){ //!=0
+        if(GetNumMembers()>1){
+          tree[0].cat.insert(thePath[i-1].t, thePath[i].t, IntervalData(currentEnvironment->environment->GetStateHash(thePath[i-1]), currentEnvironment->environment->GetStateHash(thePath[i]), tree[0].paths.size()-1));
+        }else{
+          info.push_back(Interval(thePath[i-1].t, thePath[i].t, IntervalData(currentEnvironment->environment->GetStateHash(thePath[i-1]), currentEnvironment->environment->GetStateHash(thePath[i]), tree[0].paths.size()-1)));
+        }
+      }else{
+        // No parent...
+        if(GetNumMembers()>1){
+          tree[0].cat.insert(thePath[i].t, thePath[i].t+.001, IntervalData(0, currentEnvironment->environment->GetStateHash(thePath[i]), tree[0].paths.size()-1));
+        }else{
+          info.push_back(Interval(thePath[i].t, thePath[i].t+.001, IntervalData(0, currentEnvironment->environment->GetStateHash(thePath[i]), tree[0].paths.size()-1)));
+        }
+      }
+    }
+    tree[0].paths.back().push_back(thePath[i]);
+    std::cout << "PATH " << thePath.size() << " tree SIZE,DEPTH " << tree[0].cat.size() << "," << tree[0].cat.depth() << "\n";
+  }
+  if(info.size()){
+    tree[0].cat=IntervalTree(info);
   }
 
   // Set the plan finished to false, as there's new updates
@@ -620,6 +651,7 @@ void AirCBSGroup::UpdateUnitGoal(Unit<airtimeState, airplaneAction, AirplaneCons
     std::vector<airtimeState> thePath;
     DoHAStar(current, goal, thePath);
     TOTAL_EXPANSIONS += astar.GetNodesExpanded();
+    std::cout << "exp replan " << astar.GetNodesExpanded() << "\n";
 
     //std::cout << "Got optimal path" << std::endl;
     // Add the optimal path to the root of the tree
@@ -791,7 +823,11 @@ bool AirCBSGroup::Bypass(int best, unsigned numConflicts, airConflict const& c1,
   //astar2.GetPath(currentEnvironment->environment, *tree[best].paths[c1.unit1].begin(), *tree[best].paths[c1.unit1].rbegin(), newPath);
   //TOTAL_EXPANSIONS += astar2.GetNodesExpanded();
 
+  // Never use conflict avoidance tree for bypass
+  bool orig(useCAT);
+  useCAT=false;
   TOTAL_EXPANSIONS += ReplanLeg<CompareLowGCost<airtimeState> >(c, astar2, currentEnvironment->environment, newPath, c1.prevWpt, c1.prevWpt+1);
+  useCAT=orig;
 
   // Make sure that the current location is satisfiable
   if (newPath.size() == 0 && !(*tree[best].paths[c1.unit1].begin() == *tree[best].paths[c1.unit1].rbegin()))
@@ -887,7 +923,24 @@ void AirCBSGroup::Replan(int location)
   //agentEnvs[c->getUnitNumber()]=currentEnvironment->environment;
   //astar.GetPath(currentEnvironment->environment, start, goal, thePath);
   std::vector<airtimeState> thePath(tree[location].paths[theUnit]);
+  currentAstar=&astar;
+  currentEnv=(AirplaneConstrainedEnvironment*)currentEnvironment->environment;
+  currentAgent=theUnit;
+  CAT=&(tree[location].cat);
+  
+  if(useCAT){
+    for(int i(0); i<thePath.size(); ++i) {
+      // Populate the interval tree
+      if(i) //!=0
+        CAT->remove(thePath[i-1].t, thePath[i].t, IntervalData(currentEnvironment->environment->GetStateHash(thePath[i-1]), currentEnvironment->environment->GetStateHash(thePath[i]), theUnit));
+      else
+        // No parent...
+        CAT->remove(thePath[i].t, thePath[i].t+.001, IntervalData(0, currentEnvironment->environment->GetStateHash(thePath[i]), theUnit));
+    }
+  }
+
   TOTAL_EXPANSIONS += ReplanLeg<RandomTieBreaking<airtimeState> >(c, astar, currentEnvironment->environment, thePath, tree[location].con.prevWpt, tree[location].con.prevWpt+1);
+
   //DoHAStar(start, goal, thePath);
   //TOTAL_EXPANSIONS += astar.GetNodesExpanded();
   //std::cout << "Replan agent: " << location << " expansions: " << astar.GetNodesExpanded() << "\n";
@@ -899,9 +952,16 @@ void AirCBSGroup::Replan(int location)
 
   // Add the path back to the tree (new constraint included)
   tree[location].paths[theUnit].resize(0);
-  for (unsigned int x = 0; x < thePath.size(); x++)
-  {
-    tree[location].paths[theUnit].push_back(thePath[x]);
+  for(int i(0); i<thePath.size(); ++i) {
+    // Populate the interval tree
+    if(useCAT){
+      if(i) //!=0
+        CAT->insert(thePath[i-1].t, thePath[i].t, IntervalData(currentEnvironment->environment->GetStateHash(thePath[i-1]), currentEnvironment->environment->GetStateHash(thePath[i]), theUnit));
+      else
+        // No parent...
+        CAT->insert(thePath[i].t, thePath[i].t+.001, IntervalData(0, currentEnvironment->environment->GetStateHash(thePath[i]), theUnit));
+    }
+    tree[location].paths[theUnit].push_back(thePath[i]);
   }
 
   // Issue tickets on the path
@@ -1148,5 +1208,16 @@ void AirCBSGroup::OpenGLDraw(const AirplaneConstrainedEnvironment *ae, const Sim
 	}
 	glLineWidth(1.0);
 	*/
+}
+
+unsigned checkForConflict(airtimeState const*const parent, airtimeState const*const node, airtimeState const*const pathParent, airtimeState const*const pathNode){
+  airConstraint v(*node);
+  if(v.ConflictsWith(*pathNode)){return 1;}
+  if(parent && pathParent){
+    airConstraint e1(*parent,*node);
+    airConstraint e2(*pathParent,*pathNode);
+    if(e1.ConflictsWith(e2)){return 1;}
+  }
+  return 0; 
 }
 

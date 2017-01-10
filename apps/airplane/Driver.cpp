@@ -25,7 +25,12 @@
 bool highsort = false;
 bool heuristic = false;
 bool randomalg = false;
+bool useCAT = false; // Use conflict avoidance table
+IntervalTree* CAT(0); // Conflict Avoidance Table
+AirplaneConstrainedEnvironment* currentEnv(0);
+uint8_t currentAgent(0);
 bool mouseTracking;
+TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment, AStarOpenClosed<airtimeState, RandomTieBreaking<airtimeState> > >* currentAstar(0);
 unsigned killtime(300);
 int px1, py1, px2, py2;
 int absType = 0;
@@ -129,6 +134,7 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-probfile", "-probfile", "Load MAPF instance from file");
 	InstallCommandLineHandler(MyCLHandler, "-killtime", "-killtime", "Kill after this many seconds");
 	InstallCommandLineHandler(MyCLHandler, "-nogui", "-nogui", "Turn off gui");
+	InstallCommandLineHandler(MyCLHandler, "-cat", "-cat", "Use Conflict Avoidance Table (CAT)");
 	InstallCommandLineHandler(MyCLHandler, "-random", "-random", "Randomize conflict resolution order");
 	InstallCommandLineHandler(MyCLHandler, "-highsort", "-highsort", "Use sort high-level search by number of conflicts");
 	InstallCommandLineHandler(MyCLHandler, "-heuristic", "-heuristic", "Use heuristic in low-level search");
@@ -235,8 +241,12 @@ void InitHeadless(){
     AirCBSUnit* unit = new AirCBSUnit(waypoints[i]);
     unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
     group->AddUnit(unit); // Add to the group
+    std::cout << "initial path for agent " << i << ":\n";
+    for(auto const& n: group->tree[0].paths[i])
+      std::cout << n << "\n";
     if(gui){sim->AddUnit(unit);} // Add to the group
   }
+  //assert(false && "Exit early");
 }
 
 void InitSim(){
@@ -302,6 +312,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 	if(strcmp(argument[0], "-highsort") == 0)
 	{
                 highsort = true;
+		return 1;
+	}
+	if(strcmp(argument[0], "-cat") == 0)
+	{
+                useCAT = true;
 		return 1;
 	}
 	if(strcmp(argument[0], "-random") == 0)

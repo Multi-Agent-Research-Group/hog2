@@ -97,6 +97,7 @@ public:
 	
 	/** Methods for dealing with state hashing */
 	virtual uint64_t GetStateHash(const airtimeState &node) const;
+        airtimeState GetState(uint64_t hash) const;
 	virtual uint64_t GetActionHash(airplaneAction act) const;
 
 	/// DRAWING

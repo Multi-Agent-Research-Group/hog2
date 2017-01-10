@@ -25,15 +25,38 @@
 #include "UnitGroup.h"
 #include "Airplane.h"
 #include "AirplaneConstrained.h"
-#include "AirplaneTicketAuthority.h"
+//#include "AirplaneTicketAuthority.h"
+#include "TemplateIntervalTree.h"
 #include "TemplateAStar.h"
 #include "BFS.h"
 #include "Heuristic.h"
 #include "Timer.h"
 
+struct IntervalData{
+  IntervalData(uint64_t h1, uint64_t h2, uint8_t a):hash1(h1),hash2(h2),agent(a){}
+  uint64_t hash1;
+  uint64_t hash2;
+  uint8_t agent;
+  bool operator==(IntervalData const& other)const{return other.hash1==hash1 && other.hash2==hash2 && other.agent==agent;}
+};
+
+
 extern bool highsort;
 extern bool randomalg;
+extern bool useCAT;
 extern unsigned killtime;
+typedef TemplateIntervalTree<IntervalData,float> IntervalTree;
+typedef TemplateInterval<IntervalData,float> Interval;
+extern IntervalTree* CAT; // Conflict Avoidance Table
+extern AirplaneConstrainedEnvironment* currentEnv;
+extern uint8_t currentAgent;
+
+template <class state>
+struct CompareLowGCost;
+template <class state>
+struct RandomTieBreaking;
+
+extern TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment, AStarOpenClosed<airtimeState, RandomTieBreaking<airtimeState> > >* currentAstar;
 
 template <class state>
 struct CompareLowGCost {
@@ -41,24 +64,79 @@ struct CompareLowGCost {
   {
     if (fequal(i1.g+i1.h, i2.g+i2.h))
     {
-      return fless(i1.data.t,i2.data.t);
+      return fless(i1.data.t,i2.data.t); // Break ties by time
     }
     return (fgreater(i1.g+i1.h, i2.g+i2.h));
   }
 };
 
+// Check if an openlist node conflicts with a node from an existing path
+unsigned checkForConflict(airtimeState const*const parent, airtimeState const*const node, airtimeState const*const pathParent, airtimeState const*const pathNode);
+
 template <class state>
 struct RandomTieBreaking {
-  bool operator()(const AStarOpenClosedData<state> &i1, const AStarOpenClosedData<state> &i2) const
+  bool operator()(const AStarOpenClosedData<state> &ci1, const AStarOpenClosedData<state> &ci2) const
   {
-    if (fequal(i1.g+i1.h, i2.g+i2.h))
+    if (fequal(ci1.g+ci1.h, ci2.g+ci2.h)) // F-cost equal
     {
-      if(randomalg && fequal(i1.g,i2.g))
+      if(useCAT && CAT && ci1.data.nc==0 && ci2.data.nc==0){
+        // Make them non-const :)
+        AStarOpenClosedData<state>& i1(const_cast<AStarOpenClosedData<state>&>(ci1));
+        AStarOpenClosedData<state>& i2(const_cast<AStarOpenClosedData<state>&>(ci2));
+
+        //std::cout << "ITSIZE " << CAT->size() << "\n";
+        auto matches(CAT->findOverlapping(i1.data.t,i1.data.t+.1));
+
+        // Get number of conflicts in the parent
+        airtimeState const*const parent1(i1.parentID?&(currentAstar->GetItem(i1.parentID).data):nullptr);
+        unsigned nc1(parent1?parent1->nc:0);
+        //std::cout << "matches " << matches.size() << "\n";
+
+        // Count number of conflicts
+        for(auto const& m: matches){
+          if(currentAgent == m.value.agent) continue;
+          airtimeState p(currentEnv->GetState(m.value.hash1));
+          p.t=m.start;
+          airtimeState n(currentEnv->GetState(m.value.hash2));
+          n.t=m.stop;
+          nc1+=checkForConflict(parent1,&i1.data,&p,&n);
+          //if(!nc1){std::cout << "NO ";}
+          //std::cout << "conflict(1): " << i1.data << " " << n << "\n";
+        }
+        // Set the number of conflicts in the data object
+        i1.data.nc=nc1;
+
+        // Do the same for node 2
+        matches = CAT->findOverlapping(i2.data.t,i2.data.t+.1);
+        airtimeState const*const parent2(i2.parentID?&(currentAstar->GetItem(i2.parentID).data):nullptr);
+        unsigned nc2(parent2?parent2->nc:0);
+
+        // Count number of conflicts
+        for(auto const& m: matches){
+          if(currentAgent == m.value.agent) continue;
+          airtimeState p(currentEnv->GetState(m.value.hash1));
+          p.t=m.start;
+          airtimeState n(currentEnv->GetState(m.value.hash2));
+          n.t=m.stop;
+          nc2+=checkForConflict(parent2,&i2.data,&p,&n);
+          //if(!nc2){std::cout << "NO ";}
+          //std::cout << "conflict(2): " << i2.data << " " << n << "\n";
+        }
+        // Set the number of conflicts in the data object
+        i2.data.nc=nc2;
+        //std::cout << "NC " << nc1 << " " << nc2 << " @ "<<i1.data <<" "<<i2.data<<"\n";
+        //std::cout << "\n";
+
+        return fless(i2.data.nc,i1.data.nc);
+      }
+      else if(randomalg && fequal(ci1.g,ci2.g)){
         return rand()%2;
-      else
-        return (fless(i1.g, i2.g));
+      }
+      else {
+        return (fless(ci1.g, ci2.g));  // Tie-break toward greater g-cost
+      }
     }
-    return (fgreater(i1.g+i1.h, i2.g+i2.h));
+    return (fgreater(ci1.g+ci1.h, ci2.g+ci2.h));
   }
 };
 
@@ -118,6 +196,7 @@ struct AirCBSTreeNode {
 	airConflict con;
 	unsigned int parent;
 	bool satisfiable;
+        IntervalTree cat; // Conflict avoidance table
 };
 
 static std::ostream& operator <<(std::ostream & out, const AirCBSTreeNode &act)
@@ -154,6 +233,7 @@ public:
 	bool donePlanning() {return planFinished;}
 	void ExpandOneCBSNode(bool gui=true);
 
+	std::vector<AirCBSTreeNode> tree;
 private:    
 
         unsigned IssueTicketsForNode(int location);
@@ -177,7 +257,6 @@ private:
     void ClearEnvironmentConstraints();
     void AddEnvironmentConstraint(airConstraint c);
 
-	std::vector<AirCBSTreeNode> tree;
 	//std::vector<airtimeState> thePath;
 	TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment, AStarOpenClosed<airtimeState, RandomTieBreaking<airtimeState> > > astar;
 	TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment, AStarOpenClosed<airtimeState, CompareLowGCost<airtimeState> > > astar2;
@@ -213,7 +292,7 @@ private:
 	uint TOTAL_EXPANSIONS = 0;
         Timer* timer=0;
 
-	TicketAuthority ticketAuthority;
+	//TicketAuthority ticketAuthority;
 
 	bool use_restricted = false;
 	bool use_waiting = false;

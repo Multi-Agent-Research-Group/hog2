@@ -23,32 +23,38 @@ namespace ITree {
      
     struct ITNode
     {
+            ITNode():i(0),max(0),left(0),right(0){}
             Interval *i;
             float max;
             ITNode *left, *right;
             ~ITNode() {
-                delete left;
-                delete right;
-                delete i;
+                if(left)
+                  delete left;
+                if(right)
+                  delete right;
+                if(i)
+                  delete i;
             }
     };
 
     ITNode * newNode(Interval* ipt);
     ITNode *insert(ITNode *root, Interval* i);
     bool doOverlap(Interval* i1, Interval* i2);
-    std::vector<Interval*> intervalSearch(ITNode *root, Interval* i);
+    std::vector<Interval*> intervalSearch(ITNode *root, Interval* i, unsigned d=0);
 }
 
 class IntervalTree {
     public:
-        IntervalTree() {}
+        IntervalTree() :count(0) {}
         ~IntervalTree() { delete root; }
 
-        ITree::ITNode* Insert(ITree::Interval* it) {return ITree::insert(root, it);}
+        ITree::ITNode* Insert(ITree::Interval* it) {++count; return root=ITree::insert(root, it);}
+        inline unsigned size()const{return count;}
         std::vector<ITree::Interval*> GetOverlappingIntervals(ITree::Interval* i1) {return ITree::intervalSearch(root, i1);}
 
     private:
         ITree::ITNode* root = nullptr;
+        unsigned count;
 };
 
 #endif

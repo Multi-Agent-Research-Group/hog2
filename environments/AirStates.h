@@ -19,9 +19,10 @@ struct RAirspaceTicket;
  * a given time, so we can check constraints
  */
 struct airtimeState : public airplaneState {
-	airtimeState(airplaneState loc, float time) :airplaneState(loc), t(time) {}
-	airtimeState() :airplaneState(), t(0) {}
+	airtimeState(airplaneState loc, float time, uint8_t c=0) :airplaneState(loc), t(time), nc(c) {}
+	airtimeState() :airplaneState(), t(0), nc(0) {}
 	float t;
+        uint8_t nc; // Number of conflicts
 	std::vector<RAirspaceTicket*> current_tickets;
 };
 
@@ -29,7 +30,7 @@ struct airtimeState : public airplaneState {
 static std::ostream& operator <<(std::ostream & out, const airtimeState &loc)
 {
 	out << "(x:" << loc.x << ", y:" << loc.y << ", h:" << loc.height << ", s:" << unsigned(loc.speed) <<
-											    ", hdg:" << unsigned(loc.heading) << ", t:" << (loc.t) << ", l: " << unsigned (loc.landed) << ", type: " << (loc.type == AirplaneType::QUAD ? "QUAD": "PLANE") <<  ")";
+											    ", hdg:" << unsigned(loc.heading) << ", t:" << (loc.t) << ", l: " << unsigned (loc.landed) << ", nc: " << unsigned(loc.nc) << ")";
 	return out;
 }
 
