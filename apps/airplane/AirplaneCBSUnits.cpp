@@ -8,8 +8,10 @@
 
 #include "AirplaneCBSUnits.h"
 
+extern bool gui;
 extern bool heuristic;
 extern int seed;
+extern Timer* timer;
 
 std::ostream& operator<<(std::ostream& ss, IntervalData v) {ss << "<H1:"<<v.hash1<<"-->"<<v.hash2<<" A:"<<unsigned(v.agent)<<">"; return ss;}
 //----------------------------------------------------------------------------------------------------------------------------------------------//
@@ -153,7 +155,7 @@ bool AirCBSGroup::MakeMove(Unit<airtimeState, airplaneAction, AirplaneConstraine
   return false;
 }
 
-void AirCBSGroup::processSolution()
+void AirCBSGroup::processSolution(double elapsed)
 {
 
   double cost(0.0);
@@ -197,8 +199,14 @@ void AirCBSGroup::processSolution()
         }
     }
   }
-  std::cout << "Finished the plan using " << TOTAL_EXPANSIONS << " expansions.\n";
-  std::cout << seed<<":Time elapsed: " << timer->EndTimer() << "\n";
+  if(elapsed<0){
+    std::cout << "FAILED\n";
+    std::cout << "Finished with failure using " << TOTAL_EXPANSIONS << " expansions.\n";
+    std::cout << seed<<":Time elapsed: " << elapsed*(-1.0) << "\n";
+  }else{
+    std::cout << "Finished the plan using " << TOTAL_EXPANSIONS << " expansions.\n";
+    std::cout << seed<<":Time elapsed: " << elapsed << "\n";
+  }
   for(auto e:environments)
   {
     unsigned total=0;
@@ -215,6 +223,7 @@ void AirCBSGroup::processSolution()
   planFinished = true;
   std::cout << seed<<":Solution cost: " << cost << "\n"; 
   std::cout << seed<<":solution length: " << total << std::endl;
+  if(!gui)exit(0);
 }
 
 /** Expand a single CBS node */
@@ -223,11 +232,7 @@ void AirCBSGroup::ExpandOneCBSNode(bool gui)
   // There's no reason to expand if the plan is finished.
   if (planFinished)
     return;
-  if(timer == 0){
-    timer = new Timer();
-    timer->StartTimer();
-  }
-  if(fgeq(timer->EndTimer(), killtime))
+  /*if(fgeq(timer->EndTimer(), killtime))
   {
     std::cout << "FAILED\n";
     std::cout << "Finished with failure using " << TOTAL_EXPANSIONS << " expansions.\n";
@@ -252,7 +257,7 @@ void AirCBSGroup::ExpandOneCBSNode(bool gui)
     }
     std::cout << "solution length: " << total << std::endl;
     exit(0);
-  }
+  }*/
 
   //std::cout << "Looking for conflicts..." << std::endl;
   airConflict c1, c2;
@@ -262,8 +267,7 @@ void AirCBSGroup::ExpandOneCBSNode(bool gui)
   // If not conflicts are found in this node, then the path is done
   if (numConflicts==0)
   {
-    processSolution();
-    if(!gui)exit(0);
+    processSolution(timer->EndTimer());
   } 
 
   // Otherwise, we need to deal with the conflicts
@@ -845,8 +849,7 @@ bool AirCBSGroup::Bypass(int best, unsigned numConflicts, airConflict const& c1,
     if(bypassConflicts==0)
     {
       tree[best].paths[c1.unit1]=newPath;
-      processSolution();
-      if(!gui)exit(0);
+      processSolution(timer->EndTimer());
       return true;
     }
     else

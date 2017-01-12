@@ -234,6 +234,7 @@ public:
 	void ExpandOneCBSNode(bool gui=true);
 
 	std::vector<AirCBSTreeNode> tree;
+        void processSolution(double);
 private:    
 
         unsigned IssueTicketsForNode(int location);
@@ -242,7 +243,6 @@ private:
 	void Replan(int location);
         unsigned HasConflict(std::vector<airtimeState> const& a, std::vector<airtimeState> const& b, int x, int y, airConflict &c1, airConflict &c2, bool update, bool verbose=false);
 	unsigned FindFirstConflict(AirCBSTreeNode const& location, airConflict &c1, airConflict &c2);
-        void processSolution();
 
 	void DoHAStar(airtimeState& start, airtimeState& goal, std::vector<airtimeState>& thePath);
 	bool HAStarHelper(airtimeState& start, airtimeState& goal, std::vector<airtimeState>& thePath, unsigned& envConflicts, unsigned& conflicts);
@@ -290,7 +290,6 @@ private:
 	std::priority_queue<AirCBSGroup::OpenListNode, std::vector<AirCBSGroup::OpenListNode>, AirCBSGroup::OpenListNodeCompare> openList;
 
 	uint TOTAL_EXPANSIONS = 0;
-        Timer* timer=0;
 
 	//TicketAuthority ticketAuthority;
 

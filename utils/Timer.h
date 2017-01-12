@@ -27,17 +27,25 @@
 #include <stdint.h>
 #include <fstream>
 #include <chrono>
+#include <thread>
 
 class Timer {
 public:
+        typedef std::chrono::seconds Interval;
+        typedef std::function<void(double)> Timeout;
 	Timer();
 	
+	void StartTimeout(const Interval &interval,
+               const Timeout &timeout);
 	void StartTimer();
+	double TimeCut();
 	double EndTimer();
 	double GetElapsedTime();
 private:
 	std::chrono::high_resolution_clock::time_point startTime;
 	double elapsedTime;
+        bool running;
+        std::thread th;
 	
 };
 

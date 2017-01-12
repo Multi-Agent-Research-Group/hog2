@@ -146,6 +146,7 @@ std::cout << fromIndex(ix,start) << "\n";
 
 void testPathUniqueness(){
   std::cout << "testPathUniqueness\n";
+  srand(123456);
   std::vector<AirplaneEnvironment*> envs;
   std::vector<AirplaneEnvironment*> renvs;
   std::vector<TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment>*> ra;
@@ -195,7 +196,8 @@ void testPathUniqueness(){
     std::cout << "\n";
     std::cout << e->name() << "\n";
     double total(0.0);
-    double numOpt(0);
+    double numOpt(0.0);
+    double incl(0.0);
     //for(int i(0); i<1; ++i){
     for(int i(0); i<1000; ++i){
       std::set<uint64_t> hashes;
@@ -203,22 +205,42 @@ void testPathUniqueness(){
       //airplaneState goal(35,30,10,3,0,false);
       airplaneState start(rand() % 8+5, rand() % 8+5, rand() % 5+5, rand() % 5 + 1, rand() % 4*2, false);
       airplaneState goal(rand() % 8+5, rand() % 8+5, rand() % 5+5, rand() % 5 + 1, rand() % 4*2, false);
-      std::cout << start << "\n" << goal << "\n";
+      std::cout << i << "\n";
+      std::cout << "=====================" << std::endl;
+      //std::cout << "\n"<<start << "\n" << goal << "\n";
+      //std::cout << "\n";
       if(start==goal)continue;
       std::vector<airplaneState> soln;
       std::vector<airplaneState> rsoln;
       e->setGoal(goal);
       astar.GetPath(e,start,goal,soln);
-      for(auto const& a: soln)
+      //for(int i=0; i<soln.size(); ++i){
+        //std::cout << soln[i] << " ";
+        //if(i>0) std::cout << e->GCost(soln[i-1],soln[i]);
+        //std::cout << "\n";
+      //}
+      for(auto const& a: soln){
         hashes.insert(e->GetStateHash(a));
+        //std::cout << a << "\n";
+      }
+      //std::cout << "\n";
       e->setGoal(start);
-      std::cout << ".\n";
       rastar->GetPath(e,goal,start,rsoln);
-      for(auto const& a: rsoln)
+      std::reverse(rsoln.begin(),rsoln.end());
+      //for(int i=0; i<rsoln.size(); ++i){
+        //std::cout << rsoln[i] << " ";
+        //if(i>0) std::cout << e->GCost(rsoln[i-1],rsoln[i]);
+        //std::cout << "\n";
+      //}
+      for(auto const& a: rsoln){
         hashes.insert(e->GetStateHash(a));
+        //std::cout << a << "\n";
+      }
       double cStar(e->GetPathLength(soln));
       double rcStar(e->GetPathLength(rsoln));
       std::cout << "c*,rc*: " << cStar << " " << rcStar << "\n";
+      if(!fequal(cStar,rcStar)){continue;}
+      incl += 1.0;
       numOpt += soln.size();
 
       while(true){
@@ -233,7 +255,7 @@ void testPathUniqueness(){
       while(true){
         rastar->DoSingleSearchStep(rsoln);
         uint64_t key(rastar->openClosedList.Peek());
-        std::cout << key << "\n";
+        //std::cout << key << "\n";
         double f(rastar->openClosedList.Lookup(key).g+rastar->openClosedList.Lookup(key).h);
         if(fgreater(f,rcStar)){
           break;
@@ -258,14 +280,14 @@ void testPathUniqueness(){
           }
         }
       }
-      for(auto const& a: hashes){
-        std::cout << e->GetState(a) << "\n";
-      }
+      //for(auto const& a: hashes){
+        //std::cout << e->GetState(a) << "\n";
+      //}
       total+=hashes.size();
       //astar.Reset();
       //rastar->Reset();
     }
-    std::cout << numOpt << "/" << total << "=" << (numOpt/1000./total/1000.) << "\n";
+    std::cout << numOpt/incl << "/" << total/incl << "=" << (numOpt/incl/total/incl) << "\n";
   }
 }
 

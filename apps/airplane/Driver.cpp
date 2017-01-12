@@ -60,6 +60,7 @@ int cutoffs[6] = {0,1,2,3,4,5}; // for each env
 
   bool gui=true;
   void InitHeadless();
+  Timer* timer;
 
   int main(int argc, char* argv[])
   {
@@ -70,6 +71,8 @@ int cutoffs[6] = {0,1,2,3,4,5}; // for each env
 
   InstallHandlers();
   ProcessCommandLineArgs(argc, argv);
+  
+  
   if(gui)
   {
     RunHOGGUI(argc, argv);
@@ -201,6 +204,11 @@ void InitHeadless(){
   // we are inducing high conflict areas.
   std::cout << "Adding " << num_airplanes << "planes." << std::endl;
 
+  if(!gui){
+    timer=new Timer();
+    Timer::Timeout func(std::bind(&AirCBSGroup::processSolution, group, std::placeholders::_1));
+    timer->StartTimeout(std::chrono::seconds(killtime),func);
+  }
   for (int i = 0; i < num_airplanes; i++) {
     if(waypoints.size()<num_airplanes){
       // Adding random waypoints

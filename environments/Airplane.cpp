@@ -269,7 +269,7 @@ void AirplaneEnvironment::GetSuccessors(const airplaneState &nodeID, std::vector
 
 void AirplaneEnvironment::GetReverseSuccessors(const airplaneState &nodeID, std::vector<airplaneState> &neighbors) const
 {
-    GetActions(nodeID, internalActions);
+    GetReverseActions(nodeID, internalActions);
     for (auto &act : internalActions)
     {
         airplaneState s;
@@ -278,6 +278,10 @@ void AirplaneEnvironment::GetReverseSuccessors(const airplaneState &nodeID, std:
         if(GoalTest(s,getGoal())){s.landed=true;}
         neighbors.push_back(s);
     }
+    /*std::cout << "generated from "<<nodeID<<"\n";
+    for(auto const& a: neighbors){
+      std::cout << a << "\n";
+    }*/
 }
 
 void AirplaneEnvironment::GetActions(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const
