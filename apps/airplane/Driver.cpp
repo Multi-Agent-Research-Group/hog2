@@ -20,6 +20,8 @@
 #include "AirplaneConstrained.h"
 #include "AirplaneCBSUnits.h"
 
+#include "LandingSolver.h"
+
 #include <sstream>
 
 bool highsort = false;
@@ -56,7 +58,7 @@ int cutoffs[6] = {0,1,2,3,4,5}; // for each env
 
   AirplaneConstrainedEnvironment *ace = 0;
   UnitSimulation<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *sim = 0;
-  AirCBSGroup* group = 0;
+  AirLandingGroup* group = 0;
 
   bool gui=true;
   void InitHeadless();
@@ -82,7 +84,7 @@ int cutoffs[6] = {0,1,2,3,4,5}; // for each env
     InitHeadless();
     while (true)
     {
-      group->ExpandOneCBSNode(gui);
+      group->DoPlanningStep(gui);
     }
   }
 }
@@ -169,90 +171,65 @@ void InitHeadless(){
   std::cout << "Setting seed " << seed << "\n";
   srand(seed);
   srandom(seed);
+
+  // Setup the environments
   AirplaneEnvironment* ae = new AirplaneEnvironment();
   ae->loadPerimeterDB();
-  AirplaneEnvironment* ase = new AirplaneSimpleEnvironment();
-  ase->loadPerimeterDB();
-  AirplaneEnvironment* ahe = new AirplaneHighwayEnvironment();
-  ahe->loadPerimeterDB();
-  AirplaneEnvironment* ah4e = new AirplaneHighway4Environment();
-  ah4e->loadPerimeterDB();
-  AirplaneEnvironment* ah4c = new AirplaneHighway4CardinalEnvironment();
-  ah4c->loadPerimeterDB();
-  AirplaneEnvironment* ac = new AirplaneCardinalEnvironment();
-  ac->loadPerimeterDB();
-  environs.push_back(EnvironmentContainer(ahe->name(),new AirplaneConstrainedEnvironment(ahe),0,cutoffs[0],1));
-  environs.push_back(EnvironmentContainer(ah4e->name(),new AirplaneConstrainedEnvironment(ah4e),0,cutoffs[1],1));
-  environs.push_back(EnvironmentContainer(ase->name(),new AirplaneConstrainedEnvironment(ase),0,cutoffs[2],1));
+  //AirplaneEnvironment* ase = new AirplaneSimpleEnvironment();
+  //ase->loadPerimeterDB();
+  //AirplaneEnvironment* ahe = new AirplaneHighwayEnvironment();
+  //ahe->loadPerimeterDB();
+  //AirplaneEnvironment* ah4e = new AirplaneHighway4Environment();
+  //ah4e->loadPerimeterDB();
+  //AirplaneEnvironment* ah4c = new AirplaneHighway4CardinalEnvironment();
+  //ah4c->loadPerimeterDB();
+  //AirplaneEnvironment* ac = new AirplaneCardinalEnvironment();
+  //ac->loadPerimeterDB();
+
+  // Build the environment list
+  //environs.push_back(EnvironmentContainer(ahe->name(),new AirplaneConstrainedEnvironment(ahe),0,cutoffs[0],1));
+  //environs.push_back(EnvironmentContainer(ah4e->name(),new AirplaneConstrainedEnvironment(ah4e),0,cutoffs[1],1));
+  //environs.push_back(EnvironmentContainer(ase->name(),new AirplaneConstrainedEnvironment(ase),0,cutoffs[2],1));
   environs.push_back(EnvironmentContainer(ae->name(),new AirplaneConstrainedEnvironment(ae),0,cutoffs[3],1));
-  environs.push_back(EnvironmentContainer(ah4c->name(),new AirplaneConstrainedEnvironment(ah4c),0,cutoffs[4],1));
-  environs.push_back(EnvironmentContainer(ac->name(),new AirplaneConstrainedEnvironment(ac),0,cutoffs[5],1));
+  //environs.push_back(EnvironmentContainer(ah4c->name(),new AirplaneConstrainedEnvironment(ah4c),0,cutoffs[4],1));
+  //environs.push_back(EnvironmentContainer(ac->name(),new AirplaneConstrainedEnvironment(ac),0,cutoffs[5],1));
 
   ace=environs.rbegin()->environment;
 
-  group = new AirCBSGroup(environs,use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
+  // Build a landing group
+  group = new AirLandingGroup(environs);
+
   if(gui){
     sim = new UnitSimulation<airtimeState, airplaneAction, AirplaneConstrainedEnvironment>(ace);
     sim->SetStepType(kLockStep);
-
     sim->AddUnitGroup(group);
   }
 
+  // Add some planes to the landing group
+  std::cout << "Adding " << num_airplanes << " planes." << std::endl;
+  for (int i = 0; i < num_airplanes; i++) {
+    airplaneState start(rand() % 70 + 5, rand() % 70 + 5, rand() % 7 + 11, rand() % 3 + 1, rand() % 8, false);
+    airplaneState land(18,23,0,0,0,true);
+ 
+    airtimeState s(start, 0);
+    airtimeState g(land, 0);
 
-  // Updated so we're always testing the landing conditions
-  // and forcing the airplane environment to be such that
-  // we are inducing high conflict areas.
-  std::cout << "Adding " << num_airplanes << "planes." << std::endl;
+    std::vector<airtimeState> states;
+    states.push_back(s);
+    states.push_back(g);
+
+    AirCBSUnit* unit = new AirCBSUnit(states); // Create a new ACBS unit
+    ace->setGoal(g); // Set the environment goal... not sure why this is necessary
+    unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // random color
+
+    std::cout << "Adding unit from " << s << " to " << g << std::endl;
+    group->AddUnit(unit); // Add to the group
+  }
 
   if(!gui){
     timer=new Timer();
-    Timer::Timeout func(std::bind(&AirCBSGroup::processSolution, group, std::placeholders::_1));
+    Timer::Timeout func(std::bind(&AirLandingGroup::processSolution, group, std::placeholders::_1));
     timer->StartTimeout(std::chrono::seconds(killtime),func);
-  }
-  for (int i = 0; i < num_airplanes; i++) {
-    if(waypoints.size()<num_airplanes){
-      // Adding random waypoints
-      std::vector<airtimeState> s;
-      unsigned r(maxsubgoals-minsubgoals);
-      int numsubgoals(minsubgoals+1);
-      if(r>0){
-        numsubgoals = rand()%(maxsubgoals-minsubgoals)+minsubgoals+1;
-      }
-      std::cout << "Agent " << i << " add " << numsubgoals << " subgoals\n";
-      for(int n(0); n<numsubgoals; ++n){
-        bool conflict(true);
-        while(conflict){
-          conflict=false;
-          airplaneState rs1(rand() % 70 + 5, rand() % 70 + 5, rand() % 7 + 11, rand() % 3 + 1, rand() % 8, false);
-          airtimeState start(rs1, 0);
-          for (int j = 0; j < waypoints.size(); j++)
-          {
-            if(i==j){continue;}
-            if(waypoints[j].size()<n)
-            {
-              airtimeState a(waypoints[j][n]);
-              // Make sure that no gubgoals at similar times have a conflict
-              airConstraint x_c(a);
-              if(x_c.ConflictsWith(start)){conflict=true;break;}
-            }
-          }
-          if(!conflict) s.push_back(start);
-        }
-      }
-      waypoints.push_back(s);
-    }
-
-    std::cout << "Set unit " << i << " subgoals: ";
-    for(auto &a: waypoints[i])
-      std::cout << a << " ";
-    std::cout << std::endl;
-    AirCBSUnit* unit = new AirCBSUnit(waypoints[i]);
-    unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
-    group->AddUnit(unit); // Add to the group
-    std::cout << "initial path for agent " << i << ":\n";
-    for(auto const& n: group->tree[0].paths[i])
-      std::cout << n << "\n";
-    if(gui){sim->AddUnit(unit);} // Add to the group
   }
   //assert(false && "Exit early");
 }
@@ -272,22 +249,21 @@ void MyComputationHandler()
 //std::vector<airplaneAction> acts;
 void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 {
-
-	if (ace){
+  //static double ptime[500];
+  //memset(ptime,0,500*sizeof(double));
+  if (ace){
         for(auto u : group->GetMembers()){
             glLineWidth(2.0);
             ace->GLDrawPath(((AirCBSUnit const*)u)->GetPath(),((AirCBSUnit const*)u)->GetWaypoints());
         }
-    }
+  }
 
-  //static double ptime[500];
-  //memset(ptime,0,500*sizeof(double));
 	if (sim)
 		sim->OpenGLDraw();
 	if (!paused) {
 		sim->StepTime(stepsPerFrame);
-		
-		/*std::cout << "Printing locations at time: " << sim->GetSimulationTime() << std::endl;
+		/*
+		std::cout << "Printing locations at time: " << sim->GetSimulationTime() << std::endl;
 		for (int x = 0; x < group->GetNumMembers(); x ++) {
 			AirCBSUnit *c = (AirCBSUnit*)group->GetMember(x);
 			airtimeState cur;
@@ -425,8 +401,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 }
 
 
-void MyDisplayHandler(unsigned long windowID, tKeyboardModifier mod, char key)
-{
+void MyDisplayHandler(unsigned long windowID, tKeyboardModifier mod, char key) {
 	airplaneState b;
 	switch (key)
 	{
@@ -451,25 +426,15 @@ void MyDisplayHandler(unsigned long windowID, tKeyboardModifier mod, char key)
 			paused = !paused;
 			break;//unitSims[windowID]->SetPaused(!unitSims[windowID]->GetPaused()); break;
 		case 'o':
-//			if (unitSims[windowID]->GetPaused())
-//			{
-//				unitSims[windowID]->SetPaused(false);
-//				unitSims[windowID]->StepTime(1.0/30.0);
-//				unitSims[windowID]->SetPaused(true);
-//			}
 			break;
-		case 'd':
-			
+		case 'd':		
 			break;
 		default:
 			break;
 	}
 }
 
-void MyRandomUnitKeyHandler(unsigned long windowID, tKeyboardModifier mod, char)
-{
-	
-}
+void MyRandomUnitKeyHandler(unsigned long windowID, tKeyboardModifier mod, char) {}
 
 void MyPathfindingKeyHandler(unsigned long , tKeyboardModifier , char)
 {

@@ -375,13 +375,6 @@ void AirplaneEnvironment::GetActionsPlane(const airplaneState &nodeID, std::vect
 bool AirplaneEnvironment::AppendLandingActionsPlane(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const {
   if (nodeID.landed)
   {
-        actions.push_back(airplaneAction(0,0,0,3));
-return false;
-}else{
-return true;
-}
-  if (nodeID.landed)
-  {
     // Figure out which landing strip we're at
     for (landingStrip st : landingStrips)
     {
@@ -440,6 +433,7 @@ void AirplaneEnvironment::GetReverseActions(const airplaneState &nodeID, std::ve
 
 void AirplaneEnvironment::GetReverseActionsPlane(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const 
 {
+
   // 45, 90, 0, shift
   // speed:
   // faster, slower
@@ -447,114 +441,21 @@ void AirplaneEnvironment::GetReverseActionsPlane(const airplaneState &nodeID, st
   // up / down
   actions.resize(0);
 
-  // no change
-  actions.push_back(airplaneAction(0, 0, 0));
-
-  // each type of turn
-  actions.push_back(airplaneAction(k45, 0, 0));
-  actions.push_back(airplaneAction(-k45, 0, 0));
-  actions.push_back(airplaneAction(kShift, 0, 0));
-  actions.push_back(airplaneAction(-kShift, 0, 0));
-  actions.push_back(airplaneAction(k90, 0, 0));
-  actions.push_back(airplaneAction(-k90, 0, 0));
-
-  if (nodeID.height < height)
-  {
-    // decrease height
-    actions.push_back(airplaneAction(0, 0, -1));
-    actions.push_back(airplaneAction(k45, 0, -1));
-    actions.push_back(airplaneAction(-k45, 0, -1));
-    actions.push_back(airplaneAction(kShift, 0, -1));
-    actions.push_back(airplaneAction(-kShift, 0, -1));
-    actions.push_back(airplaneAction(k90, 0, -1));
-    actions.push_back(airplaneAction(-k90, 0, -1));
-
-    // decrease height, decrease speed
-    if (nodeID.speed > minSpeed)
-    {
-      actions.push_back(airplaneAction(0, +1, -1));
-      actions.push_back(airplaneAction(k45, +1, -1));
-      actions.push_back(airplaneAction(-k45, +1, -1));
-      actions.push_back(airplaneAction(kShift, +1, -1));
-      actions.push_back(airplaneAction(-kShift, +1, -1));
-      actions.push_back(airplaneAction(k90, +1, -1));
-      actions.push_back(airplaneAction(-k90, +1, -1));
+  // Landing reverse actions
+  if (nodeID.landed){
+    actions.push_back(airplaneAction(0,0,0,2));
+    actions.push_back(airplaneAction(0,0,0,3));
+    return;
+  } else {
+    for (landingStrip st : landingStrips)
+    { 
+      if (nodeID == st.launch_state)
+      {
+        actions.push_back(airplaneAction(0,0,0,1));
+      }
     }
+  } 
 
-    // increase height, decrease speed
-    if (nodeID.speed < numSpeeds)
-    {
-      actions.push_back(airplaneAction(0, -1, -1));
-      actions.push_back(airplaneAction(k45, -1, -1));
-      actions.push_back(airplaneAction(-k45, -1, -1));
-      actions.push_back(airplaneAction(kShift, -1, -1));
-      actions.push_back(airplaneAction(-kShift, -1, -1));
-      actions.push_back(airplaneAction(k90, -1, -1));
-      actions.push_back(airplaneAction(-k90, -1, -1));
-    }
-  }
-
-  if (nodeID.height > 0)
-  {
-    // increase height
-    actions.push_back(airplaneAction(0, 0, +1));
-    actions.push_back(airplaneAction(k45, 0, +1));
-    actions.push_back(airplaneAction(-k45, 0, +1));
-    actions.push_back(airplaneAction(kShift, 0, +1));
-    actions.push_back(airplaneAction(-kShift, 0, +1));
-    actions.push_back(airplaneAction(k90, 0, +1));
-    actions.push_back(airplaneAction(-k90, 0, +1));
-
-    if (nodeID.speed > minSpeed)
-    {
-      // increase height, decrease speed
-      actions.push_back(airplaneAction(0, +1, +1));
-      actions.push_back(airplaneAction(k45, +1, +1));
-      actions.push_back(airplaneAction(-k45, +1, +1));
-      actions.push_back(airplaneAction(kShift, +1, +1));
-      actions.push_back(airplaneAction(-kShift, +1, +1));
-      actions.push_back(airplaneAction(k90, +1, +1));
-      actions.push_back(airplaneAction(-k90, +1, +1));
-    }
-
-    if (nodeID.speed < numSpeeds)
-    {
-      // increase height, increase speed
-      actions.push_back(airplaneAction(0, -1, +1));
-      actions.push_back(airplaneAction(k45, -1, +1));
-      actions.push_back(airplaneAction(-k45, -1, +1));
-      actions.push_back(airplaneAction(kShift, -1, +1));
-      actions.push_back(airplaneAction(-kShift, -1, +1));
-      actions.push_back(airplaneAction(k90, -1, +1));
-      actions.push_back(airplaneAction(-k90, -1, +1));
-    }
-  }
-
-  if (nodeID.speed > minSpeed)
-  {
-    // decrease speed
-    actions.push_back(airplaneAction(0, +1, 0));
-    actions.push_back(airplaneAction(k45, +1, 0));
-    actions.push_back(airplaneAction(-k45, +1, 0));
-    actions.push_back(airplaneAction(kShift, +1, 0));
-    actions.push_back(airplaneAction(-kShift, +1, 0));
-    actions.push_back(airplaneAction(k90, +1, 0));
-    actions.push_back(airplaneAction(-k90, +1, 0));
-  }
-
-  if (nodeID.speed < numSpeeds)
-  {
-    // increase speed
-    actions.push_back(airplaneAction(0, -1, 0));
-    actions.push_back(airplaneAction(k45, -1, 0));
-    actions.push_back(airplaneAction(-k45, -1, 0));
-    actions.push_back(airplaneAction(kShift, -1, 0));
-    actions.push_back(airplaneAction(-kShift, -1, 0));
-    actions.push_back(airplaneAction(k90, -1, 0));
-    actions.push_back(airplaneAction(-k90, -1, 0));
-  }
-
-}/*{
     for (auto x : turns) 
       actions.push_back(airplaneAction(x, 0, 0));
 
@@ -578,7 +479,7 @@ void AirplaneEnvironment::GetReverseActionsPlane(const airplaneState &nodeID, st
       if (nodeID.speed < numSpeeds+minSpeed-1) 
         for (auto x : turns) actions.push_back(airplaneAction(x, -1, -1));
     }
-}*/
+}
 
 void AirplaneEnvironment::GetReverseActionsQuad(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const 
 {
@@ -622,13 +523,13 @@ airplaneAction AirplaneEnvironment::GetAction(const airplaneState &node1, const 
   airplaneAction a;
 
   // Deal with actions that setup landing
-  /*if (node1.landed && !node2.landed){
+  if (node1.landed && !node2.landed){
     return(airplaneAction(0,0,0,1));
   } else if (node2.landed && !node1.landed) {
     return(airplaneAction(0,0,0,2));
   } else if (node1.landed && node2.landed) {
     return(airplaneAction(0,0,0,3));
-  }*/
+  }
 
   a.height = node2.height - node1.height;
   a.turn = node2.heading - node1.heading;
@@ -697,6 +598,15 @@ airplaneAction AirplaneEnvironment::GetAction(const airplaneState &node1, const 
 
 airplaneAction AirplaneEnvironment::GetReverseAction(const airplaneState &node1, const airplaneState &node2) const
 {
+
+   if (node1.landed && !node2.landed){
+    return(airplaneAction(0,0,0,2));
+  } else if (node2.landed && !node1.landed) {
+    return(airplaneAction(0,0,0,1));
+  } else if (node1.landed && node2.landed) {
+    return(airplaneAction(0,0,0,3));
+  }
+
   airplaneAction a;
 
   a.height = node2.height - node1.height;
@@ -766,7 +676,7 @@ airplaneAction AirplaneEnvironment::GetReverseAction(const airplaneState &node1,
 
 void AirplaneEnvironment::ApplyAction(airplaneState &s, airplaneAction dir) const
 {
-/*
+
   // Manage Landing
   if (dir.takeoff == 1) {
     // Takeoff action
@@ -801,7 +711,7 @@ void AirplaneEnvironment::ApplyAction(airplaneState &s, airplaneAction dir) cons
       assert(!"Tried to do nothing while not landed");
     return;
   }
-*/
+
   static const double offset[8][2] = {
       { 0, -1},
       { 1, -1},
@@ -827,10 +737,10 @@ void AirplaneEnvironment::ApplyAction(airplaneState &s, airplaneAction dir) cons
   if (dir.turn != kWait) {
     s.x += offset[heading][0];
     s.y += offset[heading][1];
+    s.speed += dir.speed;
+    s.height += dir.height;
   }
   
-  s.speed += dir.speed;
-  s.height += dir.height;
   // This will make the airplane disappear and not block other agents
   if((!s.landed) && GoalTest(s,getGoal())){
      s.landed = true;
@@ -887,8 +797,7 @@ void AirplaneEnvironment::UndoAction(airplaneState &s, airplaneAction dir) const
       {-1, -1} 
   };
   
-  s.height -= dir.height;
-  s.speed -= dir.speed;
+  
 
   int8_t heading(s.heading);
 
@@ -904,6 +813,8 @@ void AirplaneEnvironment::UndoAction(airplaneState &s, airplaneAction dir) const
   if (dir.turn != kWait) {
      s.x += offset[heading][0];
      s.y += offset[heading][1];
+     s.height -= dir.height;
+     s.speed -= dir.speed;
   }
 }
 
@@ -1029,22 +940,34 @@ double AirplaneEnvironment::OldHCost(const airplaneState &node1, const airplaneS
 double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneState &node2) const
 {
   if(GoalTest(node1,node2)){return 0.0;}
-  //if(searchtype == SearchType::REVERSE)
-  //{
-    //std::cout << "R";
-  //}
+
+  // Add adjacent nodes
+  if (node2.landed && !node1.landed) {
+  std::vector<airplaneState> neighbors;
+  this->GetSuccessors(node1, neighbors);
+    for (auto n : neighbors){
+      if (node2 == n)
+        return GCost(node1, node2);
+    }
+  }
+
+
   // We want to estimate the heuristic to the landing state
   // Figure out which landing strip we're going to
-  /*for (landingStrip st : landingStrips)
-  {
-    if (node2 == st.goal_state)
+  if (node2.landed){
+    for (landingStrip st : landingStrips)
     {
-      return HCost(node1, st.landing_state);
-    } else if (node1 == st.goal_state)
-    {
-      return HCost(st.landing_state, node2);
+      if (node2 == st.goal_state)
+      {
+        return HCost(node1, st.landing_state) + GCost(st.landing_state, st.goal_state);
+      } else if (node1 == st.goal_state)
+      {
+        return HCost(st.landing_state, node2) + GCost(st.landing_state, st.goal_state);
+      }
     }
-  }*/
+  }
+
+
   static const int cruiseSpeed(3);
   airplaneState tNode = node2;
   tNode.speed = cruiseSpeed;

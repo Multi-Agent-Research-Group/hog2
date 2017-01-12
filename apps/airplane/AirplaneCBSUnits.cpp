@@ -648,7 +648,6 @@ void AirCBSGroup::UpdateUnitGoal(Unit<airtimeState, airplaneAction, AirplaneCons
     // Update the start of that unit to be their current location and the goal to be the new goal
     //c->UpdateGoal(current, (GetMember(x) != u ? goal : newGoal));
 
-
     //std::cout << "Planning optimal path from " << current << " to " << goal << std::endl;
     // Replan the unit's optimal path
     //astar.GetPath(currentEnvironment->environment, current, goal, thePath);

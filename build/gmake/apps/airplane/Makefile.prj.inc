@@ -67,4 +67,5 @@ default : all
 
 SRC_CPP = \
   apps/airplane/AirplaneCBSUnits.cpp \
+  apps/airplane/LandingSolver.cpp \
 	apps/airplane/Driver.cpp \
