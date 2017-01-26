@@ -185,12 +185,13 @@ public:
 	
   // Heuristics and paths
 	virtual double HCost(const airplaneState &node1, const airplaneState &node2) const;
-	virtual double OldHCost(const airplaneState &node1, const airplaneState &node2) const;
+	virtual double ReverseHCost(const airplaneState &,const airplaneState &)  const;
+	virtual double ReverseGCost(const airplaneState &node1, const airplaneState &node2) const;
 	virtual double HCost(const airplaneState &)  const { assert(false); return 0; }
 	virtual double GCost(const airplaneState &node1, const airplaneState &node2) const;
 	virtual double GCost(const airplaneState &node1, const airplaneAction &act) const;
 	virtual double GetPathLength(const std::vector<airplaneState> &n) const;
-  void loadPerimeterDB();
+  virtual void loadPerimeterDB();
 
   // Goal testing
   virtual bool GoalTest(const airplaneState &node, const airplaneState &goal) const;
@@ -231,6 +232,10 @@ public:
   airplaneState const* goal;
   airplaneState const& getGoal()const{return *goal;}
   void setGoal(airplaneState const& g){goal=&g;}
+
+  airplaneState const* start;
+  airplaneState const& getStart()const{return *start;}
+  void setStart(airplaneState const& s){start=&s;}
 
   void setSearchType(SearchType s){searchtype=s;}
 

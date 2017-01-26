@@ -199,8 +199,20 @@ void AirplaneHighway4CardinalEnvironment::GetActions(const airplaneState &nodeID
 void AirplaneHighway4CardinalEnvironment::GetReverseActions(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const
 {
   //assert(false && "This should never be used... It's not ready.");
+  if(abs(nodeID.x-getGoal().x) <=2 && abs(nodeID.y-getGoal().y) <=2 &&abs(nodeID.height-getGoal().height) <=2)
+  {
+    AirplaneEnvironment::GetReverseActions(nodeID,actions);
+    return;
+  }
+
+  uint8_t hmod(nodeID.height%4);
+  // Note that this refers to the start in the forward direction
+  // If the start is non-conformant, we have to allow only certain moves
+  if(nodeID.heading!=hmod || (getStart().heading!=getStart().height%4 && abs(nodeID.x-getStart().x) <=2 && abs(nodeID.y-getStart().y) <=2 &&abs(nodeID.height-getStart().height) <=2)){
+    AirplaneEnvironment::GetReverseActions(nodeID,actions);
+    return;
+  }
   actions.resize(0);
-  uint8_t hmod(nodeID.height%8);
 
   // no change
   if(hmod==nodeID.heading) actions.push_back(airplaneAction(0, 0, 0));
@@ -211,18 +223,18 @@ void AirplaneHighway4CardinalEnvironment::GetReverseActions(const airplaneState 
     uint8_t hdg((nodeID.heading+1)%4);
     // decrease height
     //actions.push_back(airplaneAction(0, 0, -1));
-    if(hmodd==hdg)actions.push_back(airplaneAction(k90, 0, -1));
+    if(hmodd==hdg)actions.push_back(airplaneAction(-k90, 0, -1));
 
     // decrease height, decrease speed
     if (nodeID.speed > minSpeed)
     {
-      if(hmodd==hdg)actions.push_back(airplaneAction(k90, 1, -1));
+      if(hmodd==hdg)actions.push_back(airplaneAction(-k90, 1, -1));
     }
 
     // increase height, decrease speed
     if (nodeID.speed < numSpeeds+minSpeed)
     {
-      if(hmodd==hdg)actions.push_back(airplaneAction(k90, -1, -1));
+      if(hmodd==hdg)actions.push_back(airplaneAction(-k90, -1, -1));
     }
   }
 
@@ -249,13 +261,13 @@ void AirplaneHighway4CardinalEnvironment::GetReverseActions(const airplaneState 
   if (nodeID.speed > minSpeed)
   {
     // decrease speed
-    if(hmod==nodeID.heading)actions.push_back(airplaneAction(k90, 1, 0));
+    if(hmod==nodeID.heading)actions.push_back(airplaneAction(0, 1, 0));
   }
 
   if (nodeID.speed < numSpeeds+minSpeed)
   {
     // increase speed
-    if(hmod==nodeID.heading)actions.push_back(airplaneAction(k90, -1, 0));
+    if(hmod==nodeID.heading)actions.push_back(airplaneAction(0, -1, 0));
   }
 }
 

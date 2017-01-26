@@ -177,64 +177,137 @@ void AirplaneCardinalEnvironment::GetActions(const airplaneState &nodeID, std::v
 
 void AirplaneCardinalEnvironment::GetReverseActions(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const
 {
-  assert(false && "This should never be used... It's not ready.");
+  // Note that this refers to the goal in the forward direction
+  if(abs(nodeID.x-getGoal().x) <=2 && abs(nodeID.y-getGoal().y) <=2 &&abs(nodeID.height-getGoal().height) <=2)
+  {
+    AirplaneEnvironment::GetReverseActions(nodeID,actions);
+    return;
+  }
+
   actions.resize(0);
-  uint8_t hmod(nodeID.height%8);
+
+  // Note that this refers to the start in the forward direction
+  // If the start is non-conformant, we have to allow only 45 degree turns
+  if(getStart().heading%2 && abs(nodeID.x-getStart().x) <=1 && abs(nodeID.y-getStart().y) <=1 &&abs(nodeID.height-getStart().height) <=1){
+  
+//TODO
+    // Force to a cardinal heading
+    actions.push_back(airplaneAction(-k45,0,0));
+    actions.push_back(airplaneAction(k45,0,0));
+
+    if(nodeID.height < height)
+    {
+      actions.push_back(airplaneAction(-k45,0,-1));
+      actions.push_back(airplaneAction(k45,0,-1));
+
+      if(nodeID.speed > minSpeed)
+      {
+        actions.push_back(airplaneAction(k45,+1,-1));
+        actions.push_back(airplaneAction(-k45,+1,-1));
+      }
+      if(nodeID.speed < numSpeeds+minSpeed)
+      {
+        actions.push_back(airplaneAction(-k45,1,-1));
+        actions.push_back(airplaneAction(k45,1,-1));
+      }
+    }
+    if(nodeID.height < height)
+    {
+      actions.push_back(airplaneAction(-k45,0,1));
+      actions.push_back(airplaneAction(k45,0,1));
+
+      if(nodeID.speed > minSpeed)
+      {
+        actions.push_back(airplaneAction(-k45,-1,1));
+        actions.push_back(airplaneAction(k45,-1,1));
+      }
+      if(nodeID.speed < numSpeeds+minSpeed)
+      {
+        actions.push_back(airplaneAction(-k45,1,1));
+        actions.push_back(airplaneAction(k45,1,1));
+      }
+    }
+    if(nodeID.speed > minSpeed)
+    {
+      actions.push_back(airplaneAction(-k45,-1,0));
+      actions.push_back(airplaneAction(k45,-1,0));
+    }
+
+    if(nodeID.speed < numSpeeds+minSpeed)
+    {
+      actions.push_back(airplaneAction(-k45,1,0));
+      actions.push_back(airplaneAction(k45,1,0));
+    }
+    return;
+  }
 
   // no change
-  if(hmod==nodeID.heading) actions.push_back(airplaneAction(0, 0, 0));
+  actions.push_back(airplaneAction(0, 0, 0));
+  actions.push_back(airplaneAction(k90, 0, 0));
+  actions.push_back(airplaneAction(-k90, 0, 0));
 
   if (nodeID.height < height)
   {
-    uint8_t hmodd((nodeID.height+1)%8);
-    uint8_t hdg((nodeID.heading+1)%8);
     // decrease height
-    //actions.push_back(airplaneAction(0, 0, -1));
-    if(hmodd==hdg)actions.push_back(airplaneAction(k90, 0, -1));
+    actions.push_back(airplaneAction(0, 0, -1));
+    actions.push_back(airplaneAction(k90, 0, -1));
+    actions.push_back(airplaneAction(-k90, 0, -1));
 
     // decrease height, decrease speed
     if (nodeID.speed > minSpeed)
     {
-      if(hmodd==hdg)actions.push_back(airplaneAction(k90, 1, -1));
+      actions.push_back(airplaneAction(0, 1, -1));
+      actions.push_back(airplaneAction(k90, 1, -1));
+      actions.push_back(airplaneAction(-k90, 1, -1));
     }
 
     // increase height, decrease speed
-    if (nodeID.speed < numSpeeds+minSpeed)
+    if (nodeID.speed < numSpeeds)
     {
-      if(hmodd==hdg)actions.push_back(airplaneAction(k90, -1, -1));
+      actions.push_back(airplaneAction(0, -1, -1));
+      actions.push_back(airplaneAction(k90, -1, -1));
+      actions.push_back(airplaneAction(-k90, -1, -1));
     }
   }
 
   if (nodeID.height > 0)
   {
-    uint8_t hmodd((nodeID.height+7)%8);
-    uint8_t hdg((nodeID.heading+7)%8);
     // increase height
-    if(hmodd==hdg)actions.push_back(airplaneAction(k90, 0, +1));
+    actions.push_back(airplaneAction(0, 0, +1));
+    actions.push_back(airplaneAction(k90, 0, +1));
+    actions.push_back(airplaneAction(-k90, 0, +1));
 
     if (nodeID.speed > minSpeed)
     {
       // increase height, decrease speed
-      if(hmodd==hdg)actions.push_back(airplaneAction(k90, 1, +1));
+      actions.push_back(airplaneAction(0, 1, +1));
+      actions.push_back(airplaneAction(k90, 1, +1));
+      actions.push_back(airplaneAction(-k90, 1, +1));
     }
 
     if (nodeID.speed < numSpeeds+minSpeed)
     {
       // increase height, increase speed
-      if(hmodd==hdg)actions.push_back(airplaneAction(k90, -1, +1));
+      actions.push_back(airplaneAction(0, -1, +1));
+      actions.push_back(airplaneAction(k90, -1, +1));
+      actions.push_back(airplaneAction(-k90, -1, +1));
     }
   }
 
   if (nodeID.speed > minSpeed)
   {
     // decrease speed
-    if(hmod==nodeID.heading)actions.push_back(airplaneAction(k90, 1, 0));
+    actions.push_back(airplaneAction(0, 1, 0));
+    actions.push_back(airplaneAction(k90, 1, 0));
+    actions.push_back(airplaneAction(-k90, 1, 0));
   }
 
   if (nodeID.speed < numSpeeds+minSpeed)
   {
     // increase speed
-    if(hmod==nodeID.heading)actions.push_back(airplaneAction(k90, -1, 0));
+    actions.push_back(airplaneAction(0, -1, 0));
+    actions.push_back(airplaneAction(k90, -1, 0));
+    actions.push_back(airplaneAction(-k90, -1, 0));
   }
 }
 

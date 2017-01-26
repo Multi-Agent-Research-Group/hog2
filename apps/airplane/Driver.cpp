@@ -12,6 +12,10 @@
 //#include "MapSectorAbstraction.h"
 //#include "DirectionalPlanner.h"
 #include "ScenarioLoader.h"
+#include "AirplaneGridCardinal.h"
+#include "AirplaneGridOctile.h"
+#include "AirplaneGrid3DCardinal.h"
+#include "AirplaneGrid3DOctile.h"
 #include "AirplaneSimple.h"
 #include "AirplaneHighway.h"
 #include "AirplaneHighway4.h"
@@ -42,7 +46,7 @@ double frameIncrement = 1.0/10000.0;
 std::vector<airtimeState> thePath;
 std::vector<std::vector<airtimeState> > waypoints;
 
-int cutoffs[6] = {0,1,2,3,4,5}; // for each env
+int cutoffs[10] = {0,99,99,99,99,99,99,99,99,99}; // for each env
   std::vector<EnvironmentContainer> environs;
   int seed = clock();
   int num_airplanes = 5;
@@ -133,7 +137,7 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-nsubgoals", "-nsubgoals <number>,<number>", "Select the min,max number of subgoals per agent.");
 	InstallCommandLineHandler(MyCLHandler, "-seed", "-seed <number>", "Seed for random number generator (defaults to clock)");
 	InstallCommandLineHandler(MyCLHandler, "-nobypass", "-nobypass", "Turn off bypass option");
-	InstallCommandLineHandler(MyCLHandler, "-cutoffs", "-cutoffs <n>,<n>,<n>,<n>,<n><n>", "Number of conflicts to tolerate before switching to less constrained layer of environment. Environments are ordered as: H8,H4,Simple,Complex,H4Cardinal,Cardinal");
+	InstallCommandLineHandler(MyCLHandler, "-cutoffs", "-cutoffs <n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>", "Number of conflicts to tolerate before switching to less constrained layer of environment. Environments are ordered as: CardinalGrid,OctileGrid,Cardinal3D,Octile3D,H4,H8,Simple,Cardinal,Octile,48Highway");
 	InstallCommandLineHandler(MyCLHandler, "-probfile", "-probfile", "Load MAPF instance from file");
 	InstallCommandLineHandler(MyCLHandler, "-killtime", "-killtime", "Kill after this many seconds");
 	InstallCommandLineHandler(MyCLHandler, "-nogui", "-nogui", "Turn off gui");
@@ -169,6 +173,10 @@ void InitHeadless(){
   std::cout << "Setting seed " << seed << "\n";
   srand(seed);
   srandom(seed);
+  AirplaneEnvironment* agce = new AirplaneGridCardinalEnvironment();
+  AirplaneEnvironment* agoe = new AirplaneGridOctileEnvironment();
+  AirplaneEnvironment* a3ce = new AirplaneGrid3DCardinalEnvironment();
+  AirplaneEnvironment* a3oe = new AirplaneGrid3DOctileEnvironment();
   AirplaneEnvironment* ae = new AirplaneEnvironment();
   ae->loadPerimeterDB();
   AirplaneEnvironment* ase = new AirplaneSimpleEnvironment();
@@ -181,12 +189,26 @@ void InitHeadless(){
   ah4c->loadPerimeterDB();
   AirplaneEnvironment* ac = new AirplaneCardinalEnvironment();
   ac->loadPerimeterDB();
-  environs.push_back(EnvironmentContainer(ahe->name(),new AirplaneConstrainedEnvironment(ahe),0,cutoffs[0],1));
-  environs.push_back(EnvironmentContainer(ah4e->name(),new AirplaneConstrainedEnvironment(ah4e),0,cutoffs[1],1));
-  environs.push_back(EnvironmentContainer(ase->name(),new AirplaneConstrainedEnvironment(ase),0,cutoffs[2],1));
-  environs.push_back(EnvironmentContainer(ae->name(),new AirplaneConstrainedEnvironment(ae),0,cutoffs[3],1));
+  // Cardinal Grid
+  environs.push_back(EnvironmentContainer(agce->name(),new AirplaneConstrainedEnvironment(agce),0,cutoffs[0],1));
+  // Octile Grid
+  environs.push_back(EnvironmentContainer(agoe->name(),new AirplaneConstrainedEnvironment(agoe),0,cutoffs[1],1));
+  // Cardinal 3D Grid
+  environs.push_back(EnvironmentContainer(a3ce->name(),new AirplaneConstrainedEnvironment(a3ce),0,cutoffs[2],1));
+  // Octile 3D Grid
+  environs.push_back(EnvironmentContainer(a3oe->name(),new AirplaneConstrainedEnvironment(a3oe),0,cutoffs[3],1));
+  // Highway 4 Airplane
   environs.push_back(EnvironmentContainer(ah4c->name(),new AirplaneConstrainedEnvironment(ah4c),0,cutoffs[4],1));
-  environs.push_back(EnvironmentContainer(ac->name(),new AirplaneConstrainedEnvironment(ac),0,cutoffs[5],1));
+  // Highway 8 Airplane
+  environs.push_back(EnvironmentContainer(ahe->name(),new AirplaneConstrainedEnvironment(ahe),0,cutoffs[5],1));
+  // Simple Airplane
+  environs.push_back(EnvironmentContainer(ase->name(),new AirplaneConstrainedEnvironment(ase),0,cutoffs[6],1));
+  // Cardinal Airplane
+  environs.push_back(EnvironmentContainer(ac->name(),new AirplaneConstrainedEnvironment(ac),0,cutoffs[7],1));
+  // Octile Airplane
+  environs.push_back(EnvironmentContainer(ae->name(),new AirplaneConstrainedEnvironment(ae),0,cutoffs[8],1));
+  // Highway 4/8 Airplane
+  environs.push_back(EnvironmentContainer(ah4e->name(),new AirplaneConstrainedEnvironment(ah4e),0,cutoffs[9],1));
 
   ace=environs.rbegin()->environment;
 
@@ -204,8 +226,8 @@ void InitHeadless(){
   // we are inducing high conflict areas.
   std::cout << "Adding " << num_airplanes << "planes." << std::endl;
 
+  timer=new Timer();
   if(!gui){
-    timer=new Timer();
     Timer::Timeout func(std::bind(&AirCBSGroup::processSolution, group, std::placeholders::_1));
     timer->StartTimeout(std::chrono::seconds(killtime),func);
   }
@@ -223,7 +245,7 @@ void InitHeadless(){
         bool conflict(true);
         while(conflict){
           conflict=false;
-          airplaneState rs1(rand() % 70 + 5, rand() % 70 + 5, rand() % 7 + 11, rand() % 3 + 1, rand() % 8, false);
+          airplaneState rs1(rand() % 70 + 5, rand() % 70 + 5, rand() % 15 + 2, rand() % 3 + 1, rand() % 8, false);
           airtimeState start(rs1, 0);
           for (int j = 0; j < waypoints.size(); j++)
           {

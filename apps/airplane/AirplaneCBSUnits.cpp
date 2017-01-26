@@ -183,7 +183,7 @@ void AirCBSGroup::processSolution(double elapsed)
 
     // Update the actual unit path
     unit->SetPath(newPath);
-    std::cout << "Agent " << x << ": " << "\n";
+    /*std::cout << "Agent " << x << ": " << "\n";
     unsigned wpt(0);
     for(auto &a: tree[bestNode].paths[x])
     {
@@ -197,7 +197,7 @@ void AirCBSGroup::processSolution(double elapsed)
         {
             std::cout << "  " << a << "\n";
         }
-    }
+    }*/
   }
   if(elapsed<0){
     std::cout << "FAILED\n";
@@ -286,7 +286,7 @@ void AirCBSGroup::ExpandOneCBSNode(bool gui)
 
       // Add two nodes to the tree for each of the children
       tree.resize(last+2);
-      std::cout << "Tree has " << tree.size() << "\n";
+      //std::cout << "Tree has " << tree.size() << "\n";
       // The first node contains the conflict c1
       tree[last] = tree[bestNode];
       tree[last].con = c1;
@@ -313,14 +313,14 @@ void AirCBSGroup::ExpandOneCBSNode(bool gui)
       for (int y = 0; y < tree[last].paths.size(); y++)
         cost += currentEnvironment->environment->GetPathLength(tree[last].paths[y]);
       OpenListNode l1(last, cost, nc1);
-      std::cout << "New CT NODE: " << last << " " << cost << " " << nc1 << "\n";
+      //std::cout << "New CT NODE: " << last << " " << cost << " " << nc1 << "\n";
       openList.push(l1);
 
       cost = 0;
       for (int y = 0; y < tree[last+1].paths.size(); y++)
         cost += currentEnvironment->environment->GetPathLength(tree[last+1].paths[y]);
       OpenListNode l2(last+1, cost, nc2);
-      std::cout << "New CT NODE: " << last+1 << " " << cost << " " << nc2 << "\n";
+      //std::cout << "New CT NODE: " << last+1 << " " << cost << " " << nc2 << "\n";
       openList.push(l2);
     }
 
@@ -456,7 +456,7 @@ unsigned ReplanLeg(AirCBSUnit* c, TemplateAStar<airtimeState, airplaneAction, Ai
           newEnd->t+=(newTime-origTime);
       }
   }
-  std::cout << "exp replan " << astar.GetNodesExpanded() << "\n";
+  //std::cout << "exp replan " << astar.GetNodesExpanded() << "\n";
   return astar.GetNodesExpanded();
 
 }
@@ -495,7 +495,6 @@ unsigned GetFullPath(AirCBSUnit* c, TemplateAStar<airtimeState, airplaneAction, 
   if(useCAT){
     currentAstar=&astar;
     currentEnv=(AirplaneConstrainedEnvironment*)env;
-    std::cout << currentEnv->name() << " NAME\n";
     currentAgent=agent;
   }
   for(int i=s; i<g; ++i){
@@ -505,7 +504,7 @@ unsigned GetFullPath(AirCBSUnit* c, TemplateAStar<airtimeState, airplaneAction, 
     env->setGoal(goal);
     astar.GetPath(env, start, goal, path);
     expansions += astar.GetNodesExpanded();
-    std::cout << "exp full " << astar.GetNodesExpanded() << "\n";
+    //std::cout << "exp full " << astar.GetNodesExpanded() << "\n";
     if(path.empty()){return expansions;} //no solution found
     // Update path times
     if(thePath.size()){
@@ -590,7 +589,7 @@ void AirCBSGroup::AddUnit(Unit<airtimeState, airplaneAction, AirplaneConstrained
       }
     }
     tree[0].paths.back().push_back(thePath[i]);
-    std::cout << "PATH " << thePath.size() << " tree SIZE,DEPTH " << tree[0].cat.size() << "," << tree[0].cat.depth() << "\n";
+    //std::cout << "PATH " << thePath.size() << " tree SIZE,DEPTH " << tree[0].cat.size() << "," << tree[0].cat.depth() << "\n";
   }
   if(info.size()){
     tree[0].cat=IntervalTree(info);
@@ -655,7 +654,7 @@ void AirCBSGroup::UpdateUnitGoal(Unit<airtimeState, airplaneAction, AirplaneCons
     std::vector<airtimeState> thePath;
     DoHAStar(current, goal, thePath);
     TOTAL_EXPANSIONS += astar.GetNodesExpanded();
-    std::cout << "exp replan " << astar.GetNodesExpanded() << "\n";
+    //std::cout << "exp replan " << astar.GetNodesExpanded() << "\n";
 
     //std::cout << "Got optimal path" << std::endl;
     // Add the optimal path to the root of the tree
@@ -670,9 +669,9 @@ void AirCBSGroup::UpdateUnitGoal(Unit<airtimeState, airplaneAction, AirplaneCons
       tree[0].paths[x].push_back(thePath[i]);
     }
 
-    for(auto &a : tree[0].paths[x]){
-      std::cout << " --  " << a << "\n";
-    }
+    //for(auto &a : tree[0].paths[x]){
+      //std::cout << " --  " << a << "\n";
+    //}
   }
 
   //std::cout << "Adding the root to the open list" << std::endl;
@@ -845,7 +844,7 @@ bool AirCBSGroup::Bypass(int best, unsigned numConflicts, airConflict const& c1,
   if(bypassConflicts < numConflicts)// && newPath.size() <= tree[best].paths[c1.unit1].size())
   {
     success = true;
-    std::cout << "Found a bypass! expansions:" << astar2.GetNodesExpanded() << " len" <<newPath.size()<<" == "<<tree[best].paths[c1.unit1].size() << "\n\n\n";
+    //std::cout << "Found a bypass! expansions:" << astar2.GetNodesExpanded() << " len" <<newPath.size()<<" == "<<tree[best].paths[c1.unit1].size() << "\n\n\n";
     if(bypassConflicts==0)
     {
       tree[best].paths[c1.unit1]=newPath;
@@ -882,14 +881,14 @@ bool AirCBSGroup::Bypass(int best, unsigned numConflicts, airConflict const& c1,
       for (int y = 0; y < tree[last].paths.size(); y++)
         cost += currentEnvironment->environment->GetPathLength(tree[last].paths[y]);
       OpenListNode l1(last, cost, nc1);
-      std::cout << "New CT NODE: " << last << " " << cost << " " << nc1 << "\n";
+      //std::cout << "New CT NODE: " << last << " " << cost << " " << nc1 << "\n";
       openList.push(l1);
 
       cost = 0;
       for (int y = 0; y < tree[last+1].paths.size(); y++)
         cost += currentEnvironment->environment->GetPathLength(tree[last+1].paths[y]);
       OpenListNode l2(last+1, cost, nc2);
-      std::cout << "New CT NODE: " << last+1 << " " << cost << " " << nc2 << "\n";
+      //std::cout << "New CT NODE: " << last+1 << " " << cost << " " << nc2 << "\n";
       openList.push(l2);
     }
   }

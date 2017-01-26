@@ -974,77 +974,14 @@ double AirplaneEnvironment::myHCost(const airplaneState &node1, const airplaneSt
   //return total+(diag*cruiseBurnRate+dspeedDiff*speedBurnDelta)*M_SQRT2;
 }
 
-double AirplaneEnvironment::OldHCost(const airplaneState &node1, const airplaneState &node2) const{
-  // We want to estimate the heuristic to the landing state
-  // Figure out which landing strip we're going to
-  for (landingStrip st : landingStrips)
-  {
-    if (node2 == st.goal_state)
-    {
-      return HCost(node1, st.landing_state);
-    } else if (node1 == st.goal_state)
-    {
-      return HCost(st.landing_state, node2);
-    }
-  }
-  
-  airplaneState pNode = node2;
-  airplaneState tNode = node2;
-  double perimeterVal(0);
-  if(perimeterLoaded)
-  {
-    unsigned xd(abs(node1.x-node2.x));
-    unsigned yd(abs(node1.y-node2.y));
-    unsigned zd(abs(node1.height-node2.height));
-    if((xd<=3 && yd<=3 && zd<=3)){
-      if((xd<=2 && yd<=2 && zd<=2)||hdgDiff<8>(node1.heading,node1.headingTo(node2))<3){
-        return perimeter[node1.type].GCost(node1,node2);
-      }else{
-        //Replace the heading with one that is facing toward the goal (this gives an admissible estimate)
-        airplaneState s(node1);
-        s.heading=node1.headingTo(node2);
-        std::cout << "Special " << s <<"\n";
-        return perimeter[node1.type].GCost(s,node2);
-      }
-    }
-    // Select a perimeter node
-    double best(9999999);
-    static const int perimeterSize(2);
-    for(int x(std::max(0,node2.x-perimeterSize)); x<std::min(node2.x+perimeterSize,width); ++x){
-      for(int y(std::max(0,node2.y-perimeterSize)); y<std::min(node2.y+perimeterSize,length); ++y){
-        double dist(/*sqrt*/((x-node1.x)*(x-node1.x)+(y-node1.y)*(y-node1.y)));
-  tNode.x = x;
-  tNode.y = y;
-        if(myHCost(node1,tNode) + dist < best){
-          pNode.x = x;
-          pNode.y = y;
-        }
-      }
-    }
-    perimeterVal = perimeter[node1.type].GCost(pNode,node2);
-  }
-
-  return myHCost(node1,pNode)+ perimeterVal;
+double AirplaneEnvironment::ReverseHCost(const airplaneState &node1, const airplaneState &node2) const
+{
+  return HCost(node2,node1);
 }
+
 double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneState &node2) const
 {
   if(GoalTest(node1,node2)){return 0.0;}
-  //if(searchtype == SearchType::REVERSE)
-  //{
-    //std::cout << "R";
-  //}
-  // We want to estimate the heuristic to the landing state
-  // Figure out which landing strip we're going to
-  /*for (landingStrip st : landingStrips)
-  {
-    if (node2 == st.goal_state)
-    {
-      return HCost(node1, st.landing_state);
-    } else if (node1 == st.goal_state)
-    {
-      return HCost(st.landing_state, node2);
-    }
-  }*/
   static const int cruiseSpeed(3);
   airplaneState tNode = node2;
   tNode.speed = cruiseSpeed;
@@ -1052,8 +989,9 @@ double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneStat
   if(perimeterLoaded)
   {
     static const int perimeterSize(2);
-    if(abs(node1.x-node2.x)<=perimeterSize && abs(node1.y-node2.y)<=perimeterSize && abs(node2.height-node1.height) <=perimeterSize)
+    if(abs(node1.x-node2.x)<=perimeterSize && abs(node1.y-node2.y)<=perimeterSize && abs(node2.height-node1.height) <=perimeterSize){
       return perimeter[node1.type].GCost(node1,node2);
+    }
     unsigned xd(abs(node1.x-node2.x));
     unsigned yd(abs(node1.y-node2.y));
     unsigned zd(abs(node1.height-node2.height));
@@ -1168,12 +1106,13 @@ double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneStat
             //std::cout << "Trying heading: " << (unsigned)tNode.heading << "\n";
             double vcost((node1.height==tNode.height)?0:((node1.height>tNode.height)?descendCost:climbCost));
             double hc(overRide?cruiseBurnRate+vcost:myHCost(node1,tNode));
-            if(hc + perimeter[node1.type].GCost(tNode,node2) < best){
+            double pval(perimeter[node1.type].GCost(tNode,node2));
+            if(hc + pval < best){
               //std::cout << "Selected: "<<node1<<"-->"<<tNode<<"-->"<<node2<< x << "," << y << ","<<(unsigned)tNode.height<<","<< (unsigned)tNode.heading << ": " << hc << "+" << perimeter[node1.type].GCost(tNode,node2) << "=" << hc + perimeter[node1.type].GCost(tNode,node2) << " -- " <<xmin <<" "<<xmax<<" "<<ymin<<" "<<ymax<<" "<<zmin<<" " << zmax <<  "\n";
               //std::cout << "^ BEST\n";
               //std::stringstream ss;
               //s = ss.str();
-              best = hc + perimeter[node1.type].GCost(tNode,node2);
+              best = hc + pval;
             }
           }
         }
@@ -1184,13 +1123,18 @@ double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneStat
     //perimeterVal = (searchtype != SearchType::REVERSE)?perimeter[node1.type].GCost(pNode,node2):perimeter[node1.type].GCost(node2,pNode);
   }else{
     std::cout << "!loaded\n";
-    best = myHCost(node1,node2);
+    best = searchtype == myHCost(node1,node2);
   }
 
   return best;
 }
 
 
+
+double AirplaneEnvironment::ReverseGCost(const airplaneState &n1, const airplaneState &n2) const
+{
+  return GCost(n2,n1);
+}
 
 double AirplaneEnvironment::GCost(const airplaneState &node1, const airplaneState &node2) const
 {

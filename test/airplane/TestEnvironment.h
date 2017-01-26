@@ -2,12 +2,16 @@
 #define __hog2_glut__TestEnvironment__
 
 #include "Timer.h"
-#include "Airplane.h"
+#include "Airplane.h" // Includes Airplane
 //#include "AirplaneOld.h"
 #include "AirplaneSimple.h"
 #include "AirplaneHighway.h"
 #include "AirplaneHighway4Cardinal.h"
 #include "AirplaneCardinal.h"
+#include "AirplaneGridCardinal.h"
+#include "AirplaneGridOctile.h"
+#include "AirplaneGrid3DCardinal.h"
+#include "AirplaneGrid3DOctile.h"
 #include "AirplaneMultiAgent.h"
 #include "TemplateIntervalTree.h"
 #include <iostream>
@@ -67,6 +71,25 @@ bool set(float* list, airplaneState const& s, airplaneState const& start, float 
     return false;
   set(list,x,y,z,s.speed-1,s.heading,val);
   return true;
+}
+
+void testReverseSuccessors(AirplaneEnvironment& env, airplaneState const& s, airplaneState const& g, airplaneState o) {
+  //std::cout << "original " << o << "\n";
+  std::vector<airplaneState> ancestors;
+  env.GetReverseSuccessors(o,ancestors);
+  for (auto &a : ancestors)
+  {
+    //std::cout << " Ancestor " << a << "\n";
+    // All ancestors should have a successor that is equal to the original state
+    std::vector<airplaneState> successors;
+    env.GetSuccessors(a,successors);
+    bool found(false);
+    for(auto &c: successors){
+      //std::cout << "        " << c << "\n";
+      if(c==o){found=true; break;}
+    }
+    assert(found && "Did not create a correct ancestor");
+  }
 }
 
 struct IntervalData{
@@ -131,6 +154,16 @@ void testHash(){
   airtimeState a(env2->GetState(h));
   std::cout << s << "\n";
   std::cout << a << "\n";
+  env=new AirplaneGridCardinalEnvironment();
+  uint64_t hash1(env->GetStateHash(start));
+  start.height=start.heading=start.landed=1;
+  uint64_t hash2(env->GetStateHash(start));
+  assert(hash1==hash2&&"Hash of same x,y,s in grid is same");
+  env=new AirplaneGridOctileEnvironment();
+  hash1=env->GetStateHash(start);
+  start.height=start.heading=start.landed=3;
+  hash2=env->GetStateHash(start);
+  assert(hash1==hash2&&"Hash of same x,y,s in grid is same");
 }
 
 void testIndexConv(){
@@ -153,45 +186,39 @@ void testPathUniqueness(){
 
   AirplaneEnvironment* a8e(new AirplaneHighwayEnvironment());
   a8e->loadPerimeterDB();
-  //envs.push_back(a8e);
-  TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> r1;
-  r1.SetSuccessorFunc(&AirplaneHighwayEnvironment::GetReverseSuccessors);
-  //ra.push_back((TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment>*)&r1);
 
   AirplaneEnvironment* ae(new AirplaneEnvironment());
   ae->loadPerimeterDB();
-  envs.push_back(ae);
-  TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> r2;
-  r2.SetSuccessorFunc(&AirplaneEnvironment::GetReverseSuccessors);
-  ra.push_back(&r2);
 
   AirplaneEnvironment* ase(new AirplaneSimpleEnvironment());
   ase->loadPerimeterDB();
-  envs.push_back(ase);
-  TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> r3;
-  r3.SetSuccessorFunc(&AirplaneSimpleEnvironment::GetReverseSuccessors);
-  ra.push_back((TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment>*)&r3);
 
   AirplaneEnvironment* a4e(new AirplaneCardinalEnvironment());
   a4e->loadPerimeterDB();
-  //envs.push_back(a4e);
-  TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> r4;
-  r4.SetSuccessorFunc(&AirplaneCardinalEnvironment::GetReverseSuccessors);
-  //ra.push_back((TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment>*)&r4);
 
   AirplaneEnvironment* a4he(new AirplaneHighway4CardinalEnvironment());
   a4he->loadPerimeterDB();
-  //envs.push_back(a4he);
-  TemplateAStar<airplaneState, airplaneAction, AirplaneHighway4CardinalEnvironment> r5;
-  r5.SetSuccessorFunc(&AirplaneHighway4CardinalEnvironment::GetReverseSuccessors);
-  //ra.push_back((TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment>*)&r5);
 
-  //airplaneState start(40,40,10,1,0,false,AirplaneType::PLANE);
-  //airplaneState goal(43,41,14,3,7,false,AirplaneType::PLANE);
+  AirplaneEnvironment* age(new AirplaneGridCardinalEnvironment());
+  AirplaneEnvironment* aoe(new AirplaneGridOctileEnvironment());
+  AirplaneEnvironment* ag3e(new AirplaneGrid3DCardinalEnvironment());
+  AirplaneEnvironment* ao3e(new AirplaneGrid3DOctileEnvironment());
+  //age->loadPerimeterDB();
+
+  envs.push_back(aoe);
+  envs.push_back(age);
+  envs.push_back(ag3e);
+  envs.push_back(ao3e);
+  envs.push_back(ae);
+  envs.push_back(a4e);
+  envs.push_back(a8e);
+  envs.push_back(a4he);
+  envs.push_back(ase);
+  /*
+  */
+
   for(int k(0); k<envs.size(); ++k){
     AirplaneEnvironment* e(envs[k]);
-    //AirplaneEnvironment* re(renvs[k]);
-    TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment>* rastar = ra[k];
     TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> astar;
     std::cout << "\n";
     std::cout << e->name() << "\n";
@@ -201,93 +228,74 @@ void testPathUniqueness(){
     //for(int i(0); i<1; ++i){
     for(int i(0); i<1000; ++i){
       std::set<uint64_t> hashes;
-      //airplaneState start(45,35,10,3,0,false);
-      //airplaneState goal(35,30,10,3,0,false);
-      airplaneState start(rand() % 8+5, rand() % 8+5, rand() % 5+5, rand() % 5 + 1, rand() % 4*2, false);
-      airplaneState goal(rand() % 8+5, rand() % 8+5, rand() % 5+5, rand() % 5 + 1, rand() % 4*2, false);
-      std::cout << i << "\n";
-      std::cout << "=====================" << std::endl;
+      airplaneState start(rand() % 20+5, rand() % 20+5, rand() % 10+5, rand() % 5 + 1, rand() % 4*2, false);
+      airplaneState goal(rand() % 20+5, rand() % 20+5, rand() % 10+5, rand() % 5 + 1, rand() % 4*2, false);
+      //std::cout << i << "\n";
       //std::cout << "\n"<<start << "\n" << goal << "\n";
+      //std::cout << "=====================" << std::endl;
       //std::cout << "\n";
-      if(start==goal)continue;
+      if(e->GoalTest(start,goal))continue;
       std::vector<airplaneState> soln;
-      std::vector<airplaneState> rsoln;
+      e->setStart(start); // This is needed for reverse actions
       e->setGoal(goal);
+      double hc1(e->HCost(start,goal));
       astar.GetPath(e,start,goal,soln);
-      //for(int i=0; i<soln.size(); ++i){
-        //std::cout << soln[i] << " ";
-        //if(i>0) std::cout << e->GCost(soln[i-1],soln[i]);
-        //std::cout << "\n";
-      //}
+      double cStar(e->GetPathLength(soln));
       for(auto const& a: soln){
         hashes.insert(e->GetStateHash(a));
         //std::cout << a << "\n";
       }
-      //std::cout << "\n";
-      e->setGoal(start);
-      rastar->GetPath(e,goal,start,rsoln);
-      std::reverse(rsoln.begin(),rsoln.end());
-      //for(int i=0; i<rsoln.size(); ++i){
-        //std::cout << rsoln[i] << " ";
-        //if(i>0) std::cout << e->GCost(rsoln[i-1],rsoln[i]);
-        //std::cout << "\n";
-      //}
-      for(auto const& a: rsoln){
-        hashes.insert(e->GetStateHash(a));
-        //std::cout << a << "\n";
-      }
-      double cStar(e->GetPathLength(soln));
-      double rcStar(e->GetPathLength(rsoln));
-      std::cout << "c*,rc*: " << cStar << " " << rcStar << "\n";
-      if(!fequal(cStar,rcStar)){continue;}
       incl += 1.0;
       numOpt += soln.size();
+      //std::cout << soln.size() << "/";
 
+      //std::cout << "cstar " << cStar << "\n";
       while(true){
         astar.DoSingleSearchStep(soln);
         uint64_t key(astar.openClosedList.Peek());
         double f(astar.openClosedList.Lookup(key).g+astar.openClosedList.Lookup(key).h);
+        //std::cout << "-"<<std::endl;
+        //std::cout << f << std::endl;
         if(fgreater(f,cStar)){
           break;
         }
       }
 
-      while(true){
-        rastar->DoSingleSearchStep(rsoln);
-        uint64_t key(rastar->openClosedList.Peek());
-        //std::cout << key << "\n";
-        double f(rastar->openClosedList.Lookup(key).g+rastar->openClosedList.Lookup(key).h);
-        if(fgreater(f,rcStar)){
-          break;
-        }
-      }
-
-      std::queue<airplaneState> q;
-      q.push(goal);
+      //if(i%100==0)std::cout << i << "\n";
+      std::queue<std::pair<airplaneState,double> > q;
+      q.push(std::make_pair(goal,0.0));
       while(q.size()){
-        airplaneState s(q.front());
+        //std::cout << "_" << q.size() << std::endl;
+        std::pair<airplaneState,double> s(q.front());
         q.pop();
         std::vector<airplaneState> ancestors;
-        e->GetReverseSuccessors(s,ancestors);
+        e->GetReverseSuccessors(s.first,ancestors);
+        //std::cout << s.first << "-----------\n";
         for(auto const& a: ancestors){
+          //std::cout << " ."<< std::endl;
           uint64_t key(e->GetStateHash(a));
-          double g1,g2;
-          if(rastar->GetClosedListGCost(a,g1) && astar.GetClosedListGCost(a,g2)){
-            if(fequal(g1+g2,cStar)){
+          double g1(e->GCost(a,s.first)+s.second);
+          double g2;
+          //std::cout <<"a"<< a << "-->g" << s.first <<"="<<g1<<"\n";
+          if(astar.GetClosedListGCost(a,g2)){
+            //std::cout << "   g"<<s.first << "-->a" << a <<"="<<g2<<"\n";
+            if(fequal(g1+g2,cStar)&&hashes.find(key)==hashes.end()){
+              //std::cout << " push "<< a<< std::endl;
               hashes.insert(key);
-              q.push(a);
+              q.push(std::make_pair(a,g1));
             }
           }
+          //else
+            //std::cout << "a not in \n";
         }
       }
       //for(auto const& a: hashes){
         //std::cout << e->GetState(a) << "\n";
       //}
       total+=hashes.size();
-      //astar.Reset();
-      //rastar->Reset();
+      //std::cout << hashes.size() << "\n";
     }
-    std::cout << numOpt/incl << "/" << total/incl << "=" << (numOpt/incl/total/incl) << "\n";
+    std::cout << total/incl << "/" << numOpt/incl << "=" << (total/numOpt) << "\n";
   }
 }
 
@@ -412,7 +420,7 @@ return 0;
   }
 }
 
-bool compareHeuristicSpeed(){
+/*bool compareHeuristicSpeed(){
   srand(123456);
   std::cout << "Heuristic relative speed\n";
   AirplaneEnvironment aenv;
@@ -438,7 +446,7 @@ bool compareHeuristicSpeed(){
   std::cout << "Old Speed: " << h2 << std::endl;
   std::cout << "New Speed: " << h1 << std::endl;
   return 0;
-}
+}*/
 
 bool testMultiAgent(){
   std::cout << "reverse\n";
@@ -1167,68 +1175,235 @@ bool testHCost(){
   std::cout << "PASSED\n";
 }
 
+bool testGrid3DOctileActions(){
+  std::cout << "grid 3D cardinal:";
+  AirplaneGrid3DOctileEnvironment env;
+  airplaneAction a(0,0,0);
+  airplaneState s;
+  s.x = 50;
+  s.y = 50;
+  s.height = 16;
+  s.speed = 3;
+  s.heading = 0;
+  airplaneState g(50,40,18,3,0);
+  env.setGoal(g);
+  std::vector<airplaneAction> actions;
+  env.GetActions(s,actions);
+  assert(26==actions.size() && "Wrong number of actions generated");
+  std::vector<airplaneAction> ractions;
+  env.GetReverseActions(s,ractions);
+  assert(26==ractions.size() && "Wrong number of reverse actions generated");
+  for (auto &a : actions)
+  {
+    airplaneState s1=s;
+    env.ApplyAction(s,a);
+    airplaneAction a2(env.GetAction(s1,s));
+    std::cout << s1 << "-->" << s << "\n" << a << " " << a2 << "\n";
+    env.UndoAction(s,a);
+    //std::cout << a << s << s1 << "\n";
+    assert(s==s1 && "Action not reversed properly");
+    assert(a==a2 && "Action not inferred properly");
+    std::cout << ".";
+    s=s1; // Reset
+  }
+  env.setStart(s);
+  env.setGoal(g);
+  airplaneState o(56,44,11,3,0);
+  testReverseSuccessors(env,s,g,o);
+  o=s;
+  o.x+=1;
+  testReverseSuccessors(env,s,g,o);
+  o=g;
+  o.x+=1;
+  testReverseSuccessors(env,s,g,o);
+  std::cout << "PASSED\n";
+}
+
+bool testGrid3DCardinalActions(){
+  std::cout << "grid 3D cardinal:";
+  AirplaneGrid3DCardinalEnvironment env;
+  airplaneAction a(0,0,0);
+  airplaneState s;
+  s.x = 50;
+  s.y = 50;
+  s.height = 16;
+  s.speed = 3;
+  s.heading = 0;
+  airplaneState g(50,40,18,3,0);
+  env.setGoal(g);
+  std::vector<airplaneAction> actions;
+  env.GetActions(s,actions);
+  assert(6==actions.size() && "Wrong number of actions generated");
+  std::vector<airplaneAction> ractions;
+  env.GetReverseActions(s,ractions);
+  assert(6==ractions.size() && "Wrong number of reverse actions generated");
+  for (auto &a : actions)
+  {
+    airplaneState s1=s;
+    env.ApplyAction(s,a);
+    airplaneAction a2(env.GetAction(s1,s));
+    std::cout << s1 << "-->" << s << "\n" << a << " " << a2 << "\n";
+    env.UndoAction(s,a);
+    //std::cout << a << s << s1 << "\n";
+    assert(s==s1 && "Action not reversed properly");
+    assert(a==a2 && "Action not inferred properly");
+    std::cout << ".";
+    s=s1; // Reset
+  }
+  env.setStart(s);
+  env.setGoal(g);
+  airplaneState o(56,44,11,3,0);
+  testReverseSuccessors(env,s,g,o);
+  o=s;
+  o.x+=1;
+  testReverseSuccessors(env,s,g,o);
+  o=g;
+  o.x+=1;
+  testReverseSuccessors(env,s,g,o);
+  std::cout << "PASSED\n";
+}
+
+bool testGridOctileActions(){
+  std::cout << "grid cardinal:";
+  AirplaneGridOctileEnvironment env;
+  airplaneAction a(0,0,0);
+  airplaneState s;
+  s.x = 50;
+  s.y = 50;
+  s.height = 16;
+  s.speed = 3;
+  s.heading = 0;
+  airplaneState g(50,40,18,3,0);
+  env.setGoal(g);
+  std::vector<airplaneAction> actions;
+  env.GetActions(s,actions);
+  assert(8==actions.size() && "Wrong number of actions generated");
+  std::vector<airplaneAction> ractions;
+  env.GetReverseActions(s,ractions);
+  assert(8==ractions.size() && "Wrong number of reverse actions generated");
+  for (auto &a : actions)
+  {
+    airplaneState s1=s;
+    env.ApplyAction(s,a);
+    airplaneAction a2(env.GetAction(s1,s));
+    std::cout << s1 << "-->" << s << "\n" << a << " " << a2 << "\n";
+    env.UndoAction(s,a);
+    //std::cout << a << s << s1 << "\n";
+    assert(s==s1 && "Action not reversed properly");
+    assert(a==a2 && "Action not inferred properly");
+    std::cout << ".";
+    s=s1; // Reset
+  }
+  env.setStart(s);
+  env.setGoal(g);
+  airplaneState o(56,44,11,3,0);
+  testReverseSuccessors(env,s,g,o);
+  o=s;
+  o.x+=1;
+  testReverseSuccessors(env,s,g,o);
+  o=g;
+  o.x+=1;
+  testReverseSuccessors(env,s,g,o);
+  std::cout << "PASSED\n";
+}
+
+bool testGridCardinalActions(){
+  std::cout << "grid cardinal:";
+  AirplaneGridCardinalEnvironment env;
+  airplaneAction a(0,0,0);
+  airplaneState s;
+  s.x = 50;
+  s.y = 50;
+  s.height = 16;
+  s.speed = 3;
+  s.heading = 0;
+  airplaneState g(50,40,18,3,0);
+  env.setGoal(g);
+  std::vector<airplaneAction> actions;
+  env.GetActions(s,actions);
+  assert(4==actions.size() && "Wrong number of actions generated");
+  std::vector<airplaneAction> ractions;
+  env.GetReverseActions(s,ractions);
+  assert(4==ractions.size() && "Wrong number of reverse actions generated");
+  for (auto &a : actions)
+  {
+    airplaneState s1=s;
+    env.ApplyAction(s,a);
+    airplaneAction a2(env.GetAction(s1,s));
+    std::cout << s1 << "-->" << s << "\n" << a << " " << a2 << "\n";
+    env.UndoAction(s,a);
+    //std::cout << a << s << s1 << "\n";
+    assert(s==s1 && "Action not reversed properly");
+    assert(a==a2 && "Action not inferred properly");
+    std::cout << ".";
+    s=s1; // Reset
+  }
+  env.setStart(s);
+  env.setGoal(g);
+  airplaneState o(56,44,11,3,0);
+  testReverseSuccessors(env,s,g,o);
+  o=s;
+  o.x+=1;
+  testReverseSuccessors(env,s,g,o);
+  o=g;
+  o.x+=1;
+  testReverseSuccessors(env,s,g,o);
+  std::cout << "PASSED\n";
+}
+
 bool testCardinalActions(){
+  std::cout << "cardinal:";
+  AirplaneCardinalEnvironment env;
+  airplaneAction a(0,0,0);
+  airplaneState s;
+  s.x = 50;
+  s.y = 50;
+  s.height = 16;
+  s.speed = 3;
+  s.heading = 0;
+  airplaneState g(50,40,18,3,0);
+  env.setGoal(g);
+  std::vector<airplaneAction> actions;
+  env.GetActions(s,actions);
+  assert(27==actions.size() && "Wrong number of actions generated");
+  std::vector<airplaneAction> ractions;
+  s.heading=1;
+  env.setStart(s);
+  env.GetReverseActions(s,ractions);
+  assert(18==ractions.size() && "Wrong number of start reverse actions generated");
+  s.heading=0;
+  env.setStart(g);
+  env.GetReverseActions(s,ractions);
+  assert(27==ractions.size() && "Wrong number of reverse actions generated");
+  env.setGoal(g);
+  env.GetReverseActions(g,ractions);
+  assert(63==ractions.size() && "Wrong number of goal reverse actions generated");
+  for (auto &a : actions)
   {
-    std::cout << "cardinal:";
-    AirplaneCardinalEnvironment env;
-    airplaneAction a(0,0,0);
-    airplaneState s;
-    s.x = 50;
-    s.y = 50;
-    s.height = 16;
-    s.heading = 0;
-    s.speed = 3;
-    airplaneState g(50,40,18,0,3);
-    env.setGoal(g);
-    std::vector<airplaneAction> actions;
-    env.GetActions(s,actions);
-    assert(27==actions.size() && "Wrong number of actions generated");
-    for (auto &a : actions)
-    {
-      airplaneState s1=s;
-      env.ApplyAction(s,a);
-      airplaneAction a2(env.GetAction(s1,s));
-      env.UndoAction(s,a);
-      //std::cout << a << s << s1 << "\n";
-      assert(s==s1 && "Action not reversed properly");
-      assert(a==a2 && "Action not inferred properly");
-      std::cout << ".";
-      s=s1; // Reset
-    }
+    airplaneState s1=s;
+    env.ApplyAction(s,a);
+    airplaneAction a2(env.GetAction(s1,s));
+    env.UndoAction(s,a);
+    //std::cout << a << s << s1 << "\n";
+    assert(s==s1 && "Action not reversed properly");
+    assert(a==a2 && "Action not inferred properly");
+    std::cout << ".";
+    s=s1; // Reset
   }
-  {
-    std::cout << "cardinal invalid start state:";
-    AirplaneCardinalEnvironment env;
-    airplaneAction a(0,0,0);
-    airplaneState s;
-    s.x = 50;
-    s.y = 50;
-    s.height = 16;
-    s.heading = 1;
-    s.speed = 3;
-    airplaneState g(50,40,18,0,3);
-    env.setGoal(g);
-    std::vector<airplaneAction> actions;
-    env.GetActions(s,actions);
-    assert(18==actions.size() && "Wrong number of actions generated");
-    for (auto &a : actions)
-    {
-      airplaneState s1=s;
-      env.ApplyAction(s,a);
-      airplaneAction a2(env.GetAction(s1,s));
-      env.UndoAction(s,a);
-      //std::cout << a << s << s1 << "\n";
-      assert(s==s1 && "Action not reversed properly");
-      assert(a==a2 && "Action not inferred properly");
-      std::cout << ".";
-      s=s1; // Reset
-    }
-  }
+  env.setStart(s);
+  env.setGoal(g);
+  airplaneState o(56,44,11,3,0);
+  testReverseSuccessors(env,s,g,o);
+  o=s;
+  o.x+=1;
+  testReverseSuccessors(env,s,g,o);
+  o=g;
+  o.x+=1;
+  testReverseSuccessors(env,s,g,o);
   std::cout << "PASSED\n";
 }
 
 bool testCardinalEnvHCost(){
-  {
     srand(123456);
     std::cout << " Cardinal Environment HCost: ";
     AirplaneEnvironment aenv;
@@ -1277,9 +1452,9 @@ bool testCardinalEnvHCost(){
       assert(fgeq(gcost,hcost));
       std::cout << "." << std::flush;
     }
-  }
   return true;
 }
+
 
 bool testCardinalHighwayActions(){
   std::cout << " highway 4 cardinal:";
@@ -1292,11 +1467,157 @@ bool testCardinalHighwayActions(){
   s.heading = 0;
   s.speed = 3;
   airplaneState g(50,40,18,0,3);
+  env.setStart(s);
+  env.setGoal(g);
+  airplaneState o(56,44,16,3,0);
+  std::vector<airplaneAction> actions;
+  env.GetActions(s,actions);
+  std::vector<airplaneAction> ractions;
+  env.GetReverseActions(s,ractions);
+  // 1. do nothing
+  // 2. slow down
+  // 3. speed up
+  // 4. up and turn right
+  // 5. down and turn left
+  // 6. up and turn right + slow down
+  // 7. up and turn right + speed up
+  // 8. down and turn left + slow down
+  // 9. down and turn left + speed up
+  assert(9==ractions.size() && "Wrong number of reverse actions generated");
+  assert(9==actions.size() && "Wrong number of actions generated");
+  for (auto &a : actions)
+  {
+    airplaneState s1=s;
+    airplaneState s2=s;
+    env.ApplyAction(s,a);
+    airplaneAction a2(env.GetAction(s1,s));
+    env.UndoAction(s,a);
+    //std::cout << a << s << s1 << "\n";
+    assert(s==s1 && "Action not reversed properly");
+    assert(a==a2 && "Action not inferred properly");
+    std::cout << ".";
+    s=s1; // Reset
+  }
+  testReverseSuccessors(env,s,g,o);
+  /*o=s;
+  o.x+=1;
+  testReverseSuccessors(env,s,g,o);
+  o=g;
+  o.x+=1;
+  testReverseSuccessors(env,s,g,o);*/
+  std::cout << "PASSED\n";
+}
+
+bool testSimpleActions(){
+  std::cout << "testActions()";
+  std::cout << " simple:";
+  AirplaneSimpleEnvironment env;
+  airplaneAction a(0,0,0);
+  airplaneState s;
+  s.x = 50;
+  s.y = 50;
+  s.height = 16;
+  s.heading = 0;
+  s.speed = 1;
+  airplaneState g(50,40,18,3,0);
   env.setGoal(g);
   std::vector<airplaneAction> actions;
   env.GetActions(s,actions);
   std::vector<airplaneAction> ractions;
   env.GetReverseActions(s,ractions);
+  for (auto &a : actions)
+  {
+    airplaneState s1=s;
+    env.ApplyAction(s,a);
+    airplaneAction a2(env.GetAction(s1,s));
+    env.UndoAction(s,a);
+    //std::cout << a << s << s1 << "\n";
+    assert(s==s1 && "Action not reversed properly");
+    assert(a==a2 && "Action not inferred properly");
+    std::cout << ".";
+    s=s1; // Reset
+  }
+  env.setStart(s);
+  env.setGoal(g);
+  airplaneState o(56,44,11,3,0);
+  testReverseSuccessors(env,s,g,o);
+  o=s;
+  o.x+=1;
+  testReverseSuccessors(env,s,g,o);
+  o=g;
+  o.x+=1;
+  testReverseSuccessors(env,s,g,o);
+  std::cout << "PASSED\n";
+}
+void testNormalActions(){
+  std::cout << " normal:";
+  AirplaneEnvironment env;
+  airplaneAction a(0,0,0);
+  airplaneState s;
+  s.x = 50;
+  s.y = 50;
+  s.height = 16;
+  s.heading = 0;
+  s.speed = 3;
+  airplaneState g(50,40,18,3,0);
+  env.setGoal(g);
+  std::vector<airplaneAction> actions;
+  env.GetActions(s,actions);
+  std::vector<airplaneAction> ractions;
+  env.GetReverseActions(s,ractions);
+  // 1-7 turns (also includes no turn)
+  // 8-14 increase speed x turns
+  // 15-21 decrease speed x turns
+  // 22-28 increase height x turns
+  // 29-35 decrease height x turns
+  // 36-42 increase speed, increase height x turns
+  // 43-49 decrease speed, decrease height x turns
+  // 50-56 increase speed, decrease height x turns
+  // 57-63 decrease speed, increase height x turns
+  assert(actions.size()==63 && "Number of actions differs from expected");
+  assert(ractions.size()==63 && "Number of reverse actions differs from expected");
+  for (auto &a : actions)
+  {
+    airplaneState s1=s;
+    env.ApplyAction(s,a);
+    airplaneAction a2(env.GetAction(s1,s));
+    env.UndoAction(s,a);
+    //std::cout << a << s << s1 << "\n";
+    assert(s==s1 && "Action not reversed properly");
+    assert(a==a2 && "Action not inferred properly");
+    std::cout << ".";
+    s=s1; // Reset
+  }
+  env.setStart(s);
+  env.setGoal(g);
+  airplaneState o(56,44,11,3,0);
+  testReverseSuccessors(env,s,g,o);
+  o=s;
+  o.x+=1;
+  testReverseSuccessors(env,s,g,o);
+  o=g;
+  o.x+=1;
+  testReverseSuccessors(env,s,g,o);
+  std::cout << "PASSED\n";
+}
+void testHighway8Actions(){
+  std::cout << " highway:";
+  AirplaneHighwayEnvironment env;
+  airplaneAction a(0,0,0);
+  airplaneState s;
+  s.x = 50;
+  s.y = 50;
+  s.height = 16;
+  s.heading = 0;
+  s.speed = 3;
+  airplaneState g(50,40,18,3,0);
+  env.setGoal(g);
+  env.setStart(s);
+  airplaneState o(56,44,16,3,0);
+  std::vector<airplaneAction> actions;
+  env.GetActions(o,actions);
+  std::vector<airplaneAction> ractions;
+  env.GetReverseActions(o,ractions);
   // 1. do nothing
   // 2. slow down
   // 3. speed up
@@ -1320,155 +1641,14 @@ bool testCardinalHighwayActions(){
     std::cout << ".";
     s=s1; // Reset
   }
+  testReverseSuccessors(env,s,g,o);
+  o=s;
+  o.x+=1;
+  testReverseSuccessors(env,s,g,o);
+  o=g;
+  o.x+=1;
+  testReverseSuccessors(env,s,g,o);
   std::cout << "PASSED\n";
-}
-
-bool testGetAction(){
-   std::cout << "testGetAction()";
-   {
-     std::cout << " simple:";
-     AirplaneSimpleEnvironment env;
-     airplaneAction a(0,0,0);
-     airplaneState s;
-     s.x = 50;
-     s.y = 50;
-     s.height = 16;
-     s.heading = 0;
-     s.speed = 1;
-     std::vector<airplaneAction> actions;
-     env.GetActions(s,actions);
-     for (auto &a : actions)
-     {
-       airplaneState s1=s;
-       env.ApplyAction(s,a);
-       airplaneAction a2(env.GetAction(s1,s));
-       env.UndoAction(s,a);
-       //std::cout << a << s << s1 << "\n";
-       assert(s==s1 && "Action not reversed properly");
-       assert(a==a2 && "Action not inferred properly");
-       std::cout << ".";
-       s=s1; // Reset
-     }
-   }
-   {
-     std::cout << " normal:";
-     AirplaneEnvironment env;
-     airplaneAction a(0,0,0);
-     airplaneState s;
-     s.x = 50;
-     s.y = 50;
-     s.height = 16;
-     s.heading = 0;
-     s.speed = 3;
-     std::vector<airplaneAction> actions;
-     env.GetActions(s,actions);
-     std::vector<airplaneAction> ractions;
-     env.GetReverseActions(s,ractions);
-     // 1-7 turns (also includes no turn)
-     // 8-14 increase speed x turns
-     // 15-21 decrease speed x turns
-     // 22-28 increase height x turns
-     // 29-35 decrease height x turns
-     // 36-42 increase speed, increase height x turns
-     // 43-49 decrease speed, decrease height x turns
-     // 50-56 increase speed, decrease height x turns
-     // 57-63 decrease speed, increase height x turns
-     assert(actions.size()==63 && "Number of actions differs from expected");
-     assert(ractions.size()==63 && "Number of reverse actions differs from expected");
-     for (auto &a : actions)
-     {
-       airplaneState s1=s;
-       env.ApplyAction(s,a);
-       airplaneAction a2(env.GetAction(s1,s));
-       env.UndoAction(s,a);
-       std::cout << a << s << s1 << "\n";
-       assert(s==s1 && "Action not reversed properly");
-       assert(a==a2 && "Action not inferred properly");
-       std::cout << ".";
-       s=s1; // Reset
-     }
-   }
-   {
-     std::cout << " normal quad:";
-     AirplaneEnvironment env;
-     airplaneAction a(0,0,0);
-     airplaneState s;
-     s.x = 50;
-     s.y = 50;
-     s.height = 16;
-     s.heading = 0;
-     s.speed = 3;
-     s.type = AirplaneType::QUAD;
-     std::vector<airplaneAction> actions;
-     env.GetActions(s,actions);
-     // Actions are similar to plane except no "shift" move and,
-     // when speed is 1, it may hover, or move 3 extra directions
-     // 1-5 turns (also includes no turn)
-     // 6-10 increase speed x turns
-     // 11-15 decrease speed x turns
-     // 16-20 increase height x turns
-     // 21-25 decrease height x turns
-     // 26-30 increase speed, increase height x turns
-     // 31-35 decrease speed, decrease height x turns
-     // 36-40 increase speed, decrease height x turns
-     // 41-45 decrease speed, increase height x turns
-     assert(actions.size()==45 && "Number of actions differs from expected");
-     actions.clear();
-     s.speed = 1;
-     env.GetActions(s,actions);
-     assert(actions.size()==51 && "Number of actions differs from expected");
-     for (auto &a : actions)
-     {
-       airplaneState s1=s;
-       env.ApplyAction(s,a);
-       airplaneAction a2(env.GetAction(s1,s));
-       env.UndoAction(s,a);
-       //std::cout << a << s << s1 << "\n";
-       assert(s==s1 && "Action not reversed properly");
-       assert(a==a2 && "Action not inferred properly");
-       std::cout << ".";
-       s=s1; // Reset
-     }
-   }
-   {
-     std::cout << " highway:";
-     AirplaneHighwayEnvironment env;
-     airplaneAction a(0,0,0);
-     airplaneState s;
-     s.x = 50;
-     s.y = 50;
-     s.height = 16;
-     s.heading = 0;
-     s.speed = 3;
-     std::vector<airplaneAction> actions;
-     env.GetActions(s,actions);
-     std::vector<airplaneAction> ractions;
-     env.GetReverseActions(s,ractions);
-     // 1. do nothing
-     // 2. slow down
-     // 3. speed up
-     // 4. up and turn right
-     // 5. down and turn left
-     // 6. up and turn right + slow down
-     // 7. up and turn right + speed up
-     // 8. down and turn left + slow down
-     // 9. down and turn left + speed up
-     assert(9==ractions.size() && "Wrong number of reverse actions generated");
-     assert(9==actions.size() && "Wrong number of actions generated");
-     for (auto &a : actions)
-     {
-       airplaneState s1=s;
-       env.ApplyAction(s,a);
-       airplaneAction a2(env.GetAction(s1,s));
-       env.UndoAction(s,a);
-       //std::cout << a << s << s1 << "\n";
-       assert(s==s1 && "Action not reversed properly");
-       assert(a==a2 && "Action not inferred properly");
-       std::cout << ".";
-       s=s1; // Reset
-     }
-   }
-   std::cout << "PASSED\n";
 }
 
 bool testCardinalHeadingTo(){

@@ -246,6 +246,7 @@ void AirplaneSimpleEnvironment::GetReverseActionsQuad(const airplaneState &nodeI
           actions.push_back(airplaneAction(kWait,0,0));
 }
 
+//1.257
 double AirplaneSimpleEnvironment::myHCost(const airplaneState &node1, const airplaneState &node2) const
 {
   // Estimate fuel cost...

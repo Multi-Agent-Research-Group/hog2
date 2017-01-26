@@ -2,8 +2,13 @@
 
 int main(){
   //testCardinalEnvHCost();
+  //testSimpleActions();
+  //testNormalActions();
   //testCardinalActions();
+  //testHighway8Actions();
   //testCardinalHighwayActions();
+  //testGridCardinalActions();
+  //testGrid3DOctileActions();
   //testCardinalHeadingTo();
   //testMultiAgent();
   //TestQuadcopterActions();
@@ -15,7 +20,7 @@ int main(){
   //testAdmissibility();
   //compareHeuristicSpeed();
   testPathUniqueness();
-  testHash();
+  //testHash();
   //testIntervalTree();
 
   return 0;

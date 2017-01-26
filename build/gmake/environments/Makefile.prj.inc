@@ -33,6 +33,10 @@ SRC_CPP = \
 	environments/Airplane.cpp \
 	environments/AirplaneMultiAgent.cpp \
 	environments/AirplaneSimple.cpp \
+	environments/AirplaneGrid3DCardinal.cpp \
+	environments/AirplaneGrid3DOctile.cpp \
+	environments/AirplaneGridCardinal.cpp \
+	environments/AirplaneGridOctile.cpp \
 	environments/AirplaneHighway.cpp \
 	environments/AirplaneHighway4.cpp \
 	environments/AirplaneHighway4Cardinal.cpp \

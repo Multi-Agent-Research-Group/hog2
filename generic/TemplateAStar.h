@@ -69,7 +69,7 @@ struct AStarCompare {
 template <class state, class action, class environment, class openList = AStarOpenClosed<state, AStarCompare<state>> >
 class TemplateAStar : public GenericSearchAlgorithm<state,action,environment> {
 public:
-	TemplateAStar():env(0),useBPMX(0),radius(4.0),stopAfterGoal(true),stopAfterAllOpt(false),weight(1),useRadius(false),useOccupancyInfo(false),radEnv(0),reopenNodes(false),theHeuristic(0),directed(false),noncritical(false),SuccessorFunc(&environment::GetSuccessors),ActionFunc(&environment::GetAction){ResetNodeCount();}
+	TemplateAStar():env(0),useBPMX(0),radius(4.0),stopAfterGoal(true),stopAfterAllOpt(false),weight(1),useRadius(false),useOccupancyInfo(false),radEnv(0),reopenNodes(false),theHeuristic(0),directed(false),noncritical(false),SuccessorFunc(&environment::GetSuccessors),ActionFunc(&environment::GetAction),GCostFunc(&environment::GCost){ResetNodeCount();}
 	virtual ~TemplateAStar() {}
 	void GetPath(environment *env, const state& from, const state& to, std::vector<state> &thePath);
 	void GetPath(environment *, const state& , const state& , std::vector<action> & );
@@ -143,6 +143,8 @@ public:
 	std::string SVGDraw() const;
 	
 	void SetWeight(double w) {weight = w;}
+        void SetGCostFunc(void (environment::*gf)(const state&, const state&) const){GCostFunc=gf;}
+        void SetHCostFunc(void (environment::*hf)(const state&, const state&) const){HCostFunc=hf;}
         void SetSuccessorFunc(void (environment::*sf)(const state&, std::vector<state>&) const){SuccessorFunc=sf;}
         void SetActionFunc(action (environment::*af)(const state&, const state&) const){ActionFunc=af;}
 private:
@@ -171,6 +173,8 @@ private:
 	uint64_t uniqueNodesExpanded;
 	environment *radEnv;
 	Heuristic<state> *theHeuristic;
+        double (environment::*HCostFunc)(const state&, const state&) const;
+        double (environment::*GCostFunc)(const state&, const state&) const;
         void (environment::*SuccessorFunc)(const state&, std::vector<state>&) const;
         action (environment::*ActionFunc)(const state&, const state&) const;
 };
@@ -353,7 +357,7 @@ if(this->nodesExpanded>1000 && this->noncritical){
             double cost(0);
             for(auto a(path.begin()+1); a<path.end(); ++a)
             {
-              cost+=env->GCost(*(a-1),*a);
+              cost+=(env->*GCostFunc)(*(a-1),*a);
             }
             if(fequal(optCost,0.0)){std::cout <<"_numOpt "<< ++numOpt<<"\n"; optCost=cost; thePath.insert(thePath.end(),path.begin(),path.end());} // Append path
             else if(fless(optCost,cost)){std::cout << "numOpt "<<numOpt<<"\n"; return true;} // We're done because we've breached a new cost level
@@ -383,7 +387,7 @@ if(this->nodesExpanded>1000 && this->noncritical){
 		uint64_t theID;
 		neighborLoc.push_back(openClosedList.Lookup(env->GetStateHash(neighbors[x]), theID));
 		neighborID.push_back(theID);
-		edgeCosts.push_back(env->GCost(openClosedList.Lookup(nodeid).data, neighbors[x]));
+		edgeCosts.push_back((env->*GCostFunc)(openClosedList.Lookup(nodeid).data, neighbors[x]));
 		if (useBPMX)
 		{
 			if (neighborLoc.back() != kNotFound)
@@ -550,7 +554,7 @@ void TemplateAStar<state, action,environment,openList>::FullBPMX(uint64_t nodeID
 	{
 		uint64_t theID;
 		dataLocation loc = openClosedList.Lookup(env->GetStateHash(succ[x]), theID);
-		double edgeCost = env->GCost(openClosedList.Lookup(nodeID).data, succ[x]);
+		double edgeCost = (env->*GCostFunc)(openClosedList.Lookup(nodeID).data, succ[x]);
 		double newHCost = parentH-edgeCost;
 		
 		switch (loc)
