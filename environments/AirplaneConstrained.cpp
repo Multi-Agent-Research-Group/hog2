@@ -48,7 +48,7 @@ AirplaneConstrainedEnvironment::AirplaneConstrainedEnvironment(AirplaneEnvironme
 	// Add a constraint for the ground
 	airplaneState mi(0,0, 0, 0,0);
 	airtimeState o(mi, 0);
-	airplaneState ma(80, 80, 5, 0,0);
+	airplaneState ma(80, 80, 1, 0,0);
 	airtimeState f(ma, std::numeric_limits<float>::max());
 	airConstraint c(o, f);
 	c.strip=false;
@@ -140,7 +140,7 @@ void AirplaneConstrainedEnvironment::GetSuccessors(const airtimeState &nodeID, s
     if (!ViolatesConstraint(nodeID, new_state))
     {
       //if (ticket_authority->CanObtainTicket(new_state)) {
-        neighbors.push_back(new_state);
+      neighbors.push_back(new_state);
       //}
     }
   }

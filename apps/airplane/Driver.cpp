@@ -257,6 +257,10 @@ void InitHeadless(){
               airConstraint x_c(a);
               if(x_c.ConflictsWith(start)){conflict=true;break;}
             }
+            airtimeState a(start,1);
+            airtimeState b(a);
+            b.x++;
+            if(conflict=ace->ViolatesConstraint(a,b)){break;}
           }
           if(!conflict) s.push_back(start);
         }
