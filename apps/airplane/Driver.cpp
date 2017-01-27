@@ -36,6 +36,7 @@ uint8_t currentAgent(0);
 bool mouseTracking;
 TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment, AStarOpenClosed<airtimeState, RandomTieBreaking<airtimeState> > >* currentAstar(0);
 unsigned killtime(300);
+unsigned killex(INT_MAX);
 int px1, py1, px2, py2;
 int absType = 0;
 int mapSize = 128;
@@ -140,6 +141,7 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-cutoffs", "-cutoffs <n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>", "Number of conflicts to tolerate before switching to less constrained layer of environment. Environments are ordered as: CardinalGrid,OctileGrid,Cardinal3D,Octile3D,H4,H8,Simple,Cardinal,Octile,48Highway");
 	InstallCommandLineHandler(MyCLHandler, "-probfile", "-probfile", "Load MAPF instance from file");
 	InstallCommandLineHandler(MyCLHandler, "-killtime", "-killtime", "Kill after this many seconds");
+	InstallCommandLineHandler(MyCLHandler, "-killex", "-killex", "Kill after this many expansions");
 	InstallCommandLineHandler(MyCLHandler, "-nogui", "-nogui", "Turn off gui");
 	InstallCommandLineHandler(MyCLHandler, "-cat", "-cat", "Use Conflict Avoidance Table (CAT)");
 	InstallCommandLineHandler(MyCLHandler, "-random", "-random", "Randomize conflict resolution order");
@@ -358,9 +360,20 @@ int MyCLHandler(char *argument[], int maxNumArgs)
                 randomalg = true;
 		return 1;
 	}
+	if(strcmp(argument[0], "-killex") == 0)
+	{
+                killtime = INT_MAX;
+                killex = atoi(argument[1]);
+		return 2;
+	}
 	if(strcmp(argument[0], "-killtime") == 0)
 	{
-                killtime = atoi(argument[1]);
+                if(killex < INT_MAX){
+                  killtime = INT_MAX;
+                  std::cout << "Ignoring killtime because killex specified\n";
+                } else {
+                  killtime = atoi(argument[1]);
+                }
 		return 2;
 	}
 	if(strcmp(argument[0], "-nogui") == 0)

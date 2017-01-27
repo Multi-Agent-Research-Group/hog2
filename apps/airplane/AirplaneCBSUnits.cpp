@@ -12,6 +12,7 @@ extern bool gui;
 extern bool heuristic;
 extern int seed;
 extern Timer* timer;
+extern unsigned killex;
 
 std::ostream& operator<<(std::ostream& ss, IntervalData v) {ss << "<H1:"<<v.hash1<<"-->"<<v.hash2<<" A:"<<unsigned(v.agent)<<">"; return ss;}
 //----------------------------------------------------------------------------------------------------------------------------------------------//
@@ -566,6 +567,9 @@ void AirCBSGroup::AddUnit(Unit<airtimeState, airplaneAction, AirplaneConstrained
   agentEnvs[c->getUnitNumber()]=currentEnvironment->environment;
   CAT=&(tree[0].cat);
   TOTAL_EXPANSIONS+=GetFullPath<RandomTieBreaking<airtimeState> >(c, astar, currentEnvironment->environment, thePath, 0,c->GetNumWaypoints()-1,GetNumMembers()-1);
+  std::cout << killex << "\n";
+  if(killex != INT_MAX && TOTAL_EXPANSIONS>killex)
+      processSolution(-timer->EndTimer());
   //std::cout << "AddUnit agent: " << (GetNumMembers()-1) << " expansions: " << astar.GetNodesExpanded() << "\n";
 
   IntervalTree::intervalVector info;
@@ -654,6 +658,8 @@ void AirCBSGroup::UpdateUnitGoal(Unit<airtimeState, airplaneAction, AirplaneCons
     std::vector<airtimeState> thePath;
     DoHAStar(current, goal, thePath);
     TOTAL_EXPANSIONS += astar.GetNodesExpanded();
+    if(killex != INT_MAX && TOTAL_EXPANSIONS>killex)
+      processSolution(-timer->EndTimer());
     //std::cout << "exp replan " << astar.GetNodesExpanded() << "\n";
 
     //std::cout << "Got optimal path" << std::endl;
@@ -830,6 +836,8 @@ bool AirCBSGroup::Bypass(int best, unsigned numConflicts, airConflict const& c1,
   bool orig(useCAT);
   useCAT=false;
   TOTAL_EXPANSIONS += ReplanLeg<CompareLowGCost<airtimeState> >(c, astar2, currentEnvironment->environment, newPath, c1.prevWpt, c1.prevWpt+1);
+    if(killex != INT_MAX && TOTAL_EXPANSIONS>killex)
+      processSolution(-timer->EndTimer());
   useCAT=orig;
 
   // Make sure that the current location is satisfiable
@@ -942,6 +950,8 @@ void AirCBSGroup::Replan(int location)
   }
 
   TOTAL_EXPANSIONS += ReplanLeg<RandomTieBreaking<airtimeState> >(c, astar, currentEnvironment->environment, thePath, tree[location].con.prevWpt, tree[location].con.prevWpt+1);
+    if(killex != INT_MAX && TOTAL_EXPANSIONS>killex)
+      processSolution(-timer->EndTimer());
 
   //DoHAStar(start, goal, thePath);
   //TOTAL_EXPANSIONS += astar.GetNodesExpanded();
