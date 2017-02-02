@@ -1549,6 +1549,7 @@ bool testSimpleActions(){
   testReverseSuccessors(env,s,g,o);
   std::cout << "PASSED\n";
 }
+
 void testNormalActions(){
   std::cout << " normal:";
   AirplaneEnvironment env;
