@@ -32,6 +32,7 @@ default : all
 SRC_CPP = \
 	utils/BitVector.cpp \
 	utils/BitMap.cpp \
+        utils/constants.cpp \
 	utils/FPUtil.cpp \
 	utils/FunctionApproximator.cpp \
 	utils/GLUtil.cpp \

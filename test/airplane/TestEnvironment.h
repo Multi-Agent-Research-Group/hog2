@@ -1963,7 +1963,7 @@ void testPEAStar()
   env.loadPerimeterDB();
   TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> astar;
   std::vector<airplaneState> sol;
-  astar.GetPath(&env,g,s,sol);
+  //astar.GetPath(&env,g,s,sol);
   std::cout << "Regular A* expansions: " << astar.GetNodesExpanded() << " generations: " << astar.GetNodesTouched() << " mem: " << astar.GetMemoryUsage() << "\n";
   for(airplaneState const&a: sol) std::cout << a << "\n";
   astar.SetDoPartialExpansion(true);

@@ -362,7 +362,8 @@ if(this->nodesExpanded>1000 && this->noncritical){
 //	std::cout << openClosedList.Lookup(nodeid).g+openClosedList.Lookup(nodeid).h << std::endl;
 	
  	(env->*SuccessorFunc)(openClosedList.Lookup(nodeid).data, neighbors);
-	double bestH = H;
+        //std::cout << openClosedList.Lookup(nodeid).data << "("<<G<<"+"<<H<<")="<<(G+H)<<", "<<neighbors.size()<<" succ.\n";
+	double bestH = 0;
 	double lowHC = DBL_MAX;
 	// 1. load all the children
 	for (unsigned int x = 0; x < neighbors.size(); x++)
@@ -379,11 +380,13 @@ if(this->nodesExpanded>1000 && this->noncritical){
                 else
                   h=theHeuristic->HCost(neighbors[x], goal);
 
+                //std::cout << "  "<<neighbors[x]<<"("<<g<<"+"<<h<<")="<<(g+h)<<"\n";
                 // PEA*
                 // Find the lowest f-cost of the children
                 if(doPartialExpansion && fgreater(g+h,G+H)) {
                   // New H for current node
-                  bestH = std::min(bestH, h+edgeCosts.back());
+                  lowHC = std::min(lowHC, h+edgeCosts.back());
+                  //std::cout << "New H: " << lowHC << "\n";
                 }
 
 		if (useBPMX)
@@ -412,9 +415,10 @@ if(this->nodesExpanded>1000 && this->noncritical){
         // PEA*
         // Replace the current node fcost with the "best" f-cost of it's children
         // and put it back in the open list
-        if(doPartialExpansion && fless(H,bestH)){
-          openClosedList.Lookup(nodeid).h = bestH;
+        if(doPartialExpansion && fless(H,lowHC)){
+          openClosedList.Lookup(nodeid).h = lowHC;
           openClosedList.Reopen(nodeid);
+          //std::cout << "ReOpened " << openClosedList.Lookup(nodeid).data << " with H="<<lowHC<<"\n";
         }
 	
 	// iterate again updating costs and writing out to memory
@@ -503,13 +507,18 @@ if(this->nodesExpanded>1000 && this->noncritical){
 					} else if(doPartialExpansion) {
                                           // PEA*
                                           // Only add children that have the same f-cost as the parent
-                                          if(fequal(G+H,G+edgeCosts[x]+theHeuristic->HCost(neighbors[x], goal))){
+                                          double h(theHeuristic->HCost(neighbors[x], goal));
+                                          double g(G+edgeCosts[x]);
+                                          if(fequal(G+H,g+h)){
+                                            //std::cout << "  OPEN-->"<<neighbors[x]<<"("<<g<<"+"<<h<<")="<<(g+h)<<"\n";
                                             openClosedList.AddOpenNode(neighbors[x],
                                                 env->GetStateHash(neighbors[x]),
-                                                openClosedList.Lookup(nodeid).g+edgeCosts[x],
-                                                weight*theHeuristic->HCost(neighbors[x], goal),
+                                                g,
+                                                weight*h,
                                                 nodeid);
                                           }
+                                          //else
+                                            //std::cout << "  ignore "<<neighbors[x]<<"("<<g<<"+"<<h<<")="<<(g+h)<<"\n";
                                         } else {
 						openClosedList.AddOpenNode(neighbors[x],
 												   env->GetStateHash(neighbors[x]),
