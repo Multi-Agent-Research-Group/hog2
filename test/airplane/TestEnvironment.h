@@ -1954,4 +1954,22 @@ bool TestQuadcopterActions() {
 
 }
 
+void testPEAStar()
+{
+  airplaneState s(10, 10, 16, 1, 1, false);
+  airplaneState g(40, 20, 11, 4, 3, false);
+  AirplaneEnvironment env;
+  env.setGoal(g);
+  env.loadPerimeterDB();
+  TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> astar;
+  std::vector<airplaneState> sol;
+  astar.GetPath(&env,g,s,sol);
+  std::cout << "Regular A* expansions: " << astar.GetNodesExpanded() << " generations: " << astar.GetNodesTouched() << " mem: " << astar.GetMemoryUsage() << "\n";
+  for(airplaneState const&a: sol) std::cout << a << "\n";
+  astar.SetDoPartialExpansion(true);
+  astar.GetPath(&env,g,s,sol);
+  std::cout << "PEA* expansions: " << astar.GetNodesExpanded() << " generations: " << astar.GetNodesTouched() << " mem: " << astar.GetMemoryUsage() << "\n";
+  for(airplaneState const&a: sol) std::cout << a << "\n";
+}
+
 #endif

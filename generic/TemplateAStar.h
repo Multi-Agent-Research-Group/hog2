@@ -69,7 +69,7 @@ struct AStarCompare {
 template <class state, class action, class environment, class openList = AStarOpenClosed<state, AStarCompare<state>> >
 class TemplateAStar : public GenericSearchAlgorithm<state,action,environment> {
 public:
-	TemplateAStar():env(0),useBPMX(0),radius(4.0),stopAfterGoal(true),stopAfterAllOpt(false),weight(1),useRadius(false),useOccupancyInfo(false),radEnv(0),reopenNodes(false),theHeuristic(0),directed(false),noncritical(false),SuccessorFunc(&environment::GetSuccessors),ActionFunc(&environment::GetAction),GCostFunc(&environment::GCost){ResetNodeCount();}
+	TemplateAStar():env(0),useBPMX(0),radius(4.0),stopAfterGoal(true),doPartialExpansion(false),weight(1),useRadius(false),useOccupancyInfo(false),radEnv(0),reopenNodes(false),theHeuristic(0),directed(false),noncritical(false),SuccessorFunc(&environment::GetSuccessors),ActionFunc(&environment::GetAction),GCostFunc(&environment::GCost){ResetNodeCount();}
 	virtual ~TemplateAStar() {}
 	void GetPath(environment *env, const state& from, const state& to, std::vector<state> &thePath);
 	void GetPath(environment *, const state& , const state& , std::vector<action> & );
@@ -133,8 +133,8 @@ public:
 	void SetStopAfterGoal(bool val) { stopAfterGoal = val; }
 	bool GetStopAfterGoal() { return stopAfterGoal; }
 	
-	inline void SetStopAfterAllOpt(bool val) { stopAfterAllOpt = val; }
-	inline bool GetStopAfterAllOpt() { return stopAfterAllOpt; }
+	inline void SetDoPartialExpansion(bool val) { doPartialExpansion = val; }
+	inline bool GetDoPartialExpansion() { return doPartialExpansion; }
 	
 	void FullBPMX(uint64_t nodeID, int distance);
 	
@@ -161,7 +161,7 @@ private:
 	std::vector<dataLocation> neighborLoc;
 	environment *env;
 	bool stopAfterGoal;
-	bool stopAfterAllOpt;
+	bool doPartialExpansion;
 	
 	double radius; // how far around do we consider other agents?
 	double weight; 
@@ -341,33 +341,16 @@ if(this->nodesExpanded>1000 && this->noncritical){
 	nodesExpanded++;
 
         
-        static double optCost(0);
-        static int numOpt(0);
+        double G(openClosedList.Lookup(nodeid).g);
+        double H(openClosedList.Lookup(nodeid).h);
         // Check for fcost > optCost and return early if we think there is no other solution
-        if(numOpt && fgreater(openClosedList.Lookup(nodeid).g+openClosedList.Lookup(nodeid).h, optCost)){return true;}
 
 	if ((stopAfterGoal) && (env->GoalTest(openClosedList.Lookup(nodeid).data, goal)))
         {
-          if(stopAfterAllOpt){
-            // Return all optimal paths embedded inside "thePath"
-            std::vector<state> path;
-            ExtractPathToStartFromID(nodeid, path);
-            // Path is backwards
-            reverse(path.begin(), path.end()); 
-            double cost(0);
-            for(auto a(path.begin()+1); a<path.end(); ++a)
-            {
-              cost+=(env->*GCostFunc)(*(a-1),*a);
-            }
-            if(fequal(optCost,0.0)){std::cout <<"_numOpt "<< ++numOpt<<"\n"; optCost=cost; thePath.insert(thePath.end(),path.begin(),path.end());} // Append path
-            else if(fless(optCost,cost)){std::cout << "numOpt "<<numOpt<<"\n"; return true;} // We're done because we've breached a new cost level
-            else{std::cout <<"_numOpt "<< ++numOpt<<"\n"; thePath.insert(thePath.end(),path.begin(),path.end());} // Append path
-          }else{
             ExtractPathToStartFromID(nodeid, thePath);
             // Path is backwards - reverse
             reverse(thePath.begin(), thePath.end()); 
             return true;
-          }
         }
 	
  	neighbors.resize(0);
@@ -379,7 +362,7 @@ if(this->nodesExpanded>1000 && this->noncritical){
 //	std::cout << openClosedList.Lookup(nodeid).g+openClosedList.Lookup(nodeid).h << std::endl;
 	
  	(env->*SuccessorFunc)(openClosedList.Lookup(nodeid).data, neighbors);
-	double bestH = openClosedList.Lookup(nodeid).h;
+	double bestH = H;
 	double lowHC = DBL_MAX;
 	// 1. load all the children
 	for (unsigned int x = 0; x < neighbors.size(); x++)
@@ -388,6 +371,21 @@ if(this->nodesExpanded>1000 && this->noncritical){
 		neighborLoc.push_back(openClosedList.Lookup(env->GetStateHash(neighbors[x]), theID));
 		neighborID.push_back(theID);
 		edgeCosts.push_back((env->*GCostFunc)(openClosedList.Lookup(nodeid).data, neighbors[x]));
+
+                double g(edgeCosts.back()+G);
+                double h=DBL_MAX;
+                if(neighborLoc.back() != kNotFound)
+                  h=openClosedList.Lookup(theID).h;
+                else
+                  h=theHeuristic->HCost(neighbors[x], goal);
+
+                // PEA*
+                // Find the lowest f-cost of the children
+                if(doPartialExpansion && fgreater(g+h,G+H)) {
+                  // New H for current node
+                  bestH = std::min(bestH, h+edgeCosts.back());
+                }
+
 		if (useBPMX)
 		{
 			if (neighborLoc.back() != kNotFound)
@@ -397,10 +395,9 @@ if(this->nodesExpanded>1000 && this->noncritical){
 				lowHC = std::min(lowHC, openClosedList.Lookup(theID).h+edgeCosts.back());
 			}
 			else {
-				double tmpH = theHeuristic->HCost(neighbors[x], goal);
 				if (!directed)
-					bestH = std::max(bestH, tmpH-edgeCosts.back());
-				lowHC = std::min(lowHC, tmpH+edgeCosts.back());
+					bestH = std::max(bestH, h-edgeCosts.back());
+				lowHC = std::min(lowHC, h+edgeCosts.back());
 			}
 		}
 	}
@@ -411,6 +408,14 @@ if(this->nodesExpanded>1000 && this->noncritical){
 			openClosedList.Lookup(nodeid).h = std::max(openClosedList.Lookup(nodeid).h, bestH);
 		openClosedList.Lookup(nodeid).h = std::max(openClosedList.Lookup(nodeid).h, lowHC);
 	}
+
+        // PEA*
+        // Replace the current node fcost with the "best" f-cost of it's children
+        // and put it back in the open list
+        if(doPartialExpansion && fless(H,bestH)){
+          openClosedList.Lookup(nodeid).h = bestH;
+          openClosedList.Reopen(nodeid);
+        }
 	
 	// iterate again updating costs and writing out to memory
 	for (int x = 0; x < neighbors.size(); x++)
@@ -495,8 +500,17 @@ if(this->nodesExpanded>1000 && this->noncritical){
 												   openClosedList.Lookup(nodeid).g+edgeCosts[x],
 												   std::max(weight*theHeuristic->HCost(neighbors[x], goal), openClosedList.Lookup(nodeid).h-edgeCosts[x]),
 												   nodeid);
-					}
-					else {
+					} else if(doPartialExpansion) {
+                                          // PEA*
+                                          // Only add children that have the same f-cost as the parent
+                                          if(fequal(G+H,G+edgeCosts[x]+theHeuristic->HCost(neighbors[x], goal))){
+                                            openClosedList.AddOpenNode(neighbors[x],
+                                                env->GetStateHash(neighbors[x]),
+                                                openClosedList.Lookup(nodeid).g+edgeCosts[x],
+                                                weight*theHeuristic->HCost(neighbors[x], goal),
+                                                nodeid);
+                                          }
+                                        } else {
 						openClosedList.AddOpenNode(neighbors[x],
 												   env->GetStateHash(neighbors[x]),
 												   openClosedList.Lookup(nodeid).g+edgeCosts[x],
