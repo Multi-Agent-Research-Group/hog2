@@ -1,3 +1,4 @@
+#include "AirplanePerimeterBuilder.h"
 #include "Airplane.h"
 #include <gtest/gtest.h>
 
@@ -53,4 +54,8 @@ TEST(AirplaneEnvironmentTest, GetActions) {
   o=g;
   o.x+=1;
   TestReverseSuccessors(env,s,g,o);
+}
+
+TEST(HeuristicTest, LearnSpace) { 
+  AirplanePerimeterBuilder<airplaneState,airplaneAction,AirplaneEnvironment> builder;
 }

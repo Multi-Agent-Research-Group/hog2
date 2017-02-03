@@ -192,6 +192,8 @@ public:
 	virtual double GCost(const airplaneState &node1, const airplaneAction &act) const;
 	virtual double GetPathLength(const std::vector<airplaneState> &n) const;
   virtual void loadPerimeterDB();
+  // Differential dimensionality for learning a heuristic
+  virtual void GetDimensions(airplaneState const& node1, airplaneState const& node2, std::vector<double>& data) const;
 
   // Goal testing
   virtual bool GoalTest(const airplaneState &node, const airplaneState &goal) const;

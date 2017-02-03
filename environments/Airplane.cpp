@@ -213,6 +213,14 @@ void AirplaneEnvironment::loadPerimeterDB(){
   //perimeterLoaded &= perimeter[SearchType::REVERSE].loadReverseGCosts(getRef(),ref,"reverse"+perimeterFile);
 }
 
+void AirplaneEnvironment::GetDimensions(airplaneState const& node1, airplaneState const& node2, std::vector<double>& data) const{
+  data[0]=node2.x-node1.x;
+  data[1]=node2.y-node1.y;
+  data[2]=node2.height-node1.height;
+  data[3]=node2.heading-node1.heading;
+  data[4]=node2.speed-node1.speed;
+}
+
 void AirplaneEnvironment::SetGround(int x, int y, uint8_t val)
 {
     ground[x + y*(length+1)] = val;
