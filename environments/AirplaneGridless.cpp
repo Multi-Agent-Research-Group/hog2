@@ -1,13 +1,12 @@
 //
-//  Airplane.cpp
+//  AirplaneGridless.cpp
 //  hog2 glut
 //
-//  Created by Nathan Sturtevant on 5/4/16.
-//  Copyright © 2016 University of Denver. All rights reserved.
+//  Created by Thayne Walker on 2/6/17.
 //
 
 #include <stdio.h>
-#include "Airplane.h"
+#include "AirplaneGridless.h"
 #include <iostream>
 #include <sstream>
 
@@ -20,10 +19,10 @@
 #include "TemplateAStar.h"
 #include "Heuristic.h"
 
-bool operator==(const PlatformState &s1, const PlatformState &s2)
+/*bool operator==(const PlatformState &s1, const PlatformState &s2)
 {
-    return (fequal(s1.x,s2.x) && fequal(s1.y,s2.y) && fequal(s1.z,s2.z) && fequal(s1.heading, s2.heading) && fequal(s1.speed, s2.speed));
-}
+    return (fequal(s1.x,s2.x) && fequal(s1.y,s2.y) && fequal(s1.z,s2.z) && s1.headingHalfDegs==s2.headingHalfDegs && s1.speed == s2.speed && s1.pitchHalfDegs==s2.pitchHalfDegs);
+}*/
 
 bool operator==(const PlatformAction &a1, const PlatformAction &a2)
 {
@@ -42,8 +41,7 @@ AirplaneGridlessEnvironment::AirplaneGridlessEnvironment(
   double speedBurnDelta,
   double climbCost,
   double descendCost,
-  double gridSize,
-  std::string const& perimeterFile
+  double gridSize
 ): width(width),
   length(length),
   height(height),
@@ -55,10 +53,7 @@ AirplaneGridlessEnvironment::AirplaneGridlessEnvironment(
   cruiseBurnRate(cruiseBurnRate),
   speedBurnDelta(speedBurnDelta),
   climbCost(climbCost),
-  descendCost(descendCost),
-  perimeterLoaded(false),
-  perimeterFile(perimeterFile),
-  searchtype(SearchType::FORWARD)
+  descendCost(descendCost)
 {
     // Load the perimeter heuristic before we add any obstacles to the environment...
     //srandom(time(0));
@@ -175,21 +170,11 @@ AirplaneGridlessEnvironment::AirplaneGridlessEnvironment(
     }
 
   // Create a landing strip
-  PlatformState launchLoc(18, 29, 7, 1, 4, false);
-  PlatformState landingLoc(18, 29, 7, 1, 0, false);
-  PlatformState goalLoc(18, 23, 0, 0, 0, true);
-  landingStrip l(15, 20, 17, 28, launchLoc, landingLoc, goalLoc);
+  PlatformState launchLoc(18, 29, 7, 180, 0, 1);
+  PlatformState landingLoc(18, 29, 7, 0, 0, 1);
+  PlatformState goalLoc(18, 23, 0, 0, 0, 1);
+  gridlessLandingStrip l(15, 20, 17, 28, launchLoc, landingLoc, goalLoc);
   AddLandingStrip(l);
-}
-
-void AirplaneGridlessEnvironment::loadPerimeterDB(){
-  // Note, the ref state must be free and clear of obstacles within the perimeter
-  PlatformState ref(40, 40, 10, 1, 1,false,AirplaneType::PLANE);
-  perimeterLoaded = perimeter[AirplaneType::PLANE].loadGCosts(getRef(),ref,perimeterFile);
-  ref=PlatformState(40, 40, 10, 1, 1,false,AirplaneType::QUAD);
-  perimeterLoaded &= perimeter[AirplaneType::QUAD].loadGCosts(getRef(),ref,"quad"+perimeterFile);
-  //perimeterLoaded = perimeter[SearchType::FORWARD].loadGCosts(getRef(),ref,perimeterFile);
-  //perimeterLoaded &= perimeter[SearchType::REVERSE].loadReverseGCosts(getRef(),ref,"reverse"+perimeterFile);
 }
 
 void AirplaneGridlessEnvironment::SetGround(int x, int y, uint8_t val)
@@ -254,7 +239,6 @@ void AirplaneGridlessEnvironment::GetReverseSuccessors(const PlatformState &node
         PlatformState s;
         s = nodeID;
         UndoAction(s, act);
-        if(GoalTest(s,getGoal())){s.landed=true;}
         neighbors.push_back(s);
     }
     /*std::cout << "generated from "<<nodeID<<"\n";
@@ -284,7 +268,7 @@ void AirplaneGridlessEnvironment::GetActions(const PlatformState &nodeID, std::v
   }
 
   // Check for decreasing height
-  if (nodeID.height > 1) {
+  if (nodeID.z > 1) {
     // Decrease height
     actions.push_back(PlatformAction(0, -7.5, 0));
     actions.push_back(PlatformAction(-3, -7.5, 0));
@@ -304,7 +288,7 @@ void AirplaneGridlessEnvironment::GetActions(const PlatformState &nodeID, std::v
   }
 
   // Check for increasing height
-  if (nodeID.height < height){
+  if (nodeID.z < height){
     // Increase height
     actions.push_back(PlatformAction(0, 7.5, 0));
     actions.push_back(PlatformAction(-3, 7.5, 0));
@@ -344,7 +328,7 @@ void AirplaneGridlessEnvironment::GetReverseActions(const PlatformState &nodeID,
   }
 
   // Check for decreasing height
-  if (nodeID.height > 1) {
+  if (nodeID.z > 1) {
     // Increase height
     actions.push_back(PlatformAction(0, 7.5, 0));
     actions.push_back(PlatformAction(-3, 7.5, 0));
@@ -364,7 +348,7 @@ void AirplaneGridlessEnvironment::GetReverseActions(const PlatformState &nodeID,
   }
 
   // Check for increasing height
-  if (nodeID.height < height){
+  if (nodeID.z < height){
     // Decrease height
     actions.push_back(PlatformAction(0, -7.5, 0));
     actions.push_back(PlatformAction(-3, -7.5, 0));
@@ -462,11 +446,12 @@ double AirplaneGridlessEnvironment::GCost(const PlatformState &node1, const Plat
 
 bool AirplaneGridlessEnvironment::GoalTest(const PlatformState &node, const PlatformState &goal) const
 {
+    static const int cruise(3);
     return abs(node.x-goal.x) < PlatformState::SPEEDS[cruise] &&
     abs(node.y-goal.y) < PlatformState::SPEEDS[cruise] &&
     abs(node.z-goal.z) < 100.0 &&
     fmod(abs(node.hdg()-goal.hdg())+360,360) < 3.1 &&
-    fmod(abs(node.pitch()-goal.pitch()) < 8.0) &&
+    abs(node.pitch()-goal.pitch()) < 8.0 &&
     node.speed == goal.speed;
 }
 
@@ -482,41 +467,13 @@ double AirplaneGridlessEnvironment::GetPathLength(const std::vector<PlatformStat
 
 uint64_t AirplaneGridlessEnvironment::GetStateHash(const PlatformState &node) const
 {
-    uint64_t h = 0;
-    
-    // Assume x,y discretization of 3 meters
-    h |= node.x;
-    h = h << 16;
-    h |= node.y;
-    h = h << 10;
-
-    // Assume height discretization of 25 meters
-    h |= node.height & (0x400-1); // 10 bits
-    h = h << 5;
-
-    // Speed increments are in 1 m/sec
-    h |= node.speed & (0x20-1); // 4 bits
-    h = h << 3;
-
-    // Heading increments are in 45 degrees
-    h |= node.heading & (0x8-1); // 3 bits
-  
-    h = h << 1;
-    h |= node.landed;
-
-    return h;
+    return node.key();
 }
 
 PlatformState AirplaneGridlessEnvironment::GetState(uint64_t hash) const
 {
     PlatformState s;
-    s.landed=hash&0x1;
-    s.heading=(hash>>1)&((0x7));
-    s.speed=(hash>>4)&(0x20-1);
-    s.height=(hash>>9)&(0x400-1);
-    s.y=(hash>>19)&(0x10000-1);
-    s.x=(hash>>35)&(0x10000-1);
-
+    assert(!"Not implemented yet.");
     return s;
 }
 
@@ -524,13 +481,11 @@ uint64_t AirplaneGridlessEnvironment::GetActionHash(PlatformAction act) const
 {
 
     uint64_t h = 0;
-    h |= act.turn;
+    h |= act.turnHalfDegs;
     h = h << 8;
     h |= act.speed;
     h = h << 8;
-    h |= act.height;
-    h = h << 8;
-    h |= act.takeoff;
+    h |= act.pitchHalfDegs;
     return h;
 }
 
@@ -564,7 +519,7 @@ void AirplaneGridlessEnvironment::OpenGLDraw() const
                 glColor3f(c.r, c.g, c.b);
             }
 
-      for (landingStrip st : landingStrips) 
+      for (gridlessLandingStrip st : landingStrips) 
       {
         if (x >= min(st.x1,st.x2) && x <= max(st.x1, st.x2))
         {
@@ -590,7 +545,7 @@ void AirplaneGridlessEnvironment::OpenGLDraw() const
             }
 
 
-      for (landingStrip st : landingStrips) 
+      for (gridlessLandingStrip st : landingStrips) 
       {
         if (x >= min(st.x1,st.x2) && x <= max(st.x1, st.x2))
         {
@@ -612,7 +567,7 @@ void AirplaneGridlessEnvironment::OpenGLDraw() const
     glColor3f(1.0, 1.0, 1.0);
     DrawBoxFrame(0, 0, 0.75, 1.0);
 
-  for (landingStrip st : landingStrips)
+  for (gridlessLandingStrip st : landingStrips)
   {
     //Draw the dashed line down the middle
     
@@ -641,8 +596,6 @@ void AirplaneGridlessEnvironment::OpenGLDraw() const
 
 void AirplaneGridlessEnvironment::OpenGLDraw(const PlatformState &l) const
 {
-    if (l.landed)
-      return;
     {
         GLfloat r, g, b, t;
         GetColor(r, g, b, t);
@@ -652,13 +605,12 @@ void AirplaneGridlessEnvironment::OpenGLDraw(const PlatformState &l) const
     // z ranges from 0 to 20 which is 0...
     GLfloat x = (l.x-40.0)/40.0;
     GLfloat y = (l.y-40.0)/40.0;
-    GLfloat z = -l.height/80.0;
+    GLfloat z = -l.z/80.0;
     glEnable(GL_LIGHTING);
     glPushMatrix();
     glTranslatef(x, y, z);
-    glRotatef(360*l.heading/8.0, 0, 0, 1);
-    if (l.type == AirplaneType::QUAD) DrawQuadCopter();
-    else if (l.type == AirplaneType::PLANE) DrawAirplane();
+    glRotatef(360*l.hdg()/8.0, 0, 0, 1);
+    DrawAirplane();
     glPopMatrix();
     
     //DrawCylinder(l.x, l.y, l.height, 0, 0.001, 0.01);
@@ -674,16 +626,16 @@ void AirplaneGridlessEnvironment::OpenGLDraw(const PlatformState& o, const Platf
     
     GLfloat x1 = (o.x-40.0)/40.0;
     GLfloat y1 = (o.y-40.0)/40.0;
-    GLfloat z1 = -o.height/80.0;
-    GLfloat h1 = 360*o.heading/8.0;
+    GLfloat z1 = -o.z/80.0;
+    GLfloat h1 = 360*o.hdg()/8.0;
 
     GLfloat x2 = (n.x-40.0)/40.0;
     GLfloat y2 = (n.y-40.0)/40.0;
-    GLfloat z2 = -n.height/80.0;
-    GLfloat h2 = 360*n.heading/8.0;
-    if (o.heading < 2 && n.heading >= 6)
+    GLfloat z2 = -n.z/80.0;
+    GLfloat h2 = 360*n.hdg()/8.0;
+    if (o.hdg() < 2 && n.hdg() >= 6)
         h2 -= 360;
-    if (o.heading >= 6 && n.heading < 2)
+    if (o.hdg() >= 6 && n.hdg() < 2)
         h1 -= 360;
 
     glEnable(GL_LIGHTING);
@@ -691,11 +643,10 @@ void AirplaneGridlessEnvironment::OpenGLDraw(const PlatformState& o, const Platf
     glTranslatef((1-perc)*x1+perc*x2, (1-perc)*y1+perc*y2, (1-perc)*z1+perc*z2);
     glRotatef((1-perc)*h1+perc*h2, 0, 0, 1);
 
-    if(n.height>o.height) glRotatef(-45, 1, 1, 0);
-    else if(n.height<o.height) glRotatef(45, 1, 1, 0);
+    if(n.z>o.z) glRotatef(-45, 1, 1, 0);
+    else if(n.z<o.z) glRotatef(45, 1, 1, 0);
 
-    if (o.type == AirplaneType::QUAD) DrawQuadCopter();
-    else if (o.type == AirplaneType::PLANE) DrawAirplane();
+    DrawAirplane();
     glPopMatrix();
 }
 
@@ -728,14 +679,6 @@ void AirplaneGridlessEnvironment::DrawAirplane() const
 
 }
 
-void AirplaneGridlessEnvironment::DrawQuadCopter() const 
-{
-   // Body
-  glRotatef(90,1,1,0);
-  DrawCylinder(0, 0, 0, 0, 0.01/2.0, 0.01/10);
-  glRotatef(-90,1,1,0);
-}
-
 void AirplaneGridlessEnvironment::GLDrawLine(const PlatformState &a, const PlatformState &b) const
 {
     glColor4f(1.0, 1.0, 1.0, .5); // Make it partially opaque gray
@@ -743,11 +686,11 @@ void AirplaneGridlessEnvironment::GLDrawLine(const PlatformState &a, const Platf
     // Normalize coordinates between (-1, 1)
     GLfloat x_start((a.x-40.0)/40.0);
     GLfloat y_start((a.y-40.0)/40.0);
-    GLfloat z_start(-a.height/80.0);
+    GLfloat z_start(-a.z/80.0);
 
     GLfloat x_end((b.x-40.0)/40.0);
     GLfloat y_end((b.y-40.0)/40.0);
-    GLfloat z_end(-b.height/80.0);
+    GLfloat z_end(-b.z/80.0);
 
     glDisable(GL_LIGHTING);
     glPushMatrix();
@@ -787,7 +730,7 @@ std::vector<PlatformAction> AirplaneGridlessEnvironment::getInternalActions()
     return std::vector<PlatformAction>(internalActions);
 }
 
-void AirplaneGridlessEnvironment::AddLandingStrip(landingStrip strip)
+void AirplaneGridlessEnvironment::AddLandingStrip(gridlessLandingStrip& strip)
 {
   // Set the ground to average height on the strip
   float avgh = 0.0f;
@@ -807,7 +750,7 @@ void AirplaneGridlessEnvironment::AddLandingStrip(landingStrip strip)
   {
     for (int j = min(strip.y1, strip.y2); j <= max(strip.y1, strip.y2); j++) 
     {
-      SetGround(i, j, (int) avgh);
+      SetGround(i, j, avgh);
     }
   }
       
@@ -848,7 +791,11 @@ void AirplaneGridlessEnvironment::AddLandingStrip(landingStrip strip)
   }
 
   // Add the landing strip
-  strip.z = (uint16_t) avgh;
+  strip.z =  avgh;
   this->landingStrips.push_back(strip);
 
 }
+
+//const double PlatformState::SPEEDS[]={0.0,0.1,0.14,0.18,0.22,0.26}; // KMPS
+const double PlatformState::SPEEDS[]={0.0,0.5556,0.7778,1.0,1.2222,1.4444}; // grid-units per second
+const double PlatformState::TIMESTEP=1.0; // Seconds

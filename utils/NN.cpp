@@ -43,7 +43,7 @@ NN::NN(NN *nn)
 	allocateMemory();
 }
 
-NN::NN(char *f)
+NN::NN(char const*const f)
 {
 	inputs = -1;
 	load(f);

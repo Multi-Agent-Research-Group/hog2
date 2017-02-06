@@ -1,16 +1,18 @@
 #include "AirplanePerimeterBuilder.h"
 #include "Airplane.h"
+#include "AirplaneGridless.h"
 #include <gtest/gtest.h>
 
-void TestReverseSuccessors(AirplaneEnvironment& env, airplaneState const& s, airplaneState const& g, airplaneState o) {
+template<typename environ, typename state>
+void TestReverseSuccessors(environ& env, state const& s, state const& g, state o) {
   //std::cout << "original " << o << "\n";
-  std::vector<airplaneState> ancestors;
+  std::vector<state> ancestors;
   env.GetReverseSuccessors(o,ancestors);
   for (auto &a : ancestors)
   {
     //std::cout << " Ancestor " << a << "\n";
     // All ancestors should have a successor that is equal to the original state
-    std::vector<airplaneState> successors;
+    std::vector<state> successors;
     env.GetSuccessors(a,successors);
     bool found(false);
     for(auto &c: successors){
@@ -56,6 +58,55 @@ TEST(AirplaneEnvironmentTest, GetActions) {
   TestReverseSuccessors(env,s,g,o);
 }
 
+TEST(GridlessTest, GetActions) { 
+  AirplaneGridlessEnvironment env;
+  PlatformAction a(0,0,0);
+  PlatformState s(50,50,16,0,0,3);
+  PlatformState g(50,40,18,0,0,3);
+  env.setGoal(g);
+  std::vector<PlatformAction> actions;
+  env.GetActions(s,actions);
+  std::vector<PlatformAction> ractions;
+  env.GetReverseActions(s,ractions);
+  ASSERT_EQ(27, actions.size());
+  ASSERT_EQ(27, ractions.size());
+
+  for (auto &a : actions)
+  {
+    PlatformState s1=s;
+    std::cout << s << "\n";
+    env.ApplyAction(s,a);
+    ASSERT_NEQ(s,s1);
+    std::cout << s << "\n";
+    PlatformAction a2(env.GetAction(s1,s));
+    std::cout <<a;
+    std::cout <<a2;
+    env.UndoAction(s,a);
+    ASSERT_EQ(s,s1);
+    ASSERT_EQ(a,a2);
+    s=s1; // Reset
+  }
+  env.setStart(s);
+  env.setGoal(g);
+  PlatformState o(56,44,11,0,0,3);
+  TestReverseSuccessors(env,s,g,o);
+  o=s;
+  o.x+=1;
+  TestReverseSuccessors(env,s,g,o);
+  o=g;
+  o.x+=1;
+  TestReverseSuccessors(env,s,g,o);
+}
+
 TEST(HeuristicTest, LearnSpace) { 
+  AirplaneEnvironment env;
   AirplanePerimeterBuilder<airplaneState,airplaneAction,AirplaneEnvironment> builder;
+  std::vector<airplaneState> states;
+  states.emplace_back(40,40,10,3,0);
+  builder.learnSpace(env,states,5);
+  airplaneState s(40,39,10,3,0);
+  airplaneState s2(40,41,10,3,0);
+  std::cout << env.GCost(s,states[0]) << "\n";
+  std::cout << builder.GCost(s,states[0],env) << "\n";
+  std::cout << builder.GCost(s2,states[0],env) << "\n";
 }

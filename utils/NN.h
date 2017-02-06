@@ -9,7 +9,7 @@ public:
 	NN(int inputs, int hiddens, int outputs, double learnrate);
 	NN(NN *);
 	NN(FunctionApproximator *);
-	NN(char *);
+	NN(char const*const);
 	~NN();
 	void load(const char *);
 	void load(FILE *);

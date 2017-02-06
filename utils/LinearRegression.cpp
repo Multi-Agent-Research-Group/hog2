@@ -16,6 +16,7 @@
 #include <string.h>
 #include "LinearRegression.h"
 #include "SwapEndian.h"
+#include <iostream>
 
 static const float VERSION = 1.1;
 static const float MINVERSION = 1.0;
@@ -47,7 +48,7 @@ LinearRegression::LinearRegression(LinearRegression *perp)
 	load(perp);
 }
 
-LinearRegression::LinearRegression(char *f)
+LinearRegression::LinearRegression(char const*const f)
 {
 	useBinary = false;
 	weight.resize(0);
@@ -366,9 +367,11 @@ double LinearRegression::train(std::vector<double> &input, std::vector<double> &
 		double err = outputerr(output,target,x);
 		totalErr+=err*err;
 		double rateTimesError = rate*err;
+                std::cout << " ";
 		for (int y = 0; y < inputs; y++)
 		{
 			weight[x][y] -= rateTimesError*input[y];
+                        std::cout << weight[x][y] << " ";;
 
 			updateData &val = updates[x][y];
 			val.n++;
@@ -379,6 +382,8 @@ double LinearRegression::train(std::vector<double> &input, std::vector<double> &
 			val.totErr += rateTimesError*rateTimesError;
 		}
 		weight[x][inputs] -= rateTimesError*(1); // bias
+                std::cout << weight[x][inputs] << "\n";;
+
 	}
 	return totalErr;
 }

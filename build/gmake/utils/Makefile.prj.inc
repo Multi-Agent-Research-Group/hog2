@@ -40,6 +40,7 @@ SRC_CPP = \
 	utils/LinearRegression.cpp \
 	utils/Map.cpp \
 	utils/MapOverlay.cpp \
+	utils/NN.cpp \
 	utils/Plot2D.cpp \
 	utils/ScenarioLoader.cpp \
 	utils/StatCollection.cpp \

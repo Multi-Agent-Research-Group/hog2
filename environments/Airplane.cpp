@@ -214,6 +214,7 @@ void AirplaneEnvironment::loadPerimeterDB(){
 }
 
 void AirplaneEnvironment::GetDimensions(airplaneState const& node1, airplaneState const& node2, std::vector<double>& data) const{
+  data.resize(5);
   data[0]=node2.x-node1.x;
   data[1]=node2.y-node1.y;
   data[2]=node2.height-node1.height;

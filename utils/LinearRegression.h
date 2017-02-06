@@ -27,7 +27,7 @@ class LinearRegression : public FunctionApproximator  {
 public:
 	LinearRegression(int _inputs, int _outputs, double learnrate);
 	LinearRegression(LinearRegression *);
-	LinearRegression(char *);
+	LinearRegression(char const*const);
 	LinearRegression(FunctionApproximator *);
 	~LinearRegression();
 	
