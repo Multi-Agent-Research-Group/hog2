@@ -372,6 +372,11 @@ void AirplaneGridlessEnvironment::GetReverseActions(const PlatformState &nodeID,
 PlatformAction AirplaneGridlessEnvironment::GetAction(const PlatformState &node1, const PlatformState &node2) const
 {
   PlatformAction a;
+  a.turn(atan2(node2.x-node1.x,node2.y-node1.y)*constants::radToDeg);
+  std::cout << (node2.x-node1.x) << "x " << (node2.y-node1.y) << "y "<< a.turn() << "hdg\n";
+  a.pitch(atan2(node2.z-node1.z,PlatformState::SPEEDS[node2.speed])*constants::radToDeg);
+  std::cout << a.pitch() << "att\n";
+  a.speed=node2.speed-node1.speed;
   // TODO - add this if needed
   return a;
 }

@@ -200,7 +200,7 @@ public:
 	virtual bool GoalTest(const airplaneState &) const { assert(false); return false; }
 
   // Hashing
-        virtual airplaneState GetState(uint64_t hash) const;
+        airplaneState GetState(uint64_t hash) const;
 	virtual uint64_t GetStateHash(const airplaneState &node) const;
 	virtual uint64_t GetActionHash(airplaneAction act) const;
 	

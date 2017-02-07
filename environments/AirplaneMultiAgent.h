@@ -16,16 +16,17 @@
 #include "AirplanePerimeterDBBuilder.h"
 #include "AirplaneConstrained.h"
 
-typedef std::vector<airtimeState> MultiAgentState;
-typedef std::vector<airplaneAction> MultiAgentAction;
 
 // Actual Environment
-class AirplaneMultiAgentEnvironment : public SearchEnvironment<MultiAgentState, MultiAgentAction>
+template<typename state, typename action, typename environment>
+class AirplaneMultiAgentEnvironment : public SearchEnvironment<std::vector<state>, std::vector<action> >
 {
   public:
+    typedef std::vector<state> MultiAgentState;
+    typedef std::vector<action> MultiAgentAction;
 
     // Constructor
-    AirplaneMultiAgentEnvironment(AirplaneConstrainedEnvironment * const base):env(base){}
+    AirplaneMultiAgentEnvironment(ConstrainedEnvironment<state,action,environment> * const base):env(base){}
 
     virtual void GetSuccessors(const MultiAgentState &nodeID, std::vector<MultiAgentState> &neighbors) const;
 
@@ -67,7 +68,7 @@ class AirplaneMultiAgentEnvironment : public SearchEnvironment<MultiAgentState, 
     MultiAgentState const* goal;
     MultiAgentState const& getGoal()const{return *goal;}
     void setGoal(MultiAgentState const& g){goal=&g;}
-    AirplaneConstrainedEnvironment const* const getEnv()const{return env;}
+    ConstrainedEnvironment<state,action,environment> const* const getEnv()const{return env;}
 
   protected:
 
@@ -77,17 +78,11 @@ class AirplaneMultiAgentEnvironment : public SearchEnvironment<MultiAgentState, 
 
 
   private:
-    AirplaneConstrainedEnvironment*const env;
+    ConstrainedEnvironment<state,action,environment> *const env;
 };
 
-static std::ostream& operator <<(std::ostream& os, MultiAgentState const& s){
-  for(auto const& a : s){
-    os << a << "/";
-  }
-  return os;
-}
-
-static std::ostream& operator <<(std::ostream& os, MultiAgentAction const& s){
+template<typename state>
+static std::ostream& operator <<(std::ostream& os, std::vector<state> const& s){
   for(auto const& a : s){
     os << a << "/";
   }

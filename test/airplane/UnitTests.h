@@ -58,7 +58,7 @@ TEST(AirplaneEnvironmentTest, GetActions) {
   TestReverseSuccessors(env,s,g,o);
 }
 
-TEST(GridlessTest, GetActions) { 
+TEST(GridlessEnvironmentTest, GetActions) { 
   AirplaneGridlessEnvironment env;
   PlatformAction a(0,0,0);
   PlatformState s(50,50,16,0,0,3);
@@ -74,10 +74,8 @@ TEST(GridlessTest, GetActions) {
   for (auto &a : actions)
   {
     PlatformState s1=s;
-    std::cout << s << "\n";
     env.ApplyAction(s,a);
-    ASSERT_NEQ(s,s1);
-    std::cout << s << "\n";
+    ASSERT_FALSE(s==s1);
     PlatformAction a2(env.GetAction(s1,s));
     std::cout <<a;
     std::cout <<a2;

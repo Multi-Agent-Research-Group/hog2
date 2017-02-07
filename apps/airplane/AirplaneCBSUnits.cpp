@@ -19,7 +19,8 @@ std::ostream& operator<<(std::ostream& ss, IntervalData v) {ss << "<H1:"<<v.hash
 
 /** AIR CBS UNIT DEFINITIONS */
 
-bool AirCBSUnit::MakeMove(AirplaneConstrainedEnvironment *ae, OccupancyInterface<airtimeState,airplaneAction> *,
+template<typename state, typename action>
+bool AirCBSUnit<state,action>::MakeMove(AirplaneConstrainedEnvironment *ae, OccupancyInterface<airtimeState,airplaneAction> *,
 							 SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> * si, airplaneAction& a)
 {
   if (myPath.size() > 1 && si->GetSimulationTime() > myPath[myPath.size()-2].t)
@@ -57,13 +58,15 @@ bool AirCBSUnit::MakeMove(AirplaneConstrainedEnvironment *ae, OccupancyInterface
   return false;
 }
 
-void AirCBSUnit::SetPath(std::vector<airtimeState> &p)
+template<typename state, typename action>
+void AirCBSUnit<state,action>::SetPath(std::vector<airtimeState> &p)
 {
   myPath = p;
   std::reverse(myPath.begin(), myPath.end());
 }
 
-void AirCBSUnit::OpenGLDraw(const AirplaneConstrainedEnvironment *ae, 
+template<typename state, typename action>
+void AirCBSUnit<state,action>::OpenGLDraw(const AirplaneConstrainedEnvironment *ae, 
     const SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *si) const
 {
   GLfloat r, g, b;
@@ -98,7 +101,7 @@ void AirCBSUnit::OpenGLDraw(const AirplaneConstrainedEnvironment *ae,
   }
 }
 
-/*void AirCBSUnit::UpdateGoal(airtimeState &s, airtimeState &g)
+/*void AirCBSUnit<state,action>::UpdateGoal(airtimeState &s, airtimeState &g)
   {
   start = s;
   goal = g;
@@ -108,7 +111,7 @@ void AirCBSUnit::OpenGLDraw(const AirplaneConstrainedEnvironment *ae,
 
 /** CBS GROUP DEFINITIONS */
 
-AirCBSGroup::AirCBSGroup(std::vector<EnvironmentContainer> const& environs, bool u_r, bool u_w, bool no_bypass) : time(0), bestNode(0), planFinished(false), use_restricted(u_r), use_waiting(u_w), nobypass(no_bypass)
+AirCBSGroup<state,action>::AirCBSGroup(std::vector<EnvironmentContainer> const& environs, bool u_r, bool u_w, bool no_bypass) : time(0), bestNode(0), planFinished(false), use_restricted(u_r), use_waiting(u_w), nobypass(no_bypass)
 {
   //std::cout << "THRESHOLD " << threshold << "\n";
 
@@ -138,7 +141,8 @@ AirCBSGroup::AirCBSGroup(std::vector<EnvironmentContainer> const& environs, bool
 }
 
 
-bool AirCBSGroup::MakeMove(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u, AirplaneConstrainedEnvironment *e,
+template<typename state, typename action>
+bool AirCBSGroup<state,action>::MakeMove(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u, AirplaneConstrainedEnvironment *e,
     SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *si, airplaneAction& a)
 {
   if (planFinished && si->GetSimulationTime() > time)
@@ -156,7 +160,8 @@ bool AirCBSGroup::MakeMove(Unit<airtimeState, airplaneAction, AirplaneConstraine
   return false;
 }
 
-void AirCBSGroup::processSolution(double elapsed)
+template<typename state, typename action>
+void AirCBSGroup<state,action>::processSolution(double elapsed)
 {
 
   double cost(0.0);
@@ -228,7 +233,8 @@ void AirCBSGroup::processSolution(double elapsed)
 }
 
 /** Expand a single CBS node */
-void AirCBSGroup::ExpandOneCBSNode(bool gui)
+template<typename state, typename action>
+void AirCBSGroup<state,action>::ExpandOneCBSNode(bool gui)
 {
   // There's no reason to expand if the plan is finished.
   if (planFinished)
@@ -356,13 +362,15 @@ void AirCBSGroup::ExpandOneCBSNode(bool gui)
 }
 
 /** Update the location of a unit */
-void AirCBSGroup::UpdateLocation(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u, AirplaneConstrainedEnvironment *e, airtimeState &loc, 
+template<typename state, typename action>
+void AirCBSGroup<state,action>::UpdateLocation(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u, AirplaneConstrainedEnvironment *e, airtimeState &loc, 
     bool success, SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *si)
 {
   u->UpdateLocation(e, loc, success, si);
 }
 
-void AirCBSGroup::SetEnvironment(unsigned numConflicts){
+template<typename state, typename action>
+void AirCBSGroup<state,action>::SetEnvironment(unsigned numConflicts){
   bool set(false);
   for (int i = 0; i < this->environments.size(); i++) {
     if (numConflicts >= environments[i].conflict_cutoff) {
@@ -380,14 +388,16 @@ void AirCBSGroup::SetEnvironment(unsigned numConflicts){
   astar.SetWeight(currentEnvironment->astar_weight);
 }
 
-void AirCBSGroup::ClearEnvironmentConstraints(){
+template<typename state, typename action>
+void AirCBSGroup<state,action>::ClearEnvironmentConstraints(){
   for (EnvironmentContainer env : this->environments) {
     env.environment->ClearConstraints();
   }
 }
 
 
-void AirCBSGroup::AddEnvironmentConstraint(airConstraint  c){
+template<typename state, typename action>
+void AirCBSGroup<state,action>::AddEnvironmentConstraint(airConstraint  c){
   for (EnvironmentContainer env : this->environments) {
     env.environment->AddConstraint(c);
   }
@@ -542,7 +552,8 @@ unsigned GetFullPath(AirCBSUnit* c, TemplateAStar<airtimeState, airplaneAction, 
 }
 
 /** Add a new unit with a new start and goal state to the CBS group */
-void AirCBSGroup::AddUnit(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u)
+template<typename state, typename action>
+void AirCBSGroup<state,action>::AddUnit(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u)
 {
   AirCBSUnit *c = (AirCBSUnit*)u;
   c->setUnitNumber(GetNumMembers());
@@ -608,7 +619,8 @@ void AirCBSGroup::AddUnit(Unit<airtimeState, airplaneAction, AirplaneConstrained
   openList.push(OpenListNode(0, 0, 0));
 }
 
-void AirCBSGroup::UpdateUnitGoal(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u, airtimeState newGoal)
+template<typename state, typename action>
+void AirCBSGroup<state,action>::UpdateUnitGoal(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u, airtimeState newGoal)
 {
 
   //std::cout << "Replanning units..." << std::endl;
@@ -695,7 +707,8 @@ void AirCBSGroup::UpdateUnitGoal(Unit<airtimeState, airplaneAction, AirplaneCons
 }
 
 /** Update Unit Path */
-void AirCBSGroup::UpdateSingleUnitPath(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u, airtimeState newGoal)
+template<typename state, typename action>
+void AirCBSGroup<state,action>::UpdateSingleUnitPath(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u, airtimeState newGoal)
 {
 
   //std::cout << "Replanning Single Unit Path..." << std::endl;
@@ -771,7 +784,8 @@ void AirCBSGroup::UpdateSingleUnitPath(Unit<airtimeState, airplaneAction, Airpla
   c->SetPath(thePath);
 }
 
-unsigned AirCBSGroup::IssueTicketsForNode(int location){
+template<typename state, typename action>
+unsigned AirCBSGroup<state,action>::IssueTicketsForNode(int location){
   return 0;
   /*
   // Unissue all tickets and re-issue for non-conflicting units
@@ -787,7 +801,8 @@ unsigned AirCBSGroup::IssueTicketsForNode(int location){
 }
 
 // Loads conflicts into environements and returns the number of conflicts loaded.
-unsigned AirCBSGroup::LoadConstraintsForNode(int location){
+template<typename state, typename action>
+unsigned AirCBSGroup<state,action>::LoadConstraintsForNode(int location){
   // Select the unit from the tree with the new constraint
   int theUnit(tree[location].con.unit1);
   unsigned numConflicts(0);
@@ -812,7 +827,8 @@ unsigned AirCBSGroup::LoadConstraintsForNode(int location){
 
 // Attempts a bypass around the conflict using an alternate optimal path
 // Returns whether the bypass was effective
-bool AirCBSGroup::Bypass(int best, unsigned numConflicts, airConflict const& c1, bool gui)
+template<typename state, typename action>
+bool AirCBSGroup<state,action>::Bypass(int best, unsigned numConflicts, airConflict const& c1, bool gui)
 {
   if(nobypass)return false;
   LoadConstraintsForNode(best);
@@ -907,7 +923,8 @@ bool AirCBSGroup::Bypass(int best, unsigned numConflicts, airConflict const& c1,
 
 
 /** Replan a node given a constraint */
-void AirCBSGroup::Replan(int location)
+template<typename state, typename action>
+void AirCBSGroup<state,action>::Replan(int location)
 {
   // Select the unit from the tree with the new constraint
   int theUnit = tree[location].con.unit1;
@@ -980,7 +997,8 @@ void AirCBSGroup::Replan(int location)
   //ticketAuthority.IssueTicketsForPath(tree[location].paths[theUnit], theUnit);
 }
 
-unsigned AirCBSGroup::HasConflict(std::vector<airtimeState> const& a, std::vector<airtimeState> const& b, int x, int y, airConflict &c1, airConflict &c2, bool update, bool verbose)
+template<typename state, typename action>
+unsigned AirCBSGroup<state,action>::HasConflict(std::vector<airtimeState> const& a, std::vector<airtimeState> const& b, int x, int y, airConflict &c1, airConflict &c2, bool update, bool verbose)
 {
   unsigned numConflicts(0);
   // To check for conflicts, we loop through the timed actions, and check 
@@ -1130,7 +1148,8 @@ unsigned AirCBSGroup::HasConflict(std::vector<airtimeState> const& a, std::vecto
 }
 
 /** Find the first place that there is a conflict in the tree */
-unsigned AirCBSGroup::FindFirstConflict(AirCBSTreeNode const& location, airConflict &c1, airConflict &c2)
+template<typename state, typename action>
+unsigned AirCBSGroup<state,action>::FindFirstConflict(AirCBSTreeNode const& location, airConflict &c1, airConflict &c2)
 {
 
   // Check for ticket conflicts while we're searching for normal conflicts
@@ -1155,7 +1174,8 @@ unsigned AirCBSGroup::FindFirstConflict(AirCBSTreeNode const& location, airConfl
   return numConflicts;
 }
 
-void AirCBSGroup::DoHAStar(airtimeState& start, airtimeState& goal, std::vector<airtimeState>& thePath) 
+template<typename state, typename action>
+void AirCBSGroup<state,action>::DoHAStar(airtimeState& start, airtimeState& goal, std::vector<airtimeState>& thePath) 
 {
 	unsigned x = 1;
 	unsigned i = 5000;
@@ -1180,7 +1200,8 @@ void AirCBSGroup::DoHAStar(airtimeState& start, airtimeState& goal, std::vector<
 	}
 }
 
-bool AirCBSGroup::HAStarHelper(airtimeState& start, airtimeState& goal, std::vector<airtimeState>& thePath, unsigned& envConflicts, unsigned& conflicts) 
+template<typename state, typename action>
+bool AirCBSGroup<state,action>::HAStarHelper(airtimeState& start, airtimeState& goal, std::vector<airtimeState>& thePath, unsigned& envConflicts, unsigned& conflicts) 
 {
 	thePath.resize(0);
 	//SetEnvironment(envConflicts);
@@ -1203,7 +1224,8 @@ bool AirCBSGroup::HAStarHelper(airtimeState& start, airtimeState& goal, std::vec
 }
 
 /** Draw the AIR CBS group */
-void AirCBSGroup::OpenGLDraw(const AirplaneConstrainedEnvironment *ae, const SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> * sim)  const
+template<typename state, typename action>
+void AirCBSGroup<state,action>::OpenGLDraw(const AirplaneConstrainedEnvironment *ae, const SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> * sim)  const
 {
 	/*
 	GLfloat r, g, b;

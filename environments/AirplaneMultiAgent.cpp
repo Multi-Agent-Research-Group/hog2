@@ -19,25 +19,27 @@
 #include "TemplateAStar.h"
 #include "Heuristic.h"
 
-void AirplaneMultiAgentEnvironment::generatePermutations(std::vector<MultiAgentAction>& actions, std::vector<MultiAgentAction>& result, int depth, MultiAgentAction const& current) {
+template<typename state, typename action, typename environment>
+void AirplaneMultiAgentEnvironment<state,action,environment>::generatePermutations(std::vector<AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentAction>& actions, std::vector<AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentAction>& result, int depth, AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentAction const& current) {
     if(depth == actions.size()) {
        result.push_back(current);
        return;
      }
 
     for(int i = 0; i < actions[depth].size(); ++i) {
-        MultiAgentAction copy(current);
+        AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentAction copy(current);
         copy.push_back(actions[depth][i]);
         generatePermutations(actions, result, depth + 1, copy);
     }
 }
 
-void AirplaneMultiAgentEnvironment::GetSuccessors(const MultiAgentState &nodeID, std::vector<MultiAgentState> &neighbors) const
+template<typename state, typename action, typename environment>
+void AirplaneMultiAgentEnvironment<state,action,environment>::GetSuccessors(const AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentState &nodeID, std::vector<AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentState> &neighbors) const
 {
-  std::vector<MultiAgentAction> actions;
+  std::vector<AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentAction> actions;
   GetActions(nodeID, actions);
   for (auto &act : actions) {
-    MultiAgentState s(nodeID);
+    AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentState s(nodeID);
     
     //std::cout << "Generated from: " << s << "->" << act;
     ApplyAction(s,act);
@@ -57,14 +59,15 @@ void AirplaneMultiAgentEnvironment::GetSuccessors(const MultiAgentState &nodeID,
       if(hasConflict){break;}
     }
     if(!hasConflict){
-      //std::cout << ">>>>>>" << s << "\n";
+      //std::cout << ">>>" << s << "\n";
       neighbors.push_back(s);}
   }
 }
 
-void AirplaneMultiAgentEnvironment::GetActions(MultiAgentState const& nodeID, std::vector<MultiAgentAction> &actions) const
+template<typename state, typename action, typename environment>
+void AirplaneMultiAgentEnvironment<state,action,environment>::GetActions(AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentState const& nodeID, std::vector<AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentAction> &actions) const
 {
-  std::vector<MultiAgentAction> temp(nodeID.size());
+  std::vector<AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentAction> temp(nodeID.size());
   actions.resize(0);
   int i(0);
   for(auto s : nodeID){
@@ -78,7 +81,7 @@ void AirplaneMultiAgentEnvironment::GetActions(MultiAgentState const& nodeID, st
       std::cout << aa <<"\n";
     }
   }*/
-  MultiAgentAction c;
+  AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentAction c;
   generatePermutations(temp, actions, 0, c);
   /*std::cout << "Combined Actions: \n";
   for(auto const& a : actions){
@@ -89,7 +92,8 @@ void AirplaneMultiAgentEnvironment::GetActions(MultiAgentState const& nodeID, st
   }*/
 }
 
-void AirplaneMultiAgentEnvironment::GetReverseActions(const MultiAgentState &nodeID, std::vector<MultiAgentAction> &actions) const
+template<typename state, typename action, typename environment>
+void AirplaneMultiAgentEnvironment<state,action,environment>::GetReverseActions(const AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentState &nodeID, std::vector<AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentAction> &actions) const
 {
   actions.resize(nodeID.size());
   int i(0);
@@ -98,10 +102,11 @@ void AirplaneMultiAgentEnvironment::GetReverseActions(const MultiAgentState &nod
   }
 }
 
-/** Gets the action required to go from node1 to node2 */
-MultiAgentAction AirplaneMultiAgentEnvironment::GetAction(const MultiAgentState &node1, const MultiAgentState &node2) const
+/** Gets the action, typename environment> required to go from node1 to node2 */
+template<typename state, typename action, typename environment>
+typename AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentAction AirplaneMultiAgentEnvironment<state,action,environment>::GetAction(const AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentState &node1, const AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentState &node2) const
 {
-  MultiAgentAction a;
+  AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentAction a;
   for(int i(0); i<node1.size(); ++i){
     env->setGoal(getGoal()[i]);
     a.push_back(env->GetAction(node1[i],node2[i])); 
@@ -109,30 +114,34 @@ MultiAgentAction AirplaneMultiAgentEnvironment::GetAction(const MultiAgentState 
   return a;
 }
 
-void AirplaneMultiAgentEnvironment::ApplyAction(MultiAgentState &s, MultiAgentAction dir) const
+template<typename state, typename action, typename environment>
+void AirplaneMultiAgentEnvironment<state,action,environment>::ApplyAction(AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentState &s, AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentAction dir) const
 {
   int i(0);
-  for(airtimeState& state : s){
+  for(state& st : s){
     env->setGoal(getGoal()[i]);
-    env->ApplyAction(state,dir[i++]); // Modify state in-place
+    env->ApplyAction(st,dir[i++]); // Modify state in-place
   }
 }
 
-void AirplaneMultiAgentEnvironment::UndoAction(MultiAgentState &s, MultiAgentAction const& dir) const
+template<typename state, typename action, typename environment>
+void AirplaneMultiAgentEnvironment<state,action,environment>::UndoAction(AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentState &s, AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentAction const& dir) const
 {
   int i(0);
-  for(airtimeState& state : s){
-    env->UndoAction(state,dir[i++]);
+  for(state& st : s){
+    env->UndoAction(st,dir[i++]);
   }
 }
 
-void AirplaneMultiAgentEnvironment::GetNextState(const MultiAgentState &currents, MultiAgentAction const& dir, MultiAgentState &news) const
+template<typename state, typename action, typename environment>
+void AirplaneMultiAgentEnvironment<state,action,environment>::GetNextState(const AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentState &currents, AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentAction const& dir, AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentState &news) const
 {
     news = currents;
     ApplyAction(news, dir);
 }
 
-double AirplaneMultiAgentEnvironment::HCost(const MultiAgentState &node1, const MultiAgentState &node2) const
+template<typename state, typename action, typename environment>
+double AirplaneMultiAgentEnvironment<state,action,environment>::HCost(const AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentState &node1, const AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentState &node2) const
 {
   double total(0.0);
   for(int i(0); i<node1.size(); ++i){
@@ -143,7 +152,8 @@ double AirplaneMultiAgentEnvironment::HCost(const MultiAgentState &node1, const 
 
 
 
-double AirplaneMultiAgentEnvironment::GCost(MultiAgentState const& node1, MultiAgentState const& node2) const {
+template<typename state, typename action, typename environment>
+double AirplaneMultiAgentEnvironment<state,action,environment>::GCost(AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentState const& node1, AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentState const& node2) const {
   double total(0.0);
   for(int i(0); i<node1.size(); ++i){
     total += env->GCost(node1[i],node2[i]);
@@ -151,7 +161,8 @@ double AirplaneMultiAgentEnvironment::GCost(MultiAgentState const& node1, MultiA
   return total;
 }
 
-double AirplaneMultiAgentEnvironment::GCost(MultiAgentState const& node1, MultiAgentAction const& act) const {
+template<typename state, typename action, typename environment>
+double AirplaneMultiAgentEnvironment<state,action,environment>::GCost(AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentState const& node1, AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentAction const& act) const {
   double total(0.0);
   for(int i(0); i<node1.size(); ++i){
     total += env->GCost(node1[i],act[i]);
@@ -160,7 +171,8 @@ double AirplaneMultiAgentEnvironment::GCost(MultiAgentState const& node1, MultiA
 }
 
 
-bool AirplaneMultiAgentEnvironment::GoalTest(const MultiAgentState &node, const MultiAgentState &goal) const
+template<typename state, typename action, typename environment>
+bool AirplaneMultiAgentEnvironment<state,action,environment>::GoalTest(const AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentState &node, const AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentState &goal) const
 {
   bool done(true);
   for(int i(0); i<node.size(); ++i){
@@ -169,7 +181,8 @@ bool AirplaneMultiAgentEnvironment::GoalTest(const MultiAgentState &node, const 
   return done;
 }
 
-double AirplaneMultiAgentEnvironment::GetPathLength(const std::vector<MultiAgentState> &sol) const
+template<typename state, typename action, typename environment>
+double AirplaneMultiAgentEnvironment<state,action,environment>::GetPathLength(const std::vector<AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentState> &sol) const
 {
     double gcost(0.0);
     if(sol.size()>1)
@@ -178,7 +191,8 @@ double AirplaneMultiAgentEnvironment::GetPathLength(const std::vector<MultiAgent
     return gcost;
 }
 
-uint64_t AirplaneMultiAgentEnvironment::GetStateHash(const MultiAgentState &node) const
+template<typename state, typename action, typename environment>
+uint64_t AirplaneMultiAgentEnvironment<state,action,environment>::GetStateHash(const AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentState &node) const
 {
     uint64_t h = 0;
     for(auto const& s : node){
@@ -187,7 +201,8 @@ uint64_t AirplaneMultiAgentEnvironment::GetStateHash(const MultiAgentState &node
     return h;
 }
 
-uint64_t AirplaneMultiAgentEnvironment::GetActionHash(MultiAgentAction act) const
+template<typename state, typename action, typename environment>
+uint64_t AirplaneMultiAgentEnvironment<state,action,environment>::GetActionHash(AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentAction act) const
 {
     uint64_t h = 0;
     for(auto& s : act){
@@ -196,37 +211,43 @@ uint64_t AirplaneMultiAgentEnvironment::GetActionHash(MultiAgentAction act) cons
     return h;
 }
 
-void AirplaneMultiAgentEnvironment::OpenGLDraw() const
+template<typename state, typename action, typename environment>
+void AirplaneMultiAgentEnvironment<state,action,environment>::OpenGLDraw() const
 {
   env->OpenGLDraw();
 }
 
-void AirplaneMultiAgentEnvironment::OpenGLDraw(const MultiAgentState &l) const
+template<typename state, typename action, typename environment>
+void AirplaneMultiAgentEnvironment<state,action,environment>::OpenGLDraw(const AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentState &l) const
 {
   for(auto const& s: l)
     env->OpenGLDraw(s);
 }
 
-void AirplaneMultiAgentEnvironment::OpenGLDraw(const MultiAgentState& o, const MultiAgentState &n, float perc) const
+template<typename state, typename action, typename environment>
+void AirplaneMultiAgentEnvironment<state,action,environment>::OpenGLDraw(const AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentState& o, const AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentState &n, float perc) const
 {
   int i(0);
   for(auto const& s: n)
     env->OpenGLDraw(s,n[i++],perc);
 }
 
-void AirplaneMultiAgentEnvironment::OpenGLDraw(const MultiAgentState &, const MultiAgentAction &) const
+template<typename state, typename action, typename environment>
+void AirplaneMultiAgentEnvironment<state,action,environment>::OpenGLDraw(const AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentState &, const AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentAction &) const
 {
     //TODO: Implement this
 }
 
-void AirplaneMultiAgentEnvironment::GLDrawLine(const MultiAgentState &a, const MultiAgentState &b) const
+template<typename state, typename action, typename environment>
+void AirplaneMultiAgentEnvironment<state,action,environment>::GLDrawLine(const AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentState &a, const AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentState &b) const
 {
   int i(0);
   for(auto const& s: a)
     env->GLDrawLine(s,b[i++]);
 }
 
-void AirplaneMultiAgentEnvironment::GLDrawPath(const std::vector<MultiAgentState> &p) const
+template<typename state, typename action, typename environment>
+void AirplaneMultiAgentEnvironment<state,action,environment>::GLDrawPath(const std::vector<AirplaneMultiAgentEnvironment<state,action,environment>::MultiAgentState> &p) const
 {
         if(p.size()<2) return;
         for(auto a(p.begin()+1); a!=p.end(); ++a){

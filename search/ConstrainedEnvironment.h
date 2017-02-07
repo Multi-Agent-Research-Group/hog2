@@ -9,8 +9,6 @@
 #ifndef __hog2_glut__ConstrainedEnvironment__
 #define __hog2_glut__ConstrainedEnvironment__
 
-#include "SearchEnvironment.h"
-
 #include <cmath>
 #include <memory>
 #include <limits>
@@ -32,8 +30,8 @@ struct Constraint {
 };
 
 
-template<class State, class Action>
-class ConstrainedEnvironment : public SearchEnvironment<State, Action>
+template<class State, class Action, class Environment>
+class ConstrainedEnvironment : public Environment
 {
 public:
 	/** Add a constraint to the model */

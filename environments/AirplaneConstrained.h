@@ -23,7 +23,7 @@
  * consisting of airtimeStates and actions, which allow us to deal with the issues that
  * come up in CBS
  */
-class AirplaneConstrainedEnvironment : public ConstrainedEnvironment<airtimeState, airplaneAction>
+class AirplaneConstrainedEnvironment : public ConstrainedEnvironment<airtimeState, airplaneAction,AirplaneEnvironment>
 {
 public:
  
@@ -77,7 +77,7 @@ public:
 	/// OCCUPANCY
 
 	/** Deal with the occupancy */
-	virtual OccupancyInterface<airtimeState,airplaneAction> *GetOccupancyInfo() { return 0; } //TODO: Not implemented
+	//virtual OccupancyInterface<airtimeState,airplaneAction> *GetOccupancyInfo() { return 0; } //TODO: Not implemented
 	
 	/// HEURISTICS
 

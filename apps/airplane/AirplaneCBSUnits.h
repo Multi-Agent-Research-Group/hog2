@@ -141,46 +141,47 @@ struct RandomTieBreaking {
 };
 
 
-class AirCBSUnit : public Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> {
+template<typename state, typename action, typename environment>
+class AirCBSUnit : public Unit<state, action, environment> {
 public:
-	AirCBSUnit(std::vector<airtimeState> const &gs)
+	AirCBSUnit(std::vector<state> const &gs)
 	:start(0), goal(1), current(gs[0]), waypoints(gs) {}
 	const char *GetName() { return "AirCBSUnit"; }
-	bool MakeMove(AirplaneConstrainedEnvironment *,
-            OccupancyInterface<airtimeState,airplaneAction> *, 
-            SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *,
-            airplaneAction& a);
-	void UpdateLocation(AirplaneConstrainedEnvironment *, airtimeState &newLoc, bool success, 
-						SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *)
+	bool MakeMove(SearchEnvironment<state,action> *,
+            OccupancyInterface<state,action> *, 
+            SimulationInfo<state,action,ConstrainedEnvironment<state,action> > *,
+            action& a);
+	void UpdateLocation(ConstrainedEnvironment<state,action>  *, state &newLoc, bool success, 
+						SimulationInfo<state,action,ConstrainedEnvironment<state,action> > *)
 	{ if (success) current = newLoc; else assert(!"CBS Unit: Movement failed"); }
 	
-	void GetLocation(airtimeState &l) { l = current; }
-	void OpenGLDraw(const AirplaneConstrainedEnvironment *, const SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *) const;
-	void GetGoal(airtimeState &s) { s = waypoints[goal]; }
-	void GetStart(airtimeState &s) { s = waypoints[start]; }
-	inline std::vector<airtimeState> const & GetWaypoints()const{return waypoints;}
-	inline airtimeState GetWaypoint(size_t i)const{ return waypoints[std::min(i,waypoints.size()-1)]; }
+	void GetLocation(state &l) { l = current; }
+	void OpenGLDraw(const ConstrainedEnvironment<state,action>  *, const SimulationInfo<state,action,ConstrainedEnvironment<state,action> > *) const;
+	void GetGoal(state &s) { s = waypoints[goal]; }
+	void GetStart(state &s) { s = waypoints[start]; }
+	inline std::vector<state> const & GetWaypoints()const{return waypoints;}
+	inline state GetWaypoint(size_t i)const{ return waypoints[std::min(i,waypoints.size()-1)]; }
         inline unsigned GetNumWaypoints()const{return waypoints.size();}
-	void SetPath(std::vector<airtimeState> &p);
-	void PushFrontPath(std::vector<airtimeState> &s)
+	void SetPath(std::vector<state> &p);
+	void PushFrontPath(std::vector<state> &s)
 	{
-		std::vector<airtimeState> newPath;
-		for (airtimeState x : s)
+		std::vector<state> newPath;
+		for (state x : s)
 			newPath.push_back(x);
-		for (airtimeState y : myPath)
+		for (state y : myPath)
 			newPath.push_back(y);
 		myPath = newPath;
 	}
-	inline std::vector<airtimeState> const& GetPath()const{return myPath;}
-    void UpdateGoal(airtimeState &start, airtimeState &goal);
+	inline std::vector<state> const& GetPath()const{return myPath;}
+        void UpdateGoal(state &start, state &goal);
         void setUnitNumber(unsigned n){number=n;}
         unsigned getUnitNumber()const{return number;}
 
 private:
 	unsigned start, goal;
-        airtimeState current;
-	std::vector<airtimeState> waypoints;
-	std::vector<airtimeState> myPath;
+        state current;
+	std::vector<state> waypoints;
+	std::vector<state> myPath;
         unsigned number;
 };
 
@@ -192,7 +193,7 @@ struct airConflict {
 
 struct AirCBSTreeNode {
 	AirCBSTreeNode():parent(0),satisfiable(true){}
-	std::vector< std::vector<airtimeState> > paths;
+	std::vector< std::vector<state> > paths;
 	airConflict con;
 	unsigned int parent;
 	bool satisfiable;
@@ -207,28 +208,29 @@ static std::ostream& operator <<(std::ostream & out, const AirCBSTreeNode &act)
 
 struct EnvironmentContainer {
 	EnvironmentContainer() : name("NULL ENV"), environment(0), heuristic(0), conflict_cutoff(0), astar_weight(0.0f) {}
-	EnvironmentContainer(std::string n, AirplaneConstrainedEnvironment* e, Heuristic<airtimeState>* h, uint32_t conf, float a) : name(n), environment(e), heuristic(h), conflict_cutoff(conf), astar_weight(a) {}
-	AirplaneConstrainedEnvironment* environment;
-	Heuristic<airtimeState>* heuristic;
+	EnvironmentContainer(std::string n, ConstrainedEnvironment<state,action> * e, Heuristic<state>* h, uint32_t conf, float a) : name(n), environment(e), heuristic(h), conflict_cutoff(conf), astar_weight(a) {}
+	ConstrainedEnvironment<state,action> * environment;
+	Heuristic<state>* heuristic;
 	uint64_t conflict_cutoff;
 	float astar_weight;
 	std::string name;
 };
 
 
-class AirCBSGroup : public UnitGroup<airtimeState, airplaneAction, AirplaneConstrainedEnvironment>
+template <typename state, typename action, typename environment>
+class AirCBSGroup : public UnitGroup<state, action, ConstrainedEnvironment<state,action> >
 {
 public:
 	AirCBSGroup(std::vector<EnvironmentContainer> const&, bool u_r, bool u_w, bool);
-	bool MakeMove(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u, AirplaneConstrainedEnvironment *e, 
-				  SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *si, airplaneAction& a);
-	void UpdateLocation(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u, AirplaneConstrainedEnvironment *e, 
-						airtimeState &loc, bool success, SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *si);
-	void AddUnit(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u);
-	void UpdateUnitGoal(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u, airtimeState newGoal);
-	void UpdateSingleUnitPath(Unit<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *u, airtimeState newGoal);
+	bool MakeMove(Unit<state, action, ConstrainedEnvironment<state,action> > *u, ConstrainedEnvironment<state,action>  *e, 
+				  SimulationInfo<state,action,ConstrainedEnvironment<state,action> > *si, action& a);
+	void UpdateLocation(Unit<state, action, ConstrainedEnvironment<state,action> > *u, ConstrainedEnvironment<state,action>  *e, 
+						state &loc, bool success, SimulationInfo<state,action,ConstrainedEnvironment<state,action> > *si);
+	void AddUnit(Unit<state, action, ConstrainedEnvironment<state,action> > *u);
+	void UpdateUnitGoal(Unit<state, action, ConstrainedEnvironment<state,action> > *u, state newGoal);
+	void UpdateSingleUnitPath(Unit<state, action, ConstrainedEnvironment<state,action> > *u, state newGoal);
 	
-	void OpenGLDraw(const AirplaneConstrainedEnvironment *, const SimulationInfo<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *)  const;
+	void OpenGLDraw(const ConstrainedEnvironment<state,action>  *, const SimulationInfo<state,action,ConstrainedEnvironment<state,action> > *)  const;
 	double getTime() {return time;}
 	bool donePlanning() {return planFinished;}
 	void ExpandOneCBSNode(bool gui=true);
@@ -241,12 +243,9 @@ private:
         unsigned LoadConstraintsForNode(int location);
         bool Bypass(int best, unsigned numConflicts, airConflict const& c1, bool gui);
 	void Replan(int location);
-        unsigned HasConflict(std::vector<airtimeState> const& a, std::vector<airtimeState> const& b, int x, int y, airConflict &c1, airConflict &c2, bool update, bool verbose=false);
+        unsigned HasConflict(std::vector<state> const& a, std::vector<state> const& b, int x, int y, airConflict &c1, airConflict &c2, bool update, bool verbose=false);
 	unsigned FindFirstConflict(AirCBSTreeNode const& location, airConflict &c1, airConflict &c2);
 
-	void DoHAStar(airtimeState& start, airtimeState& goal, std::vector<airtimeState>& thePath);
-	bool HAStarHelper(airtimeState& start, airtimeState& goal, std::vector<airtimeState>& thePath, unsigned& envConflicts, unsigned& conflicts);
-	
 	bool planFinished;
 
 	/* Code for dealing with multiple environments */
@@ -257,9 +256,8 @@ private:
     void ClearEnvironmentConstraints();
     void AddEnvironmentConstraint(airConstraint c);
 
-	//std::vector<airtimeState> thePath;
-	TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment, AStarOpenClosed<airtimeState, RandomTieBreaking<airtimeState> > > astar;
-	TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment, AStarOpenClosed<airtimeState, CompareLowGCost<airtimeState> > > astar2;
+	TemplateAStar<state, action, ConstrainedEnvironment<state,action> , AStarOpenClosed<state, RandomTieBreaking<state> > > astar;
+	TemplateAStar<state, action, ConstrainedEnvironment<state,action> , AStarOpenClosed<state, CompareLowGCost<state> > > astar2;
 	//TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> astar3;
 	double time;
 
@@ -296,7 +294,7 @@ private:
 	bool use_restricted = false;
 	bool use_waiting = false;
 	bool nobypass = false;
-        std::vector<AirplaneConstrainedEnvironment*> agentEnvs;
+        std::vector<SearchEnvironment<state,action>*> agentEnvs;
 };
 
 

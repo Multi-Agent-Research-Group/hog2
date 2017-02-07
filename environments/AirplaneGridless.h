@@ -19,8 +19,8 @@
 struct PlatformAction {
 public:
 	PlatformAction(double t=0, double p=0, int8_t s=0)
-          :turnHalfDegs(uint8_t(t*2.0)),
-           pitchHalfDegs(uint8_t(p*2.0)),
+          :turnHalfDegs(int8_t(t*2.0)),
+           pitchHalfDegs(int8_t(p*2.0)),
            speed(s) {}
 
 	int8_t turnHalfDegs; // turn in half-degrees
@@ -28,14 +28,16 @@ public:
 	int8_t speed; // speed increment (+/-1)
 
 	double turn() const { return double(turnHalfDegs)/2.0; }
+	void turn(double val){ turnHalfDegs=int8_t(round(val*2.0)); }
 	double pitch() const { return double(pitchHalfDegs)/2.0; }
+	void pitch(double val){ pitchHalfDegs=int8_t(round(val*2.0)); }
 };
 
 
 /** Output the information in an Platform action */
 static std::ostream& operator <<(std::ostream & out, PlatformAction const& act)
 {
-	out << "(turn:" << act.turn() << " pitch:" << act.pitch() << " speed: " << unsigned(act.speed) << ")";
+	out << "(turn:" << act.turn() << " pitch:" << act.pitch() << " speed: " << signed(act.speed) << ")";
 	return out;
 }
 
@@ -46,7 +48,7 @@ struct PlatformState {
         static const double TIMESTEP;
 	// Constructors
 	PlatformState() :x(0),y(0),z(0),t(0),headingHalfDegs(360),rollHalfDegs(180),pitchHalfDegs(180),speed(3){}
-	PlatformState(float lt,float ln, float a, double h, double p, uint8_t s, uint32_t time=0) :
+	PlatformState(float lt,float ln, float a, double h, double p, int8_t s, uint32_t time=0) :
 		x(lt),y(ln),z(a),t(time),headingHalfDegs(360.+h*2),rollHalfDegs(180),pitchHalfDegs((p+90)*2.0),speed(s){}
 
 	double hdg()const{return double(headingHalfDegs)/2.0-180.;}
@@ -89,12 +91,12 @@ struct PlatformState {
           pitchHalfDegs+=other.pitchHalfDegs;
           setRoll(other.turn());
           speed += other.speed;
-          std::cout << "yaw " << hdg() << " " << headingHalfDegs << "\n";
-          std::cout << "x. " << cos((90.-hdg())*constants::degToRad) << "\n";
-          std::cout << "y. " << sin((90.-hdg())*constants::degToRad) << "\n";
-          std::cout << "y+ " << sin((90.-hdg())*constants::degToRad)*SPEEDS[speed]*TIMESTEP << "\n";
-          std::cout << "z. " << cos((90.-pitch())*constants::degToRad) << "\n";
-          std::cout << " s " << SPEEDS[speed] << " " << SPEEDS[speed]*TIMESTEP << "\n";
+          //std::cout << "yaw " << hdg() << " " << headingHalfDegs << "\n";
+          //std::cout << "x. " << cos((90.-hdg())*constants::degToRad) << "\n";
+          //std::cout << "y. " << sin((90.-hdg())*constants::degToRad) << "\n";
+          //std::cout << "y+ " << sin((90.-hdg())*constants::degToRad)*SPEEDS[speed]*TIMESTEP << "\n";
+          //std::cout << "z. " << cos((90.-pitch())*constants::degToRad) << "\n";
+          //std::cout << " s " << SPEEDS[speed] << " " << SPEEDS[speed]*TIMESTEP << "\n";
           x+=cos((90.-hdg())*constants::degToRad)*SPEEDS[speed]*TIMESTEP;
           y+=sin((90.-hdg())*constants::degToRad)*SPEEDS[speed]*TIMESTEP;
           z+=cos((90.-pitch())*constants::degToRad)*SPEEDS[speed]*TIMESTEP;
@@ -102,17 +104,27 @@ struct PlatformState {
         }
 
         void operator -= (PlatformAction const& other){
+          //std::cout << "_yaw " << hdg() << " " << headingHalfDegs << "\n";
+          //std::cout << "_x. " << cos((90.-hdg())*constants::degToRad) << "\n";
+          //std::cout << "_y. " << sin((90.-hdg())*constants::degToRad) << "\n";
+          //std::cout << "_y+ " << sin((90.-hdg())*constants::degToRad)*SPEEDS[speed]*TIMESTEP << "\n";
+          //std::cout << "_z. " << cos((90.-pitch())*constants::degToRad) << "\n";
+          //std::cout << " _s " << SPEEDS[speed] << " " << SPEEDS[speed]*TIMESTEP << "\n";
+          x-=cos((90.-hdg())*constants::degToRad)*SPEEDS[speed]*TIMESTEP;
+          y-=sin((90.-hdg())*constants::degToRad)*SPEEDS[speed]*TIMESTEP;
+          z-=cos((90.-pitch())*constants::degToRad)*SPEEDS[speed]*TIMESTEP;
+          t--;
           headingHalfDegs-=other.turnHalfDegs;
           pitchHalfDegs-=other.pitchHalfDegs;
           setRoll(other.turn());
           speed -= other.speed;
-          x-=cos((90.-hdg())*constants::degToRad)*SPEEDS[speed]*TIMESTEP;
-          y-=sin((90.-hdg())*constants::degToRad)*SPEEDS[speed]*TIMESTEP;
-          z-=sin((90.-pitch())*constants::degToRad)*SPEEDS[speed]*TIMESTEP;
-          t--;
         }
 
-	bool operator == (PlatformState const& other)const{return key()==other.key();}
+        bool operator == (PlatformState const& other)const{
+          return fequal(x,other.x) && fequal(y,other.y) && fequal(z,other.z)
+            && (speed==other.speed) && (headingHalfDegs==other.headingHalfDegs)
+            && (pitchHalfDegs==other.pitchHalfDegs);
+        }
 
 	// Fields
 	float x;
