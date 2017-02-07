@@ -98,6 +98,7 @@ TEST(GridlessEnvironmentTest, GetActions) {
 
 TEST(HeuristicTest, LearnSpace) { 
   AirplaneEnvironment env;
+  env.setGoal(airtimeState());
   AirplanePerimeterBuilder<airplaneState,airplaneAction,AirplaneEnvironment> builder;
   std::vector<airplaneState> states;
   states.emplace_back(40,40,10,3,0);

@@ -475,11 +475,9 @@ uint64_t AirplaneGridlessEnvironment::GetStateHash(const PlatformState &node) co
     return node.key();
 }
 
-PlatformState AirplaneGridlessEnvironment::GetState(uint64_t hash) const
+void AirplaneGridlessEnvironment::GetStateFromHash(uint64_t hash, PlatformState& s) const
 {
-    PlatformState s;
     assert(!"Not implemented yet.");
-    return s;
 }
 
 uint64_t AirplaneGridlessEnvironment::GetActionHash(PlatformAction act) const
@@ -799,6 +797,107 @@ void AirplaneGridlessEnvironment::AddLandingStrip(gridlessLandingStrip& strip)
   strip.z =  avgh;
   this->landingStrips.push_back(strip);
 
+}
+
+void AirplaneGridlessEnvironment::AddConstraint(Constraint<PlatformState> c){constraints.push_back(c);}
+void AirplaneGridlessEnvironment::ClearConstraints(){constraints.resize(0);}
+void AirplaneGridlessEnvironment::ClearStaticConstraints(){static_constraints.resize(0);}
+bool AirplaneGridlessEnvironment::ViolatesConstraint(const PlatformState &from, const PlatformState &to, int time) const{
+  PlatformAction act = GetAction(from,to);
+  PlatformState toState(from);
+  ApplyAction(toState,act);
+  ViolatesConstraint(from,toState);
+}
+bool AirplaneGridlessEnvironment::ViolatesConstraint(const PlatformState &from, const PlatformState &to) const{
+ // Generate a well formed set of boxes for the action box
+  // which we will need later to compare
+  float a_minx = std::min(from.x, to.x);
+  float a_maxx = std::max(from.x, to.x);
+
+  float a_miny = std::min(from.y, to.y);
+  float a_maxy = std::max(from.y, to.y);
+
+  float a_minz = std::min(from.z, to.z);
+  float a_maxz = std::max(from.z, to.z);
+
+  // Allocate some temp variables
+  float c_minx, c_maxx, c_miny, c_maxy, c_minz, c_maxz;
+
+
+  // If both are landed, then the plane's not going anywhere - and we're good
+  //if (from.landed && to.landed)
+    //return false;
+
+  //Check if the action box violates any of the constraints that are in the constraints list
+  for (Constraint<PlatformState> c : constraints)
+  {
+
+    // Check if the range of the constraint overlaps in time
+    if (max(c.start().t, from.t) <= min(c.end().t, to.t) + 0.00001)
+    {
+      // Generate a well formed set of boxes for the constraint box
+      c_minx = c.start().x < c.end().x ? c.start().x : c.end().x;
+      c_maxx = c.start().x > c.end().x ? c.start().x : c.end().x;
+
+      c_miny = c.start().y < c.end().y ? c.start().y : c.end().y;
+      c_maxy = c.start().y > c.end().y ? c.start().y : c.end().y;
+
+      c_minz = c.start().z < c.end().z ? c.start().z : c.end().z;
+      c_maxz = c.start().z > c.end().z ? c.start().z : c.end().z;
+
+
+      if (std::max(c_minx, a_minx) <= std::min(c_maxx, a_maxx) && // Check if overlapping on the X axis
+          std::max(c_miny, a_miny) <= std::min(c_maxy, a_maxy) && // Check if overlapping on the Y axis
+          std::max(c_minz, a_minz) <= std::min(c_maxz, a_maxz)    // Check if overlapping on the Z axis
+         )
+      {
+        // If we overlap on all three axis, then there must be a common point, and thus
+        // we can return that the constraint was violated
+        return true;
+      }
+
+    }
+  }
+
+
+  // If landing, we don't want to check the static constraints - but we don't want planes taking off and landing
+  // at the same time
+  //if (from.landed || to.landed)
+  //{
+    //return false;
+  //}
+//Check if the action box violates any of the constraints that are in the static constraints list
+  for (Constraint<PlatformState> c : static_constraints)
+  {
+    // Check if the range of the constraint overlaps in time
+    if (max(c.start().t, from.t) <= min(c.end().t, to.t) + 0.00001)
+    {
+      // Generate a well formed set of boxes for the constraint box
+      c_minx = c.start().x < c.end().x ? c.start().x : c.end().x;
+      c_maxx = c.start().x > c.end().x ? c.start().x : c.end().x;
+
+      c_miny = c.start().y < c.end().y ? c.start().y : c.end().y;
+      c_maxy = c.start().y > c.end().y ? c.start().y : c.end().y;
+
+      c_minz = c.start().z < c.end().z ? c.start().z : c.end().z;
+      c_maxz = c.start().z > c.end().z ? c.start().z : c.end().z;
+
+
+      if (std::max(c_minx, a_minx) <= std::min(c_maxx, a_maxx) && // Check if overlapping on the X axis
+          std::max(c_miny, a_miny) <= std::min(c_maxy, a_maxy) && // Check if overlapping on the Y axis
+          std::max(c_minz, a_minz) <= std::min(c_maxz, a_maxz)    // Check if overlapping on the Z axis
+         )
+      {
+        // If we overlap on all three axis, then there must be a common point, and thus
+        // we can return that the constraint was violated
+        return true;
+      }
+
+    }
+  }
+
+  // If no constraint is violated, return false
+  return false;
 }
 
 //const double PlatformState::SPEEDS[]={0.0,0.1,0.14,0.18,0.22,0.26}; // KMPS

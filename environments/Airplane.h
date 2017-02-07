@@ -13,115 +13,12 @@
 #include <cassert>
 #include <cmath>
 #include "SearchEnvironment.h"
+#include "AirStates.h"
 #include "AirplanePerimeterDBBuilder.h"
-
-// turn type:
-// 45, 90, 0, shift
-// speed:
-// faster, slower
-// height:
-// up / down
-
-const int8_t k45 = 1;
-const int8_t k90 = 2;
-const int8_t k135 = 3;
-const int8_t k180 = 4;
-const uint8_t kCircleSize = 8;
-
-const int8_t kShift = 5; // Should be outside the range [-kCircleSize/2, kCircleSize/2]
-const int8_t kWait = 6;
-
-// Utility function
-namespace{
-template<unsigned fullDegs>
-unsigned hdgDiff(unsigned a, unsigned b){
-  unsigned d(abs(a-b)%fullDegs);
-  return d>(fullDegs/2.0)?fullDegs-d:d;
-}
-};
-
-// Define the type of airplane
-enum AirplaneType {
-  QUAD=0, PLANE=1
-};
 
 enum SearchType {
   FORWARD=0, REVERSE=1
 };
-
-
-
-struct airplaneAction {
-public:
-	airplaneAction(int8_t t=0, int8_t s=0, int8_t h=0, int8_t takeoff = 0)
-	:turn(t), speed(s), height(h), takeoff(takeoff) {}
-	int8_t turn;
-	int8_t speed;
-	int8_t height;
-	int8_t takeoff; // 0 for no-land, 1 for takeoff, 2 for landing, 3 for landed-noop
-};
-
-
-/** Output the information in an airplane action */
-static std::ostream& operator <<(std::ostream & out, const airplaneAction &act)
-{
-	out << "(turn:" << signed(act.turn) << ", speed:" << signed(act.speed) << ", height: " << signed(act.height) << ", takeoff: " << signed(act.takeoff) << ")";
-	return out;
-}
-
-
-// state
-struct airplaneState {
-  // Constructors
-	airplaneState() :x(0),y(0),height(20),speed(1),heading(0),landed(false) ,type(AirplaneType::PLANE) {}
-	airplaneState(uint16_t x,uint16_t y, uint16_t height, uint8_t speed, uint8_t heading, bool landed = false, AirplaneType t = AirplaneType::PLANE) :
-        x(x),y(y),height(height),speed(speed),heading(heading), landed(landed), type(t) {}
-  
-  // Fields
-	uint16_t x;
-	uint16_t y;
-	uint16_t height;
-	uint8_t speed;
-	uint8_t heading;
-	bool landed;
-  AirplaneType type;
-
-  // Methods
-  uint8_t headingTo(airplaneState const& other) const {
-    return uint8_t(round((atan2(other.y-y,other.x-x)+(M_PI/2.0))*4.0/M_PI)+8.0)%8;
-  }
-  // Returns a heading of 0, 2, 4 or 6
-  uint8_t cardinalHeadingTo(airplaneState const& other) const {
-    return uint8_t(round((atan2(other.y-y,other.x-x)+(M_PI/2.0))*2.0/M_PI)+4.0)%4*2;
-  }
-};
-
-
-struct landingStrip {
-	landingStrip(uint16_t x1, uint16_t x2, uint16_t y1, uint16_t y2, airplaneState &launch_state, airplaneState &landing_state, airplaneState &goal_state) : x1(x1), x2(x2), y1(y1), y2(y2), 
-				 launch_state(launch_state), landing_state(landing_state), goal_state(goal_state) {}
-	uint16_t x1;
-	uint16_t x2;
-	uint16_t y1;
-	uint16_t y2;
-	uint16_t z = 0;
-	airplaneState goal_state;
-	airplaneState launch_state;
-	airplaneState landing_state;
-};
-
-
-/** Output the information in an airplane state */
-static std::ostream& operator <<(std::ostream & out, const airplaneState &loc)
-{
-	out << "(x:" << loc.x << ", y:" << loc.y << ", h:" << loc.height << ", s:" << unsigned(loc.speed) <<
-											    ", hdg: " << unsigned(loc.heading) << ", l: " << unsigned (loc.landed) << ", type: " << (loc.type == AirplaneType::QUAD ? "QUAD" : "PLANE") << ")";
-	return out;
-}
-
-bool operator==(const airplaneState &s1, const airplaneState &s2);
-bool operator==(const airplaneAction &a1, const airplaneAction &a2);
-
 
 // Heuristics
 template <class state>
@@ -200,7 +97,7 @@ public:
 	virtual bool GoalTest(const airplaneState &) const { assert(false); return false; }
 
   // Hashing
-        airplaneState GetState(uint64_t hash) const;
+        virtual void GetStateFromHash(uint64_t hash, airplaneState&) const;
 	virtual uint64_t GetStateHash(const airplaneState &node) const;
 	virtual uint64_t GetActionHash(airplaneAction act) const;
 	

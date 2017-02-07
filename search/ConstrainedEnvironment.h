@@ -9,41 +9,61 @@
 #ifndef __hog2_glut__ConstrainedEnvironment__
 #define __hog2_glut__ConstrainedEnvironment__
 
-#include <cmath>
-#include <memory>
-#include <limits>
+#include <vector>
+#include "SearchEnvironment.h"
 
-
-template<class State>
-struct Constraint {
-	Constraint() {}
-	Constraint(State start) : start_state(start), end_state(start) {}
-	Constraint(State start, State end) : start_state(start), end_state(end) {}
-
-	State start_state;
-	State end_state;
-
-	virtual bool ConflictsWith(const State &s) const {return start_state == s || end_state == s;}
-	virtual bool ConflictsWith(const State &from, const State &to) const {return ConflictsWith(from) || ConflictsWith(to);}
-	virtual bool ConflictsWith(const Constraint &x) const {return ConflictsWith(x.start_state, x.end_state);}
-	virtual void OpenGLDraw() const {}
+/*
+struct Action{
+  public:
+    Action(){}
+    virtual bool operator==(Action const&)const=0; // Equivalency check
+    virtual bool operator!=(Action const& other)const{return ! this->operator==(other);} // Unequivalency check
+    virtual void OpenGLDraw() const {} // Draw
 };
 
+class State{
+  public:
+    State(){}
+    virtual bool operator==(State const&)const=0; // Equivalency check
+    virtual bool operator!=(State const& other)const{return ! this->operator==(other);} // Unequivalency check
+    virtual bool operator+=(Action const&)const=0; // Perform action
+    virtual bool operator-=(Action const&)const=0; // Undo action
+    virtual uint64_t hash()const=0; //Unique hash function
+    virtual void OpenGLDraw() const {} // Draw
+};
 
-template<class State, class Action, class Environment>
-class ConstrainedEnvironment : public Environment
-{
-public:
-	/** Add a constraint to the model */
-	virtual void AddConstraint(Constraint<State> c) = 0;
-	/** Clear the constraints */
-	virtual void ClearConstraints() = 0;
-	/** Get the possible actions from a state */
-	virtual void GetActions(const State &nodeID, std::vector<Action> &actions) const = 0;
-	/** Get the successor states not violating constraints */
-	virtual void GetSuccessors(const State &nodeID, std::vector<State> &neighbors) const = 0;
-	/** Checks to see if any constraint is violated */
-	virtual bool ViolatesConstraint(const State &from, const State &to) const = 0;
+*/
+template<typename State>
+class Constraint {
+  public:
+    Constraint() {}
+    Constraint(State const& start) : start_state(start), end_state(start) {}
+    Constraint(State const& start, State const& end) : start_state(start), end_state(end) {}
+
+    State start() const {return start_state;}
+    State end() const {return end_state;}
+
+    virtual bool ConflictsWith(State const& s) const {return start_state == s || end_state == s;}
+    virtual bool ConflictsWith(State const& from, State const& to) const {return ConflictsWith(from) || ConflictsWith(to);}
+    virtual bool ConflictsWith(Constraint const& x) const {return ConflictsWith(x.start_state, x.end_state);}
+    virtual void OpenGLDraw() const {}
+
+    State start_state;
+    State end_state;
+};
+template<typename State, typename Action>
+class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
+  public:
+    /** Add a constraint to the model */
+    virtual void AddConstraint(Constraint<State> c) = 0;
+    /** Clear the constraints */
+    virtual void ClearConstraints() = 0;
+    /** Get the possible actions from a state */
+    virtual void GetActions(const State &nodeID, std::vector<Action> &actions) const = 0;
+    /** Get the successor states not violating constraints */
+    virtual void GetSuccessors(const State &nodeID, std::vector<State> &neighbors) const = 0;
+    /** Checks to see if any constraint is violated */
+    virtual bool ViolatesConstraint(const State &from, const State &to) const = 0;
 };
 
 #endif /* defined(__hog2_glut__ConstrainedEnvironment__) */

@@ -26,7 +26,7 @@ class AirplaneMultiAgentEnvironment : public SearchEnvironment<std::vector<state
     typedef std::vector<action> MultiAgentAction;
 
     // Constructor
-    AirplaneMultiAgentEnvironment(ConstrainedEnvironment<state,action,environment> * const base):env(base){}
+    AirplaneMultiAgentEnvironment(ConstrainedEnvironment<state,action> * const base):env(base){}
 
     virtual void GetSuccessors(const MultiAgentState &nodeID, std::vector<MultiAgentState> &neighbors) const;
 
@@ -68,7 +68,7 @@ class AirplaneMultiAgentEnvironment : public SearchEnvironment<std::vector<state
     MultiAgentState const* goal;
     MultiAgentState const& getGoal()const{return *goal;}
     void setGoal(MultiAgentState const& g){goal=&g;}
-    ConstrainedEnvironment<state,action,environment> const* const getEnv()const{return env;}
+    ConstrainedEnvironment<state,action> const* const getEnv()const{return env;}
 
   protected:
 
@@ -78,7 +78,7 @@ class AirplaneMultiAgentEnvironment : public SearchEnvironment<std::vector<state
 
 
   private:
-    ConstrainedEnvironment<state,action,environment> *const env;
+    ConstrainedEnvironment<state,action> *const env;
 };
 
 template<typename state>

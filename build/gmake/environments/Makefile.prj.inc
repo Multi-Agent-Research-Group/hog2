@@ -43,7 +43,6 @@ SRC_CPP = \
 	environments/AirplaneHighway4Cardinal.cpp \
 	environments/AirplaneCardinal.cpp \
 	environments/AirplaneConstrained.cpp \
-	environments/AirplaneTicketAuthority.cpp \
 	environments/AirStates.cpp \
 	environments/GraphEnvironment.cpp \
 	environments/GraphRefinementEnvironment.cpp \

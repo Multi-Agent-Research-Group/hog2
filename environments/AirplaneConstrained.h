@@ -12,7 +12,6 @@
 #include "Airplane.h"
 #include "ConstrainedEnvironment.h"
 #include "AirStates.h"
-//#include "AirplaneTicketAuthority.h"
 
 #include <cmath>
 #include <memory>
@@ -23,7 +22,7 @@
  * consisting of airtimeStates and actions, which allow us to deal with the issues that
  * come up in CBS
  */
-class AirplaneConstrainedEnvironment : public ConstrainedEnvironment<airtimeState, airplaneAction,AirplaneEnvironment>
+class AirplaneConstrainedEnvironment : public ConstrainedEnvironment<airtimeState,airplaneAction>
 {
 public:
  
@@ -38,18 +37,17 @@ public:
 	/// CONSTRAINTS
 	
 	/** Add a constraint to the model */
-	void AddConstraint(airConstraint const& c);
-	void AddConstraint(Constraint<airtimeState> c) {AddConstraint(airConstraint(c));}
+	void AddConstraint(Constraint<airtimeState> c);
 
 	void AddPointConstraint(const airtimeState &loc);
 	void AddBoxConstraint(const airtimeState &loc1, const airtimeState &loc2);
-	void AddStaticConstraint(airConstraint const& c);
+	void AddStaticConstraint(Constraint<airtimeState> const& c);
 	void AddStaticPointConstraint(const airtimeState &loc);
 	void AddStaticBoxConstraint(const airtimeState &loc1, const airtimeState &loc2);
 
 
-	airConstraint GetPointConstraint(const airtimeState &loc);
-	airConstraint GetBoxConstraint(const airtimeState &loc1, const airtimeState &loc2);
+	Constraint<airtimeState> GetPointConstraint(const airtimeState &loc);
+	Constraint<airtimeState> GetBoxConstraint(const airtimeState &loc1, const airtimeState &loc2);
 
 	/** Clear the constraints */
 	void ClearConstraints();
@@ -77,7 +75,7 @@ public:
 	/// OCCUPANCY
 
 	/** Deal with the occupancy */
-	//virtual OccupancyInterface<airtimeState,airplaneAction> *GetOccupancyInfo() { return 0; } //TODO: Not implemented
+	virtual OccupancyInterface<airtimeState,airplaneAction> *GetOccupancyInfo() { return 0; } //TODO: Not implemented
 	
 	/// HEURISTICS
 
@@ -97,7 +95,7 @@ public:
 	
 	/** Methods for dealing with state hashing */
 	virtual uint64_t GetStateHash(const airtimeState &node) const;
-        airtimeState GetState(uint64_t hash) const;
+        void GetStateFromHash(uint64_t hash, airtimeState &node) const;
 	virtual uint64_t GetActionHash(airplaneAction act) const;
 
 	/// DRAWING
@@ -111,8 +109,8 @@ public:
 	virtual void GLDrawPath(const std::vector<airtimeState> &p,const std::vector<airtimeState> &wpts) const;
 
 	// Override the color method.
-	virtual void SetColor(double r, double g, double b, double t = 1.0) const {SearchEnvironment::SetColor(r,g,b,t); this->ae->SetColor(r,g,b,t);}
-	virtual void SetColor(double& r, double& g, double& b, double& t) const {SearchEnvironment::SetColor(r,g,b,t); this->ae->SetColor(r,g,b,t);}
+	virtual void SetColor(double r, double g, double b, double t = 1.0) const {this->ae->SetColor(r,g,b,t);}
+	virtual void SetColor(double& r, double& g, double& b, double& t) const {this->ae->SetColor(r,g,b,t);}
 
 	/** Checks to see if any constraint is violated */
 	bool ViolatesConstraint(const airplaneState &from, const airplaneState &to, int time) const;
@@ -123,7 +121,7 @@ public:
 	//void SetTicketAuthority(TicketAuthority* tk) {this->ticket_authority = tk;}
 	//TicketAuthority* ticket_authority;
 	/** Vector holding the current constraints */
-	std::vector<airConstraint> constraints;
+	std::vector<Constraint<airtimeState>> constraints;
 
         airplaneState const& getGoal()const{return ae->getGoal();}
         void setGoal(airplaneState const& g){ae->setGoal(g);}
@@ -132,7 +130,7 @@ private:
 	
 
 
-	std::vector<airConstraint> static_constraints;
+	std::vector<Constraint<airtimeState>> static_constraints;
 
 	/** Map holding the current sets of restricted airspace */
 

@@ -25,14 +25,15 @@ PROJ_REL_CXXFLAGS = $(PROJ_CXXFLAGS)
 PROJ_DBG_LNFLAGS = -L$(DBG_BINDIR)
 PROJ_REL_LNFLAGS = -L$(REL_BINDIR)
 
-PROJ_DBG_LIB = -lshared -labstraction -lgraph -labstractionalgorithms -lenvironments -lmapalgorithms -lalgorithms -labsmapalgorithms -lgraphalgorithms -lgui -lutils
-PROJ_REL_LIB = -lshared -labstraction -lgraph -labstractionalgorithms -lenvironments -lmapalgorithms -lalgorithms -labsmapalgorithms -lgraphalgorithms -lgui -lutils
+PROJ_DBG_LIB = -lshared -labstraction -lgraph -labstractionalgorithms -lenvironments -lmapalgorithms -lalgorithms -labsmapalgorithms -lgraphalgorithms -lgui -lutils -lgeneric
+PROJ_REL_LIB = -lshared -labstraction -lgraph -labstractionalgorithms -lenvironments -lmapalgorithms -lalgorithms -labsmapalgorithms -lgraphalgorithms -lgui -lutils -lgeneric
 
 
 PROJ_DBG_DEP = \
   $(DBG_BINDIR)/libutils.a \
   $(DBG_BINDIR)/libgraph.a \
   $(DBG_BINDIR)/libabstraction.a \
+  $(DBG_BINDIR)/libgeneric.a \
   $(DBG_BINDIR)/libgui.a \
   $(DBG_BINDIR)/libabstractionalgorithms.a \
   $(DBG_BINDIR)/libenvironments.a \
@@ -40,13 +41,15 @@ PROJ_DBG_DEP = \
   $(DBG_BINDIR)/libabsmapalgorithms.a \
   $(DBG_BINDIR)/libgraphalgorithms.a \
   $(DBG_BINDIR)/libalgorithms.a \
-  $(DBG_BINDIR)/libshared.a 
+  $(DBG_BINDIR)/libshared.a
+  
 
 
 PROJ_REL_DEP = \
   $(REL_BINDIR)/libutils.a \
   $(REL_BINDIR)/libgraph.a \
   $(REL_BINDIR)/libabstraction.a \
+  $(REL_BINDIR)/libgeneric.a \
   $(REL_BINDIR)/libgui.a \
   $(REL_BINDIR)/libabstractionalgorithms.a \
   $(REL_BINDIR)/libenvironments.a \
@@ -66,5 +69,4 @@ endif
 default : all
 
 SRC_CPP = \
-  apps/airplane/AirplaneCBSUnits.cpp \
-	apps/airplane/Driver.cpp \
+	apps/airplane/Driver.cpp

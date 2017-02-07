@@ -12,8 +12,7 @@
 #include <vector>
 #include <cassert>
 #include <cmath>
-#include "SearchEnvironment.h"
-#include "AirplanePerimeterDBBuilder.h"
+#include "ConstrainedEnvironment.h"
 #include "constants.h"
 
 struct PlatformAction {
@@ -137,6 +136,28 @@ struct PlatformState {
 	int8_t speed;  // 5 speeds: 1=100mps, 2=140, 3=180, 4=220, 5=260 mps
 };
 
+//TODO
+/*
+template<>
+struct Constraint<PlatformState>{
+  Constraint<PlatformState>() {}
+  Constraint<PlatformState>(PlatformState s1) : start_state(s1), end_state(s1) {}
+  Constraint<PlatformState>(PlatformState s1, PlatformState s2) : start_state(s1), end_state(s2) {}
+  Constraint<PlatformState>(Constraint<PlatformState> const& c) : Constraint<PlatformState>(c.start_state, c.end_state) {}
+  PlatformState start() const {return start_state;}
+  PlatformState end() const {return end_state;}
+
+
+  bool strip = false;
+  virtual bool ConflictsWith(const PlatformState &state) const;
+  virtual bool ConflictsWith(const PlatformState &from, const PlatformState &to) const;
+  virtual bool ConflictsWith(const Constraint<PlatformState> &x) const;
+  virtual void OpenGLDraw() const;
+
+  PlatformState start_state;
+  PlatformState end_state;
+};
+*/
 
 /** Output the information in a Platform state */
 static std::ostream& operator <<(std::ostream & out, PlatformState const& loc)
@@ -164,10 +185,9 @@ struct gridlessLandingStrip {
 
 
 // Actual Environment
-class AirplaneGridlessEnvironment : public SearchEnvironment<PlatformState, PlatformAction>
+class AirplaneGridlessEnvironment : public ConstrainedEnvironment<PlatformState, PlatformAction>
 {
   public:
-
     // Constructor
     AirplaneGridlessEnvironment(
         unsigned width=80,
@@ -185,6 +205,12 @@ class AirplaneGridlessEnvironment : public SearchEnvironment<PlatformState, Plat
     //std::string const& perimeterFile=std::string("airplanePerimeter.dat"));
 
     virtual char const*const name()const{return "AirplaneGridlessEnvironment";}
+    void AddConstraint(Constraint<PlatformState> c);
+    void ClearConstraints();
+    void ClearStaticConstraints();
+    bool ViolatesConstraint(const PlatformState &from, const PlatformState &to, int time) const;
+    bool ViolatesConstraint(const PlatformState &from, const PlatformState &to) const;
+
     // Successors and actions
     virtual void GetSuccessors(const PlatformState &nodeID, std::vector<PlatformState> &neighbors) const;
     virtual void GetReverseSuccessors(const PlatformState &nodeID, std::vector<PlatformState> &neighbors) const;
@@ -220,7 +246,7 @@ class AirplaneGridlessEnvironment : public SearchEnvironment<PlatformState, Plat
     virtual bool GoalTest(const PlatformState &) const { assert(false); return false; }
 
     // Hashing
-    virtual PlatformState GetState(uint64_t hash) const;
+    virtual void GetStateFromHash(uint64_t hash, PlatformState&) const;
     virtual uint64_t GetStateHash(const PlatformState &node) const;
     virtual uint64_t GetActionHash(PlatformAction act) const;
 
@@ -289,6 +315,9 @@ class AirplaneGridlessEnvironment : public SearchEnvironment<PlatformState, Plat
     // Caching for turn information
     std::vector<int8_t> turns;
     std::vector<int8_t> quad_turns;
+
+    std::vector<Constraint<PlatformState> > constraints;
+    std::vector<Constraint<PlatformState> > static_constraints;
 
   private:
     virtual double myHCost(const PlatformState &node1, const PlatformState &node2) const;

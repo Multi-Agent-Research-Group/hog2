@@ -145,13 +145,15 @@ void testHash(){
   AirplaneEnvironment* env(new AirplaneEnvironment());
   airplaneState start(40,40,10,1,0,false,AirplaneType::PLANE);
   uint64_t hash(env->GetStateHash(start));
-  airplaneState after(env->GetState(hash));
+  airplaneState after;
+  env->GetStateFromHash(hash,after);
   std::cout << start << "\n";
   std::cout << after << "\n";
   AirplaneConstrainedEnvironment* env2(new AirplaneConstrainedEnvironment(env));
   airtimeState s(start,1.234);
   uint64_t h(env2->GetStateHash(s));
-  airtimeState a(env2->GetState(h));
+  airtimeState a;
+  env2->GetStateFromHash(h,a);
   std::cout << s << "\n";
   std::cout << a << "\n";
   env=new AirplaneGridCardinalEnvironment();
@@ -480,17 +482,17 @@ bool testMultiAgent(){
     AirplaneHighwayEnvironment env;
     env.loadPerimeterDB();
     AirplaneConstrainedEnvironment cenv(&env);
-    AirplaneMultiAgentEnvironment mae(&cenv);
-    TemplateAStar<MultiAgentState, MultiAgentAction, AirplaneMultiAgentEnvironment> astar;
-    MultiAgentState start;
+    AirplaneMultiAgentEnvironment<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> mae(&cenv);
+    TemplateAStar<AirplaneMultiAgentEnvironment<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>::MultiAgentState, AirplaneMultiAgentEnvironment<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>::MultiAgentAction, AirplaneMultiAgentEnvironment<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> > astar;
+    AirplaneMultiAgentEnvironment<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>::MultiAgentState start;
     start.push_back(airtimeState(airplaneState(50,45,16,3,4,false,AirplaneType::PLANE),0));
     start.push_back(airtimeState(airplaneState(55,50,16,3,6,false,AirplaneType::PLANE),0));
-    MultiAgentState goal;
+    AirplaneMultiAgentEnvironment<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>::MultiAgentState goal;
     goal.push_back(airtimeState(airplaneState(50,55,16,3,4,false,AirplaneType::PLANE),0));
     goal.push_back(airtimeState(airplaneState(45,50,16,3,6,false,AirplaneType::PLANE),0));
     mae.setGoal(goal);
 
-    std::vector<MultiAgentAction> act;
+    std::vector<AirplaneMultiAgentEnvironment<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>::MultiAgentAction> act;
     mae.GetActions(start,act);
     //std::cout << act.size() << " actions\n";
     //for(auto const& ma : act){
@@ -500,9 +502,9 @@ bool testMultiAgent(){
     //}
     //}
 
-    std::vector<MultiAgentState> st;
+    std::vector<AirplaneMultiAgentEnvironment<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>::MultiAgentState> st;
     mae.GetSuccessors(start,st);
-    std::vector<MultiAgentState> sol;
+    std::vector<AirplaneMultiAgentEnvironment<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>::MultiAgentState> sol;
     astar.GetPath(&mae,start,goal,sol);
 
     std::cout <<  "solution\n";
@@ -527,17 +529,17 @@ bool testMultiAgent(){
     AirplaneSimpleEnvironment env;
     env.loadPerimeterDB();
     AirplaneConstrainedEnvironment cenv(&env);
-    AirplaneMultiAgentEnvironment mae(&cenv);
-    TemplateAStar<MultiAgentState, MultiAgentAction, AirplaneMultiAgentEnvironment> astar;
-    MultiAgentState start;
+    AirplaneMultiAgentEnvironment<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> mae(&cenv);
+    TemplateAStar<AirplaneMultiAgentEnvironment<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>::MultiAgentState, AirplaneMultiAgentEnvironment<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>::MultiAgentAction, AirplaneMultiAgentEnvironment<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> > astar;
+    AirplaneMultiAgentEnvironment<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>::MultiAgentState start;
     start.push_back(airtimeState(airplaneState(50,45,16,3,4,false,AirplaneType::PLANE),0));
     start.push_back(airtimeState(airplaneState(55,50,16,3,6,false,AirplaneType::PLANE),0));
-    MultiAgentState goal;
+    AirplaneMultiAgentEnvironment<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>::MultiAgentState goal;
     goal.push_back(airtimeState(airplaneState(50,55,16,3,4,false,AirplaneType::PLANE),0));
     goal.push_back(airtimeState(airplaneState(45,50,16,3,6,false,AirplaneType::PLANE),0));
     mae.setGoal(goal);
 
-    std::vector<MultiAgentAction> act;
+    std::vector<AirplaneMultiAgentEnvironment<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>::MultiAgentAction> act;
     mae.GetActions(start,act);
     //std::cout << act.size() << " actions\n";
     //for(auto const& ma : act){
@@ -547,9 +549,9 @@ bool testMultiAgent(){
     //}
     //}
 
-    std::vector<MultiAgentState> st;
+    std::vector<AirplaneMultiAgentEnvironment<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>::MultiAgentState> st;
     mae.GetSuccessors(start,st);
-    std::vector<MultiAgentState> sol;
+    std::vector<AirplaneMultiAgentEnvironment<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>::MultiAgentState> sol;
     astar.GetPath(&mae,start,goal,sol);
 
     std::cout <<  "solution\n";
@@ -574,17 +576,17 @@ bool testMultiAgent(){
     AirplaneEnvironment env;
     env.loadPerimeterDB();
     AirplaneConstrainedEnvironment cenv(&env);
-    AirplaneMultiAgentEnvironment mae(&cenv);
-    TemplateAStar<MultiAgentState, MultiAgentAction, AirplaneMultiAgentEnvironment> astar;
-    MultiAgentState start;
+    AirplaneMultiAgentEnvironment<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>  mae(&cenv);
+    TemplateAStar<AirplaneMultiAgentEnvironment<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>::MultiAgentState, AirplaneMultiAgentEnvironment<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>::MultiAgentAction, AirplaneMultiAgentEnvironment<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> > astar;
+    AirplaneMultiAgentEnvironment<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>::MultiAgentState start;
     start.push_back(airtimeState(airplaneState(50,45,16,3,4,false,AirplaneType::PLANE),0));
     start.push_back(airtimeState(airplaneState(55,50,16,3,6,false,AirplaneType::PLANE),0));
-    MultiAgentState goal;
+    AirplaneMultiAgentEnvironment<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>::MultiAgentState goal;
     goal.push_back(airtimeState(airplaneState(50,55,16,3,4,false,AirplaneType::PLANE),0));
     goal.push_back(airtimeState(airplaneState(45,50,16,3,6,false,AirplaneType::PLANE),0));
     mae.setGoal(goal);
 
-    std::vector<MultiAgentAction> act;
+    std::vector<AirplaneMultiAgentEnvironment<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>::MultiAgentAction> act;
     mae.GetActions(start,act);
     //std::cout << act.size() << " actions\n";
     //for(auto const& ma : act){
@@ -594,9 +596,9 @@ bool testMultiAgent(){
     //}
     //}
 
-    std::vector<MultiAgentState> st;
+    std::vector<AirplaneMultiAgentEnvironment<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>::MultiAgentState> st;
     mae.GetSuccessors(start,st);
-    std::vector<MultiAgentState> sol;
+    std::vector<AirplaneMultiAgentEnvironment<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>::MultiAgentState> sol;
     astar.GetPath(&mae,start,goal,sol);
 
     std::cout <<  "solution\n";
@@ -1734,14 +1736,14 @@ bool testConstraints() {
 
 	airplaneState O(0,0,0,0,0);
 	airtimeState OT(O, 1.0f);
-	airConstraint CO(OT);
+	Constraint<airtimeState> CO(OT);
 
 
 	// Check self-conflict - you should always conflict with yourself
 	{
 		airplaneState s1(10,10,10,0,0);
 		airtimeState st1(s1, 1.0f);
-		airConstraint c(st1);
+		Constraint<airtimeState> c(st1);
 
 		// Should always conflict with yourself
 		assert(c.ConflictsWith(c));
@@ -1759,7 +1761,7 @@ bool testConstraints() {
 		airplaneState s1(10,10,10,0,0);
 		airtimeState st1(s1, 1.0f);
 		airtimeState st2(s1, 2.0f);
-		airConstraint c(st1);
+		Constraint<airtimeState> c(st1);
 
 		assert(!c.ConflictsWith(st2));
 
@@ -1775,7 +1777,7 @@ bool testConstraints() {
 		airplaneState s2(31,41,14,2,6);
 		airtimeState st1(s1, 0.0f);
 		airtimeState st2(s1, 0.204465f);
-		airConstraint c(st1);
+		Constraint<airtimeState> c(st1);
 
 		assert(!c.ConflictsWith(st2));
 
@@ -1797,7 +1799,7 @@ bool testConstraints() {
 				airtimeState st2(s1, 1.0f);
 				ace.ApplyAction(st2, a1);
 				
-				airConstraint c1(st1, st2);
+				Constraint<airtimeState> c1(st1, st2);
 
 				
 				// Should conflict at both endpoints
@@ -1838,7 +1840,7 @@ bool testConstraints() {
 					airtimeState st2(s1, 1.0f);
 					ace.ApplyAction(st2, a1);
 					
-					airConstraint c1(st1, st2);
+					Constraint<airtimeState> c1(st1, st2);
 
 					
 					// Should conflict at both endpoints
@@ -1880,7 +1882,7 @@ bool testConstraints() {
 					airtimeState st2(s1, 1.0f);
 					ace.ApplyAction(st2, a1);
 					
-					airConstraint c1(st1, st2);
+					Constraint<airtimeState> c1(st1, st2);
 
 					
 					// Should conflict at both endpoints

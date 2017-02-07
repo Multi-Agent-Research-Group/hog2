@@ -40,7 +40,7 @@ AirplaneConstrainedEnvironment::AirplaneConstrainedEnvironment(AirplaneEnvironme
 		airtimeState o(mi, 0);
 		airplaneState ma(max(st.x1, st.x2), max(st.y1, st.y2), 10, 0,0);
 		airtimeState f(ma, std::numeric_limits<float>::max());
-		airConstraint c(o, f);
+		Constraint<airtimeState> c(o, f);
 		c.strip=true;
 		static_constraints.push_back(c);
 	}
@@ -50,7 +50,7 @@ AirplaneConstrainedEnvironment::AirplaneConstrainedEnvironment(AirplaneEnvironme
 	airtimeState o(mi, 0);
 	airplaneState ma(80, 80, 1, 0,0);
 	airtimeState f(ma, std::numeric_limits<float>::max());
-	airConstraint c(o, f);
+	Constraint<airtimeState> c(o, f);
 	c.strip=false;
 	static_constraints.push_back(c);
 }
@@ -58,7 +58,7 @@ AirplaneConstrainedEnvironment::AirplaneConstrainedEnvironment(AirplaneEnvironme
 /// CONSTRAINT MANAGEMENT
 
 // Add a constraint of any type
-void AirplaneConstrainedEnvironment::AddConstraint(airConstraint const& c)
+void AirplaneConstrainedEnvironment::AddConstraint(Constraint<airtimeState> c)
 {
 	constraints.push_back(c);
 }
@@ -66,14 +66,14 @@ void AirplaneConstrainedEnvironment::AddConstraint(airConstraint const& c)
 // Add a point constraint
 void AirplaneConstrainedEnvironment::AddPointConstraint(const airtimeState &loc)
 {
-	airConstraint x(loc);
+	Constraint<airtimeState> x(loc);
 	constraints.push_back(x);
   std::cout << "1CONSTRAINTS " << constraints.size() << "\n";
 }
 
 void AirplaneConstrainedEnvironment::AddBoxConstraint(const airtimeState &loc1, const airtimeState &loc2)
 {
-	airConstraint x(loc1, loc2);
+	Constraint<airtimeState> x(loc1, loc2);
 	constraints.push_back(x);
   std::cout << "2CONSTRAINTS " << constraints.size() << "\n";
 }
@@ -85,7 +85,7 @@ void AirplaneConstrainedEnvironment::ClearConstraints()
 
 
 // Add a constraint of any type
-void AirplaneConstrainedEnvironment::AddStaticConstraint(airConstraint const& c)
+void AirplaneConstrainedEnvironment::AddStaticConstraint(Constraint<airtimeState> const& c)
 {
 	static_constraints.push_back(c);
 }
@@ -93,13 +93,13 @@ void AirplaneConstrainedEnvironment::AddStaticConstraint(airConstraint const& c)
 // Add a point constraint
 void AirplaneConstrainedEnvironment::AddStaticPointConstraint(const airtimeState &loc)
 {
-	airConstraint x(loc);
+	Constraint<airtimeState> x(loc);
 	static_constraints.push_back(x);
 }
 
 void AirplaneConstrainedEnvironment::AddStaticBoxConstraint(const airtimeState &loc1, const airtimeState &loc2)
 {
-	airConstraint x(loc1, loc2);
+	Constraint<airtimeState> x(loc1, loc2);
 	static_constraints.push_back(x);
 }
 
@@ -284,9 +284,8 @@ uint64_t AirplaneConstrainedEnvironment::GetStateHash(const airtimeState &node) 
 	return h;
 }
 
-airtimeState AirplaneConstrainedEnvironment::GetState(uint64_t hash) const
+void AirplaneConstrainedEnvironment::GetStateFromHash(uint64_t hash, airtimeState &s) const
 {
-    airtimeState s;
     s.t=((hash)&(0x1000-1))/16.0; // Can't represent a float like this...
     s.landed=(hash>>12)&0x1;
     s.heading=(hash>>13)&((0x7));
@@ -294,8 +293,6 @@ airtimeState AirplaneConstrainedEnvironment::GetState(uint64_t hash) const
     s.height=(hash>>20)&(0x400-1);
     s.y=(hash>>30)&(0x10000-1);
     s.x=(hash>>46)&(0x10000-1);
-
-    return s;
 }
 
 
@@ -383,7 +380,7 @@ void AirplaneConstrainedEnvironment::GLDrawPath(const std::vector<airtimeState> 
 
 /////////////////////////////// PRIVATE ////////////////////////////////////////////////////
 
-bool airConstraint::ConflictsWith(const airtimeState &state) const
+bool Constraint<airtimeState>::ConflictsWith(const airtimeState &state) const
 {
 if(state.landed || end_state.landed && start_state.landed) return false;
 //std::cout << "VERTEX"<<*this << "ConflictsWith" << state << "...\n";
@@ -421,8 +418,9 @@ if(state.landed || end_state.landed && start_state.landed) return false;
 return false;
 }
 
-bool airConstraint::ConflictsWith(const airtimeState &from, const airtimeState &to) const
+bool Constraint<airtimeState>::ConflictsWith(const airtimeState &from, const airtimeState &to) const
 {
+//std::cout << "VERTEX"<<from << "ConflictsWith" << to << "...\n";
 if(from.landed && to.landed || end_state.landed && start_state.landed) return false;
     if (max(start_state.t, from.t) <= min(end_state.t, to.t) + 0.001) 
     {
@@ -471,13 +469,13 @@ if(from.landed && to.landed || end_state.landed && start_state.landed) return fa
 	return false;
 }
 
-bool airConstraint::ConflictsWith(const airConstraint &x) const
+bool Constraint<airtimeState>::ConflictsWith(const Constraint<airtimeState> &x) const
 {
 	return ConflictsWith(x.start_state, x.end_state);
 }
 
 
-void airConstraint::OpenGLDraw() const 
+void Constraint<airtimeState>::OpenGLDraw() const 
 {
 	glLineWidth(2.0); // Make it wide
 
@@ -584,21 +582,21 @@ bool AirplaneConstrainedEnvironment::ViolatesConstraint(const airtimeState &from
     return false;
 
   //Check if the action box violates any of the constraints that are in the constraints list
-  for (airConstraint c : constraints)
+  for (Constraint<airtimeState> c : constraints)
   {
 
     // Check if the range of the constraint overlaps in time
-    if (max(c.start_state.t, from.t) <= min(c.end_state.t, to.t) + 0.00001) 
+    if (max(c.start().t, from.t) <= min(c.end().t, to.t) + 0.00001) 
     {
       // Generate a well formed set of boxes for the constraint box
-      c_minx = c.start_state.x < c.end_state.x ? c.start_state.x : c.end_state.x;
-      c_maxx = c.start_state.x > c.end_state.x ? c.start_state.x : c.end_state.x;
+      c_minx = c.start().x < c.end().x ? c.start().x : c.end().x;
+      c_maxx = c.start().x > c.end().x ? c.start().x : c.end().x;
 
-      c_miny = c.start_state.y < c.end_state.y ? c.start_state.y : c.end_state.y;
-      c_maxy = c.start_state.y > c.end_state.y ? c.start_state.y : c.end_state.y;
+      c_miny = c.start().y < c.end().y ? c.start().y : c.end().y;
+      c_maxy = c.start().y > c.end().y ? c.start().y : c.end().y;
 
-      c_minz = c.start_state.height < c.end_state.height ? c.start_state.height : c.end_state.height;
-      c_maxz = c.start_state.height > c.end_state.height ? c.start_state.height : c.end_state.height;
+      c_minz = c.start().height < c.end().height ? c.start().height : c.end().height;
+      c_maxz = c.start().height > c.end().height ? c.start().height : c.end().height;
 
 
       if (std::max<int>(c_minx, a_minx) <= std::min<int>(c_maxx, a_maxx) && // Check if overlapping on the X axis
@@ -623,20 +621,20 @@ bool AirplaneConstrainedEnvironment::ViolatesConstraint(const airtimeState &from
   }
 
   //Check if the action box violates any of the constraints that are in the static constraints list
-  for (airConstraint c : static_constraints)
+  for (Constraint<airtimeState> c : static_constraints)
   {
     // Check if the range of the constraint overlaps in time
-    if (max(c.start_state.t, from.t) <= min(c.end_state.t, to.t) + 0.00001) 
+    if (max(c.start().t, from.t) <= min(c.end().t, to.t) + 0.00001) 
     {
       // Generate a well formed set of boxes for the constraint box
-      c_minx = c.start_state.x < c.end_state.x ? c.start_state.x : c.end_state.x;
-      c_maxx = c.start_state.x > c.end_state.x ? c.start_state.x : c.end_state.x;
+      c_minx = c.start().x < c.end().x ? c.start().x : c.end().x;
+      c_maxx = c.start().x > c.end().x ? c.start().x : c.end().x;
 
-      c_miny = c.start_state.y < c.end_state.y ? c.start_state.y : c.end_state.y;
-      c_maxy = c.start_state.y > c.end_state.y ? c.start_state.y : c.end_state.y;
+      c_miny = c.start().y < c.end().y ? c.start().y : c.end().y;
+      c_maxy = c.start().y > c.end().y ? c.start().y : c.end().y;
 
-      c_minz = c.start_state.height < c.end_state.height ? c.start_state.height : c.end_state.height;
-      c_maxz = c.start_state.height > c.end_state.height ? c.start_state.height : c.end_state.height;
+      c_minz = c.start().height < c.end().height ? c.start().height : c.end().height;
+      c_maxz = c.start().height > c.end().height ? c.start().height : c.end().height;
 
 
       if (std::max<int>(c_minx, a_minx) <= std::min<int>(c_maxx, a_maxx) && // Check if overlapping on the X axis

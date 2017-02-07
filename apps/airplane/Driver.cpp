@@ -1,16 +1,6 @@
 #include "Common.h"
 #include "Driver.h"
-//#include "PRAStar.h"
-//#include "SearchUnit.h"
 #include "UnitSimulation.h"
-//#include "Directional2DEnvironment.h"
-//#include "RandomUnit.h"
-//#include "AStar.h"
-//#include "GenericSearchUnit.h"
-//#include "GenericPatrolUnit.h"
-//#include "TemplateAStar2.h"
-//#include "MapSectorAbstraction.h"
-//#include "DirectionalPlanner.h"
 #include "ScenarioLoader.h"
 #include "AirplaneGridCardinal.h"
 #include "AirplaneGridOctile.h"
@@ -22,19 +12,15 @@
 #include "AirplaneCardinal.h"
 #include "AirplaneHighway4Cardinal.h"
 #include "AirplaneConstrained.h"
-#include "AirplaneCBSUnits.h"
+#include "CBSUnits.h"
 
 #include <sstream>
 
-bool highsort = false;
-bool heuristic = false;
+bool greedyCT = false;
+bool ECBSheuristic = false;
 bool randomalg = false;
 bool useCAT = false; // Use conflict avoidance table
-IntervalTree* CAT(0); // Conflict Avoidance Table
-AirplaneConstrainedEnvironment* currentEnv(0);
-uint8_t currentAgent(0);
 bool mouseTracking;
-TemplateAStar<airtimeState, airplaneAction, AirplaneConstrainedEnvironment, AStarOpenClosed<airtimeState, RandomTieBreaking<airtimeState> > >* currentAstar(0);
 unsigned killtime(300);
 unsigned killex(INT_MAX);
 int px1, py1, px2, py2;
@@ -47,8 +33,8 @@ double frameIncrement = 1.0/10000.0;
 std::vector<airtimeState> thePath;
 std::vector<std::vector<airtimeState> > waypoints;
 
-int cutoffs[10] = {0,99,99,99,99,99,99,99,99,99}; // for each env
-  std::vector<EnvironmentContainer> environs;
+  int cutoffs[10] = {0,99,99,99,99,99,99,99,99,99}; // for each env
+  std::vector<EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> > environs;
   int seed = clock();
   int num_airplanes = 5;
   int minsubgoals(1);
@@ -61,17 +47,16 @@ int cutoffs[10] = {0,99,99,99,99,99,99,99,99,99}; // for each env
 
   AirplaneConstrainedEnvironment *ace = 0;
   UnitSimulation<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *sim = 0;
-  AirCBSGroup* group = 0;
+  CBSGroup<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>* group = 0;
 
   bool gui=true;
   void InitHeadless();
-  Timer* timer;
 
   int main(int argc, char* argv[])
   {
     if (argc > 1) {
-    num_airplanes = atoi(argv[1]);
-  }
+      num_airplanes = atoi(argv[1]);
+    }
 
 
   InstallHandlers();
@@ -87,7 +72,7 @@ int cutoffs[10] = {0,99,99,99,99,99,99,99,99,99}; // for each env
     InitHeadless();
     while (true)
     {
-      group->ExpandOneCBSNode(gui);
+      group->ExpandOneCBSNode();
     }
   }
 }
@@ -145,8 +130,8 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-nogui", "-nogui", "Turn off gui");
 	InstallCommandLineHandler(MyCLHandler, "-cat", "-cat", "Use Conflict Avoidance Table (CAT)");
 	InstallCommandLineHandler(MyCLHandler, "-random", "-random", "Randomize conflict resolution order");
-	InstallCommandLineHandler(MyCLHandler, "-highsort", "-highsort", "Use sort high-level search by number of conflicts");
-	InstallCommandLineHandler(MyCLHandler, "-heuristic", "-heuristic", "Use heuristic in low-level search");
+	InstallCommandLineHandler(MyCLHandler, "-greedyCT", "-greedyCT", "Greedy sort high-level search by number of conflicts (GCBS)");
+	InstallCommandLineHandler(MyCLHandler, "-ECBSheuristic", "-ECBSheuristic", "Use heuristic in low-level search");
 
         InstallWindowHandler(MyWindowHandler);
 
@@ -192,29 +177,38 @@ void InitHeadless(){
   AirplaneEnvironment* ac = new AirplaneCardinalEnvironment();
   ac->loadPerimeterDB();
   // Cardinal Grid
-  environs.push_back(EnvironmentContainer(agce->name(),new AirplaneConstrainedEnvironment(agce),0,cutoffs[0],1));
+  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(agce->name(),new AirplaneConstrainedEnvironment(agce),0,cutoffs[0],1));
   // Octile Grid
-  environs.push_back(EnvironmentContainer(agoe->name(),new AirplaneConstrainedEnvironment(agoe),0,cutoffs[1],1));
+  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(agoe->name(),new AirplaneConstrainedEnvironment(agoe),0,cutoffs[1],1));
   // Cardinal 3D Grid
-  environs.push_back(EnvironmentContainer(a3ce->name(),new AirplaneConstrainedEnvironment(a3ce),0,cutoffs[2],1));
+  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(a3ce->name(),new AirplaneConstrainedEnvironment(a3ce),0,cutoffs[2],1));
   // Octile 3D Grid
-  environs.push_back(EnvironmentContainer(a3oe->name(),new AirplaneConstrainedEnvironment(a3oe),0,cutoffs[3],1));
+  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(a3oe->name(),new AirplaneConstrainedEnvironment(a3oe),0,cutoffs[3],1));
   // Highway 4 Airplane
-  environs.push_back(EnvironmentContainer(ah4c->name(),new AirplaneConstrainedEnvironment(ah4c),0,cutoffs[4],1));
+  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(ah4c->name(),new AirplaneConstrainedEnvironment(ah4c),0,cutoffs[4],1));
   // Highway 8 Airplane
-  environs.push_back(EnvironmentContainer(ahe->name(),new AirplaneConstrainedEnvironment(ahe),0,cutoffs[5],1));
+  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(ahe->name(),new AirplaneConstrainedEnvironment(ahe),0,cutoffs[5],1));
   // Simple Airplane
-  environs.push_back(EnvironmentContainer(ase->name(),new AirplaneConstrainedEnvironment(ase),0,cutoffs[6],1));
+  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(ase->name(),new AirplaneConstrainedEnvironment(ase),0,cutoffs[6],1));
   // Cardinal Airplane
-  environs.push_back(EnvironmentContainer(ac->name(),new AirplaneConstrainedEnvironment(ac),0,cutoffs[7],1));
+  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(ac->name(),new AirplaneConstrainedEnvironment(ac),0,cutoffs[7],1));
   // Octile Airplane
-  environs.push_back(EnvironmentContainer(ae->name(),new AirplaneConstrainedEnvironment(ae),0,cutoffs[8],1));
+  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(ae->name(),new AirplaneConstrainedEnvironment(ae),0,cutoffs[8],1));
   // Highway 4/8 Airplane
-  environs.push_back(EnvironmentContainer(ah4e->name(),new AirplaneConstrainedEnvironment(ah4e),0,cutoffs[9],1));
+  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(ah4e->name(),new AirplaneConstrainedEnvironment(ah4e),0,cutoffs[9],1));
 
   ace=environs.rbegin()->environment;
 
-  group = new AirCBSGroup(environs,use_rairspace, use_wait, nobypass); // Changed to 10,000 expansions from number of conflicts in the tree
+  group = new CBSGroup<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(environs); // Changed to 10,000 expansions from number of conflicts in the tree
+  CBSGroup<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>::greedyCT=greedyCT;
+  group->timer=new Timer();
+  group->seed=seed;
+  group->keeprunning=gui;
+  group->killex=killex;
+  group->ECBSheuristic=ECBSheuristic;
+  group->nobypass=nobypass;
+  RandomTieBreaking<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>::randomalg=randomalg;
+  RandomTieBreaking<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>::useCAT=useCAT;
   if(gui){
     sim = new UnitSimulation<airtimeState, airplaneAction, AirplaneConstrainedEnvironment>(ace);
     sim->SetStepType(kLockStep);
@@ -228,10 +222,9 @@ void InitHeadless(){
   // we are inducing high conflict areas.
   std::cout << "Adding " << num_airplanes << "planes." << std::endl;
 
-  timer=new Timer();
   if(!gui){
-    Timer::Timeout func(std::bind(&AirCBSGroup::processSolution, group, std::placeholders::_1));
-    timer->StartTimeout(std::chrono::seconds(killtime),func);
+    Timer::Timeout func(std::bind(&CBSGroup<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>::processSolution, group, std::placeholders::_1));
+    group->timer->StartTimeout(std::chrono::seconds(killtime),func);
   }
   for (int i = 0; i < num_airplanes; i++) {
     if(waypoints.size()<num_airplanes){
@@ -256,7 +249,7 @@ void InitHeadless(){
             {
               airtimeState a(waypoints[j][n]);
               // Make sure that no gubgoals at similar times have a conflict
-              airConstraint x_c(a);
+              Constraint<airtimeState> x_c(a);
               if(x_c.ConflictsWith(start)){conflict=true;break;}
             }
             airtimeState a(start,1);
@@ -274,7 +267,7 @@ void InitHeadless(){
     for(auto &a: waypoints[i])
       std::cout << a << " ";
     std::cout << std::endl;
-    AirCBSUnit* unit = new AirCBSUnit(waypoints[i]);
+    CBSUnit<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>* unit = new CBSUnit<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(waypoints[i]);
     unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
     group->AddUnit(unit); // Add to the group
     std::cout << "initial path for agent " << i << ":\n";
@@ -304,7 +297,7 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 	if (ace){
         for(auto u : group->GetMembers()){
             glLineWidth(2.0);
-            ace->GLDrawPath(((AirCBSUnit const*)u)->GetPath(),((AirCBSUnit const*)u)->GetWaypoints());
+            ace->GLDrawPath(((CBSUnit<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> const*)u)->GetPath(),((CBSUnit<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> const*)u)->GetWaypoints());
         }
     }
 
@@ -317,7 +310,7 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 		
 		/*std::cout << "Printing locations at time: " << sim->GetSimulationTime() << std::endl;
 		for (int x = 0; x < group->GetNumMembers(); x ++) {
-			AirCBSUnit *c = (AirCBSUnit*)group->GetMember(x);
+			CBSUnit<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> *c = (CBSUnit<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>*)group->GetMember(x);
 			airtimeState cur;
 			c->GetLocation(cur);
                         //if(!fequal(ptime[x],sim->GetSimulationTime())
@@ -340,14 +333,14 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 int MyCLHandler(char *argument[], int maxNumArgs)
 {
 
-	if(strcmp(argument[0], "-heuristic") == 0)
+	if(strcmp(argument[0], "-ECBSheuristic") == 0)
 	{
-                heuristic = true;
+                ECBSheuristic = true;
 		return 1;
 	}
-	if(strcmp(argument[0], "-highsort") == 0)
+	if(strcmp(argument[0], "-greedyCT") == 0)
 	{
-                highsort = true;
+                greedyCT = true;
 		return 1;
 	}
 	if(strcmp(argument[0], "-cat") == 0)
