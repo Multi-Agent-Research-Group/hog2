@@ -191,7 +191,7 @@ void InitHeadless(){
         while(conflict){
           conflict=false;
           // x, y, z, heading, pitch, speed
-          PlatformState start(float(rand() % 700)/10. + 5, float(rand() % 700)/10. + 5, float(rand() % 150)/10. + 2, float(rand() % 720)/2., 0.0, rand() % 5);
+          PlatformState start(float(rand() % 700)/10. + 5, float(rand() % 700)/10. + 5, float(rand() % 150)/10. + 2, float(rand() % 720)/2., 0.0, rand() % 5 +1);
           for (int j = 0; j < waypoints.size(); j++)
           {
             if(i==j){continue;}
@@ -338,7 +338,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 	if(strcmp(argument[0], "-probfile") == 0){
           std::cout << "Reading instance from file: \""<<argument[1]<<"\"\n";
           std::ifstream ss(argument[1]);
-          int x,y,z,s,h;
+          float x,y,z,s,h;
           std::string line;
           num_airplanes=0;
           while(std::getline(ss, line)){
@@ -346,9 +346,10 @@ int MyCLHandler(char *argument[], int maxNumArgs)
             std::istringstream is(line);
             std::string field;
             while(is >> field){
-              sscanf(field.c_str(),"%d,%d,%d,%d,%d", &x,&y,&z,&s,&h);
+              sscanf(field.c_str(),"%f,%f,%f,%f,%f", &x,&y,&z,&s,&h);
               std::cout << x <<","<<y<<","<<z<<","<<s<<","<<h<<" ";
-              wpts.push_back(PlatformState(x,y,z,s,h,0));
+              // x, y, z, heading, pitch, speed
+              wpts.push_back(PlatformState(x,y,z,h,0,s));
             }
             waypoints.push_back(wpts);
             std::cout << "\n";

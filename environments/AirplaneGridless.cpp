@@ -222,7 +222,7 @@ void AirplaneGridlessEnvironment::GetSuccessors(const PlatformState &nodeID, std
     {
         PlatformState s;
         GetNextState(nodeID, act, s);
-        std::cout << "  " << s <<":"<<GCost(nodeID,s)<<"+"<<HCost(s,getGoal())<<"="<<(GCost(nodeID,s)+HCost(nodeID,getGoal()))<< "\n";
+        //std::cout << "  " << s <<":"<<GCost(nodeID,s)<<"+"<<HCost(s,getGoal())<<"="<<(GCost(nodeID,s)+HCost(nodeID,getGoal()))<< "\n";
         neighbors.push_back(s);
     }
 }
@@ -416,11 +416,16 @@ double AirplaneGridlessEnvironment::ReverseHCost(const PlatformState &node1, con
 
 double AirplaneGridlessEnvironment::HCost(const PlatformState &node1, const PlatformState &node2) const
 {
-  double vertDiff(node2.z-node1.z);
-  double vcost(fequal(vertDiff,0)?0.0:(fgreater(vertDiff,0)?climbCost:descendCost));
+  //double vertDiff(node2.z-node1.z);
+  //double vcost(fequal(vertDiff,0)?0.0:(fgreater(vertDiff,0)?climbCost:descendCost));
+  //return sqrt((node1.x-node2.x)*(node1.x-node2.x)+
+      //(node1.y-node2.y)*(node1.y-node2.y))*cruiseBurnRate*PlatformState::SPEED_COST[3]
+      //+fabs(vertDiff)*vcost;
+      //std::cout << "H  d:"<<sqrt((node1.x-node2.x)*(node1.x-node2.x)+(node1.y-node2.y)*(node1.y-node2.y)+(node1.z-node2.z)*(node1.z-node2.z))<<" c:"<<PlatformState::SPEED_COST[node2.speed]<<"="<<sqrt((node1.x-node2.x)*(node1.x-node2.x)+(node1.y-node2.y)*(node1.y-node2.y)+(node1.z-node2.z)*(node1.z-node2.z))*PlatformState::SPEED_COST[node2.speed]<<"\n";
   return sqrt((node1.x-node2.x)*(node1.x-node2.x)+
-      (node1.y-node2.y)*(node1.y-node2.y))*cruiseBurnRate*PlatformState::SPEED_COST[node2.speed]
-      +fabs(vertDiff)*vcost;
+      (node1.y-node2.y)*(node1.y-node2.y)+
+      (node1.z-node2.z)*(node1.z-node2.z))*
+      cruiseBurnRate*PlatformState::SPEED_COST[node1.speed];
 }
 
 double AirplaneGridlessEnvironment::ReverseGCost(const PlatformState &n1, const PlatformState &n2) const
@@ -430,16 +435,21 @@ double AirplaneGridlessEnvironment::ReverseGCost(const PlatformState &n1, const 
 
 double AirplaneGridlessEnvironment::GCost(const PlatformState &node1, const PlatformState &node2) const
 {
-  double vertDiff(node2.z-node1.z);
-  double vcost(fequal(vertDiff,0)?0.0:(fgreater(vertDiff,0)?climbCost:descendCost));
+  //double vertDiff(node2.z-node1.z);
+  //double vcost(fequal(vertDiff,0)?0.0:(fgreater(vertDiff,0)?climbCost:descendCost));
   /*std::cout << "GCOST " << node1<<node2<<sqrt((node1.x-node2.x)*(node1.x-node2.x)+
       (node1.y-node2.y)*(node1.y-node2.y))<<"*"<<cruiseBurnRate<<"*"<<PlatformState::SPEED_COST[node2.speed]<<"+"<<fabs(vertDiff)<<"*"<<vcost<<"="
       <<(sqrt((node1.x-node2.x)*(node1.x-node2.x)+
       (node1.y-node2.y)*(node1.y-node2.y))*cruiseBurnRate*PlatformState::SPEED_COST[node2.speed]
       +fabs(vertDiff)*vcost)<<"\n";*/
-  return sqrt((node1.x-node2.x)*(node1.x-node2.x)+
-      (node1.y-node2.y)*(node1.y-node2.y))*cruiseBurnRate*PlatformState::SPEED_COST[node2.speed]
-      +fabs(vertDiff)*vcost;
+  //return sqrt((node1.x-node2.x)*(node1.x-node2.x)+
+      //(node1.y-node2.y)*(node1.y-node2.y))*cruiseBurnRate*PlatformState::SPEED_COST[node2.speed]
+      //+fabs(vertDiff)*vcost;
+      //std::cout << "  d:"<<sqrt((node1.x-node2.x)*(node1.x-node2.x)+(node1.y-node2.y)*(node1.y-node2.y)+(node1.z-node2.z)*(node1.z-node2.z))<<" c:"<<PlatformState::SPEED_COST[node2.speed]<<"="<<sqrt((node1.x-node2.x)*(node1.x-node2.x)+(node1.y-node2.y)*(node1.y-node2.y)+(node1.z-node2.z)*(node1.z-node2.z))*PlatformState::SPEED_COST[node2.speed]<<"\n";
+      return /*sqrt((node1.x-node2.x)*(node1.x-node2.x)+
+                  (node1.y-node2.y)*(node1.y-node2.y)+
+                  (node1.z-node2.z)*(node1.z-node2.z))**/
+             cruiseBurnRate*PlatformState::SPEED_COST[node2.speed];
 }
 
 double AirplaneGridlessEnvironment::GCost(const PlatformState &node1, const PlatformAction &act) const
@@ -903,5 +913,5 @@ bool AirplaneGridlessEnvironment::ViolatesConstraint(const PlatformState &from, 
 
 //const double PlatformState::SPEEDS[]={0.0,0.1,0.14,0.18,0.22,0.26}; // KMPS
 const double PlatformState::SPEEDS[]={0.0,0.5556,0.7778,1.0,1.2222,1.4444}; // grid-units per second
-const double PlatformState::SPEED_COST[]={0.0,1.85,1.30,1.0,0.85,0.75}; // cost factor by distance
+const double PlatformState::SPEED_COST[]={0.0,1.15,1.05,1.0,1.10,1.20}; // cost factor by speed
 const double PlatformState::TIMESTEP=1.0; // Seconds

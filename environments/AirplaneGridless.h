@@ -12,6 +12,7 @@
 #include <vector>
 #include <cassert>
 #include <cmath>
+#include <iostream>
 #include "ConstrainedEnvironment.h"
 #include "constants.h"
 
@@ -99,9 +100,10 @@ struct PlatformState {
           //std::cout << "y+ " << sin((90.-hdg())*constants::degToRad)*SPEEDS[speed]*TIMESTEP << "\n";
           //std::cout << "z. " << cos((90.-pitch())*constants::degToRad) << "\n";
           //std::cout << " s " << SPEEDS[speed] << " " << SPEEDS[speed]*TIMESTEP << "\n";
-          x+=cos((90.-hdg())*constants::degToRad)*SPEEDS[speed]*TIMESTEP;
-          y+=sin((90.-hdg())*constants::degToRad)*SPEEDS[speed]*TIMESTEP;
-          z+=cos((90.-pitch())*constants::degToRad)*SPEEDS[speed]*TIMESTEP;
+          double hdist(cos(pitch()*constants::degToRad)*SPEEDS[speed]*TIMESTEP);
+          x+=cos((90.-hdg())*constants::degToRad)*hdist;
+          y+=sin((90.-hdg())*constants::degToRad)*hdist;
+          z+=sin(pitch()*constants::degToRad)*SPEEDS[speed]*TIMESTEP;
           t++;
         }
 
@@ -112,9 +114,10 @@ struct PlatformState {
           //std::cout << "_y+ " << sin((90.-hdg())*constants::degToRad)*SPEEDS[speed]*TIMESTEP << "\n";
           //std::cout << "_z. " << cos((90.-pitch())*constants::degToRad) << "\n";
           //std::cout << " _s " << SPEEDS[speed] << " " << SPEEDS[speed]*TIMESTEP << "\n";
-          x-=cos((90.-hdg())*constants::degToRad)*SPEEDS[speed]*TIMESTEP;
-          y-=sin((90.-hdg())*constants::degToRad)*SPEEDS[speed]*TIMESTEP;
-          z-=cos((90.-pitch())*constants::degToRad)*SPEEDS[speed]*TIMESTEP;
+          double hdist(cos(pitch()*constants::degToRad)*SPEEDS[speed]*TIMESTEP);
+          x-=cos((90.-hdg())*constants::degToRad)*hdist;
+          y-=sin((90.-hdg())*constants::degToRad)*hdist;
+          z-=sin(pitch()*constants::degToRad)*SPEEDS[speed]*TIMESTEP;
           t--;
           headingHalfDegs-=other.turnHalfDegs;
           headingHalfDegs=(headingHalfDegs+720)%720;
