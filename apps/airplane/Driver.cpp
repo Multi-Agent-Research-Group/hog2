@@ -16,17 +16,17 @@
 
 #include <sstream>
 
-bool greedyCT = false;
-bool ECBSheuristic = false;
-bool randomalg = false;
+bool greedyCT = false; // use greedy heuristic at the high-level
+bool ECBSheuristic = false; // use ECBS heuristic at low-level
+bool randomalg = false; // Randomize tiebreaking
 bool useCAT = false; // Use conflict avoidance table
 bool mouseTracking;
-unsigned killtime(300);
-unsigned killex(INT_MAX);
+unsigned killtime(300); // Kill after some number of seconds
+unsigned killex(INT_MAX); // Kill after some number of expansions
 int px1, py1, px2, py2;
 int absType = 0;
 int mapSize = 128;
-bool recording = false;
+bool recording = false; // Record frames
 double simTime = 0;
 double stepsPerFrame = 1.0/100.0;
 double frameIncrement = 1.0/10000.0;

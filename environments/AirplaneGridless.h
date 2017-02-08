@@ -44,13 +44,14 @@ static std::ostream& operator <<(std::ostream & out, PlatformAction const& act)
 // state
 struct PlatformState {
         static const double SPEEDS[];
+        static const double SPEED_COST[];
         static const double TIMESTEP;
 	// Constructors
-	PlatformState() :x(0),y(0),z(0),t(0),headingHalfDegs(360),rollHalfDegs(180),pitchHalfDegs(180),speed(3){}
+	PlatformState() :x(0),y(0),z(0),t(0),headingHalfDegs(360),rollHalfDegs(180),pitchHalfDegs(180),speed(3),landed(false),nc(0){}
 	PlatformState(float lt,float ln, float a, double h, double p, int8_t s, uint32_t time=0) :
-		x(lt),y(ln),z(a),t(time),headingHalfDegs(360.+h*2),rollHalfDegs(180),pitchHalfDegs((p+90)*2.0),speed(s){}
+		x(lt),y(ln),z(a),t(time),headingHalfDegs(signed(360.+h*2.0)%720),rollHalfDegs(180),pitchHalfDegs(signed(180+p*2.0)%360),speed(s),landed(false),nc(0){}
 
-	double hdg()const{return double(headingHalfDegs)/2.0-180.;}
+	double hdg()const{return fmod(double(headingHalfDegs)/2.0+180.,360.);}
 	double roll()const{return double(rollHalfDegs)/2.0-90.0;}
 	double pitch()const{return double(pitchHalfDegs)/2.0-90.0;}
 
@@ -87,7 +88,9 @@ struct PlatformState {
 
         void operator += (PlatformAction const& other){
           headingHalfDegs+=other.turnHalfDegs;
+          headingHalfDegs=(headingHalfDegs+720)%720;
           pitchHalfDegs+=other.pitchHalfDegs;
+          pitchHalfDegs=(pitchHalfDegs+360)%360;
           setRoll(other.turn());
           speed += other.speed;
           //std::cout << "yaw " << hdg() << " " << headingHalfDegs << "\n";
@@ -114,7 +117,9 @@ struct PlatformState {
           z-=cos((90.-pitch())*constants::degToRad)*SPEEDS[speed]*TIMESTEP;
           t--;
           headingHalfDegs-=other.turnHalfDegs;
+          headingHalfDegs=(headingHalfDegs+720)%720;
           pitchHalfDegs-=other.pitchHalfDegs;
+          pitchHalfDegs=(pitchHalfDegs+360)%360;
           setRoll(other.turn());
           speed -= other.speed;
         }
@@ -134,6 +139,8 @@ struct PlatformState {
 	int16_t rollHalfDegs;
 	int16_t pitchHalfDegs;
 	int8_t speed;  // 5 speeds: 1=100mps, 2=140, 3=180, 4=220, 5=260 mps
+        bool landed;
+        int8_t nc;
 };
 
 //TODO
@@ -162,7 +169,7 @@ struct Constraint<PlatformState>{
 /** Output the information in a Platform state */
 static std::ostream& operator <<(std::ostream & out, PlatformState const& loc)
 {
-	out << "(x:" << loc.x << ", y:" << loc.y << ", z:" << loc.z << ", h: " << loc.hdg() << ", r: " << signed(loc.roll()) << ", s: " << unsigned(loc.speed) << ", t: " << loc.t << ")";
+	out << "(x:" << loc.x << ", y:" << loc.y << ", z:" << loc.z << ", h: " << loc.hdg() << ", p: " << loc.pitch() << ", r: " << signed(loc.roll()) << ", s: " << unsigned(loc.speed) << ", t: " << loc.t << ")";
 	//out << "val<-cbind(val,c(" << loc.x << "," << loc.y << "," << loc.alt() << "," << loc.heading() << "," << signed(loc.roll) << "," << loc.sum << "," << loc.depth << "))";
 	return out;
 }
@@ -193,15 +200,12 @@ class AirplaneGridlessEnvironment : public ConstrainedEnvironment<PlatformState,
         unsigned width=80,
         unsigned length=80,
         unsigned height=20,
-        double climbRate=5,
         double minSpeed=1,
         double maxSpeed=5,
         uint8_t numSpeeds=5, // Number of discrete speeds
-        double cruiseBurnRate=.006, // Fuel burn rate in liters per unit distance
-        double speedBurnDelta=0.001, // Extra fuel cost for non-cruise speed
-        double climbCost=0.001, // Fuel cost for climbing
-        double descendCost=-0.0005, // Fuel cost for descending
-        double gridSize=30.0); // Horizontal grid width (meters)
+        double cruiseBurnRate=.06, // Fuel burn rate in liters per unit distance
+        double climbCost=0.01, // Fuel cost for climbing
+        double descendCost=-0.00005); // Fuel cost for descending
     //std::string const& perimeterFile=std::string("airplanePerimeter.dat"));
 
     virtual char const*const name()const{return "AirplaneGridlessEnvironment";}
@@ -273,9 +277,8 @@ class AirplaneGridlessEnvironment : public ConstrainedEnvironment<PlatformState,
 
     // State information
     const uint8_t numSpeeds;  // Number of speed steps
-    const double minSpeed;    // Meters per time step
-    const double maxSpeed;    // Meters per time step
-    double const gridSize;    // 30 meters
+    const double minSpeed;
+    const double maxSpeed;
 
     PlatformState const* goal;
     PlatformState const& getGoal()const{return *goal;}
@@ -304,11 +307,9 @@ class AirplaneGridlessEnvironment : public ConstrainedEnvironment<PlatformState,
 
     std::vector<gridlessLandingStrip> landingStrips;
 
-    const double climbRate;      //Meters per time step
     // Assume 1 unit of movement to be 3 meters
     // 16 liters per hour/ 3600 seconds / 22 mps = 0.0002 liters per meter
     double const cruiseBurnRate;//0.0002*30.0 liters per unit
-    double const speedBurnDelta;//0.0001 liters per unit
     double const climbCost;//1.0475;
     double const descendCost;
 

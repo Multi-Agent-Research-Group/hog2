@@ -33,25 +33,19 @@ AirplaneGridlessEnvironment::AirplaneGridlessEnvironment(
   unsigned width,
   unsigned length,
   unsigned height,
-  double climbRate,
   double minSpeed,
   double maxSpeed,
   uint8_t numSpeeds,
   double cruiseBurnRate,
-  double speedBurnDelta,
   double climbCost,
-  double descendCost,
-  double gridSize
+  double descendCost
 ): width(width),
   length(length),
   height(height),
-  climbRate(climbRate),
   minSpeed(minSpeed),
   maxSpeed(maxSpeed),
   numSpeeds(numSpeeds),
-  gridSize(gridSize),
   cruiseBurnRate(cruiseBurnRate),
-  speedBurnDelta(speedBurnDelta),
   climbCost(climbCost),
   descendCost(descendCost)
 {
@@ -222,11 +216,13 @@ void AirplaneGridlessEnvironment::RecurseGround(int x1, int y1, int x2, int y2)
 
 void AirplaneGridlessEnvironment::GetSuccessors(const PlatformState &nodeID, std::vector<PlatformState> &neighbors) const
 {
+    std::cout << "Succ: " << nodeID << "\n";
     GetActions(nodeID, internalActions);
     for (auto &act : internalActions)
     {
         PlatformState s;
         GetNextState(nodeID, act, s);
+        std::cout << "  " << s <<":"<<GCost(nodeID,s)<<"+"<<HCost(s,getGoal())<<"="<<(GCost(nodeID,s)+HCost(nodeID,getGoal()))<< "\n";
         neighbors.push_back(s);
     }
 }
@@ -410,7 +406,7 @@ double AirplaneGridlessEnvironment::myHCost(const PlatformState &node1, const Pl
   double vcost(fequal(vertDiff,0)?0.0:(fgreater(vertDiff,0)?climbCost:descendCost));
   return sqrt((node1.x-node2.x)*(node1.x-node2.x)+
       (node1.y-node2.y)*(node1.y-node2.y))*cruiseBurnRate
-      +(node1.z-node2.z)*(node1.z-node2.z)*vcost;
+      +sqrt((node1.z-node2.z)*(node1.z-node2.z))*vcost;
 }
 
 double AirplaneGridlessEnvironment::ReverseHCost(const PlatformState &node1, const PlatformState &node2) const
@@ -423,8 +419,8 @@ double AirplaneGridlessEnvironment::HCost(const PlatformState &node1, const Plat
   double vertDiff(node2.z-node1.z);
   double vcost(fequal(vertDiff,0)?0.0:(fgreater(vertDiff,0)?climbCost:descendCost));
   return sqrt((node1.x-node2.x)*(node1.x-node2.x)+
-      (node1.y-node2.y)*(node1.y-node2.y))*cruiseBurnRate
-      +(node1.z-node2.z)*(node1.z-node2.z)*vcost;
+      (node1.y-node2.y)*(node1.y-node2.y))*cruiseBurnRate*PlatformState::SPEED_COST[node2.speed]
+      +fabs(vertDiff)*vcost;
 }
 
 double AirplaneGridlessEnvironment::ReverseGCost(const PlatformState &n1, const PlatformState &n2) const
@@ -436,9 +432,14 @@ double AirplaneGridlessEnvironment::GCost(const PlatformState &node1, const Plat
 {
   double vertDiff(node2.z-node1.z);
   double vcost(fequal(vertDiff,0)?0.0:(fgreater(vertDiff,0)?climbCost:descendCost));
+  /*std::cout << "GCOST " << node1<<node2<<sqrt((node1.x-node2.x)*(node1.x-node2.x)+
+      (node1.y-node2.y)*(node1.y-node2.y))<<"*"<<cruiseBurnRate<<"*"<<PlatformState::SPEED_COST[node2.speed]<<"+"<<fabs(vertDiff)<<"*"<<vcost<<"="
+      <<(sqrt((node1.x-node2.x)*(node1.x-node2.x)+
+      (node1.y-node2.y)*(node1.y-node2.y))*cruiseBurnRate*PlatformState::SPEED_COST[node2.speed]
+      +fabs(vertDiff)*vcost)<<"\n";*/
   return sqrt((node1.x-node2.x)*(node1.x-node2.x)+
-      (node1.y-node2.y)*(node1.y-node2.y))*cruiseBurnRate
-      +(node1.z-node2.z)*(node1.z-node2.z)*vcost;
+      (node1.y-node2.y)*(node1.y-node2.y))*cruiseBurnRate*PlatformState::SPEED_COST[node2.speed]
+      +fabs(vertDiff)*vcost;
 }
 
 double AirplaneGridlessEnvironment::GCost(const PlatformState &node1, const PlatformAction &act) const
@@ -452,11 +453,11 @@ double AirplaneGridlessEnvironment::GCost(const PlatformState &node1, const Plat
 bool AirplaneGridlessEnvironment::GoalTest(const PlatformState &node, const PlatformState &goal) const
 {
     static const int cruise(3);
-    return abs(node.x-goal.x) < PlatformState::SPEEDS[cruise] &&
-    abs(node.y-goal.y) < PlatformState::SPEEDS[cruise] &&
-    abs(node.z-goal.z) < 100.0 &&
-    fmod(abs(node.hdg()-goal.hdg())+360,360) < 3.1 &&
-    abs(node.pitch()-goal.pitch()) < 8.0 &&
+    return fabs(node.x-goal.x) < PlatformState::SPEEDS[cruise] &&
+    fabs(node.y-goal.y) < PlatformState::SPEEDS[cruise] &&
+    fabs(node.z-goal.z) < 100.0 &&
+    fmod(fabs(node.hdg()-goal.hdg())+360,360) < 3.1 &&
+    fabs(node.pitch()-goal.pitch()) < 8.0 &&
     node.speed == goal.speed;
 }
 
@@ -902,4 +903,5 @@ bool AirplaneGridlessEnvironment::ViolatesConstraint(const PlatformState &from, 
 
 //const double PlatformState::SPEEDS[]={0.0,0.1,0.14,0.18,0.22,0.26}; // KMPS
 const double PlatformState::SPEEDS[]={0.0,0.5556,0.7778,1.0,1.2222,1.4444}; // grid-units per second
+const double PlatformState::SPEED_COST[]={0.0,1.85,1.30,1.0,0.85,0.75}; // cost factor by distance
 const double PlatformState::TIMESTEP=1.0; // Seconds

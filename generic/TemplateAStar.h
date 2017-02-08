@@ -520,12 +520,13 @@ if(this->nodesExpanded>1000 && this->noncritical){
                                           //else
                                             //std::cout << "  ignore "<<neighbors[x]<<"("<<g<<"+"<<h<<")="<<(g+h)<<"\n";
                                         } else {
-						openClosedList.AddOpenNode(neighbors[x],
-												   env->GetStateHash(neighbors[x]),
-												   openClosedList.Lookup(nodeid).g+edgeCosts[x],
-												   weight*theHeuristic->HCost(neighbors[x], goal),
-												   nodeid);
-					}
+                                          std::cout << "Add node to open " << neighbors[x] << (G+edgeCosts[x]) << "+" << (weight*theHeuristic->HCost(neighbors[x], goal)) << "=" << (G+edgeCosts[x]+weight*theHeuristic->HCost(neighbors[x], goal)) << "\n";
+                                          openClosedList.AddOpenNode(neighbors[x],
+                                              env->GetStateHash(neighbors[x]),
+                                              G+edgeCosts[x],
+                                              weight*theHeuristic->HCost(neighbors[x], goal),
+                                              nodeid);
+                                        }
 //					if (loc == -1)
 //					{ // duplicate edges
 //						neighborLoc[x] = kOpenList;
