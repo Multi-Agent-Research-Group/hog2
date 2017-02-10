@@ -217,8 +217,12 @@ void AirplaneEnvironment::GetDimensions(airplaneState const& node1, airplaneStat
   data[0]=node2.x-node1.x;
   data[1]=node2.y-node1.y;
   data[2]=node2.height-node1.height;
-  data[3]=node2.heading-node1.heading;
-  data[4]=node2.speed-node1.speed;
+  data[3]=node2.speed-node1.speed;
+  data[4]=node2.heading-node1.heading;
+}
+
+std::vector<std::pair<int,int> > const& AirplaneEnvironment::GetRanges() const{
+  return ranges;
 }
 
 void AirplaneEnvironment::SetGround(int x, int y, uint8_t val)
@@ -1059,17 +1063,17 @@ double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneStat
     }else{
       //std::cout << "side ";
       zmin=zmax=node2.height;
-    }/*else if(std::max(diffx,diffy)>perimeterSize*2){
-      zmin=node2.height-std::max(0,perimeterSize,(horiz)-perimeterSize);
-      zmax=node2.height;
-      std::cout<<"side ";
-    }else if(node2.height>node1.height){
-      zmin = node2.height-perimeterSize;
-      zmax = node2.height;
-    }else{
-      zmin = node2.height;
-      zmax = node2.height+perimeterSize;
-    }*/
+    }//else if(std::max(diffx,diffy)>perimeterSize*2){
+      //zmin=node2.height-std::max(0,perimeterSize,(horiz)-perimeterSize);
+      //zmax=node2.height;
+      //std::cout<<"side ";
+    //}else if(node2.height>node1.height){
+      //zmin = node2.height-perimeterSize;
+      //zmax = node2.height;
+    //}else{
+      //zmin = node2.height;
+      //zmax = node2.height+perimeterSize;
+    //}
     // See if we're directly in line horizontally
     if(vert<horiz){
       if(diffx+turnAround<=perimeterSize && diffy>perimeterSize){
@@ -1109,7 +1113,7 @@ double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneStat
           int heading(tNode.headingTo(node2));
           for(int h(-1); h<2; ++h){
             //uint8_t h1((heading+h+kCircleSize)%kCircleSize);
-            //double dist(/*sqrt*/((x-node1.x)*(x-node1.x)+(y-node1.y)*(y-node1.y)));
+            //double dist(((x-node1.x)*(x-node1.x)+(y-node1.y)*(y-node1.y)));
             tNode.heading = (heading+h+kCircleSize)%kCircleSize;
             //std::cout << "Trying heading: " << (unsigned)tNode.heading << "\n";
             double vcost((node1.height==tNode.height)?0:((node1.height>tNode.height)?descendCost:climbCost));
@@ -1135,6 +1139,68 @@ double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneStat
   }
 
   return best;
+}
+
+double AirplaneEnvironment::HCostNew(const airplaneState &node1, const airplaneState &node2) const
+{
+
+  // Need 2 perimeter databases:
+  // 1. Forward DB with radius of 5
+  // 2. Reverse DB with radius of 3
+  //
+  // Case 1: Goal within radius of 4 - straight lookup in FWD
+  // Case 2: Goal outside of radius of 4 -
+  //         Compute distance between all edge nodes of rad 2 of FWD
+  //         and all edge nodes of rad 2 of BWD
+  //         This could be as many as 5^6 (15625) computations
+
+  if(GoalTest(node1,node2)){return 0.0;}
+  static const int cruiseSpeed(3);
+  airplaneState tNode = node2;
+  tNode.speed = cruiseSpeed;
+  double best(9999999);
+  if(perimeterLoaded)
+  {
+    static const int perimeterSize(2);
+    if(abs(node1.x-node2.x)<=perimeterSize &&
+        abs(node1.y-node2.y)<=perimeterSize &&
+        abs(node2.height-node1.height)<=perimeterSize){
+      return perimeter[node1.type].GCost(node1,node2);
+    }
+
+    int xmin1(std::max(0,node1.x-perimeterSize));
+    int xmax1(std::min(node1.x+perimeterSize,width));
+    int ymin1(std::max(0,node1.y-perimeterSize));
+    int ymax1(std::min(node1.y+perimeterSize,length));
+    int zmin1(std::max(0,node1.height-perimeterSize));
+    int zmax1(std::min(node1.height+perimeterSize,height));
+    int xmin2(std::max(0,node2.x-perimeterSize));
+    int xmax2(std::min(node2.x+perimeterSize,width));
+    int ymin2(std::max(0,node2.y-perimeterSize));
+    int ymax2(std::min(node2.y+perimeterSize,length));
+    int zmin2(std::max(0,node2.height-perimeterSize));
+    int zmax2(std::min(node2.height+perimeterSize,height));
+    for(int x1(xmin1); x1<=xmax1; ++x1){
+      for(int y1(ymin1); y1<=ymax1; ++y1){
+        for(int z1(zmin1); z1<=zmax1; ++z1){
+          for(int x2(xmin2); x2<=xmax2; ++x2){
+            for(int y2(ymin2); y2<=ymax2; ++y2){
+              for(int z2(zmin2); z2<=zmax2; ++z2){
+                if((x2!=xmax2 && x2!=xmin2) && 
+                    (y2!=ymax2 && y2!=ymin2) &&
+                    (z2!=zmax2 && z2!=zmin2)){continue;} // Only consider outer rings
+                if(x1==x2&&y1==y2&&z1==z2){
+                   //return perimeter[node1.type].GCost(node1
+              }
+            }
+          }
+        }
+      }
+    }
+    }
+    }
+
+  return 0;
 }
 
 
@@ -1552,3 +1618,13 @@ void AirplaneEnvironment::AddLandingStrip(landingStrip strip)
   this->landingStrips.push_back(strip);
 
 }
+
+const std::vector<std::pair<int,int> > AirplaneEnvironment::ranges = [] {
+  std::vector<std::pair<int,int> > r;
+  r.push_back(std::make_pair(80,1));
+  r.push_back(std::make_pair(80,1));
+  r.push_back(std::make_pair(20,1));
+  r.push_back(std::make_pair(6,1)); // include 0
+  r.push_back(std::make_pair(8,1));
+  return r;
+}();

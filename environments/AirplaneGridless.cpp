@@ -247,39 +247,51 @@ void AirplaneGridlessEnvironment::GetActions(const PlatformState &nodeID, std::v
 {
   actions.resize(0);
   actions.push_back(PlatformAction(0, 0, 0));  // No change
-  actions.push_back(PlatformAction(-3, 0, 0)); // 3 degs left
-  actions.push_back(PlatformAction(3, 0, 0));  // 3 degs right
+  actions.push_back(PlatformAction(-45, 0, 0)); // 45 degs left
+  actions.push_back(PlatformAction(45, 0, 0));  // 45 degs right
+  actions.push_back(PlatformAction(-90, 0, 0)); // 90 degs left
+  actions.push_back(PlatformAction(90, 0, 0));  // 90 degs right
 
   // Increase speed at current height
   if (nodeID.speed < numSpeeds + minSpeed-1){
     actions.push_back(PlatformAction(0, 0, 1));
-    actions.push_back(PlatformAction(-3, 0, 1));
-    actions.push_back(PlatformAction(3, 0, 1));
+    actions.push_back(PlatformAction(-45, 0, 1));
+    actions.push_back(PlatformAction(45, 0, 1));
+    actions.push_back(PlatformAction(-90, 0, 1));
+    actions.push_back(PlatformAction(90, 0, 1));
   }
   // Decrease speed at current height
   if (nodeID.speed > minSpeed){
     actions.push_back(PlatformAction(0, 0, -1));
-    actions.push_back(PlatformAction(-3, 0, -1));
-    actions.push_back(PlatformAction(3, 0, -1));
+    actions.push_back(PlatformAction(-45, 0, -1));
+    actions.push_back(PlatformAction(45, 0, -1));
+    actions.push_back(PlatformAction(-90, 0, -1));
+    actions.push_back(PlatformAction(90, 0, -1));
   }
 
   // Check for decreasing height
   if (nodeID.z > 1) {
     // Decrease height
     actions.push_back(PlatformAction(0, -7.5, 0));
-    actions.push_back(PlatformAction(-3, -7.5, 0));
-    actions.push_back(PlatformAction(3, -7.5, 0));
+    actions.push_back(PlatformAction(-45, -7.5, 0));
+    actions.push_back(PlatformAction(45, -7.5, 0));
+    actions.push_back(PlatformAction(-90, -7.5, 0));
+    actions.push_back(PlatformAction(90, -7.5, 0));
     // Decrease height and speed
     if (nodeID.speed > minSpeed){
       actions.push_back(PlatformAction(0, -7.5, -1));
-      actions.push_back(PlatformAction(-3, -7.5, -1));
-      actions.push_back(PlatformAction(3, -7.5, -1));
+      actions.push_back(PlatformAction(-45, -7.5, -1));
+      actions.push_back(PlatformAction(45, -7.5, -1));
+      actions.push_back(PlatformAction(-90, -7.5, -1));
+      actions.push_back(PlatformAction(90, -7.5, -1));
     }
     // Decrease height increase speed
     if (nodeID.speed < numSpeeds+minSpeed-1) {
       actions.push_back(PlatformAction(0, -7.5, 1));
-      actions.push_back(PlatformAction(-3, -7.5, 1));
-      actions.push_back(PlatformAction(3, -7.5, 1));
+      actions.push_back(PlatformAction(-45, -7.5, 1));
+      actions.push_back(PlatformAction(45, -7.5, 1));
+      actions.push_back(PlatformAction(-90, -7.5, 1));
+      actions.push_back(PlatformAction(90, -7.5, 1));
     }
   }
 
@@ -287,19 +299,25 @@ void AirplaneGridlessEnvironment::GetActions(const PlatformState &nodeID, std::v
   if (nodeID.z < height){
     // Increase height
     actions.push_back(PlatformAction(0, 7.5, 0));
-    actions.push_back(PlatformAction(-3, 7.5, 0));
-    actions.push_back(PlatformAction(3, 7.5, 0));
+    actions.push_back(PlatformAction(-45, 7.5, 0));
+    actions.push_back(PlatformAction(45, 7.5, 0));
+    actions.push_back(PlatformAction(-90, 7.5, 0));
+    actions.push_back(PlatformAction(90, 7.5, 0));
     // increase height decrease speed
     if (nodeID.speed > minSpeed){
       actions.push_back(PlatformAction(0, 7.5, -1));
-      actions.push_back(PlatformAction(-3, 7.5, -1));
-      actions.push_back(PlatformAction(3, 7.5, -1));
+      actions.push_back(PlatformAction(-45, 7.5, -1));
+      actions.push_back(PlatformAction(45, 7.5, -1));
+      actions.push_back(PlatformAction(-90, 7.5, -1));
+      actions.push_back(PlatformAction(90, 7.5, -1));
     }
     // increase height increase speed
     if (nodeID.speed < numSpeeds+minSpeed-1) {
       actions.push_back(PlatformAction(0, 7.5, 1));
-      actions.push_back(PlatformAction(-3, 7.5, 1));
-      actions.push_back(PlatformAction(3, 7.5, 1));
+      actions.push_back(PlatformAction(-45, 7.5, 1));
+      actions.push_back(PlatformAction(45, 7.5, 1));
+      actions.push_back(PlatformAction(-90, 7.5, 1));
+      actions.push_back(PlatformAction(90, 7.5, 1));
     }
   }
 }
@@ -307,39 +325,51 @@ void AirplaneGridlessEnvironment::GetActions(const PlatformState &nodeID, std::v
 void AirplaneGridlessEnvironment::GetReverseActions(const PlatformState &nodeID, std::vector<PlatformAction> &actions) const
 {
   actions.push_back(PlatformAction(0, 0, 0));  // No change
-  actions.push_back(PlatformAction(-3, 0, 0)); // 3 degs left
-  actions.push_back(PlatformAction(3, 0, 0));  // 3 degs right
+  actions.push_back(PlatformAction(-45, 0, 0)); // 45 degs left
+  actions.push_back(PlatformAction(45, 0, 0));  // 45 degs right
+  actions.push_back(PlatformAction(-90, 0, 0)); // 90 degs left
+  actions.push_back(PlatformAction(90, 0, 0));  // 90 degs right
 
   // Increase speed at current height
   if (nodeID.speed < numSpeeds + minSpeed-1){
     actions.push_back(PlatformAction(0, 0, -1));
-    actions.push_back(PlatformAction(-3, 0, -1));
-    actions.push_back(PlatformAction(3, 0, -1));
+    actions.push_back(PlatformAction(-45, 0, -1));
+    actions.push_back(PlatformAction(45, 0, -1));
+    actions.push_back(PlatformAction(-90, 0, -1));
+    actions.push_back(PlatformAction(90, 0, -1));
   }
   // Decrease speed at current height
   if (nodeID.speed > minSpeed){
     actions.push_back(PlatformAction(0, 0, 1));
-    actions.push_back(PlatformAction(-3, 0, 1));
-    actions.push_back(PlatformAction(3, 0, 1));
+    actions.push_back(PlatformAction(-45, 0, 1));
+    actions.push_back(PlatformAction(45, 0, 1));
+    actions.push_back(PlatformAction(-90, 0, 1));
+    actions.push_back(PlatformAction(90, 0, 1));
   }
 
   // Check for decreasing height
   if (nodeID.z > 1) {
     // Increase height
     actions.push_back(PlatformAction(0, 7.5, 0));
-    actions.push_back(PlatformAction(-3, 7.5, 0));
-    actions.push_back(PlatformAction(3, 7.5, 0));
+    actions.push_back(PlatformAction(-45, 7.5, 0));
+    actions.push_back(PlatformAction(45, 7.5, 0));
+    actions.push_back(PlatformAction(-90, 7.5, 0));
+    actions.push_back(PlatformAction(90, 7.5, 0));
     // increase height decrease speed
     if (nodeID.speed > minSpeed){
       actions.push_back(PlatformAction(0, 7.5, 1));
-      actions.push_back(PlatformAction(-3, 7.5, 1));
-      actions.push_back(PlatformAction(3, 7.5, 1));
+      actions.push_back(PlatformAction(-45, 7.5, 1));
+      actions.push_back(PlatformAction(45, 7.5, 1));
+      actions.push_back(PlatformAction(-90, 7.5, 1));
+      actions.push_back(PlatformAction(90, 7.5, 1));
     }
     // increase height increase speed
     if (nodeID.speed < numSpeeds+minSpeed-1) {
       actions.push_back(PlatformAction(0, 7.5, -1));
-      actions.push_back(PlatformAction(-3, 7.5, -1));
-      actions.push_back(PlatformAction(3, 7.5, -1));
+      actions.push_back(PlatformAction(-45, 7.5, -1));
+      actions.push_back(PlatformAction(45, 7.5, -1));
+      actions.push_back(PlatformAction(-90, 7.5, -1));
+      actions.push_back(PlatformAction(90, 7.5, -1));
     }
   }
 
@@ -347,19 +377,25 @@ void AirplaneGridlessEnvironment::GetReverseActions(const PlatformState &nodeID,
   if (nodeID.z < height){
     // Decrease height
     actions.push_back(PlatformAction(0, -7.5, 0));
-    actions.push_back(PlatformAction(-3, -7.5, 0));
-    actions.push_back(PlatformAction(3, -7.5, 0));
+    actions.push_back(PlatformAction(-45, -7.5, 0));
+    actions.push_back(PlatformAction(45, -7.5, 0));
+    actions.push_back(PlatformAction(-90, -7.5, 0));
+    actions.push_back(PlatformAction(90, -7.5, 0));
     // Decrease height and speed
     if (nodeID.speed > minSpeed){
       actions.push_back(PlatformAction(0, -7.5, 1));
-      actions.push_back(PlatformAction(-3, -7.5, 1));
-      actions.push_back(PlatformAction(3, -7.5, 1));
+      actions.push_back(PlatformAction(-45, -7.5, 1));
+      actions.push_back(PlatformAction(45, -7.5, 1));
+      actions.push_back(PlatformAction(-90, -7.5, 1));
+      actions.push_back(PlatformAction(90, -7.5, 1));
     }
     // Decrease height increase speed
     if (nodeID.speed < numSpeeds+minSpeed-1) {
       actions.push_back(PlatformAction(0, -7.5, -1));
-      actions.push_back(PlatformAction(-3, -7.5, -1));
-      actions.push_back(PlatformAction(3, -7.5, -1));
+      actions.push_back(PlatformAction(-45, -7.5, -1));
+      actions.push_back(PlatformAction(45, -7.5, -1));
+      actions.push_back(PlatformAction(-90, -7.5, -1));
+      actions.push_back(PlatformAction(90, -7.5, -1));
     }
   }
 }
@@ -462,12 +498,10 @@ double AirplaneGridlessEnvironment::GCost(const PlatformState &node1, const Plat
 
 bool AirplaneGridlessEnvironment::GoalTest(const PlatformState &node, const PlatformState &goal) const
 {
-    static const int cruise(3);
-    return fabs(node.x-goal.x) < PlatformState::SPEEDS[cruise] &&
-    fabs(node.y-goal.y) < PlatformState::SPEEDS[cruise] &&
-    fabs(node.z-goal.z) < 100.0 &&
-    fmod(fabs(node.hdg()-goal.hdg())+360,360) < 3.1 &&
-    fabs(node.pitch()-goal.pitch()) < 8.0 &&
+    return fless(fabs(node.x-goal.x),1.0) &&
+    fless(fabs(node.y-goal.y),1.0) &&
+    fless(fabs(node.z-goal.z),1.0) &&
+    fmod(fabs(node.hdg()-goal.hdg())+360,360) < 6.1 &&
     node.speed == goal.speed;
 }
 

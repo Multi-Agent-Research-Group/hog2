@@ -82,6 +82,7 @@ public:
 	
   // Heuristics and paths
 	virtual double HCost(const airplaneState &node1, const airplaneState &node2) const;
+	virtual double HCostNew(const airplaneState &node1, const airplaneState &node2) const;
 	virtual double ReverseHCost(const airplaneState &,const airplaneState &)  const;
 	virtual double ReverseGCost(const airplaneState &node1, const airplaneState &node2) const;
 	virtual double HCost(const airplaneState &)  const { assert(false); return 0; }
@@ -91,6 +92,8 @@ public:
   virtual void loadPerimeterDB();
   // Differential dimensionality for learning a heuristic
   virtual void GetDimensions(airplaneState const& node1, airplaneState const& node2, std::vector<double>& data) const;
+  // Dimensional characterization
+  std::vector<std::pair<int,int> > const& GetRanges() const;
 
   // Goal testing
   virtual bool GoalTest(const airplaneState &node, const airplaneState &goal) const;
@@ -171,7 +174,8 @@ protected:
   SearchType searchtype;
 
 private:
-	virtual double myHCost(const airplaneState &node1, const airplaneState &node2) const;
+  static const std::vector<std::pair<int,int> > ranges;
+  virtual double myHCost(const airplaneState &node1, const airplaneState &node2) const;
   bool perimeterLoaded;
   std::string perimeterFile;
   AirplanePerimeterDBBuilder<airplaneState, airplaneAction, AirplaneEnvironment> perimeter[2]; // One for each type of aircraft

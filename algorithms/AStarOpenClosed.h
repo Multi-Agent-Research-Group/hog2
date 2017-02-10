@@ -62,10 +62,17 @@ public:
 };
 
 template<typename state, typename CmpKey, class dataStructure = AStarOpenClosedData<state> >
+struct cmp_t;
+
+template<typename state, typename CmpKey, class dataStructure = AStarOpenClosedData<state> >
 class AStarOpenClosed {
+  friend class cmp_t<state, CmpKey, dataStructure>;
 public:
 	AStarOpenClosed();
+	AStarOpenClosed(char const* filename);
 	~AStarOpenClosed();
+	void SaveToFile(char const*const filename) const;
+	void LoadFromFile(char const*const filename);
 	void Reset(int val=0);
 	uint64_t AddOpenNode(const state &val, uint64_t hash, double g, double h, uint64_t parent=kTAStarNoNode);
 	uint64_t AddClosedNode(state &val, uint64_t hash, double g, double h, uint64_t parent=kTAStarNoNode);
@@ -92,8 +99,8 @@ private:
 	typedef __gnu_cxx::hash_map<uint64_t, uint64_t, AHash64> IndexTable;
 	IndexTable table;
 	std::vector<dataStructure > elements;
-};
 
+};
 
 template<typename state, typename CmpKey, class dataStructure>
 AStarOpenClosed<state, CmpKey, dataStructure>::AStarOpenClosed()
@@ -101,8 +108,52 @@ AStarOpenClosed<state, CmpKey, dataStructure>::AStarOpenClosed()
 }
 
 template<typename state, typename CmpKey, class dataStructure>
+AStarOpenClosed<state, CmpKey, dataStructure>::AStarOpenClosed(char const*const filename)
+{
+  LoadFromFile(filename);
+}
+
+template<typename state, typename CmpKey, class dataStructure>
 AStarOpenClosed<state, CmpKey, dataStructure>::~AStarOpenClosed()
 {
+}
+
+template<typename state, typename CmpKey, class dataStructure>
+void AStarOpenClosed<state, CmpKey, dataStructure>::SaveToFile(char const*const filename)const{
+  // We make the assumption that there are no pointers in "dataStructure"
+  // Write all 64-bit hashes, followed by all raw bytes of the "dataStructure"
+  FILE* fp=fopen(filename,"wb");
+  uint64_t sz(table.size());
+  fwrite(&sz,sizeof(sz),1,fp);
+  for(auto const& p: table){
+    fwrite(&p.first,sizeof(p.first),1,fp);
+    fwrite(&elements[p.second],sizeof(elements[p.second]),1,fp);
+  }
+  fclose(fp);
+}
+
+template<typename state, typename CmpKey, class dataStructure>
+void AStarOpenClosed<state, CmpKey, dataStructure>::LoadFromFile(char const*const filename){
+  // We make the assumption that there are no pointers in "dataStructure"
+  // Write all 64-bit hashes, followed by all raw bytes of the "dataStructure"
+  FILE* fp=fopen(filename,"rb");
+  uint64_t sz;
+  fread(&sz,sizeof(sz),1,fp);
+  elements.resize(sz);
+  theHeap.resize(sz);
+  for (uint64_t i(0); i!=sz; ++i){
+    IndexTable::key_type key;
+    fread(&key,sizeof(key),1,fp);
+    table[key]=i;
+    theHeap[i]=i;
+    dataStructure& value=elements[i];
+    fread(&value,sizeof(value),1,fp);
+  }
+  fclose(fp);
+
+  // Fix heap
+  cmp_t<state, CmpKey, dataStructure> cmp(this);
+  std::make_heap(theHeap.begin(),theHeap.end(),cmp);
 }
 
 /**
@@ -330,5 +381,15 @@ void AStarOpenClosed<state, CmpKey, dataStructure>::HeapifyDown(unsigned int ind
 		HeapifyDown(which);
 	}
 }
+
+template<typename state, typename CmpKey, class dataStructure>
+struct cmp_t{
+  cmp_t(AStarOpenClosed<state, CmpKey, dataStructure>* parent):p(parent){}
+  AStarOpenClosed<state, CmpKey, dataStructure>* p;
+  CmpKey compare;
+  bool operator()(uint64_t const& a, uint64_t const& b){
+    return compare(p->elements[p->theHeap[a]], p->elements[p->theHeap[b]]);
+  }
+};
 
 #endif
