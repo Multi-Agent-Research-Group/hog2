@@ -25,6 +25,7 @@ void TestReverseSuccessors(environ& env, state const& s, state const& g, state o
 
 TEST(AirplaneEnvironmentTest, GetActions) { 
   AirplaneEnvironment env;
+  env.loadPerimeterDB();
   airplaneAction a(0,0,0);
   airplaneState s(50,50,16,3,0);
   airplaneState g(50,40,18,3,0);
@@ -119,7 +120,7 @@ TEST(HeuristicTest, HashTest) {
     airplaneState start(rand() % 80, rand() % 80, rand() % 20, rand() % 5 + 1, rand() % 8, false);
     airplaneState goal(rand() % 80, rand() % 80, rand() % 20, rand() % 5 + 1, rand() % 8, false);
     std::vector<double> data(5);
-    env.GetDimensions(start,goal,data);
+    env.GetDifference(start,goal,data);
     uint64_t hash(builder.getHash(data,env.GetRanges()));
     std::vector<double> reversed(5);
     builder.fromHash(reversed,hash,env.GetRanges());
@@ -128,6 +129,7 @@ TEST(HeuristicTest, HashTest) {
   //std::cout << builder.GCost(s,states[0],env) << "\n";
   //std::cout << builder.GCost(s2,states[0],env) << "\n";
 }
+
 TEST(HeuristicTest, LoadTest) { 
   AirplaneEnvironment env;
   env.setGoal(airtimeState());
@@ -138,23 +140,26 @@ TEST(HeuristicTest, LoadTest) {
       states.emplace_back(40,40,10,s,h);
     }
   }
-  builder.loadDB(env,states,5,"airplane",true); // Force build
+  builder.loadDB(env,states,5,99,3,99,"airplane",true); // Force build
   {
     airplaneState g(40,40,10,3,0);
     airplaneState s(40,41,10,3,0);
     airplaneState s2(40,39,10,3,0);
-    builder.loadDB(env,states,5,"airplane");
+    builder.loadDB(env,states,5,99,3,99,"airplane");
     ASSERT_EQ(.006,builder.GCost(s,g,env));
     ASSERT_EQ(.03,builder.GCost(s2,g,env));
     ASSERT_EQ(.012,builder.GCost(s,s2,env));
   }
-  {
-    airplaneState g(30,50,10,3,0);
-    airplaneState s(30,51,10,3,0);
-    airplaneState s2(30,49,10,3,0);
-    builder.loadDB(env,states,5,"airplane");
-    ASSERT_EQ(.006,builder.GCost(s,g,env));
-    ASSERT_EQ(.03,builder.GCost(s2,g,env));
-    ASSERT_EQ(.012,builder.GCost(s,s2,env));
-  }
+}
+
+TEST(HeuristicTest, GetTestTest) { 
+  AirplaneEnvironment env;
+  env.setGoal(airtimeState());
+  AirplanePerimeterBuilder<airplaneState,airplaneAction,AirplaneEnvironment,5> builder;
+  std::vector<airplaneState> states;
+  states.emplace_back(40,40,10,3,0);
+  airplaneState s(40,40,10,3,0);
+  airplaneState g(44,40,10,3,0);
+  builder.loadDB(env,states,5,99,3,99,"airplane");
+  ASSERT_EQ(.006,builder.GCost(s,g,env));
 }

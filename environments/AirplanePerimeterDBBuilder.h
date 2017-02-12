@@ -15,7 +15,7 @@
 #include <iostream>
 #include <string.h>
 
-template <typename state, typename action, typename environment, unsigned xySize=3, unsigned zSize=3, unsigned numHeadings=8, unsigned numSpeeds=5>
+template <typename state, typename action, typename environment, unsigned xySize=5, unsigned zSize=5, unsigned numHeadings=8, unsigned numSpeeds=5>
 class AirplanePerimeterDBBuilder
 {
   public:

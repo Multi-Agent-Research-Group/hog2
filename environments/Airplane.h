@@ -91,7 +91,9 @@ public:
 	virtual double GetPathLength(const std::vector<airplaneState> &n) const;
   virtual void loadPerimeterDB();
   // Differential dimensionality for learning a heuristic
-  virtual void GetDimensions(airplaneState const& node1, airplaneState const& node2, std::vector<double>& data) const;
+  virtual void GetDifference(airplaneState const& node1, airplaneState const& node2, std::vector<double>& data) const;
+  // Maximum dimensionality separation
+  virtual double GetRadius(airplaneState const& node1, airplaneState const& node2) const;
   // Dimensional characterization
   std::vector<std::pair<int,int> > const& GetRanges() const;
 

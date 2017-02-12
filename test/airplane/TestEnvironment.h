@@ -186,19 +186,31 @@ void testPathUniqueness(){
   std::vector<AirplaneEnvironment*> renvs;
   std::vector<TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment>*> ra;
 
-  AirplaneEnvironment* a8e(new AirplaneHighwayEnvironment());
-  a8e->loadPerimeterDB();
-
+  airplaneState g(40,40,10,3,0,false,AirplaneType::PLANE);
+  //airplaneState s(40,40,10,3,0,false,AirplaneType::PLANE);
   AirplaneEnvironment* ae(new AirplaneEnvironment());
+  ae->setGoal(g);
+  ae->setStart(g);
   ae->loadPerimeterDB();
 
+  AirplaneEnvironment* a8e(new AirplaneHighwayEnvironment());
+  a8e->setGoal(g);
+  a8e->setStart(g);
+  a8e->loadPerimeterDB();
+
   AirplaneEnvironment* ase(new AirplaneSimpleEnvironment());
+  ase->setGoal(g);
+  ase->setStart(g);
   ase->loadPerimeterDB();
 
   AirplaneEnvironment* a4e(new AirplaneCardinalEnvironment());
-  a4e->loadPerimeterDB();
+  a8e->setGoal(g);
+  a8e->setStart(g);
+  a8e->loadPerimeterDB();
 
   AirplaneEnvironment* a4he(new AirplaneHighway4CardinalEnvironment());
+  a4he->setGoal(g);
+  a4he->setStart(g);
   a4he->loadPerimeterDB();
 
   AirplaneEnvironment* age(new AirplaneGridCardinalEnvironment());

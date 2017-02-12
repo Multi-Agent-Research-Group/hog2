@@ -44,7 +44,7 @@ class AirplanePerimeterBuilder
       q.Reset();
       //std::cout << "x<-matrix(c(0,0,0,0,0),1,5);y<-c(0)\n";
       for(state const& start: startStates){
-        env.GetDimensions(start,start,data);
+        env.GetDifference(start,start,data);
         uint64_t hash(getHash(data,env.GetRanges()));
         Container temp(0,start);
         q.AddOpenNode(temp,hash,0.0,0.0,0);
@@ -53,7 +53,7 @@ class AirplanePerimeterBuilder
           double G(q.Lookup(nodeid).g);
           Container node(q.Lookup(nodeid).data);
           if(node.depth > depthLimit) continue;
-          //env.GetDimensions(node.s,start,data);
+          //env.GetDifference(node.s,start,data);
           /*char sep(' ');
           std::cout << "x<-rbind(x,c(";
           for(double d: data){
@@ -93,7 +93,7 @@ class AirplanePerimeterBuilder
           AStarOpenClosedData<Container> temp(q.Lookup(i));
           if(temp.where == kClosedList){
             target[0]=temp.g;
-            env.GetDimensions(temp.data.s,start,data);
+            env.GetDifference(temp.data.s,start,data);
             model->train(data,target);
           }
         }
@@ -101,12 +101,12 @@ class AirplanePerimeterBuilder
       //model->save(env.name());
     }
 
-    void loadDB(environment const& env, std::vector<state> startStates, int depthLimit, char const*const filename, bool replace=false){
-      loadDB(env,startStates,depthLimit,true,filename,replace);
-      loadDB(env,startStates,depthLimit,false,filename,replace);
+    void loadDB(environment const& env, std::vector<state> startStates, int forwardRadius, int forwardDepthLimit, int reverseRadius, int reverseDepthLimit, char const*const filename, bool replace=false){
+      loadDB(env,startStates,forwardRadius,forwardDepthLimit,true,filename,replace);
+      loadDB(env,startStates,reverseRadius,reverseDepthLimit,false,filename,replace);
     }
 
-    void loadDB(environment const& env, std::vector<state> startStates, int depthLimit, bool forward, char const*const filename, bool replace=false){
+    void loadDB(environment const& env, std::vector<state> startStates, int radius, int depthLimit, bool forward, char const*const filename, bool replace=false){
       std::vector<double> data(dims);
       std::vector<double> target(1);
 
@@ -118,7 +118,7 @@ class AirplanePerimeterBuilder
       }
       //std::cout << "x<-matrix(c(0,0,0,0,0),1,5);y<-c(0)\n";
       for(state const& start: startStates){
-        env.GetDimensions(start,start,data);
+        env.GetDifference(start,start,data);
         uint64_t hash(getHash(data,env.GetRanges()));
         Container temp(0,start);
         q.AddOpenNode(temp,hash,0.0,0.0,0);
@@ -126,7 +126,7 @@ class AirplanePerimeterBuilder
           uint64_t nodeid(q.Close());
           double G(q.Lookup(nodeid).g);
           Container node(q.Lookup(nodeid).data);
-          if(node.depth > depthLimit) continue;
+          if(node.depth > depthLimit || env.GetRadius(start,node.s)>radius) continue;
           std::vector<state> succ;
           if(forward)
             env.GetSuccessors(node.s,succ);
@@ -135,9 +135,9 @@ class AirplanePerimeterBuilder
           for(state s: succ){
             uint64_t theID;
             if(forward)
-              env.GetDimensions(start,s,data);
+              env.GetDifference(start,s,data);
             else
-              env.GetDimensions(s,start,data);
+              env.GetDifference(s,start,data);
             uint64_t hash(getHash(data,env.GetRanges()));
             switch(q.Lookup(hash,theID)){
               case kClosedList:
@@ -200,7 +200,7 @@ class AirplanePerimeterBuilder
     double GCost(state const& s, state const& g, environment const& env){
       double result(DBL_MAX);
       std::vector<double> data;
-      env.GetDimensions(s,g,data);
+      env.GetDifference(s,g,data);
       uint64_t hash(getHash(data,env.GetRanges()));
       uint64_t theID;
       dataLocation loc = rev.Lookup(hash,theID);
@@ -219,7 +219,7 @@ class AirplanePerimeterBuilder
     // Regression-based G-Cost
     double GCostR(state const& s, state const& g, environment const& env){
       std::vector<double> input;
-      env.GetDimensions(s,g,input);
+      env.GetDifference(s,g,input);
       if(!model){model=new NN(env.name());}
       return *(model->test(input));
     }

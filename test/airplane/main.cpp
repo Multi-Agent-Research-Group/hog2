@@ -2,8 +2,8 @@
 #include "UnitTests.h"
 
 int main(int argc, char **argv){
-  testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
+  //testing::InitGoogleTest(&argc, argv);
+  //return RUN_ALL_TESTS();
 
   //testCardinalEnvHCost();
   //testSimpleActions();
@@ -23,10 +23,10 @@ int main(int argc, char **argv){
   //testConstraints();
   //testAdmissibility();
   //compareHeuristicSpeed();
-  //testPathUniqueness();
+  testPathUniqueness();
   //testHash();
   //testIntervalTree();
-  testPEAStar();
+  //testPEAStar();
 
   return 0;
 
