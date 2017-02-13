@@ -142,6 +142,7 @@ public:
   void setStart(airplaneState const& s){start=&s;}
 
   void setSearchType(SearchType s){searchtype=s;}
+  virtual double myHCost(const airplaneState &node1, const airplaneState &node2) const;
 
 protected:
   
@@ -177,10 +178,9 @@ protected:
 
 private:
   static const std::vector<std::pair<int,int> > ranges;
-  virtual double myHCost(const airplaneState &node1, const airplaneState &node2) const;
   bool perimeterLoaded;
   std::string perimeterFile;
-  AirplanePerimeterDBBuilder<airplaneState, airplaneAction, AirplaneEnvironment> perimeter[2]; // One for each type of aircraft
+  AirplanePerimeterDBBuilder<airplaneState, airplaneAction, AirplaneEnvironment> perimeter;
 
   //TODO Add wind constants
   //const double windSpeed = 0;

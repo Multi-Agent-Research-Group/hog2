@@ -74,6 +74,11 @@ std::vector<std::vector<airtimeState> > waypoints;
     {
       group->ExpandOneCBSNode();
     }
+    for(int i(0);i<group->GetNumMembers();++i){
+      std::cout << "final path for agent " << i << ":\n";
+      for(auto const& n: group->tree.back().paths[i])
+        std::cout << n << "\n";
+    }
   }
 }
 

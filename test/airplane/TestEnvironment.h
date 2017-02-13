@@ -23,7 +23,7 @@
 #include <set>
 
 void renderScene(){}
-static const int sz(16);
+static const int sz(5);
 static const int wd(sz*2+1);
 
 uint64_t toIndex(airplaneState const& s, airplaneState const& start){
@@ -204,9 +204,9 @@ void testPathUniqueness(){
   ase->loadPerimeterDB();
 
   AirplaneEnvironment* a4e(new AirplaneCardinalEnvironment());
-  a8e->setGoal(g);
-  a8e->setStart(g);
-  a8e->loadPerimeterDB();
+  a4e->setGoal(g);
+  a4e->setStart(g);
+  a4e->loadPerimeterDB();
 
   AirplaneEnvironment* a4he(new AirplaneHighway4CardinalEnvironment());
   a4he->setGoal(g);

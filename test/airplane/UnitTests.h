@@ -2,6 +2,8 @@
 #include "Airplane.h"
 #include "AirplaneGridless.h"
 #include <gtest/gtest.h>
+//#include <utility>
+#include "TemplateAStar.h"
 
 template<typename environ, typename state>
 void TestReverseSuccessors(environ& env, state const& s, state const& g, state o) {
@@ -153,13 +155,124 @@ TEST(HeuristicTest, LoadTest) {
 }
 
 TEST(HeuristicTest, GetTestTest) { 
+  std::vector<std::pair<airplaneState,airplaneState> >tests;
+
+  /////////////////////////////////////////////////////////////////////////////
+  // Inside radius
+  /////////////////////////////////////////////////////////////////////////////
+
+  // Similar X,Y,Z
+  tests.push_back(std::make_pair(airplaneState(32,28,12,3,2),airplaneState(30,30,10,3,2)));
+
+  /////////////////////////////////////////////////////////////////////////////
+  // 3 Pillars
+  /////////////////////////////////////////////////////////////////////////////
+
+  // Same X,Y; +Z
+  tests.push_back(std::make_pair(airplaneState(30,30,10,3,2),airplaneState(30,30,16,3,2)));
+  // Same X,Y; -Z
+  tests.push_back(std::make_pair(airplaneState(30,30,10,3,2),airplaneState(30,30,6,3,2)));
+  // Similar X, Same Y; +Z
+  tests.push_back(std::make_pair(airplaneState(32,30,10,3,2),airplaneState(30,30,16,3,2)));
+  // Same X, Similar Y; -Z
+  tests.push_back(std::make_pair(airplaneState(30,29,10,3,2),airplaneState(30,30,6,3,2)));
+  // Similar X, Similar Y; -Z
+  tests.push_back(std::make_pair(airplaneState(32,29,10,3,2),airplaneState(30,30,6,3,2)));
+
+  // Same X,Z; +Y
+  tests.push_back(std::make_pair(airplaneState(30,36,10,3,2),airplaneState(30,30,10,3,2)));
+  // Same X,Z; -Y
+  tests.push_back(std::make_pair(airplaneState(30,24,10,3,2),airplaneState(30,30,10,3,2)));
+  // Similar X, Same Z; +Y
+  tests.push_back(std::make_pair(airplaneState(32,36,10,3,2),airplaneState(30,30,10,3,2)));
+  // Same X, Similar Z; -Y
+  tests.push_back(std::make_pair(airplaneState(30,24,8,3,2),airplaneState(30,30,10,3,2)));
+  // Similar X, Similar Z; -Y
+  tests.push_back(std::make_pair(airplaneState(32,24,12,3,2),airplaneState(30,30,10,3,2)));
+
+  // Same Y,Z; +X
+  tests.push_back(std::make_pair(airplaneState(36,30,10,3,2),airplaneState(30,30,10,3,2)));
+  // Same Y,Z; -X
+  tests.push_back(std::make_pair(airplaneState(24,30,10,3,6),airplaneState(30,30,10,3,6)));
+  // Similar Y, Same Z; +X
+  tests.push_back(std::make_pair(airplaneState(36,32,10,3,2),airplaneState(30,30,10,3,2)));
+  // Same Y, Similar Z; -X
+  tests.push_back(std::make_pair(airplaneState(24,30,8,3,6),airplaneState(30,30,10,3,6)));
+  // Similar Y, Similar Z; -X
+  tests.push_back(std::make_pair(airplaneState(24,28,12,3,6),airplaneState(30,30,10,3,6)));
+
+  /////////////////////////////////////////////////////////////////////////////
+  // 3 Planes
+  /////////////////////////////////////////////////////////////////////////////
+
+  // Same X
+  tests.push_back(std::make_pair(airplaneState(30,35,15,3,2),airplaneState(30,30,10,3,2)));
+  // Similar X
+  tests.push_back(std::make_pair(airplaneState(32,35,5,3,2),airplaneState(30,30,10,3,2)));
+
+  // Same Y
+  tests.push_back(std::make_pair(airplaneState(35,30,15,3,2),airplaneState(30,30,10,3,2)));
+  // Similar Y
+  tests.push_back(std::make_pair(airplaneState(35,32,5,3,2),airplaneState(30,30,10,3,2)));
+
+  // Same Z
+  tests.push_back(std::make_pair(airplaneState(35,25,10,3,2),airplaneState(30,30,10,3,2)));
+  // Similar Z
+  tests.push_back(std::make_pair(airplaneState(35,25,8,3,2),airplaneState(30,30,10,3,2)));
+
+  /////////////////////////////////////////////////////////////////////////////
+  // 8 Corners
+  /////////////////////////////////////////////////////////////////////////////
+
+  // +X+Y+Z
+  tests.push_back(std::make_pair(airplaneState(35,35,15,3,2),airplaneState(30,30,10,3,2)));
+  // +X+Y-Z
+  tests.push_back(std::make_pair(airplaneState(35,35,5,3,2),airplaneState(30,30,10,3,2)));
+  // +X-Y+Z
+  tests.push_back(std::make_pair(airplaneState(35,25,15,3,2),airplaneState(30,30,10,3,2)));
+  // +X-Y-Z
+  tests.push_back(std::make_pair(airplaneState(35,25,5,3,2),airplaneState(30,30,10,3,2)));
+  // -X+Y+Z
+  tests.push_back(std::make_pair(airplaneState(25,35,15,3,6),airplaneState(30,30,10,3,6)));
+  // -X+Y-Z
+  tests.push_back(std::make_pair(airplaneState(25,35,5,3,6),airplaneState(30,30,10,3,6)));
+  // -X-Y+Z
+  tests.push_back(std::make_pair(airplaneState(25,25,15,3,6),airplaneState(30,30,10,3,6)));
+  // -X-Y-Z
+  tests.push_back(std::make_pair(airplaneState(25,25,5,3,6),airplaneState(30,30,10,3,6)));
+
+
   AirplaneEnvironment env;
-  env.setGoal(airtimeState());
-  AirplanePerimeterBuilder<airplaneState,airplaneAction,AirplaneEnvironment,5> builder;
-  std::vector<airplaneState> states;
-  states.emplace_back(40,40,10,3,0);
-  airplaneState s(40,40,10,3,0);
-  airplaneState g(44,40,10,3,0);
-  builder.loadDB(env,states,5,99,3,99,"airplane");
-  ASSERT_EQ(.006,builder.GCost(s,g,env));
+  env.loadPerimeterDB();
+  std::vector<airplaneState> path;
+  TemplateAStar<airplaneState,airplaneAction,AirplaneEnvironment> astar;
+  for(auto const& inst: tests){
+    env.setStart(inst.first);
+    env.setGoal(inst.second);
+    astar.GetPath(&env,env.getStart(),env.getGoal(),path);
+    double cost=env.GetPathLength(path);
+    double hcost=env.HCost(env.getStart(),env.getGoal()); 
+    ASSERT_LE(hcost,cost);
+  }
 }
+
+TEST(AirplaneEnvironmentTest, ProblemChild) { 
+  AirplaneEnvironment env;
+  env.loadPerimeterDB();
+  std::vector<airplaneState> path;
+  TemplateAStar<airplaneState,airplaneAction,AirplaneEnvironment> astar;
+  env.setStart(airplaneState(37,45,10,1,0));
+  env.setGoal(airplaneState(40,40,10,1,0));
+  astar.GetPath(&env,env.getStart(),env.getGoal(),path);
+  for(int i(0); i<path.size(); ++i){
+    std::cout << path[i]<<" ";
+    if(i)
+      std::cout << env.GCost(path[i-1],path[i]) << " " << env.myHCost(path[i-1],path[i]) << "\n";
+    else
+      std::cout << "\n";
+  }
+  double cost=env.GetPathLength(path);
+  double hcost=env.HCost(env.getStart(),env.getGoal()); 
+  ASSERT_LE(hcost,cost);
+}
+
