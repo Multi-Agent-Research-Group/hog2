@@ -934,23 +934,26 @@ double AirplaneEnvironment::myHCost(const airplaneState &node1, const airplaneSt
   // Estimate fuel cost...
   static const int cruiseSpeed(3);
   static const int speedcost[5][5] = {{4,2,1,2,4}, //1-->1,1-->2,1-->3,1-->4,1-->5
-                                      {3,1,0,1,3},
-                                      {2,1,0,1,2},
-                                      {3,1,0,1,3},
-                                      {4,2,1,2,4}};
+                                      {3,1,0,1,3}, //2-->1,2-->2,2-->3,2-->4,2-->5
+                                      {3,1,0,1,3}, //3-->1,3-->2,3-->3,3-->4,3-->5
+                                      {3,1,0,1,3}, //4-->1,4-->2,4-->3,4-->4,4-->5
+                                      {4,2,1,2,4}};//5-->1,5-->2,5-->3,5-->4,5-->5
   int diffx(abs(node1.x-node2.x));
   int diffy(abs(node1.y-node2.y));
   int diff(abs(diffy-diffx));
   int diag(abs((diffx+diffy)-diff)/2);
   int vertDiff(node2.height-node1.height);
 
-  // Make the assumption that the perimeter is at least n steps away (diff+diag >= speedDiff1+speedDiff2)
+  // Make the assumption that the goal is at least n steps away (diff+diag >= speedDiff1+speedDiff2)
   int speedMult=speedcost[node1.speed-1][node2.speed-1];
-  int speedDiff1(std::max(0,abs(cruiseSpeed-node1.speed)));
-
-  // Moving toward cruise speed does not cost extra
-  int speedDiff2(abs(cruiseSpeed-node2.speed));
+  
+  // Absolute speed changes that must occur
   int speedDiff(abs(node2.speed-node1.speed));
+
+  // Speed changes that would occur if we move toward cruise speed
+  int speedDiff1(abs(cruiseSpeed-node1.speed));
+  int speedDiff2(abs(cruiseSpeed-node2.speed));
+
   double vcost(vertDiff>0?climbCost:descendCost);
   vertDiff=abs(vertDiff);
   int maxMove(std::max(speedDiff,vertDiff));
@@ -970,24 +973,58 @@ double AirplaneEnvironment::myHCost(const airplaneState &node1, const airplaneSt
   }
   if(maxMove>diff+diag){diff+=maxMove-(diff+diag);}
 
-  int speedChanges=std::max(0,(diff+diag>=speedDiff1+speedDiff2)?(speedMult):(speedDiff-1));
- 
-  //std::cout << "speed:"<<speedChanges<<"v:"<<vertDiff<<"\n";
-  int cspeedMult(std::min(diff,speedChanges));
-  double dspeedDiff=std::max(0,speedChanges-cspeedMult)*speedBurnDelta;
-
-   //std::cout << "("<<diff*cruiseBurnRate+cspeedMult*speedBurnDelta << "+" << (dspeedDiff+diag*cruiseBurnRate)*M_SQRT2 << "+" << vertDiff*vcost << ")";
+  
+  int cspeedMult(0);
+  int dspeedMult(0);
+  if(diff+diag>=speedDiff1+speedDiff2){
+    int d1(speedcost[node1.speed-1][cruiseSpeed-1]);
+    int d2(speedcost[cruiseSpeed-1][node2.speed-1]);
+    if(diff==0){dspeedMult=d1+d2;}
+    else if(diag==0){cspeedMult=d1+d2;}
+    else{
+      int cdl(diff); //Cardinal
+      int dgl(diag); //Diagonal
+      if(node2.speed==5||node2.speed==1){
+        d2-=2;
+        if(cdl){cdl--; cspeedMult+=2;}
+        else{dgl--; dspeedMult+=2;}
+      }
+      if(d2){
+        if(cdl){cdl--; cspeedMult++;}
+        else if(dgl){dgl--; dspeedMult++;}
+      }
+      if(d1){
+        if(cdl){cspeedMult++;}
+        else if(dgl){dspeedMult++;}
+      }
+    }
+  }else{
+    if(diff==0){dspeedMult==speedcost[node1.speed-1][node2.speed-1];}
+    else if(diag==0){cspeedMult==speedcost[node1.speed-1][node2.speed-1];}
+    else{
+      int cost(speedcost[node1.speed-1][node2.speed-1]);
+      int cdl(diff); //Cardinal
+      int dgl(diag); //Diagonal
+      if(node2.speed==5||node2.speed==1){
+        cost-=2;
+        if(cdl){cdl--; cspeedMult+=2;}
+        else{dgl--; dspeedMult+=2;}
+      }
+      if(cost && cdl){cdl--; cspeedMult++; cost--;}
+      if(cost && cdl){cdl--; cspeedMult++; cost--;}
+      if(cost && dgl){dgl--; dspeedMult++; cost--;}
+      if(cost && dgl){dgl--; dspeedMult++; cost--;}
+    }
+  }
 
    return diff*cruiseBurnRate+cspeedMult*speedBurnDelta+
-      (dspeedDiff+diag*cruiseBurnRate)*M_SQRT2+
+      (dspeedMult*speedBurnDelta+diag*cruiseBurnRate)*M_SQRT2+
       vertDiff*vcost+
       ((node1.landed && node2.landed) ? 1.0 : 0.0);
 
   //// Estimate cost of doing nothing
   //double noop_cost = (node1.landed && node2.landed) ? 1.0 : 0.0;
   //total += noop_cost;
-
-  //return total+(diag*cruiseBurnRate+dspeedDiff*speedBurnDelta)*M_SQRT2;
 }
 
 double AirplaneEnvironment::ReverseHCost(const airplaneState &node1, const airplaneState &node2) const
@@ -1171,7 +1208,6 @@ double AirplaneEnvironment::HCostNew(const airplaneState &node1, const airplaneS
     }
 
     // Case 2
-
     // Get sides for comparison
     uint16_t sx1=node1.x+perimeterSize*(abs(node1.x-node2.x)<=perimeterSize?0:(node1.x>node2.x?-1:1));
     uint16_t sx2=node2.x+perimeterSize*(abs(node1.x-node2.x)<=perimeterSize?0:(node2.x>node1.x?-1:1));
@@ -1197,52 +1233,47 @@ double AirplaneEnvironment::HCostNew(const airplaneState &node1, const airplaneS
         int h2((heading+H2+kCircleSize)%kCircleSize);
         if(doX){
           if(doY){
-            // Directly above or below
-            for(int x1(node1.x-perimeterSize); x1<node1.x+perimeterSize; ++x1){
-              for(int y1(node1.y-perimeterSize); y1<node1.y+perimeterSize; ++y1){
-                for(int x2(node2.x-perimeterSize); x2<node2.x+perimeterSize; ++x2){
-                  for(int y2(node2.y-perimeterSize); y2<node2.y+perimeterSize; ++y2){
-
-                    airplaneState p1(x1,y1,sz1,cruiseSpeed,h1);
-                    airplaneState p2(x2,y2,sz2,cruiseSpeed,h2);
-                    best=std::min(best,perimeter.GCost(node1,p1)+myHCost(p1,p2)+perimeter.GCost(p2,node2));                   
-                  }
-                }
-              }
-            }
+            return myHCost(node1,node2);
           }else if(doZ){
             uint16_t minz(std::min(node1.height,node2.height));
-            uint16_t maxz(std::max(node1.height,node2.height)+1);
+            uint16_t maxz(std::max(node1.height,node2.height));
             // Directly north or south
-            for(int x1(node1.x-perimeterSize); x1<node1.x+perimeterSize; ++x1){
-              for(int z1(minz); z1<maxz; ++z1){
-                for(int x2(node2.x-perimeterSize); x2<node2.x+perimeterSize; ++x2){
-                  for(int z2(minz); z2<maxz; ++z2){
+            for(int x1(node1.x-perimeterSize); x1<=node1.x+perimeterSize; ++x1){
+              for(int z1(minz); z1<=maxz; ++z1){
+                for(int x2(node2.x-perimeterSize); x2<=node2.x+perimeterSize; ++x2){
+                  for(int z2(minz); z2<=maxz; ++z2){
                     airplaneState p1(x1,sy1,z1,cruiseSpeed,h1);
                     airplaneState p2(x2,sy2,z2,cruiseSpeed,h2);
-                    best=std::min(best,perimeter.GCost(node1,p1)+myHCost(p1,p2)+perimeter.GCost(p2,node2));                   
+                    best=std::min(best,perimeter.GCost(node1,p1)+myHCost(p1,p2)+perimeter.GCost(p2,node2));
                   }
                 }
               }
             }
           }else{
             uint16_t miny1(std::min(sy1, node1.y));
-            uint16_t maxy1(std::max(sy1, node1.y)+1);
+            uint16_t maxy1(std::max(sy1, node1.y));
             uint16_t minz1(std::min(sz1, node1.height));
-            uint16_t maxz1(std::max(sz1, node1.height)+1);
+            uint16_t maxz1(std::max(sz1, node1.height));
             uint16_t miny2(std::min(sy2, node2.y));
-            uint16_t maxy2(std::max(sy2, node2.y)+1);
+            uint16_t maxy2(std::max(sy2, node2.y));
             uint16_t minz2(std::min(sz2, node2.height));
-            uint16_t maxz2(std::max(sz2, node2.height)+1);
+            uint16_t maxz2(std::max(sz2, node2.height));
             // Directly above or below and north or south
-            for(int x1(node1.x-perimeterSize); x1<node1.x+perimeterSize; ++x1){
-              for(int y1(miny1); y1<maxy1; ++y1){
-                for(int z1(minz1); z1<maxz1; ++z1){
-                  for(int x2(node2.x-perimeterSize); x2<node2.x+perimeterSize; ++x2){
-                    for(int y2(miny2); y2<maxy2; ++y2){
-                      for(int z2(minz2); z2<maxz2; ++z2){
+
+            // Ignore height difference and add it in later
+            for(int x1(node1.x-perimeterSize); x1<=node1.x+perimeterSize; ++x1){
+              for(int y1(miny1); y1<=maxy1; ++y1){
+                for(int z1(minz1); z1<=maxz1; ++z1){
+                  for(int x2(node2.x-perimeterSize); x2<=node2.x+perimeterSize; ++x2){
+                    for(int y2(miny2); y2<=maxy2; ++y2){
+                      for(int z2(minz2); z2<=maxz2; ++z2){
                         airplaneState p1(x1,y1,z1,cruiseSpeed,h1);
                         airplaneState p2(x2,y2,z2,cruiseSpeed,h2);
+                        /*if(fless(perimeter.GCost(node1,p1)+myHCost(p1,p2)+perimeter.GCost(p2,node2),best)){
+std::cout <<"*";}
+                          std::cout << "NEWG " << x1 <<","<< x2 <<"," << y1 <<"," << y2 <<"," << z1 <<"," << z2 <<"\n";
+                          std::cout << "NEWG " << perimeter.GCost(node1,p1) << "+" << "myHCost("<<p1<<","<<p2<<myHCost(p1,p2)<<"+"<<perimeter.GCost(p2,node2)<<"="<<(perimeter.GCost(node1,p1)+myHCost(p1,p2)+perimeter.GCost(p2,node2))<<"\n";
+                        //}*/
                         best=std::min(best,perimeter.GCost(node1,p1)+myHCost(p1,p2)+perimeter.GCost(p2,node2));                   
                       }
                     }
@@ -1254,14 +1285,20 @@ double AirplaneEnvironment::HCostNew(const airplaneState &node1, const airplaneS
         }else if(doY){
           if(doZ){
             uint16_t minz(std::min(node1.height,node2.height));
-            uint16_t maxz(std::max(node1.height,node2.height)+1);
+            uint16_t maxz(std::max(node1.height,node2.height));
             // Directly east or west
-            for(int y1(node1.y-perimeterSize); y1<node1.y+perimeterSize; ++y1){
-              for(int z1(minz); z1<maxz; ++z1){
-                for(int y2(node2.y-perimeterSize); y2<node2.y+perimeterSize; ++y2){
-                  for(int z2(minz); z2<maxz; ++z2){
+            for(int y1(node1.y-perimeterSize); y1<=node1.y+perimeterSize; ++y1){
+              for(int z1(minz); z1<=maxz; ++z1){
+                for(int y2(node2.y-perimeterSize); y2<=node2.y+perimeterSize; ++y2){
+                  for(int z2(minz); z2<=maxz; ++z2){
                     airplaneState p1(sx1,y1,z1,cruiseSpeed,h1);
                     airplaneState p2(sx2,y2,z2,cruiseSpeed,h2);
+                      /*if(fless(perimeter.GCost(node1,p1)+myHCost(p1,p2)+perimeter.GCost(p2,node2),best)){
+          std::cout << "NEWG " << sx1 <<","<< sx2 <<","
+            << miny1 <<","<< maxy1 <<"," << miny2 <<","<< maxy2 <<","
+            << minz <<","<< maxz <<"," << minz <<","<< maxz <<"\n";
+std::cout << "NEWG " << perimeter.GCost(node1,p1) << "+" << "myHCost("<<p1<<","<<p2<<myHCost(p1,p2)<<"+"<<perimeter.GCost(p2,node2)<<"="<<(perimeter.GCost(node1,p1)+myHCost(p1,p2)+perimeter.GCost(p2,node2))<<"\n";
+}*/
                     best=std::min(best,perimeter.GCost(node1,p1)+myHCost(p1,p2)+perimeter.GCost(p2,node2));                   
                   }
                 }
@@ -1269,21 +1306,21 @@ double AirplaneEnvironment::HCostNew(const airplaneState &node1, const airplaneS
             }
           }else{
             uint16_t minx1(std::min(sx1, node1.x));
-            uint16_t maxx1(std::max(sx1, node1.x)+1);
+            uint16_t maxx1(std::max(sx1, node1.x));
             uint16_t minz1(std::min(sz1, node1.height));
-            uint16_t maxz1(std::max(sz1, node1.height)+1);
+            uint16_t maxz1(std::max(sz1, node1.height));
             uint16_t minx2(std::min(sx2, node2.x));
-            uint16_t maxx2(std::max(sx2, node2.x)+1);
+            uint16_t maxx2(std::max(sx2, node2.x));
             uint16_t minz2(std::min(sz2, node2.height));
-            uint16_t maxz2(std::max(sz2, node2.height)+1);
+            uint16_t maxz2(std::max(sz2, node2.height));
 
-            // Directly above or below and east or west
-            for(int x1(minx1); x1<maxx1; ++x1){
-              for(int y1(node1.y-perimeterSize); y1<node1.y+perimeterSize; ++y1){
-                for(int z1(minz1); z1<maxz1; ++z1){
-                  for(int x2(minx2); x2<maxx2; ++x2){
-                    for(int y2(node2.y-perimeterSize); y2<node2.y+perimeterSize; ++y2){
-                      for(int z2(minz2); z2<maxz2; ++z2){
+            // above or below and east or west
+            for(int x1(minx1); x1<=maxx1; ++x1){
+              for(int y1(node1.y-perimeterSize); y1<=node1.y+perimeterSize; ++y1){
+                for(int z1(minz1); z1<=maxz1; ++z1){
+                  for(int x2(minx2); x2<=maxx2; ++x2){
+                    for(int y2(node2.y-perimeterSize); y2<=node2.y+perimeterSize; ++y2){
+                      for(int z2(minz2); z2<=maxz2; ++z2){
                         airplaneState p1(x1,y1,z1,cruiseSpeed,h1);
                         airplaneState p2(x2,y2,z2,cruiseSpeed,h2);
                         best=std::min(best,perimeter.GCost(node1,p1)+myHCost(p1,p2)+perimeter.GCost(p2,node2));                   
@@ -1296,30 +1333,30 @@ double AirplaneEnvironment::HCostNew(const airplaneState &node1, const airplaneS
           }
         } else if(doZ){
           uint16_t minx1(std::min(sx1, node1.x));
-          uint16_t maxx1(std::max(sx1, node1.x)+1);
+          uint16_t maxx1(std::max(sx1, node1.x));
           uint16_t miny1(std::min(sy1, node1.y));
-          uint16_t maxy1(std::max(sy1, node1.y)+1);
+          uint16_t maxy1(std::max(sy1, node1.y));
           uint16_t minx2(std::min(sx2, node2.x));
-          uint16_t maxx2(std::max(sx2, node2.x)+1);
+          uint16_t maxx2(std::max(sx2, node2.x));
           uint16_t miny2(std::min(sy2, node2.y));
-          uint16_t maxy2(std::max(sy2, node2.y)+1);
+          uint16_t maxy2(std::max(sy2, node2.y));
           uint16_t minz(std::min(node1.height,node2.height));
-          uint16_t maxz(std::max(node1.height,node2.height)+1);
+          uint16_t maxz(std::max(node1.height,node2.height));
           // Similar height
-          for(int x1(minx1); x1<maxx1; ++x1){
-            for(int y1(miny1); y1<maxy1; ++y1){
-              for(int z1(minz); z1<maxz; ++z1){
-                for(int x2(minx2); x2<maxx2; ++x2){
-                  for(int y2(miny2); y2<maxy2; ++y2){
-                    for(int z2(minz); z2<maxz; ++z2){
+          for(int x1(minx1); x1<=maxx1; ++x1){
+            for(int y1(miny1); y1<=maxy1; ++y1){
+              for(int z1(minz); z1<=maxz; ++z1){
+                for(int x2(minx2); x2<=maxx2; ++x2){
+                  for(int y2(miny2); y2<=maxy2; ++y2){
+                    for(int z2(minz); z2<=maxz; ++z2){
                       airplaneState p1(x1,y1,z1,cruiseSpeed,h1);
                       airplaneState p2(x2,y2,z2,cruiseSpeed,h2);
-                      if(fless(perimeter.GCost(node1,p1)+myHCost(p1,p2)+perimeter.GCost(p2,node2),best)){
-          std::cout << "NEWG " << minx1 <<","<< maxx1 <<"," << minx2 <<","<< maxx2 <<","
-            << miny1 <<","<< maxy1 <<"," << miny2 <<","<< maxy2 <<","
-            << minz <<","<< maxz <<"," << minz <<","<< maxz <<"\n";
-std::cout << "NEWG " << perimeter.GCost(node1,p1) << "+" << "myHCost("<<p1<<","<<p2<<myHCost(p1,p2)<<"+"<<perimeter.GCost(p2,node2)<<"="<<(perimeter.GCost(node1,p1)+myHCost(p1,p2)+perimeter.GCost(p2,node2))<<"\n";
-}
+                      //if(fless(perimeter.GCost(node1,p1)+myHCost(p1,p2)+perimeter.GCost(p2,node2),best)){
+          //std::cout << "NEWG " << minx1 <<","<< maxx1 <<"," << minx2 <<","<< maxx2 <<","
+            //<< miny1 <<","<< maxy1 <<"," << miny2 <<","<< maxy2 <<","
+            //<< minz <<","<< maxz <<"," << minz <<","<< maxz <<"\n";
+//std::cout << "NEWG " << perimeter.GCost(node1,p1) << "+" << "myHCost("<<p1<<","<<p2<<myHCost(p1,p2)<<"+"<<perimeter.GCost(p2,node2)<<"="<<(perimeter.GCost(node1,p1)+myHCost(p1,p2)+perimeter.GCost(p2,node2))<<"\n";
+//}
                       best=std::min(best,perimeter.GCost(node1,p1)+myHCost(p1,p2)+perimeter.GCost(p2,node2));                   
                     }
                   }
@@ -1330,25 +1367,25 @@ std::cout << "NEWG " << perimeter.GCost(node1,p1) << "+" << "myHCost("<<p1<<","<
         } else {
           // check the corner of each perimeter
           uint16_t minx1(std::min(sx1, node1.x));
-          uint16_t maxx1(std::max(sx1, node1.x)+1);
+          uint16_t maxx1(std::max(sx1, node1.x));
           uint16_t miny1(std::min(sy1, node1.y));
-          uint16_t maxy1(std::max(sy1, node1.y)+1);
+          uint16_t maxy1(std::max(sy1, node1.y));
           uint16_t minz1(std::min(sz1, node1.height));
-          uint16_t maxz1(std::max(sz1, node1.height)+1);
+          uint16_t maxz1(std::max(sz1, node1.height));
           uint16_t minx2(std::min(sx2, node2.x));
-          uint16_t maxx2(std::max(sx2, node2.x)+1);
+          uint16_t maxx2(std::max(sx2, node2.x));
           uint16_t miny2(std::min(sy2, node2.y));
-          uint16_t maxy2(std::max(sy2, node2.y)+1);
+          uint16_t maxy2(std::max(sy2, node2.y));
           uint16_t minz2(std::min(sz2, node2.height));
-          uint16_t maxz2(std::max(sz2, node2.height)+1);
+          uint16_t maxz2(std::max(sz2, node2.height));
 
           // Not directly in line in any direction
-          for(int x1(minx1); x1<maxx1; ++x1){
-            for(int y1(miny1); y1<maxy1; ++y1){
-              for(int z1(minz1); z1<maxz1; ++z1){
-                for(int x2(minx2); x2<maxx2; ++x2){
-                  for(int y2(miny2); y2<maxy2; ++y2){
-                    for(int z2(minz2); z2<maxz2; ++z2){
+          for(int x1(minx1); x1<=maxx1; ++x1){
+            for(int y1(miny1); y1<=maxy1; ++y1){
+              for(int z1(minz1); z1<=maxz1; ++z1){
+                for(int x2(minx2); x2<=maxx2; ++x2){
+                  for(int y2(miny2); y2<=maxy2; ++y2){
+                    for(int z2(minz2); z2<=maxz2; ++z2){
                       airplaneState p1(x1,y1,z1,cruiseSpeed,h1);
                       airplaneState p2(x2,y2,z2,cruiseSpeed,h2);
                       best=std::min(best,perimeter.GCost(node1,p1)+myHCost(p1,p2)+perimeter.GCost(p2,node2));                   

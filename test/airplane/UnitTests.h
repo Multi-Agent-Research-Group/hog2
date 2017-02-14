@@ -25,6 +25,7 @@ void TestReverseSuccessors(environ& env, state const& s, state const& g, state o
   }
 }
 
+/*
 TEST(AirplaneEnvironmentTest, GetActions) { 
   AirplaneEnvironment env;
   env.loadPerimeterDB();
@@ -255,14 +256,22 @@ TEST(HeuristicTest, GetTestTest) {
     ASSERT_LE(hcost,cost);
   }
 }
-
+*/
 TEST(AirplaneEnvironmentTest, ProblemChild) { 
   AirplaneEnvironment env;
   env.loadPerimeterDB();
   std::vector<airplaneState> path;
   TemplateAStar<airplaneState,airplaneAction,AirplaneEnvironment> astar;
-  env.setStart(airplaneState(37,45,10,1,0));
-  env.setGoal(airplaneState(40,40,10,1,0));
+  env.setStart(airplaneState(42,44,15,1,3));
+  env.setGoal(airplaneState(40,40,10,1,1));
+  //env.setStart(airplaneState(40,44,15,1,5));
+  //env.setGoal(airplaneState(40,40,10,1,0));
+  //env.setStart(airplaneState(40,45,12,1,0));
+  //env.setGoal(airplaneState(40,40,10,1,0));
+  //env.setStart(airplaneState(41,40,15,1,1));
+  //env.setGoal(airplaneState(40,40,10,1,0));
+  //env.setStart(airplaneState(37,45,10,1,0));
+  //env.setGoal(airplaneState(40,40,10,1,0));
   astar.GetPath(&env,env.getStart(),env.getGoal(),path);
   for(int i(0); i<path.size(); ++i){
     std::cout << path[i]<<" ";
@@ -271,6 +280,7 @@ TEST(AirplaneEnvironmentTest, ProblemChild) {
     else
       std::cout << "\n";
   }
+  std::cout << env.myHCost(env.getStart(),env.getGoal());
   double cost=env.GetPathLength(path);
   double hcost=env.HCost(env.getStart(),env.getGoal()); 
   ASSERT_LE(hcost,cost);
