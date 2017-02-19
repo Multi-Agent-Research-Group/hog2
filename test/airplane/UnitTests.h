@@ -2,7 +2,7 @@
 #include "Airplane.h"
 #include "AirplaneGridless.h"
 #include <gtest/gtest.h>
-//#include <utility>
+#include "BucketHash.h"
 #include "TemplateAStar.h"
 
 template<typename environ, typename state>
@@ -286,3 +286,38 @@ TEST(AirplaneEnvironmentTest, ProblemChild) {
   ASSERT_LE(hcost,cost);
 }
 
+TEST(BucketHash, Happy) { 
+  struct HashThing{
+    HashThing(int i):id(i){}
+    int id;
+    bool operator==(HashThing const& other)const{return id==other.id;}
+    bool operator<(HashThing const& other)const{return id<other.id;}
+  };
+
+  BucketHash<HashThing> bh(.1);
+  bh.insert(0,.1,HashThing(0));
+  bh.insert(.1,.2,HashThing(1));
+  ASSERT_EQ(2,bh.size());
+  std::set<HashThing> s;
+  bh.get(0,.099,s);
+  ASSERT_EQ(1,s.size());
+  ASSERT_TRUE(s.find(0)!=s.end());
+  ASSERT_TRUE(s.find(1)==s.end());
+
+  bh.get(.1,.101,s);
+  ASSERT_EQ(2,s.size());
+  ASSERT_TRUE(s.find(0)!=s.end());
+  ASSERT_TRUE(s.find(1)!=s.end());
+
+  bh.get(.2,.3,s);
+  ASSERT_EQ(1,s.size());
+  ASSERT_TRUE(s.find(0)==s.end());
+  ASSERT_TRUE(s.find(1)!=s.end());
+
+  bh.remove(0,.099,HashThing(0));
+  bh.get(0,.099,s);
+  ASSERT_EQ(0,s.size());
+  ASSERT_TRUE(s.find(0)==s.end());
+  ASSERT_TRUE(s.find(1)==s.end());
+
+}

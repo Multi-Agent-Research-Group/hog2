@@ -180,11 +180,11 @@ void AirplaneConstrainedEnvironment::ApplyAction(airtimeState &s, airplaneAction
     static double physicalMaxSpeed(32.0); //MPS
     static double physicalMinSpeed(17.0); //MPS
     static double speedRange(physicalMaxSpeed-physicalMinSpeed);
-    static double factor(ae->gridSize/(physicalMinSpeed+double(s.speed-ae->minSpeed)*speedRange/double(ae->numSpeeds-ae->minSpeed)));
+    double factor(ae->gridSize/(physicalMinSpeed+double(s.speed-ae->minSpeed)*speedRange/double(ae->numSpeeds-ae->minSpeed)));
     
     // Compute time increase based on speed...
     // if speed is more than cruise speed, we arrive sooner, later if speed is less.
-	s.t += (a.turn == kWait ? 1 : (abs(a.turn)%2?M_SQRT2:1.0)*factor);
+	s.t += (a.turn == kWait ? 1 : (s.heading%2?M_SQRT2:1.0))*factor;
 }
 void AirplaneConstrainedEnvironment::UndoAction(airtimeState &s, airplaneAction a) const
 {
@@ -209,7 +209,7 @@ void AirplaneConstrainedEnvironment::GetNextState(const airtimeState &currents, 
     static double speedRange(ae->maxSpeed-ae->minSpeed);
     double factor(ae->gridSize/(ae->minSpeed+double(currents.speed-1)*speedRange/double(ae->numSpeeds-1)));
 
-	news.t = currents.t + (dir.turn == kWait ? 1 : (abs(dir.turn)%2?M_SQRT2:1.0)*factor);
+	news.t = currents.t + (dir.turn == kWait ? 1 : (currents.heading%2?M_SQRT2:1.0))*factor;
 }
 // Invert action defined in the header
 
