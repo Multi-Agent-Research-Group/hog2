@@ -24,10 +24,13 @@
 #include "Unit.h"
 #include "UnitGroup.h"
 #include "ConstrainedEnvironment.h"
-#include "TemplateIntervalTree.h"
+//#include "TemplateIntervalTree.h"
+#include "BucketHash.h"
 #include "TemplateAStar.h"
 #include "Heuristic.h"
 #include "Timer.h"
+
+#define HASH_INTERVAL 0.09
 
 struct IntervalData{
   IntervalData(uint64_t h1, uint64_t h2, uint8_t a):hash1(h1),hash2(h2),agent(a){}
@@ -35,10 +38,13 @@ struct IntervalData{
   uint64_t hash2;
   uint8_t agent;
   bool operator==(IntervalData const& other)const{return other.hash1==hash1 && other.hash2==hash2 && other.agent==agent;}
+  bool operator<(IntervalData const& other)const{return other.hash1==hash1?(other.hash2==hash2?(other.agent==agent?false:agent<other.agent):hash2<other.hash2):hash1<other.hash1;}
 };
 
-typedef TemplateIntervalTree<IntervalData,float> IntervalTree;
-typedef TemplateInterval<IntervalData,float> Interval;
+//typedef TemplateIntervalTree<IntervalData,float> IntervalTree;
+//typedef TemplateInterval<IntervalData,float> Interval;
+typedef BucketHash<IntervalData> ConflictTable;
+typedef std::set<IntervalData> ConflictSet;
 
 template <class state>
 struct CompareLowGCost;
@@ -85,7 +91,8 @@ class RandomTieBreaking {
         AStarOpenClosedData<state>& i2(const_cast<AStarOpenClosedData<state>&>(ci2));
 
         //std::cout << "ITSIZE " << CAT->size() << "\n";
-        auto matches(CAT->findOverlapping(i1.data.t,i1.data.t+.1));
+        ConflictSet matches;
+        CAT->get(i1.data.t,i1.data.t+HASH_INTERVAL,matches);
 
         // Get number of conflicts in the parent
         state const*const parent1(i1.parentID?&(currentAstar->GetItem(i1.parentID).data):nullptr);
@@ -94,13 +101,13 @@ class RandomTieBreaking {
 
         // Count number of conflicts
         for(auto const& m: matches){
-          if(currentAgent == m.value.agent) continue;
+          if(currentAgent == m.agent) continue;
           state p;
-          currentEnv->GetStateFromHash(m.value.hash1,p);
-          p.t=m.start;
+          currentEnv->GetStateFromHash(m.hash1,p);
+          //p.t=m.start;
           state n;
-          currentEnv->GetStateFromHash(m.value.hash2,n);
-          n.t=m.stop;
+          currentEnv->GetStateFromHash(m.hash2,n);
+          //n.t=m.stop;
           nc1+=checkForConflict(parent1,&i1.data,&p,&n);
           //if(!nc1){std::cout << "NO ";}
           //std::cout << "conflict(1): " << i1.data << " " << n << "\n";
@@ -109,19 +116,20 @@ class RandomTieBreaking {
         i1.data.nc=nc1;
 
         // Do the same for node 2
-        matches = CAT->findOverlapping(i2.data.t,i2.data.t+.1);
+        CAT->get(i2.data.t,i2.data.t+HASH_INTERVAL,matches);
+
         state const*const parent2(i2.parentID?&(currentAstar->GetItem(i2.parentID).data):nullptr);
         unsigned nc2(parent2?parent2->nc:0);
 
         // Count number of conflicts
         for(auto const& m: matches){
-          if(currentAgent == m.value.agent) continue;
+          if(currentAgent == m.agent) continue;
           state p;
-          currentEnv->GetStateFromHash(m.value.hash1,p);
-          p.t=m.start;
+          currentEnv->GetStateFromHash(m.hash1,p);
+          //p.t=m.start;
           state n;
-          currentEnv->GetStateFromHash(m.value.hash2,n);
-          n.t=m.stop;
+          currentEnv->GetStateFromHash(m.hash2,n);
+          //n.t=m.stop;
           nc2+=checkForConflict(parent2,&i2.data,&p,&n);
           //if(!nc2){std::cout << "NO ";}
           //std::cout << "conflict(2): " << i2.data << " " << n << "\n";
@@ -147,7 +155,7 @@ class RandomTieBreaking {
     static uint8_t currentAgent;
     static bool randomalg;
     static bool useCAT;
-    static IntervalTree* CAT; // Conflict Avoidance Table
+    static ConflictTable* CAT; // Conflict Avoidance Table
 };
 
 template <typename state, typename action, typename environment>
@@ -161,7 +169,7 @@ bool RandomTieBreaking<state,action,environment>::randomalg=false;
 template <typename state, typename action, typename environment>
 bool RandomTieBreaking<state,action,environment>::useCAT=false;
 template <typename state, typename action, typename environment>
-IntervalTree* RandomTieBreaking<state,action,environment>::CAT=0;
+ConflictTable* RandomTieBreaking<state,action,environment>::CAT=0;
 
 // Helper functions
 
@@ -366,12 +374,13 @@ struct Conflict {
 
 template<typename state>
 struct CBSTreeNode {
-	CBSTreeNode():parent(0),satisfiable(true){}
+	CBSTreeNode():parent(0),satisfiable(true),cat(HASH_INTERVAL){}
 	std::vector< std::vector<state> > paths;
 	Conflict<state> con;
 	unsigned int parent;
 	bool satisfiable;
-        IntervalTree cat; // Conflict avoidance table
+        //IntervalTree cat; // Conflict avoidance table
+        ConflictTable cat; // Conflict avoidance table
 };
 
 template<typename state>
@@ -868,32 +877,34 @@ void CBSGroup<state,action,environment>::AddUnit(Unit<state, action, environment
       processSolution(-timer->EndTimer());
   //std::cout << "AddUnit agent: " << (this->GetNumMembers()-1) << " expansions: " << astar.GetNodesExpanded() << "\n";
 
-  IntervalTree::intervalVector info;
+  // Create new conflict avoidance table instance
+  if(this->GetNumMembers()<2) tree[0].cat=ConflictTable(HASH_INTERVAL);
+  //IntervalTree::intervalVector info;
   // We add the optimal path to the root of the tree
   for(int i(0); i<thePath.size(); ++i) {
     // Populate the interval tree
     if(RandomTieBreaking<state,action,environment>::useCAT){
       if(i){ //!=0
-        if(this->GetNumMembers()>1){
+        //if(this->GetNumMembers()>1){
           tree[0].cat.insert(thePath[i-1].t, thePath[i].t, IntervalData(currentEnvironment->environment->GetStateHash(thePath[i-1]), currentEnvironment->environment->GetStateHash(thePath[i]), tree[0].paths.size()-1));
-        }else{
+        /*}else{
           info.push_back(Interval(thePath[i-1].t, thePath[i].t, IntervalData(currentEnvironment->environment->GetStateHash(thePath[i-1]), currentEnvironment->environment->GetStateHash(thePath[i]), tree[0].paths.size()-1)));
-        }
+        }*/
       }else{
         // No parent...
-        if(this->GetNumMembers()>1){
+        //if(this->GetNumMembers()>1){
           tree[0].cat.insert(thePath[i].t, thePath[i].t+.001, IntervalData(0, currentEnvironment->environment->GetStateHash(thePath[i]), tree[0].paths.size()-1));
-        }else{
-          info.push_back(Interval(thePath[i].t, thePath[i].t+.001, IntervalData(0, currentEnvironment->environment->GetStateHash(thePath[i]), tree[0].paths.size()-1)));
-        }
+        //}else{
+          //info.push_back(Interval(thePath[i].t, thePath[i].t+.001, IntervalData(0, currentEnvironment->environment->GetStateHash(thePath[i]), tree[0].paths.size()-1)));
+        //}
       }
     }
     tree[0].paths.back().push_back(thePath[i]);
     //std::cout << "PATH " << thePath.size() << " tree SIZE,DEPTH " << tree[0].cat.size() << "," << tree[0].cat.depth() << "\n";
   }
-  if(info.size()){
-    tree[0].cat=IntervalTree(info);
-  }
+  /*if(info.size()){
+    tree[0].cat=ConflictTable(info);
+  }*/
 
   // Set the plan finished to false, as there's new updates
   planFinished = false;

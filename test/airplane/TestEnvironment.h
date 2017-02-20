@@ -1971,20 +1971,38 @@ bool TestQuadcopterActions() {
 
 void testPEAStar()
 {
-  airplaneState s(10, 10, 16, 1, 1, false);
-  airplaneState g(40, 20, 11, 4, 3, false);
+if(false){
+  airplaneState s(10, 10, 16, 3, 0, false);
+  airplaneState g(40, 20, 11, 3, 0, false);
+  AirplaneGridCardinalEnvironment env;
+  env.setGoal(g);
+  env.loadPerimeterDB();
+  TemplateAStar<airplaneState, airplaneAction, AirplaneGridCardinalEnvironment> astar;
+  std::vector<airplaneState> sol;
+  astar.GetPath(&env,g,s,sol);
+  std::cout << "Regular A* expansions: " << astar.GetNodesExpanded() << " unique:" << astar.GetUniqueNodesExpanded() << " generations: " << astar.GetNodesTouched() << " mem: " << astar.GetMemoryUsage() << " path len: " << sol.size() << "\n";
+  //for(airplaneState const&a: sol) std::cout << a << "\n";
+  astar.SetDoPartialExpansion(true);
+  astar.GetPath(&env,g,s,sol);
+  std::cout << "Regular A* expansions: " << astar.GetNodesExpanded() << " unique:" << astar.GetUniqueNodesExpanded() << " generations: " << astar.GetNodesTouched() << " mem: " << astar.GetMemoryUsage() << " path len: " << sol.size() << "\n";
+  //for(airplaneState const&a: sol) std::cout << a << "\n";
+}
+{
+  airplaneState s(10, 10, 16, 3, 0, false);
+  airplaneState g(40, 20, 11, 3, 0, false);
   AirplaneEnvironment env;
   env.setGoal(g);
   env.loadPerimeterDB();
   TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> astar;
   std::vector<airplaneState> sol;
-  //astar.GetPath(&env,g,s,sol);
-  std::cout << "Regular A* expansions: " << astar.GetNodesExpanded() << " generations: " << astar.GetNodesTouched() << " mem: " << astar.GetMemoryUsage() << "\n";
-  for(airplaneState const&a: sol) std::cout << a << "\n";
+  astar.GetPath(&env,g,s,sol);
+  std::cout << "Regular A* expansions: " << astar.GetNodesExpanded() << " unique:" << astar.GetUniqueNodesExpanded() << " generations: " << astar.GetNodesTouched() << " mem: " << astar.GetMemoryUsage() << " path len: " << sol.size() << "\n";
+  //for(airplaneState const&a: sol) std::cout << a << "\n";
   astar.SetDoPartialExpansion(true);
   astar.GetPath(&env,g,s,sol);
-  std::cout << "PEA* expansions: " << astar.GetNodesExpanded() << " generations: " << astar.GetNodesTouched() << " mem: " << astar.GetMemoryUsage() << "\n";
-  for(airplaneState const&a: sol) std::cout << a << "\n";
+  std::cout << "Regular A* expansions: " << astar.GetNodesExpanded() << " unique:" << astar.GetUniqueNodesExpanded() << " generations: " << astar.GetNodesTouched() << " mem: " << astar.GetMemoryUsage() << " path len: " << sol.size() << "\n";
+  //for(airplaneState const&a: sol) std::cout << a << "\n";
+}
 }
 
 #endif

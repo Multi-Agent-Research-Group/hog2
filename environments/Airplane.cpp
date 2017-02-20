@@ -1034,7 +1034,7 @@ double AirplaneEnvironment::ReverseHCost(const airplaneState &node1, const airpl
 
 double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneState &node2) const
 {
-  return HCostNew(node1,node2);
+  //return HCostNew(node1,node2);
   if(GoalTest(node1,node2)){return 0.0;}
   static const int cruiseSpeed(3);
   airplaneState tNode = node2;
