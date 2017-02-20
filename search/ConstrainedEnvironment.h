@@ -60,6 +60,7 @@ class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
     virtual void ClearConstraints() = 0;
     /** Get the possible actions from a state */
     virtual void GetActions(const State &nodeID, std::vector<Action> &actions) const = 0;
+    virtual void GetReverseActions(const State &nodeID, std::vector<Action> &actions) const = 0;
     /** Get the successor states not violating constraints */
     virtual void GetSuccessors(const State &nodeID, std::vector<State> &neighbors) const = 0;
     /** Checks to see if any constraint is violated */

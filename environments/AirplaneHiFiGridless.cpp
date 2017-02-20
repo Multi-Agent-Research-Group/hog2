@@ -24,10 +24,10 @@
     return (fequal(s1.x,s2.x) && fequal(s1.y,s2.y) && fequal(s1.z,s2.z) && s1.headingHalfDegs==s2.headingHalfDegs && s1.speed == s2.speed && s1.pitchHalfDegs==s2.pitchHalfDegs);
 }*/
 
-bool operator==(const PlatformAction &a1, const PlatformAction &a2)
+/*bool operator==(const PlatformAction &a1, const PlatformAction &a2)
 {
   return a1.turnHalfDegs == a2.turnHalfDegs && a1.speed==a2.speed && a1.pitchHalfDegs==a2.pitchHalfDegs;
-}
+}*/
 
 AirplaneHiFiGridlessEnvironment::AirplaneHiFiGridlessEnvironment(
   unsigned width,
@@ -247,10 +247,10 @@ void AirplaneHiFiGridlessEnvironment::GetActions(const PlatformState &nodeID, st
 {
   actions.resize(0);
   double nh((nodeID.headingTo(getGoal()))-nodeID.hdg());
-  nh=fgreater(nh,0)?std::min(3,nh):std::max(-3,nh); // Never turn more than 3
+  nh=fgreater(nh,0)?std::min(3.0,nh):std::max(-3.0,nh); // Never turn more than 3
   
   double ne((nodeID.elevationTo(getGoal()))-nodeID.pitch());
-  ne=fgreater(ne,0)?std::min(3,ne):std::max(-3,ne); // Never pitch more than 3
+  ne=fgreater(ne,0)?std::min(3.0,ne):std::max(-3.0,ne); // Never pitch more than 3
 
   // TODO????
   // Only allow speed changes when near start or goal and if different from
@@ -264,7 +264,7 @@ void AirplaneHiFiGridlessEnvironment::GetActions(const PlatformState &nodeID, st
 
 void AirplaneHiFiGridlessEnvironment::GetReverseActions(const PlatformState &nodeID, std::vector<PlatformAction> &actions) const
 {
-  return GetActions(getGoal(),nodeID);
+  GetActions(nodeID,actions);
 }
 
 /** Gets the action required to go from node1 to node2 */
@@ -758,11 +758,11 @@ void Constraint<PlatformState>::OpenGLDraw() const
 	// Normalize coordinates between (-1, 1)
 	GLfloat x_start = (start_state.x-40.0)/40.0;
 	GLfloat y_start = (start_state.y-40.0)/40.0;
-	GLfloat z_start = -start_state.height/80.0;
+	GLfloat z_start = -start_state.z/80.0;
 
 	GLfloat x_end = (end_state.x-40.0)/40.0;
 	GLfloat y_end = (end_state.y-40.0)/40.0;
-	GLfloat z_end = -end_state.height/80.0;
+	GLfloat z_end = -end_state.z/80.0;
 
 
 	GLfloat min_x, min_y, min_z, max_x, max_y, max_z;
@@ -823,7 +823,7 @@ void Constraint<PlatformState>::OpenGLDraw() const
 	glPopMatrix();
 }
 
-bool AirplaneHiFiGridlessEnvironment::ViolatesConstraint(const airplaneState &from, const airplaneState &to, int time) const
+bool AirplaneHiFiGridlessEnvironment::ViolatesConstraint(const PlatformState &from, const PlatformState &to, int time) const
 {
   return ViolatesConstraint(from, to);
 
@@ -839,7 +839,7 @@ bool AirplaneHiFiGridlessEnvironment::ViolatesConstraint(const PlatformState &fr
   //Check if the action box violates any of the constraints that are in the constraints list
   for (Constraint<PlatformState> c : constraints)
   {
-    if(c.conflictsWith(from,to)){return true;}
+    if(c.ConflictsWith(from,to)){return true;}
   }
 
 

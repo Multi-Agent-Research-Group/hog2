@@ -5,11 +5,11 @@
 # $Source: /usr/cvsroot/project_hog/build/gmake/Makefile.lib.inc,v $
 #------------------------------------------------------------------------------
 
-$(DBG_BINDIR)/$(DBG_NAME): $(DBG_BINDIR)/$(DBG_SO_NAME)
+$(DBG_BINDIR)/$(DBG_NAME): $(DBG_BINDIR)/shared/$(DBG_SO_NAME)
 	@echo "Creating $@"
 	$(AR) -csr $@ $(DBG_OBJS)
 
-$(DBG_BINDIR)/$(DBG_SO_NAME): $(DBG_OBJS)
+$(DBG_BINDIR)/shared/$(DBG_SO_NAME): $(DBG_OBJS)
 	@echo "Creating $@"
 	mkdir -p $(dir $@)
 	$(CXX) -shared -o $@ $(DBG_OBJS)

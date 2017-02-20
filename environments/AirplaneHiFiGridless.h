@@ -15,14 +15,7 @@
 #include <iostream>
 #include "ConstrainedEnvironment.h"
 #include "constants.h"
-
-/** Output the information in a Platform state */
-static std::ostream& operator <<(std::ostream & out, PlatformState const& loc)
-{
-	out << "(x:" << loc.x << ", y:" << loc.y << ", z:" << loc.z << ", h: " << loc.hdg() << ", p: " << loc.pitch() << ", r: " << signed(loc.roll()) << ", s: " << unsigned(loc.speed) << ", t: " << loc.t << ")";
-	//out << "val<-cbind(val,c(" << loc.x << "," << loc.y << "," << loc.alt() << "," << loc.heading() << "," << signed(loc.roll) << "," << loc.sum << "," << loc.depth << "))";
-	return out;
-}
+#include "AirStates.h"
 
 bool operator==(PlatformAction const& a1, PlatformAction const& a2);
 

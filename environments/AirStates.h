@@ -243,11 +243,11 @@ bool operator==(const airplaneAction &a1, const airplaneAction &a2);
  */
 struct airtimeState : public airplaneState {
 	airtimeState(airplaneState loc, float time, uint8_t c=0) :airplaneState(loc), t(time), nc(c) {}
-	airtimeState(uint16_t x,uint16_t y, uint16_t height, uint8_t speed, uint8_t heading, bool landed = false, AirplaneType t = AirplaneType::PLANE) : airplaneState(x,y,height,speed,heading), t(0),nc(0){}
+	airtimeState(uint16_t x,uint16_t y, uint16_t height, uint8_t speed, uint8_t heading, bool landed = false, AirplaneType t = AirplaneType::PLANE) : airplaneState(x,y,height,speed,heading), t(0),nc(-1){}
 
-	airtimeState() :airplaneState(), t(0), nc(0) {}
+	airtimeState() :airplaneState(), t(0), nc(-1) {}
 	float t;
-        uint8_t nc; // Number of conflicts
+        int8_t nc; // Number of conflicts
 };
 
 /** Output the information in an airtime state */
@@ -438,6 +438,15 @@ struct PlatformState {
         int8_t nc;
 };
 
+/** Output the information in a Platform state */
+static std::ostream& operator <<(std::ostream & out, PlatformState const& loc)
+{
+        out << "(x:" << loc.x << ", y:" << loc.y << ", z:" << loc.z << ", h: " << loc.hdg() << ", p: " << loc.pitch() << ", r: " << signed(loc.roll()) << ", s: " << unsigned(loc.speed) << ", t: " << loc.t << ")";
+        //out << "val<-cbind(val,c(" << loc.x << "," << loc.y << "," << loc.alt() << "," << loc.heading() << "," << signed(loc.roll) << "," << loc.sum << "," << loc.depth << "))";
+        return out;
+}
+
+
 template<>
 struct Constraint<PlatformState>{
   Constraint<PlatformState>() {}
@@ -457,13 +466,5 @@ struct Constraint<PlatformState>{
   PlatformState start_state;
   PlatformState end_state;
 };
-
-/** Output the information in a Platform state */
-static std::ostream& operator <<(std::ostream & out, PlatformState const& loc)
-{
-        out << "(x:" << loc.x << ", y:" << loc.y << ", z:" << loc.z << ", h: " << loc.hdg() << ", p: " << loc.pitch() << ", r: " << signed(loc.roll()) << ", s: " << unsigned(loc.speed) << ", t: " << loc.t << ")";
-        //out << "val<-cbind(val,c(" << loc.x << "," << loc.y << "," << loc.alt() << "," << loc.heading() << "," << signed(loc.roll) << "," << loc.sum << "," << loc.depth << "))";
-        return out;
-}
 
 #endif

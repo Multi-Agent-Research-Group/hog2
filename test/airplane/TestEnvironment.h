@@ -313,7 +313,7 @@ void testPathUniqueness(){
   }
 }
 
-bool testAdmissibility(){
+void testAdmissibility(){
   std::cout << "testAdmissibility";
   { 
     float* list = new float[wd*wd*wd*5*8];
@@ -366,7 +366,7 @@ bool testAdmissibility(){
           //else std::cout << gcost<<"\n";
           if(fgreater(hc,gcost)){
             std::cout << "FAIL " << s << start << hc << " " <<gcost<< std::endl;
-            return 1;
+            return;
           }
 
           std::vector<airplaneAction> actions;
@@ -391,7 +391,7 @@ bool testAdmissibility(){
     }
     std::cout << "Grand Total " << grandtotal << "\n";
   }
-return 0;
+return;
   {
     AirplanePerimeterDBBuilder<airplaneState,airplaneAction,AirplaneEnvironment> builder;
     airplaneState goal(10,10,10,3,0,false,AirplaneType::PLANE);
@@ -462,7 +462,7 @@ return 0;
   return 0;
 }*/
 
-bool testMultiAgent(){
+void testMultiAgent(){
   std::cout << "reverse\n";
   {
     airplaneState start(50,45,16,3,4,false,AirplaneType::PLANE);
@@ -486,7 +486,6 @@ bool testMultiAgent(){
     std::cout << "paths\n";
     for(int i(0); i<sol.size(); ++i)
       std::cout << sol[i] << solr[i] << "==?"<< (sol[i]==solr[i]) << "\n";
-    return true;
   }
   std::cout << "multi\n";
   {
@@ -630,9 +629,8 @@ bool testMultiAgent(){
     std::cout << "H " << mae.HCost(start,goal);
     std::cout << "C " << mae.GetPathLength(sol);
   }
-  return true;
 }
-bool testLoadPerimeterHeuristic(){
+void testLoadPerimeterHeuristic(){
   std::cout << "testLoadPerimeterHeuristic";
   {
     AirplanePerimeterDBBuilder<airplaneState,airplaneAction,AirplaneEnvironment> builder;
@@ -868,7 +866,7 @@ bool testLoadPerimeterHeuristic(){
   std::cout << "PASSED\n";
 }
 
-bool testHCost(){
+void testHCost(){
   std::cout << "testHCost()";
   {
     std::cout << " Simple Environment Plane: ";
@@ -1189,7 +1187,7 @@ bool testHCost(){
   std::cout << "PASSED\n";
 }
 
-bool testGrid3DOctileActions(){
+void testGrid3DOctileActions(){
   std::cout << "grid 3D cardinal:";
   AirplaneGrid3DOctileEnvironment env;
   airplaneAction a(0,0,0);
@@ -1233,7 +1231,7 @@ bool testGrid3DOctileActions(){
   std::cout << "PASSED\n";
 }
 
-bool testGrid3DCardinalActions(){
+void testGrid3DCardinalActions(){
   std::cout << "grid 3D cardinal:";
   AirplaneGrid3DCardinalEnvironment env;
   airplaneAction a(0,0,0);
@@ -1277,7 +1275,7 @@ bool testGrid3DCardinalActions(){
   std::cout << "PASSED\n";
 }
 
-bool testGridOctileActions(){
+void testGridOctileActions(){
   std::cout << "grid cardinal:";
   AirplaneGridOctileEnvironment env;
   airplaneAction a(0,0,0);
@@ -1321,7 +1319,7 @@ bool testGridOctileActions(){
   std::cout << "PASSED\n";
 }
 
-bool testGridCardinalActions(){
+void testGridCardinalActions(){
   std::cout << "grid cardinal:";
   AirplaneGridCardinalEnvironment env;
   airplaneAction a(0,0,0);
@@ -1365,7 +1363,7 @@ bool testGridCardinalActions(){
   std::cout << "PASSED\n";
 }
 
-bool testCardinalActions(){
+void testCardinalActions(){
   std::cout << "cardinal:";
   AirplaneCardinalEnvironment env;
   airplaneAction a(0,0,0);
@@ -1417,7 +1415,7 @@ bool testCardinalActions(){
   std::cout << "PASSED\n";
 }
 
-bool testCardinalEnvHCost(){
+void testCardinalEnvHCost(){
     srand(123456);
     std::cout << " Cardinal Environment HCost: ";
     AirplaneEnvironment aenv;
@@ -1443,7 +1441,7 @@ bool testCardinalEnvHCost(){
     for(auto a(sol.begin()+1); a!=sol.end(); ++a)
       std::cout << "  " << *a << " " <<env.GCost(*(a-1),*a)<<"\n";
     std::cout << s << g << " G " << gcost << " H " << hcost << "\n";
-    return false;
+    return;
 
     for(int i(0); i<1000; ++i){
       airplaneState s(rand() % 8+5, rand() % 8+5, rand() % 5+5, rand() % 5 + 1, rand() % 4*2, false);
@@ -1466,11 +1464,11 @@ bool testCardinalEnvHCost(){
       assert(fgeq(gcost,hcost));
       std::cout << "." << std::flush;
     }
-  return true;
+  return;
 }
 
 
-bool testCardinalHighwayActions(){
+void testCardinalHighwayActions(){
   std::cout << " highway 4 cardinal:";
   AirplaneHighway4CardinalEnvironment env;
   airplaneAction a(0,0,0);
@@ -1522,7 +1520,7 @@ bool testCardinalHighwayActions(){
   std::cout << "PASSED\n";
 }
 
-bool testSimpleActions(){
+void testSimpleActions(){
   std::cout << "testActions()";
   std::cout << " simple:";
   AirplaneSimpleEnvironment env;
@@ -1666,7 +1664,7 @@ void testHighway8Actions(){
   std::cout << "PASSED\n";
 }
 
-bool testCardinalHeadingTo(){
+void testCardinalHeadingTo(){
   std::cout << "testCardinalHeadingTo()";
   airplaneState s1(10,10,0,0,0);
   airplaneState s2(10,9,0,0,0);
@@ -1704,7 +1702,7 @@ bool testCardinalHeadingTo(){
   std::cout << "PASSED\n";
 }
 
-bool testHeadingTo(){
+void testHeadingTo(){
   std::cout << "testHeadingTo()";
   airplaneState s1(10,10,0,0,0);
   airplaneState s2(10,9,0,0,0);
@@ -1742,7 +1740,7 @@ bool testHeadingTo(){
   std::cout << "PASSED\n";
 }
 
-bool testConstraints() {
+void testConstraints() {
 	std::cout << "testConstraints()";
 	AirplaneConstrainedEnvironment ace(new AirplaneEnvironment());
 

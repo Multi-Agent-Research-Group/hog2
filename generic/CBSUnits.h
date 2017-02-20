@@ -72,11 +72,16 @@ unsigned checkForConflict(state const*const parent, state const*const node, stat
   if(v.ConflictsWith(*pathNode)){return 1;}
   if(parent && pathParent){
     Constraint<state> e1(*parent,*node);
-    Constraint<state> e2(*pathParent,*pathNode);
-    if(e1.ConflictsWith(e2)){return 1;}
+    if(e1.ConflictsWith(*pathParent,*pathNode)){return 1;}
   }
   return 0; 
 }
+template<typename state>
+void computeConflicts(ConflictTable* CAT, AStarOpenClosedData<state>& i1){
+  if(i1.data.nc != -1)return; // already been computed
+  //std::cout << "ITSIZE " << CAT->size() << "\n";
+}
+
 
 template <typename state, typename action, typename environment>
 class RandomTieBreaking {
@@ -85,61 +90,61 @@ class RandomTieBreaking {
   {
     if (fequal(ci1.g+ci1.h, ci2.g+ci2.h)) // F-cost equal
     {
-      if(useCAT && CAT && ci1.data.nc==0 && ci2.data.nc==0){
+      if(useCAT && CAT){
         // Make them non-const :)
         AStarOpenClosedData<state>& i1(const_cast<AStarOpenClosedData<state>&>(ci1));
         AStarOpenClosedData<state>& i2(const_cast<AStarOpenClosedData<state>&>(ci2));
-
-        //std::cout << "ITSIZE " << CAT->size() << "\n";
+        // Compute cumulative conflicts (if not already done)
         ConflictSet matches;
-        CAT->get(i1.data.t,i1.data.t+HASH_INTERVAL,matches);
+        if(i1.data.nc ==-1){
+          CAT->get(i1.data.t,i1.data.t+HASH_INTERVAL,matches);
 
-        // Get number of conflicts in the parent
-        state const*const parent1(i1.parentID?&(currentAstar->GetItem(i1.parentID).data):nullptr);
-        unsigned nc1(parent1?parent1->nc:0);
-        //std::cout << "matches " << matches.size() << "\n";
+          // Get number of conflicts in the parent
+          state const*const parent1(i1.parentID?&(currentAstar->GetItem(i1.parentID).data):nullptr);
+          unsigned nc1(parent1?parent1->nc:0);
+          //std::cout << "matches " << matches.size() << "\n";
 
-        // Count number of conflicts
-        for(auto const& m: matches){
-          if(currentAgent == m.agent) continue;
-          state p;
-          currentEnv->GetStateFromHash(m.hash1,p);
-          //p.t=m.start;
-          state n;
-          currentEnv->GetStateFromHash(m.hash2,n);
-          //n.t=m.stop;
-          nc1+=checkForConflict(parent1,&i1.data,&p,&n);
-          //if(!nc1){std::cout << "NO ";}
-          //std::cout << "conflict(1): " << i1.data << " " << n << "\n";
+          // Count number of conflicts
+          for(auto const& m: matches){
+            if(currentAgent == m.agent) continue;
+            state p;
+            currentEnv->GetStateFromHash(m.hash1,p);
+            //p.t=m.start;
+            state n;
+            currentEnv->GetStateFromHash(m.hash2,n);
+            //n.t=m.stop;
+            nc1+=checkForConflict(parent1,&i1.data,&p,&n);
+            //if(!nc1){std::cout << "NO ";}
+            //std::cout << "conflict(1): " << i1.data << " " << n << "\n";
+          }
+          // Set the number of conflicts in the data object
+          i1.data.nc=nc1;
         }
-        // Set the number of conflicts in the data object
-        i1.data.nc=nc1;
+        if(i2.data.nc ==-1){
+          CAT->get(i2.data.t,i2.data.t+HASH_INTERVAL,matches);
 
-        // Do the same for node 2
-        CAT->get(i2.data.t,i2.data.t+HASH_INTERVAL,matches);
+          // Get number of conflicts in the parent
+          state const*const parent2(i2.parentID?&(currentAstar->GetItem(i2.parentID).data):nullptr);
+          unsigned nc2(parent2?parent2->nc:0);
+          //std::cout << "matches " << matches.size() << "\n";
 
-        state const*const parent2(i2.parentID?&(currentAstar->GetItem(i2.parentID).data):nullptr);
-        unsigned nc2(parent2?parent2->nc:0);
-
-        // Count number of conflicts
-        for(auto const& m: matches){
-          if(currentAgent == m.agent) continue;
-          state p;
-          currentEnv->GetStateFromHash(m.hash1,p);
-          //p.t=m.start;
-          state n;
-          currentEnv->GetStateFromHash(m.hash2,n);
-          //n.t=m.stop;
-          nc2+=checkForConflict(parent2,&i2.data,&p,&n);
-          //if(!nc2){std::cout << "NO ";}
-          //std::cout << "conflict(2): " << i2.data << " " << n << "\n";
+          // Count number of conflicts
+          for(auto const& m: matches){
+            if(currentAgent == m.agent) continue;
+            state p;
+            currentEnv->GetStateFromHash(m.hash2,p);
+            //p.t=m.start;
+            state n;
+            currentEnv->GetStateFromHash(m.hash2,n);
+            //n.t=m.stop;
+            nc2+=checkForConflict(parent2,&i2.data,&p,&n);
+            //if(!nc2){std::cout << "NO ";}
+            //std::cout << "conflict(2): " << i2.data << " " << n << "\n";
+          }
+          // Set the number of conflicts in the data object
+          i2.data.nc=nc2;
         }
-        // Set the number of conflicts in the data object
-        i2.data.nc=nc2;
-        //std::cout << "NC " << nc1 << " " << nc2 << " @ "<<i1.data <<" "<<i2.data<<"\n";
-        //std::cout << "\n";
-
-        return fless(i2.data.nc,i1.data.nc);
+        return fless(i1.data.nc,i2.data.nc);
       }
       else if(randomalg && fequal(ci1.g,ci2.g)){
         return rand()%2;

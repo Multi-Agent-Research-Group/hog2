@@ -334,3 +334,9 @@ TEST(PlatformState, elevation) {
   PlatformState g(30,20,20,0,0,3);
   ASSERT_EQ(45.0,s.elevationTo(g));
 }
+
+TEST(PlatformState, distance) {
+  PlatformState s(20,20,10,0,0,3);
+  PlatformState g(30,20,10,0,0,3);
+  ASSERT_EQ(10.0,s.distanceTo(g));
+}
