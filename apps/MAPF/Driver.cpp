@@ -1,7 +1,7 @@
 #include "Common.h"
 #include "Driver.h"
 #include "UnitSimulation.h"
-#include "AirplaneGridless.h"
+#include "AirplaneHiFiGridless.h"
 #include "CBSUnits.h"
 
 #include <sstream>
@@ -18,9 +18,9 @@ bool recording = false; // Record frames
 double stepsPerFrame = 1.0/100.0;
 double frameIncrement = 1.0/10000.0;
 std::vector<std::vector<PlatformState> > waypoints;
-AirplaneGridlessEnvironment* age=0;
+AirplaneHiFiGridlessEnvironment* age=0;
   int cutoffs[10] = {0,99,99,99,99,99,99,99,99,99}; // for each env
-  std::vector<EnvironmentContainer<PlatformState,PlatformAction,AirplaneGridlessEnvironment> > environs;
+  std::vector<EnvironmentContainer<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment> > environs;
   int seed = clock();
   int num_airplanes = 5;
   int minsubgoals(1);
@@ -31,8 +31,8 @@ AirplaneGridlessEnvironment* age=0;
 
   bool paused = false;
 
-  UnitSimulation<PlatformState, PlatformAction, AirplaneGridlessEnvironment> *sim = 0;
-  CBSGroup<PlatformState,PlatformAction,AirplaneGridlessEnvironment>* group = 0;
+  UnitSimulation<PlatformState, PlatformAction, AirplaneHiFiGridlessEnvironment> *sim = 0;
+  CBSGroup<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment>* group = 0;
 
   bool gui=true;
   void InitHeadless();
@@ -145,22 +145,22 @@ void InitHeadless(){
   std::cout << "Setting seed " << seed << "\n";
   srand(seed);
   srandom(seed);
-  AirplaneGridlessEnvironment* age = new AirplaneGridlessEnvironment();
+  AirplaneHiFiGridlessEnvironment* age = new AirplaneHiFiGridlessEnvironment();
   // Cardinal Grid
-  environs.push_back(EnvironmentContainer<PlatformState,PlatformAction,AirplaneGridlessEnvironment>(age->name(),age,0,0,1));
+  environs.push_back(EnvironmentContainer<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment>(age->name(),age,0,0,1));
 
-  group = new CBSGroup<PlatformState,PlatformAction,AirplaneGridlessEnvironment>(environs); // Changed to 10,000 expansions from number of conflicts in the tree
-  CBSGroup<PlatformState,PlatformAction,AirplaneGridlessEnvironment>::greedyCT=greedyCT;
+  group = new CBSGroup<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment>(environs); // Changed to 10,000 expansions from number of conflicts in the tree
+  CBSGroup<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment>::greedyCT=greedyCT;
   group->timer=new Timer();
   group->seed=seed;
   group->keeprunning=gui;
   group->killex=killex;
   group->ECBSheuristic=ECBSheuristic;
   group->nobypass=nobypass;
-  RandomTieBreaking<PlatformState,PlatformAction,AirplaneGridlessEnvironment>::randomalg=randomalg;
-  RandomTieBreaking<PlatformState,PlatformAction,AirplaneGridlessEnvironment>::useCAT=useCAT;
+  RandomTieBreaking<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment>::randomalg=randomalg;
+  RandomTieBreaking<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment>::useCAT=useCAT;
   if(gui){
-    sim = new UnitSimulation<PlatformState, PlatformAction, AirplaneGridlessEnvironment>(age);
+    sim = new UnitSimulation<PlatformState, PlatformAction, AirplaneHiFiGridlessEnvironment>(age);
     sim->SetStepType(kLockStep);
 
     sim->AddUnitGroup(group);
@@ -173,7 +173,7 @@ void InitHeadless(){
   std::cout << "Adding " << num_airplanes << "planes." << std::endl;
 
   if(!gui){
-    Timer::Timeout func(std::bind(&CBSGroup<PlatformState,PlatformAction,AirplaneGridlessEnvironment>::processSolution, group, std::placeholders::_1));
+    Timer::Timeout func(std::bind(&CBSGroup<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment>::processSolution, group, std::placeholders::_1));
     group->timer->StartTimeout(std::chrono::seconds(killtime),func);
   }
   for (int i = 0; i < num_airplanes; i++) {
@@ -213,7 +213,7 @@ void InitHeadless(){
     for(auto &a: waypoints[i])
       std::cout << a << " ";
     std::cout << std::endl;
-    CBSUnit<PlatformState,PlatformAction,AirplaneGridlessEnvironment>* unit = new CBSUnit<PlatformState,PlatformAction,AirplaneGridlessEnvironment>(waypoints[i]);
+    CBSUnit<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment>* unit = new CBSUnit<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment>(waypoints[i]);
     unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
     group->AddUnit(unit); // Add to the group
     std::cout << "initial path for agent " << i << ":\n";
@@ -243,7 +243,7 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 	if (age){
         for(auto u : group->GetMembers()){
             glLineWidth(2.0);
-            age->GLDrawPath(((CBSUnit<PlatformState,PlatformAction,AirplaneGridlessEnvironment> const*)u)->GetPath(),((CBSUnit<PlatformState,PlatformAction,AirplaneGridlessEnvironment> const*)u)->GetWaypoints());
+            age->GLDrawPath(((CBSUnit<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment> const*)u)->GetPath(),((CBSUnit<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment> const*)u)->GetWaypoints());
         }
     }
 
@@ -256,7 +256,7 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 		
 		/*std::cout << "Printing locations at time: " << sim->GetSimulationTime() << std::endl;
 		for (int x = 0; x < group->GetNumMembers(); x ++) {
-			CBSUnit<PlatformState,PlatformAction,AirplaneGridlessEnvironment> *c = (CBSUnit<PlatformState,PlatformAction,AirplaneGridlessEnvironment>*)group->GetMember(x);
+			CBSUnit<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment> *c = (CBSUnit<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment>*)group->GetMember(x);
 			PlatformState cur;
 			c->GetLocation(cur);
                         //if(!fequal(ptime[x],sim->GetSimulationTime())

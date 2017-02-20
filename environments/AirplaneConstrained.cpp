@@ -13,7 +13,7 @@
 /////////////////////////////// PUBLIC ////////////////////////////////////////////////////
 
 
-/** Operator for equivalent airtime states */
+/** Operator for equivalent PlatformState states */
 bool operator==(const airtimeState &l1, const airtimeState &l2)
 {
 	//return fequal(l1.t,l2.t) && ((airplaneState const&)l1)== ((airplaneState const&)l2);

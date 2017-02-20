@@ -39,6 +39,7 @@ SRC_CPP = \
 	environments/AirplaneGrid3DOctile.cpp \
 	environments/AirplaneGridCardinal.cpp \
 	environments/AirplaneGridless.cpp \
+	environments/AirplaneHiFiGridless.cpp \
 	environments/AirplaneGridOctile.cpp \
 	environments/AirplaneHighway.cpp \
 	environments/AirplaneHighway4.cpp \

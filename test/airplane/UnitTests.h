@@ -4,6 +4,7 @@
 #include <gtest/gtest.h>
 #include "BucketHash.h"
 #include "TemplateAStar.h"
+#include "AirStates.h"
 
 template<typename environ, typename state>
 void TestReverseSuccessors(environ& env, state const& s, state const& g, state o) {
@@ -320,4 +321,16 @@ TEST(BucketHash, Happy) {
   ASSERT_TRUE(s.find(0)==s.end());
   ASSERT_TRUE(s.find(1)==s.end());
 
+}
+
+TEST(PlatformState, heading) {
+  PlatformState s(20,20,10,0,0,3);
+  PlatformState g(30,30,10,0,0,3);
+  ASSERT_EQ(45.0,s.headingTo(g));
+}
+
+TEST(PlatformState, elevation) {
+  PlatformState s(20,20,10,0,0,3);
+  PlatformState g(30,20,20,0,0,3);
+  ASSERT_EQ(45.0,s.elevationTo(g));
 }
