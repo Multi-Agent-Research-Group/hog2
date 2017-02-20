@@ -409,7 +409,7 @@ class CBSGroup : public UnitGroup<state, action, environment>
     void OpenGLDraw(const environment *, const SimulationInfo<state,action,environment> *)  const;
     double getTime() {return time;}
     bool donePlanning() {return planFinished;}
-    void ExpandOneCBSNode();
+    bool ExpandOneCBSNode();
 
     std::vector<CBSTreeNode<state> > tree;
     void processSolution(double);
@@ -576,12 +576,13 @@ CBSGroup<state,action,environment>::CBSGroup(std::vector<EnvironmentContainer<st
 
 
 /** Expand a single CBS node */
+// Return true while processing
 template<typename state, typename action, typename environment>
-void CBSGroup<state,action,environment>::ExpandOneCBSNode()
+bool CBSGroup<state,action,environment>::ExpandOneCBSNode()
 {
   // There's no reason to expand if the plan is finished.
   if (planFinished)
-    return;
+    return false;
 
   Conflict<state> c1, c2;
   unsigned long last = tree.size();
@@ -675,6 +676,7 @@ void CBSGroup<state,action,environment>::ExpandOneCBSNode()
     }
 
   }
+  return true;
 }
 
 template<typename state, typename action, typename environment>

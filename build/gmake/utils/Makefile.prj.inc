@@ -8,6 +8,8 @@
 NAME = utils
 DBG_NAME = lib$(NAME).a
 REL_NAME = lib$(NAME).a
+DBG_SO_NAME = lib$(NAME).so
+REL_SO_NAME = lib$(NAME).so
 
 ROOT = ../../..
 VPATH = $(ROOT)
@@ -56,7 +58,6 @@ SRC_CPP = \
 	utils/Bloom.cpp \
 	utils/MinBloom.cpp \
 	utils/MapGenerators.cpp \
-	utils/MMapUtil.cpp \
 	utils/NBitArray.cpp \
 	utils/SVGUtil.cpp \
 	utils/RangeCompression.cpp \

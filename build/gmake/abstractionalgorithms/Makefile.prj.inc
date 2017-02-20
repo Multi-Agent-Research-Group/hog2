@@ -8,6 +8,8 @@
 NAME = abstractionalgorithms
 DBG_NAME = lib$(NAME).a
 REL_NAME = lib$(NAME).a
+DBG_SO_NAME = lib$(NAME).so
+REL_SO_NAME = lib$(NAME).so
 
 ROOT = ../../..
 VPATH = $(ROOT)
@@ -40,6 +42,7 @@ SRC_CPP = \
 	abstractionalgorithms/PRAStar.cpp \
 	abstractionalgorithms/SpreadPRAStar.cpp \
 	abstractionalgorithms/SearchAlgorithm.cpp \
+	abstractionalgorithms/SpreadExecSearchAlgorithm.cpp \
 	abstractionalgorithms/FringeSearch.cpp \
 	abstractionalgorithms/CFOptimalRefinement.cpp \
 	abstractionalgorithms/IRDijkstra.cpp \

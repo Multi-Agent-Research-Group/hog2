@@ -8,6 +8,8 @@
 NAME = learning
 DBG_NAME = lib$(NAME).a
 REL_NAME = lib$(NAME).a
+DBG_SO_NAME = lib$(NAME).so
+REL_SO_NAME = lib$(NAME).so
 
 ROOT = ../../..
 VPATH = $(ROOT)
