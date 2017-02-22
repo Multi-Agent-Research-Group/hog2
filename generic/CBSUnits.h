@@ -145,7 +145,7 @@ class RandomTieBreaking {
           // Set the number of conflicts in the data object
           i2.data.nc=nc2;
         }
-        return fless(i1.data.nc,i2.data.nc);
+        return fgreater(i1.data.nc,i2.data.nc);
       }
       else if(randomalg && fequal(ci1.g,ci2.g)){
         return rand()%2;

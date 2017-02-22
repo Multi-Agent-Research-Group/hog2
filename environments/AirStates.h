@@ -247,7 +247,7 @@ struct airtimeState : public airplaneState {
 
 	airtimeState() :airplaneState(), t(0), nc(-1) {}
 	float t;
-        int8_t nc; // Number of conflicts
+        int16_t nc; // Number of conflicts
 };
 
 /** Output the information in an airtime state */
