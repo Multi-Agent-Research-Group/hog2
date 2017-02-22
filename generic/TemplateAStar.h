@@ -520,7 +520,7 @@ if(this->nodesExpanded>1000 && this->noncritical){
                                           //else
                                             //std::cout << "  ignore "<<neighbors[x]<<"("<<g<<"+"<<h<<")="<<(g+h)<<"\n";
                                         } else {
-                                          //std::cout << "Add node to open " << neighbors[x] << (G+edgeCosts[x]) << "+" << (weight*theHeuristic->HCost(neighbors[x], goal)) << "=" << (G+edgeCosts[x]+weight*theHeuristic->HCost(neighbors[x], goal)) << "\n";
+                                          std::cout << "Add node to open " << neighbors[x] << (G+edgeCosts[x]) << "+" << (weight*theHeuristic->HCost(neighbors[x], goal)) << "=" << (G+edgeCosts[x]+weight*theHeuristic->HCost(neighbors[x], goal)) << "\n";
                                           openClosedList.AddOpenNode(neighbors[x],
                                               env->GetStateHash(neighbors[x]),
                                               G+edgeCosts[x],

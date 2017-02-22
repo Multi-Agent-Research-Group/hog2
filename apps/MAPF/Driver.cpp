@@ -1,7 +1,7 @@
 #include "Common.h"
 #include "Driver.h"
 #include "UnitSimulation.h"
-#include "AirplaneHiFiGridless.h"
+#include "AirplaneNaiveHiFiGridless.h"
 #include "CBSUnits.h"
 
 #include <sstream>
@@ -15,10 +15,11 @@ unsigned killtime(300); // Kill after some number of seconds
 unsigned killex(INT_MAX); // Kill after some number of expansions
 int px1, py1, px2, py2;
 bool recording = false; // Record frames
-double stepsPerFrame = 1.0/100.0;
-double frameIncrement = 1.0/10000.0;
+double stepsPerFrame = 1.0/2.0;
+double frameIncrement = 1.0/2.0;
 std::vector<std::vector<PlatformState> > waypoints;
 AirplaneHiFiGridlessEnvironment* age=0;
+AirplaneNaiveHiFiGridlessEnvironment* ane=0;
   int cutoffs[10] = {0,99,99,99,99,99,99,99,99,99}; // for each env
   std::vector<EnvironmentContainer<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment> > environs;
   int seed = clock();
@@ -87,7 +88,7 @@ void InstallHandlers()
 {
 	InstallKeyboardHandler(MyDisplayHandler, "Toggle Abstraction", "Toggle display of the ith level of the abstraction", kAnyModifier, '0', '9');
 	InstallKeyboardHandler(MyDisplayHandler, "Cycle Abs. Display", "Cycle which group abstraction is drawn", kAnyModifier, '\t');
-	InstallKeyboardHandler(MyDisplayHandler, "Pause Simulation", "Pause simulation execution.", kNoModifier, 'p');
+	InstallKeyboardHandler(MyDisplayHandler, "Pause Simulation", "Pause simulation execution.", kShiftDown, 'p');
 	InstallKeyboardHandler(MyDisplayHandler, "Speed Up Simulation", "Speed Up simulation execution.", kNoModifier, '=');
 	InstallKeyboardHandler(MyDisplayHandler, "Slow Down Simulation", "Slow Down simulation execution.", kNoModifier, '-');
 	InstallKeyboardHandler(MyDisplayHandler, "Step Simulation", "If the simulation is paused, step forward .1 sec.", kNoModifier, 'o');
@@ -145,8 +146,10 @@ void InitHeadless(){
   std::cout << "Setting seed " << seed << "\n";
   srand(seed);
   srandom(seed);
-  AirplaneHiFiGridlessEnvironment* age = new AirplaneHiFiGridlessEnvironment();
+  age = new AirplaneHiFiGridlessEnvironment();
+  ane = new AirplaneNaiveHiFiGridlessEnvironment();
   // Cardinal Grid
+  //environs.push_back(EnvironmentContainer<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment>(ane->name(),ane,0,1,1));
   environs.push_back(EnvironmentContainer<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment>(age->name(),age,0,0,1));
 
   group = new CBSGroup<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment>(environs); // Changed to 10,000 expansions from number of conflicts in the tree
@@ -407,6 +410,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 void MyDisplayHandler(unsigned long windowID, tKeyboardModifier mod, char key)
 {
 	PlatformState b;
+        std::cout << "Got " << key << "\n";
 	switch (key)
 	{
 		case 'r': recording = !recording; break;

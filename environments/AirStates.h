@@ -327,6 +327,7 @@ struct PlatformState {
         static const double SPEEDS[];
         static const double SPEED_COST[];
         static const double TIMESTEP;
+        static const double angularPrecision;
         // Constructors
         PlatformState() :x(0),y(0),z(0),t(0),headingHalfDegs(360),rollHalfDegs(180),pitchHalfDegs(180),speed(3),landed(false),nc(0){}
         PlatformState(float lt,float ln, float a, double h, double p, int8_t s, uint32_t time=0) :
@@ -368,8 +369,12 @@ struct PlatformState {
         }
 
         void operator += (PlatformAction const& other){
+          //std::cout  << "Apply " << other << "\n";
+          //std::cout << headingHalfDegs << ":1\n";
           headingHalfDegs+=other.turnHalfDegs;
+          //std::cout << headingHalfDegs << ":1\n";
           headingHalfDegs=(headingHalfDegs+720)%720;
+          //std::cout << headingHalfDegs << ":1\n";
           pitchHalfDegs+=other.pitchHalfDegs;
           pitchHalfDegs=(pitchHalfDegs+360)%360;
           setRoll(other.turn());
@@ -418,11 +423,11 @@ struct PlatformState {
         }
 
         double headingTo(PlatformState const& other) const {
-          return double(uint16_t(round((M_PI/2.0-atan2(other.y-y,other.x-x))*360.0/M_PI)+720.0)%720)/2.0;
+          return double(int16_t(round((M_PI/2.0-atan2(other.y-y,other.x-x))*360.0/M_PI)+720.0)%720)/2.0;
         }
 
         double elevationTo(PlatformState const& other) const {
-          return double(uint16_t(round((M_PI/2.0-atan2(other.z-z,sqrt((other.y-y)*(other.y-y)+(other.x-x)*(other.x-x))))*360.0/M_PI)+720.0)%720)/2.0;
+          return double(int16_t(round((atan2(other.z-z,sqrt((other.y-y)*(other.y-y)+(other.x-x)*(other.x-x))))*360.0/M_PI)))/2.0;
         }
 
         // Fields
@@ -430,7 +435,7 @@ struct PlatformState {
         float y;
         float z;
         uint32_t t;
-        uint16_t headingHalfDegs;
+        int16_t headingHalfDegs;
         int16_t rollHalfDegs;
         int16_t pitchHalfDegs;
         int8_t speed;  // 5 speeds: 1=100mps, 2=140, 3=180, 4=220, 5=260 mps

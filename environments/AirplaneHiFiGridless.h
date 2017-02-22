@@ -43,9 +43,12 @@ class AirplaneHiFiGridlessEnvironment : public ConstrainedEnvironment<PlatformSt
         unsigned width=80,
         unsigned length=80,
         unsigned height=20,
-        double minSpeed=1,
-        double maxSpeed=5,
+        unsigned minSpeed=1,
+        unsigned maxSpeed=5,
         uint8_t numSpeeds=5, // Number of discrete speeds
+        double goalRadius=PlatformState::SPEEDS[5],
+        double maxTurn=7.5,
+        double maxDive=7.5,
         double cruiseBurnRate=.06, // Fuel burn rate in liters per unit distance
         double climbCost=0.01, // Fuel cost for climbing
         double descendCost=-0.00005); // Fuel cost for descending
@@ -120,8 +123,8 @@ class AirplaneHiFiGridlessEnvironment : public ConstrainedEnvironment<PlatformSt
 
     // State information
     const uint8_t numSpeeds;  // Number of speed steps
-    const double minSpeed;
-    const double maxSpeed;
+    const unsigned minSpeed;
+    const unsigned maxSpeed;
 
     PlatformState const* goal;
     PlatformState const& getGoal()const{return *goal;}
@@ -149,6 +152,9 @@ class AirplaneHiFiGridlessEnvironment : public ConstrainedEnvironment<PlatformSt
     mutable std::vector<PlatformAction> internalActions;
 
     std::vector<gridlessLandingStrip> landingStrips;
+    double goalRadius;
+    double maxTurn;
+    double maxDive;
 
     // Assume 1 unit of movement to be 3 meters
     // 16 liters per hour/ 3600 seconds / 22 mps = 0.0002 liters per meter

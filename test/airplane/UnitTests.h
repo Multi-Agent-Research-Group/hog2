@@ -1,6 +1,6 @@
 #include "AirplanePerimeterBuilder.h"
 #include "Airplane.h"
-#include "AirplaneGridless.h"
+#include "AirplaneHiFiGridless.h"
 #include <gtest/gtest.h>
 #include "BucketHash.h"
 #include "TemplateAStar.h"
@@ -323,10 +323,30 @@ TEST(BucketHash, Happy) {
 
 }
 
+TEST(PlatformState, apply) {
+  AirplaneHiFiGridlessEnvironment env;
+  PlatformState s(20,20,10,180.0,0,3);
+  PlatformAction a(-2.5,0,1);
+  env.ApplyAction(s,a);
+  ASSERT_EQ(177.5,s.hdg());
+}
+
 TEST(PlatformState, heading) {
   PlatformState s(20,20,10,0,0,3);
   PlatformState g(30,30,10,0,0,3);
   ASSERT_EQ(45.0,s.headingTo(g));
+}
+
+TEST(PlatformState, elevation1) {
+  PlatformState s(20,20,10,0,0,3);
+  PlatformState g(30,20,10,0,0,3);
+  ASSERT_EQ(0,s.elevationTo(g));
+}
+
+TEST(PlatformState, elevation2) {
+  PlatformState s(20,20,20,0,0,3);
+  PlatformState g(30,20,10,0,0,3);
+  ASSERT_EQ(-45.0,s.elevationTo(g));
 }
 
 TEST(PlatformState, elevation) {
@@ -339,4 +359,40 @@ TEST(PlatformState, distance) {
   PlatformState s(20,20,10,0,0,3);
   PlatformState g(30,20,10,0,0,3);
   ASSERT_EQ(10.0,s.distanceTo(g));
+}
+
+TEST(PlatformState, GetActions) {
+  PlatformState s(20,20,10,0,0,3);
+  PlatformState g(30,20,10,0,0,3);
+  AirplaneHiFiGridlessEnvironment env;
+  env.setStart(s);
+  env.setGoal(g);
+  std::vector<PlatformAction> actions;
+  env.GetActions(s,actions);
+  // there should be a positive 90 deg turn
+  ASSERT_EQ(3, actions[0].turn());
+  s.x=40;
+  env.GetActions(s,actions);
+  // neg. 90 degree turn
+   ASSERT_EQ(-3, actions[0].turn());
+}
+
+TEST(PlatformState, HCost) {
+  PlatformState s(42,48,10,2,0,3);
+  PlatformState g(38,35,10,2,0,3);
+  AirplaneHiFiGridlessEnvironment env;
+  env.setStart(s);
+  env.setGoal(g);
+  TemplateAStar<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment> astar;
+  std::vector<PlatformState> path;
+  astar.GetPath(&env,s,g,path);
+  double cost(env.GetPathLength(path));
+  ASSERT_LE(env.HCost(s,g),cost);
+  std::cout << "len: " << cost << "\n";
+  std::cout << "h: " << env.HCost(s,g) << "\n";
+}
+
+TEST(Conflict, detect){
+  PlatformState s(42,48,10,2,0,3);
+  PlatformState g(38,35,10,2,0,3);
 }

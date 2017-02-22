@@ -29,6 +29,7 @@
 #include "TemplateAStar.h"
 #include "Heuristic.h"
 #include "Timer.h"
+#include <string.h>
 
 #define HASH_INTERVAL 0.09
 
@@ -285,7 +286,9 @@ unsigned GetFullPath(CBSUnit<state,action,environment>* c, TemplateAStar<state, 
   }
   for(int i=s; i<g; ++i){
     std::vector<state> path;
-    state start(c->GetWaypoint(i));
+    state start(thePath.size()?thePath.back():c->GetWaypoint(i));
+    start.landed=false;
+    start.t=0;
     state goal(c->GetWaypoint(i+1));
     env->setGoal(goal);
     astar.GetPath(env, start, goal, path);

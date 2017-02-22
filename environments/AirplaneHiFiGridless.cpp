@@ -33,9 +33,12 @@ AirplaneHiFiGridlessEnvironment::AirplaneHiFiGridlessEnvironment(
   unsigned width,
   unsigned length,
   unsigned height,
-  double minSpeed,
-  double maxSpeed,
+  unsigned minSpeed,
+  unsigned maxSpeed,
   uint8_t numSpeeds,
+  double radius,
+  double turn,
+  double dive,
   double cruiseBurnRate,
   double climbCost,
   double descendCost
@@ -45,6 +48,9 @@ AirplaneHiFiGridlessEnvironment::AirplaneHiFiGridlessEnvironment(
   minSpeed(minSpeed),
   maxSpeed(maxSpeed),
   numSpeeds(numSpeeds),
+  goalRadius(radius),
+  maxTurn(turn),
+  maxDive(dive),
   cruiseBurnRate(cruiseBurnRate),
   climbCost(climbCost),
   descendCost(descendCost)
@@ -245,21 +251,150 @@ void AirplaneHiFiGridlessEnvironment::GetReverseSuccessors(const PlatformState &
 
 void AirplaneHiFiGridlessEnvironment::GetActions(const PlatformState &nodeID, std::vector<PlatformAction> &actions) const
 {
+  //std::cout << "Actions from: " << nodeID << " to " << getGoal() << "\n";
+  static unsigned cruiseSpeed(3);
   actions.resize(0);
   double nh((nodeID.headingTo(getGoal()))-nodeID.hdg());
-  nh=fgreater(nh,0)?std::min(3.0,nh):std::max(-3.0,nh); // Never turn more than 3
+  //std::cout << "Desired heading " << (nodeID.headingTo(getGoal())) <<"-"<<nodeID.hdg() <<"("<<nh<<")"<< "\n";
+  if(fgreater(nh,180.)){nh=-(360.-nh);} // Take complement
+  nh=fgreater(nh,0)?std::min(maxTurn,nh):std::max(-maxTurn,nh); // Never turn more than max
+  //std::cout << "Turn amount " << nh << "\n";
   
   double ne((nodeID.elevationTo(getGoal()))-nodeID.pitch());
-  ne=fgreater(ne,0)?std::min(3.0,ne):std::max(-3.0,ne); // Never pitch more than 3
+  //std::cout << "pitch " << (nodeID.elevationTo(getGoal())) << "-"<<nodeID.pitch()<<"=" << ne << "\n";
+  ne=fgreater(ne,0)?std::min(maxDive,ne):std::max(-maxDive,ne); // Never pitch more than max
+  //std::cout << "pitch " << ne << "\n";
 
-  // TODO????
-  // Only allow speed changes when near start or goal and if different from
-  // intended speed.
-  actions.push_back(PlatformAction(nh, ne, 0));
-  if(nodeID.speed<maxSpeed)
-    actions.push_back(PlatformAction(nh, ne, 1));
-  if(nodeID.speed>minSpeed)
-    actions.push_back(PlatformAction(nh, ne, -1));
+  // Slow down if we're making a major turn (It keeps us closer to the goal)
+  if(fequal(fabs(nh),maxTurn)){
+    if(nodeID.speed>minSpeed){
+      actions.push_back(PlatformAction(nh, ne, -1));
+    }else{
+      actions.push_back(PlatformAction(nh, ne, 0));
+    }
+  }else{
+    // Try to do cruise speed
+    if(nodeID.speed==cruiseSpeed){
+      actions.push_back(PlatformAction(nh, ne, 0));
+    }else if(nodeID.speed<cruiseSpeed){
+      actions.push_back(PlatformAction(nh, ne, 1));
+    }else{
+      actions.push_back(PlatformAction(nh, ne, -1));
+    }
+  }
+
+  for(auto a(actions.begin()); a!= actions.end();){
+    PlatformState next(nodeID);
+    ApplyAction(next,*a);
+    if(ViolatesConstraint(nodeID,next)){
+      //std::cout << "VIOLATES " << *a << "\n";
+      actions.erase(a);
+    }else{++a;}
+  }
+
+  if(actions.empty()){
+    actions.push_back(PlatformAction(0,0,0));
+
+    actions.push_back(PlatformAction(-maxTurn,0,0));
+    actions.push_back(PlatformAction(maxTurn,0,0));
+    actions.push_back(PlatformAction(0,-maxDive,0));
+    actions.push_back(PlatformAction(0,maxDive,0));
+
+    actions.push_back(PlatformAction(-maxTurn,-maxDive,0));
+    actions.push_back(PlatformAction(-maxTurn,maxDive,0));
+    actions.push_back(PlatformAction(maxTurn,-maxDive,0));
+    actions.push_back(PlatformAction(maxTurn,maxDive,0));
+    if(nodeID.speed<maxSpeed)
+    {
+      actions.push_back(PlatformAction(0,0,1));
+
+      actions.push_back(PlatformAction(-maxTurn,0,1));
+      actions.push_back(PlatformAction(maxTurn,0,1));
+      actions.push_back(PlatformAction(0,-maxDive,1));
+      actions.push_back(PlatformAction(0,maxDive,1));
+
+      actions.push_back(PlatformAction(-maxTurn,-maxDive,1));
+      actions.push_back(PlatformAction(-maxTurn,maxDive,1));
+      actions.push_back(PlatformAction(maxTurn,-maxDive,1));
+      actions.push_back(PlatformAction(maxTurn,maxDive,1));
+    }
+    if(nodeID.speed>minSpeed)
+    {
+      actions.push_back(PlatformAction(0,0,-1));
+
+      actions.push_back(PlatformAction(-maxTurn,0,-1));
+      actions.push_back(PlatformAction(maxTurn,0,-1));
+      actions.push_back(PlatformAction(0,-maxDive,-1));
+      actions.push_back(PlatformAction(0,maxDive,-1));
+
+      actions.push_back(PlatformAction(-maxTurn,-maxDive,-1));
+      actions.push_back(PlatformAction(-maxTurn,maxDive,-1));
+      actions.push_back(PlatformAction(maxTurn,-maxDive,-1));
+      actions.push_back(PlatformAction(maxTurn,maxDive,-1));
+    }
+  }
+
+  for(auto a(actions.begin()); a!= actions.end();){
+    PlatformState next(nodeID);
+    ApplyAction(next,*a);
+    if(ViolatesConstraint(nodeID,next)){
+      //std::cout << "VIOLATES " << *a << "\n";
+      actions.erase(a);
+    }else{++a;}
+  }
+  if(actions.empty()){
+    actions.push_back(PlatformAction(0,0,0));
+
+    actions.push_back(PlatformAction(-maxTurn*2,0,0));
+    actions.push_back(PlatformAction(maxTurn*2,0,0));
+    actions.push_back(PlatformAction(0,-maxDive*2,0));
+    actions.push_back(PlatformAction(0,maxDive*2,0));
+
+    actions.push_back(PlatformAction(-maxTurn*2,-maxDive*2,0));
+    actions.push_back(PlatformAction(-maxTurn*2,maxDive*2,0));
+    actions.push_back(PlatformAction(maxTurn*2,-maxDive*2,0));
+    actions.push_back(PlatformAction(maxTurn*2,maxDive*2,0));
+    if(nodeID.speed<maxSpeed)
+    {
+      actions.push_back(PlatformAction(0,0,1));
+
+      actions.push_back(PlatformAction(-maxTurn*2,0,1));
+      actions.push_back(PlatformAction(maxTurn*2,0,1));
+      actions.push_back(PlatformAction(0,-maxDive*2,1));
+      actions.push_back(PlatformAction(0,maxDive*2,1));
+
+      actions.push_back(PlatformAction(-maxTurn*2,-maxDive*2,1));
+      actions.push_back(PlatformAction(-maxTurn*2,maxDive*2,1));
+      actions.push_back(PlatformAction(maxTurn*2,-maxDive*2,1));
+      actions.push_back(PlatformAction(maxTurn*2,maxDive*2,1));
+    }
+    if(nodeID.speed>minSpeed)
+    {
+      actions.push_back(PlatformAction(0,0,-1));
+
+      actions.push_back(PlatformAction(-maxTurn*2,0,-1));
+      actions.push_back(PlatformAction(maxTurn*2,0,-1));
+      actions.push_back(PlatformAction(0,-maxDive*2,-1));
+      actions.push_back(PlatformAction(0,maxDive*2,-1));
+
+      actions.push_back(PlatformAction(-maxTurn*2,-maxDive*2,-1));
+      actions.push_back(PlatformAction(-maxTurn*2,maxDive*2,-1));
+      actions.push_back(PlatformAction(maxTurn*2,-maxDive*2,-1));
+      actions.push_back(PlatformAction(maxTurn*2,maxDive*2,-1));
+    }
+  }
+  for(auto a(actions.begin()); a!= actions.end();){
+    PlatformState next(nodeID);
+    ApplyAction(next,*a);
+    if(ViolatesConstraint(nodeID,next)){
+      //std::cout << "VIOLATES " << *a << "\n";
+      actions.erase(a);
+    }else{++a;}
+  }
+  if(actions.empty()){
+    std::cout << "Couldn't create any valid successors" << "\n";
+    //assert(!"Couldn't create any valid successors");
+  }
 }
 
 void AirplaneHiFiGridlessEnvironment::GetReverseActions(const PlatformState &nodeID, std::vector<PlatformAction> &actions) const
@@ -271,10 +406,10 @@ void AirplaneHiFiGridlessEnvironment::GetReverseActions(const PlatformState &nod
 PlatformAction AirplaneHiFiGridlessEnvironment::GetAction(const PlatformState &node1, const PlatformState &node2) const
 {
   PlatformAction a;
-  a.turn(atan2(node2.x-node1.x,node2.y-node1.y)*constants::radToDeg);
-  std::cout << (node2.x-node1.x) << "x " << (node2.y-node1.y) << "y "<< a.turn() << "hdg\n";
-  a.pitch(atan2(node2.z-node1.z,PlatformState::SPEEDS[node2.speed])*constants::radToDeg);
-  std::cout << a.pitch() << "att\n";
+  a.turn(node2.hdg()-node1.hdg());
+  //std::cout << (node2.x-node1.x) << "x " << (node2.y-node1.y) << "y "<< a.turn() << "hdg\n";
+  a.pitch(node2.pitch()-node1.pitch());
+  //std::cout << a.pitch() << "att\n";
   a.speed=node2.speed-node1.speed;
   return a;
 }
@@ -318,16 +453,32 @@ double AirplaneHiFiGridlessEnvironment::ReverseHCost(const PlatformState &node1,
 
 double AirplaneHiFiGridlessEnvironment::HCost(const PlatformState &node1, const PlatformState &node2) const
 {
-  //double vertDiff(node2.z-node1.z);
-  //double vcost(fequal(vertDiff,0)?0.0:(fgreater(vertDiff,0)?climbCost:descendCost));
-  //return sqrt((node1.x-node2.x)*(node1.x-node2.x)+
-      //(node1.y-node2.y)*(node1.y-node2.y))*cruiseBurnRate*PlatformState::SPEED_COST[3]
-      //+fabs(vertDiff)*vcost;
-      //std::cout << "H  d:"<<sqrt((node1.x-node2.x)*(node1.x-node2.x)+(node1.y-node2.y)*(node1.y-node2.y)+(node1.z-node2.z)*(node1.z-node2.z))<<" c:"<<PlatformState::SPEED_COST[node2.speed]<<"="<<sqrt((node1.x-node2.x)*(node1.x-node2.x)+(node1.y-node2.y)*(node1.y-node2.y)+(node1.z-node2.z)*(node1.z-node2.z))*PlatformState::SPEED_COST[node2.speed]<<"\n";
-  return sqrt((node1.x-node2.x)*(node1.x-node2.x)+
-      (node1.y-node2.y)*(node1.y-node2.y)+
-      (node1.z-node2.z)*(node1.z-node2.z))*
-      cruiseBurnRate*PlatformState::SPEED_COST[node1.speed];
+  static unsigned cruiseSpeed(3);
+  //std::cout << "HCOST()\n";
+  PlatformState temp(node1);
+  double nh((temp.headingTo(node2))-node1.hdg());
+  if(fgreater(nh,180.)){nh=-(360.-nh);} // Take complement
+  //std::cout << "nh start" << nh << "\n";
+
+  if(fgreater(fabs(nh),PlatformState::angularPrecision)){
+    std::vector<PlatformAction> actions;
+    double total(0.0);
+    do{
+      GetActions(temp,actions);
+      PlatformState prev(temp);
+      ApplyAction(temp,actions[0]);
+      //std::cout << "new" << temp << "\n";
+      nh=(temp.headingTo(node2))-temp.hdg();
+      if(fgreater(nh,180.)){nh=-(360.-nh);} // Take complement
+      total += GCost(prev,temp);
+      //std::cout << "nh " << nh << "\n";
+    }while(fgreater(fabs(nh),maxTurn));
+    return total+
+           (temp.distanceTo(node2)-goalRadius)*cruiseBurnRate*PlatformState::SPEED_COST[cruiseSpeed];
+      
+  }else{
+    return (node1.distanceTo(node2)-goalRadius)*cruiseBurnRate*PlatformState::SPEED_COST[node1.speed];
+  }
 }
 
 double AirplaneHiFiGridlessEnvironment::ReverseGCost(const PlatformState &n1, const PlatformState &n2) const
@@ -351,7 +502,7 @@ double AirplaneHiFiGridlessEnvironment::GCost(const PlatformState &node1, const 
       return /*sqrt((node1.x-node2.x)*(node1.x-node2.x)+
                   (node1.y-node2.y)*(node1.y-node2.y)+
                   (node1.z-node2.z)*(node1.z-node2.z))**/
-             cruiseBurnRate*PlatformState::SPEED_COST[node2.speed];
+             node1.distanceTo(node2)*cruiseBurnRate*PlatformState::SPEED_COST[node2.speed];
 }
 
 double AirplaneHiFiGridlessEnvironment::GCost(const PlatformState &node1, const PlatformAction &act) const
@@ -364,11 +515,12 @@ double AirplaneHiFiGridlessEnvironment::GCost(const PlatformState &node1, const 
 
 bool AirplaneHiFiGridlessEnvironment::GoalTest(const PlatformState &node, const PlatformState &goal) const
 {
-    return fless(fabs(node.x-goal.x),1.0) &&
-    fless(fabs(node.y-goal.y),1.0) &&
-    fless(fabs(node.z-goal.z),1.0) &&
-    fmod(fabs(node.hdg()-goal.hdg())+360,360) < 6.1 &&
-    node.speed == goal.speed;
+    return fless(node.distanceTo(goal),goalRadius);
+    //return fless(fabs(node.x-goal.x),1.0) &&
+    //fless(fabs(node.y-goal.y),1.0) &&
+    //fless(fabs(node.z-goal.z),1.0);
+    //fmod(fabs(node.hdg()-goal.hdg())+360,360) < 6.1 &&
+    //node.speed == goal.speed;
 }
 
 double AirplaneHiFiGridlessEnvironment::GetPathLength(const std::vector<PlatformState> &sol) const
@@ -523,7 +675,7 @@ void AirplaneHiFiGridlessEnvironment::OpenGLDraw(const PlatformState &l) const
     glEnable(GL_LIGHTING);
     glPushMatrix();
     glTranslatef(x, y, z);
-    glRotatef(360*l.hdg()/8.0, 0, 0, 1);
+    glRotatef(l.hdg()/360., 0, 0, 1);
     DrawAirplane();
     glPopMatrix();
     
@@ -555,10 +707,37 @@ void AirplaneHiFiGridlessEnvironment::OpenGLDraw(const PlatformState& o, const P
     glEnable(GL_LIGHTING);
     glPushMatrix();
     glTranslatef((1-perc)*x1+perc*x2, (1-perc)*y1+perc*y2, (1-perc)*z1+perc*z2);
-    glRotatef((1-perc)*h1+perc*h2, 0, 0, 1);
+    //std::cout << "plane " << x1 << " " << y1 << " " << z1 << "\n";
 
-    if(n.z>o.z) glRotatef(-3, 1, 1, 0);
-    else if(n.z<o.z) glRotatef(3, 1, 1, 0);
+
+float m[16];
+float el1(((1-perc)*o.pitch()+perc*n.pitch())*constants::degToRad);
+float ro1(((1-perc)*o.roll()+perc*n.roll())*constants::degToRad);
+float az1(((1-perc)*o.hdg()+perc*n.hdg()+180.)*-constants::degToRad);
+m[0] = cos(az1)*cos(el1); // CA*CE;
+m[1] = sin(az1)*cos(el1); // SA*CE
+m[2] = -sin(el1); // -SE
+m[3] = 0;
+
+m[4] = cos(az1)*sin(el1)*sin(ro1) - sin(az1)*cos(ro1); // CA*SE*SR - SA*CR
+m[5] = cos(az1)*cos(ro1) + sin(az1)*sin(el1)*sin(ro1); // CA*CR + SA*SE*SR
+m[6] = cos(el1)*sin(ro1); // CE*SR
+m[7] = 0;
+
+m[8] = cos(az1)*sin(el1)*cos(ro1) + sin(az1)*cos(ro1); // CA*SE*CR + SA*SR
+m[9] = sin(az1)*sin(el1)*cos(ro1) - cos(az1)*sin(ro1); // SA*SE*CR – CA*SR
+m[10] = cos(el1)*cos(ro1); // CE*CR
+m[11] = 0;
+
+m[12] = 0; 
+m[13] = 0; 
+m[14] = 0; 
+m[15] = 1;
+
+glMultMatrixf(m);
+    //glRotatef((1-perc)*o.pitch()+perc*n.pitch(), 0, 1, 0);
+    //glRotatef((1-perc)*o.roll()+perc*n.roll(), 1, 0, 0);
+    //glRotatef(-1.*((1-perc)*o.hdg()+perc*n.hdg()+180.), 0, 0, 1);
 
     DrawAirplane();
     glPopMatrix();
@@ -615,6 +794,7 @@ void AirplaneHiFiGridlessEnvironment::GLDrawLine(const PlatformState &a, const P
     glVertex3f(x_start,y_start,z_start);
     glVertex3f(x_end,y_end,z_end);
 
+    //std::cout << "Line " << x_start << " " << y_start << " " << z_start << "\n";
     glEnd();
 
     glPopMatrix();
@@ -727,7 +907,7 @@ bool Constraint<PlatformState>::ConflictsWith(const PlatformState &state) const
 // Check both vertex and edge constraints
 bool Constraint<PlatformState>::ConflictsWith(const PlatformState &from, const PlatformState &to) const
 {
-  //std::cout << "VERTEX"<<from << "ConflictsWith" << to << "...\n";
+  //std::cout << "EDGE"<<from << "ConflictsWith" << to << "...\n";
   if(from.landed && to.landed || end_state.landed && start_state.landed) return false;
   double dist(start_state.distanceTo(end_state));
   if (from.t == start_state.t) {
