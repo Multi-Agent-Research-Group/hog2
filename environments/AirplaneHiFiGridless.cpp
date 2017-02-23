@@ -470,11 +470,13 @@ double AirplaneHiFiGridlessEnvironment::HCost(const PlatformState &node1, const 
       PlatformState prev(temp);
       PlatformAction a(actions[0]);
       ApplyAction(temp,a);
-      if(a.speed==1 && fgreater(67.,fabs(nh))){a.speed=2;}
+      unsigned change(0);
+      if(temp.speed<cruiseSpeed && fgreater(60.,fabs(nh))){change=temp.speed; temp.speed++;}
       //std::cout << "new" << temp << "\n";
       nh=(temp.headingTo(node2))-temp.hdg();
       if(fgreater(nh,180.)){nh=-(360.-nh);} // Take complement
       total += GCost(prev,temp);
+      if(change){temp.speed=change;}
       //std::cout << "nh " << nh << "\n";
     }while(!GoalTest(temp,getGoal()));//fgreater(fabs(nh),maxTurn));
     return total;//+

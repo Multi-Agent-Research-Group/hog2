@@ -3,6 +3,7 @@
 
 #include "AirplaneGridCardinal.h"
 #include "AirplanePerimeterBuilder.h"
+#include "AdmissibilityChecker.h"
 #include "Airplane.h"
 #include "AirplaneNaiveHiFiGridless.h"
 #include <gtest/gtest.h>
@@ -30,6 +31,18 @@ void TestReverseSuccessors(environ& env, state const& s, state const& g, state o
   }
 }
 
+TEST(Heuristic, Admissibile) { 
+  AirplaneEnvironment env;
+  env.setGoal(airtimeState());
+  env.loadPerimeterDB();
+  AdmissibilityChecker<airplaneState,airplaneAction,AirplaneEnvironment> checker;
+  std::vector<airplaneState> states;
+  states.emplace_back(40,40,10,3,0);
+  states.emplace_back(40,40,10,2,0);
+  states.emplace_back(40,40,10,3,1);
+  ASSERT_TRUE(checker.check(env,states,100.,9));
+  ASSERT_TRUE(checker.checkReverse(env,states,100.,9));
+}
 /*
 TEST(AirplaneEnvironmentTest, GetActions) { 
   AirplaneEnvironment env;
@@ -261,7 +274,6 @@ TEST(HeuristicTest, GetTestTest) {
     ASSERT_LE(hcost,cost);
   }
 }
-*/
 TEST(AirplaneEnvironmentTest, ProblemChild) { 
   AirplaneEnvironment env;
   env.loadPerimeterDB();
@@ -413,14 +425,14 @@ TEST(AStar, PEA)
     astar.SetVerbose(true);
     std::vector<PlatformState> sol;
     astar.GetPath(&env,s,g,sol);
-    std::cout << "Regular A* expansions: " << astar.GetNodesExpanded() << " unique:" << astar.GetUniqueNodesExpanded() << " generations: " << astar.GetNodesTouched() << " mem: " << astar.GetMemoryUsage() << " path len: " << sol.size() << "\n";
+    std::cout << "Regular A* expansions: " << astar.GetNodesExpanded() << " unique:" << astar.GetUniqueNodesExpanded() << " generations: " << astar.GetNodesTouched() << " mem: " << astar.GetMemoryUsage() << " path len: " << sol.size() << " cost: " << env.GetPathLength(sol) << " Hval: " << env.HCost(s,g) << "\n";
 
     TemplateAStar<PlatformState,PlatformAction,AirplaneNaiveHiFiGridlessEnvironment> astar2;
     astar2.SetVerbose(true);
     std::vector<PlatformState> sol2;
     astar2.SetDoPartialExpansion(true);
     astar2.GetPath(&env,s,g,sol2);
-    std::cout << "PEA* expansions: " << astar2.GetNodesExpanded() << " unique:" << astar2.GetUniqueNodesExpanded() << " generations: " << astar2.GetNodesTouched() << " mem: " << astar2.GetMemoryUsage() << " path len: " << sol2.size() << "\n";
+    std::cout << "PEA* expansions: " << astar2.GetNodesExpanded() << " unique:" << astar2.GetUniqueNodesExpanded() << " generations: " << astar2.GetNodesTouched() << " mem: " << astar2.GetMemoryUsage() << " path len: " << sol2.size() << " cost: " << env.GetPathLength(sol2) << " Hval: " << env.HCost(s,g) << "\n";
 
     ASSERT_LE(astar2.GetMemoryUsage(),astar.GetMemoryUsage());
     ASSERT_EQ(sol2.size(),sol.size());
@@ -468,4 +480,5 @@ TEST(AStar, PEA)
   }
 }
 
+*/
 #endif

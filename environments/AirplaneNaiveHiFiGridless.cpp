@@ -47,44 +47,42 @@ AirplaneNaiveHiFiGridlessEnvironment::AirplaneNaiveHiFiGridlessEnvironment(
 void AirplaneNaiveHiFiGridlessEnvironment::GetActions(const PlatformState &nodeID, std::vector<PlatformAction> &actions) const
 {
   actions.resize(0);
-  actions.push_back(PlatformAction(0,0,0));
+  static unsigned cruiseSpeed(3);
+  double nnh((nodeID.headingTo(getGoal()))-nodeID.hdg());
+  //std::cout << "Desired heading " << (nodeID.headingTo(getGoal())) <<"-"<<nodeID.hdg() <<"("<<nh<<")"<< "\n";
+  if(fgreater(nnh,180.)){nnh=-(360.-nnh);} // Take complement
+  double nh(fgreater(nnh,0)?std::min(maxTurn,nnh):std::max(-maxTurn,nnh)); // Never turn more than max
+  //std::cout << "Turn amount " << nh << "\n";
 
-  actions.push_back(PlatformAction(-maxTurn,0,0));
-  actions.push_back(PlatformAction(maxTurn,0,0));
-  actions.push_back(PlatformAction(0,-maxDive,0));
-  actions.push_back(PlatformAction(0,maxDive,0));
+  double nne((nodeID.elevationTo(getGoal()))-nodeID.pitch());
+  //std::cout << "pitch " << (nodeID.elevationTo(getGoal())) << "-"<<nodeID.pitch()<<"=" << ne << "\n";
+  double ne(fgreater(nne,0)?std::min(maxDive,nne):std::max(-maxDive,nne)); // Never pitch more than max
 
-  actions.push_back(PlatformAction(-maxTurn,-maxDive,0));
-  actions.push_back(PlatformAction(-maxTurn,maxDive,0));
-  actions.push_back(PlatformAction(maxTurn,-maxDive,0));
-  actions.push_back(PlatformAction(maxTurn,maxDive,0));
-  if(nodeID.speed<maxSpeed)
-  {
-    actions.push_back(PlatformAction(0,0,1));
-
-    actions.push_back(PlatformAction(-maxTurn,0,1));
-    actions.push_back(PlatformAction(maxTurn,0,1));
-    actions.push_back(PlatformAction(0,-maxDive,1));
-    actions.push_back(PlatformAction(0,maxDive,1));
-
-    actions.push_back(PlatformAction(-maxTurn,-maxDive,1));
-    actions.push_back(PlatformAction(-maxTurn,maxDive,1));
-    actions.push_back(PlatformAction(maxTurn,-maxDive,1));
-    actions.push_back(PlatformAction(maxTurn,maxDive,1));
-  }
-  if(nodeID.speed>minSpeed)
-  {
-    actions.push_back(PlatformAction(0,0,-1));
-
-    actions.push_back(PlatformAction(-maxTurn,0,-1));
-    actions.push_back(PlatformAction(maxTurn,0,-1));
-    actions.push_back(PlatformAction(0,-maxDive,-1));
-    actions.push_back(PlatformAction(0,maxDive,-1));
-
-    actions.push_back(PlatformAction(-maxTurn,-maxDive,-1));
-    actions.push_back(PlatformAction(-maxTurn,maxDive,-1));
-    actions.push_back(PlatformAction(maxTurn,-maxDive,-1));
-    actions.push_back(PlatformAction(maxTurn,maxDive,-1));
+  if(fgreater(fabs(nnh),60.)){
+    if(nodeID.speed>minSpeed){
+      actions.push_back(PlatformAction(nh, ne, -1));
+    }else{
+      actions.push_back(PlatformAction(nh, ne, 0));
+    }
+  } else if(fgreater(fabs(nnh),30.)){
+    if(nodeID.speed>minSpeed){
+      actions.push_back(PlatformAction(nh, ne, -1));
+    }else if(nodeID.speed==minSpeed){
+      actions.push_back(PlatformAction(nh, ne, 1));
+    }
+    actions.push_back(PlatformAction(nh, ne, 0));
+  }else{
+    if(nodeID.speed>minSpeed){
+      actions.push_back(PlatformAction(nh, ne, -1));
+    }
+    if(nodeID.speed<maxSpeed){
+      actions.push_back(PlatformAction(nh, ne, 1));
+    }
+    actions.push_back(PlatformAction(nh, ne, 0));
+    //actions.push_back(PlatformAction(nh+maxTurn, ne, 0));
+    //actions.push_back(PlatformAction(nh-maxTurn, ne, 0));
+    //actions.push_back(PlatformAction(nh, ne+maxDive, 0));
+    //actions.push_back(PlatformAction(nh, ne-maxDive, 0));
   }
 }
 
