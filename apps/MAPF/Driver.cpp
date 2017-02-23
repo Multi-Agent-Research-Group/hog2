@@ -149,8 +149,8 @@ void InitHeadless(){
   age = new AirplaneHiFiGridlessEnvironment();
   ane = new AirplaneNaiveHiFiGridlessEnvironment();
   // Cardinal Grid
-  //environs.push_back(EnvironmentContainer<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment>(ane->name(),ane,0,1,1));
-  environs.push_back(EnvironmentContainer<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment>(age->name(),age,0,0,1));
+  environs.push_back(EnvironmentContainer<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment>(ane->name(),ane,0,0,1));
+  environs.push_back(EnvironmentContainer<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment>(age->name(),age,0,1,1));
 
   group = new CBSGroup<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment>(environs); // Changed to 10,000 expansions from number of conflicts in the tree
   CBSGroup<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment>::greedyCT=greedyCT;

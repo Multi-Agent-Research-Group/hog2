@@ -21,7 +21,7 @@ bool ECBSheuristic = false; // use ECBS heuristic at low-level
 bool randomalg = false; // Randomize tiebreaking
 bool useCAT = false; // Use conflict avoidance table
 bool mouseTracking;
-unsigned killtime(300); // Kill after some number of seconds
+unsigned killtime(3600); // Kill after some number of seconds
 unsigned killex(INT_MAX); // Kill after some number of expansions
 int px1, py1, px2, py2;
 int absType = 0;
@@ -360,18 +360,12 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 	}
 	if(strcmp(argument[0], "-killex") == 0)
 	{
-                killtime = INT_MAX;
                 killex = atoi(argument[1]);
 		return 2;
 	}
 	if(strcmp(argument[0], "-killtime") == 0)
 	{
-                if(killex < INT_MAX){
-                  killtime = INT_MAX;
-                  std::cout << "Ignoring killtime because killex specified\n";
-                } else {
-                  killtime = atoi(argument[1]);
-                }
+                killtime = atoi(argument[1]);
 		return 2;
 	}
 	if(strcmp(argument[0], "-nogui") == 0)

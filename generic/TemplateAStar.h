@@ -69,7 +69,7 @@ struct AStarCompare {
 template <class state, class action, class environment, class openList = AStarOpenClosed<state, AStarCompare<state>> >
 class TemplateAStar : public GenericSearchAlgorithm<state,action,environment> {
 public:
-	TemplateAStar():env(0),useBPMX(0),radius(4.0),stopAfterGoal(true),doPartialExpansion(false),weight(1),useRadius(false),useOccupancyInfo(false),radEnv(0),reopenNodes(false),theHeuristic(0),directed(false),noncritical(false),SuccessorFunc(&environment::GetSuccessors),ActionFunc(&environment::GetAction),GCostFunc(&environment::GCost){ResetNodeCount();}
+	TemplateAStar():env(0),useBPMX(0),radius(4.0),stopAfterGoal(true),doPartialExpansion(false),verbose(false),weight(1),useRadius(false),useOccupancyInfo(false),radEnv(0),reopenNodes(false),theHeuristic(0),directed(false),noncritical(false),SuccessorFunc(&environment::GetSuccessors),ActionFunc(&environment::GetAction),GCostFunc(&environment::GCost){ResetNodeCount();}
 	virtual ~TemplateAStar() {}
 	void GetPath(environment *env, const state& from, const state& to, std::vector<state> &thePath);
 	void GetPath(environment *, const state& , const state& , std::vector<action> & );
@@ -136,6 +136,9 @@ public:
 	inline void SetDoPartialExpansion(bool val) { doPartialExpansion = val; }
 	inline bool GetDoPartialExpansion() { return doPartialExpansion; }
 	
+	inline void SetVerbose(bool val) { verbose = val; }
+	inline bool GetVerbose() { return verbose; }
+	
 	void FullBPMX(uint64_t nodeID, int distance);
 	
 	void OpenGLDraw() const;
@@ -158,10 +161,12 @@ private:
 	std::vector<state> neighbors;
 	std::vector<uint64_t> neighborID;
 	std::vector<double> edgeCosts;
+	std::vector<double> hCosts;
 	std::vector<dataLocation> neighborLoc;
 	environment *env;
 	bool stopAfterGoal;
 	bool doPartialExpansion;
+        bool verbose;
 	
 	double radius; // how far around do we consider other agents?
 	double weight; 
@@ -355,11 +360,11 @@ if(this->nodesExpanded>1000 && this->noncritical){
 	
  	neighbors.resize(0);
 	edgeCosts.resize(0);
+	hCosts.resize(0);
 	neighborID.resize(0);
 	neighborLoc.resize(0);
 	
-//	std::cout << "Expanding: " << openClosedList.Lookup(nodeid).data << " with f:";
-//	std::cout << openClosedList.Lookup(nodeid).g+openClosedList.Lookup(nodeid).h << std::endl;
+	if(verbose)std::cout << "Expanding: " << openClosedList.Lookup(nodeid).data << " with f:" << openClosedList.Lookup(nodeid).g+openClosedList.Lookup(nodeid).h << std::endl;
 	
  	(env->*SuccessorFunc)(openClosedList.Lookup(nodeid).data, neighbors);
         //std::cout << openClosedList.Lookup(nodeid).data << "("<<G<<"+"<<H<<")="<<(G+H)<<", "<<neighbors.size()<<" succ.\n";
@@ -379,6 +384,7 @@ if(this->nodesExpanded>1000 && this->noncritical){
                   h=openClosedList.Lookup(theID).h;
                 else
                   h=theHeuristic->HCost(neighbors[x], goal);
+                hCosts.push_back(h);
 
                 //std::cout << "  "<<neighbors[x]<<"("<<g<<"+"<<h<<")="<<(g+h)<<"\n";
                 // PEA*
@@ -489,7 +495,7 @@ if(this->nodesExpanded>1000 && this->noncritical){
 					openClosedList.AddClosedNode(neighbors[x],
 												 env->GetStateHash(neighbors[x]),
 												 openClosedList.Lookup(nodeid).g+edgeCosts[x],
-												 std::max(theHeuristic->HCost(neighbors[x], goal), openClosedList.Lookup(nodeid).h-edgeCosts[x]),
+												 std::max(hCosts[x], openClosedList.Lookup(nodeid).h-edgeCosts[x]),
 												 nodeid);
 				}
 				else { // add node to open list
@@ -502,12 +508,12 @@ if(this->nodesExpanded>1000 && this->noncritical){
 						openClosedList.AddOpenNode(neighbors[x],
 												   env->GetStateHash(neighbors[x]),
 												   openClosedList.Lookup(nodeid).g+edgeCosts[x],
-												   std::max(weight*theHeuristic->HCost(neighbors[x], goal), openClosedList.Lookup(nodeid).h-edgeCosts[x]),
+												   std::max(weight*hCosts[x], openClosedList.Lookup(nodeid).h-edgeCosts[x]),
 												   nodeid);
 					} else if(doPartialExpansion) {
                                           // PEA*
                                           // Only add children that have the same f-cost as the parent
-                                          double h(theHeuristic->HCost(neighbors[x], goal));
+                                          double h(hCosts[x]);
                                           double g(G+edgeCosts[x]);
                                           if(fequal(G+H,g+h)){
                                             //std::cout << "  OPEN-->"<<neighbors[x]<<"("<<g<<"+"<<h<<")="<<(g+h)<<"\n";
@@ -520,11 +526,11 @@ if(this->nodesExpanded>1000 && this->noncritical){
                                           //else
                                             //std::cout << "  ignore "<<neighbors[x]<<"("<<g<<"+"<<h<<")="<<(g+h)<<"\n";
                                         } else {
-                                          std::cout << "Add node to open " << neighbors[x] << (G+edgeCosts[x]) << "+" << (weight*theHeuristic->HCost(neighbors[x], goal)) << "=" << (G+edgeCosts[x]+weight*theHeuristic->HCost(neighbors[x], goal)) << "\n";
+                                          if(verbose)std::cout << "Add node ("<<std::hex<<env->GetStateHash(neighbors[x])<<std::dec<<") to open " << neighbors[x] << (G+edgeCosts[x]) << "+" << (weight*hCosts[x]) << "=" << (G+edgeCosts[x]+weight*hCosts[x]) << "\n";
                                           openClosedList.AddOpenNode(neighbors[x],
                                               env->GetStateHash(neighbors[x]),
                                               G+edgeCosts[x],
-                                              weight*theHeuristic->HCost(neighbors[x], goal),
+                                              weight*hCosts[x],
                                               nodeid);
                                         }
 //					if (loc == -1)

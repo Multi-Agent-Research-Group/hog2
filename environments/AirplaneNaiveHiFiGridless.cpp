@@ -46,6 +46,7 @@ AirplaneNaiveHiFiGridlessEnvironment::AirplaneNaiveHiFiGridlessEnvironment(
 
 void AirplaneNaiveHiFiGridlessEnvironment::GetActions(const PlatformState &nodeID, std::vector<PlatformAction> &actions) const
 {
+  actions.resize(0);
   actions.push_back(PlatformAction(0,0,0));
 
   actions.push_back(PlatformAction(-maxTurn,0,0));

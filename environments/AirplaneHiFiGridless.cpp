@@ -222,12 +222,13 @@ void AirplaneHiFiGridlessEnvironment::RecurseGround(int x1, int y1, int x2, int 
 
 void AirplaneHiFiGridlessEnvironment::GetSuccessors(const PlatformState &nodeID, std::vector<PlatformState> &neighbors) const
 {
-    std::cout << "Succ: " << nodeID << "\n";
+    //std::cout << "Succ: " << nodeID << "\n";
     GetActions(nodeID, internalActions);
     for (auto &act : internalActions)
     {
         PlatformState s;
         GetNextState(nodeID, act, s);
+        //std::cout <<"  "<< act << "-->" << s << "\n";
         //std::cout << "  " << s <<":"<<GCost(nodeID,s)<<"+"<<HCost(s,getGoal())<<"="<<(GCost(nodeID,s)+HCost(nodeID,getGoal()))<< "\n";
         neighbors.push_back(s);
     }
@@ -282,6 +283,7 @@ void AirplaneHiFiGridlessEnvironment::GetActions(const PlatformState &nodeID, st
       actions.push_back(PlatformAction(nh, ne, -1));
     }
   }
+return;
 
   for(auto a(actions.begin()); a!= actions.end();){
     PlatformState next(nodeID);
@@ -460,25 +462,27 @@ double AirplaneHiFiGridlessEnvironment::HCost(const PlatformState &node1, const 
   if(fgreater(nh,180.)){nh=-(360.-nh);} // Take complement
   //std::cout << "nh start" << nh << "\n";
 
-  if(fgreater(fabs(nh),PlatformState::angularPrecision)){
+  //if(fgreater(fabs(nh),PlatformState::angularPrecision)){
     std::vector<PlatformAction> actions;
     double total(0.0);
     do{
-      GetActions(temp,actions);
+      AirplaneHiFiGridlessEnvironment::GetActions(temp,actions);
       PlatformState prev(temp);
-      ApplyAction(temp,actions[0]);
+      PlatformAction a(actions[0]);
+      ApplyAction(temp,a);
+      if(a.speed==1 && fgreater(67.,fabs(nh))){a.speed=2;}
       //std::cout << "new" << temp << "\n";
       nh=(temp.headingTo(node2))-temp.hdg();
       if(fgreater(nh,180.)){nh=-(360.-nh);} // Take complement
       total += GCost(prev,temp);
       //std::cout << "nh " << nh << "\n";
-    }while(fgreater(fabs(nh),maxTurn));
-    return total+
-           (temp.distanceTo(node2)-goalRadius)*cruiseBurnRate*PlatformState::SPEED_COST[cruiseSpeed];
+    }while(!GoalTest(temp,getGoal()));//fgreater(fabs(nh),maxTurn));
+    return total;//+
+           //(temp.distanceTo(node2)-goalRadius)*cruiseBurnRate*PlatformState::SPEED_COST[cruiseSpeed];
       
-  }else{
-    return (node1.distanceTo(node2)-goalRadius)*cruiseBurnRate*PlatformState::SPEED_COST[node1.speed];
-  }
+  //}else{
+    //return (node1.distanceTo(node2)-goalRadius)*cruiseBurnRate*PlatformState::SPEED_COST[node1.speed];
+  //}
 }
 
 double AirplaneHiFiGridlessEnvironment::ReverseGCost(const PlatformState &n1, const PlatformState &n2) const
@@ -502,7 +506,7 @@ double AirplaneHiFiGridlessEnvironment::GCost(const PlatformState &node1, const 
       return /*sqrt((node1.x-node2.x)*(node1.x-node2.x)+
                   (node1.y-node2.y)*(node1.y-node2.y)+
                   (node1.z-node2.z)*(node1.z-node2.z))**/
-             node1.distanceTo(node2)*cruiseBurnRate*PlatformState::SPEED_COST[node2.speed];
+             node1.distanceTo(node2)*PlatformState::SPEED_COST[node2.speed];
 }
 
 double AirplaneHiFiGridlessEnvironment::GCost(const PlatformState &node1, const PlatformAction &act) const

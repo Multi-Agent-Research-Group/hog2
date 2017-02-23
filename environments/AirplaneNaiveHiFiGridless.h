@@ -34,7 +34,7 @@ class AirplaneNaiveHiFiGridlessEnvironment : public AirplaneHiFiGridlessEnvironm
         uint8_t numSpeeds=5, // Number of discrete speeds
         double goalRadius=PlatformState::SPEEDS[5],
         double maxTurn=7.5,
-        double maxDive=7.5,
+        double maxDive=15,
         double cruiseBurnRate=.06, // Fuel burn rate in liters per unit distance
         double climbCost=0.01, // Fuel cost for climbing
         double descendCost=-0.00005); // Fuel cost for descending

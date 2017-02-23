@@ -1,6 +1,10 @@
+#ifndef UnitTests_h_
+#define UnitTests_h_
+
+#include "AirplaneGridCardinal.h"
 #include "AirplanePerimeterBuilder.h"
 #include "Airplane.h"
-#include "AirplaneHiFiGridless.h"
+#include "AirplaneNaiveHiFiGridless.h"
 #include <gtest/gtest.h>
 #include "BucketHash.h"
 #include "TemplateAStar.h"
@@ -370,16 +374,16 @@ TEST(PlatformState, GetActions) {
   std::vector<PlatformAction> actions;
   env.GetActions(s,actions);
   // there should be a positive 90 deg turn
-  ASSERT_EQ(3, actions[0].turn());
+  ASSERT_EQ(7.5, actions[0].turn());
   s.x=40;
   env.GetActions(s,actions);
   // neg. 90 degree turn
-   ASSERT_EQ(-3, actions[0].turn());
+   ASSERT_EQ(-7.5, actions[0].turn());
 }
 
 TEST(PlatformState, HCost) {
-  PlatformState s(42,48,10,2,0,3);
-  PlatformState g(38,35,10,2,0,3);
+  PlatformState s(42,48,10,0,0,3);
+  PlatformState g(38,35,10,0,0,3);
   AirplaneHiFiGridlessEnvironment env;
   env.setStart(s);
   env.setGoal(g);
@@ -392,7 +396,76 @@ TEST(PlatformState, HCost) {
   std::cout << "h: " << env.HCost(s,g) << "\n";
 }
 
-TEST(Conflict, detect){
-  PlatformState s(42,48,10,2,0,3);
-  PlatformState g(38,35,10,2,0,3);
+TEST(AStar, PEA)
+{
+  {
+    PlatformState s(42,48,10,0,0,3);
+    PlatformState g(38,35,10,0,0,3);
+    //PlatformState s(20, 20, 12, 90, 0, 1);
+    //PlatformState g(30, 20, 11, 0, 0, 1);
+
+    AirplaneNaiveHiFiGridlessEnvironment env;
+    env.setStart(s);
+    env.setGoal(g);
+    std::cout << env.name() << "\n";
+
+    TemplateAStar<PlatformState,PlatformAction,AirplaneNaiveHiFiGridlessEnvironment> astar;
+    astar.SetVerbose(true);
+    std::vector<PlatformState> sol;
+    astar.GetPath(&env,s,g,sol);
+    std::cout << "Regular A* expansions: " << astar.GetNodesExpanded() << " unique:" << astar.GetUniqueNodesExpanded() << " generations: " << astar.GetNodesTouched() << " mem: " << astar.GetMemoryUsage() << " path len: " << sol.size() << "\n";
+
+    TemplateAStar<PlatformState,PlatformAction,AirplaneNaiveHiFiGridlessEnvironment> astar2;
+    astar2.SetVerbose(true);
+    std::vector<PlatformState> sol2;
+    astar2.SetDoPartialExpansion(true);
+    astar2.GetPath(&env,s,g,sol2);
+    std::cout << "PEA* expansions: " << astar2.GetNodesExpanded() << " unique:" << astar2.GetUniqueNodesExpanded() << " generations: " << astar2.GetNodesTouched() << " mem: " << astar2.GetMemoryUsage() << " path len: " << sol2.size() << "\n";
+
+    ASSERT_LE(astar2.GetMemoryUsage(),astar.GetMemoryUsage());
+    ASSERT_EQ(sol2.size(),sol.size());
+    ASSERT_TRUE(fequal(env.GetPathLength(sol2),env.GetPathLength(sol)));
+  }
+  {
+    airplaneState s(10, 10, 16, 3, 0, false);
+    airplaneState g(40, 20, 11, 3, 0, false);
+    AirplaneGridCardinalEnvironment env;
+    env.setGoal(g);
+    env.loadPerimeterDB();
+    TemplateAStar<airplaneState, airplaneAction, AirplaneGridCardinalEnvironment> astar;
+    std::vector<airplaneState> sol;
+    astar.GetPath(&env,s,g,sol);
+    std::cout << "Regular A* expansions: " << astar.GetNodesExpanded() << " unique:" << astar.GetUniqueNodesExpanded() << " generations: " << astar.GetNodesTouched() << " mem: " << astar.GetMemoryUsage() << " path len: " << sol.size() << "\n";
+
+    TemplateAStar<airplaneState, airplaneAction, AirplaneGridCardinalEnvironment> astar2;
+    astar2.SetDoPartialExpansion(true);
+    std::vector<airplaneState> sol2;
+    astar2.GetPath(&env,s,g,sol2);
+    //std::cout << "PEA* expansions: " << astar2.GetNodesExpanded() << " unique:" << astar2.GetUniqueNodesExpanded() << " generations: " << astar2.GetNodesTouched() << " mem: " << astar2.GetMemoryUsage() << " path len: " << sol2.size() << "\n";
+    ASSERT_LE(astar2.GetMemoryUsage(),astar.GetMemoryUsage());
+    ASSERT_EQ(sol2.size(),sol.size());
+    ASSERT_TRUE(fequal(env.GetPathLength(sol2),env.GetPathLength(sol)));
+  }
+  {
+    airplaneState s(10, 10, 16, 3, 0, false);
+    airplaneState g(40, 20, 11, 3, 0, false);
+    AirplaneEnvironment env;
+    env.setGoal(g);
+    env.loadPerimeterDB();
+    TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> astar;
+    std::vector<airplaneState> sol;
+    astar.GetPath(&env,s,g,sol);
+    std::cout << "Regular A* expansions: " << astar.GetNodesExpanded() << " unique:" << astar.GetUniqueNodesExpanded() << " generations: " << astar.GetNodesTouched() << " mem: " << astar.GetMemoryUsage() << " path len: " << sol.size() << "\n";
+
+    TemplateAStar<airplaneState, airplaneAction, AirplaneEnvironment> astar2;
+    std::vector<airplaneState> sol2;
+    astar2.SetDoPartialExpansion(true);
+    astar2.GetPath(&env,s,g,sol2);
+    std::cout << "PEA* expansions: " << astar2.GetNodesExpanded() << " unique:" << astar2.GetUniqueNodesExpanded() << " generations: " << astar2.GetNodesTouched() << " mem: " << astar2.GetMemoryUsage() << " path len: " << sol2.size() << "\n";
+    ASSERT_LE(astar2.GetMemoryUsage(),astar.GetMemoryUsage());
+    ASSERT_EQ(sol2.size(),sol.size());
+    ASSERT_TRUE(fequal(env.GetPathLength(sol2),env.GetPathLength(sol)));
+  }
 }
+
+#endif

@@ -2,8 +2,8 @@
 #include "UnitTests.h"
 
 int main(int argc, char **argv){
-  //testPEAStar();
   //testAdmissibility();
+
   testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 
