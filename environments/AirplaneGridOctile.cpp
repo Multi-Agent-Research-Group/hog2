@@ -68,7 +68,7 @@ void AirplaneGridOctileEnvironment::GetActions(const airplaneState &nodeID, std:
     actions.push_back(airplaneAction(7,-1,0));
   }
 
-  if(nodeID.speed < numSpeeds+minSpeed)
+  if(nodeID.speed < numSpeeds)
   {
     actions.push_back(airplaneAction(0,1,0));
     actions.push_back(airplaneAction(1,1,0));
@@ -143,7 +143,7 @@ void AirplaneGridOctileEnvironment::GetReverseActions(const airplaneState &nodeI
     actions.push_back(airplaneAction(7,1,0));
   }
 
-  if(nodeID.speed < numSpeeds+minSpeed)
+  if(nodeID.speed < numSpeeds)
   {
     actions.push_back(airplaneAction(0,-1,0));
     actions.push_back(airplaneAction(1,-1,0));

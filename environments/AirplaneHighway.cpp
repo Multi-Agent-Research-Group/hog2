@@ -151,7 +151,7 @@ void AirplaneHighwayEnvironment::GetActions(const airplaneState &nodeID, std::ve
     }
 
     // increase height, decrease speed
-    if (nodeID.speed < numSpeeds+minSpeed)
+    if (nodeID.speed < numSpeeds)
     {
       if(hmodd==hdg)actions.push_back(airplaneAction(-k45, +1, -1));
     }
@@ -170,7 +170,7 @@ void AirplaneHighwayEnvironment::GetActions(const airplaneState &nodeID, std::ve
       if(hmodd==hdg)actions.push_back(airplaneAction(k45, -1, +1));
     }
 
-    if (nodeID.speed < numSpeeds+minSpeed)
+    if (nodeID.speed < numSpeeds)
     {
       // increase height, increase speed
       if(hmodd==hdg)actions.push_back(airplaneAction(k45, +1, +1));
@@ -183,7 +183,7 @@ void AirplaneHighwayEnvironment::GetActions(const airplaneState &nodeID, std::ve
     if(hmod==nodeID.heading)actions.push_back(airplaneAction(0, -1, 0));
   }
 
-  if (nodeID.speed < numSpeeds+minSpeed)
+  if (nodeID.speed < numSpeeds)
   {
     // increase speed
     if(hmod==nodeID.heading)actions.push_back(airplaneAction(0, +1, 0));
@@ -264,7 +264,7 @@ void AirplaneHighwayEnvironment::GetReverseActions(const airplaneState &nodeID, 
     }
 
     // increase height, decrease speed
-    if (nodeID.speed < numSpeeds+minSpeed)
+    if (nodeID.speed < numSpeeds)
     {
       if(hmodd==hdg)actions.push_back(airplaneAction(-k45, -1, -1));
     }
@@ -283,7 +283,7 @@ void AirplaneHighwayEnvironment::GetReverseActions(const airplaneState &nodeID, 
       if(hmodd==hdg)actions.push_back(airplaneAction(k45, 1, +1));
     }
 
-    if (nodeID.speed < numSpeeds+minSpeed)
+    if (nodeID.speed < numSpeeds)
     {
       // increase height, increase speed
       if(hmodd==hdg)actions.push_back(airplaneAction(k45, -1, +1));
@@ -296,7 +296,7 @@ void AirplaneHighwayEnvironment::GetReverseActions(const airplaneState &nodeID, 
     if(hmod==nodeID.heading)actions.push_back(airplaneAction(0, 1, 0));
   }
 
-  if (nodeID.speed < numSpeeds+minSpeed)
+  if (nodeID.speed < numSpeeds)
   {
     // increase speed
     if(hmod==nodeID.heading)actions.push_back(airplaneAction(0, -1, 0));

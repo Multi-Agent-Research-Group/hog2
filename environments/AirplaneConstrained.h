@@ -170,12 +170,13 @@ class RandomTieBreaking {
         // Compute cumulative conflicts (if not already done)
         ConflictSet matches;
         if(i1.data.nc ==-1){
+          //std::cout << "Getting NC for " << i1.data << ":\n";
           CAT->get(i1.data.t,i1.data.t+HASH_INTERVAL,matches);
 
           // Get number of conflicts in the parent
           state const*const parent1(i1.parentID?&(currentAstar->GetItem(i1.parentID).data):nullptr);
           unsigned nc1(parent1?parent1->nc:0);
-          //std::cout << "matches " << matches.size() << "\n";
+          //std::cout << "  matches " << matches.size() << "\n";
 
           // Count number of conflicts
           for(auto const& m: matches){
@@ -194,12 +195,13 @@ class RandomTieBreaking {
           i1.data.nc=nc1;
         }
         if(i2.data.nc ==-1){
+          //std::cout << "Getting NC for " << i2.data << ":\n";
           CAT->get(i2.data.t,i2.data.t+HASH_INTERVAL,matches);
 
           // Get number of conflicts in the parent
           state const*const parent2(i2.parentID?&(currentAstar->GetItem(i2.parentID).data):nullptr);
           unsigned nc2(parent2?parent2->nc:0);
-          //std::cout << "matches " << matches.size() << "\n";
+          //std::cout << "  matches " << matches.size() << "\n";
 
           // Count number of conflicts
           for(auto const& m: matches){

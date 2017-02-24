@@ -4,7 +4,7 @@
 #include "AirplaneGridCardinal.h"
 #include "AirplanePerimeterBuilder.h"
 #include "AdmissibilityChecker.h"
-#include "Airplane.h"
+#include "AirplaneHighway4Cardinal.h"
 #include "AirplaneNaiveHiFiGridless.h"
 #include <gtest/gtest.h>
 #include "BucketHash.h"
@@ -30,7 +30,21 @@ void TestReverseSuccessors(environ& env, state const& s, state const& g, state o
     ASSERT_TRUE(found);
   }
 }
+TEST(Heuristic, CardinalHighway){
+  airplaneState s(67, 13, 16, 1, 7);
+  airplaneState g(12, 39, 4, 1, 7);
 
+  AirplaneHighway4CardinalEnvironment env;
+  env.setGoal(airtimeState());
+  env.loadPerimeterDB();
+  AdmissibilityChecker<airplaneState,airplaneAction,AirplaneEnvironment> checker;
+  std::vector<airplaneState> states;
+  states.emplace_back(40,40,10,3,0);
+  //states.emplace_back(40,40,10,2,0);
+  //states.emplace_back(40,40,10,3,1);
+  ASSERT_TRUE(checker.check(env,states,100.,9));
+  ASSERT_TRUE(checker.checkReverse(env,states,100.,9));
+}
 /*
 TEST(Heuristic, Admissibile) { 
   AirplaneEnvironment env;

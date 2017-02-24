@@ -169,7 +169,7 @@ void AirplaneHighway4Environment::GetActions(const airplaneState &nodeID, std::v
     }
 
     // increase height, decrease speed
-    if (nodeID.speed < numSpeeds+minSpeed)
+    if (nodeID.speed < numSpeeds)
     {
       if(hmodd==hdg)actions.push_back(airplaneAction(-k45, 1, -1));
       if(hmodd==hdg2)actions.push_back(airplaneAction(-k90, 1, -1));
@@ -192,7 +192,7 @@ void AirplaneHighway4Environment::GetActions(const airplaneState &nodeID, std::v
       if(hmodd==hdg2)actions.push_back(airplaneAction(k90, -1, +1));
     }
 
-    if (nodeID.speed < numSpeeds+minSpeed)
+    if (nodeID.speed < numSpeeds)
     {
       // increase height, increase speed
       if(hmodd==hdg)actions.push_back(airplaneAction(k45, +1, +1));
@@ -209,7 +209,7 @@ void AirplaneHighway4Environment::GetActions(const airplaneState &nodeID, std::v
     if(hmod==((nodeID.heading+1)%8)/2) actions.push_back(airplaneAction(k45, -1, 0));
   }
 
-  if (nodeID.speed < numSpeeds+minSpeed)
+  if (nodeID.speed < numSpeeds)
   {
     // increase speed
     if(hmod==nodeID.heading/2)actions.push_back(airplaneAction(0, +1, 0));
@@ -256,7 +256,7 @@ void AirplaneHighway4Environment::GetReverseActions(const airplaneState &nodeID,
     }
 
     // increase height, decrease speed
-    if (nodeID.speed < numSpeeds+minSpeed)
+    if (nodeID.speed < numSpeeds)
     {
       if(hmodd==hdg)actions.push_back(airplaneAction(k90, -1, -1));
     }
@@ -275,7 +275,7 @@ void AirplaneHighway4Environment::GetReverseActions(const airplaneState &nodeID,
       if(hmodd==hdg)actions.push_back(airplaneAction(k90, 1, +1));
     }
 
-    if (nodeID.speed < numSpeeds+minSpeed)
+    if (nodeID.speed < numSpeeds)
     {
       // increase height, increase speed
       if(hmodd==hdg)actions.push_back(airplaneAction(k90, -1, +1));
@@ -288,7 +288,7 @@ void AirplaneHighway4Environment::GetReverseActions(const airplaneState &nodeID,
     if(hmod==nodeID.heading)actions.push_back(airplaneAction(0, 1, 0));
   }
 
-  if (nodeID.speed < numSpeeds+minSpeed)
+  if (nodeID.speed < numSpeeds)
   {
     // increase speed
     if(hmod==nodeID.heading)actions.push_back(airplaneAction(0, -1, 0));

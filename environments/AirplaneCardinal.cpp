@@ -66,7 +66,7 @@ void AirplaneCardinalEnvironment::GetActions(const airplaneState &nodeID, std::v
         actions.push_back(airplaneAction(k45,-1,-1));
         actions.push_back(airplaneAction(-k45,-1,-1));
       }
-      if(nodeID.speed < numSpeeds+minSpeed)
+      if(nodeID.speed < numSpeeds)
       {
         actions.push_back(airplaneAction(-k45,1,-1));
         actions.push_back(airplaneAction(k45,1,-1));
@@ -82,7 +82,7 @@ void AirplaneCardinalEnvironment::GetActions(const airplaneState &nodeID, std::v
         actions.push_back(airplaneAction(-k45,-1,1));
         actions.push_back(airplaneAction(k45,-1,1));
       }
-      if(nodeID.speed < numSpeeds+minSpeed)
+      if(nodeID.speed < numSpeeds)
       {
         actions.push_back(airplaneAction(-k45,1,1));
         actions.push_back(airplaneAction(k45,1,1));
@@ -94,7 +94,7 @@ void AirplaneCardinalEnvironment::GetActions(const airplaneState &nodeID, std::v
       actions.push_back(airplaneAction(k45,-1,0));
     }
 
-    if(nodeID.speed < numSpeeds+minSpeed)
+    if(nodeID.speed < numSpeeds)
     {
       actions.push_back(airplaneAction(-k45,1,0));
       actions.push_back(airplaneAction(k45,1,0));
@@ -127,7 +127,7 @@ void AirplaneCardinalEnvironment::GetActions(const airplaneState &nodeID, std::v
       actions.push_back(airplaneAction(-k90, -1, -1));
     }
     // decrease height, increase speed
-    if(nodeID.speed < numSpeeds+minSpeed)
+    if(nodeID.speed < numSpeeds)
     {
       actions.push_back(airplaneAction(0, +1, -1));
       actions.push_back(airplaneAction(k90, +1, -1));
@@ -149,7 +149,7 @@ void AirplaneCardinalEnvironment::GetActions(const airplaneState &nodeID, std::v
       actions.push_back(airplaneAction(-k90, -1, +1));
     }
 
-    if(nodeID.speed < numSpeeds+minSpeed)
+    if(nodeID.speed < numSpeeds)
     {
       // increase height, increase speed
       actions.push_back(airplaneAction(0, +1, +1));
@@ -166,7 +166,7 @@ void AirplaneCardinalEnvironment::GetActions(const airplaneState &nodeID, std::v
     actions.push_back(airplaneAction(-k90, -1, 0));
   }
 
-  if (nodeID.speed < numSpeeds+minSpeed)
+  if (nodeID.speed < numSpeeds)
   {
     // increase speed
     actions.push_back(airplaneAction(0, +1, 0));
@@ -205,7 +205,7 @@ void AirplaneCardinalEnvironment::GetReverseActions(const airplaneState &nodeID,
         actions.push_back(airplaneAction(k45,+1,-1));
         actions.push_back(airplaneAction(-k45,+1,-1));
       }
-      if(nodeID.speed < numSpeeds+minSpeed)
+      if(nodeID.speed < numSpeeds)
       {
         actions.push_back(airplaneAction(-k45,1,-1));
         actions.push_back(airplaneAction(k45,1,-1));
@@ -221,7 +221,7 @@ void AirplaneCardinalEnvironment::GetReverseActions(const airplaneState &nodeID,
         actions.push_back(airplaneAction(-k45,-1,1));
         actions.push_back(airplaneAction(k45,-1,1));
       }
-      if(nodeID.speed < numSpeeds+minSpeed)
+      if(nodeID.speed < numSpeeds)
       {
         actions.push_back(airplaneAction(-k45,1,1));
         actions.push_back(airplaneAction(k45,1,1));
@@ -233,7 +233,7 @@ void AirplaneCardinalEnvironment::GetReverseActions(const airplaneState &nodeID,
       actions.push_back(airplaneAction(k45,-1,0));
     }
 
-    if(nodeID.speed < numSpeeds+minSpeed)
+    if(nodeID.speed < numSpeeds)
     {
       actions.push_back(airplaneAction(-k45,1,0));
       actions.push_back(airplaneAction(k45,1,0));
@@ -285,7 +285,7 @@ void AirplaneCardinalEnvironment::GetReverseActions(const airplaneState &nodeID,
       actions.push_back(airplaneAction(-k90, 1, +1));
     }
 
-    if (nodeID.speed < numSpeeds+minSpeed)
+    if (nodeID.speed < numSpeeds)
     {
       // increase height, increase speed
       actions.push_back(airplaneAction(0, -1, +1));
@@ -302,7 +302,7 @@ void AirplaneCardinalEnvironment::GetReverseActions(const airplaneState &nodeID,
     actions.push_back(airplaneAction(-k90, 1, 0));
   }
 
-  if (nodeID.speed < numSpeeds+minSpeed)
+  if (nodeID.speed < numSpeeds)
   {
     // increase speed
     actions.push_back(airplaneAction(0, -1, 0));

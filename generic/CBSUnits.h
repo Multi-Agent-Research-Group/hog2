@@ -152,9 +152,9 @@ unsigned GetFullPath(CBSUnit<state,action,environment,comparison,conflicttable>*
 
   // Perform search for all legs
   unsigned offset(0);
+  comparison::currentEnv=(environment*)env;
   if(comparison::useCAT){
     comparison::currentAstar=&astar;
-    comparison::currentEnv=(environment*)env;
     comparison::currentAgent=agent;
   }
   for(int i=s; i<g; ++i){

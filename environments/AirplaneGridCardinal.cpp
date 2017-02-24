@@ -60,7 +60,7 @@ void AirplaneGridCardinalEnvironment::GetActions(const airplaneState &nodeID, st
     actions.push_back(airplaneAction(6,-1,0));
   }
 
-  if(nodeID.speed < numSpeeds+minSpeed)
+  if(nodeID.speed < numSpeeds)
   {
     actions.push_back(airplaneAction(0,1,0));
     actions.push_back(airplaneAction(2,1,0));
@@ -119,7 +119,7 @@ void AirplaneGridCardinalEnvironment::GetReverseActions(const airplaneState &nod
     actions.push_back(airplaneAction(6,1,0));
   }
 
-  if(nodeID.speed < numSpeeds+minSpeed)
+  if(nodeID.speed < numSpeeds)
   {
     actions.push_back(airplaneAction(0,-1,0));
     actions.push_back(airplaneAction(2,-1,0));
