@@ -31,15 +31,6 @@ enum AirplaneType {
   QUAD=0, PLANE=1
 };
 
-// Utility function
-namespace{
-template<unsigned fullDegs>
-unsigned hdgDiff(unsigned a, unsigned b){
-  unsigned d(abs(a-b)%fullDegs);
-  return d>(fullDegs/2.0)?fullDegs-d:d;
-}
-};
-
 class HolonomicLatticeAction {
 public:
 	HolonomicLatticeAction(int8_t t=0, int8_t s=0, int8_t h=0)

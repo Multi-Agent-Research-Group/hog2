@@ -55,8 +55,8 @@ void AirplaneHighwayEnvironment::GetActions(const airplaneState &nodeID, std::ve
   if(hmod != nodeID.heading)
   {
     int travel(nodeID.headingTo(getGoal()));
-    int turns(hdgDiff<8>(nodeID.heading,travel));
-    int levels(hdgDiff<8>(hmod,travel));
+    int turns(Util::angleDiff<8>(nodeID.heading,travel));
+    int levels(Util::angleDiff<8>(hmod,travel));
     if((travel-nodeID.heading < 0 && abs(travel-nodeID.heading) <= turns) ||
     (travel-nodeID.heading > 0 && abs(travel-nodeID.heading) > 4)) turns *= -1;
     if((travel-hmod < 0 && abs(travel-hmod) <= levels) ||
@@ -208,8 +208,8 @@ void AirplaneHighwayEnvironment::GetReverseActions(const airplaneState &nodeID, 
     AirplaneEnvironment::GetReverseActions(nodeID,actions);
     return;
     int travel(nodeID.headingTo(getGoal()));
-    int turns(hdgDiff<8>(nodeID.heading,travel));
-    int levels(hdgDiff<8>(hmod,travel));
+    int turns(Util::angleDiff<8>(nodeID.heading,travel));
+    int levels(Util::angleDiff<8>(hmod,travel));
     if((travel-nodeID.heading < 0 && abs(travel-nodeID.heading) <= turns) ||
     (travel-nodeID.heading > 0 && abs(travel-nodeID.heading) > 4)) turns *= -1;
     if((travel-hmod < 0 && abs(travel-hmod) <= levels) ||
@@ -316,7 +316,7 @@ double AirplaneHighwayEnvironment::myHCost(const airplaneState &node1, const air
   int speedDiff2(abs(cruise-node2.speed));
   int speedDiff(abs(node2.speed-node1.speed));
   double vcost(vertDiff>0?climbCost:descendCost);
-  vertDiff=std::max(hdgDiff<8>(node1.heading,node1.headingTo(node2)),(unsigned)abs(vertDiff));
+  vertDiff=std::max(Util::angleDiff<8>(node1.heading,node1.headingTo(node2)),(unsigned)abs(vertDiff));
   int maxMove(speedDiff1+speedDiff2+vertDiff<=diff?(speedDiff1+speedDiff2+vertDiff):speedDiff+vertDiff);
 
   // Change as many diagonal moves into horizontal as we can

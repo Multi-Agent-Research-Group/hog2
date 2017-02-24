@@ -123,7 +123,7 @@ public:
 	/** Vector holding the current constraints */
 	std::vector<Constraint<airtimeState>> constraints;
 
-        airplaneState const& getGoal()const{return ae->getGoal();}
+        virtual airplaneState const& getGoal()const{return ae->getGoal();}
         void setGoal(airplaneState const& g){ae->setGoal(g);}
 	AirplaneEnvironment *ae;
 private:

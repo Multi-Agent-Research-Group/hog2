@@ -56,8 +56,8 @@ void AirplaneHighway4CardinalEnvironment::GetActions(const airplaneState &nodeID
   if(hmod != nodeID.heading/2 || nodeID.heading%2)
   {
     int travel(nodeID.cardinalHeadingTo(getGoal()));
-    int turns(hdgDiff<8>(nodeID.heading,travel));
-    int levels(hdgDiff<4>(hmod,travel/2));
+    int turns(Util::angleDiff<8>(nodeID.heading,travel));
+    int levels(Util::angleDiff<4>(hmod,travel/2));
     if((travel-nodeID.heading < 0 && abs(travel-nodeID.heading) <= turns) ||
     (travel-nodeID.heading > 0 && abs(travel-nodeID.heading) > 4)) turns *= -1;
     if((travel/2-hmod < 0 && abs(travel/2-hmod) <= levels) ||
@@ -283,7 +283,7 @@ double AirplaneHighway4CardinalEnvironment::myHCost(const airplaneState &node1, 
   int speedDiff2(abs(cruise-node2.speed));
   int speedDiff(abs(node2.speed-node1.speed));
   double vcost(vertDiff>0?climbCost:descendCost);
-  vertDiff=std::max(hdgDiff<4>(node1.heading,node1.cardinalHeadingTo(node2))/2,(unsigned)abs(vertDiff));
+  vertDiff=std::max(Util::angleDiff<4>(node1.heading,node1.cardinalHeadingTo(node2))/2,(unsigned)abs(vertDiff));
   int maxMove(speedDiff1+speedDiff2+vertDiff<=diff?(speedDiff1+speedDiff2+vertDiff):speedDiff+vertDiff);
 
   int speedChanges(((diff-vertDiff)>=speedDiff1+speedDiff2)?(speedDiff1+speedDiff2):speedDiff);

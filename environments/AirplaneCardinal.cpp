@@ -317,7 +317,7 @@ double AirplaneCardinalEnvironment::myHCost(const airplaneState &node1, const ai
   static const int cruise(3);
   int diffx(abs(node1.x-node2.x));
   int diffy(abs(node1.y-node2.y));
-  int hdiff(hdgDiff<8>(node1.heading,node1.headingTo(node2))/2);
+  int hdiff(Util::angleDiff<8>(node1.heading,node1.headingTo(node2))/2);
   hdiff = hdiff>0? hdiff-1:0; // Subtract 1
   int diff(diffx+diffy+hdiff);
   int vertDiff(node2.height-node1.height);
@@ -325,7 +325,7 @@ double AirplaneCardinalEnvironment::myHCost(const airplaneState &node1, const ai
   int speedDiff2(abs(cruise-node2.speed));
   int speedDiff(abs(node2.speed-node1.speed));
   double vcost(vertDiff>0?climbCost:descendCost);
-  //vertDiff=std::max(hdgDiff<4>(node1.heading,node1.cardinalHeadingTo(node2))/2,(unsigned)abs(vertDiff));
+  //vertDiff=std::max(Util::angleDiff<4>(node1.heading,node1.cardinalHeadingTo(node2))/2,(unsigned)abs(vertDiff));
   int maxMove(speedDiff1+speedDiff2+vertDiff<=diff?(speedDiff1+speedDiff2+vertDiff):speedDiff+vertDiff);
 
   int speedChanges(((diff-vertDiff)>=speedDiff1+speedDiff2)?(speedDiff1+speedDiff2):speedDiff);

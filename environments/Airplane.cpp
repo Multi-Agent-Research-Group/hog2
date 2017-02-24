@@ -959,10 +959,10 @@ double AirplaneEnvironment::myHCost(const airplaneState &node1, const airplaneSt
   int maxMove(std::max(speedDiff,vertDiff));
 
   //int travel(node1.headingTo(node2));
-  /*int numTurns1(hdgDiff<8>(node1.heading,travel));
+  /*int numTurns1(Util::angleDiff<8>(node1.heading,travel));
   if(numTurns1 == 3 && diff>1){diff--;diag++;}
   else if(numTurns1 == 4){diff++;}
-  int numTurns2(hdgDiff<8>(node2.heading,travel));
+  int numTurns2(Util::angleDiff<8>(node2.heading,travel));
   if(numTurns2 == 3 && diff>1){diff--;diag++;}
   else if(numTurns2 == 4){diff++;}*/
 
@@ -1050,7 +1050,7 @@ double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneStat
     unsigned yd(abs(node1.y-node2.y));
     unsigned zd(abs(node1.height-node2.height));
     if((xd<=perimeterSize+1 && yd<=perimeterSize+1 && zd<=perimeterSize+1)){
-      if((xd<=perimeterSize && yd<=perimeterSize && zd<=perimeterSize)||hdgDiff<8>(node1.heading,node1.headingTo(node2))<3){
+      if((xd<=perimeterSize && yd<=perimeterSize && zd<=perimeterSize)||Util::angleDiff<8>(node1.heading,node1.headingTo(node2))<3){
         return perimeter.GCost(node1,node2);
       }else{
         //Replace the heading with one that is facing toward the goal (this gives an admissible estimate)
@@ -1068,7 +1068,7 @@ double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneStat
     int ymax(std::min(node2.y+perimeterSize,length));
     int zmin(std::max(0,node2.height-perimeterSize));
     int zmax(std::min(node2.height+perimeterSize,height));
-    int turnAround(hdgDiff<8>(node1.heading,node1.headingTo(node2))/3);
+    int turnAround(Util::angleDiff<8>(node1.heading,node1.headingTo(node2))/3);
 
     int diffx(abs(node1.x-node2.x));
     int diffy(abs(node1.y-node2.y));
@@ -1083,7 +1083,7 @@ double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneStat
       speed = node1.speed==5?4:speed==1?2:3;
       overRide = true;
       //std::cout << "OVERRIDE\n";
-      //if(hdgDiff<8>(node1.heading,node1.headingTo(node2))>2){discount=speedBurnDelta*M_SQRT2;}
+      //if(Util::angleDiff<8>(node1.heading,node1.headingTo(node2))>2){discount=speedBurnDelta*M_SQRT2;}
     }
     // Check if we're going to enter the perimeter from the top or bottom
     if(vert>=horiz){

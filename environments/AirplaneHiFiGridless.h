@@ -2,7 +2,7 @@
 //  AirplaneHiFiGridless.h
 //  hog2 glut
 //
-//  Created by Thayne Walker on 2/6/16.
+//  Created by Thayne Walker on 2/6/17.
 //  Copyright © 2017 University of Denver. All rights reserved.
 //
 
@@ -16,9 +16,51 @@
 #include "ConstrainedEnvironment.h"
 #include "constants.h"
 #include "AirStates.h"
+#include "AStarOpenClosed.h"
+#include "TemplateAStar.h"
+
+// Check if an openlist node conflicts with a node from an existing path
+template<typename state>
+unsigned checkForTheConflict(state const*const parent, state const*const node, state const*const pathParent, state const*const pathNode){
+  Constraint<state> v(*node);
+  if(v.ConflictsWith(*pathNode)){return 1;}
+  if(parent && pathParent){
+    Constraint<state> e1(*parent,*node);
+    if(e1.ConflictsWith(*pathParent,*pathNode)){return 1;}
+  }
+  return 0; 
+}
+
+// Heuristics
+template <class state>
+class StraightLineHeuristic1 : public Heuristic<state> {
+  public:
+  double HCost(const state &a,const state &b) const {
+        return a.distanceTo(b);
+  }
+};
 
 bool operator==(PlatformAction const& a1, PlatformAction const& a2);
 
+// Represents a radial constraint where cost increases as we approach the center
+template<typename State>
+class SoftConstraint {
+  public:
+    SoftConstraint() {}
+    SoftConstraint(State const& c, double r) : center(c),radius(r){}
+
+    virtual double cost(State const& other, double scale){
+      double d(other.distanceTo(center)*scale);
+      if(fless(d,radius)){
+        if(fless(d,1000.0)){return 1000.0;}
+        return sqrt(radius)/d*d;
+      }
+    }
+    virtual void OpenGLDraw() const {}
+
+    State center;
+    double radius;
+};
 
 struct gridlessLandingStrip {
 	gridlessLandingStrip(uint16_t x1, uint16_t x2, uint16_t y1, uint16_t y2, PlatformState &launch_state, PlatformState &landing_state, PlatformState &goal_state) : x1(x1), x2(x2), y1(y1), y2(y2), 
@@ -66,6 +108,7 @@ class AirplaneHiFiGridlessEnvironment : public ConstrainedEnvironment<PlatformSt
     virtual void GetReverseSuccessors(const PlatformState &nodeID, std::vector<PlatformState> &neighbors) const;
 
     virtual void GetActions(const PlatformState &nodeID, std::vector<PlatformAction> &actions) const;
+    void GetPerfectActions(const PlatformState &nodeID, std::vector<PlatformAction> &actions) const;
 
 
     virtual void GetReverseActions(const PlatformState &nodeID, std::vector<PlatformAction> &actions) const;
@@ -134,6 +177,9 @@ class AirplaneHiFiGridlessEnvironment : public ConstrainedEnvironment<PlatformSt
     PlatformState const& getStart()const{return *start;}
     void setStart(PlatformState const& s){start=&s;}
 
+    void SetNilGCosts(){nilGCost=true;}
+    void UnsetNilGCosts(){nilGCost=false;}
+
   protected:
 
     virtual AirplaneHiFiGridlessEnvironment& getRef() {return *this;}
@@ -166,10 +212,12 @@ class AirplaneHiFiGridlessEnvironment : public ConstrainedEnvironment<PlatformSt
     std::vector<int8_t> turns;
     std::vector<int8_t> quad_turns;
 
+    std::vector<SoftConstraint<PlatformState> > sconstraints;
     std::vector<Constraint<PlatformState> > constraints;
     std::vector<Constraint<PlatformState> > static_constraints;
 
   private:
+    bool nilGCost;
     virtual double myHCost(const PlatformState &node1, const PlatformState &node2) const;
     //bool perimeterLoaded;
     //std::string perimeterFile;
@@ -180,4 +228,102 @@ class AirplaneHiFiGridlessEnvironment : public ConstrainedEnvironment<PlatformSt
     //const double windDirection = 0;
 };
 
+
+template <typename state, typename action, typename environment>
+class NonHolonomicComparator {
+  public:
+  bool operator()(const AStarOpenClosedData<state> &ci1, const AStarOpenClosedData<state> &ci2) const
+  {
+    // Our notion of "best" is agents near start to be facing the goal
+    // failing that, we use H cost
+    // Check heading first
+
+
+    double dist(std::max(ci1.data.distanceTo(currentEnv->getStart()),ci2.data.distanceTo(currentEnv->getStart())));
+    //std::cout << "Comparing " << ci1.data << " to " << ci2.data << " ";
+
+    double nnh1((ci1.data.headingTo(currentEnv->getGoal()))-ci1.data.hdg());
+    if(fgreater(nnh1,180.)){nnh1=-(360.-nnh1);}
+    double nnh2((ci2.data.headingTo(currentEnv->getGoal()))-ci2.data.hdg());
+    if(fgreater(nnh2,180.)){nnh2=-(360.-nnh2);}
+
+    if(fequal(fabs(nnh1),fabs(nnh2))){
+      double nne1((ci1.data.elevationTo(currentEnv->getGoal()))-ci1.data.pitch());
+      double nne2((ci2.data.elevationTo(currentEnv->getGoal()))-ci2.data.pitch());
+
+      if(fequal(fabs(nne1),fabs(nne2))){
+        if (fequal(ci1.g+ci1.h, ci2.g+ci2.h)){ // F-cost equal
+
+          // Assumption of uniform time step data
+          if(useCAT && CAT){
+            // Make them non-const :)
+            AStarOpenClosedData<state>& i1(const_cast<AStarOpenClosedData<state>&>(ci1));
+            AStarOpenClosedData<state>& i2(const_cast<AStarOpenClosedData<state>&>(ci2));
+            // Compute cumulative conflicts (if not already done)
+
+            if(i1.data.nc ==-1){
+
+              // Get number of conflicts in the parent
+              state const*const parent1(i1.parentID?&(currentAstar->GetItem(i1.parentID).data):nullptr);
+              unsigned nc1(parent1?parent1->nc:0);
+              //std::cout << "matches " << matches.size() << "\n";
+
+              // Count number of conflicts
+              for(int agent(0); agent<CAT->size(); ++agent){
+                if(currentAgent == agent) continue;
+                state* p(0);
+                if(i1.data.t!=0)
+                  p=&((*CAT)[agent][i1.data.t-1]);
+                state n((*CAT)[agent][i1.data.t]);
+                nc1+=checkForTheConflict(parent1,&i1.data,p,&n);
+              }
+              // Set the number of conflicts in the data object
+              i1.data.nc=nc1;
+            }
+
+            if(i2.data.nc ==-1){
+
+              // Get number of conflicts in the parent
+              state const*const parent2(i2.parentID?&(currentAstar->GetItem(i2.parentID).data):nullptr);
+              unsigned nc2(parent2?parent2->nc:0);
+              //std::cout << "matches " << matches.size() << "\n";
+
+              // Count number of conflicts
+              for(int agent(0); agent<CAT->size(); ++agent){
+                if(currentAgent == agent) continue;
+                state* p(0);
+                if(i2.data.t!=0)
+                  p=&((*CAT)[agent][i2.data.t-1]);
+                state n((*CAT)[agent][i2.data.t]);
+                nc2+=checkForTheConflict(parent2,&i2.data,p,&n);
+              }
+              // Set the number of conflicts in the data object
+              i2.data.nc=nc2;
+            }
+            return fgreater(i1.data.nc,i2.data.nc);
+          }
+          else if(randomalg && fequal(ci1.g,ci2.g)){
+            return rand()%2;
+          } else {
+            //std::cout << "GCost\n";
+            return fless(ci1.g, ci2.g);  // Tie-break toward greater g-cost
+          }
+        }
+        //std::cout << "FCost\n";
+        return (fgreater(ci1.g+ci1.h, ci2.g+ci2.h));
+      }
+      //std::cout << "elevation\n";
+      return fgreater(fabs(nne1),fabs(nne2));
+    }
+    //std::cout << "heading\n";
+    return fgreater(fabs(nnh1),fabs(nnh2));
+  }
+
+    static TemplateAStar<state, action, environment, AStarOpenClosed<state, NonHolonomicComparator<state,action,environment> > >* currentAstar;
+    static AirplaneHiFiGridlessEnvironment* currentEnv;
+    static uint8_t currentAgent;
+    static bool randomalg;
+    static bool useCAT;
+    static std::vector<std::vector<state> >* CAT; // Conflict Avoidance Table
+};
 #endif /* Airplane_h */

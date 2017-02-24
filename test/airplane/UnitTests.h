@@ -31,6 +31,7 @@ void TestReverseSuccessors(environ& env, state const& s, state const& g, state o
   }
 }
 
+/*
 TEST(Heuristic, Admissibile) { 
   AirplaneEnvironment env;
   env.setGoal(airtimeState());
@@ -38,12 +39,11 @@ TEST(Heuristic, Admissibile) {
   AdmissibilityChecker<airplaneState,airplaneAction,AirplaneEnvironment> checker;
   std::vector<airplaneState> states;
   states.emplace_back(40,40,10,3,0);
-  states.emplace_back(40,40,10,2,0);
-  states.emplace_back(40,40,10,3,1);
+  //states.emplace_back(40,40,10,2,0);
+  //states.emplace_back(40,40,10,3,1);
   ASSERT_TRUE(checker.check(env,states,100.,9));
   ASSERT_TRUE(checker.checkReverse(env,states,100.,9));
 }
-/*
 TEST(AirplaneEnvironmentTest, GetActions) { 
   AirplaneEnvironment env;
   env.loadPerimeterDB();
@@ -408,11 +408,32 @@ TEST(PlatformState, HCost) {
   std::cout << "h: " << env.HCost(s,g) << "\n";
 }
 
+*/
+
+TEST(AStarNonHolonomicComparator, experiment){
+  PlatformState s(42,48,10,0,0,3);
+  PlatformState g(38,35,10,0,0,3);
+
+  AirplaneHiFiGridlessEnvironment env;
+  env.setStart(s);
+  env.setGoal(g);
+  TemplateAStar<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment,AStarOpenClosed<PlatformState, NonHolonomicComparator<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment> > > astar;
+  NonHolonomicComparator<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment>::currentEnv=&env;
+  StraightLineHeuristic1<PlatformState> z;
+  astar.SetHeuristic(&z);
+  env.SetNilGCosts();
+  astar.SetVerbose(true);
+  std::vector<PlatformState> sol;
+  astar.GetPath(&env,s,g,sol);
+  std::cout << "Regular A* expansions: " << astar.GetNodesExpanded() << " unique:" << astar.GetUniqueNodesExpanded() << " generations: " << astar.GetNodesTouched() << " mem: " << astar.GetMemoryUsage() << " path len: " << sol.size() << " cost: " << env.GetPathLength(sol) << " Hval: " << env.HCost(s,g) << "\n";
+}
+
 TEST(AStar, PEA)
 {
   {
     PlatformState s(42,48,10,0,0,3);
-    PlatformState g(38,35,10,0,0,3);
+    //PlatformState g(38,35,10,0,0,3);
+    PlatformState g(34,48,10,0,0,3);
     //PlatformState s(20, 20, 12, 90, 0, 1);
     //PlatformState g(30, 20, 11, 0, 0, 1);
 
@@ -480,5 +501,4 @@ TEST(AStar, PEA)
   }
 }
 
-*/
 #endif

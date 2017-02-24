@@ -15,8 +15,8 @@ unsigned killtime(300); // Kill after some number of seconds
 unsigned killex(INT_MAX); // Kill after some number of expansions
 int px1, py1, px2, py2;
 bool recording = false; // Record frames
-double stepsPerFrame = 1.0/2.0;
-double frameIncrement = 1.0/2.0;
+double stepsPerFrame = 1.0/10.0;
+double frameIncrement = 1.0/10.0;
 std::vector<std::vector<PlatformState> > waypoints;
 AirplaneHiFiGridlessEnvironment* age=0;
 AirplaneNaiveHiFiGridlessEnvironment* ane=0;

@@ -16,6 +16,8 @@
 #include "AirStates.h"
 #include "AirplanePerimeterDBBuilder.h"
 
+#include "PositionalUtils.h"
+
 enum SearchType {
   FORWARD=0, REVERSE=1
 };

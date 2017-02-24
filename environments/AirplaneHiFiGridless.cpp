@@ -53,7 +53,8 @@ AirplaneHiFiGridlessEnvironment::AirplaneHiFiGridlessEnvironment(
   maxDive(dive),
   cruiseBurnRate(cruiseBurnRate),
   climbCost(climbCost),
-  descendCost(descendCost)
+  descendCost(descendCost),
+  nilGCost(false)
 {
     // Load the perimeter heuristic before we add any obstacles to the environment...
     //srandom(time(0));
@@ -250,7 +251,86 @@ void AirplaneHiFiGridlessEnvironment::GetReverseSuccessors(const PlatformState &
     }*/
 }
 
-void AirplaneHiFiGridlessEnvironment::GetActions(const PlatformState &nodeID, std::vector<PlatformAction> &actions) const
+void AirplaneHiFiGridlessEnvironment::GetActions(const PlatformState &nodeID, std::vector<PlatformAction> &actions) const{
+  actions.resize(0);
+
+  double nh((nodeID.headingTo(getGoal()))-nodeID.hdg());
+  if(fgreater(nh,180.)){nh=-(360.-nh);} // Take complement
+  double ne((nodeID.elevationTo(getGoal()))-nodeID.pitch());
+  if(fless(fabs(nh),maxTurn)&&!fequal(nh,0)){
+    if(fless(fabs(ne),maxDive)){
+      actions.push_back(PlatformAction(nh,ne,0));
+      if(nodeID.speed<maxSpeed)
+        actions.push_back(PlatformAction(nh,ne,1));
+      if(nodeID.speed>minSpeed)
+        actions.push_back(PlatformAction(nh,ne,-1));
+    }
+  }else if(fless(fabs(ne),maxDive)&&!fequal(ne,0)){
+    actions.push_back(PlatformAction(0,ne,0));
+    if(nodeID.speed<maxSpeed)
+      actions.push_back(PlatformAction(0,ne,1));
+    if(nodeID.speed>minSpeed)
+      actions.push_back(PlatformAction(0,ne,-1));
+  }
+
+  actions.push_back(PlatformAction(0,0,0));
+
+  actions.push_back(PlatformAction(-maxTurn,0,0));
+  actions.push_back(PlatformAction(maxTurn,0,0));
+
+  if(nodeID.pitch()>-45){
+    actions.push_back(PlatformAction(0,-maxDive,0));
+    actions.push_back(PlatformAction(-maxTurn,-maxDive,0));
+    actions.push_back(PlatformAction(maxTurn,-maxDive,0));
+  }
+
+  if(nodeID.pitch()<45){
+    actions.push_back(PlatformAction(0,maxDive,0));
+    actions.push_back(PlatformAction(-maxTurn,maxDive,0));
+    actions.push_back(PlatformAction(maxTurn,maxDive,0));
+  }
+
+  if(nodeID.speed<maxSpeed)
+  {
+    actions.push_back(PlatformAction(0,0,1));
+
+    actions.push_back(PlatformAction(-maxTurn,0,1));
+    actions.push_back(PlatformAction(maxTurn,0,1));
+
+    if(nodeID.pitch()>-45){
+      actions.push_back(PlatformAction(0,-maxDive,1));
+      actions.push_back(PlatformAction(-maxTurn,-maxDive,1));
+      actions.push_back(PlatformAction(maxTurn,-maxDive,1));
+    }
+
+    if(nodeID.pitch()<45){
+      actions.push_back(PlatformAction(0,maxDive,1));
+      actions.push_back(PlatformAction(-maxTurn,maxDive,1));
+      actions.push_back(PlatformAction(maxTurn,maxDive,1));
+    }
+  }
+  if(nodeID.speed>minSpeed)
+  {
+    actions.push_back(PlatformAction(0,0,-1));
+
+    actions.push_back(PlatformAction(-maxTurn,0,-1));
+    actions.push_back(PlatformAction(maxTurn,0,-1));
+
+    if(nodeID.pitch()>-45){
+      actions.push_back(PlatformAction(0,-maxDive,-1));
+      actions.push_back(PlatformAction(-maxTurn,-maxDive,-1));
+      actions.push_back(PlatformAction(maxTurn,-maxDive,-1));
+    }
+
+    if(nodeID.pitch()<45){
+      actions.push_back(PlatformAction(0,maxDive,-1));
+      actions.push_back(PlatformAction(-maxTurn,maxDive,-1));
+      actions.push_back(PlatformAction(maxTurn,maxDive,-1));
+    }
+  }
+}
+
+void AirplaneHiFiGridlessEnvironment::GetPerfectActions(const PlatformState &nodeID, std::vector<PlatformAction> &actions) const
 {
   //std::cout << "Actions from: " << nodeID << " to " << getGoal() << "\n";
   static unsigned cruiseSpeed(3);
@@ -466,7 +546,7 @@ double AirplaneHiFiGridlessEnvironment::HCost(const PlatformState &node1, const 
     std::vector<PlatformAction> actions;
     double total(0.0);
     do{
-      AirplaneHiFiGridlessEnvironment::GetActions(temp,actions);
+      AirplaneHiFiGridlessEnvironment::GetPerfectActions(temp,actions);
       PlatformState prev(temp);
       PlatformAction a(actions[0]);
       ApplyAction(temp,a);
@@ -494,21 +574,8 @@ double AirplaneHiFiGridlessEnvironment::ReverseGCost(const PlatformState &n1, co
 
 double AirplaneHiFiGridlessEnvironment::GCost(const PlatformState &node1, const PlatformState &node2) const
 {
-  //double vertDiff(node2.z-node1.z);
-  //double vcost(fequal(vertDiff,0)?0.0:(fgreater(vertDiff,0)?climbCost:descendCost));
-  /*std::cout << "GCOST " << node1<<node2<<sqrt((node1.x-node2.x)*(node1.x-node2.x)+
-      (node1.y-node2.y)*(node1.y-node2.y))<<"*"<<cruiseBurnRate<<"*"<<PlatformState::SPEED_COST[node2.speed]<<"+"<<fabs(vertDiff)<<"*"<<vcost<<"="
-      <<(sqrt((node1.x-node2.x)*(node1.x-node2.x)+
-      (node1.y-node2.y)*(node1.y-node2.y))*cruiseBurnRate*PlatformState::SPEED_COST[node2.speed]
-      +fabs(vertDiff)*vcost)<<"\n";*/
-  //return sqrt((node1.x-node2.x)*(node1.x-node2.x)+
-      //(node1.y-node2.y)*(node1.y-node2.y))*cruiseBurnRate*PlatformState::SPEED_COST[node2.speed]
-      //+fabs(vertDiff)*vcost;
-      //std::cout << "  d:"<<sqrt((node1.x-node2.x)*(node1.x-node2.x)+(node1.y-node2.y)*(node1.y-node2.y)+(node1.z-node2.z)*(node1.z-node2.z))<<" c:"<<PlatformState::SPEED_COST[node2.speed]<<"="<<sqrt((node1.x-node2.x)*(node1.x-node2.x)+(node1.y-node2.y)*(node1.y-node2.y)+(node1.z-node2.z)*(node1.z-node2.z))*PlatformState::SPEED_COST[node2.speed]<<"\n";
-      return /*sqrt((node1.x-node2.x)*(node1.x-node2.x)+
-                  (node1.y-node2.y)*(node1.y-node2.y)+
-                  (node1.z-node2.z)*(node1.z-node2.z))**/
-             node1.distanceTo(node2)*PlatformState::SPEED_COST[node2.speed];
+      //if(nilGCost)return 0;
+      return node1.distanceTo(node2)*PlatformState::SPEED_COST[node2.speed];
 }
 
 double AirplaneHiFiGridlessEnvironment::GCost(const PlatformState &node1, const PlatformAction &act) const
@@ -1084,4 +1151,18 @@ bool AirplaneHiFiGridlessEnvironment::ViolatesConstraint(const PlatformState &fr
   // If no constraint is violated, return false
   return false;
 }
+
+template<>
+TemplateAStar<PlatformState, PlatformAction, AirplaneHiFiGridlessEnvironment, AStarOpenClosed<PlatformState, NonHolonomicComparator<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment> > >* NonHolonomicComparator<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment>::currentAstar=0;
+template<>
+AirplaneHiFiGridlessEnvironment* NonHolonomicComparator<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment>::currentEnv=0;
+template<>
+uint8_t NonHolonomicComparator<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment>::currentAgent=0;
+template<>
+bool NonHolonomicComparator<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment>::randomalg=false;
+template<>
+bool NonHolonomicComparator<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment>::useCAT=false;
+template<>
+std::vector<std::vector<PlatformState> >* NonHolonomicComparator<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment>::CAT=0;
+
 

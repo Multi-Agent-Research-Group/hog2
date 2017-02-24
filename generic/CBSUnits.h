@@ -25,11 +25,13 @@
 #include "UnitGroup.h"
 #include "ConstrainedEnvironment.h"
 //#include "TemplateIntervalTree.h"
-#include "BucketHash.h"
 #include "TemplateAStar.h"
 #include "Heuristic.h"
 #include "Timer.h"
 #include <string.h>
+
+#include "BucketHash.h"
+#include "PositionalUtils.h"
 
 #define HASH_INTERVAL 0.09
 
@@ -56,13 +58,14 @@ class CBSUnit;
 
 template <class state>
 struct CompareLowGCost {
-  bool operator()(const AStarOpenClosedData<state> &i1, const AStarOpenClosedData<state> &i2) const
-  {
-    if (fequal(i1.g+i1.h, i2.g+i2.h))
-    {
-      return fless(i1.data.t,i2.data.t); // Break ties by time
+  bool operator()(const AStarOpenClosedData<state> &i1, const AStarOpenClosedData<state> &i2)const{
+    if(fequal(i1.g+i1.h, i2.g+i2.h)){
+      if(fequal(i1.g, i2.g)){
+        return fless(i1.data.t,i2.data.t); // Break ties by time
+      }
+      return fless(i1.g, i2.g);
     }
-    return (fgreater(i1.g+i1.h, i2.g+i2.h));
+    return fgreater(i1.g+i1.h, i2.g+i2.h);
   }
 };
 
@@ -91,6 +94,7 @@ class RandomTieBreaking {
   {
     if (fequal(ci1.g+ci1.h, ci2.g+ci2.h)) // F-cost equal
     {
+      
       if(useCAT && CAT){
         // Make them non-const :)
         AStarOpenClosedData<state>& i1(const_cast<AStarOpenClosedData<state>&>(ci1));
@@ -145,14 +149,35 @@ class RandomTieBreaking {
           // Set the number of conflicts in the data object
           i2.data.nc=nc2;
         }
+        if(fequal(i1.data.nc,i2.data.nc)){
+          // Tie break towards states facing the goal
+          unsigned facingGoal1(ci1.data.headingTo(currentEnv->getGoal()));
+          unsigned facingGoal2(ci1.data.headingTo(currentEnv->getGoal()));
+          unsigned hdiff1(Util::angleDiff<8>(ci1.data.heading,facingGoal1));
+          unsigned hdiff2(Util::angleDiff<8>(ci2.data.heading,facingGoal2));
+          if(hdiff1==hdiff2){
+            if(randomalg && fequal(ci1.g,ci2.g)){
+              return rand()%2;
+            }
+            return (fless(ci1.g, ci2.g));  // Tie-break toward greater g-cost
+          }
+          return fgreater(hdiff1,hdiff2);
+        }
         return fgreater(i1.data.nc,i2.data.nc);
-      }
-      else if(randomalg && fequal(ci1.g,ci2.g)){
-        return rand()%2;
-      }
-      else {
-        return (fless(ci1.g, ci2.g));  // Tie-break toward greater g-cost
-      }
+      }else{
+          // Tie break towards states facing the goal
+          unsigned facingGoal1(ci1.data.headingTo(currentEnv->getGoal()));
+          unsigned facingGoal2(ci1.data.headingTo(currentEnv->getGoal()));
+          unsigned hdiff1(Util::angleDiff<8>(ci1.data.heading,facingGoal1));
+          unsigned hdiff2(Util::angleDiff<8>(ci2.data.heading,facingGoal2));
+          if(hdiff1==hdiff2){
+            if(randomalg && fequal(ci1.g,ci2.g)){
+              return rand()%2;
+            }
+            return (fless(ci1.g, ci2.g));  // Tie-break toward greater g-cost
+          }
+          return fgreater(hdiff1,hdiff2);
+        }
     }
     return (fgreater(ci1.g+ci1.h, ci2.g+ci2.h));
   }
