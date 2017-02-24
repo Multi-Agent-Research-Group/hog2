@@ -30,29 +30,10 @@
 #include "Timer.h"
 #include <string.h>
 
-#include "BucketHash.h"
-#include "PositionalUtils.h"
-
-#define HASH_INTERVAL 0.09
-
-struct IntervalData{
-  IntervalData(uint64_t h1, uint64_t h2, uint8_t a):hash1(h1),hash2(h2),agent(a){}
-  uint64_t hash1;
-  uint64_t hash2;
-  uint8_t agent;
-  bool operator==(IntervalData const& other)const{return other.hash1==hash1 && other.hash2==hash2 && other.agent==agent;}
-  bool operator<(IntervalData const& other)const{return other.hash1==hash1?(other.hash2==hash2?(other.agent==agent?false:agent<other.agent):hash2<other.hash2):hash1<other.hash1;}
-};
-
-//typedef TemplateIntervalTree<IntervalData,float> IntervalTree;
-//typedef TemplateInterval<IntervalData,float> Interval;
-typedef BucketHash<IntervalData> ConflictTable;
-typedef std::set<IntervalData> ConflictSet;
-
 template <class state>
 struct CompareLowGCost;
 
-template<typename state, typename action, typename environment>
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
 class CBSUnit;
 
 
@@ -69,144 +50,11 @@ struct CompareLowGCost {
   }
 };
 
-// Check if an openlist node conflicts with a node from an existing path
-template<typename state>
-unsigned checkForConflict(state const*const parent, state const*const node, state const*const pathParent, state const*const pathNode){
-  Constraint<state> v(*node);
-  if(v.ConflictsWith(*pathNode)){return 1;}
-  if(parent && pathParent){
-    Constraint<state> e1(*parent,*node);
-    if(e1.ConflictsWith(*pathParent,*pathNode)){return 1;}
-  }
-  return 0; 
-}
-template<typename state>
-void computeConflicts(ConflictTable* CAT, AStarOpenClosedData<state>& i1){
-  if(i1.data.nc != -1)return; // already been computed
-  //std::cout << "ITSIZE " << CAT->size() << "\n";
-}
-
-
-template <typename state, typename action, typename environment>
-class RandomTieBreaking {
-  public:
-  bool operator()(const AStarOpenClosedData<state> &ci1, const AStarOpenClosedData<state> &ci2) const
-  {
-    if (fequal(ci1.g+ci1.h, ci2.g+ci2.h)) // F-cost equal
-    {
-      
-      if(useCAT && CAT){
-        // Make them non-const :)
-        AStarOpenClosedData<state>& i1(const_cast<AStarOpenClosedData<state>&>(ci1));
-        AStarOpenClosedData<state>& i2(const_cast<AStarOpenClosedData<state>&>(ci2));
-        // Compute cumulative conflicts (if not already done)
-        ConflictSet matches;
-        if(i1.data.nc ==-1){
-          CAT->get(i1.data.t,i1.data.t+HASH_INTERVAL,matches);
-
-          // Get number of conflicts in the parent
-          state const*const parent1(i1.parentID?&(currentAstar->GetItem(i1.parentID).data):nullptr);
-          unsigned nc1(parent1?parent1->nc:0);
-          //std::cout << "matches " << matches.size() << "\n";
-
-          // Count number of conflicts
-          for(auto const& m: matches){
-            if(currentAgent == m.agent) continue;
-            state p;
-            currentEnv->GetStateFromHash(m.hash1,p);
-            //p.t=m.start;
-            state n;
-            currentEnv->GetStateFromHash(m.hash2,n);
-            //n.t=m.stop;
-            nc1+=checkForConflict(parent1,&i1.data,&p,&n);
-            //if(!nc1){std::cout << "NO ";}
-            //std::cout << "conflict(1): " << i1.data << " " << n << "\n";
-          }
-          // Set the number of conflicts in the data object
-          i1.data.nc=nc1;
-        }
-        if(i2.data.nc ==-1){
-          CAT->get(i2.data.t,i2.data.t+HASH_INTERVAL,matches);
-
-          // Get number of conflicts in the parent
-          state const*const parent2(i2.parentID?&(currentAstar->GetItem(i2.parentID).data):nullptr);
-          unsigned nc2(parent2?parent2->nc:0);
-          //std::cout << "matches " << matches.size() << "\n";
-
-          // Count number of conflicts
-          for(auto const& m: matches){
-            if(currentAgent == m.agent) continue;
-            state p;
-            currentEnv->GetStateFromHash(m.hash2,p);
-            //p.t=m.start;
-            state n;
-            currentEnv->GetStateFromHash(m.hash2,n);
-            //n.t=m.stop;
-            nc2+=checkForConflict(parent2,&i2.data,&p,&n);
-            //if(!nc2){std::cout << "NO ";}
-            //std::cout << "conflict(2): " << i2.data << " " << n << "\n";
-          }
-          // Set the number of conflicts in the data object
-          i2.data.nc=nc2;
-        }
-        if(fequal(i1.data.nc,i2.data.nc)){
-          // Tie break towards states facing the goal
-          unsigned facingGoal1(ci1.data.headingTo(currentEnv->getGoal()));
-          unsigned facingGoal2(ci1.data.headingTo(currentEnv->getGoal()));
-          unsigned hdiff1(Util::angleDiff<8>(ci1.data.heading,facingGoal1));
-          unsigned hdiff2(Util::angleDiff<8>(ci2.data.heading,facingGoal2));
-          if(hdiff1==hdiff2){
-            if(randomalg && fequal(ci1.g,ci2.g)){
-              return rand()%2;
-            }
-            return (fless(ci1.g, ci2.g));  // Tie-break toward greater g-cost
-          }
-          return fgreater(hdiff1,hdiff2);
-        }
-        return fgreater(i1.data.nc,i2.data.nc);
-      }else{
-          // Tie break towards states facing the goal
-          unsigned facingGoal1(ci1.data.headingTo(currentEnv->getGoal()));
-          unsigned facingGoal2(ci1.data.headingTo(currentEnv->getGoal()));
-          unsigned hdiff1(Util::angleDiff<8>(ci1.data.heading,facingGoal1));
-          unsigned hdiff2(Util::angleDiff<8>(ci2.data.heading,facingGoal2));
-          if(hdiff1==hdiff2){
-            if(randomalg && fequal(ci1.g,ci2.g)){
-              return rand()%2;
-            }
-            return (fless(ci1.g, ci2.g));  // Tie-break toward greater g-cost
-          }
-          return fgreater(hdiff1,hdiff2);
-        }
-    }
-    return (fgreater(ci1.g+ci1.h, ci2.g+ci2.h));
-  }
-    static TemplateAStar<state, action, environment, AStarOpenClosed<state, RandomTieBreaking<state,action,environment> > >* currentAstar;
-    static ConstrainedEnvironment<state,action>* currentEnv;
-    static uint8_t currentAgent;
-    static bool randomalg;
-    static bool useCAT;
-    static ConflictTable* CAT; // Conflict Avoidance Table
-};
-
-template <typename state, typename action, typename environment>
-TemplateAStar<state, action, environment, AStarOpenClosed<state, RandomTieBreaking<state,action,environment> > >* RandomTieBreaking<state,action,environment>::currentAstar=0;
-template <typename state, typename action, typename environment>
-ConstrainedEnvironment<state,action>* RandomTieBreaking<state,action,environment>::currentEnv=0;
-template <typename state, typename action, typename environment>
-uint8_t RandomTieBreaking<state,action,environment>::currentAgent=0;
-template <typename state, typename action, typename environment>
-bool RandomTieBreaking<state,action,environment>::randomalg=false;
-template <typename state, typename action, typename environment>
-bool RandomTieBreaking<state,action,environment>::useCAT=false;
-template <typename state, typename action, typename environment>
-ConflictTable* RandomTieBreaking<state,action,environment>::CAT=0;
-
 // Helper functions
 
 // Plan path between waypoints
-template <typename tiebreaking, typename state, typename action, typename environment>
-unsigned ReplanLeg(CBSUnit<state,action,environment>* c, TemplateAStar<state, action, environment, AStarOpenClosed<state, tiebreaking > >& astar, environment* env, std::vector<state>& thePath, unsigned s, unsigned g)
+template <typename state, typename action, typename environment, typename comparison, typename conflicttable>
+unsigned ReplanLeg(CBSUnit<state,action,environment,comparison,conflicttable>* c, TemplateAStar<state, action, environment, AStarOpenClosed<state, comparison> >& astar, environment* env, std::vector<state>& thePath, unsigned s, unsigned g)
 {
   int insertPoint(-1);
   float origTime(0.0);
@@ -274,8 +122,8 @@ unsigned ReplanLeg(CBSUnit<state,action,environment>* c, TemplateAStar<state, ac
 }
 
 // Plan path between waypoints
-template <typename tiebreaking, typename state, typename action, typename environment>
-unsigned GetFullPath(CBSUnit<state,action,environment>* c, TemplateAStar<state, action, environment, AStarOpenClosed<state, tiebreaking > >& astar, environment* env, std::vector<state>& thePath, unsigned s, unsigned g, unsigned agent)
+template <typename state, typename action, typename environment, typename comparison, typename conflicttable>
+unsigned GetFullPath(CBSUnit<state,action,environment,comparison,conflicttable>* c, TemplateAStar<state, action, environment, AStarOpenClosed<state,comparison> >& astar, environment* env, std::vector<state>& thePath, unsigned s, unsigned g, unsigned agent)
 {
   int insertPoint(-1);
   float origTime(0.0);
@@ -304,10 +152,10 @@ unsigned GetFullPath(CBSUnit<state,action,environment>* c, TemplateAStar<state, 
 
   // Perform search for all legs
   unsigned offset(0);
-  if(RandomTieBreaking<state,action,environment>::useCAT){
-    RandomTieBreaking<state,action,environment>::currentAstar=&astar;
-    RandomTieBreaking<state,action,environment>::currentEnv=(environment*)env;
-    RandomTieBreaking<state,action,environment>::currentAgent=agent;
+  if(comparison::useCAT){
+    comparison::currentAstar=&astar;
+    comparison::currentEnv=(environment*)env;
+    comparison::currentAgent=agent;
   }
   for(int i=s; i<g; ++i){
     std::vector<state> path;
@@ -354,7 +202,7 @@ unsigned GetFullPath(CBSUnit<state,action,environment>* c, TemplateAStar<state, 
   return expansions;
 }
 
-template<typename state, typename action, typename environment>
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
 class CBSUnit : public Unit<state, action, environment> {
 public:
 	CBSUnit(std::vector<state> const &gs)
@@ -405,19 +253,19 @@ struct Conflict {
         int prevWpt;
 };
 
-template<typename state>
+template<typename state, typename conflicttable>
 struct CBSTreeNode {
-	CBSTreeNode():parent(0),satisfiable(true),cat(HASH_INTERVAL){}
+	CBSTreeNode():parent(0),satisfiable(true),cat(){}
 	std::vector< std::vector<state> > paths;
 	Conflict<state> con;
 	unsigned int parent;
 	bool satisfiable;
         //IntervalTree cat; // Conflict avoidance table
-        ConflictTable cat; // Conflict avoidance table
+        conflicttable cat; // Conflict avoidance table
 };
 
-template<typename state>
-static std::ostream& operator <<(std::ostream & out, const CBSTreeNode<state> &act)
+template<typename state, typename conflicttable>
+static std::ostream& operator <<(std::ostream & out, const CBSTreeNode<state,conflicttable> &act)
 {
 	out << "(paths:"<<act.paths.size()<<", parent: "<<act.parent<< ", satisfiable: "<<act.satisfiable<<")";
 	return out;
@@ -435,7 +283,7 @@ struct EnvironmentContainer {
 };
 
 
-template <typename state, typename action, typename environment>
+template <typename state, typename action, typename environment, typename comparison, typename conflicttable>
 class CBSGroup : public UnitGroup<state, action, environment>
 {
   public:
@@ -453,7 +301,7 @@ class CBSGroup : public UnitGroup<state, action, environment>
     bool donePlanning() {return planFinished;}
     bool ExpandOneCBSNode();
 
-    std::vector<CBSTreeNode<state> > tree;
+    std::vector<CBSTreeNode<state,conflicttable> > tree;
     void processSolution(double);
   private:    
 
@@ -461,7 +309,7 @@ class CBSGroup : public UnitGroup<state, action, environment>
     bool Bypass(int best, unsigned numConflicts, Conflict<state> const& c1);
     void Replan(int location);
     unsigned HasConflict(std::vector<state> const& a, std::vector<state> const& b, int x, int y, Conflict<state> &c1, Conflict<state> &c2, bool update, bool verbose=false);
-    unsigned FindFirstConflict(CBSTreeNode<state>  const& location, Conflict<state> &c1, Conflict<state> &c2);
+    unsigned FindFirstConflict(CBSTreeNode<state,conflicttable>  const& location, Conflict<state> &c1, Conflict<state> &c2);
 
     bool planFinished;
 
@@ -473,7 +321,7 @@ class CBSGroup : public UnitGroup<state, action, environment>
     void ClearEnvironmentConstraints();
     void AddEnvironmentConstraint(Constraint<state> c);
 
-    TemplateAStar<state, action, environment, AStarOpenClosed<state, RandomTieBreaking<state,action,environment> > > astar;
+    TemplateAStar<state, action, environment, AStarOpenClosed<state, comparison > > astar;
     TemplateAStar<state, action, environment, AStarOpenClosed<state, CompareLowGCost<state> > > astar2;
     double time;
 
@@ -517,20 +365,20 @@ public:
     static bool greedyCT;
 };
 
-template<typename state, typename action, typename environment>
-bool CBSGroup<state,action,environment>::greedyCT=false;
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
+bool CBSGroup<state,action,environment,comparison,conflicttable>::greedyCT=false;
 
 /** AIR CBS UNIT DEFINITIONS */
 
-template<typename state, typename action, typename environment>
-void CBSUnit<state,action,environment>::SetPath(std::vector<state> &p)
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
+void CBSUnit<state,action,environment,comparison,conflicttable>::SetPath(std::vector<state> &p)
 {
   myPath = p;
   std::reverse(myPath.begin(), myPath.end());
 }
 
-template<typename state, typename action, typename environment>
-void CBSUnit<state,action,environment>::OpenGLDraw(const environment *ae, 
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
+void CBSUnit<state,action,environment,comparison,conflicttable>::OpenGLDraw(const environment *ae, 
     const SimulationInfo<state,action,environment> *si) const
 {
   GLfloat r, g, b;
@@ -565,7 +413,7 @@ void CBSUnit<state,action,environment>::OpenGLDraw(const environment *ae,
   }
 }
 
-/*void CBSUnit<state,action,environment>::UpdateGoal(state &s, state &g)
+/*void CBSUnit<state,action,environment,comparison,conflicttable>::UpdateGoal(state &s, state &g)
   {
   start = s;
   goal = g;
@@ -576,24 +424,24 @@ void CBSUnit<state,action,environment>::OpenGLDraw(const environment *ae,
 /** CBS GROUP DEFINITIONS */
 
 
-template<typename state, typename action, typename environment>
-void CBSGroup<state,action,environment>::ClearEnvironmentConstraints(){
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
+void CBSGroup<state,action,environment,comparison,conflicttable>::ClearEnvironmentConstraints(){
   for (EnvironmentContainer<state,action,environment> env : this->environments) {
     env.environment->ClearConstraints();
   }
 }
 
 
-template<typename state, typename action, typename environment>
-void CBSGroup<state,action,environment>::AddEnvironmentConstraint(Constraint<state>  c){
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
+void CBSGroup<state,action,environment,comparison,conflicttable>::AddEnvironmentConstraint(Constraint<state>  c){
   for (EnvironmentContainer<state,action,environment> env : this->environments) {
     env.environment->AddConstraint(c);
   }
 }
 
 /** constructor **/
-template<typename state, typename action, typename environment>
-CBSGroup<state,action,environment>::CBSGroup(std::vector<EnvironmentContainer<state,action,environment> > const& environs) : time(0), bestNode(0), planFinished(false), nobypass(false)
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
+CBSGroup<state,action,environment,comparison,conflicttable>::CBSGroup(std::vector<EnvironmentContainer<state,action,environment> > const& environs) : time(0), bestNode(0), planFinished(false), nobypass(false)
     , ECBSheuristic(false), killex(INT_MAX), keeprunning(false), seed(1234567),
     timer(0)
 {
@@ -619,8 +467,8 @@ CBSGroup<state,action,environment>::CBSGroup(std::vector<EnvironmentContainer<st
 
 /** Expand a single CBS node */
 // Return true while processing
-template<typename state, typename action, typename environment>
-bool CBSGroup<state,action,environment>::ExpandOneCBSNode()
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
+bool CBSGroup<state,action,environment,comparison,conflicttable>::ExpandOneCBSNode()
 {
   // There's no reason to expand if the plan is finished.
   if (planFinished)
@@ -698,7 +546,7 @@ bool CBSGroup<state,action,environment>::ExpandOneCBSNode()
     for (unsigned int x = 0; x < tree[bestNode].paths.size(); x++)
     {
       // Grab the unit
-      CBSUnit<state,action,environment> *unit = (CBSUnit<state,action,environment>*) this->GetMember(x);
+      CBSUnit<state,action,environment,comparison,conflicttable> *unit = (CBSUnit<state,action,environment,comparison,conflicttable>*) this->GetMember(x);
 
       // Prune these paths to the current simulation time
       state current;
@@ -721,8 +569,8 @@ bool CBSGroup<state,action,environment>::ExpandOneCBSNode()
   return true;
 }
 
-template<typename state, typename action, typename environment>
-bool CBSUnit<state,action,environment>::MakeMove(environment *ae, OccupancyInterface<state,action> *,
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
+bool CBSUnit<state,action,environment,comparison,conflicttable>::MakeMove(environment *ae, OccupancyInterface<state,action> *,
 							 SimulationInfo<state,action,environment> * si, action& a)
 {
   if (myPath.size() > 1 && si->GetSimulationTime() > myPath[myPath.size()-2].t)
@@ -761,8 +609,8 @@ bool CBSUnit<state,action,environment>::MakeMove(environment *ae, OccupancyInter
   return false;
 }
 
-template<typename state, typename action, typename environment>
-bool CBSGroup<state,action,environment>::MakeMove(Unit<state, action, environment> *u, environment *e,
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
+bool CBSGroup<state,action,environment,comparison,conflicttable>::MakeMove(Unit<state, action, environment> *u, environment *e,
     SimulationInfo<state,action,environment> *si, action& a)
 {
   if (planFinished && si->GetSimulationTime() > time)
@@ -780,8 +628,8 @@ bool CBSGroup<state,action,environment>::MakeMove(Unit<state, action, environmen
   return false;
 }
 
-template<typename state, typename action, typename environment>
-void CBSGroup<state,action,environment>::processSolution(double elapsed)
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
+void CBSGroup<state,action,environment,comparison,conflicttable>::processSolution(double elapsed)
 {
 
   double cost(0.0);
@@ -792,7 +640,7 @@ void CBSGroup<state,action,environment>::processSolution(double elapsed)
     cost += currentEnvironment->environment->GetPathLength(tree[bestNode].paths[x]);
     total += tree[bestNode].paths[x].size();
     // Grab the unit
-    CBSUnit<state,action,environment> *unit = (CBSUnit<state,action,environment>*) this->GetMember(x);
+    CBSUnit<state,action,environment,comparison,conflicttable> *unit = (CBSUnit<state,action,environment,comparison,conflicttable>*) this->GetMember(x);
 
     // Prune these paths to the current simulation time
     state current;
@@ -853,15 +701,15 @@ void CBSGroup<state,action,environment>::processSolution(double elapsed)
 }
 
 /** Update the location of a unit */
-template<typename state, typename action, typename environment>
-void CBSGroup<state,action,environment>::UpdateLocation(Unit<state, action, environment> *u, environment *e, state &loc, 
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
+void CBSGroup<state,action,environment,comparison,conflicttable>::UpdateLocation(Unit<state, action, environment> *u, environment *e, state &loc, 
     bool success, SimulationInfo<state,action,environment> *si)
 {
   u->UpdateLocation(e, loc, success, si);
 }
 
-template<typename state, typename action, typename environment>
-void CBSGroup<state,action,environment>::SetEnvironment(unsigned numConflicts){
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
+void CBSGroup<state,action,environment,comparison,conflicttable>::SetEnvironment(unsigned numConflicts){
   bool set(false);
   for (int i = 0; i < this->environments.size(); i++) {
     if (numConflicts >= environments[i].conflict_cutoff) {
@@ -880,10 +728,10 @@ void CBSGroup<state,action,environment>::SetEnvironment(unsigned numConflicts){
 }
 
 /** Add a new unit with a new start and goal state to the CBS group */
-template<typename state, typename action, typename environment>
-void CBSGroup<state,action,environment>::AddUnit(Unit<state, action, environment> *u)
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
+void CBSGroup<state,action,environment,comparison,conflicttable>::AddUnit(Unit<state, action, environment> *u)
 {
-  CBSUnit<state,action,environment> *c = (CBSUnit<state,action,environment>*)u;
+  CBSUnit<state,action,environment,comparison,conflicttable> *c = (CBSUnit<state,action,environment,comparison,conflicttable>*)u;
   c->setUnitNumber(this->GetNumMembers());
   // Add the new unit to the group, and construct an CBSUnit
   UnitGroup<state,action,environment>::AddUnit(u);
@@ -904,39 +752,27 @@ void CBSGroup<state,action,environment>::AddUnit(Unit<state, action, environment
   //std::cout << "Search using " << currentEnvironment->environment->name() << "\n";
   std::vector<state> thePath;
   agentEnvs[c->getUnitNumber()]=currentEnvironment->environment;
-  RandomTieBreaking<state,action,environment>::CAT=&(tree[0].cat);
-  TOTAL_EXPANSIONS+=GetFullPath<RandomTieBreaking<state,action,environment> >(c, astar, currentEnvironment->environment, thePath, 0,c->GetNumWaypoints()-1,this->GetNumMembers()-1);
+  comparison::CAT = &(tree[0].cat);
+  comparison::CAT->set(&tree[0].paths);
+  TOTAL_EXPANSIONS+=GetFullPath<state,action,environment,comparison,conflicttable>(c, astar, currentEnvironment->environment, thePath, 0,c->GetNumWaypoints()-1,this->GetNumMembers()-1);
   if(killex != INT_MAX && TOTAL_EXPANSIONS>killex)
       processSolution(-timer->EndTimer());
   //std::cout << "AddUnit agent: " << (this->GetNumMembers()-1) << " expansions: " << astar.GetNodesExpanded() << "\n";
 
   // Create new conflict avoidance table instance
-  if(this->GetNumMembers()<2) tree[0].cat=ConflictTable(HASH_INTERVAL);
+  if(this->GetNumMembers()<2) tree[0].cat=conflicttable();
   //IntervalTree::intervalVector info;
   // We add the optimal path to the root of the tree
   for(int i(0); i<thePath.size(); ++i) {
     // Populate the interval tree
-    if(RandomTieBreaking<state,action,environment>::useCAT){
-      if(i){ //!=0
-        //if(this->GetNumMembers()>1){
-          tree[0].cat.insert(thePath[i-1].t, thePath[i].t, IntervalData(currentEnvironment->environment->GetStateHash(thePath[i-1]), currentEnvironment->environment->GetStateHash(thePath[i]), tree[0].paths.size()-1));
-        /*}else{
-          info.push_back(Interval(thePath[i-1].t, thePath[i].t, IntervalData(currentEnvironment->environment->GetStateHash(thePath[i-1]), currentEnvironment->environment->GetStateHash(thePath[i]), tree[0].paths.size()-1)));
-        }*/
-      }else{
-        // No parent...
-        //if(this->GetNumMembers()>1){
-          tree[0].cat.insert(thePath[i].t, thePath[i].t+.001, IntervalData(0, currentEnvironment->environment->GetStateHash(thePath[i]), tree[0].paths.size()-1));
-        //}else{
-          //info.push_back(Interval(thePath[i].t, thePath[i].t+.001, IntervalData(0, currentEnvironment->environment->GetStateHash(thePath[i]), tree[0].paths.size()-1)));
-        //}
-      }
+    if(comparison::useCAT){
+      tree[0].cat.insert(thePath,currentEnvironment->environment,tree[0].paths.size()-1);
     }
     tree[0].paths.back().push_back(thePath[i]);
     //std::cout << "PATH " << thePath.size() << " tree SIZE,DEPTH " << tree[0].cat.size() << "," << tree[0].cat.depth() << "\n";
   }
   /*if(info.size()){
-    tree[0].cat=ConflictTable(info);
+    tree[0].cat=conflicttable();
   }*/
 
   // Set the plan finished to false, as there's new updates
@@ -948,8 +784,8 @@ void CBSGroup<state,action,environment>::AddUnit(Unit<state, action, environment
   openList.push(OpenListNode(0, 0, 0));
 }
 
-template<typename state, typename action, typename environment>
-void CBSGroup<state,action,environment>::UpdateUnitGoal(Unit<state, action, environment> *u, state newGoal)
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
+void CBSGroup<state,action,environment,comparison,conflicttable>::UpdateUnitGoal(Unit<state, action, environment> *u, state newGoal)
 {
 
   //std::cout << "Replanning units..." << std::endl;
@@ -976,7 +812,7 @@ void CBSGroup<state,action,environment>::UpdateUnitGoal(Unit<state, action, envi
     //std::cout << "Updating member " << (x + 1) << " of " << this->GetNumMembers() << std::endl;
 
     // Get the unit
-    CBSUnit<state,action,environment> *c = (CBSUnit<state,action,environment>*)this->GetMember(x);
+    CBSUnit<state,action,environment,comparison,conflicttable> *c = (CBSUnit<state,action,environment,comparison,conflicttable>*)this->GetMember(x);
     if(c!=u) continue;
 
     // Obtain the unit's current location and current goal
@@ -1036,8 +872,8 @@ void CBSGroup<state,action,environment>::UpdateUnitGoal(Unit<state, action, envi
 }
 
 /** Update Unit Path */
-template<typename state, typename action, typename environment>
-void CBSGroup<state,action,environment>::UpdateSingleUnitPath(Unit<state, action, environment> *u, state newGoal)
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
+void CBSGroup<state,action,environment,comparison,conflicttable>::UpdateSingleUnitPath(Unit<state, action, environment> *u, state newGoal)
 {
 
   //std::cout << "Replanning Single Unit Path..." << std::endl;
@@ -1049,7 +885,7 @@ void CBSGroup<state,action,environment>::UpdateSingleUnitPath(Unit<state, action
   // Add constraints for the rest of the units' pre-planned paths
   for (int x = 0; x < this->GetNumMembers(); x++) {
     if (this->GetMember(x) != u) {
-      CBSUnit<state,action,environment> *c = (CBSUnit<state,action,environment>*)this->GetMember(x);
+      CBSUnit<state,action,environment,comparison,conflicttable> *c = (CBSUnit<state,action,environment,comparison,conflicttable>*)this->GetMember(x);
 
       // Loop over the pre-planned path
       for (int i = 0; i < c->GetPath().size(); i++) {
@@ -1079,7 +915,7 @@ void CBSGroup<state,action,environment>::UpdateSingleUnitPath(Unit<state, action
 
 
   // Get the unit location
-  CBSUnit<state,action,environment> *c = (CBSUnit<state,action,environment>*)u;
+  CBSUnit<state,action,environment,comparison,conflicttable> *c = (CBSUnit<state,action,environment,comparison,conflicttable>*)u;
   state current = c->GetPath()[0];
 
   // Plan a new path for the unit
@@ -1099,8 +935,8 @@ void CBSGroup<state,action,environment>::UpdateSingleUnitPath(Unit<state, action
 }
 
 // Loads conflicts into environements and returns the number of conflicts loaded.
-template<typename state, typename action, typename environment>
-unsigned CBSGroup<state,action,environment>::LoadConstraintsForNode(int location){
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
+unsigned CBSGroup<state,action,environment,comparison,conflicttable>::LoadConstraintsForNode(int location){
   // Select the unit from the tree with the new constraint
   int theUnit(tree[location].con.unit1);
   unsigned numConflicts(0);
@@ -1125,8 +961,8 @@ unsigned CBSGroup<state,action,environment>::LoadConstraintsForNode(int location
 
 // Attempts a bypass around the conflict using an alternate optimal path
 // Returns whether the bypass was effective
-template<typename state, typename action, typename environment>
-bool CBSGroup<state,action,environment>::Bypass(int best, unsigned numConflicts, Conflict<state> const& c1)
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
+bool CBSGroup<state,action,environment,comparison,conflicttable>::Bypass(int best, unsigned numConflicts, Conflict<state> const& c1)
 {
   if(nobypass)return false;
   LoadConstraintsForNode(best);
@@ -1137,7 +973,7 @@ bool CBSGroup<state,action,environment>::Bypass(int best, unsigned numConflicts,
   Conflict<state> c3, c4;
   std::vector<state> newPath(tree[best].paths[c1.unit1]);
   // Re-perform the search with the same constraints (since the start and goal are the same)
-  CBSUnit<state,action,environment> *c = (CBSUnit<state,action,environment>*)this->GetMember(c1.unit1);
+  CBSUnit<state,action,environment,comparison,conflicttable> *c = (CBSUnit<state,action,environment,comparison,conflicttable>*)this->GetMember(c1.unit1);
   //currentEnvironment->environment->setGoal(*tree[best].paths[c1.unit1].rbegin());
   //astar2.SetStopAfterAllOpt(true);
   astar2.noncritical=true; // Because it's bypass, we can kill early if the search prolongs. this var is reset internally by the routine.
@@ -1146,12 +982,13 @@ bool CBSGroup<state,action,environment>::Bypass(int best, unsigned numConflicts,
   //TOTAL_EXPANSIONS += astar2.GetNodesExpanded();
 
   // Never use conflict avoidance tree for bypass
-  bool orig(RandomTieBreaking<state,action,environment>::useCAT);
-  RandomTieBreaking<state,action,environment>::useCAT=false;
-  TOTAL_EXPANSIONS += ReplanLeg<CompareLowGCost<state> >(c, astar2, currentEnvironment->environment, newPath, c1.prevWpt, c1.prevWpt+1);
+  bool orig(comparison::useCAT);
+  comparison::useCAT=false;
+  // TODO fix this to replan in reverse
+  TOTAL_EXPANSIONS += ReplanLeg<state,action,environment,comparison,conflicttable>(c, astar, currentEnvironment->environment, newPath, c1.prevWpt, c1.prevWpt+1);
     if(killex != INT_MAX && TOTAL_EXPANSIONS>killex)
       processSolution(-timer->EndTimer());
-  RandomTieBreaking<state,action,environment>::useCAT=orig;
+  comparison::useCAT=orig;
 
   // Make sure that the current location is satisfiable
   if (newPath.size() == 0 && !(*tree[best].paths[c1.unit1].begin() == *tree[best].paths[c1.unit1].rbegin()))
@@ -1159,7 +996,7 @@ bool CBSGroup<state,action,environment>::Bypass(int best, unsigned numConflicts,
     return false;
   }
 
-  CBSTreeNode<state> newNode(tree[best]);
+  CBSTreeNode<state,conflicttable> newNode(tree[best]);
   newNode.paths[c1.unit1] = newPath;
   unsigned bypassConflicts(FindFirstConflict(newNode, c3, c4));
   if(bypassConflicts < numConflicts)// && newPath.size() <= tree[best].paths[c1.unit1].size())
@@ -1219,8 +1056,8 @@ bool CBSGroup<state,action,environment>::Bypass(int best, unsigned numConflicts,
 
 
 /** Replan a node given a constraint */
-template<typename state, typename action, typename environment>
-void CBSGroup<state,action,environment>::Replan(int location)
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
+void CBSGroup<state,action,environment,comparison,conflicttable>::Replan(int location)
 {
   // Select the unit from the tree with the new constraint
   int theUnit = tree[location].con.unit1;
@@ -1231,7 +1068,7 @@ void CBSGroup<state,action,environment>::Replan(int location)
   SetEnvironment(numConflicts);
 
   // Select the air unit from the group
-  CBSUnit<state,action,environment> *c = (CBSUnit<state,action,environment>*)this->GetMember(theUnit);
+  CBSUnit<state,action,environment,comparison,conflicttable> *c = (CBSUnit<state,action,environment,comparison,conflicttable>*)this->GetMember(theUnit);
 
   // Retreive the unit start and goal
   //state start, goal;
@@ -1245,23 +1082,17 @@ void CBSGroup<state,action,environment>::Replan(int location)
   //agentEnvs[c->getUnitNumber()]=currentEnvironment->environment;
   //astar.GetPath(currentEnvironment->environment, start, goal, thePath);
   std::vector<state> thePath(tree[location].paths[theUnit]);
-  RandomTieBreaking<state,action,environment>::currentAstar=&astar;
-  RandomTieBreaking<state,action,environment>::currentEnv=(environment*)currentEnvironment->environment;
-  RandomTieBreaking<state,action,environment>::currentAgent=theUnit;
-  RandomTieBreaking<state,action,environment>::CAT=&(tree[location].cat);
+  comparison::currentAstar=&astar;
+  comparison::currentEnv=(environment*)currentEnvironment->environment;
+  comparison::currentAgent=theUnit;
+  comparison::CAT=&(tree[location].cat);
+  comparison::CAT->set(&tree[location].paths);
   
-  if(RandomTieBreaking<state,action,environment>::useCAT){
-    for(int i(0); i<thePath.size(); ++i) {
-      // Populate the interval tree
-      if(i) //!=0
-        RandomTieBreaking<state,action,environment>::CAT->remove(thePath[i-1].t, thePath[i].t, IntervalData(currentEnvironment->environment->GetStateHash(thePath[i-1]), currentEnvironment->environment->GetStateHash(thePath[i]), theUnit));
-      else
-        // No parent...
-        RandomTieBreaking<state,action,environment>::CAT->remove(thePath[i].t, thePath[i].t+.001, IntervalData(0, currentEnvironment->environment->GetStateHash(thePath[i]), theUnit));
-    }
+  if(comparison::useCAT){
+    comparison::CAT->remove(thePath,currentEnvironment->environment,theUnit);
   }
 
-  TOTAL_EXPANSIONS += ReplanLeg<RandomTieBreaking<state,action,environment> >(c, astar, currentEnvironment->environment, thePath, tree[location].con.prevWpt, tree[location].con.prevWpt+1);
+  TOTAL_EXPANSIONS += ReplanLeg<state,action,environment,comparison,conflicttable>(c, astar, currentEnvironment->environment, thePath, tree[location].con.prevWpt, tree[location].con.prevWpt+1);
     if(killex != INT_MAX && TOTAL_EXPANSIONS>killex)
       processSolution(-timer->EndTimer());
 
@@ -1276,23 +1107,18 @@ void CBSGroup<state,action,environment>::Replan(int location)
 
   // Add the path back to the tree (new constraint included)
   tree[location].paths[theUnit].resize(0);
+  if(comparison::useCAT)
+    comparison::CAT->insert(thePath,currentEnvironment->environment,theUnit);
+
   for(int i(0); i<thePath.size(); ++i) {
-    // Populate the interval tree
-    if(RandomTieBreaking<state,action,environment>::useCAT){
-      if(i) //!=0
-        RandomTieBreaking<state,action,environment>::CAT->insert(thePath[i-1].t, thePath[i].t, IntervalData(currentEnvironment->environment->GetStateHash(thePath[i-1]), currentEnvironment->environment->GetStateHash(thePath[i]), theUnit));
-      else
-        // No parent...
-        RandomTieBreaking<state,action,environment>::CAT->insert(thePath[i].t, thePath[i].t+.001, IntervalData(0, currentEnvironment->environment->GetStateHash(thePath[i]), theUnit));
-    }
     tree[location].paths[theUnit].push_back(thePath[i]);
   }
 
   // Issue tickets on the path
 }
 
-template<typename state, typename action, typename environment>
-unsigned CBSGroup<state,action,environment>::HasConflict(std::vector<state> const& a, std::vector<state> const& b, int x, int y, Conflict<state> &c1, Conflict<state> &c2, bool update, bool verbose)
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
+unsigned CBSGroup<state,action,environment,comparison,conflicttable>::HasConflict(std::vector<state> const& a, std::vector<state> const& b, int x, int y, Conflict<state> &c1, Conflict<state> &c2, bool update, bool verbose)
 {
   unsigned numConflicts(0);
   // To check for conflicts, we loop through the timed actions, and check 
@@ -1302,8 +1128,8 @@ unsigned CBSGroup<state,action,environment>::HasConflict(std::vector<state> cons
 
   if(verbose)std::cout << "Checking for conflicts between: "<<x << " and "<<y<<" ranging from:" << xmax <<"," << ymax << " update: " << update << "\n";
 
-  CBSUnit<state,action,environment>* A = (CBSUnit<state,action,environment>*) this->GetMember(x);
-  CBSUnit<state,action,environment>* B = (CBSUnit<state,action,environment>*) this->GetMember(y);
+  CBSUnit<state,action,environment,comparison,conflicttable>* A = (CBSUnit<state,action,environment,comparison,conflicttable>*) this->GetMember(x);
+  CBSUnit<state,action,environment,comparison,conflicttable>* B = (CBSUnit<state,action,environment,comparison,conflicttable>*) this->GetMember(y);
   //std::cout << "x,y "<<x<<" "<<y<<"\n";
   signed pwptA(-1);
   signed pwptB(-1);
@@ -1419,8 +1245,8 @@ unsigned CBSGroup<state,action,environment>::HasConflict(std::vector<state> cons
 }
 
 /** Find the first place that there is a conflict in the tree */
-template<typename state, typename action, typename environment>
-unsigned CBSGroup<state,action,environment>::FindFirstConflict(CBSTreeNode<state> const& location, Conflict<state> &c1, Conflict<state> &c2)
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
+unsigned CBSGroup<state,action,environment,comparison,conflicttable>::FindFirstConflict(CBSTreeNode<state,conflicttable> const& location, Conflict<state> &c1, Conflict<state> &c2)
 {
 
   unsigned numConflicts(0);
@@ -1440,15 +1266,15 @@ unsigned CBSGroup<state,action,environment>::FindFirstConflict(CBSTreeNode<state
 }
 
 /** Draw the AIR CBS group */
-template<typename state, typename action, typename environment>
-void CBSGroup<state,action,environment>::OpenGLDraw(const environment *ae, const SimulationInfo<state,action,environment> * sim)  const
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
+void CBSGroup<state,action,environment,comparison,conflicttable>::OpenGLDraw(const environment *ae, const SimulationInfo<state,action,environment> * sim)  const
 {
 	/*
 	GLfloat r, g, b;
 	glLineWidth(2.0);
 	for (unsigned int x = 0; x < tree[bestNode].paths.size(); x++)
 	{
-		CBSUnit<state,action,environment> *unit = (CBSUnit<state,action,environment>*)this->GetMember(x);
+		CBSUnit<state,action,environment,comparison,conflicttable> *unit = (CBSUnit<state,action,environment,comparison,conflicttable>*)this->GetMember(x);
 		unit->GetColor(r, g, b);
 		ae->SetColor(r, g, b);
 		for (unsigned int y = 0; y < tree[bestNode].paths[x].size(); y++)

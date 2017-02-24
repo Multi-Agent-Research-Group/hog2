@@ -92,19 +92,19 @@ void testReverseSuccessors(AirplaneEnvironment& env, airplaneState const& s, air
   }
 }
 
-struct IntervalData{
-  IntervalData(uint64_t h, uint8_t a):hash(h),agent(a){}
+struct intervalData{
+  intervalData(uint64_t h, uint8_t a):hash(h),agent(a){}
   uint64_t hash;
   uint8_t agent;
-  bool operator==(IntervalData const& other)const{return other.hash==hash && other.agent==agent;}
+  bool operator==(intervalData const& other)const{return other.hash==hash && other.agent==agent;}
 };
-  std::ostream& operator<<(std::ostream& ss, IntervalData v) {ss << "<H:"<<v.hash<<" A:"<<unsigned(v.agent)<<">"; return ss;}
+  std::ostream& operator<<(std::ostream& ss, intervalData v) {ss << "<H:"<<v.hash<<" A:"<<unsigned(v.agent)<<">"; return ss;}
 
 void testIntervalTree(){
   std::cout << "testIntervalTree\n";
-  TemplateIntervalTree<IntervalData,float> i;
-  IntervalData d1(1234,0);
-  IntervalData d2(1234,1);
+  TemplateIntervalTree<intervalData,float> i;
+  intervalData d1(1234,0);
+  intervalData d2(1234,1);
   std::cout << "contains " << i.size() << "\n";
   i.insert(1.0,1.1,d1); std::cout << "insert\n";
   std::cout << "contains " << i.size() << "\n";
@@ -132,11 +132,11 @@ void testIntervalTree(){
   o = i.findOverlapping(1.9,2.01);
   std::cout << "found " << o.size() << "\n";
   std::cout << o[0] << "\n";
-  std::vector<TemplateInterval<IntervalData,float> > data;
+  std::vector<TemplateInterval<intervalData,float> > data;
   for(float v(0.0); v<28; v+=1.0){
-    data.push_back(TemplateInterval<IntervalData,float>(v,v+.1,d1));
+    data.push_back(TemplateInterval<intervalData,float>(v,v+.1,d1));
   }
-  i=TemplateIntervalTree<IntervalData,float>(data);
+  i=TemplateIntervalTree<intervalData,float>(data);
   std::cout << "SIZE " << i.size() << "("<<data.size()<<")" << " DEPTH "<< i.depth() << "\n";
 }
 

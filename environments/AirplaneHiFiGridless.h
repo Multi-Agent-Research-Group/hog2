@@ -19,6 +19,8 @@
 #include "AStarOpenClosed.h"
 #include "TemplateAStar.h"
 
+#include "UnitTimeCAT.h"
+
 // Check if an openlist node conflicts with a node from an existing path
 template<typename state>
 unsigned checkForTheConflict(state const*const parent, state const*const node, state const*const pathParent, state const*const pathNode){
@@ -269,12 +271,12 @@ class NonHolonomicComparator {
               //std::cout << "matches " << matches.size() << "\n";
 
               // Count number of conflicts
-              for(int agent(0); agent<CAT->size(); ++agent){
+              for(int agent(0); agent<CAT->numAgents(); ++agent){
                 if(currentAgent == agent) continue;
-                state* p(0);
+                state const* p(0);
                 if(i1.data.t!=0)
-                  p=&((*CAT)[agent][i1.data.t-1]);
-                state n((*CAT)[agent][i1.data.t]);
+                  p=&(CAT->get(agent,i1.data.t-1));
+                state const& n=CAT->get(agent,i1.data.t);
                 nc1+=checkForTheConflict(parent1,&i1.data,p,&n);
               }
               // Set the number of conflicts in the data object
@@ -289,12 +291,12 @@ class NonHolonomicComparator {
               //std::cout << "matches " << matches.size() << "\n";
 
               // Count number of conflicts
-              for(int agent(0); agent<CAT->size(); ++agent){
+              for(int agent(0); agent<CAT->numAgents(); ++agent){
                 if(currentAgent == agent) continue;
-                state* p(0);
+                state const* p(0);
                 if(i2.data.t!=0)
-                  p=&((*CAT)[agent][i2.data.t-1]);
-                state n((*CAT)[agent][i2.data.t]);
+                  p=&(CAT->get(agent,i2.data.t-1));
+                state const& n=CAT->get(agent,i2.data.t);
                 nc2+=checkForTheConflict(parent2,&i2.data,p,&n);
               }
               // Set the number of conflicts in the data object
@@ -324,6 +326,6 @@ class NonHolonomicComparator {
     static uint8_t currentAgent;
     static bool randomalg;
     static bool useCAT;
-    static std::vector<std::vector<state> >* CAT; // Conflict Avoidance Table
+    static UnitTimeCAT<PlatformState,AirplaneHiFiGridlessEnvironment>* CAT; // Conflict Avoidance Table
 };
 #endif /* Airplane_h */

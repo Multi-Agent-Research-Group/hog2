@@ -17,6 +17,8 @@
 #include "AirplanePerimeterDBBuilder.h"
 
 #include "PositionalUtils.h"
+#include "TemplateAStar.h"
+
 
 enum SearchType {
   FORWARD=0, REVERSE=1

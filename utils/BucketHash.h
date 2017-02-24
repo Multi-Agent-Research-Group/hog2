@@ -12,12 +12,13 @@
 #include <vector>
 #include <set>
 #include <algorithm>
+#include <assert.h>
 
 
-template <typename T>
+template <typename T, unsigned hashIntervalHundredths>
 class BucketHash {
     public:
-        BucketHash(float b) :bucketWidth(b),count(0) {}
+        BucketHash() :count(0),bucketWidth(double(hashIntervalHundredths)/100.0) {}
 
         void insert(float t, float te, T const& it){
           ++count;
@@ -56,8 +57,8 @@ class BucketHash {
         }
 
     private:
-        float bucketWidth;
         unsigned count;
+        double bucketWidth;
         std::vector<std::set<T> > buckets;
 };
 

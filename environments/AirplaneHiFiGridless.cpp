@@ -1163,6 +1163,6 @@ bool NonHolonomicComparator<PlatformState,PlatformAction,AirplaneHiFiGridlessEnv
 template<>
 bool NonHolonomicComparator<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment>::useCAT=false;
 template<>
-std::vector<std::vector<PlatformState> >* NonHolonomicComparator<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment>::CAT=0;
+UnitTimeCAT<PlatformState,AirplaneHiFiGridlessEnvironment>* NonHolonomicComparator<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment>::CAT=0;
 
 
