@@ -36,24 +36,40 @@ class AdmissibilityChecker
     };
 
   public:
-    bool check(environment const& env, std::vector<state> startStates, double radius, int depthLimit){
+    bool check(environment& env, std::vector<state> startStates, double radius, int depthLimit){
       double gap(0.0);
       unsigned total(0);
 
       //std::cout << "x<-matrix(c(0,0,0,0,0),1,5);y<-c(0)\n";
       for(state const& start: startStates){
         AStarOpenClosed<Container,Comparator> q;
+        env.setStart(start);
         uint64_t hash(env.GetStateHash(start));
         Container temp(0,start);
         q.AddOpenNode(temp,hash,0.0,0.0,0);
         while(q.OpenSize()){
           uint64_t nodeid(q.Close());
           double G(q.Lookup(nodeid).g);
+          env.setGoal(q.Lookup(nodeid).data.s);
           Container node(q.Lookup(nodeid).data);
           double h(env.HCost(start,node.s));
           gap=std::max(gap,h);
           if(fgreater(h,G)){
-            std::cout << "FAIL: HCost: " << node.s <<"=" << h << "Greater than actual: "<< G << std::endl; 
+            std::cout << "FAIL: HCost: " << start<<"-->"<<node.s <<"=" << h << " Greater than actual: "<< G << std::endl; 
+            std::vector<state> thePath;
+            do{
+              thePath.push_back(q.Lookup(nodeid).data.s);
+              nodeid=q.Lookup(nodeid).parentID;
+            }while(q.Lookup(nodeid).parentID!=nodeid);
+
+            state const* prev(0);
+            double t(0.0);
+            for(auto const& s: thePath){
+              std::cout << s;
+              if(prev){std::cout << " " << env.GCost(*prev,s)<<"="<<(t+=env.GCost(*prev,s));}
+              std::cout << "\n";
+              prev=&s;
+            }
             return false;
           }
           if(node.depth > depthLimit || env.GetRadius(start,node.s)>radius) continue;
@@ -83,23 +99,40 @@ class AdmissibilityChecker
       return true;
     }
 
-    bool checkReverse(environment const& env, std::vector<state> startStates, double radius, int depthLimit){
+    bool checkReverse(environment& env, std::vector<state> startStates, double radius, int depthLimit){
       double gap(0.0);
       unsigned total(0);
 
       //std::cout << "x<-matrix(c(0,0,0,0,0),1,5);y<-c(0)\n";
       for(state const& start: startStates){
         AStarOpenClosed<Container,Comparator> q;
+        env.setGoal(start);
         uint64_t hash(env.GetStateHash(start));
         Container temp(0,start);
         q.AddOpenNode(temp,hash,0.0,0.0,0);
         while(q.OpenSize()){
           uint64_t nodeid(q.Close());
+          env.setStart(q.Lookup(nodeid).data.s);
           double G(q.Lookup(nodeid).g);
           Container node(q.Lookup(nodeid).data);
           double h(env.HCost(node.s,start));
           if(fgreater(h,G)){
-            std::cout << "FAIL: HCost: " << node.s <<"=" << h << "Greater than actual: "<< G << std::endl; 
+            std::cout << "FAIL: HCost: " << node.s<<"-->"<<start <<"=" << h << " Greater than actual: "<< G << std::endl; 
+            std::vector<state> thePath;
+            do{
+              thePath.push_back(q.Lookup(nodeid).data.s);
+              nodeid=q.Lookup(nodeid).parentID;
+            }while(q.Lookup(nodeid).parentID!=nodeid);
+
+            std::reverse(thePath.begin(),thePath.end());
+            state const* prev(0);
+            double t(0.0);
+            for(auto const& s: thePath){
+              std::cout << s;
+              if(prev){std::cout << " " << env.GCost(*prev,s)<<"="<<(t+=env.GCost(*prev,s));}
+              std::cout << "\n";
+              prev=&s;
+            }
             return false;
           }
           if(node.depth > depthLimit || env.GetRadius(node.s,start)>radius) continue;

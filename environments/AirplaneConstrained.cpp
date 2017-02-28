@@ -34,7 +34,7 @@ AirplaneConstrainedEnvironment::AirplaneConstrainedEnvironment(AirplaneEnvironme
 	ClearConstraints();
 
 	// Add back the air-strip constraints
-	for (landingStrip st : ae->GetLandingStrips())
+	/*for (landingStrip st : ae->GetLandingStrips())
 	{
 		airplaneState mi(min(st.x1, st.x2), min(st.y1, st.y2), 0, 0,0);
 		airtimeState o(mi, 0);
@@ -43,7 +43,7 @@ AirplaneConstrainedEnvironment::AirplaneConstrainedEnvironment(AirplaneEnvironme
 		Constraint<airtimeState> c(o, f);
 		c.strip=true;
 		static_constraints.push_back(c);
-	}
+	}*/
 
 	// Add a constraint for the ground
 	airplaneState mi(0,0, 0, 0,0);
