@@ -673,6 +673,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable>::processSolutio
         }
     }*/
   }
+  fflush(stdout);
   if(elapsed<0){
     std::cout << "FAILED\n";
     std::cout << "Finished with failure using " << TOTAL_EXPANSIONS << " expansions.\n";
