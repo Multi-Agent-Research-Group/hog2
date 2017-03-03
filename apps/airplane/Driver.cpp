@@ -278,9 +278,9 @@ void InitHeadless(){
     CBSUnit<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>,NonUnitTimeCAT<airtimeState,AirplaneConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >* unit = new CBSUnit<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>,NonUnitTimeCAT<airtimeState,AirplaneConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >(waypoints[i]);
     unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
     group->AddUnit(unit); // Add to the group
-    std::cout << "initial path for agent " << i << ":\n";
-    for(auto const& n: group->tree[0].paths[i])
-      std::cout << n << "\n";
+    //std::cout << "initial path for agent " << i << ":\n";
+    //for(auto const& n: group->tree[0].paths[i])
+      //std::cout << n << "\n";
     if(gui){sim->AddUnit(unit);} // Add to the group
   }
   //assert(false && "Exit early");

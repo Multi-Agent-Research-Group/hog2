@@ -85,7 +85,10 @@ unsigned ReplanLeg(CBSUnit<state,action,environment,comparison,conflicttable>* c
   // Perform search for the leg
   std::vector<state> path;
   env->setGoal(goal);
+  Timer tmr;
+  tmr.StartTimer();
   astar.GetPath(env, start, goal, path);
+  std::cout << "Replan took: " << tmr.EndTimer() << "\n";
   //std::cout << "New leg " << path.size() << "\n";
   //for(auto &p: path){std::cout << p << "\n";}
   if(path.empty())return astar.GetNodesExpanded(); //no solution found
@@ -164,7 +167,12 @@ unsigned GetFullPath(CBSUnit<state,action,environment,comparison,conflicttable>*
     start.t=0;
     state goal(c->GetWaypoint(i+1));
     env->setGoal(goal);
+
+    Timer tmr;
+    tmr.StartTimer();
     astar.GetPath(env, start, goal, path);
+    std::cout << "Plan took: " << tmr.EndTimer() << "\n";
+
     expansions += astar.GetNodesExpanded();
     //std::cout << "exp full " << astar.GetNodesExpanded() << "\n";
     if(path.empty()){return expansions;} //no solution found
@@ -488,7 +496,7 @@ bool CBSGroup<state,action,environment,comparison,conflicttable>::ExpandOneCBSNo
   else
   {
     // Notify the user of the conflict
-    std::cout << "Conflict found between unit " << c1.unit1 << " and unit " << c2.unit1 << " @:" << c2.c.start() <<  " and " << c1.c.start() << " NC " << numConflicts << " prev-W " << c1.prevWpt << " " << c2.prevWpt << "\n";
+    //std::cout << "Conflict found between unit " << c1.unit1 << " and unit " << c2.unit1 << " @:" << c2.c.start() <<  " and " << c1.c.start() << " NC " << numConflicts << " prev-W " << c1.prevWpt << " " << c2.prevWpt << "\n";
 
     // Don't create new nodes if either bypass was successful
     // Note, these calls will add nodes to the openList
@@ -1079,7 +1087,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable>::Replan(int loc
   // Recalculate the path
   //std::cout << "#conflicts for " << tempLocation << ": " << numConflicts << "\n";
   //currentEnvironment->environment->setGoal(goal);
-  std::cout << numConflicts << " conflicts " << " using " << currentEnvironment->environment->name() << " for agent: " << tree[location].con.unit1 << "?="<<c->getUnitNumber()<<"\n";
+  //std::cout << numConflicts << " conflicts " << " using " << currentEnvironment->environment->name() << " for agent: " << tree[location].con.unit1 << "?="<<c->getUnitNumber()<<"\n";
   //agentEnvs[c->getUnitNumber()]=currentEnvironment->environment;
   //astar.GetPath(currentEnvironment->environment, start, goal, thePath);
   std::vector<state> thePath(tree[location].paths[theUnit]);
