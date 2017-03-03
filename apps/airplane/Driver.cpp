@@ -34,7 +34,8 @@ double frameIncrement = 1.0/10000.0;
 std::vector<airtimeState> thePath;
 std::vector<std::vector<airtimeState> > waypoints;
 
-  int cutoffs[10] = {0,99,99,99,99,99,99,99,99,99}; // for each env
+  int cutoffs[10] = {0,9999,9999,9999,9999,9999,9999,9999,9999,9999}; // for each env
+  double weights[10] = {1,1,1,1,1,1,1,1,1,1}; // for each env
   std::vector<EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> > environs;
   int seed = clock();
   int num_airplanes = 5;
@@ -130,6 +131,7 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-seed", "-seed <number>", "Seed for random number generator (defaults to clock)");
 	InstallCommandLineHandler(MyCLHandler, "-nobypass", "-nobypass", "Turn off bypass option");
 	InstallCommandLineHandler(MyCLHandler, "-cutoffs", "-cutoffs <n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>", "Number of conflicts to tolerate before switching to less constrained layer of environment. Environments are ordered as: CardinalGrid,OctileGrid,Cardinal3D,Octile3D,H4,H8,Simple,Cardinal,Octile,48Highway");
+	InstallCommandLineHandler(MyCLHandler, "-weights", "-weights <n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>", "Weight to apply to the low-level search for each environment entered as: CardinalGrid,OctileGrid,Cardinal3D,Octile3D,H4,H8,Simple,Cardinal,Octile,48Highway");
 	InstallCommandLineHandler(MyCLHandler, "-probfile", "-probfile", "Load MAPF instance from file");
 	InstallCommandLineHandler(MyCLHandler, "-killtime", "-killtime", "Kill after this many seconds");
 	InstallCommandLineHandler(MyCLHandler, "-killex", "-killex", "Kill after this many expansions");
@@ -183,25 +185,25 @@ void InitHeadless(){
   AirplaneEnvironment* ac = new AirplaneCardinalEnvironment();
   ac->loadPerimeterDB();
   // Cardinal Grid
-  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(agce->name(),new AirplaneConstrainedEnvironment(agce),0,cutoffs[0],1));
+  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(agce->name(),new AirplaneConstrainedEnvironment(agce),0,cutoffs[0],weights[0]));
   // Octile Grid
-  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(agoe->name(),new AirplaneConstrainedEnvironment(agoe),0,cutoffs[1],1));
+  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(agoe->name(),new AirplaneConstrainedEnvironment(agoe),0,cutoffs[1],weights[1]));
   // Cardinal 3D Grid
-  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(a3ce->name(),new AirplaneConstrainedEnvironment(a3ce),0,cutoffs[2],1));
+  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(a3ce->name(),new AirplaneConstrainedEnvironment(a3ce),0,cutoffs[2],weights[2]));
   // Octile 3D Grid
-  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(a3oe->name(),new AirplaneConstrainedEnvironment(a3oe),0,cutoffs[3],1));
+  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(a3oe->name(),new AirplaneConstrainedEnvironment(a3oe),0,cutoffs[3],weights[3]));
   // Highway 4 Airplane
-  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(ah4c->name(),new AirplaneConstrainedEnvironment(ah4c),0,cutoffs[4],1));
+  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(ah4c->name(),new AirplaneConstrainedEnvironment(ah4c),0,cutoffs[4],weights[4]));
   // Highway 8 Airplane
-  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(ahe->name(),new AirplaneConstrainedEnvironment(ahe),0,cutoffs[5],1));
+  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(ahe->name(),new AirplaneConstrainedEnvironment(ahe),0,cutoffs[5],weights[5]));
   // Simple Airplane
-  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(ase->name(),new AirplaneConstrainedEnvironment(ase),0,cutoffs[6],1));
+  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(ase->name(),new AirplaneConstrainedEnvironment(ase),0,cutoffs[6],weights[6]));
   // Cardinal Airplane
-  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(ac->name(),new AirplaneConstrainedEnvironment(ac),0,cutoffs[7],1));
+  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(ac->name(),new AirplaneConstrainedEnvironment(ac),0,cutoffs[7],weights[7]));
   // Octile Airplane
-  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(ae->name(),new AirplaneConstrainedEnvironment(ae),0,cutoffs[8],1));
+  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(ae->name(),new AirplaneConstrainedEnvironment(ae),0,cutoffs[8],weights[8]));
   // Highway 4/8 Airplane
-  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(ah4e->name(),new AirplaneConstrainedEnvironment(ah4e),0,cutoffs[9],1));
+  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(ah4e->name(),new AirplaneConstrainedEnvironment(ah4e),0,cutoffs[9],weights[9]));
 
   ace=environs.rbegin()->environment;
 
@@ -422,6 +424,24 @@ int MyCLHandler(char *argument[], int maxNumArgs)
           while (ss >> i)
           {
             cutoffs[index++] = i;
+
+            if (ss.peek() == ',')
+              ss.ignore();
+          }
+          return 2;
+        }
+	if(strcmp(argument[0], "-weights") == 0)
+        {
+          std::string str = argument[1];
+
+          std::stringstream ss(str);
+
+          double i;
+          int index(0);
+
+          while (ss >> i)
+          {
+            weights[index++] = i;
 
             if (ss.peek() == ',')
               ss.ignore();
