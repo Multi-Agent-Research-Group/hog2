@@ -51,6 +51,7 @@ void AirplaneGridCardinalEnvironment::GetActions(const airplaneState &nodeID, st
   actions.push_back(airplaneAction(2,0,0));
   actions.push_back(airplaneAction(4,0,0));
   actions.push_back(airplaneAction(6,0,0));
+  actions.push_back(airplaneAction(-1,0,0));
 
   /*if(nodeID.speed > minSpeed)
   {
@@ -78,6 +79,7 @@ airplaneAction AirplaneGridCardinalEnvironment::GetAction(const airplaneState &n
   else if(node2.x<node1.x){a.turn=6;}
   else if(node2.y>node1.y){a.turn=0;}
   else if(node2.y<node1.y){a.turn=4;}
+  else{a.turn=-1;}
   /*if(node2.speed>node1.speed){a.speed=1;}
   else if(node2.speed<node1.speed){a.speed=-1;}*/
   return a;
@@ -89,6 +91,7 @@ if(action.turn==0){nodeID.y++;}
 if(action.turn==2){nodeID.x++;}
 if(action.turn==4){nodeID.y--;}
 if(action.turn==6){nodeID.x--;}
+//if(action.turn==-1) do nothing... wait in place
 //nodeID.speed+=action.speed;
 nodeID.speed=3;
 }
@@ -110,6 +113,7 @@ void AirplaneGridCardinalEnvironment::GetReverseActions(const airplaneState &nod
   actions.push_back(airplaneAction(2,0,0));
   actions.push_back(airplaneAction(4,0,0));
   actions.push_back(airplaneAction(6,0,0));
+  actions.push_back(airplaneAction(-1,0,0));
 
   /*if(nodeID.speed > minSpeed)
   {
