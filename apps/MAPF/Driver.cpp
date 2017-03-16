@@ -17,6 +17,7 @@ unsigned killtime(300); // Kill after some number of seconds
 unsigned killex(INT_MAX); // Kill after some number of expansions
 int px1, py1, px2, py2;
 bool recording = false; // Record frames
+bool verbose=false;
 double stepsPerFrame = 1.0/10.0;
 double frameIncrement = 1.0/10.0;
 std::vector<std::vector<PlatformState> > waypoints;
@@ -94,7 +95,7 @@ void InstallHandlers()
 	InstallKeyboardHandler(MyDisplayHandler, "Speed Up Simulation", "Speed Up simulation execution.", kNoModifier, '=');
 	InstallKeyboardHandler(MyDisplayHandler, "Slow Down Simulation", "Slow Down simulation execution.", kNoModifier, '-');
 	InstallKeyboardHandler(MyDisplayHandler, "Step Simulation", "If the simulation is paused, step forward .1 sec.", kNoModifier, 'o');
-	InstallKeyboardHandler(MyDisplayHandler, "Recird", "Toggle recording.", kNoModifier, 'r');
+	InstallKeyboardHandler(MyDisplayHandler, "Record", "Toggle recording.", kNoModifier, 'r');
 	InstallKeyboardHandler(MyDisplayHandler, "Step History", "If the simulation is paused, step forward .1 sec in history", kAnyModifier, '}');
 	InstallKeyboardHandler(MyDisplayHandler, "Step History", "If the simulation is paused, step back .1 sec in history", kAnyModifier, '{');
 	InstallKeyboardHandler(MyDisplayHandler, "Step Abs Type", "Increase abstraction type", kAnyModifier, ']');
@@ -116,6 +117,7 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-killtime", "-killtime", "Kill after this many seconds");
 	InstallCommandLineHandler(MyCLHandler, "-killex", "-killex", "Kill after this many expansions");
 	InstallCommandLineHandler(MyCLHandler, "-nogui", "-nogui", "Turn off gui");
+	InstallCommandLineHandler(MyCLHandler, "-verbose", "-verbose", "Turn on cli output");
 	InstallCommandLineHandler(MyCLHandler, "-cat", "-cat", "Use Conflict Avoidance Table (CAT)");
 	InstallCommandLineHandler(MyCLHandler, "-random", "-random", "Randomize conflict resolution order");
 	InstallCommandLineHandler(MyCLHandler, "-greedyCT", "-greedyCT", "Greedy sort high-level search by number of conflicts (GCBS)");
@@ -149,12 +151,13 @@ void InitHeadless(){
   srand(seed);
   srandom(seed);
   age = new AirplaneHiFiGridlessEnvironment();
+  age->AddSoftConstraint(SoftConstraint<PlatformState>(PlatformState(10,10,10,0,0,0),20));
   ane = new AirplaneNaiveHiFiGridlessEnvironment();
   // Cardinal Grid
-  environs.push_back(EnvironmentContainer<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment>(ane->name(),ane,0,0,1));
-  environs.push_back(EnvironmentContainer<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment>(age->name(),age,0,1,1));
+  environs.push_back(EnvironmentContainer<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment>(ane->name(),ane,0,cutoffs[0],1));
+  environs.push_back(EnvironmentContainer<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment>(age->name(),age,0,cutoffs[1],1));
 
-  group = new CBSGroup<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment,NonHolonomicComparator<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment>,UnitTimeCAT<PlatformState,AirplaneHiFiGridlessEnvironment> >(environs);
+  group = new CBSGroup<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment,NonHolonomicComparator<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment>,UnitTimeCAT<PlatformState,AirplaneHiFiGridlessEnvironment> >(environs,verbose);
 
   CBSGroup<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment,NonHolonomicComparator<PlatformState,PlatformAction,AirplaneHiFiGridlessEnvironment>,UnitTimeCAT<PlatformState,AirplaneHiFiGridlessEnvironment> >::greedyCT=greedyCT;
 
@@ -321,6 +324,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
                   killtime = atoi(argument[1]);
                 }
 		return 2;
+	}
+	if(strcmp(argument[0], "-verbose") == 0)
+	{
+		verbose = true;
+		return 1;
 	}
 	if(strcmp(argument[0], "-nogui") == 0)
 	{

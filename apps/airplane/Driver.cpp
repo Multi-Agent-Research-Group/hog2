@@ -205,6 +205,12 @@ void InitHeadless(){
   // Highway 4/8 Airplane
   environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(ah4e->name(),new AirplaneConstrainedEnvironment(ah4e),0,cutoffs[9],weights[9]));
 
+  SoftConstraint<airtimeState> sam(airtimeState(10,10,0,0,0,0),20);
+
+  for(auto& e:environs){
+    e.environment->AddSoftConstraint(sam);
+  }
+
   ace=environs.rbegin()->environment;
 
   group = new CBSGroup<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>,NonUnitTimeCAT<airtimeState,AirplaneConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >(environs); // Changed to 10,000 expansions from number of conflicts in the tree
@@ -275,7 +281,8 @@ void InitHeadless(){
     for(auto &a: waypoints[i])
       std::cout << a << " ";
     std::cout << std::endl;
-    CBSUnit<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>,NonUnitTimeCAT<airtimeState,AirplaneConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >* unit = new CBSUnit<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>,NonUnitTimeCAT<airtimeState,AirplaneConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >(waypoints[i]);
+    float softEff(.5);
+    CBSUnit<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>,NonUnitTimeCAT<airtimeState,AirplaneConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >* unit = new CBSUnit<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>,NonUnitTimeCAT<airtimeState,AirplaneConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >(waypoints[i],softEff);
     unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
     group->AddUnit(unit); // Add to the group
     //std::cout << "initial path for agent " << i << ":\n";

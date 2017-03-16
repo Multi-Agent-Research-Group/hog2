@@ -21,6 +21,9 @@
 
 #include "UnitTimeCAT.h"
 
+template<>
+double SoftConstraint<PlatformState>::cost(PlatformState const& other, double scale) const;
+
 // Check if an openlist node conflicts with a node from an existing path
 template<typename state>
 unsigned checkForTheConflict(state const*const parent, state const*const node, state const*const pathParent, state const*const pathNode){
@@ -43,26 +46,6 @@ class StraightLineHeuristic1 : public Heuristic<state> {
 };
 
 bool operator==(PlatformAction const& a1, PlatformAction const& a2);
-
-// Represents a radial constraint where cost increases as we approach the center
-template<typename State>
-class SoftConstraint {
-  public:
-    SoftConstraint() {}
-    SoftConstraint(State const& c, double r) : center(c),radius(r){}
-
-    virtual double cost(State const& other, double scale){
-      double d(other.distanceTo(center)*scale);
-      if(fless(d,radius)){
-        if(fless(d,1000.0)){return 1000.0;}
-        return sqrt(radius)/d*d;
-      }
-    }
-    virtual void OpenGLDraw() const {}
-
-    State center;
-    double radius;
-};
 
 struct gridlessLandingStrip {
 	gridlessLandingStrip(uint16_t x1, uint16_t x2, uint16_t y1, uint16_t y2, PlatformState &launch_state, PlatformState &landing_state, PlatformState &goal_state) : x1(x1), x2(x2), y1(y1), y2(y2), 
@@ -100,6 +83,7 @@ class AirplaneHiFiGridlessEnvironment : public ConstrainedEnvironment<PlatformSt
 
     virtual char const*const name()const{return "AirplaneHiFiGridlessEnvironment";}
     void AddConstraint(Constraint<PlatformState> c);
+    void AddSoftConstraint(SoftConstraint<PlatformState> c){sconstraints.push_back(c);}
     void ClearConstraints();
     void ClearStaticConstraints();
     bool ViolatesConstraint(const PlatformState &from, const PlatformState &to, int time) const;
@@ -182,6 +166,9 @@ class AirplaneHiFiGridlessEnvironment : public ConstrainedEnvironment<PlatformSt
     void SetNilGCosts(){nilGCost=true;}
     void UnsetNilGCosts(){nilGCost=false;}
 
+    void setSoftConstraintEffectiveness(float v){softConstraintEffectiveness=v;}
+    float getSoftConstraintEffectiveness()const{return softConstraintEffectiveness;}
+
   protected:
 
     virtual AirplaneHiFiGridlessEnvironment& getRef() {return *this;}
@@ -217,6 +204,7 @@ class AirplaneHiFiGridlessEnvironment : public ConstrainedEnvironment<PlatformSt
     std::vector<SoftConstraint<PlatformState> > sconstraints;
     std::vector<Constraint<PlatformState> > constraints;
     std::vector<Constraint<PlatformState> > static_constraints;
+    float softConstraintEffectiveness=0.0;
 
   private:
     bool nilGCost;
@@ -241,7 +229,7 @@ class NonHolonomicComparator {
     // Check heading first
 
 
-    double dist(std::max(ci1.data.distanceTo(currentEnv->getStart()),ci2.data.distanceTo(currentEnv->getStart())));
+    //double dist(std::max(ci1.data.distanceTo(currentEnv->getStart()),ci2.data.distanceTo(currentEnv->getStart())));
     //std::cout << "Comparing " << ci1.data << " to " << ci2.data << " ";
 
     double nnh1((ci1.data.headingTo(currentEnv->getGoal()))-ci1.data.hdg());

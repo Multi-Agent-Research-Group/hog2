@@ -11,6 +11,7 @@
 
 #include <vector>
 #include "SearchEnvironment.h"
+#include "PositionalUtils.h"
 
 /*
 struct Action{
@@ -31,8 +32,26 @@ class State{
     virtual uint64_t hash()const=0; //Unique hash function
     virtual void OpenGLDraw() const {} // Draw
 };
-
 */
+
+// Represents a radial constraint where cost increases as we approach the center
+template<typename State>
+class SoftConstraint {
+  public:
+    SoftConstraint() {}
+    SoftConstraint(State const& c, double r) : center(c),radius(r),logr(log(r)){}
+
+    virtual double cost(State const& other, double scale) const{
+      double d(Util::distance(center.x,center.y,center.height,other.x,other.y,other.height)/scale);
+      return std::max(0.0,logr/d-logr/radius);
+    }
+    virtual void OpenGLDraw() const {}
+
+    State center;
+    double radius;
+    double logr;
+};
+
 template<typename State>
 class Constraint {
   public:
