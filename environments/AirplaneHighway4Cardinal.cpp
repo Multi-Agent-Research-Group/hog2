@@ -76,7 +76,12 @@ void AirplaneHighway4CardinalEnvironment::GetActions(const airplaneState &nodeID
         turn=k45;
         turnb=-k45;
       }
+      if(levels){
+        actions.push_back(airplaneAction(k45,0,0));
+        actions.push_back(airplaneAction(-k45,0,0));
+      }
     }else{
+      // Just change levels
       if(turns<0)
       {
         turn=-k90;

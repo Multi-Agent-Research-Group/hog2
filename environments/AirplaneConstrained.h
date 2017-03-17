@@ -12,6 +12,7 @@
 #include "Airplane.h"
 #include "ConstrainedEnvironment.h"
 #include "NonUnitTimeCAT.h"
+#include "UnitTimeCAT.h"
 
 #include <cmath>
 #include <memory>
@@ -151,6 +152,100 @@ unsigned checkForConflict(state const*const parent, state const*const node, stat
   }
   return 0; 
 }
+
+template <typename state, typename action, typename environment>
+class UnitTieBreaking {
+  public:
+  bool operator()(const AStarOpenClosedData<state> &ci1, const AStarOpenClosedData<state> &ci2) const
+  {
+    if (fequal(ci1.g+ci1.h, ci2.g+ci2.h)) // F-cost equal
+    {
+      
+      if(useCAT && CAT){
+        // Make them non-const :)
+        AStarOpenClosedData<state>& i1(const_cast<AStarOpenClosedData<state>&>(ci1));
+        AStarOpenClosedData<state>& i2(const_cast<AStarOpenClosedData<state>&>(ci2));
+
+        // Compute cumulative conflicts (if not already done)
+        if(i1.data.nc ==-1){
+          //std::cout << "Getting NC for " << i1.data << ":\n";
+
+          // Get number of conflicts in the parent
+          state const*const parent1(i1.parentID?&(currentAstar->GetItem(i1.parentID).data):nullptr);
+          unsigned nc1(parent1?parent1->nc:0);
+          //std::cout << "  matches " << matches.size() << "\n";
+
+          // Count number of conflicts
+          for(int agent(0); agent<CAT->numAgents(); ++agent){
+            if(currentAgent == agent) continue;
+            state const* p(0);
+            if(i1.data.t!=0)
+              p=&(CAT->get(agent,i1.data.t-1));
+            state const& n=CAT->get(agent,i1.data.t);
+            nc1+=checkForTheConflict(parent1,&i1.data,p,&n);
+          }
+          // Set the number of conflicts in the data object
+          i1.data.nc=nc1;
+        }
+        if(i2.data.nc ==-1){
+          //std::cout << "Getting NC for " << i2.data << ":\n";
+
+          // Get number of conflicts in the parent
+          state const*const parent2(i2.parentID?&(currentAstar->GetItem(i2.parentID).data):nullptr);
+          unsigned nc2(parent2?parent2->nc:0);
+          //std::cout << "  matches " << matches.size() << "\n";
+
+          // Count number of conflicts
+          for(int agent(0); agent<CAT->numAgents(); ++agent){
+            if(currentAgent == agent) continue;
+            state const* p(0);
+            if(i2.data.t!=0)
+              p=&(CAT->get(agent,i2.data.t-1));
+            state const& n=CAT->get(agent,i2.data.t);
+            nc2+=checkForTheConflict(parent2,&i2.data,p,&n);
+          }
+          // Set the number of conflicts in the data object
+          i2.data.nc=nc2;
+        }
+        if(fequal(i1.data.nc,i2.data.nc)){
+          // Tie break towards states facing the goal
+          unsigned facingGoal1(ci1.data.headingTo(currentEnv->getGoal()));
+          unsigned facingGoal2(ci1.data.headingTo(currentEnv->getGoal()));
+          unsigned hdiff1(Util::angleDiff<8>(ci1.data.heading,facingGoal1));
+          unsigned hdiff2(Util::angleDiff<8>(ci2.data.heading,facingGoal2));
+          if(hdiff1==hdiff2){
+            if(randomalg && fequal(ci1.g,ci2.g)){
+              return rand()%2;
+            }
+            return (fless(ci1.g, ci2.g));  // Tie-break toward greater g-cost
+          }
+          return fgreater(hdiff1,hdiff2);
+        }
+        return fgreater(i1.data.nc,i2.data.nc);
+      }else{
+          // Tie break towards states facing the goal
+          unsigned facingGoal1(ci1.data.headingTo(currentEnv->getGoal()));
+          unsigned facingGoal2(ci1.data.headingTo(currentEnv->getGoal()));
+          unsigned hdiff1(Util::angleDiff<8>(ci1.data.heading,facingGoal1));
+          unsigned hdiff2(Util::angleDiff<8>(ci2.data.heading,facingGoal2));
+          if(hdiff1==hdiff2){
+            if(randomalg && fequal(ci1.g,ci2.g)){
+              return rand()%2;
+            }
+            return (fless(ci1.g, ci2.g));  // Tie-break toward greater g-cost
+          }
+          return fgreater(hdiff1,hdiff2);
+        }
+    }
+    return (fgreater(ci1.g+ci1.h, ci2.g+ci2.h));
+  }
+    static TemplateAStar<state, action, environment, AStarOpenClosed<state, UnitTieBreaking<state,action,environment> > >* currentAstar;
+    static AirplaneConstrainedEnvironment* currentEnv;
+    static uint8_t currentAgent;
+    static bool randomalg;
+    static bool useCAT;
+    static UnitTimeCAT<state,environment>* CAT; // Conflict Avoidance Table
+};
 
 #define HASH_INTERVAL 0.09
 #define HASH_INTERVAL_HUNDREDTHS 9
