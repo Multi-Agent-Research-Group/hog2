@@ -213,45 +213,46 @@ unsigned GetFullPath(CBSUnit<state,action,environment,comparison,conflicttable>*
 template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
 class CBSUnit : public Unit<state, action, environment> {
 public:
-	CBSUnit(std::vector<state> const &gs)
-	:start(0), goal(1), current(gs[0]), waypoints(gs) {}
-	const char *GetName() { return "CBSUnit"; }
-	bool MakeMove(environment *,
-            OccupancyInterface<state,action> *, 
-            SimulationInfo<state,action,environment> *,
-            action& a);
-	void UpdateLocation(environment *, state &newLoc, bool success, 
-						SimulationInfo<state,action,environment> *)
-	{ if (success) current = newLoc; else assert(!"CBS Unit: Movement failed"); }
-	
-	void GetLocation(state &l) { l = current; }
-	void OpenGLDraw(const environment *, const SimulationInfo<state,action,environment> *) const;
-	void GetGoal(state &s) { s = waypoints[goal]; }
-	void GetStart(state &s) { s = waypoints[start]; }
-	inline std::vector<state> const & GetWaypoints()const{return waypoints;}
-	inline state GetWaypoint(size_t i)const{ return waypoints[std::min(i,waypoints.size()-1)]; }
-        inline unsigned GetNumWaypoints()const{return waypoints.size();}
-	void SetPath(std::vector<state> &p);
-	void PushFrontPath(std::vector<state> &s)
-	{
-		std::vector<state> newPath;
-		for (state x : s)
-			newPath.push_back(x);
-		for (state y : myPath)
-			newPath.push_back(y);
-		myPath = newPath;
-	}
-	inline std::vector<state> const& GetPath()const{return myPath;}
-        void UpdateGoal(state &start, state &goal);
-        void setUnitNumber(unsigned n){number=n;}
-        unsigned getUnitNumber()const{return number;}
+  CBSUnit(std::vector<state> const &gs, float viz=0)
+:start(0), goal(1), current(gs[0]), waypoints(gs), visibility(viz) {}
+  const char *GetName() { return "CBSUnit"; }
+  bool MakeMove(environment *,
+      OccupancyInterface<state,action> *,
+      SimulationInfo<state,action,environment> *,
+      action& a);
+  void UpdateLocation(environment *, state &newLoc, bool success,
+      SimulationInfo<state,action,environment> *)
+  { if (success) current = newLoc; else assert(!"CBS Unit: Movement failed"); }
+
+  void GetLocation(state &l) { l = current; }
+  void OpenGLDraw(const environment *, const SimulationInfo<state,action,environment> *) const;
+  void GetGoal(state &s) { s = waypoints[goal]; }
+  void GetStart(state &s) { s = waypoints[start]; }
+  inline std::vector<state> const & GetWaypoints()const{return waypoints;}
+  inline state GetWaypoint(size_t i)const{ return waypoints[std::min(i,waypoints.size()-1)]; }
+  inline unsigned GetNumWaypoints()const{return waypoints.size();}
+  void SetPath(std::vector<state> &p);
+  /*void PushFrontPath(std::vector<state> &s)
+  {
+    std::vector<state> newPath;
+    for (state x : s)
+      newPath.push_back(x);
+    for (state y : myPath)
+      newPath.push_back(y);
+    myPath = newPath;
+  }*/
+  inline std::vector<state> const& GetPath()const{return myPath;}
+  void UpdateGoal(state &start, state &goal);
+  void setUnitNumber(unsigned n){number=n;}
+  unsigned getUnitNumber()const{return number;}
 
 private:
-	unsigned start, goal;
-        state current;
-	std::vector<state> waypoints;
-	std::vector<state> myPath;
-        unsigned number;
+  unsigned start, goal;
+  state current;
+  std::vector<state> waypoints;
+  std::vector<state> myPath;
+  unsigned number;
+  float visibility;
 };
 
 template<typename state>
@@ -295,7 +296,7 @@ template <typename state, typename action, typename environment, typename compar
 class CBSGroup : public UnitGroup<state, action, environment>
 {
   public:
-    CBSGroup(std::vector<EnvironmentContainer<state,action,environment> > const&);
+    CBSGroup(std::vector<EnvironmentContainer<state,action,environment> > const&, bool v=false);
     bool MakeMove(Unit<state, action, environment> *u, environment *e, 
         SimulationInfo<state,action,environment> *si, action& a);
     void UpdateLocation(Unit<state, action, environment> *u, environment *e, 
@@ -371,6 +372,7 @@ public:
     int seed;
     Timer* timer;
     static bool greedyCT;
+    bool verbose=false;
 };
 
 template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
@@ -449,9 +451,10 @@ void CBSGroup<state,action,environment,comparison,conflicttable>::AddEnvironment
 
 /** constructor **/
 template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
-CBSGroup<state,action,environment,comparison,conflicttable>::CBSGroup(std::vector<EnvironmentContainer<state,action,environment> > const& environs) : time(0), bestNode(0), planFinished(false), nobypass(false)
-    , ECBSheuristic(false), killex(INT_MAX), keeprunning(false), seed(1234567),
-    timer(0)
+CBSGroup<state,action,environment,comparison,conflicttable>::CBSGroup(std::vector<EnvironmentContainer<state,action,environment> > const& environs,bool v)
+: time(0), bestNode(0), planFinished(false), nobypass(false)
+    , ECBSheuristic(false), killex(INT_MAX), keeprunning(false),
+    seed(1234567), timer(0), verbose(v)
 {
   //std::cout << "THRESHOLD " << threshold << "\n";
 
@@ -469,7 +472,7 @@ CBSGroup<state,action,environment,comparison,conflicttable>::CBSGroup(std::vecto
 
   // Set the current environment to that with 0 conflicts
   SetEnvironment(0);
-
+  astar.SetVerbose(verbose);
 }
 
 

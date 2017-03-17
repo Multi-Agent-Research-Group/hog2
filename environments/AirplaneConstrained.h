@@ -13,6 +13,7 @@
 #include "ConstrainedEnvironment.h"
 #include "NonUnitTimeCAT.h"
 #include "UnitTimeCAT.h"
+#include "PositionalUtils.h"
 
 #include <cmath>
 #include <memory>
@@ -39,6 +40,7 @@ public:
 	
 	/** Add a constraint to the model */
 	void AddConstraint(Constraint<airtimeState> c);
+	void AddSoftConstraint(SoftConstraint<airtimeState> const& c){sconstraints.push_back(c);}
 
 	void AddPointConstraint(const airtimeState &loc);
 	void AddBoxConstraint(const airtimeState &loc1, const airtimeState &loc2);
@@ -83,8 +85,18 @@ public:
 	/** Heuristic value between two arbitrary nodes. **/
 	virtual double HCost(const airtimeState &node1, const airtimeState &node2) const;
 	virtual double HCost(const airtimeState &)  const { assert(false); return 0; } //No single state H-Cost implemented
-	virtual double GCost(const airtimeState &node1, const airtimeState &node2) const { return ae->GCost(node1,node2); }
-	virtual double GCost(const airtimeState &node, const airplaneAction &act) const { return ae->GCost(node,act); }
+	virtual double GCost(const airtimeState &node1, const airtimeState &node2) const {
+	  float softCost(0);
+	  for(auto const& sc: sconstraints){
+	    softCost += sc.cost(node2,softConstraintEffectiveness);
+	  }
+	  return ae->GCost(node1,node2)+softCost;
+	}
+	virtual double GCost(const airtimeState &node, const airplaneAction &act) const {
+    airtimeState node2(node);
+    ApplyAction(node2,act);
+    return GCost(node,node2);
+	}
 	virtual double GetPathLength(const std::vector<airtimeState> &n) const;
 
 	/// GOAL TESTING
@@ -123,10 +135,15 @@ public:
 	//TicketAuthority* ticket_authority;
 	/** Vector holding the current constraints */
 	std::vector<Constraint<airtimeState>> constraints;
+	std::vector<SoftConstraint<airtimeState>> sconstraints;
 
         virtual airplaneState const& getGoal()const{return ae->getGoal();}
         void setGoal(airplaneState const& g){ae->setGoal(g);}
 	AirplaneEnvironment *ae;
+	void setSoftConstraintEffectiveness(float v){softConstraintEffectiveness=v;}
+	float getSoftConstraintEffectiveness()const{return softConstraintEffectiveness;}
+protected:
+	float softConstraintEffectiveness=0.0;
 private:
 	
 
