@@ -7,6 +7,7 @@
 //
 
 #include "AirplaneConstrained.h"
+#include <freeglut.h>
 #include <iostream>
 #include <algorithm>
  
@@ -28,9 +29,13 @@ bool operator==(const airtimeState &l1, const airtimeState &l2)
 	ClearConstraints();
 }*/
 /** Construct an Airplane Constrained Environment given a pointer to an Airplane Environment */
-AirplaneConstrainedEnvironment::AirplaneConstrainedEnvironment(AirplaneEnvironment *aire)
-: ae(aire)
+AirplaneConstrainedEnvironment::AirplaneConstrainedEnvironment(AirplaneEnvironment *aire,int w,int l, int h)
+: ae(aire),width(w),length(l),height(h)
 {
+  DrawableConstraint::width=width;
+  DrawableConstraint::length=length;
+  DrawableConstraint::height=height;
+
 	ClearConstraints();
 
 	// Add back the air-strip constraints
@@ -48,7 +53,7 @@ AirplaneConstrainedEnvironment::AirplaneConstrainedEnvironment(AirplaneEnvironme
 	// Add a constraint for the ground
 	airplaneState mi(0,0, 0, 0,0);
 	airtimeState o(mi, 0);
-	airplaneState ma(80, 80, 1, 0,0);
+	airplaneState ma(width, length, 1, 0,0);
 	airtimeState f(ma, std::numeric_limits<float>::max());
 	Constraint<airtimeState> c(o, f);
 	c.strip=false;
@@ -334,6 +339,12 @@ void AirplaneConstrainedEnvironment::OpenGLDraw() const
 		static_constraints.at(i).OpenGLDraw();	
 	}
 
+        // Soft constraints
+	for (int i = 0; i < sconstraints.size(); i++)
+	{
+		sconstraints.at(i).OpenGLDraw();	
+	}
+
 	// Draw the restricted airspace
         /*if(ticket_authority)
 	for (int i = 0; i < ticket_authority->GetRestrictedAirspace().size(); i++)
@@ -475,37 +486,61 @@ bool Constraint<airtimeState>::ConflictsWith(const Constraint<airtimeState> &x) 
 }
 
 
+void SoftConstraint<airtimeState>::OpenGLDraw() const 
+{
+        static float halfWidth(DrawableConstraint::width/2.0);
+        static float halfLength(DrawableConstraint::length/2.0);
+
+	// Normalize coordinates between (-1, 1)
+	GLfloat x((center.x-halfWidth)/halfWidth);
+	GLfloat y((center.y-halfLength)/halfLength);
+	GLfloat z(-center.height/float(DrawableConstraint::width));
+
+	//glDisable(GL_LIGHTING);
+
+        glEnable(GL_BLEND);
+        glBlendFunc (GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
+        glPushMatrix();
+        glColor4f(1, 0, 0, .1);
+        glTranslatef(x, y, z);
+        glutWireSphere((radius/DrawableConstraint::width)*2.0, 20,20);
+        glPopMatrix();
+        glDisable(GL_BLEND);
+}
+
 void Constraint<airtimeState>::OpenGLDraw() const 
 {
+        static float halfWidth(DrawableConstraint::width/2.0);
+        static float halfLength(DrawableConstraint::length/2.0);
 	glLineWidth(2.0); // Make it wide
 
 	// Normalize coordinates between (-1, 1)
-	GLfloat x_start = (start_state.x-40.0)/40.0;
-	GLfloat y_start = (start_state.y-40.0)/40.0;
-	GLfloat z_start = -start_state.height/80.0;
+	GLfloat x_start = (start_state.x-halfWidth)/halfWidth;
+	GLfloat y_start = (start_state.y-halfLength)/halfLength;
+	GLfloat z_start = -start_state.height/float(DrawableConstraint::width);
 
-	GLfloat x_end = (end_state.x-40.0)/40.0;
-	GLfloat y_end = (end_state.y-40.0)/40.0;
-	GLfloat z_end = -end_state.height/80.0;
+	GLfloat x_end = (end_state.x-halfWidth)/halfWidth;
+	GLfloat y_end = (end_state.y-halfLength)/halfLength;
+	GLfloat z_end = -end_state.height/float(DrawableConstraint::width);
 
 
 	GLfloat min_x, min_y, min_z, max_x, max_y, max_z;
 
 	if (strip)
 	{
-		min_x = min(x_start-.5/40.0,x_end-.5/40.0);
-		max_x = max(x_start+.5/40.0,x_end+.5/40.0);
-		min_y = min(y_start-.5/40.0,y_end-.5/40.0);
-		max_y = max(y_start+.5/40.0,y_end+.5/40.0);
+		min_x = min(x_start-.5/halfWidth,x_end-.5/halfWidth);
+		max_x = max(x_start+.5/halfWidth,x_end+.5/halfWidth);
+		min_y = min(y_start-.5/halfLength,y_end-.5/halfLength);
+		max_y = max(y_start+.5/halfLength,y_end+.5/halfLength);
 		min_z = min(z_start,z_end);
-		max_z = max(z_start+.5/40.0,z_end+.5/40.0);
+		max_z = max(z_start+.5/halfLength,z_end+.5/halfLength);
 	} else {
-		min_x = min(x_start-.5/40.0,x_end-.5/40.0);
-		max_x = max(x_start+.5/40.0,x_end+.5/40.0);
-		min_y = min(y_start-.5/40.0,y_end-.5/40.0);
-		max_y = max(y_start+.5/40.0,y_end+.5/40.0);
-		min_z = min(z_start-.5/40.0,z_end-.5/40.0);
-		max_z = max(z_start+.5/40.0,z_end+.5/40.0);
+		min_x = min(x_start-.5/halfWidth,x_end-.5/halfWidth);
+		max_x = max(x_start+.5/halfWidth,x_end+.5/halfWidth);
+		min_y = min(y_start-.5/halfLength,y_end-.5/halfLength);
+		max_y = max(y_start+.5/halfLength,y_end+.5/halfLength);
+		min_z = min(z_start-.5/halfLength,z_end-.5/halfLength);
+		max_z = max(z_start+.5/halfLength,z_end+.5/halfLength);
 	}
 
 	glDisable(GL_LIGHTING);
@@ -653,4 +688,3 @@ bool AirplaneConstrainedEnvironment::ViolatesConstraint(const airtimeState &from
   // If no constraint is violated, return false
   return false;
 }
-

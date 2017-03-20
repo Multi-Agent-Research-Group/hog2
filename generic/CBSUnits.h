@@ -56,6 +56,7 @@ struct CompareLowGCost {
 template <typename state, typename action, typename environment, typename comparison, typename conflicttable>
 unsigned ReplanLeg(CBSUnit<state,action,environment,comparison,conflicttable>* c, TemplateAStar<state, action, environment, AStarOpenClosed<state, comparison> >& astar, environment* env, std::vector<state>& thePath, unsigned s, unsigned g)
 {
+  env->setSoftConstraintEffectiveness(1.0);
   int insertPoint(-1);
   float origTime(0.0);
   float newTime(0.0);
@@ -128,6 +129,7 @@ unsigned ReplanLeg(CBSUnit<state,action,environment,comparison,conflicttable>* c
 template <typename state, typename action, typename environment, typename comparison, typename conflicttable>
 unsigned GetFullPath(CBSUnit<state,action,environment,comparison,conflicttable>* c, TemplateAStar<state, action, environment, AStarOpenClosed<state,comparison> >& astar, environment* env, std::vector<state>& thePath, unsigned s, unsigned g, unsigned agent)
 {
+  env->setSoftConstraintEffectiveness(1.0);
   int insertPoint(-1);
   float origTime(0.0);
   float newTime(0.0);

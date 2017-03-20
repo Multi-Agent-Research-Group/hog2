@@ -11,6 +11,7 @@
 # All projects to build in this order.
 PROJECTS = \
   gui/GL \
+  search \
   absmapalgorithms \
   abstraction \
   abstractionalgorithms \
