@@ -22,15 +22,15 @@ extern "C" {
 #define GLUT_STROKE_ROMAN               ((void*)0)
 #define GLUT_STROKE_MONO_ROMAN          ((void*)1)
 
-void glutAddMenuEntry (char *label, int value) ;
-void glutAddSubMenu (char *label, int submenu) ;
+void glutAddMenuEntry (const char *label, int value) ;
+void glutAddSubMenu (const char *label, int submenu) ;
 void glutAttachMenu (int button) ;
 int glutCreateMenu (void (*) (int)) ;
-int glutCreateWindow (char *title) ;
+int glutCreateWindow (const char *title) ;
 void glutDisplayFunc (void (*) (void)) ;
 int glutGet (GLenum type) ;
 int glutGetModifiers (void) ;
-int glutIdleFunc (void (*)(void)) ;
+void glutIdleFunc (void (*)(void)) ;
 void glutInit (int *argcp, char **argv) ;
 void glutInitDisplayMode (unsigned int mode) ;
 void glutInitWindowPosition (int x, int y) ;

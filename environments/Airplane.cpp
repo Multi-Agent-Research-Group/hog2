@@ -60,6 +60,10 @@ AirplaneEnvironment::AirplaneEnvironment(
   perimeterFile(perimeterFile),
   searchtype(SearchType::FORWARD)
 {
+  Constraint<airplaneState>::width=width;
+  Constraint<airplaneState>::length=length;
+  Constraint<airplaneState>::height=height;
+std::cout << "Setting w/l/h="<<width<<" "<<length<<" "<<height<<"\n";
     // Load the perimeter heuristic before we add any obstacles to the environment...
     //srandom(time(0));
     ground.resize((width+1)*(length+1));
@@ -1504,7 +1508,7 @@ uint64_t AirplaneEnvironment::GetActionHash(airplaneAction act) const
 
 recVec AirplaneEnvironment::GetCoordinate(int x, int y, int z) const
 {
-    return {(x-width/2.0)/(width/2.0), (y-width/2.0)/(width/2.0), -4.0*z/(255.0*80)};
+    return {(x-width/2.0)/(width/2.0), (y-width/2.0)/(width/2.0), -4.0*z/(255.0*width)};
 }
 
 void AirplaneEnvironment::OpenGLDraw() const
@@ -1591,8 +1595,8 @@ void AirplaneEnvironment::OpenGLDraw() const
     glEnable(GL_LINE_STIPPLE);
     glDisable(GL_LIGHTING);
     glBegin(GL_LINES);
-      glVertex3f((xval-width/2.0)/(width/2.0),(min(st.y1,st.y2)-width/2.0)/(width/2.0) ,-4.0*st.z/(255.0*80));
-      glVertex3f((xval-width/2.0)/(width/2.0),(max(st.y1,st.y2)-width/2.0)/(width/2.0) ,-4.0*st.z/(255.0*80));
+      glVertex3f((xval-width/2.0)/(width/2.0),(min(st.y1,st.y2)-length/2.0)/(length/2.0) ,-4.0*st.z/(255.0*width));
+      glVertex3f((xval-width/2.0)/(width/2.0),(max(st.y1,st.y2)-length/2.0)/(length/2.0) ,-4.0*st.z/(255.0*width));
     glEnd();
     glLineStipple(0, 0xFFFF);
     glLineWidth(1);
@@ -1618,9 +1622,9 @@ void AirplaneEnvironment::OpenGLDraw(const airplaneState &l) const
     }
     // x & y range from 20*4 = 0 to 80 = -1 to +1
     // z ranges from 0 to 20 which is 0...
-    GLfloat x = (l.x-40.0)/40.0;
-    GLfloat y = (l.y-40.0)/40.0;
-    GLfloat z = -l.height/80.0;
+    GLfloat x = (l.x-(width/2.0))/(width/2.0);
+    GLfloat y = (l.y-(length/2.0))/(length/2.0);
+    GLfloat z = -l.height/float(width);
     glEnable(GL_LIGHTING);
     glPushMatrix();
     glTranslatef(x, y, z);
@@ -1640,14 +1644,14 @@ void AirplaneEnvironment::OpenGLDraw(const airplaneState& o, const airplaneState
         glColor3f(r, g, b);
     }
     
-    GLfloat x1 = (o.x-40.0)/40.0;
-    GLfloat y1 = (o.y-40.0)/40.0;
-    GLfloat z1 = -o.height/80.0;
+    GLfloat x1 = (o.x-(width/2.0))/(width/2.0);
+    GLfloat y1 = (o.y-(length/2.0))/(length/2.0);
+    GLfloat z1 = -o.height/float(width);
     GLfloat h1 = 360*o.heading/8.0;
 
-    GLfloat x2 = (n.x-40.0)/40.0;
-    GLfloat y2 = (n.y-40.0)/40.0;
-    GLfloat z2 = -n.height/80.0;
+    GLfloat x2 = (n.x-(width/2.0))/(width/2.0);
+    GLfloat y2 = (n.y-(length/2.0))/(length/2.0);
+    GLfloat z2 = -n.height/float(width);
     GLfloat h2 = 360*n.heading/8.0;
     if (o.heading < 2 && n.heading >= 6)
         h2 -= 360;
@@ -1709,13 +1713,13 @@ void AirplaneEnvironment::GLDrawLine(const airplaneState &a, const airplaneState
     glColor4f(1.0, 1.0, 1.0, .5); // Make it partially opaque gray
 
     // Normalize coordinates between (-1, 1)
-    GLfloat x_start((a.x-40.0)/40.0);
-    GLfloat y_start((a.y-40.0)/40.0);
-    GLfloat z_start(-a.height/80.0);
+    GLfloat x_start((a.x-(width/2.0))/(width/2.0));
+    GLfloat y_start((a.y-(length/2.0))/(length/2.0));
+    GLfloat z_start(-a.height/float(width));
 
-    GLfloat x_end((b.x-40.0)/40.0);
-    GLfloat y_end((b.y-40.0)/40.0);
-    GLfloat z_end(-b.height/80.0);
+    GLfloat x_end((b.x-(width/2.0))/(width/2.0));
+    GLfloat y_end((b.y-(length/2.0))/(length/2.0));
+    GLfloat z_end(-b.height/float(width));
 
     glDisable(GL_LIGHTING);
     glPushMatrix();

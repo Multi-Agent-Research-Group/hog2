@@ -27,12 +27,16 @@ unsigned killex(INT_MAX); // Kill after some number of expansions
 int px1, py1, px2, py2;
 int absType = 0;
 int mapSize = 128;
+int width = 80;
+int length = 80;
+int height = 80;
 bool recording = false; // Record frames
 double simTime = 0;
 double stepsPerFrame = 1.0/100.0;
 double frameIncrement = 1.0/10000.0;
 std::vector<airtimeState> thePath;
 std::vector<std::vector<airtimeState> > waypoints;
+std::vector<SoftConstraint<airtimeState> > sconstraints;
 
   int cutoffs[10] = {0,9999,9999,9999,9999,9999,9999,9999,9999,9999}; // for each env
   double weights[10] = {1,1,1,1,1,1,1,1,1,1}; // for each env
@@ -126,6 +130,7 @@ void InstallHandlers()
 
 	InstallCommandLineHandler(MyCLHandler, "-rairspace", "-rairspace", "Choose if the restricted airspace is used.");
 	InstallCommandLineHandler(MyCLHandler, "-uwait", "-uwait", "Choose if the wait action is used.");
+	InstallCommandLineHandler(MyCLHandler, "-dimensions", "-dimensions width,length,height", "Set the length,width and height of the environment (max 65K,65K,1024).");
 	InstallCommandLineHandler(MyCLHandler, "-nairplanes", "-nairplanes <number>", "Select the number of airplanes.");
 	InstallCommandLineHandler(MyCLHandler, "-nsubgoals", "-nsubgoals <number>,<number>", "Select the min,max number of subgoals per agent.");
 	InstallCommandLineHandler(MyCLHandler, "-seed", "-seed <number>", "Seed for random number generator (defaults to clock)");
@@ -133,6 +138,7 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-cutoffs", "-cutoffs <n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>", "Number of conflicts to tolerate before switching to less constrained layer of environment. Environments are ordered as: CardinalGrid,OctileGrid,Cardinal3D,Octile3D,H4,H8,Simple,Cardinal,Octile,48Highway");
 	InstallCommandLineHandler(MyCLHandler, "-weights", "-weights <n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>", "Weight to apply to the low-level search for each environment entered as: CardinalGrid,OctileGrid,Cardinal3D,Octile3D,H4,H8,Simple,Cardinal,Octile,48Highway");
 	InstallCommandLineHandler(MyCLHandler, "-probfile", "-probfile", "Load MAPF instance from file");
+	InstallCommandLineHandler(MyCLHandler, "-constraints", "-constraints", "Load constraints from file");
 	InstallCommandLineHandler(MyCLHandler, "-killtime", "-killtime", "Kill after this many seconds");
 	InstallCommandLineHandler(MyCLHandler, "-killex", "-killex", "Kill after this many expansions");
 	InstallCommandLineHandler(MyCLHandler, "-nogui", "-nogui", "Turn off gui");
@@ -141,7 +147,7 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-greedyCT", "-greedyCT", "Greedy sort high-level search by number of conflicts (GCBS)");
 	InstallCommandLineHandler(MyCLHandler, "-ECBSheuristic", "-ECBSheuristic", "Use heuristic in low-level search");
 
-        InstallWindowHandler(MyWindowHandler);
+    InstallWindowHandler(MyWindowHandler);
 
 	InstallMouseClickHandler(MyClickHandler);
 }
@@ -168,47 +174,48 @@ void InitHeadless(){
   std::cout << "Setting seed " << seed << "\n";
   srand(seed);
   srandom(seed);
-  AirplaneEnvironment* agce = new AirplaneGridCardinalEnvironment();
-  AirplaneEnvironment* agoe = new AirplaneGridOctileEnvironment();
-  AirplaneEnvironment* a3ce = new AirplaneGrid3DCardinalEnvironment();
-  AirplaneEnvironment* a3oe = new AirplaneGrid3DOctileEnvironment();
-  AirplaneEnvironment* ae = new AirplaneEnvironment();
+  AirplaneEnvironment* agce = new AirplaneGridCardinalEnvironment(width,length,height);
+  AirplaneEnvironment* agoe = new AirplaneGridOctileEnvironment(width,length,height);
+  AirplaneEnvironment* a3ce = new AirplaneGrid3DCardinalEnvironment(width,length,height);
+  AirplaneEnvironment* a3oe = new AirplaneGrid3DOctileEnvironment(width,length,height);
+  AirplaneEnvironment* ae = new AirplaneEnvironment(width,length,height);
   ae->loadPerimeterDB();
-  AirplaneEnvironment* ase = new AirplaneSimpleEnvironment();
+  AirplaneEnvironment* ase = new AirplaneSimpleEnvironment(width,length,height);
   ase->loadPerimeterDB();
-  AirplaneEnvironment* ahe = new AirplaneHighwayEnvironment();
+  AirplaneEnvironment* ahe = new AirplaneHighwayEnvironment(width,length,height);
   ahe->loadPerimeterDB();
-  AirplaneEnvironment* ah4e = new AirplaneHighway4Environment();
+  AirplaneEnvironment* ah4e = new AirplaneHighway4Environment(width,length,height);
   ah4e->loadPerimeterDB();
-  AirplaneEnvironment* ah4c = new AirplaneHighway4CardinalEnvironment();
+  AirplaneEnvironment* ah4c = new AirplaneHighway4CardinalEnvironment(width,length,height);
   ah4c->loadPerimeterDB();
-  AirplaneEnvironment* ac = new AirplaneCardinalEnvironment();
+  AirplaneEnvironment* ac = new AirplaneCardinalEnvironment(width,length,height);
   ac->loadPerimeterDB();
   // Cardinal Grid
-  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(agce->name(),new AirplaneConstrainedEnvironment(agce),0,cutoffs[0],weights[0]));
+  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(agce->name(),new AirplaneConstrainedEnvironment(agce,width,length,height),0,cutoffs[0],weights[0]));
   // Octile Grid
-  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(agoe->name(),new AirplaneConstrainedEnvironment(agoe),0,cutoffs[1],weights[1]));
+  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(agoe->name(),new AirplaneConstrainedEnvironment(agoe,width,length,height),0,cutoffs[1],weights[1]));
   // Cardinal 3D Grid
-  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(a3ce->name(),new AirplaneConstrainedEnvironment(a3ce),0,cutoffs[2],weights[2]));
+  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(a3ce->name(),new AirplaneConstrainedEnvironment(a3ce,width,length,height),0,cutoffs[2],weights[2]));
   // Octile 3D Grid
-  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(a3oe->name(),new AirplaneConstrainedEnvironment(a3oe),0,cutoffs[3],weights[3]));
+  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(a3oe->name(),new AirplaneConstrainedEnvironment(a3oe,width,length,height),0,cutoffs[3],weights[3]));
   // Highway 4 Airplane
-  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(ah4c->name(),new AirplaneConstrainedEnvironment(ah4c),0,cutoffs[4],weights[4]));
+  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(ah4c->name(),new AirplaneConstrainedEnvironment(ah4c,width,length,height),0,cutoffs[4],weights[4]));
   // Highway 8 Airplane
-  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(ahe->name(),new AirplaneConstrainedEnvironment(ahe),0,cutoffs[5],weights[5]));
+  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(ahe->name(),new AirplaneConstrainedEnvironment(ahe,width,length,height),0,cutoffs[5],weights[5]));
   // Simple Airplane
-  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(ase->name(),new AirplaneConstrainedEnvironment(ase),0,cutoffs[6],weights[6]));
+  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(ase->name(),new AirplaneConstrainedEnvironment(ase,width,length,height),0,cutoffs[6],weights[6]));
   // Cardinal Airplane
-  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(ac->name(),new AirplaneConstrainedEnvironment(ac),0,cutoffs[7],weights[7]));
+  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(ac->name(),new AirplaneConstrainedEnvironment(ac,width,length,height),0,cutoffs[7],weights[7]));
   // Octile Airplane
-  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(ae->name(),new AirplaneConstrainedEnvironment(ae),0,cutoffs[8],weights[8]));
+  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(ae->name(),new AirplaneConstrainedEnvironment(ae,width,length,height),0,cutoffs[8],weights[8]));
   // Highway 4/8 Airplane
-  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(ah4e->name(),new AirplaneConstrainedEnvironment(ah4e),0,cutoffs[9],weights[9]));
-
-  SoftConstraint<airtimeState> sam(airtimeState(10,10,0,0,0,0),20);
+  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(ah4e->name(),new AirplaneConstrainedEnvironment(ah4e,width,length,height),0,cutoffs[9],weights[9]));
 
   for(auto& e:environs){
-    e.environment->AddSoftConstraint(sam);
+	  for(auto& s:sconstraints){
+		  std::cout << "Add soft constraint\n";
+		  e.environment->AddSoftConstraint(s);
+	  }
   }
 
   ace=environs.rbegin()->environment;
@@ -281,7 +288,7 @@ void InitHeadless(){
     for(auto &a: waypoints[i])
       std::cout << a << " ";
     std::cout << std::endl;
-    float softEff(.5);
+    float softEff(.9);
     CBSUnit<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>,NonUnitTimeCAT<airtimeState,AirplaneConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >* unit = new CBSUnit<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>,NonUnitTimeCAT<airtimeState,AirplaneConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >(waypoints[i],softEff);
     unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
     group->AddUnit(unit); // Add to the group
@@ -399,26 +406,40 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 		return 1;
 	}
 	if(strcmp(argument[0], "-probfile") == 0){
-          std::cout << "Reading instance from file: \""<<argument[1]<<"\"\n";
-          std::ifstream ss(argument[1]);
-          int x,y,z,s,h;
-          std::string line;
-          num_airplanes=0;
-          while(std::getline(ss, line)){
-            std::vector<airtimeState> wpts;
-            std::istringstream is(line);
-            std::string field;
-            while(is >> field){
-              sscanf(field.c_str(),"%d,%d,%d,%d,%d", &x,&y,&z,&s,&h);
-              std::cout << x <<","<<y<<","<<z<<","<<s<<","<<h<<" ";
-              wpts.push_back(airtimeState(airplaneState(x,y,z,s,h,false),0));
-            }
-            waypoints.push_back(wpts);
-            std::cout << "\n";
-            num_airplanes++;
-          }
-          return 2;
-        }
+		std::cout << "Reading instance from file: \""<<argument[1]<<"\"\n";
+		std::ifstream ss(argument[1]);
+		int x,y,z,s,h;
+		std::string line;
+		num_airplanes=0;
+		while(std::getline(ss, line)){
+			std::vector<airtimeState> wpts;
+			std::istringstream is(line);
+			std::string field;
+			while(is >> field){
+				sscanf(field.c_str(),"%d,%d,%d,%d,%d", &x,&y,&z,&s,&h);
+				wpts.push_back(airtimeState(airplaneState(x,y,z,s,h,false),0));
+			}
+			waypoints.push_back(wpts);
+			num_airplanes++;
+		}
+		return 2;
+	}
+	if(strcmp(argument[0], "-constraints") == 0){
+		std::cout << "Reading constraints from file: \""<<argument[1]<<"\"\n";
+		std::ifstream ss(argument[1]);
+		int x,y,z,r;
+		std::string line;
+		while(std::getline(ss, line)){
+			std::vector<airtimeState> wpts;
+			std::istringstream is(line);
+			std::string field;
+			while(is >> field){
+				sscanf(field.c_str(),"%d,%d,%d,%d", &x,&y,&z,&r);
+				sconstraints.push_back(SoftConstraint<airtimeState>(airtimeState(x,y,z,0,0,0),r));
+			}
+		}
+		return 2;
+	}
 	if(strcmp(argument[0], "-cutoffs") == 0)
         {
           std::string str = argument[1];
@@ -473,6 +494,25 @@ int MyCLHandler(char *argument[], int maxNumArgs)
             ss.ignore();
           ss >> i;
           maxsubgoals = i;
+          return 2;
+        }
+	if(strcmp(argument[0], "-dimensions") == 0)
+        {
+          std::string str = argument[1];
+
+          std::stringstream ss(str);
+
+          int i;
+          ss >> i;
+          width = i;
+          if (ss.peek() == ',')
+            ss.ignore();
+          ss >> i;
+          length = i;
+          if (ss.peek() == ',')
+            ss.ignore();
+          ss >> i;
+          height = i;
           return 2;
         }
 	if(strcmp(argument[0], "-nairplanes") == 0)

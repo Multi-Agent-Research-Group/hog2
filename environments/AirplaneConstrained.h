@@ -33,7 +33,7 @@ public:
 	/** Construct a random-ground airplane environment which forms the backbone of the model */
 	//AirplaneConstrainedEnvironment();
 	/** Construct a constrained environment from an existing environment */
-	AirplaneConstrainedEnvironment(AirplaneEnvironment* ae);
+	AirplaneConstrainedEnvironment(AirplaneEnvironment* ae,int width=80,int length=80,int height=20);
         virtual char const*const name()const{return ae->name();}
 
 	/// CONSTRAINTS
@@ -92,11 +92,11 @@ public:
 	  }
 	  return ae->GCost(node1,node2)+softCost;
 	}
-	virtual double GCost(const airtimeState &node, const airplaneAction &act) const {
-    airtimeState node2(node);
-    ApplyAction(node2,act);
-    return GCost(node,node2);
-	}
+        virtual double GCost(const airtimeState &node, const airplaneAction &act) const {
+          airtimeState node2(node);
+          ApplyAction(node2,act);
+          return GCost(node,node2);
+        }
 	virtual double GetPathLength(const std::vector<airtimeState> &n) const;
 
 	/// GOAL TESTING
@@ -143,6 +143,9 @@ public:
 	void setSoftConstraintEffectiveness(float v){softConstraintEffectiveness=v;}
 	float getSoftConstraintEffectiveness()const{return softConstraintEffectiveness;}
 protected:
+	const int width;
+	const int length;
+	const int height;
 	float softConstraintEffectiveness=0.0;
 private:
 	

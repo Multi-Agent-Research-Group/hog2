@@ -2,15 +2,15 @@
 
 void renderScene(void);
 
-void glutAddMenuEntry (char *label, int value) {};
-void glutAddSubMenu (char *label, int submenu) {};
+void glutAddMenuEntry (const char *label, int value) {};
+void glutAddSubMenu (const char *label, int submenu) {};
 void glutAttachMenu (int button) {};
 int glutCreateMenu (void (*) (int)) {return 0;};
-int glutCreateWindow (char *title) {return 0;};
+int glutCreateWindow (const char *title) {return 0;};
 void glutDisplayFunc (void (*) (void)) {};
 int glutGet (GLenum type) {return 0;};
 int glutGetModifiers (void) {return 0;};
-int glutIdleFunc (void (*)(void)) {return 0;};
+void glutIdleFunc (void (*)(void)) {};
 void glutInit (int *argcp, char **argv) {};
 void glutInitDisplayMode (unsigned int mode) {};
 void glutInitWindowPosition (int x, int y) {};

@@ -539,7 +539,7 @@ uint64_t AirplaneGridlessEnvironment::GetActionHash(PlatformAction act) const
 
 recVec AirplaneGridlessEnvironment::GetCoordinate(int x, int y, int z) const
 {
-    return {(x-width/2.0)/(width/2.0), (y-width/2.0)/(width/2.0), -4.0*z/(255.0*80)};
+    return {(x-width/2.0)/(width/2.0), (y-width/2.0)/(width/2.0), -4.0*z/(255.0*width)};
 }
 
 void AirplaneGridlessEnvironment::OpenGLDraw() const
@@ -626,8 +626,8 @@ void AirplaneGridlessEnvironment::OpenGLDraw() const
     glEnable(GL_LINE_STIPPLE);
     glDisable(GL_LIGHTING);
     glBegin(GL_LINES);
-      glVertex3f((xval-width/2.0)/(width/2.0),(min(st.y1,st.y2)-width/2.0)/(width/2.0) ,-4.0*st.z/(255.0*80));
-      glVertex3f((xval-width/2.0)/(width/2.0),(max(st.y1,st.y2)-width/2.0)/(width/2.0) ,-4.0*st.z/(255.0*80));
+      glVertex3f((xval-width/2.0)/(width/2.0),(min(st.y1,st.y2)-width/2.0)/(width/2.0) ,-4.0*st.z/(255.0*width));
+      glVertex3f((xval-width/2.0)/(width/2.0),(max(st.y1,st.y2)-width/2.0)/(width/2.0) ,-4.0*st.z/(255.0*width));
     glEnd();
     glLineStipple(0, 0xFFFF);
     glLineWidth(1);
@@ -651,9 +651,9 @@ void AirplaneGridlessEnvironment::OpenGLDraw(const PlatformState &l) const
     }
     // x & y range from 20*4 = 0 to 80 = -1 to +1
     // z ranges from 0 to 20 which is 0...
-    GLfloat x = (l.x-40.0)/40.0;
-    GLfloat y = (l.y-40.0)/40.0;
-    GLfloat z = -l.z/80.0;
+    GLfloat x = (l.x-width/2.0)/width/2.0;
+    GLfloat y = (l.y-length)/length;
+    GLfloat z = -l.z/width;
     glEnable(GL_LIGHTING);
     glPushMatrix();
     glTranslatef(x, y, z);
@@ -672,14 +672,14 @@ void AirplaneGridlessEnvironment::OpenGLDraw(const PlatformState& o, const Platf
         glColor3f(r, g, b);
     }
     
-    GLfloat x1 = (o.x-40.0)/40.0;
-    GLfloat y1 = (o.y-40.0)/40.0;
-    GLfloat z1 = -o.z/80.0;
+    GLfloat x1 = (o.x-width/2.0)/width/2.0;
+    GLfloat y1 = (o.y-length)/length;
+    GLfloat z1 = -o.z/width;
     GLfloat h1 = 360*o.hdg()/8.0;
 
-    GLfloat x2 = (n.x-40.0)/40.0;
-    GLfloat y2 = (n.y-40.0)/40.0;
-    GLfloat z2 = -n.z/80.0;
+    GLfloat x2 = (n.x-width/2.0)/width/2.0;
+    GLfloat y2 = (n.y-length)/length;
+    GLfloat z2 = -n.z/width;
     GLfloat h2 = 360*n.hdg()/8.0;
     if (o.hdg() < 2 && n.hdg() >= 6)
         h2 -= 360;
@@ -732,13 +732,13 @@ void AirplaneGridlessEnvironment::GLDrawLine(const PlatformState &a, const Platf
     glColor4f(1.0, 1.0, 1.0, .5); // Make it partially opaque gray
 
     // Normalize coordinates between (-1, 1)
-    GLfloat x_start((a.x-40.0)/40.0);
-    GLfloat y_start((a.y-40.0)/40.0);
-    GLfloat z_start(-a.z/80.0);
+    GLfloat x_start((a.x-width/2.0)/width/2.0);
+    GLfloat y_start((a.y-length)/length);
+    GLfloat z_start(-a.z/width);
 
-    GLfloat x_end((b.x-40.0)/40.0);
-    GLfloat y_end((b.y-40.0)/40.0);
-    GLfloat z_end(-b.z/80.0);
+    GLfloat x_end((b.x-width/2.0)/width/2.0);
+    GLfloat y_end((b.y-length)/length);
+    GLfloat z_end(-b.z/width);
 
     glDisable(GL_LIGHTING);
     glPushMatrix();

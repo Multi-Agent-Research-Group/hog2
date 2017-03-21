@@ -56,6 +56,9 @@ climbCost(climbCost),
 descendCost(descendCost),
 nilGCost(false)
 {
+  DrawableConstraint::width=width;
+  DrawableConstraint::length=length;
+  DrawableConstraint::height=height;
   // Load the perimeter heuristic before we add any obstacles to the environment...
   //srandom(time(0));
   ground.resize((width+1)*(length+1));
@@ -274,7 +277,6 @@ void AirplaneHiFiGridlessEnvironment::GetActions(const PlatformState &nodeID, st
   }
 
   actions.push_back(PlatformAction(0,0,0));
-
   actions.push_back(PlatformAction(-maxTurn,0,0));
   actions.push_back(PlatformAction(maxTurn,0,0));
 
@@ -290,7 +292,7 @@ void AirplaneHiFiGridlessEnvironment::GetActions(const PlatformState &nodeID, st
     actions.push_back(PlatformAction(maxTurn,maxDive,0));
   }
 
-  if(nodeID.speed<maxSpeed)
+  /*if(nodeID.speed<maxSpeed)
   {
     actions.push_back(PlatformAction(0,0,1));
 
@@ -327,7 +329,7 @@ void AirplaneHiFiGridlessEnvironment::GetActions(const PlatformState &nodeID, st
       actions.push_back(PlatformAction(-maxTurn,maxDive,-1));
       actions.push_back(PlatformAction(maxTurn,maxDive,-1));
     }
-  }
+  }*/
 }
 
 void AirplaneHiFiGridlessEnvironment::GetPerfectActions(const PlatformState &nodeID, std::vector<PlatformAction> &actions) const
@@ -633,7 +635,7 @@ uint64_t AirplaneHiFiGridlessEnvironment::GetActionHash(PlatformAction act) cons
 
 recVec AirplaneHiFiGridlessEnvironment::GetCoordinate(int x, int y, int z) const
 {
-  return {(x-width/2.0)/(width/2.0), (y-width/2.0)/(width/2.0), -4.0*z/(255.0*80)};
+  return {(x-width/2.0)/(width/2.0), (y-width/2.0)/(width/2.0), -4.0*z/(255.0*width)};
 }
 
 void AirplaneHiFiGridlessEnvironment::OpenGLDraw() const
@@ -720,8 +722,8 @@ void AirplaneHiFiGridlessEnvironment::OpenGLDraw() const
     glEnable(GL_LINE_STIPPLE);
     glDisable(GL_LIGHTING);
     glBegin(GL_LINES);
-    glVertex3f((xval-width/2.0)/(width/2.0),(min(st.y1,st.y2)-width/2.0)/(width/2.0) ,-4.0*st.z/(255.0*80));
-    glVertex3f((xval-width/2.0)/(width/2.0),(max(st.y1,st.y2)-width/2.0)/(width/2.0) ,-4.0*st.z/(255.0*80));
+    glVertex3f((xval-width/2.0)/(width/2.0),(min(st.y1,st.y2)-width/2.0)/(width/2.0) ,-4.0*st.z/(255.0*width));
+    glVertex3f((xval-width/2.0)/(width/2.0),(max(st.y1,st.y2)-width/2.0)/(width/2.0) ,-4.0*st.z/(255.0*width));
     glEnd();
     glLineStipple(0, 0xFFFF);
     glLineWidth(1);
@@ -745,9 +747,9 @@ void AirplaneHiFiGridlessEnvironment::OpenGLDraw(const PlatformState &l) const
   }
   // x & y range from 20*4 = 0 to 80 = -1 to +1
   // z ranges from 0 to 20 which is 0...
-  GLfloat x = (l.x-40.0)/40.0;
-  GLfloat y = (l.y-40.0)/40.0;
-  GLfloat z = -l.z/80.0;
+  GLfloat x = (l.x-width/2.0)/width/2.0;
+  GLfloat y = (l.y-length/2.0)/length/2.0;
+  GLfloat z = -l.z/width;
   glEnable(GL_LIGHTING);
   glPushMatrix();
   glTranslatef(x, y, z);
@@ -766,14 +768,14 @@ void AirplaneHiFiGridlessEnvironment::OpenGLDraw(const PlatformState& o, const P
     glColor3f(r, g, b);
   }
 
-  GLfloat x1 = (o.x-40.0)/40.0;
-  GLfloat y1 = (o.y-40.0)/40.0;
-  GLfloat z1 = -o.z/80.0;
+  GLfloat x1 = (o.x-width/2.0)/width/2.0;
+  GLfloat y1 = (o.y-length/2.0)/length/2.0;
+  GLfloat z1 = -o.z/width;
   GLfloat h1 = 360*o.hdg()/8.0;
 
-  GLfloat x2 = (n.x-40.0)/40.0;
-  GLfloat y2 = (n.y-40.0)/40.0;
-  GLfloat z2 = -n.z/80.0;
+  GLfloat x2 = (n.x-width/2.0)/width/2.0;
+  GLfloat y2 = (n.y-length/2.0)/length/2.0;
+  GLfloat z2 = -n.z/width;
   GLfloat h2 = 360*n.hdg()/8.0;
   if (o.hdg() < 2 && n.hdg() >= 6)
     h2 -= 360;
@@ -853,13 +855,13 @@ void AirplaneHiFiGridlessEnvironment::GLDrawLine(const PlatformState &a, const P
   glColor4f(1.0, 1.0, 1.0, .5); // Make it partially opaque gray
 
   // Normalize coordinates between (-1, 1)
-  GLfloat x_start((a.x-40.0)/40.0);
-  GLfloat y_start((a.y-40.0)/40.0);
-  GLfloat z_start(-a.z/80.0);
+  GLfloat x_start((a.x-width/2.0)/width/2.0);
+  GLfloat y_start((a.y-length/2.0)/length/2.0);
+  GLfloat z_start(-a.z/width);
 
-  GLfloat x_end((b.x-40.0)/40.0);
-  GLfloat y_end((b.y-40.0)/40.0);
-  GLfloat z_end(-b.z/80.0);
+  GLfloat x_end((b.x-width/2.0)/width/2.0);
+  GLfloat y_end((b.y-length/2.0)/length/2.0);
+  GLfloat z_end(-b.z/width);
 
   glDisable(GL_LIGHTING);
   glPushMatrix();
@@ -879,7 +881,6 @@ void AirplaneHiFiGridlessEnvironment::GLDrawLine(const PlatformState &a, const P
 void AirplaneHiFiGridlessEnvironment::GLDrawPath(const std::vector<PlatformState> &p, const std::vector<PlatformState> &waypoints) const
 {
   if(p.size()<2) return;
-  int wpt(0);
   //TODO Draw waypoints as cubes.
   for(auto a(p.begin()+1); a!=p.end(); ++a){
     GLDrawLine(*(a-1),*a);
@@ -969,115 +970,6 @@ void AirplaneHiFiGridlessEnvironment::AddLandingStrip(gridlessLandingStrip& stri
 void AirplaneHiFiGridlessEnvironment::AddConstraint(Constraint<PlatformState> c){constraints.push_back(c);}
 void AirplaneHiFiGridlessEnvironment::ClearConstraints(){constraints.resize(0);}
 void AirplaneHiFiGridlessEnvironment::ClearStaticConstraints(){static_constraints.resize(0);}
-bool Constraint<PlatformState>::ConflictsWith(const PlatformState &state) const
-    {
-  if(state.landed || end_state.landed && start_state.landed) return false;
-  //std::cout << "VERTEX"<<*this << "ConflictsWith" << state << "...\n";
-  // Unit time steps...
-  if (state.t == start_state.t || state.t == end_state.t) {
-    return fless(state.distanceTo(start_state)+state.distanceTo(end_state),start_state.distanceTo(end_state)*1.5);
-  }
-  return false;
-    }
-
-// Check both vertex and edge constraints
-bool Constraint<PlatformState>::ConflictsWith(const PlatformState &from, const PlatformState &to) const
-    {
-  //std::cout << "EDGE"<<from << "ConflictsWith" << to << "...\n";
-  if(from.landed && to.landed || end_state.landed && start_state.landed) return false;
-  double dist(start_state.distanceTo(end_state));
-  if (from.t == start_state.t) {
-    PlatformState bisect((from.x+to.x)/2.,(from.y+to.y)/2.,(from.z+to.z)/2.,0,0,0);
-
-    return fless(from.distanceTo(start_state)+from.distanceTo(end_state),dist*1.5) ||
-        fless(bisect.distanceTo(start_state)+bisect.distanceTo(end_state),dist*1.5) ||
-        fless(to.distanceTo(start_state)+to.distanceTo(end_state),dist*1.5);
-  }else if(from.t==end_state.t){
-    return from.distanceTo(end_state) < dist*.25;
-  }else if(to.t==start_state.t){
-    return to.distanceTo(start_state) < dist*.25;
-  }
-
-  return false;
-    }
-
-bool Constraint<PlatformState>::ConflictsWith(const Constraint<PlatformState> &x) const
-    {
-  return ConflictsWith(x.start_state, x.end_state);
-    }
-
-
-void Constraint<PlatformState>::OpenGLDraw() const 
-    {
-  glLineWidth(2.0); // Make it wide
-
-  // Normalize coordinates between (-1, 1)
-  GLfloat x_start = (start_state.x-40.0)/40.0;
-  GLfloat y_start = (start_state.y-40.0)/40.0;
-  GLfloat z_start = -start_state.z/80.0;
-
-  GLfloat x_end = (end_state.x-40.0)/40.0;
-  GLfloat y_end = (end_state.y-40.0)/40.0;
-  GLfloat z_end = -end_state.z/80.0;
-
-
-  GLfloat min_x, min_y, min_z, max_x, max_y, max_z;
-
-  if (strip)
-  {
-    min_x = min(x_start-.5/40.0,x_end-.5/40.0);
-    max_x = max(x_start+.5/40.0,x_end+.5/40.0);
-    min_y = min(y_start-.5/40.0,y_end-.5/40.0);
-    max_y = max(y_start+.5/40.0,y_end+.5/40.0);
-    min_z = min(z_start,z_end);
-    max_z = max(z_start+.5/40.0,z_end+.5/40.0);
-  } else {
-    min_x = min(x_start-.5/40.0,x_end-.5/40.0);
-    max_x = max(x_start+.5/40.0,x_end+.5/40.0);
-    min_y = min(y_start-.5/40.0,y_end-.5/40.0);
-    max_y = max(y_start+.5/40.0,y_end+.5/40.0);
-    min_z = min(z_start-.5/40.0,z_end-.5/40.0);
-    max_z = max(z_start+.5/40.0,z_end+.5/40.0);
-  }
-
-  glDisable(GL_LIGHTING);
-  glPushMatrix();
-
-  // Draw the lower loop
-  glBegin(GL_LINE_LOOP);
-  glVertex3f(min_x, min_y, min_z);
-  glVertex3f(max_x, min_y, min_z);
-  glVertex3f(max_x, max_y, min_z);
-  glVertex3f(min_x, max_y, min_z);
-  glEnd();
-
-  // Draw the upper loop
-  glBegin(GL_LINE_LOOP);
-  glVertex3f(min_x, min_y, max_z);
-  glVertex3f(max_x, min_y, max_z);
-  glVertex3f(max_x, max_y, max_z);
-  glVertex3f(min_x, max_y, max_z);
-  glEnd();
-
-  // Draw the edge line segments
-  glBegin(GL_LINES);
-
-  glVertex3f(min_x, min_y, min_z);
-  glVertex3f(min_x, min_y, max_z);
-
-  glVertex3f(min_x, max_y, min_z);
-  glVertex3f(min_x, max_y, max_z);
-
-  glVertex3f(max_x, min_y, min_z);
-  glVertex3f(max_x, min_y, max_z);
-
-  glVertex3f(max_x, max_y, min_z);
-  glVertex3f(max_x, max_y, max_z);
-
-  glEnd();
-
-  glPopMatrix();
-    }
 
 bool AirplaneHiFiGridlessEnvironment::ViolatesConstraint(const PlatformState &from, const PlatformState &to, int time) const
 {
@@ -1153,6 +1045,118 @@ bool AirplaneHiFiGridlessEnvironment::ViolatesConstraint(const PlatformState &fr
 
   // If no constraint is violated, return false
   return false;
+}
+
+bool Constraint<PlatformState>::ConflictsWith(const PlatformState &state) const
+{
+  if(state.landed || end_state.landed && start_state.landed) return false;
+  //std::cout << "VERTEX"<<*this << "ConflictsWith" << state << "...\n";
+  // Unit time steps...
+  if (state.t == start_state.t || state.t == end_state.t) {
+    return fless(state.distanceTo(start_state)+state.distanceTo(end_state),start_state.distanceTo(end_state)*1.5);
+  }
+  return false;
+}
+
+// Check both vertex and edge constraints
+bool Constraint<PlatformState>::ConflictsWith(const PlatformState &from, const PlatformState &to) const
+{
+  //std::cout << "EDGE"<<from << "ConflictsWith" << to << "...\n";
+  if(from.landed && to.landed || end_state.landed && start_state.landed) return false;
+  double dist(start_state.distanceTo(end_state));
+  if (from.t == start_state.t) {
+    PlatformState bisect((from.x+to.x)/2.,(from.y+to.y)/2.,(from.z+to.z)/2.,0,0,0);
+
+    return fless(from.distanceTo(start_state)+from.distanceTo(end_state),dist*1.5) ||
+      fless(bisect.distanceTo(start_state)+bisect.distanceTo(end_state),dist*1.5) ||
+      fless(to.distanceTo(start_state)+to.distanceTo(end_state),dist*1.5);
+  }else if(from.t==end_state.t){
+    return from.distanceTo(end_state) < dist*.25;
+  }else if(to.t==start_state.t){
+    return to.distanceTo(start_state) < dist*.25;
+  }
+
+  return false;
+}
+
+bool Constraint<PlatformState>::ConflictsWith(const Constraint<PlatformState> &x) const
+{
+  return ConflictsWith(x.start_state, x.end_state);
+}
+
+
+void Constraint<PlatformState>::OpenGLDraw() const 
+{
+  glLineWidth(2.0); // Make it wide
+  static int halfWidth(DrawableConstraint::width/2.0);
+  static int halfLength(DrawableConstraint::length/2.0);
+
+  // Normalize coordinates between (-1, 1)
+  GLfloat x_start = (start_state.x-halfWidth)/halfWidth;
+  GLfloat y_start = (start_state.y-halfLength)/halfLength;
+  GLfloat z_start = -start_state.z/DrawableConstraint::width;
+
+  GLfloat x_end = (end_state.x-halfWidth)/halfWidth;
+  GLfloat y_end = (end_state.y-halfLength)/halfLength;
+  GLfloat z_end = -end_state.z/DrawableConstraint::width;
+
+
+  GLfloat min_x, min_y, min_z, max_x, max_y, max_z;
+
+  if (strip)
+  {
+    min_x = min(x_start-.5/halfWidth,x_end-.5/halfWidth);
+    max_x = max(x_start+.5/halfWidth,x_end+.5/halfWidth);
+    min_y = min(y_start-.5/halfLength,y_end-.5/halfLength);
+    max_y = max(y_start+.5/halfLength,y_end+.5/halfLength);
+    min_z = min(z_start,z_end);
+    max_z = max(z_start+.5/halfWidth,z_end+.5/halfWidth);
+  } else {
+    min_x = min(x_start-.5/halfWidth,x_end-.5/halfWidth);
+    max_x = max(x_start+.5/halfWidth,x_end+.5/halfWidth);
+    min_y = min(y_start-.5/halfLength,y_end-.5/halfLength);
+    max_y = max(y_start+.5/halfLength,y_end+.5/halfLength);
+    min_z = min(z_start-.5/halfWidth,z_end-.5/halfWidth);
+    max_z = max(z_start+.5/halfWidth,z_end+.5/halfWidth);
+  }
+
+  glDisable(GL_LIGHTING);
+  glPushMatrix();
+
+  // Draw the lower loop
+  glBegin(GL_LINE_LOOP);
+  glVertex3f(min_x, min_y, min_z);
+  glVertex3f(max_x, min_y, min_z);
+  glVertex3f(max_x, max_y, min_z);
+  glVertex3f(min_x, max_y, min_z);
+  glEnd();
+
+  // Draw the upper loop
+  glBegin(GL_LINE_LOOP);
+  glVertex3f(min_x, min_y, max_z);
+  glVertex3f(max_x, min_y, max_z);
+  glVertex3f(max_x, max_y, max_z);
+  glVertex3f(min_x, max_y, max_z);
+  glEnd();
+
+  // Draw the edge line segments
+  glBegin(GL_LINES);
+
+  glVertex3f(min_x, min_y, min_z);
+  glVertex3f(min_x, min_y, max_z);
+
+  glVertex3f(min_x, max_y, min_z);
+  glVertex3f(min_x, max_y, max_z);
+
+  glVertex3f(max_x, min_y, min_z);
+  glVertex3f(max_x, min_y, max_z);
+
+  glVertex3f(max_x, max_y, min_z);
+  glVertex3f(max_x, max_y, max_z);
+
+  glEnd();
+
+  glPopMatrix();
 }
 
 template<>

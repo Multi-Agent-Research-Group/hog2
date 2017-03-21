@@ -280,6 +280,24 @@ struct Constraint<airtimeState>
         airtimeState end_state;
 };
 
+template<>
+class SoftConstraint<airtimeState> : public DrawableConstraint {
+  public:
+    SoftConstraint() {}
+    SoftConstraint(airtimeState const& c, double r) : center(c),radius(r),logr(log(r)){}
+
+    virtual double cost(airtimeState const& other, double scale) const{
+      double d(Util::distance(center.x,center.y,center.height,other.x,other.y,other.height)/scale);
+      return std::max(0.0,logr/d-logr/radius);
+    }
+    virtual void OpenGLDraw() const;
+
+    airtimeState center;
+    double radius;
+    double logr;
+};
+
+
 template<typename state>
 static std::ostream& operator <<(std::ostream & out, const Constraint<state> &loc)
 {

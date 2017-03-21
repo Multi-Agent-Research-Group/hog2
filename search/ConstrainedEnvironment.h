@@ -34,9 +34,17 @@ class State{
 };
 */
 
+class DrawableConstraint{
+  public:
+    virtual void OpenGLDraw() const=0;
+    static int width;
+    static int length;
+    static int height;
+};
+
 // Represents a radial constraint where cost increases as we approach the center
 template<typename State>
-class SoftConstraint {
+class SoftConstraint : public DrawableConstraint {
   public:
     SoftConstraint() {}
     SoftConstraint(State const& c, double r) : center(c),radius(r),logr(log(r)){}
@@ -53,7 +61,7 @@ class SoftConstraint {
 };
 
 template<typename State>
-class Constraint {
+class Constraint : public DrawableConstraint{
   public:
     Constraint() {}
     Constraint(State const& start) : start_state(start), end_state(start) {}
@@ -85,5 +93,15 @@ class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
     /** Checks to see if any constraint is violated */
     virtual bool ViolatesConstraint(const State &from, const State &to) const = 0;
 };
+
+// We initialize these here, but they can be changed at run-time
+// These are only necessary for displaying constraints in OpenGL
+/*template<typename State>
+int Constraint<State>::width=80;
+template<typename State>
+int Constraint<State>::length=80;
+template<typename State>
+int Constraint<State>::height=20;
+*/
 
 #endif /* defined(__hog2_glut__ConstrainedEnvironment__) */

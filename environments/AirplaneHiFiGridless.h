@@ -316,4 +316,5 @@ class NonHolonomicComparator {
     static bool useCAT;
     static UnitTimeCAT<PlatformState,AirplaneHiFiGridlessEnvironment>* CAT; // Conflict Avoidance Table
 };
+
 #endif /* Airplane_h */
