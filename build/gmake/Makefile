@@ -34,6 +34,7 @@ PROJECTS = \
   apps/dynamicsearch \
   apps/directional \
   apps/dragonage \
+  apps/icts \
   apps/mapUtils \
   apps/prediction \
   apps/emotion \
