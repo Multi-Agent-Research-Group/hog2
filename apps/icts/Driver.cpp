@@ -24,6 +24,7 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+#include <memory>
 #include <iostream>
 #include <unordered_map>
 #include "Map2DEnvironment.h"
@@ -31,15 +32,17 @@
 int maxDepth;
 
 struct Node{
-	static MapEnvironment& env;
+	static MapEnvironment* env;
 	Node(){}
 	Node(xyLoc a, int d):n(a),depth(d){}
 	xyLoc n;
 	uint16_t depth;
 	std::vector<Node*> parents;
 	std::vector<Node*> successors;
-	uint64_t Hash(){return (env.GetStateHash(n)<<16) & depth;}
+	uint64_t Hash(){return (env->GetStateHash(n)<<16) & depth;}
 };
+
+MapEnvironment* Node::env=nullptr;
 
 std::unordered_map<uint64_t,Node> dag;
 
@@ -56,13 +59,17 @@ bool LimitedDFS(xyLoc const& start, xyLoc end, MapEnvironment const& env, int de
   env.GetSuccessors(start,successors);
   for(auto const& node: successors){
 	if(LimitedDFS(node,end,env,depth-1)){
-	  dag[Node(node,depth).Hash()].parents.emplace_back(start,depth+1);
-	  dag[Node(start,depth+1).Hash()].successors.emplace_back(node,depth);
+          std::unique_ptr<Node> p(new Node(start,depth+1));
+          std::unique_ptr<Node> c(new Node(node,depth));
+          Node* parent(dag.find(p->Hash())==dag.end()?p.release():&dag[p->Hash()]);
+          Node* current(dag.find(c->Hash())==dag.end()?c.release():&dag[c->Hash()]);
+	  dag[current->Hash()].parents.push_back(parent);
+	  dag[parent->Hash()].successors.push_back(current);
 	}
   }
 }
 
 int main(){
   MapEnvironment env(new Map(8,8));
-  Node::env=env;
+  Node::env=&env;
 }
