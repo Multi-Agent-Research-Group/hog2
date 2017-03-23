@@ -53,7 +53,7 @@ AirplaneConstrainedEnvironment::AirplaneConstrainedEnvironment(AirplaneEnvironme
 	// Add a constraint for the ground
 	airplaneState mi(0,0, 0, 0,0);
 	airtimeState o(mi, 0);
-	airplaneState ma(width, length, 1, 0,0);
+	airplaneState ma(width, length, 0, 0,0);
 	airtimeState f(ma, std::numeric_limits<float>::max());
 	Constraint<airtimeState> c(o, f);
 	c.strip=false;

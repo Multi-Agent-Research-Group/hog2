@@ -89,7 +89,7 @@ unsigned ReplanLeg(CBSUnit<state,action,environment,comparison,conflicttable>* c
   Timer tmr;
   tmr.StartTimer();
   astar.GetPath(env, start, goal, path);
-  std::cout << "Replan took: " << tmr.EndTimer() << "\n";
+  std::cout << "Replan took: " << tmr.EndTimer() << std::endl;
   //std::cout << "New leg " << path.size() << "\n";
   //for(auto &p: path){std::cout << p << "\n";}
   if(path.empty())return astar.GetNodesExpanded(); //no solution found
@@ -173,7 +173,7 @@ unsigned GetFullPath(CBSUnit<state,action,environment,comparison,conflicttable>*
     Timer tmr;
     tmr.StartTimer();
     astar.GetPath(env, start, goal, path);
-    std::cout << "Plan took: " << tmr.EndTimer() << "\n";
+    std::cout << start <<"-->"<<goal<<" took: " << tmr.EndTimer() << std::endl;
 
     expansions += astar.GetNodesExpanded();
     //std::cout << "exp full " << astar.GetNodesExpanded() << "\n";

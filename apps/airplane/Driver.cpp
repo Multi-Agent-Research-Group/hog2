@@ -283,6 +283,12 @@ void InitHeadless(){
       }
       waypoints.push_back(s);
     }
+    for(auto w(waypoints.begin()+1); w!=waypoints.end();/*++w*/){
+      if(*(w-1) == *w)
+        waypoints.erase(w);
+      else
+        ++w;
+    }
 
     std::cout << "Set unit " << i << " subgoals: ";
     for(auto &a: waypoints[i])

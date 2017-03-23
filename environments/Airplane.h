@@ -72,6 +72,7 @@ public:
   virtual void GetReverseActionsQuad(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
 
 
+  virtual void SetAllowShiftManeuver(bool allow){allowShiftManeuver=allow;}
 
 	virtual void ApplyAction(airplaneState &s, airplaneAction dir) const;
 	virtual void UndoAction(airplaneState &s, airplaneAction dir) const;
@@ -183,6 +184,7 @@ protected:
 private:
   static const std::vector<std::pair<int,int> > ranges;
   bool perimeterLoaded;
+  bool allowShiftManeuver;
   std::string perimeterFile;
   AirplanePerimeterDBBuilder<airplaneState, airplaneAction, AirplaneEnvironment> perimeter;
 

@@ -57,6 +57,7 @@ AirplaneEnvironment::AirplaneEnvironment(
   climbCost(climbCost),
   descendCost(descendCost),
   perimeterLoaded(false),
+  allowShiftManeuver(false),
   perimeterFile(perimeterFile),
   searchtype(SearchType::FORWARD)
 {
@@ -189,8 +190,10 @@ std::cout << "Setting w/l/h="<<width<<" "<<length<<" "<<height<<"\n";
   turns.push_back(0);
   turns.push_back(k45);
   turns.push_back(-k45);
-  turns.push_back(kShift);
-  turns.push_back(-kShift);
+  if(allowShiftManeuver){
+    turns.push_back(kShift);
+    turns.push_back(-kShift);
+  }
   turns.push_back(k90);
   turns.push_back(-k90);
 
@@ -1044,7 +1047,7 @@ double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneStat
   airplaneState tNode = node2;
   tNode.speed = cruiseSpeed;
   double best(9999999);
-  if(perimeterLoaded)
+  if(perimeterLoaded && node2.heading<=8)
   {
     static const int perimeterSize(2);
     if(abs(node1.x-node2.x)<=perimeterSize && abs(node1.y-node2.y)<=perimeterSize && abs(node2.height-node1.height) <=perimeterSize){
@@ -1180,8 +1183,8 @@ double AirplaneEnvironment::HCost(const airplaneState &node1, const airplaneStat
     //std::cout << s1 << s << xmin <<" "<<xmax<<" "<<ymin<<" "<<ymax<<" "<<zmin<<" " << zmax << "\n";;
     //perimeterVal = (searchtype != SearchType::REVERSE)?perimeter.GCost(pNode,node2):perimeter.GCost(node2,pNode);
   }else{
-    std::cout << "!loaded\n";
-    best = searchtype == myHCost(node1,node2);
+    if(!perimeterLoaded)std::cout << "!loaded\n";
+    best = myHCost(node1,node2);
   }
 
   //std::cout << "BEST: "<<best<<" "<<std::endl;
@@ -1439,9 +1442,12 @@ double AirplaneEnvironment::GCost(const airplaneState &node1, const airplaneActi
 
 bool AirplaneEnvironment::GoalTest(const airplaneState &node, const airplaneState &goal) const
 {
-    if (node.type == AirplaneType::QUAD && goal.speed == 1)
+    //if (node.type == AirplaneType::QUAD && goal.speed == 1)
+      //return (node.x==goal.x && node.y==goal.y && node.height == goal.height && node.speed == goal.speed);
+    if(goal.heading>8) // Don't check the goal heading
       return (node.x==goal.x && node.y==goal.y && node.height == goal.height && node.speed == goal.speed);
-    return (node.x==goal.x && node.y==goal.y && node.height == goal.height && node.heading == goal.heading && node.speed == goal.speed);
+    else
+      return (node.x==goal.x && node.y==goal.y && node.height == goal.height && node.heading == goal.heading && node.speed == goal.speed);
     //return (fequal(node.x,goal.x) && fequal(node.y, goal.y) && node.height == goal.height && node.heading == goal.heading); //&& node.speed == goal.speed
 }
 
