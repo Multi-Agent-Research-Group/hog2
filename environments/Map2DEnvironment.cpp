@@ -14,17 +14,8 @@
 
 using namespace Graphics2D;
 
-MapEnvironment::MapEnvironment(Map *_m, bool useOccupancy)
-{
-	DIAGONAL_COST = ROOT_TWO;
-	map = _m;
-	if (useOccupancy)
-		oi = new BaseMapOccupancyInterface(map);
-	else
-		oi = 0;
-	h = 0;
-	fourConnected = false;
-}
+MapEnvironment::MapEnvironment(Map *_m, bool useOccupancy):h(nullptr),map(_m),oi(useOccupancy?new BaseMapOccupancyInterface(map):nullptr),DIAGONAL_COST(ROOT_TWO),connectedness(8)
+{}
 
 MapEnvironment::MapEnvironment(MapEnvironment *me)
 {
@@ -34,7 +25,7 @@ MapEnvironment::MapEnvironment(MapEnvironment *me)
 		oi = new BaseMapOccupancyInterface(map);
 	else oi = 0;
 	DIAGONAL_COST = me->DIAGONAL_COST;
-	fourConnected = me->fourConnected;
+	connectedness = me->connectedness;
 }
 
 MapEnvironment::~MapEnvironment()
@@ -70,30 +61,39 @@ void MapEnvironment::GetSuccessors(const xyLoc &loc, std::vector<xyLoc> &neighbo
 	}
 	if ((map->CanStep(loc.x, loc.y, loc.x-1, loc.y)))
 	{
-		if (!fourConnected && (up && (map->CanStep(loc.x, loc.y, loc.x-1, loc.y-1))))
+
+		if (connectedness>5 && (up && (map->CanStep(loc.x, loc.y, loc.x-1, loc.y-1))))
 			neighbors.push_back(xyLoc(loc.x-1, loc.y-1));
-		if (!fourConnected && (down && (map->CanStep(loc.x, loc.y, loc.x-1, loc.y+1))))
+
+		if (connectedness>5 && (down && (map->CanStep(loc.x, loc.y, loc.x-1, loc.y+1))))
 			neighbors.push_back(xyLoc(loc.x-1, loc.y+1));
 		neighbors.push_back(xyLoc(loc.x-1, loc.y));
 	}
 	if ((map->CanStep(loc.x, loc.y, loc.x+1, loc.y)))
 	{
-		if (!fourConnected && (up && (map->CanStep(loc.x, loc.y, loc.x+1, loc.y-1))))
+		if (connectedness>5 && (up && (map->CanStep(loc.x, loc.y, loc.x+1, loc.y-1))))
 			neighbors.push_back(xyLoc(loc.x+1, loc.y-1));
-		if (!fourConnected && (down && (map->CanStep(loc.x, loc.y, loc.x+1, loc.y+1))))
+		if (connectedness>5 && (down && (map->CanStep(loc.x, loc.y, loc.x+1, loc.y+1))))
 			neighbors.push_back(xyLoc(loc.x+1, loc.y+1));
 		neighbors.push_back(xyLoc(loc.x+1, loc.y));
 	}
+        if(connectedness%2) // Is waiting allowed?
+        {
+		neighbors.push_back(loc);
+        }
 }
 
 bool MapEnvironment::GetNextSuccessor(const xyLoc &currOpenNode, const xyLoc &goal,
 									  xyLoc &next, double &currHCost, uint64_t &special,
 									  bool &validMove)
 {
-	if (fourConnected)
-		return GetNext4Successor(currOpenNode, goal, next, currHCost, special, validMove);
-	return GetNext8Successor(currOpenNode, goal, next, currHCost, special, validMove);
-	
+  // In the case of 5-connectedness; next successor does not look at waiting in place
+  if (connectedness<6)
+    return GetNext4Successor(currOpenNode, goal, next, currHCost, special, validMove);
+
+  // In the case of 9-connectedness; next successor does not look at waiting in place
+  return GetNext8Successor(currOpenNode, goal, next, currHCost, special, validMove);
+
 }
 
 bool MapEnvironment::GetNext4Successor(const xyLoc &currOpenNode, const xyLoc &goal,
@@ -364,7 +364,7 @@ void MapEnvironment::GetActions(const xyLoc &loc, std::vector<tDirection> &actio
 	}
 	if ((map->CanStep(loc.x, loc.y, loc.x-1, loc.y)))
 	{
-		if (!fourConnected)
+		if (connectedness>5)
 		{
 			if ((up && (map->CanStep(loc.x, loc.y, loc.x-1, loc.y-1))))
 				actions.push_back(kNW);
@@ -375,7 +375,7 @@ void MapEnvironment::GetActions(const xyLoc &loc, std::vector<tDirection> &actio
 	}
 	if ((map->CanStep(loc.x, loc.y, loc.x+1, loc.y)))
 	{
-		if (!fourConnected)
+		if (connectedness>5)
 		{
 			if ((up && (map->CanStep(loc.x, loc.y, loc.x+1, loc.y-1))))
 				actions.push_back(kNE);
@@ -384,6 +384,8 @@ void MapEnvironment::GetActions(const xyLoc &loc, std::vector<tDirection> &actio
 		}
 		actions.push_back(kE);
 	}
+        if(connectedness%2)
+          actions.push_back(kStay);
 }
 
 tDirection MapEnvironment::GetAction(const xyLoc &s1, const xyLoc &s2) const
@@ -452,7 +454,7 @@ void MapEnvironment::ApplyAction(xyLoc &s, tDirection dir) const
 double MapEnvironment::HCost(const xyLoc &l1, const xyLoc &l2) const
 {
 	double h1, h2;
-	if (fourConnected)
+	if (connectedness<6)
 	{
 		h1 = abs(l1.x-l2.x)+abs(l1.y-l2.y);
 	}

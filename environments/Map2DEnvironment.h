@@ -160,10 +160,14 @@ public:
 	bool IsGoalStored() const {return false;}
 	void SetDiagonalCost(double val) { DIAGONAL_COST = val; }
 	double GetDiagonalCost() { return DIAGONAL_COST; }
-	bool FourConnected() { return fourConnected; }
-	bool EightConnected() { return !fourConnected; }
-	void SetFourConnected() { fourConnected = true; }
-	void SetEightConnected() { fourConnected = false; }
+	bool FourConnected() { return connectedness==4; }
+	bool FiveConnected() { return connectedness==5; }
+	bool EightConnected() { return connectedness==8; }
+	bool NineConnected() { return connectedness==9; }
+	void SetFourConnected() { connectedness=4; }
+	void SetFiveConnected() { connectedness=5; }
+	void SetEightConnected() { connectedness=8; }
+	void SetNineConnected() { connectedness=9; }
 	//virtual BaseMapOccupancyInterface* GetOccupancyInterface(){std::cout<<"Mapenv\n";return oi;}
 	//virtual xyLoc GetNextState(xyLoc &s, tDirection dir);
 	double GetPathLength(std::vector<xyLoc> &neighbors);
@@ -172,7 +176,7 @@ protected:
 	Map *map;
 	BaseMapOccupancyInterface *oi;
 	double DIAGONAL_COST;
-	bool fourConnected;
+	uint8_t connectedness;
 };
 
 class AbsMapEnvironment : public MapEnvironment
