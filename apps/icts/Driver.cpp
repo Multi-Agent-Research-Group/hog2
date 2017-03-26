@@ -83,20 +83,17 @@ std::ostream& operator << (std::ostream& ss, Node const* n){
 
 MapEnvironment* Node::env=nullptr;
 
-bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, int depth){
+bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, MDD& mdd, int depth){
   //std::cout << start << " " << depth << "\n";
   if(depth==0)
     return false;
 
-  Node* parent(nullptr);
-  uint64_t hash(Node(start,depth).Hash());
-  if(dag.find(hash)==dag.end())
-    dag[hash]=Node(start,depth);
-  else if(dag[hash].optimal)
-    return true; // Already found a solution from search at this depth
-  parent=&dag[hash];
-    
   if(Node::env->GoalTest(end,start)){
+    Node n(start,depth);
+    uint64_t hash(n.Hash());
+    dag[hash]=n;
+    std::unordered_set<Node*>& s=mdd[depth-1];
+    s.insert(&dag[hash]);
     //std::cout << "found " << start << "\n";
     return true;
   }
@@ -105,7 +102,19 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, int depth){
   Node::env->GetSuccessors(start,successors);
   bool result(false);
   for(auto const& node: successors){
-    if(LimitedDFS(node,end,dag,depth-1)){
+    if(LimitedDFS(node,end,dag,mdd,depth-1)){
+      Node n(start,depth);
+      uint64_t hash(n.Hash());
+      if(dag.find(hash)==dag.end()){
+        dag[hash]=n;
+        std::unordered_set<Node*>& s=mdd[depth-1];
+        s.insert(&dag[hash]);
+      }else if(dag[hash].optimal){
+        return true; // Already found a solution from search at this depth
+      }
+
+      Node* parent(&dag[hash]);
+
       //std::cout << "found " << start << "\n";
       std::unique_ptr<Node> c(new Node(node,depth-1));
       Node* current(dag.find(c->Hash())==dag.end()?c.release():&dag[c->Hash()]);
@@ -119,53 +128,18 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, int depth){
   return result;
 }
 
-/*void print(xyLoc const& s, uint64_t sdepth)
-{
-  std::queue<Node*> q;
-  q.push(&dag[Node(s,sdepth).Hash()]);
-  int d(sdepth);
-  while(q.size()){
-    Node* n(q.front());
-    if(n->depth<d){
-      d--;
-      std::cout << "\n";
-    }
-    q.pop();
-    std::cout << *n;
-    for(auto const m: n->successors)
-      q.push(m);
-  }
-}*/
-
-// Reverse the search depths and store in the mdd
-void buildMDD(Node* n, MDD& mdd){
-  //std::cout << "depth " << (n->depth-1) << "\n";
-  std::unordered_set<Node*>& s=mdd[n->depth-1];
-  //std::cout << *n << "\n";
-  s.insert(n);
-  for(auto const m: n->successors)
-    buildMDD(m,mdd);
-}
-
-void getMDD(xyLoc const& s, xyLoc const& e, DAG& dag, MDD& mdd){
-  int sdepth(Node::env->HCost(s,e)+1);
-  LimitedDFS(s,e,dag,sdepth);
-  mdd.resize(sdepth);
-  buildMDD(&dag[Node(s,sdepth).Hash()],mdd);
-}
-
 int main(){
-  DAG dag;
-  MDD mdd;
-
   MapEnvironment env(new Map(8,8));
   env.SetFiveConnected();
   Node::env=&env;
 
   xyLoc s(1,1);
   xyLoc e(5,5);
-  getMDD(s,e,dag,mdd);
-  
+  int sdepth(Node::env->HCost(s,e)+1);
+  DAG dag;
+  MDD mdd(sdepth);
+  LimitedDFS(s,e,dag,mdd,sdepth);
+
   for(auto const& a: mdd){
     for(auto const& n: a){
       std::cout << *n;
