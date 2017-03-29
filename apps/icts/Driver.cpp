@@ -61,6 +61,7 @@ struct Node : public Hashable{
 	xyLoc n;
 	uint16_t depth;
         bool optimal;
+        bool connected()const{return parents.size()+successors.size();}
 	std::unordered_set<Node*> parents;
 	std::unordered_set<Node*> successors;
 	virtual uint64_t Hash()const{return (env->GetStateHash(n)<<16) | depth;}
@@ -132,6 +133,8 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, MDD& mdd, int de
 }
 
 void GetMDD(xyLoc const& start, xyLoc const& end, MDD& mdd, int depth){
+  // TODO: make this contain pointers or maybe combine into a structure with MDD.
+  //       as-is, memory will be deallocated when this function exits.
   DAG dag;
   mdd.resize(depth+1);
   LimitedDFS(start,end,dag,mdd,depth,depth);
@@ -155,11 +158,13 @@ struct ICTSNode{
         for(int t(0); t<std::min(mdd[i].size(),mdd[j].size()); ++t){
           // Check for node and edge conflicts
 // Create a subroutine that does the following:
-//2. If I now have no more parents, erase children's pointers to me, then erase myself; recurse downward
-//3. If the parent has no children, erase it's parent pointer and it's parent's child pointer; recurse upward
+//1. If I now have no more parents, erase children's pointers to me; recurse downward
+//2. If the parent has no children, erase it's parent pointer and it's parent's child pointer; recurse upward
 // Finally, check for severed connectivity by checking across a time slice. If all nodes have no parents or children, then this ICTS node is rendered infeasible
           for(auto const& m: mdd[i][t]){
+            if(!m->connected()) continue; // Can't get here
             for(auto const& n: mdd[j][t]){
+              if(!n->connected()) continue; // Can't get here
               if(m == n){
                 //TODO Use iterator and "erase in place"
                 //1. Erase parent's pointers to me and my pointers to parents
