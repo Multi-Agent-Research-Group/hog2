@@ -146,6 +146,61 @@ void GetMDD(xyLoc const& start, xyLoc const& end, MDD& mdd, int depth){
   }
 }
 
+void eraseDown(Node* n){
+  // If no parent points here, then we must disconnect this node
+  if(n->parents.empty()){
+    // Erase children's parent pointers terminating at this node
+    for(auto& m: n->successors){
+      auto p(m->parents.find(n));
+      if(p!=m->parents.end()){
+        m->parents.erase(p);
+      }
+      // recurse
+      eraseDown(m);
+    }
+    n->successors.clear();
+  }
+}
+
+void eraseUp(Node* n){
+  // If this node has no successors, it cannot connect us to the goal
+  if(n->successors.empty()){
+    // Erase parent's successor pointers terminating at this node
+    for(auto& m: n->parents){
+      auto p(m->successors.find(n));
+      if(p!=m->successors.end()){
+        m->successors.erase(p);
+      }
+      // recurse
+      eraseUp(m);
+    }
+    n->parents.clear();
+  }
+}
+
+void disconnect(Node* n){
+  // Erase edges pointing to parents, and their edges pointing at me.
+  for(auto& m: n->parents){
+    auto p(m->successors.find(n));
+    if(p!=m->successors.end()){
+      m->successors.erase(p);
+    }
+    eraseUp(m);
+  }
+  n->parents.clear();
+
+  // Erase edges to/from successors
+  for(auto& m: n->successors){
+    auto p(m->parents.find(n));
+    if(p!=m->parents.end()){
+      m->parents.erase(p);
+    }
+    // recurse
+    eraseDown(m);
+  }
+  n->successors.clear();
+}
+
 struct ICTSNode{
   ICTSNode(int agents):mdd(agents){}
   std::vector<MDD> mdd;
@@ -157,15 +212,12 @@ struct ICTSNode{
         // Check all times
         for(int t(0); t<std::min(mdd[i].size(),mdd[j].size()); ++t){
           // Check for node and edge conflicts
-// Create a subroutine that does the following:
-//1. If I now have no more parents, erase children's pointers to me; recurse downward
-//2. If the parent has no children, erase it's parent pointer and it's parent's child pointer; recurse upward
 // Finally, check for severed connectivity by checking across a time slice. If all nodes have no parents or children, then this ICTS node is rendered infeasible
           for(auto const& m: mdd[i][t]){
             if(!m->connected()) continue; // Can't get here
             for(auto const& n: mdd[j][t]){
               if(!n->connected()) continue; // Can't get here
-              if(m == n){
+              if(m->Hash() == n->Hash()){
                 //TODO Use iterator and "erase in place"
                 //1. Erase parent's pointers to me and my pointers to parents
                 //2. Erase children's pointers to me and my pointers to children
@@ -191,10 +243,52 @@ struct ICTSNode{
   }
 };
 
+void testErasers(){
+  Node a(xyLoc(1,1),1);
+  Node b(xyLoc(2,1),2);
+  Node c(xyLoc(3,1),2);
+  Node d(xyLoc(4,1),2);
+  Node b1(xyLoc(5,1),3);
+  Node c1(xyLoc(6,1),3);
+  Node d1(xyLoc(7,1),3);
+  Node e(xyLoc(8,1),4);
+
+  a.successors.insert(&b);
+  a.successors.insert(&c);
+  a.successors.insert(&d);
+  b.parents.insert(&a);
+  c.parents.insert(&a);
+  d.parents.insert(&a);
+  b.successors.insert(&b1);
+  c.successors.insert(&c1);
+  d.successors.insert(&d1);
+  b1.parents.insert(&b);
+  c1.parents.insert(&c);
+  d1.parents.insert(&d);
+  b1.successors.insert(&e);
+  c1.successors.insert(&e);
+  d1.successors.insert(&e);
+  e.parents.insert(&b1);
+  e.parents.insert(&c1);
+  e.parents.insert(&d1);
+
+  std::cout << &a << "\n";
+
+  // Disconnect b
+  disconnect(&b);
+  std::cout << &a << "\n";
+
+  std::cout << "b " << b.connected() << "\n";
+  std::cout << "b1 " << b1.connected() << "\n";
+  
+}
+
 int main(){
   MapEnvironment env(new Map(8,8));
   env.SetFiveConnected();
   Node::env=&env;
+
+  //testErasers();
 
   xyLoc s(1,1);
   xyLoc e(5,5);
