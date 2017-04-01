@@ -135,9 +135,9 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, MDD& mdd, int de
 void GetMDD(xyLoc const& start, xyLoc const& end, MDD& mdd, int depth){
   // TODO: make this contain pointers or maybe combine into a structure with MDD.
   //       as-is, memory will be deallocated when this function exits.
-  DAG dag;
+  DAG* dag=new DAG();
   mdd.resize(depth+1);
-  LimitedDFS(start,end,dag,mdd,depth,depth);
+  LimitedDFS(start,end,*dag,mdd,depth,depth);
   for(auto const& a: mdd){
     for(auto const& n: a){
       std::cout << *n;
@@ -205,40 +205,85 @@ struct ICTSNode{
   ICTSNode(int agents):mdd(agents){}
   std::vector<MDD> mdd;
   // Returns true and sets a1, a2 on conflict
-  bool CheckConflicts(int** a1, int** a2){
+  bool CheckConflicts(int& a1, int& a2){
+    std::vector<MDD> temp(mdd);
     // Check all pairs
-    for(int i(0); i<mdd.size(); ++i){
-      for(int j(i+1); j<mdd.size(); ++j){
+    for(int i(0); i<temp.size(); ++i){
+      for(int j(i+1); j<temp.size(); ++j){
         // Check all times
-        for(int t(0); t<std::min(mdd[i].size(),mdd[j].size()); ++t){
+        for(int t(0); t<std::min(temp[i].size(),temp[j].size()); ++t){
           // Check for node and edge conflicts
-// Finally, check for severed connectivity by checking across a time slice. If all nodes have no parents or children, then this ICTS node is rendered infeasible
-          for(auto const& m: mdd[i][t]){
+          for(auto const m: temp[i][t]){
             if(!m->connected()) continue; // Can't get here
-            for(auto const& n: mdd[j][t]){
+            for(auto const n: temp[j][t]){
               if(!n->connected()) continue; // Can't get here
               if(m->Hash() == n->Hash()){
-                //TODO Use iterator and "erase in place"
-                //1. Erase parent's pointers to me and my pointers to parents
-                //2. Erase children's pointers to me and my pointers to children
-                //3. Call eraser subroutine
+                disconnect(m);
+                disconnect(n);
+                continue;
               }
               if(t!=0){ // Check edges
-                for(auto& mp: m->parents){
-                  for(auto& np: n->parents){
-                    if(mp->n==n->n || np->n==m->n){ // Same edge traversal
-                      //TODO Use iterator and "erase in place"
-                      //1. Erase parent's pointer to me and my pointer to parent
-                      //2. Call eraser subroutine
+                for(auto mp(m->parents.begin()); mp!=m->parents.end();/*++mp*/){
+                  bool conflict(false);
+                  for(auto np(n->parents.begin()); np!=n->parents.end();/*++np*/){
+                    if((*mp)->n==n->n && (*np)->n==m->n){ // Same edge traversal
+                      // Remove edge
+                      // 1. Erase my pointer to parent
+                      n->parents.erase(np);
+                      // 2. Erase parent's pointer to me
+                      auto p((*np)->successors.find(n));
+                      if(p!=(*np)->successors.end()){
+                        (*np)->successors.erase(p);
+                      }
+                      eraseUp(*np); // If severed, propagate
+                      eraseDown(n);
+                      conflict=true;
+                      break;
+                    }else{
+                      ++np;
                     }
+                  }
+                  if(conflict){
+                      m->parents.erase(mp);
+                      auto p((*mp)->successors.find(m));
+                      if(p!=(*mp)->successors.end()){
+                        (*mp)->successors.erase(p);
+                      }
+                      // recurse
+                      eraseUp(*mp); // If severed, propagate
+                      eraseDown(m);
+                  }else{
+                    ++mp;
                   }
                 }
               }
             }
           }
+          // Finally, check for severed connectivity by checking across this time slice.
+          // If all nodes have no parents or children, then this ICTS node is rendered infeasible
+          bool connected(false);
+          for(auto const& m: temp[i][t]){
+            connected|=m->connected();
+          }
+          if(!connected){
+            a1=i;
+            a2=j;
+            return false;
+          }
+          connected=false;
+          for(auto const& n: temp[j][t]){
+            connected|=n->connected();
+          }
+          if(!connected){
+            a1=i;
+            a2=j;
+            return false;
+          }
         }
       }
     }
+    a1=-1;
+    a2=-1;
     return true;
   }
 };
@@ -290,18 +335,18 @@ int main(){
 
   //testErasers();
 
-  xyLoc s(1,1);
-  xyLoc e(5,5);
-  int sdepth(Node::env->HCost(s,e));
-  int agents(1);
+  xyLoc s1(1,1);
+  xyLoc e1(1,4);
+  xyLoc s2(1,4);
+  xyLoc e2(3,1);
+  int agents(2);
   ICTSNode n(agents);
-  GetMDD(s,e,n.mdd[0],sdepth);
-  MDD mdd2;
-  GetMDD(s,e,mdd2,sdepth+1);
-  MDD mdd3;
-  GetMDD(s,e,mdd3,sdepth+2);
-
-  //std::cout << &dag[Node(s,sdepth).Hash()];
-  //std::cout << dag[Node(s,sdepth).Hash()].successors.size();
+  GetMDD(s1,e1,n.mdd[0],Node::env->HCost(s1,e1));
+  GetMDD(s2,e2,n.mdd[1],Node::env->HCost(s2,e2));
+  //std::cout << &(n.mdd[0][0]) << "\n"; 
+  //std::cout << &(n.mdd[1][0]) << "\n"; 
+  int a1(-1);
+  int a2(-1);
+  std::cout << "satisfiable=" << (n.CheckConflicts(a1,a2)?"true":"false") << "\n";
   return 0;
 }
