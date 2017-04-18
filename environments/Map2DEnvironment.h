@@ -30,6 +30,7 @@ struct xyLoc {
 public:
 	xyLoc() { x = -1; y = -1; }
 	xyLoc(uint16_t _x, uint16_t _y) :x(_x), y(_y) {}
+        bool operator<(xyLoc const& other)const{return x==other.x?y<other.y:x<other.x;}
 	uint16_t x;
 	uint16_t y;
 };

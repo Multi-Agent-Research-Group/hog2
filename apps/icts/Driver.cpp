@@ -28,6 +28,7 @@
 #include <memory>
 #include <iostream>
 #include <unordered_set>
+#include <set>
 #include <unordered_map>
 #include "Map2DEnvironment.h"
 
@@ -67,10 +68,8 @@ struct Node : public Hashable{
 	virtual uint64_t Hash()const{return (env->GetStateHash(n)<<16) | depth;}
 };
 
-typedef std::vector<Node*> KNode;
 typedef std::vector<std::unordered_set<Node*>> MDD;
 typedef std::vector<Node*> MultiState; // rank=agent num
-typedef std::vector<std::vector<KNode>> KMDD;
 typedef std::unordered_map<uint64_t,Node> DAG;
 
 std::ostream& operator << (std::ostream& ss, MultiState const& n){
@@ -147,98 +146,54 @@ void GetMDD(xyLoc const& start, xyLoc const& end, MDD& mdd, int depth){
   DAG* dag=new DAG();
   mdd.resize(depth+1);
   LimitedDFS(start,end,*dag,mdd,depth,depth);
-  for(auto const& a: mdd){
-    for(auto const& n: a){
-      std::cout << *n;
+  //for(auto const& a: mdd){
+    //for(auto const& n: a){
+      //std::cout << *n;
+    //}
+    //std::cout << "\n";
+  //}
+  // Fill in any extra levels necessary to get to depth
+  for(int i(1); i<mdd.size(); ++i){
+    if(mdd[i].size()==0){
+      Node* n(new Node((*mdd[i-1].begin())->n,(*mdd[i-1].begin())->depth+1));
+      (*mdd[i-1].begin())->successors.insert(n);
+      n->parents.insert(*mdd[i-1].begin());
+      mdd[i].insert(n);
     }
-    std::cout << "\n";
   }
-}
-
-void eraseDown(Node* n){
-  // If no parent points here, then we must disconnect this node
-  if(n->parents.empty()){
-    // Erase children's parent pointers terminating at this node
-    for(auto& m: n->successors){
-      auto p(m->parents.find(n));
-      if(p!=m->parents.end()){
-        m->parents.erase(p);
-      }
-      // recurse
-      eraseDown(m);
-    }
-    n->successors.clear();
-  }
-}
-
-void eraseUp(Node* n){
-  // If this node has no successors, it cannot connect us to the goal
-  if(n->successors.empty()){
-    // Erase parent's successor pointers terminating at this node
-    for(auto& m: n->parents){
-      auto p(m->successors.find(n));
-      if(p!=m->successors.end()){
-        m->successors.erase(p);
-      }
-      // recurse
-      eraseUp(m);
-    }
-    n->parents.clear();
-  }
-}
-
-void disconnect(Node* n){
-  // Erase edges pointing to parents, and their edges pointing at me.
-  for(auto& m: n->parents){
-    auto p(m->successors.find(n));
-    if(p!=m->successors.end()){
-      m->successors.erase(p);
-    }
-    eraseUp(m);
-  }
-  n->parents.clear();
-
-  // Erase edges to/from successors
-  for(auto& m: n->successors){
-    auto p(m->parents.find(n));
-    if(p!=m->parents.end()){
-      m->parents.erase(p);
-    }
-    // recurse
-    eraseDown(m);
-  }
-  n->successors.clear();
 }
 
 void generatePermutations(std::vector<MultiState>& positions, std::vector<MultiState>& result, int depth, MultiState const& parent, MultiState const& current) {
-    if(depth == positions.size()) {
-       for(int i(1); i<current.size(); ++i){
-         if(current[i-1]->n.x==parent[i]->n.x and parent[i-1]->n.y==current[i]->n.y
-         && current[i-1]->n.x==parent[i]->n.x and parent[i-1]->n.y==current[i]->n.y)
-           return; // This is an edge collision
-       }
-       result.push_back(current);
-       return;
-     }
-
-    for(int i = 0; i < positions[depth].size(); ++i) {
-        MultiState copy(current);
-        bool found(false);
-        for(auto const& p: current){
-          if(positions[depth][i]->n.x==p->n.x && positions[depth][i]->n.y==p->n.y){
-            found=true;
-            break;
-          }
-        }
-        if(found) continue;
-        copy.push_back(positions[depth][i]);
-        generatePermutations(positions, result, depth + 1, parent, copy);
+  if(depth == positions.size()) {
+    for(int i(0); i<current.size(); ++i){
+      for(int j(i+1); j<current.size(); ++j){
+        if(current[j]->n.x==parent[i]->n.x and parent[j]->n.y==current[i]->n.y
+            && current[i]->n.x==parent[j]->n.x and parent[i]->n.y==current[j]->n.y)
+          return; // This is an edge collision
+      }
     }
+    result.push_back(current);
+    return;
+  }
+
+  for(int i = 0; i < positions[depth].size(); ++i) {
+    MultiState copy(current);
+    bool found(false);
+    for(auto const& p: current){
+      if(positions[depth][i]->n.x==p->n.x && positions[depth][i]->n.y==p->n.y){
+        found=true;
+        break;
+      }
+    }
+    if(found) continue;
+    copy.push_back(positions[depth][i]);
+    generatePermutations(positions, result, depth + 1, parent, copy);
+  }
 }
 
 // Return true if we get to the desired depth
 bool jointDFS(MultiState const& s, int d, int term){
-  std::cout << std::string(d,' ')<< " s " << s << "\n";
+  //std::cout << std::string(d,' ')<< " s " << s << "\n";
   if(d==term){
     return true;
   }
@@ -250,20 +205,23 @@ bool jointDFS(MultiState const& s, int d, int term){
   }
   std::vector<MultiState> crossProduct;
   generatePermutations(successors,crossProduct,0,s,MultiState());
+  bool value(false);
   for(auto const& a: crossProduct){
-    return jointDFS(a,d+1,term);
+    value |= jointDFS(a,d+1,term);
   }
-  return false;
+  return value;
 }
 
 struct ICTSNode{
   ICTSNode(int agents):mdd(agents){}
-  ICTSNode(std::vector<int> sizes):mdd(starts.size()){
+  ICTSNode(std::vector<int> s):mdd(s.size()),sizes(s){
     for(int i(0); i<starts.size(); ++i){
+      //std::cout << "agent " << i << " GetMDD()\n";
       GetMDD(starts[i],ends[i],mdd[i],Node::env->HCost(starts[i],ends[i])+sizes[i]);
     }
   }
   std::vector<MDD> mdd;
+  std::vector<int> sizes;
   static std::vector<xyLoc> starts;
   static std::vector<xyLoc> ends;
 
@@ -272,13 +230,19 @@ struct ICTSNode{
     int maxmdd(INT_MIN);
     MultiState root;
     for(auto const& m: mdd){
+      if(m.empty()){return false;} // This is an invalid solution
       maxmdd=max(maxmdd,m.size());
       root.push_back(*m[0].begin());
     }
-    std::cout << "root " << root << "\n";
+    //std::cout << "maxmdd " << maxmdd << "\n";
+    //std::cout << "root " << root << "\n";
+    // Lengthen out MDDs to the same length
+    int agent(0);
     for(auto & m: mdd){
+      //std::cout << "agent " << agent++ << " sz " << m.size() << "\n";
       while(m.size()<maxmdd){
         std::unordered_set<Node*> b;
+        //std::cout << "appending " << m.back().size() << "\n";
         Node* n(new Node((*m.back().begin())->n,(*m.back().begin())->depth+1));
         (*m.back().begin())->successors.insert(n);
         n->parents.insert(*m.back().begin());
@@ -287,157 +251,92 @@ struct ICTSNode{
       }
     }
     // Do a depth-first search; if the search terminates at a goal, its valid.
-    return jointDFS(root,1,maxmdd);
-  }
-
-  // Returns true and sets a1, a2 on conflict
-  bool CheckConflicts(int& a1, int& a2){
-    std::vector<MDD> temp(mdd);
-    // Check all pairs
-    for(int i(0); i<temp.size(); ++i){
-      for(int j(i+1); j<temp.size(); ++j){
-        // Check all times
-        for(int t(0); t<std::min(temp[i].size(),temp[j].size()); ++t){
-          // Check for node and edge conflicts
-          for(auto const m: temp[i][t]){
-            if(!m->connected()) continue; // Can't get here
-            for(auto const n: temp[j][t]){
-              if(!n->connected()) continue; // Can't get here
-              if(m->Hash() == n->Hash()){
-                disconnect(m);
-                disconnect(n);
-                continue;
-              }
-              if(t!=0){ // Check edges
-                for(auto mp(m->parents.begin()); mp!=m->parents.end();/*++mp*/){
-                  bool conflict(false);
-                  for(auto np(n->parents.begin()); np!=n->parents.end();/*++np*/){
-                    if((*mp)->n==n->n && (*np)->n==m->n){ // Same edge traversal
-                      // Remove edge
-                      // 1. Erase my pointer to parent
-                      n->parents.erase(np);
-                      // 2. Erase parent's pointer to me
-                      auto p((*np)->successors.find(n));
-                      if(p!=(*np)->successors.end()){
-                        (*np)->successors.erase(p);
-                      }
-                      eraseUp(*np); // If severed, propagate
-                      eraseDown(n);
-                      conflict=true;
-                      break;
-                    }else{
-                      ++np;
-                    }
-                  }
-                  if(conflict){
-                      m->parents.erase(mp);
-                      auto p((*mp)->successors.find(m));
-                      if(p!=(*mp)->successors.end()){
-                        (*mp)->successors.erase(p);
-                      }
-                      // recurse
-                      eraseUp(*mp); // If severed, propagate
-                      eraseDown(m);
-                  }else{
-                    ++mp;
-                  }
-                }
-              }
-            }
-          }
-          // Finally, check for severed connectivity by checking across this time slice.
-          // If all nodes have no parents or children, then this ICTS node is rendered infeasible
-          bool aconnected(false);
-          for(auto const& m: temp[i][t]){
-            aconnected|=m->connected();
-          }
-          bool bconnected(false);
-          for(auto const& n: temp[j][t]){
-            bconnected|=n->connected();
-          }
-          if(!aconnected && !bconnected){
-            a1=i;
-            a2=j;
-            return false;
-          }
+    bool result(jointDFS(root,1,maxmdd));
+    if(result){
+      std::cout << "Found:\n";
+      int i(0);
+      for(auto & m: mdd){
+        std::cout << ++i << "\n";
+        for(auto & t: m){
+          for(auto & p: t)
+            std::cout << *p;
+          std::cout << "\n";
         }
+        std::cout << "\n";
       }
     }
-    // If we got this far, it means that at least one of the graphs was not
-    // disconnected, meaning at least one non-conflicting path is available
-    
-    a1=-1;
-    a2=-1;
-    return true;
+    return result;
+  }
+
+  int SIC()const{
+    int total(0);
+    for(auto const& s:sizes){
+      total += s;
+    }
+    return total;
   }
 };
 
-void testErasers(){
-  Node a(xyLoc(1,1),1);
-  Node b(xyLoc(2,1),2);
-  Node c(xyLoc(3,1),2);
-  Node d(xyLoc(4,1),2);
-  Node b1(xyLoc(5,1),3);
-  Node c1(xyLoc(6,1),3);
-  Node d1(xyLoc(7,1),3);
-  Node e(xyLoc(8,1),4);
-
-  a.successors.insert(&b);
-  a.successors.insert(&c);
-  a.successors.insert(&d);
-  b.parents.insert(&a);
-  c.parents.insert(&a);
-  d.parents.insert(&a);
-  b.successors.insert(&b1);
-  c.successors.insert(&c1);
-  d.successors.insert(&d1);
-  b1.parents.insert(&b);
-  c1.parents.insert(&c);
-  d1.parents.insert(&d);
-  b1.successors.insert(&e);
-  c1.successors.insert(&e);
-  d1.successors.insert(&e);
-  e.parents.insert(&b1);
-  e.parents.insert(&c1);
-  e.parents.insert(&d1);
-
-  std::cout << &a << "\n";
-
-  // Disconnect b
-  disconnect(&b);
-  std::cout << &a << "\n";
-
-  std::cout << "b " << b.connected() << "\n";
-  std::cout << "b1 " << b1.connected() << "\n";
-  
-}
+struct ICTSNodePtrComp
+{
+  bool operator()(const ICTSNode* lhs, const ICTSNode* rhs) const  { return lhs->SIC()>rhs->SIC(); }
+};
 
 std::vector<xyLoc> ICTSNode::starts;
 std::vector<xyLoc> ICTSNode::ends;
+
+std::priority_queue<ICTSNode*,std::vector<ICTSNode*>,ICTSNodePtrComp> q;
+std::unordered_set<std::string> deconf;
 
 int main(){
   MapEnvironment env(new Map(8,8));
   env.SetFiveConnected();
   Node::env=&env;
-  ICTSNode::starts.emplace_back(1,1);
-  ICTSNode::starts.emplace_back(1,4);
-  ICTSNode::ends.emplace_back(1,4);
-  ICTSNode::ends.emplace_back(1,1);
-  std::vector<int> sizes = {0, 0};
-
-  int current(0);
-  ICTSNode* n(new ICTSNode(sizes));
-  while(!n->isValid()){
-    sizes[current]++;
-    for(auto const& s: sizes)
-      std::cout << s << " ";
-    std::cout << "\n";
-    n = new ICTSNode(sizes);
-    current=(current+1)%sizes.size();
+  int numAgents(20);
+  std::set<xyLoc> st;
+  std::set<xyLoc> en;
+  int seed(1234456);
+  srand(seed);
+  for(int i(0);i<numAgents;++i){
+    while(!st.emplace(rand()%8,rand()%8).second);
+    while(!en.emplace(rand()%8,rand()%8).second);
   }
-  //std::cout << "satisfiable=" << n.isValid()<<"\n";
-  //sizes[0]=1;
-  //ICTSNode n1(sizes);
-  //std::cout << "satisfiable=" << n1.isValid()<<"\n";
-  return 0;
+  ICTSNode::starts=std::vector<xyLoc>(st.begin(),st.end());
+  ICTSNode::ends=std::vector<xyLoc>(en.begin(),en.end());
+  std::vector<int> sizes(ICTSNode::ends.size());
+
+  q.push(new ICTSNode(sizes));
+  while(q.size()){
+    ICTSNode* parent(q.top());
+    std::cout << "pop ";
+    for(auto const& a: parent->sizes){
+      std::cout << a << " ";
+    }
+    std::cout << "\n";
+    q.pop();
+    std::cout << parent->SIC() << "\n";
+    if(parent->isValid()){
+      return 0;
+    }
+    for(int i(0); i<parent->sizes.size(); ++i){
+      std::vector<int> s(parent->sizes);
+      s[i]++;
+      //std::cout << "push ";
+      //for(auto const& a: s){
+        //std::cout << a << " ";
+      //}
+      //std::cout << "\n";
+      std::string sv = std::accumulate(s.begin()+1, s.end(), std::to_string(s[0]),
+                     [](const std::string& a, int b){
+                           return a + ',' + std::to_string(b);
+                     });
+      if(deconf.find(sv)==deconf.end()){
+        q.push(new ICTSNode(s));
+        deconf.insert(sv);
+      }else{
+        //std::cout << "duplicate: " << sv << "\n";
+      }
+    }
+  }
+  return 1;
 }
