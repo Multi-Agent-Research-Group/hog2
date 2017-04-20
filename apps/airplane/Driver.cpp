@@ -31,6 +31,7 @@ int width = 80;
 int length = 80;
 int height = 80;
 bool recording = false; // Record frames
+bool verbose(false);
 double simTime = 0;
 double stepsPerFrame = 1.0/100.0;
 double frameIncrement = 1.0/10000.0;
@@ -117,7 +118,7 @@ void InstallHandlers()
 	InstallKeyboardHandler(MyDisplayHandler, "Speed Up Simulation", "Speed Up simulation execution.", kNoModifier, '=');
 	InstallKeyboardHandler(MyDisplayHandler, "Slow Down Simulation", "Slow Down simulation execution.", kNoModifier, '-');
 	InstallKeyboardHandler(MyDisplayHandler, "Step Simulation", "If the simulation is paused, step forward .1 sec.", kNoModifier, 'o');
-	InstallKeyboardHandler(MyDisplayHandler, "Recird", "Toggle recording.", kNoModifier, 'r');
+	InstallKeyboardHandler(MyDisplayHandler, "Record", "Toggle recording.", kNoModifier, 'r');
 	InstallKeyboardHandler(MyDisplayHandler, "Step History", "If the simulation is paused, step forward .1 sec in history", kAnyModifier, '}');
 	InstallKeyboardHandler(MyDisplayHandler, "Step History", "If the simulation is paused, step back .1 sec in history", kAnyModifier, '{');
 	InstallKeyboardHandler(MyDisplayHandler, "Step Abs Type", "Increase abstraction type", kAnyModifier, ']');
@@ -142,6 +143,7 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-killtime", "-killtime", "Kill after this many seconds");
 	InstallCommandLineHandler(MyCLHandler, "-killex", "-killex", "Kill after this many expansions");
 	InstallCommandLineHandler(MyCLHandler, "-nogui", "-nogui", "Turn off gui");
+	InstallCommandLineHandler(MyCLHandler, "-verbose", "-verbose", "Turn on verbose output");
 	InstallCommandLineHandler(MyCLHandler, "-cat", "-cat", "Use Conflict Avoidance Table (CAT)");
 	InstallCommandLineHandler(MyCLHandler, "-random", "-random", "Randomize conflict resolution order");
 	InstallCommandLineHandler(MyCLHandler, "-greedyCT", "-greedyCT", "Greedy sort high-level search by number of conflicts (GCBS)");
@@ -212,15 +214,14 @@ void InitHeadless(){
   environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(ah4e->name(),new AirplaneConstrainedEnvironment(ah4e,width,length,height),0,cutoffs[9],weights[9]));
 
   for(auto& e:environs){
-	  for(auto& s:sconstraints){
-		  std::cout << "Add soft constraint\n";
-		  e.environment->AddSoftConstraint(s);
-	  }
+    for(auto& s:sconstraints){
+      e.environment->AddSoftConstraint(s);
+    }
   }
 
   ace=environs.rbegin()->environment;
 
-  group = new CBSGroup<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>,NonUnitTimeCAT<airtimeState,AirplaneConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >(environs); // Changed to 10,000 expansions from number of conflicts in the tree
+  group = new CBSGroup<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>,NonUnitTimeCAT<airtimeState,AirplaneConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >(environs,verbose); // Changed to 10,000 expansions from number of conflicts in the tree
   CBSGroup<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>,NonUnitTimeCAT<airtimeState,AirplaneConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >::greedyCT=greedyCT;
   group->timer=new Timer();
   group->seed=seed;
@@ -298,9 +299,9 @@ void InitHeadless(){
     CBSUnit<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>,NonUnitTimeCAT<airtimeState,AirplaneConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >* unit = new CBSUnit<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>,NonUnitTimeCAT<airtimeState,AirplaneConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >(waypoints[i],softEff);
     unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
     group->AddUnit(unit); // Add to the group
-    //std::cout << "initial path for agent " << i << ":\n";
-    //for(auto const& n: group->tree[0].paths[i])
-      //std::cout << n << "\n";
+    std::cout << "initial path for agent " << i << ":\n";
+    for(auto const& n: group->tree[0].paths[i])
+      std::cout << n << "\n";
     if(gui){sim->AddUnit(unit);} // Add to the group
   }
   //assert(false && "Exit early");
@@ -396,6 +397,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 		gui = false;
 		return 1;
 	}
+	if(strcmp(argument[0], "-verbose") == 0)
+	{
+		verbose = true;
+		return 1;
+	}
 	if(strcmp(argument[0], "-rairspace") == 0)
 	{
 		use_rairspace = true;
@@ -415,6 +421,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 		std::cout << "Reading instance from file: \""<<argument[1]<<"\"\n";
 		std::ifstream ss(argument[1]);
 		int x,y,z,s,h;
+                float t;
 		std::string line;
 		num_airplanes=0;
 		while(std::getline(ss, line)){
@@ -422,8 +429,8 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 			std::istringstream is(line);
 			std::string field;
 			while(is >> field){
-				sscanf(field.c_str(),"%d,%d,%d,%d,%d", &x,&y,&z,&s,&h);
-				wpts.push_back(airtimeState(airplaneState(x,y,z,s,h,false),0));
+				sscanf(field.c_str(),"%d,%d,%d,%d,%d,%f", &x,&y,&z,&s,&h,&t);
+				wpts.push_back(airtimeState(x,y,z,s,h,false,t));
 			}
 			waypoints.push_back(wpts);
 			num_airplanes++;

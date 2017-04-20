@@ -234,7 +234,7 @@ bool operator==(const airplaneAction &a1, const airplaneAction &a2);
  */
 struct airtimeState : public airplaneState {
 	airtimeState(airplaneState loc, float time, int8_t c=-1) :airplaneState(loc), t(time), nc(c) {}
-	airtimeState(uint16_t x,uint16_t y, uint16_t height, uint8_t speed, uint8_t heading, bool landed = false, AirplaneType t = AirplaneType::PLANE) : airplaneState(x,y,height,speed,heading), t(0),nc(-1){}
+	airtimeState(uint16_t x,uint16_t y, uint16_t height, uint8_t speed, uint8_t heading, bool landed = false, float time=0, int c=-1) : airplaneState(x,y,height,speed,heading,landed), t(time),nc(c){}
 
 	airtimeState() :airplaneState(), t(0), nc(-1) {}
 	float t;

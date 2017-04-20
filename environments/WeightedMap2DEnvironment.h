@@ -34,61 +34,10 @@
 #include "BitVector.h"
 #include "OccupancyInterface.h"
 #include "Graph.h"
+#include "Vector2D.h"
 #include <ext/hash_map>
 #include <cmath>
 #include <unordered_map>
-
-class Vector2D {
-	public:
-		Vector2D(float _x,float _y):x(_x),y(_y),updateTime(0),accessTime(0) {/*Normalize();*/}
-		Vector2D():x(0),y(0),updateTime(0),accessTime(0) {}
-		void Set(float _x, float _y) { x=_x; y=_y; /*Normalize();*/}
-		
-		void SetUpdateTime(double t) {updateTime=t;}
-		double GetUpdateTime() {return updateTime;}
-		
-		void SetAccessTime(double t) {accessTime=t;}
-		double GetAccessTime() {return accessTime;}
-	
-		bool operator==(const Vector2D &rhs) {return ((x == rhs.x)&&(y==rhs.y));}
-		std::ostream& operator <<(std::ostream & out)
-		{
-			out << "(" << x << ", " << y << ")";
-			return out;	
-		}
-		
-		friend Vector2D operator *(const Vector2D& vec, const double num)
-		{
-			Vector2D returnme(vec.x * num, vec.y * num);
-			return returnme;
-		}
-		
-		friend Vector2D operator *(const double num, const Vector2D& vec)
-		{
-			Vector2D returnme(vec.x * num, vec.y * num);
-			return returnme;
-		}
-		
-		friend Vector2D operator +(const Vector2D& v1, const Vector2D& v2)
-		{
-			Vector2D returnme(v1.x + v2.x, v1.y + v2.y);
-			//returnme.Normalize();
-			return returnme;
-		}
-	//private:
-		float x, y;
-		double updateTime, accessTime;
-		
-		void Normalize()
-		{
-			if ((x==0)&&(y==0))
-				return;
-			float magnitude = sqrt(x*x + y*y);
-			x /= magnitude;
-			y /= magnitude;
-		}
-};
-
 
 namespace AngleUtil {
 

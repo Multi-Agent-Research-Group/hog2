@@ -1,0 +1,20 @@
+#ifndef VELOCITYOBSTACLE_H
+#define VELOCITYOBSTACLE_H
+
+#include "Vector2D.h"
+#include "PositionalUtils.h"
+#include <vector>
+
+class VelocityObstacle{
+  public:
+    VelocityObstacle(Vector2D const& a, Vector2D const& va, Vector2D const& b, Vector2D const& vb, double r1, double r2=DBL_MAX);
+    static bool AgentOverlap(Vector2D const& A,Vector2D const& B,double ar,double br);
+    bool IsInside(Vector2D const& point) const;
+  private:
+    Vector2D VO,VL,VR; // Pos,vel,pos,vel,VO-apex,VO-left,VO-right
+};
+bool getTangentOfCircle(Vector2D const& center, double radius, Vector2D const& point, std::vector<Vector2D>& tangents);
+bool detectCollision(Vector2D A, Vector2D VA, double radiusA, double startTimeA, double endTimeA,
+Vector2D B, Vector2D VB, double radiusB, double startTimeB, double endTimeB);
+
+#endif
