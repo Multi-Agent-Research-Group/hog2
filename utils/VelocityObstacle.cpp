@@ -8,7 +8,7 @@ VelocityObstacle::VelocityObstacle(Vector2D const& a, Vector2D const& va, Vector
   // Compute VL and VR
   std::vector<Vector2D> tangents;
   if(getTangentOfCircle(b+vb,r1+r2,VO,tangents)){
-    VL=tangents[0];
+    VL=tangents[1];
     VR=tangents[0];
   }else{ // Punt. This should *never* happen
     VL=normal(VO,b+vb);
@@ -43,7 +43,7 @@ bool getTangentOfCircle(Vector2D const& center, double radius, Vector2D const& p
 
 // Input is the two center points and their radiuses
 bool VelocityObstacle::AgentOverlap(Vector2D const& A,Vector2D const& B,double ar,double br){
-  return (B-A).sq() > (ar+br)*(ar+br);
+  return fless((B-A).sq(),(ar+br)*(ar+br));
 }
 
 // Input should be a point relative to A after a normalized time step.
@@ -67,16 +67,8 @@ bool VelocityObstacle::IsInside(Vector2D const& point) const{
 //         agent A movement end time
 //         same for agent B
 //
-bool detectCollision(Vector2D A,
-Vector2D VA,
-double radiusA,
-double startTimeA,
-double endTimeA,
-Vector2D B,
-Vector2D VB,
-double radiusB,
-double startTimeB,
-double endTimeB){
+bool detectCollision(Vector2D A, Vector2D VA, double radiusA, double startTimeA, double endTimeA,
+Vector2D B, Vector2D VB, double radiusB, double startTimeB, double endTimeB){
   // check for time overlap
   if(fgreater(startTimeA,endTimeB)||fgreater(startTimeB,endTimeA)){return false;}
 
@@ -89,9 +81,11 @@ double endTimeB){
     startTimeB=startTimeA;
   }
 
+  // Check for immediate collision
   if(VelocityObstacle::AgentOverlap(A,B,radiusA,radiusB)){return true;}
-  bool futureCollision(VelocityObstacle(A,VA,B,VB,radiusA,radiusB).IsInside(A+VB));
-  if(!futureCollision){return false;}
+
+  // Check for collision in future
+  if(!VelocityObstacle(A,VA,B,VB,radiusA,radiusB).IsInside(A+VA)){return false;}
   
   // If we got here, we have established that a collision will occur
   // if the agents continue indefinitely. However, we can now check
@@ -101,5 +95,9 @@ double endTimeB){
   A+=VA*duration;
   B+=VB*duration;
   
-  return !VelocityObstacle(A,VA,B,VB,radiusA,radiusB).IsInside(A+VB);
+  // Check for immediate collision at end of time interval
+  if(VelocityObstacle::AgentOverlap(A,B,radiusA,radiusB)){return true;}
+
+  // Finally, if the collision is still in the future we're ok.
+  return !VelocityObstacle(A,VA,B,VB,radiusA,radiusB).IsInside(A+VA);
 }
