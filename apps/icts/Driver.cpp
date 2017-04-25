@@ -140,6 +140,10 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, MDD& mdd, int de
   return result;
 }
 
+// TODO
+// Allocate DAG outside of this function
+// Perform conflict check by moving forward in time at increments of the smallest time step
+// Test the efficiency of VO vs. time-vector approach
 void GetMDD(xyLoc const& start, xyLoc const& end, MDD& mdd, int depth){
   // TODO: make this contain pointers or maybe combine into a structure with MDD.
   //       as-is, memory will be deallocated when this function exits.
@@ -292,7 +296,7 @@ int main(){
   MapEnvironment env(new Map(8,8));
   env.SetFiveConnected();
   Node::env=&env;
-  int numAgents(20);
+  int numAgents(15);
   std::set<xyLoc> st;
   std::set<xyLoc> en;
   int seed(1234456);
