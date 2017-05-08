@@ -101,3 +101,39 @@ Vector2D B, Vector2D VB, double radiusB, double startTimeB, double endTimeB){
   // Finally, if the collision is still in the future we're ok.
   return !VelocityObstacle(A,VA,B,VB,radiusA,radiusB).IsInside(A+VA);
 }
+
+// Detect whether collision is occurring or will occur between 2 agents
+// placed at pi and pj with velocity and radius.
+bool collisionImminent(Vector2D A, Vector2D VA, double radiusA, double startTimeA, double endTimeA,
+Vector2D B, Vector2D VB, double radiusB, double startTimeB, double endTimeB){
+  // check for time overlap
+  if(fgreater(startTimeA,endTimeB)||fgreater(startTimeB,endTimeA)){return false;}
+
+  if(fgreater(startTimeB,startTimeA)){
+    // Move A to the same time instant as B
+    A+=VA*(startTimeB-startTimeA);
+    startTimeA=startTimeB;
+  }else if(fless(startTimeB,startTimeA)){
+    B+=VB*(startTimeA-startTimeB);
+    startTimeB=startTimeA;
+  }
+
+  double r(radiusA+radiusB); // Combined radius
+  Vector2D w(A+B);
+  double c(w.sq()-r*r);
+  if(c<0){return true;} // Agents are currently colliding
+
+  // Use the quadratic formula to detect nearest collision (if any)
+  Vector2D v(VA-VB);
+  double a(v.sq());
+  double b(w*v);
+
+  double dscr(b*b-a*c);
+  if(fleq(dscr,0)){ return false; }
+
+  double ctime(b-sqrt(dscr)/a); // Collision time
+  if(fless(ctime,0)){ return false; }
+
+  // Collision will occur if collision time is before the end of the shortest segment
+  return fleq(ctime,std::min(endTimeB,endTimeA)-startTimeA);
+}
