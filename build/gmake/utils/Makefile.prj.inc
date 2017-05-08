@@ -64,4 +64,5 @@ SRC_CPP = \
 	utils/RangeCompression.cpp \
 	utils/MR1Permutation.cpp \
 	utils/VelocityObstacle.cpp \
+	utils/Vector2D.cpp \
 

@@ -10,6 +10,7 @@
 
 #include <cmath>
 #include <stdlib.h>
+#include "Vector2D.h"
 
 namespace Util {
 // Get the straight line distance from a to b
@@ -64,6 +65,24 @@ inline signed relativeHeadingDiff(double x1, double y1, double x2, double y2, do
   return relativeAngleDiff<steps360>(heading<steps360>(x1, y1, x2, y2), hdg);
 }
 
+// Detect whether collision is occurring or will occur between 2 agents
+// placed at pi and pj with velocity and radius.
+bool collisionImminent(Vector2D const& pi, Vector2D const& vi, Vector2D const& pj, Vector2D const& vj, double r1, double r2){
+  double r=r1+r2; // Combined radius
+  Vector2D w(pi+pj);
+  double c(w.sq()-r*r);
+  if(c<0){return true;} // Agents are currently colliding
+
+  // Use the quadratic formula to detect nearest collision (if any)
+  Vector2D v(vi-vj);
+  double a(v.sq());
+  double b(w*v);
+
+  double dscr(b*b-a*c);
+  if(fleq(dscr,0) || fless(b-sqrt(dscr)/a,0)){
+    return false;
+  }
+  return true;
 };
 
 #endif

@@ -19,9 +19,9 @@
 #ifndef VECTOR2D_H
 #define VECTOR2D_H
 
-#include <ostream>
 #include <math.h>
 #include "FPUtil.h"
+#include <ostream>
 
 class Vector2D {
   public:
@@ -35,13 +35,8 @@ class Vector2D {
     void SetAccessTime(double t) {accessTime=t;}
     double GetAccessTime() {return accessTime;}
 
-    bool operator==(const Vector2D &rhs) {return (fequal(x,rhs.x)&&fequal(y,rhs.y));}
-
-    std::ostream& operator <<(std::ostream & out)
-    {
-      out << "(" << x << ", " << y << ")";
-      return out;
-    }
+    bool operator==(const Vector2D &rhs)const{return (fequal(x,rhs.x)&&fequal(y,rhs.y));}
+    bool operator<(const Vector2D &rhs)const{return fequal(x,rhs.x)?fless(y,rhs.y):fless(x,rhs.x);}
 
     // Dot product
     inline double operator *(Vector2D const& other){return x * other.x + y * other.y;}
@@ -90,7 +85,6 @@ class Vector2D {
     }
 };
 
-
 // Calculate determinant of vector
 inline float det(Vector2D const& v1, Vector2D const& v2){
   return v1.x*v2.y - v1.y*v2.x;
@@ -103,5 +97,6 @@ inline Vector2D normal(Vector2D const& v1, Vector2D const& v2){
   return tmp;
 }
 
+std::ostream& operator <<(std::ostream & out, Vector2D const& v);
 
 #endif
