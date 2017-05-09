@@ -104,8 +104,7 @@ Vector2D B, Vector2D VB, double radiusB, double startTimeB, double endTimeB){
 
 // Detect whether collision is occurring or will occur between 2 agents
 // placed at pi and pj with velocity and radius.
-bool collisionImminent(Vector2D A, Vector2D VA, double radiusA, double startTimeA, double endTimeA,
-Vector2D B, Vector2D VB, double radiusB, double startTimeB, double endTimeB){
+bool collisionImminent(Vector2D A, Vector2D VA, double radiusA, double startTimeA, double endTimeA, Vector2D B, Vector2D VB, double radiusB, double startTimeB, double endTimeB){
   // check for time overlap
   if(fgreater(startTimeA,endTimeB)||fgreater(startTimeB,endTimeA)){return false;}
 
@@ -119,7 +118,7 @@ Vector2D B, Vector2D VB, double radiusB, double startTimeB, double endTimeB){
   }
 
   double r(radiusA+radiusB); // Combined radius
-  Vector2D w(A+B);
+  Vector2D w(B-A);
   double c(w.sq()-r*r);
   if(c<0){return true;} // Agents are currently colliding
 
@@ -131,7 +130,7 @@ Vector2D B, Vector2D VB, double radiusB, double startTimeB, double endTimeB){
   double dscr(b*b-a*c);
   if(fleq(dscr,0)){ return false; }
 
-  double ctime(b-sqrt(dscr)/a); // Collision time
+  double ctime((b-sqrt(dscr))/a); // Collision time
   if(fless(ctime,0)){ return false; }
 
   // Collision will occur if collision time is before the end of the shortest segment

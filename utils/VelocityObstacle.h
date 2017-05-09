@@ -13,11 +13,13 @@ class VelocityObstacle{
   private:
     Vector2D VO,VL,VR; // Pos,vel,pos,vel,VO-apex,VO-left,VO-right
 };
+
 bool getTangentOfCircle(Vector2D const& center, double radius, Vector2D const& point, std::vector<Vector2D>& tangents);
+
 bool detectCollision(Vector2D A, Vector2D VA, double radiusA, double startTimeA, double endTimeA,
 Vector2D B, Vector2D VB, double radiusB, double startTimeB, double endTimeB);
 
-bool collisionImminent(Vector2D const& A, Vector2D const& VA, double radiusA, double startTimeA, double endTimeA,
+bool collisionImminent(Vector2D const A, Vector2D const VA, double radiusA, double startTimeA, double endTimeA,
 Vector2D B, Vector2D VB, double radiusB, double startTimeB, double endTimeB);
 
 #endif

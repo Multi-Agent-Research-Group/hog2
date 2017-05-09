@@ -64,4 +64,6 @@ inline signed relativeHeadingDiff(double x1, double y1, double x2, double y2, do
   return relativeAngleDiff<steps360>(heading<steps360>(x1, y1, x2, y2), hdg);
 }
 
+};
+
 #endif
