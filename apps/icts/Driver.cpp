@@ -104,8 +104,19 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, MDD& mdd, int de
     Node n(start,depth);
     uint64_t hash(n.Hash());
     dag[hash]=n;
-    std::unordered_set<Node*>& s=mdd[maxDepth-(depth)];
-    s.insert(&dag[hash]);
+    Node* parent(&dag[hash]);
+    int dorig(depth);
+    while(depth++<maxDepth){
+      // Wait at goal
+      Node current(start,depth);
+      uint64_t chash(current.Hash());
+      dag[chash]=current;
+      parent->successors.insert(&dag[chash]);
+      dag[chash].parents.insert(parent);
+      parent=&dag[chash];
+    }
+    std::unordered_set<Node*>& s=mdd[maxDepth-dorig];
+    s.insert(parent);
     //std::cout << "found " << start << "\n";
     return true;
   }
@@ -144,12 +155,11 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, MDD& mdd, int de
 // Allocate DAG outside of this function
 // Perform conflict check by moving forward in time at increments of the smallest time step
 // Test the efficiency of VO vs. time-vector approach
-void GetMDD(xyLoc const& start, xyLoc const& end, MDD& mdd, int depth){
+void GetMDD(xyLoc const& start, xyLoc const& end, DAG& dag, MDD& mdd, int depth){
   // TODO: make this contain pointers or maybe combine into a structure with MDD.
   //       as-is, memory will be deallocated when this function exits.
-  DAG* dag=new DAG();
   mdd.resize(depth+1);
-  LimitedDFS(start,end,*dag,mdd,depth,depth);
+  LimitedDFS(start,end,dag,mdd,depth,depth);
   //for(auto const& a: mdd){
     //for(auto const& n: a){
       //std::cout << *n;
@@ -164,6 +174,37 @@ void GetMDD(xyLoc const& start, xyLoc const& end, MDD& mdd, int depth){
       n->parents.insert(*mdd[i-1].begin());
       mdd[i].insert(n);
     }
+  }
+}
+
+void generatePermutations2(std::vector<MultiState>& positions, std::vector<MultiState>& result, int depth, MultiState const& parent, MultiState const& current) {
+  if(depth == positions.size()) {
+    for(int i(0); i<current.size(); ++i){
+      for(int j(i+1); j<current.size(); ++j){
+        Vector2D A(parent[i]->n.x,parent[i]->n.y);
+        Vector2D B(parent[j]->n.x,parent[j]->n.y);
+        Vector2D VA(current[i]->n.x-parent[i]->n.x,current[i]->n.y-parent[i]->n.y);
+        Vector2D VB(current[j]->n.x-parent[j]->n.x,current[j]->n.y-parent[j]->n.y);
+        if(collisionImminent(A,VA,.25,parent[i]->n.depth,current[i]->n.depth,B,VB,.25,parent[j]->n.depth,current[j]->n.depth))
+          return; // This is an edge collision
+      }
+    }
+    result.push_back(current);
+    return;
+  }
+
+  for(int i = 0; i < positions[depth].size(); ++i) {
+    MultiState copy(current);
+    bool found(false);
+    for(auto const& p: current){
+      if(positions[depth][i]->n.x==p->n.x && positions[depth][i]->n.y==p->n.y){
+        found=true;
+        break;
+      }
+    }
+    if(found) continue;
+    copy.push_back(positions[depth][i]);
+    generatePermutations2(positions, result, depth + 1, parent, copy);
   }
 }
 
@@ -218,12 +259,13 @@ bool jointDFS(MultiState const& s, int d, int term){
 
 struct ICTSNode{
   ICTSNode(int agents):mdd(agents){}
-  ICTSNode(std::vector<int> s):mdd(s.size()),sizes(s){
+  ICTSNode(std::vector<int> s):dag(s.size()),mdd(s.size()),sizes(s){
     for(int i(0); i<starts.size(); ++i){
       //std::cout << "agent " << i << " GetMDD()\n";
-      GetMDD(starts[i],ends[i],mdd[i],Node::env->HCost(starts[i],ends[i])+sizes[i]);
+      GetMDD(starts[i],ends[i],dag[i],mdd[i],Node::env->HCost(starts[i],ends[i])+sizes[i]);
     }
   }
+  std::vector<DAG> dag;
   std::vector<MDD> mdd;
   std::vector<int> sizes;
   static std::vector<xyLoc> starts;
@@ -246,7 +288,7 @@ struct ICTSNode{
       //std::cout << "agent " << agent++ << " sz " << m.size() << "\n";
       while(m.size()<maxmdd){
         std::unordered_set<Node*> b;
-        //std::cout << "appending " << m.back().size() << "\n";
+        std::cout << "appending " << m.back().size() << "\n";
         Node* n(new Node((*m.back().begin())->n,(*m.back().begin())->depth+1));
         (*m.back().begin())->successors.insert(n);
         n->parents.insert(*m.back().begin());
