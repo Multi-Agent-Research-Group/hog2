@@ -31,6 +31,7 @@
 #include <set>
 #include <unordered_map>
 #include "Map2DEnvironment.h"
+#include "VelocityObstacle.h"
 
 int maxDepth;
 
@@ -73,18 +74,19 @@ typedef std::vector<Node*> MultiState; // rank=agent num
 typedef std::unordered_map<uint64_t,Node> DAG;
 
 std::ostream& operator << (std::ostream& ss, MultiState const& n){
+  int i(0);
   for(auto const& a: n)
-    ss << " " << a->n;
+    ss << " "<<++i<<"." << a->n << "@" << a->depth;
   return ss;
 }
 
 std::ostream& operator << (std::ostream& ss, Node const& n){
-  ss << std::string(n.depth,' ')<<n.n;
+  ss << n.n << "@" << n.depth;
   return ss;
 }
 
 std::ostream& operator << (std::ostream& ss, Node const* n){
-  ss << std::string(n->depth,' ')<<n->n << n->successors.size()<< "\n";
+  ss << std::string(n->depth,' ')<<n->n << "@" << n->depth << "\n";
   for(auto const m: n->successors)
     ss << m;
   return ss;
@@ -101,14 +103,16 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, MDD& mdd, int de
   }
 
   if(Node::env->GoalTest(end,start)){
-    Node n(start,depth);
+    Node n(start,maxDepth-depth);
     uint64_t hash(n.Hash());
     dag[hash]=n;
     Node* parent(&dag[hash]);
     int dorig(depth);
-    while(depth++<maxDepth){
+    int d(maxDepth-depth);
+    while(d++<maxDepth){
       // Wait at goal
-      Node current(start,depth);
+      Node current(start,d);
+      std::cout << "ADD " << current << "\n";
       uint64_t chash(current.Hash());
       dag[chash]=current;
       parent->successors.insert(&dag[chash]);
@@ -126,7 +130,7 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, MDD& mdd, int de
   bool result(false);
   for(auto const& node: successors){
     if(LimitedDFS(node,end,dag,mdd,depth-1,maxDepth)){
-      Node n(start,depth);
+      Node n(start,maxDepth-depth);
       uint64_t hash(n.Hash());
       if(dag.find(hash)==dag.end()){
         dag[hash]=n;
@@ -139,12 +143,12 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, MDD& mdd, int de
       Node* parent(&dag[hash]);
 
       //std::cout << "found " << start << "\n";
-      std::unique_ptr<Node> c(new Node(node,depth-1));
+      std::unique_ptr<Node> c(new Node(node,maxDepth-depth+1));
       Node* current(dag.find(c->Hash())==dag.end()?c.release():&dag[c->Hash()]);
       current->optimal = result = true;
       //std::cout << *parent << " parent of " << *current << "\n";
       dag[current->Hash()].parents.insert(parent);
-      //std::cout << *current << " child of " << *parent << "\n";
+      std::cout << *current << " child of " << *parent << "\n";
       dag[parent->Hash()].successors.insert(current);
     }
   }
@@ -167,12 +171,14 @@ void GetMDD(xyLoc const& start, xyLoc const& end, DAG& dag, MDD& mdd, int depth)
     //std::cout << "\n";
   //}
   // Fill in any extra levels necessary to get to depth
+  std::cout << "INITIAL:\n" << (*mdd[0].begin()) << "\n";
   for(int i(1); i<mdd.size(); ++i){
     if(mdd[i].size()==0){
       Node* n(new Node((*mdd[i-1].begin())->n,(*mdd[i-1].begin())->depth+1));
       (*mdd[i-1].begin())->successors.insert(n);
       n->parents.insert(*mdd[i-1].begin());
       mdd[i].insert(n);
+      std::cout << "BUG!\n";
     }
   }
 }
@@ -185,7 +191,7 @@ void generatePermutations2(std::vector<MultiState>& positions, std::vector<Multi
         Vector2D B(parent[j]->n.x,parent[j]->n.y);
         Vector2D VA(current[i]->n.x-parent[i]->n.x,current[i]->n.y-parent[i]->n.y);
         Vector2D VB(current[j]->n.x-parent[j]->n.x,current[j]->n.y-parent[j]->n.y);
-        if(collisionImminent(A,VA,.25,parent[i]->n.depth,current[i]->n.depth,B,VB,.25,parent[j]->n.depth,current[j]->n.depth))
+        if(collisionImminent(A,VA,.25,parent[i]->depth,current[i]->depth,B,VB,.25,parent[j]->depth,current[j]->depth))
           return; // This is an edge collision
       }
     }
@@ -209,28 +215,37 @@ void generatePermutations2(std::vector<MultiState>& positions, std::vector<Multi
 }
 
 void generatePermutations(std::vector<MultiState>& positions, std::vector<MultiState>& result, int depth, MultiState const& parent, MultiState const& current) {
+  std::cout << "==="<<std::string(depth,' ')<<current << "\n";
   if(depth == positions.size()) {
     for(int i(0); i<current.size(); ++i){
       for(int j(i+1); j<current.size(); ++j){
+        //if(current[i]->n.x==1 && parent[i]->n.x==1 && current[i]->n.y==3 && parent[i]->n.y==2 && current[j]->n.x==1 && parent[j]->n.x==1 && current[j]->n.y==2 && parent[j]->n.y==3) std::cout << *parent[i]<<"->"<<*current[i]<<" "<<*parent[j]<<"->"<<*current[j] << i << " " << j << "FOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO\n";
         if(current[j]->n.x==parent[i]->n.x and parent[j]->n.y==current[i]->n.y
-            && current[i]->n.x==parent[j]->n.x and parent[i]->n.y==current[j]->n.y)
+            && current[i]->n.x==parent[j]->n.x and parent[i]->n.y==current[j]->n.y){
+//std::cout << "edge collision!\n";
           return; // This is an edge collision
+        }
       }
     }
+    //for(auto const& a: current)
+      //std::cout << "VALID: " << current << "\n";
     result.push_back(current);
     return;
   }
 
   for(int i = 0; i < positions[depth].size(); ++i) {
+    std::cout << "AGENT "<< i<<":\n";
     MultiState copy(current);
     bool found(false);
     for(auto const& p: current){
       if(positions[depth][i]->n.x==p->n.x && positions[depth][i]->n.y==p->n.y){
         found=true;
+        std::cout << "SKIP " << *positions[depth][i] << "\n";
         break;
       }
     }
     if(found) continue;
+    std::cout << "INCLUDE " << *positions[depth][i] << "\n";
     copy.push_back(positions[depth][i]);
     generatePermutations(positions, result, depth + 1, parent, copy);
   }
@@ -246,12 +261,14 @@ bool jointDFS(MultiState const& s, int d, int term){
   std::vector<MultiState> successors;
   for(auto const& a: s){
     MultiState output(a->successors.begin(), a->successors.end()); 
+    std::cout << "successor  of " << s << "gets("<<*a<< "): " << output << "\n";
     successors.push_back(output);
   }
   std::vector<MultiState> crossProduct;
   generatePermutations(successors,crossProduct,0,s,MultiState());
   bool value(false);
   for(auto const& a: crossProduct){
+    std::cout << "eval " << a << "\n";
     value |= jointDFS(a,d+1,term);
   }
   return value;
@@ -281,7 +298,7 @@ struct ICTSNode{
       root.push_back(*m[0].begin());
     }
     //std::cout << "maxmdd " << maxmdd << "\n";
-    //std::cout << "root " << root << "\n";
+    std::cout << "root " << root << "\n";
     // Lengthen out MDDs to the same length
     int agent(0);
     for(auto & m: mdd){

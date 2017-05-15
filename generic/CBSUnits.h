@@ -64,13 +64,13 @@ unsigned ReplanLeg(CBSUnit<state,action,environment,comparison,conflicttable>* c
   if(thePath.empty()){
     assert(false && "Expected a valid path for re-planning.");
   }
-  std::cout << "Agent: " << "re-planning path from " << s << " to " << g << " on a path of len:" << thePath.size() << "\n";
+  //std::cout << "Agent: " << "re-planning path from " << s << " to " << g << " on a path of len:" << thePath.size() << "\n";
   state start(c->GetWaypoint(s));
   state goal(c->GetWaypoint(g));
   // Preserve proper start time
   start.t = thePath[wpts[s]].t;
 
-  std::cout << start << " to " << goal << "\n";
+  //std::cout << start << " to " << goal << "\n";
 
   // Perform search for the leg
   std::vector<state> path;
@@ -78,23 +78,23 @@ unsigned ReplanLeg(CBSUnit<state,action,environment,comparison,conflicttable>* c
   Timer tmr;
   tmr.StartTimer();
   astar.GetPath(env, start, goal, path);
-  std::cout << "Replan took: " << tmr.EndTimer() << std::endl;
-  std::cout << "New leg " << path.size() << "\n";
-  for(auto &p: path){std::cout << p << "\n";}
+  //std::cout << "Replan took: " << tmr.EndTimer() << std::endl;
+  //std::cout << "New leg " << path.size() << "\n";
+  //for(auto &p: path){std::cout << p << "\n";}
   if(path.empty())return astar.GetNodesExpanded(); //no solution found
   float newTime(path.rbegin()->t); // Save the track end time of the new leg
 
   // Insert new path in front of the insert point
   //std::cout << "SIZE " << thePath.size() << "\n";
-  std::cout << "Insert path of len " << path.size() << " before " << insertPoint << "\n";
+  //std::cout << "Insert path of len " << path.size() << " before " << insertPoint << "\n";
   thePath.insert(thePath.begin()+insertPoint,path.begin(),path.end());
-  std::cout << "SIZE " << thePath.size() << "\n";
+  //std::cout << "SIZE " << thePath.size() << "\n";
   insertPoint += path.size();
 
   //Erase the original subpath including the start node
-  std::cout << "Erase path from " << insertPoint << " to " << (insertPoint+deletes) << "\n";
+  //std::cout << "Erase path from " << insertPoint << " to " << (insertPoint+deletes) << "\n";
   thePath.erase(thePath.begin()+insertPoint,thePath.begin()+insertPoint+deletes);
-  std::cout << "SIZE " << thePath.size() << "\n";
+  //std::cout << "SIZE " << thePath.size() << "\n";
 
   // Update waypoint indices
   int legLenDiff(path.size()-deletes);
@@ -111,8 +111,8 @@ unsigned ReplanLeg(CBSUnit<state,action,environment,comparison,conflicttable>* c
           newEnd->t+=(newTime-origTime);
       }
   }
-  std::cout << "Replanned path\n";
-  for(auto &p: thePath){std::cout << p << "\n";}
+  //std::cout << "Replanned path\n";
+  //for(auto &p: thePath){std::cout << p << "\n";}
   //std::cout << "exp replan " << astar.GetNodesExpanded() << "\n";
   return astar.GetNodesExpanded();
 
@@ -152,7 +152,7 @@ unsigned GetFullPath(CBSUnit<state,action,environment,comparison,conflicttable>*
     Timer tmr;
     tmr.StartTimer();
     astar.GetPath(env, start, goal, path);
-    std::cout << start <<"-->"<<goal<<" took: " << tmr.EndTimer() << std::endl;
+    //std::cout << start <<"-->"<<goal<<" took: " << tmr.EndTimer() << std::endl;
 
     expansions += astar.GetNodesExpanded();
     //std::cout << "exp full " << astar.GetNodesExpanded() << "\n";
@@ -628,22 +628,22 @@ void CBSGroup<state,action,environment,comparison,conflicttable>::processSolutio
 
     // Update the actual unit path
     unit->SetPath(tree[bestNode].paths[x]);
-    std::cout << "Agent " << x << ": " << "\n";
+    //std::cout << "Agent " << x << ": " << "\n";
     unsigned wpt(0);
     signed ix(0);
-    for(auto &a: tree[bestNode].paths[x])
-    {
+    //for(auto &a: tree[bestNode].paths[x])
+    //{
         //std::cout << a << " " << wpt << " " << unit->GetWaypoint(wpt) << "\n";
-        if(ix++==tree[bestNode].wpts[x][wpt])
-        {
-            std::cout << " *" << a << "\n";
-            wpt++;
-        }
-        else
-        {
-            std::cout << "  " << a << "\n";
-        }
-    }
+        //if(ix++==tree[bestNode].wpts[x][wpt])
+        //{
+            //std::cout << " *" << a << "\n";
+            //wpt++;
+        //}
+        //else
+        //{
+            //std::cout << "  " << a << "\n";
+        //}
+    //}
   }
   fflush(stdout);
   if(elapsed<0){
