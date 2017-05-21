@@ -27,6 +27,7 @@
 
 #include <memory>
 #include <iostream>
+#include <iomanip>
 #include <unordered_set>
 #include <set>
 #include <unordered_map>
@@ -72,6 +73,7 @@ struct Node : public Hashable{
 };
 
 typedef std::vector<Node*> MultiState; // rank=agent num
+typedef std::vector<std::pair<Node*,Node*>> MultiAction; // rank=agent num
 typedef std::unordered_map<uint64_t,Node> DAG;
 
 std::ostream& operator << (std::ostream& ss, MultiState const& n){
@@ -194,7 +196,9 @@ void generatePermutations(std::vector<MultiState>& positions, std::vector<MultiS
       Vector2D B(parent[j]->n.x,parent[j]->n.y);
       Vector2D VA(positions[agent][i]->n.x-parent[agent]->n.x,positions[agent][i]->n.y-parent[agent]->n.y);
       Vector2D VB(current[j]->n.x-parent[j]->n.x,current[j]->n.y-parent[j]->n.y);
+      std::cout << "Test for collision: " << *parent[agent] << "-->" << *positions[agent][i] << " " << *parent[j] << "-->" << *current[j] << "\n";
       if(collisionImminent(A,VA,.25,parent[agent]->depth,positions[agent][i]->depth,B,VB,.25,parent[j]->depth,current[j]->depth)){
+        std::cout << "Collision averted: " << A << " " << B << "\n";
         found=true;
         break;
       }
@@ -204,6 +208,8 @@ void generatePermutations(std::vector<MultiState>& positions, std::vector<MultiS
     generatePermutations(positions, result, agent + 1, parent, copy);
   }
 }
+
+// In order for this to work, we cannot generate sets of positions, we must generate sets of actions, since at time 1.0 an action from parent A at time 0.0 may have finished, while another action from the same parent A may still pbe in progress. 
 
 // Return true if we get to the desired depth
 bool jointDFS(MultiState const& s, float d, float term, std::vector<std::set<Node*,NodePtrComp>>& answer){
@@ -221,17 +227,21 @@ bool jointDFS(MultiState const& s, float d, float term, std::vector<std::set<Nod
   for(auto const& a: s){
     sd=min(sd,a->depth);
   }
+  std::cout << "min-depth: " << sd << "\n";
+  MultiState parents(s); // These are the new parents
 
   float md(-9999999.0);
   //Add in successors for parents who are equal to the min
   for(auto const& a: s){
     MultiState output;
     if(fleq(a->depth,sd)){
+      std::cout << "Keep Successors of " << *a << "\n";
       for(auto const& b: a->successors){
         output.push_back(b);
         md=max(md,b->depth);
       }
     }else{
+      std::cout << "Keep Just " << *a << "\n";
       output.push_back(a);
       md=max(md,a->depth);
     }
@@ -242,6 +252,12 @@ bool jointDFS(MultiState const& s, float d, float term, std::vector<std::set<Nod
     }
     //std::cout << "successor  of " << s << "gets("<<*a<< "): " << output << "\n";
     successors.push_back(output);
+    for(int agent(0); agent<successors.size(); ++agent){
+      std::cout << "Agent: " << agent << "\n\t";
+      for(int succ(0); succ<successors[agent].size(); ++succ)
+        std::cout << *successors[agent][succ] << ",";
+      std::cout << std::endl;
+    }
   }
   std::vector<MultiState> crossProduct;
   generatePermutations(successors,crossProduct,0,s,MultiState());
@@ -298,9 +314,9 @@ struct ICTSNode{
     root.reserve(s.size());
     for(int i(0); i<starts.size(); ++i){
       maxdepth=max(maxdepth,Node::env->HCost(starts[i],ends[i])+sizes[i]);
-      //std::cout << "agent " << i << " GetMDD()\n";
+      std::cout << "agent " << i << " GetMDD()\n";
       GetMDD(starts[i],ends[i],dag[i],root,Node::env->HCost(starts[i],ends[i])+sizes[i]);
-      //std::cout << i << ":\n" << root[i] << "\n";
+      std::cout << i << ":\n" << root[i] << "\n";
     }
   }
   std::vector<DAG> dag;
@@ -369,7 +385,7 @@ int main(){
   int seed(123456);
   srand(seed);
   // Get disjoint start and goal locations
-  for(int i(0);i<numAgents;++i){
+  /*for(int i(0);i<numAgents;++i){
     auto a(st.emplace(rand()%8,rand()%8));
     while(!a.second){
       a=st.emplace(rand()%8,rand()%8);
@@ -382,11 +398,16 @@ int main(){
     }
     while(!a.second);
     e.push_back(*a.first);
-  }
+  }*/
+  s.emplace_back(6,1);
+  e.emplace_back(1,1);
+  s.emplace_back(3,0);
+  e.emplace_back(4,2);
   ICTSNode::starts=std::vector<xyLoc>(s.begin(),s.end());
   ICTSNode::ends=std::vector<xyLoc>(e.begin(),e.end());
   std::vector<int> sizes(ICTSNode::ends.size());
 
+  std::cout << std::setprecision(3);
   q.push(new ICTSNode(sizes));
   while(q.size()){
     ICTSNode* parent(q.top());
