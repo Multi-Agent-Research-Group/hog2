@@ -67,7 +67,7 @@ struct Node : public Hashable{
         //bool connected()const{return parents.size()+successors.size();}
 	//std::unordered_set<Node*> parents;
 	std::unordered_set<Node*> successors;
-	virtual uint64_t Hash()const{return (env->GetStateHash(n)<<32) | *((uint32_t*)&depth);}
+	virtual uint64_t Hash()const{return (env->GetStateHash(n)<<32) | ((uint32_t)floor(depth*1000.));}
 	virtual float Depth()const{return depth; }
 };
 
@@ -95,11 +95,11 @@ std::ostream& operator << (std::ostream& ss, Node const* n){
 
 MapEnvironment* Node::env=nullptr;
 
-bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& mdd, float depth, float maxDepth){
-  std::cout << start << "-->" << end << " g:" << (maxDepth-depth) << " h:" << Node::env->HCost(start,end) << " f:" << ((maxDepth-depth)+Node::env->HCost(start,end)) << "\n";
+bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& root, float depth, float maxDepth){
+  //std::cout << start << "-->" << end << " g:" << (maxDepth-depth) << " h:" << Node::env->HCost(start,end) << " f:" << ((maxDepth-depth)+Node::env->HCost(start,end)) << "\n";
   if(fless(depth,0) ||
       fgreater(maxDepth-depth+Node::env->HCost(start,end),maxDepth)){ // Note - this only works for a perfect heuristic.
-    std::cout << "pruned\n";
+    //std::cout << "pruned\n";
     return false;
   }
 
@@ -107,8 +107,11 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& mdd,
     Node n(start,maxDepth-depth);
     uint64_t hash(n.Hash());
     dag[hash]=n;
-    // This is the root
-    if(fleq(maxDepth-depth,0))mdd.push_back(&dag[hash]);
+    // This may happen if the agent starts at the goal
+    if(fleq(maxDepth-depth,0)){
+      root.push_back(&dag[hash]);
+      //std::cout << "root_ " << &dag[hash];
+    }
     Node* parent(&dag[hash]);
     float d(maxDepth-depth);
     while(fless(d++,maxDepth)){
@@ -116,7 +119,7 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& mdd,
       Node current(start,d);
       uint64_t chash(current.Hash());
       dag[chash]=current;
-      std::cout << "inserting " << dag[chash] << " " << &dag[chash] << "under " << *parent << "\n";
+      //std::cout << "inserting " << dag[chash] << " " << &dag[chash] << "under " << *parent << "\n";
       parent->successors.insert(&dag[chash]);
       //dag[chash].parents.insert(parent);
       parent=&dag[chash];
@@ -132,33 +135,39 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& mdd,
     if(abs(node.x-start.x)>=1 && abs(node.y-start.y)>=1){
       ddiff = M_SQRT2;
     }
-    if(LimitedDFS(node,end,dag,mdd,depth-ddiff,maxDepth)){
+    if(LimitedDFS(node,end,dag,root,depth-ddiff,maxDepth)){
       Node n(start,maxDepth-depth);
       uint64_t hash(n.Hash());
       if(dag.find(hash)==dag.end()){
         dag[hash]=n;
         // This is the root if depth=0
-        if(fequal(maxDepth-depth,0.0))mdd.push_back(&dag[hash]);
+        if(fleq(maxDepth-depth,0)){
+          root.push_back(&dag[hash]);
+          //std::cout << "_root " << &dag[hash];
+        }
+        //if(fequal(maxDepth-depth,0.0))root.push_back(&dag[hash]);
       }else if(dag[hash].optimal){
         return true; // Already found a solution from search at this depth
       }
 
       Node* parent(&dag[hash]);
 
-      std::cout << "found " << start << "\n";
+      //std::cout << "found " << start << "\n";
       uint64_t chash(Node(node,maxDepth-depth+ddiff).Hash());
       if(dag.find(chash)==dag.end()){
-        std::cout << "Add new.\n";
+        assert(!"Uh oh, node not already in the DAG!");
+        //std::cout << "Add new.\n";
         Node c(node,maxDepth-depth+ddiff);
         dag[chash]=c;
       }
       Node* current(&dag[chash]);
       current->optimal = result = true;
-      std::cout << *parent << " parent of " << *current << "\n";
+      //std::cout << *parent << " parent of " << *current << "\n";
       //dag[current->Hash()].parents.insert(parent);
-      std::cout << *current << " child of " << *parent << "\n";
+      //std::cout << *current << " child of " << *parent << "\n";
       //std::cout << "inserting " << dag[chash] << " " << &dag[chash] << "under " << *parent << "\n";
       dag[parent->Hash()].successors.insert(&dag[current->Hash()]);
+      //std::cout << "at" << &dag[parent->Hash()] << "\n";
     }
   }
   return result;
@@ -166,8 +175,8 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& mdd,
 
 // Perform conflict check by moving forward in time at increments of the smallest time step
 // Test the efficiency of VO vs. time-vector approach
-void GetMDD(xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& mdd, float depth){
-  LimitedDFS(start,end,dag,mdd,depth,depth);
+void GetMDD(xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& root, float depth){
+  LimitedDFS(start,end,dag,root,depth,depth);
 }
 
 void generatePermutations(std::vector<MultiState>& positions, std::vector<MultiState>& result, int agent, MultiState const& parent, MultiState const& current) {
@@ -198,7 +207,7 @@ void generatePermutations(std::vector<MultiState>& positions, std::vector<MultiS
 
 // Return true if we get to the desired depth
 bool jointDFS(MultiState const& s, float d, float term, std::vector<std::set<Node*,NodePtrComp>>& answer){
-  std::cout << d << std::string((int)d,' ')<< " s " << s << "\n";
+  //std::cout << d << std::string((int)d,' ')<< " s " << s << "\n";
   if(fgeq(d,term)){
     for(int a(0); a<s.size(); ++a){
       //std::cout << "push " << *s[a] << " " << s.size() << "\n";
@@ -251,6 +260,39 @@ bool jointDFS(MultiState const& s, float d, float term, std::vector<std::set<Nod
   return value;
 }
 
+// Not part of the algorithm... just for validating the answers
+bool checkAnswer(std::vector<std::set<Node*,NodePtrComp>> const& answer){
+  for(int i(0);i<answer.size();++i){
+    for(int j(i+1);j<answer.size();++j){
+      auto ap(answer[i].begin());
+      auto bp(answer[j].begin());
+      auto a(answer[i].begin());
+      auto b(answer[j].begin());
+      a++;b++;
+      while(a!=answer[i].end() && b!=answer[j].end()){
+        Vector2D A((*ap)->n.x,(*ap)->n.y);
+        Vector2D B((*bp)->n.x,(*bp)->n.y);
+        Vector2D VA((*a)->n.x-(*ap)->n.x,(*a)->n.y-(*ap)->n.y);
+        Vector2D VB((*b)->n.x-(*bp)->n.x,(*b)->n.y-(*bp)->n.y);
+        if(collisionImminent(A,VA,.25,(*ap)->depth,(*a)->depth,B,VB,.25,(*bp)->depth,(*b)->depth)){
+          std::cout << "Collision: " << i << ":" << **ap << "-->" << **a << "," << j << ":" << **bp << "-->" << **b << "\n";
+          return false;
+        }
+        if(fless((*a)->depth,(*b)->depth)){
+          ++a;
+          ++ap;
+        }else if(fgreater((*a)->depth,(*b)->depth)){
+          ++b;
+          ++bp;
+        }else{
+          ++a;++b;
+          ++ap;++bp;
+        }
+      }
+    }
+  }
+}
+
 struct ICTSNode{
   ICTSNode(std::vector<int> s):dag(s.size()),sizes(s),maxdepth(-99999999){
     root.reserve(s.size());
@@ -258,7 +300,7 @@ struct ICTSNode{
       maxdepth=max(maxdepth,Node::env->HCost(starts[i],ends[i])+sizes[i]);
       //std::cout << "agent " << i << " GetMDD()\n";
       GetMDD(starts[i],ends[i],dag[i],root,Node::env->HCost(starts[i],ends[i])+sizes[i]);
-      std::cout << i << ":\n" << root[i] << "\n";
+      //std::cout << i << ":\n" << root[i] << "\n";
     }
   }
   std::vector<DAG> dag;
@@ -270,8 +312,7 @@ struct ICTSNode{
 
   bool isValid(){
     // Do a depth-first search; if the search terminates at a goal, its valid.
-    std::vector<std::set<Node*,NodePtrComp>> answer; //a[agent][time][locs];
-    answer.resize(sizes.size());
+    std::vector<std::set<Node*,NodePtrComp>> answer(sizes.size());
     float sd(1.0);
     for(auto const& n:root){
       for(auto const& m:n->successors){
@@ -279,9 +320,11 @@ struct ICTSNode{
       }
     }
 
-    if(jointDFS(root,sd,maxdepth,answer)){
+    if(jointDFS(root,sd,maxdepth,answer)){// && checkAnswer(answer)){
+      checkAnswer(answer);
       std::cout << "Answer:\n";
       for(int agent(0); agent<answer.size(); ++agent){
+        std::cout << agent << ":\n";
         for(auto a(answer[agent].begin()); a!=answer[agent].end(); ++a){
           std::cout << std::string((*a)->depth,' ') << **a << "\n";
         }
@@ -318,29 +361,28 @@ int main(){
   MapEnvironment env(new Map(8,8));
   env.SetNineConnected();
   Node::env=&env;
-  int numAgents(15);
+  int numAgents(6);
   std::set<xyLoc> st;
   std::set<xyLoc> en;
   std::vector<xyLoc> s;
   std::vector<xyLoc> e;
-  /*int seed(1234456);
+  int seed(123456);
   srand(seed);
+  // Get disjoint start and goal locations
   for(int i(0);i<numAgents;++i){
-    while(!st.emplace(rand()%8,rand()%8).second);
-    while(!en.emplace(rand()%8,rand()%8).second);
+    auto a(st.emplace(rand()%8,rand()%8));
+    while(!a.second){
+      a=st.emplace(rand()%8,rand()%8);
+    }
+    s.push_back(*a.first);
+
+    a=en.emplace(rand()%8,rand()%8);
+    while(!a.second){
+      a=en.emplace(rand()%8,rand()%8);
+    }
+    while(!a.second);
+    e.push_back(*a.first);
   }
-  st.emplace(0,4);
-  en.emplace(0,3);
-  st.emplace(0,6);
-  en.emplace(1,3);
-  st.emplace(1,1);
-  en.emplace(1,6);
-  st.emplace(1,4);
-  en.emplace(2,2);*/
-  s.emplace_back(0,0);
-  e.emplace_back(4,4);
-  s.emplace_back(4,4);
-  e.emplace_back(0,0);
   ICTSNode::starts=std::vector<xyLoc>(s.begin(),s.end());
   ICTSNode::ends=std::vector<xyLoc>(e.begin(),e.end());
   std::vector<int> sizes(ICTSNode::ends.size());
