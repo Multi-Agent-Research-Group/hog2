@@ -31,6 +31,8 @@
 #include <unordered_set>
 #include <set>
 #include <unordered_map>
+#include <sstream>
+#include <iterator>
 #include "Map2DEnvironment.h"
 #include "VelocityObstacle.h"
 
@@ -383,6 +385,10 @@ std::vector<xyLoc> ICTSNode::ends;
 std::priority_queue<ICTSNode*,std::vector<ICTSNode*>,ICTSNodePtrComp> q;
 std::unordered_set<std::string> deconf;
 
+void join(std::stringstream& s, std::vector<float> const& x){
+  copy(x.begin(),x.end(), std::ostream_iterator<float>(s,","));
+}
+
 int main(){
   MapEnvironment env(new Map(8,8));
   env.SetNineConnected();
@@ -395,7 +401,8 @@ int main(){
   int seed(123456);
   srand(seed);
   // Get disjoint start and goal locations
-  /*for(int i(0);i<numAgents;++i){
+  /*
+  for(int i(0);i<numAgents;++i){
     auto a(st.emplace(rand()%8,rand()%8));
     while(!a.second){
       a=st.emplace(rand()%8,rand()%8);
@@ -409,10 +416,14 @@ int main(){
     while(!a.second);
     e.push_back(*a.first);
   }*/
-  s.emplace_back(0,5);
-  e.emplace_back(3,0);
   s.emplace_back(1,1);
-  e.emplace_back(6,1);
+  e.emplace_back(4,4);
+  s.emplace_back(3,0);
+  e.emplace_back(3,4);
+  //s.emplace_back(0,5);
+  //e.emplace_back(3,0);
+  //s.emplace_back(1,1);
+  //e.emplace_back(6,1);
   //s.emplace_back(3,0);
   //e.emplace_back(4,2);
   ICTSNode::starts=std::vector<xyLoc>(s.begin(),s.end());
@@ -436,13 +447,15 @@ int main(){
     for(int i(0); i<parent->sizes.size(); ++i){
       std::vector<float> s(parent->sizes);
       s[i]+=.4;
-      std::string sv = std::accumulate(s.begin()+1, s.end(), std::to_string(s[0]),
-                     [](const std::string& a, int b){
-                           return a + ',' + std::to_string(b);
-                     });
-      if(deconf.find(sv)==deconf.end()){
+      //std::string sv = std::accumulate(s.begin()+1, s.end(), std::to_string(s[0]),
+                     //[](const std::string& a, int b){
+                           //return a + ',' + std::to_string(b);
+                     //});
+      std::stringstream sv;
+      join(sv,s);
+      if(deconf.find(sv.str())==deconf.end()){
         q.push(new ICTSNode(s));
-        deconf.insert(sv);
+        deconf.insert(sv.str());
       }
     }
   }
