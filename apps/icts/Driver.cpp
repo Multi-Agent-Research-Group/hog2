@@ -73,7 +73,7 @@ struct Node : public Hashable{
 };
 
 typedef std::vector<Node*> MultiState; // rank=agent num
-typedef std::vector<std::pair<Node*,Node*>> MultiAction; // rank=agent num
+typedef std::vector<std::pair<Node*,Node*>> MultiEdge; // rank=agent num
 typedef std::unordered_map<uint64_t,Node> DAG;
 
 std::ostream& operator << (std::ostream& ss, MultiState const& n){
@@ -89,7 +89,7 @@ std::ostream& operator << (std::ostream& ss, Node const& n){
 }
 
 std::ostream& operator << (std::ostream& ss, Node const* n){
-  ss << std::string(n->depth,' ')<<n->n << "_" << n->depth << "\n";
+  ss << std::string(n->depth,' ')<<n->n << "_" << n->depth << std::endl;
   for(auto const& m: n->successors)
     ss << m;
   return ss;
@@ -181,7 +181,7 @@ void GetMDD(xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& root, fl
   LimitedDFS(start,end,dag,root,depth,depth);
 }
 
-void generatePermutations(std::vector<MultiState>& positions, std::vector<MultiState>& result, int agent, MultiState const& parent, MultiState const& current) {
+void generatePermutations(std::vector<MultiEdge>& positions, std::vector<MultiEdge>& result, int agent, MultiEdge const& current) {
   if(agent == positions.size()) {
     result.push_back(current);
     return;
@@ -189,78 +189,79 @@ void generatePermutations(std::vector<MultiState>& positions, std::vector<MultiS
 
   for(int i = 0; i < positions[agent].size(); ++i) {
     //std::cout << "AGENT "<< i<<":\n";
-    MultiState copy(current);
+    MultiEdge copy(current);
     bool found(false);
     for(int j(0); j<current.size(); ++j){
-      Vector2D A(parent[agent]->n.x,parent[agent]->n.y);
-      Vector2D B(parent[j]->n.x,parent[j]->n.y);
-      Vector2D VA(positions[agent][i]->n.x-parent[agent]->n.x,positions[agent][i]->n.y-parent[agent]->n.y);
-      Vector2D VB(current[j]->n.x-parent[j]->n.x,current[j]->n.y-parent[j]->n.y);
-      std::cout << "Test for collision: " << *parent[agent] << "-->" << *positions[agent][i] << " " << *parent[j] << "-->" << *current[j] << "\n";
-      if(collisionImminent(A,VA,.25,parent[agent]->depth,positions[agent][i]->depth,B,VB,.25,parent[j]->depth,current[j]->depth)){
-        std::cout << "Collision averted: " << A << " " << B << "\n";
+      Vector2D A(positions[agent][i].first->n.x,positions[agent][i].first->n.y);
+      Vector2D B(current[j].first->n.x,current[j].first->n.y);
+      Vector2D VA(positions[agent][i].second->n.x-positions[agent][i].first->n.x,positions[agent][i].second->n.y-positions[agent][i].first->n.y);
+      Vector2D VB(current[j].second->n.x-current[j].first->n.x,current[j].second->n.y-current[j].first->n.y);
+      //std::cout << "Test for collision: " << *positions[agent][i].first << "-->" << *positions[agent][i].second << " " << *current[j].first << "-->" << *current[j].second << "\n";
+      if(collisionImminent(A,VA,.25,positions[agent][i].first->depth,positions[agent][i].second->depth,B,VB,.25,current[j].first->depth,current[j].second->depth)){
+        //std::cout << "Collision averted: " << A << " " << B << "\n";
         found=true;
         break;
       }
     }
     if(found) continue;
     copy.push_back(positions[agent][i]);
-    generatePermutations(positions, result, agent + 1, parent, copy);
+    generatePermutations(positions, result, agent + 1, copy);
   }
 }
 
-// In order for this to work, we cannot generate sets of positions, we must generate sets of actions, since at time 1.0 an action from parent A at time 0.0 may have finished, while another action from the same parent A may still pbe in progress. 
+// In order for this to work, we cannot generate sets of positions, we must generate sets of actions, since at time 1.0 an action from parent A at time 0.0 may have finished, while another action from the same parent A may still be in progress. 
 
 // Return true if we get to the desired depth
-bool jointDFS(MultiState const& s, float d, float term, std::vector<std::set<Node*,NodePtrComp>>& answer){
+bool jointDFS(MultiEdge const& s, float d, float term, std::vector<std::set<Node*,NodePtrComp>>& answer){
   //std::cout << d << std::string((int)d,' ')<< " s " << s << "\n";
   if(fgeq(d,term)){
     for(int a(0); a<s.size(); ++a){
       //std::cout << "push " << *s[a] << " " << s.size() << "\n";
-      answer[a].insert(s[a]);
+      answer[a].insert(s[a].second);
     }
     return true;
   }
   //Get successors into a vector
-  std::vector<MultiState> successors;
+  std::vector<MultiEdge> successors;
+
+  // Find minimum depth
   float sd(9999999.0);
   for(auto const& a: s){
-    sd=min(sd,a->depth);
+    sd=min(sd,a.second->depth);
   }
-  std::cout << "min-depth: " << sd << "\n";
-  MultiState parents(s); // These are the new parents
+  //std::cout << "min-depth: " << sd << "\n";
 
   float md(-9999999.0);
   //Add in successors for parents who are equal to the min
   for(auto const& a: s){
-    MultiState output;
-    if(fleq(a->depth,sd)){
-      std::cout << "Keep Successors of " << *a << "\n";
-      for(auto const& b: a->successors){
-        output.push_back(b);
+    MultiEdge output;
+    if(fleq(a.second->depth,sd)){
+      //std::cout << "Keep Successors of " << *a.second << "\n";
+      for(auto const& b: a.second->successors){
+        output.emplace_back(a.second,b);
         md=max(md,b->depth);
       }
     }else{
-      std::cout << "Keep Just " << *a << "\n";
+      //std::cout << "Keep Just " << *a.second << "\n";
       output.push_back(a);
-      md=max(md,a->depth);
+      md=max(md,a.second->depth);
     }
     if(output.empty()){
       // Stay at state...
-      output.push_back(new Node(a->n,a->depth+1.0));
-      md=max(md,a->depth+1.0);
+      output.emplace_back(a.second,new Node(a.second->n,a.second->depth+1.0));
+      md=max(md,a.second->depth+1.0);
     }
     //std::cout << "successor  of " << s << "gets("<<*a<< "): " << output << "\n";
     successors.push_back(output);
-    for(int agent(0); agent<successors.size(); ++agent){
-      std::cout << "Agent: " << agent << "\n\t";
-      for(int succ(0); succ<successors[agent].size(); ++succ)
-        std::cout << *successors[agent][succ] << ",";
-      std::cout << std::endl;
-    }
+    //for(int agent(0); agent<successors.size(); ++agent){
+      //std::cout << "Agent: " << agent << "\n\t";
+      //for(int succ(0); succ<successors[agent].size(); ++succ)
+        //std::cout << *successors[agent][succ].second << ",";
+      //std::cout << std::endl;
+    //}
   }
-  std::vector<MultiState> crossProduct;
-  generatePermutations(successors,crossProduct,0,s,MultiState());
+  std::vector<MultiEdge> crossProduct;
+  generatePermutations(successors,crossProduct,0,MultiEdge());
   bool value(false);
   for(auto const& a: crossProduct){
     //std::cout << "eval " << a << "\n";
@@ -268,12 +269,26 @@ bool jointDFS(MultiState const& s, float d, float term, std::vector<std::set<Nod
     if(value){
       for(int a(0); a<s.size(); ++a){
         //std::cout << "push " << *s[a] << "\n";
-        answer[a].insert(s[a]);
+        answer[a].insert(s[a].second);
       }
       return true;
     }
   }
   return value;
+}
+
+bool jointDFS(MultiState const& s, float maxdepth, std::vector<std::set<Node*,NodePtrComp>>& answer){
+  MultiEdge act;
+  float sd(1.0);
+  for(auto const& n:s){
+    act.emplace_back(nullptr,n);
+    /*for(auto const& m:n->successors){
+      sd=min(sd,m->depth);
+    }*/
+    //act.push_back(a);
+  }
+
+  return jointDFS(act,0.0,maxdepth,answer);
 }
 
 // Not part of the algorithm... just for validating the answers
@@ -307,20 +322,22 @@ bool checkAnswer(std::vector<std::set<Node*,NodePtrComp>> const& answer){
       }
     }
   }
+  return true;
 }
 
 struct ICTSNode{
-  ICTSNode(std::vector<int> s):dag(s.size()),sizes(s),maxdepth(-99999999){
+  ICTSNode(std::vector<float> const& s):dag(s.size()),sizes(s),maxdepth(-99999999){
     root.reserve(s.size());
     for(int i(0); i<starts.size(); ++i){
       maxdepth=max(maxdepth,Node::env->HCost(starts[i],ends[i])+sizes[i]);
-      std::cout << "agent " << i << " GetMDD()\n";
+      std::cout << "agent " << i << " GetMDD("<<(Node::env->HCost(starts[i],ends[i])+sizes[i])<<")\n";
       GetMDD(starts[i],ends[i],dag[i],root,Node::env->HCost(starts[i],ends[i])+sizes[i]);
       std::cout << i << ":\n" << root[i] << "\n";
     }
   }
+
   std::vector<DAG> dag;
-  std::vector<int> sizes;
+  std::vector<float> sizes;
   MultiState root;
   float maxdepth;
   static std::vector<xyLoc> starts;
@@ -329,14 +346,7 @@ struct ICTSNode{
   bool isValid(){
     // Do a depth-first search; if the search terminates at a goal, its valid.
     std::vector<std::set<Node*,NodePtrComp>> answer(sizes.size());
-    float sd(1.0);
-    for(auto const& n:root){
-      for(auto const& m:n->successors){
-        sd=min(sd,m->depth);
-      }
-    }
-
-    if(jointDFS(root,sd,maxdepth,answer)){// && checkAnswer(answer)){
+    if(jointDFS(root,maxdepth,answer)){// && checkAnswer(answer)){
       checkAnswer(answer);
       std::cout << "Answer:\n";
       for(int agent(0); agent<answer.size(); ++agent){
@@ -353,8 +363,8 @@ struct ICTSNode{
     return false;
   }
 
-  int SIC()const{
-    int total(0);
+  float SIC()const{
+    float total(0);
     for(auto const& s:sizes){
       total += s;
     }
@@ -399,13 +409,15 @@ int main(){
     while(!a.second);
     e.push_back(*a.first);
   }*/
-  s.emplace_back(6,1);
-  e.emplace_back(1,1);
-  s.emplace_back(3,0);
-  e.emplace_back(4,2);
+  s.emplace_back(0,5);
+  e.emplace_back(3,0);
+  s.emplace_back(1,1);
+  e.emplace_back(6,1);
+  //s.emplace_back(3,0);
+  //e.emplace_back(4,2);
   ICTSNode::starts=std::vector<xyLoc>(s.begin(),s.end());
   ICTSNode::ends=std::vector<xyLoc>(e.begin(),e.end());
-  std::vector<int> sizes(ICTSNode::ends.size());
+  std::vector<float> sizes(ICTSNode::ends.size());
 
   std::cout << std::setprecision(3);
   q.push(new ICTSNode(sizes));
@@ -422,8 +434,8 @@ int main(){
       return 0;
     }
     for(int i(0); i<parent->sizes.size(); ++i){
-      std::vector<int> s(parent->sizes);
-      s[i]++;
+      std::vector<float> s(parent->sizes);
+      s[i]+=.4;
       std::string sv = std::accumulate(s.begin()+1, s.end(), std::to_string(s[0]),
                      [](const std::string& a, int b){
                            return a + ',' + std::to_string(b);
