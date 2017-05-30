@@ -74,6 +74,14 @@ struct Node : public Hashable{
 	virtual float Depth()const{return depth; }
 };
 
+//std::unordered_set<uint64_t> checked;
+//uint64_t EdgeHash(std::pair<Node*,Node*> const& edge){
+  //return (edge.first->Hash() * 16777619) ^ edge.second->Hash();
+//}
+//uint64_t EdgePairHash(std::pair<Node*,Node*> const& edge1, std::pair<Node*,Node*> const& edge2){
+  //return (EdgeHash(edge1) * 16777619) ^ EdgeHash(edge2);
+//}
+
 typedef std::vector<Node*> MultiState; // rank=agent num
 typedef std::vector<std::pair<Node*,Node*>> MultiEdge; // rank=agent num
 typedef std::unordered_map<uint64_t,Node> DAG;
@@ -194,6 +202,10 @@ void generatePermutations(std::vector<MultiEdge>& positions, std::vector<MultiEd
     MultiEdge copy(current);
     bool found(false);
     for(int j(0); j<current.size(); ++j){
+      //uint64_t hash(EdgePairHash(positions[agent][i],current[j]));
+      //if(checked.find(hash)!=checked.end())
+      //{std::cout << "SKIPPED " << *positions[agent][i].second << " " << *current[j].second << "\n"; continue; /*No collision check necessary; checked already*/}
+      //std::cout << "COMPARE " << *positions[agent][i].second << " " << *current[j].second << "\n";
       Vector2D A(positions[agent][i].first->n.x,positions[agent][i].first->n.y);
       Vector2D B(current[j].first->n.x,current[j].first->n.y);
       Vector2D VA(positions[agent][i].second->n.x-positions[agent][i].first->n.x,positions[agent][i].second->n.y-positions[agent][i].first->n.y);
@@ -202,6 +214,7 @@ void generatePermutations(std::vector<MultiEdge>& positions, std::vector<MultiEd
       if(collisionImminent(A,VA,.25,positions[agent][i].first->depth,positions[agent][i].second->depth,B,VB,.25,current[j].first->depth,current[j].second->depth)){
         //std::cout << "Collision averted: " << A << " " << B << "\n";
         found=true;
+        //checked.insert(hash);
         break;
       }
     }
@@ -215,10 +228,13 @@ void generatePermutations(std::vector<MultiEdge>& positions, std::vector<MultiEd
 
 // Return true if we get to the desired depth
 bool jointDFS(MultiEdge const& s, float d, float term, std::vector<std::set<Node*,NodePtrComp>>& answer){
-  //std::cout << d << std::string((int)d,' ')<< " s " << s << "\n";
+  //std::cout << d << std::string((int)d,' ');
+  //for(int a(0); a<s.size(); ++a){
+    //std::cout << " s " << *s[a].second << "\n";
+  //}
   if(fgeq(d,term)){
     for(int a(0); a<s.size(); ++a){
-      //std::cout << "push " << *s[a] << " " << s.size() << "\n";
+      //std::cout << "push " << *s[a].second << " " << s.size() << "\n";
       answer[a].insert(s[a].second);
     }
     return true;
@@ -226,14 +242,14 @@ bool jointDFS(MultiEdge const& s, float d, float term, std::vector<std::set<Node
   //Get successors into a vector
   std::vector<MultiEdge> successors;
 
-  // Find minimum depth
+  // Find minimum depth of current edges
   float sd(9999999.0);
   for(auto const& a: s){
     sd=min(sd,a.second->depth);
   }
   //std::cout << "min-depth: " << sd << "\n";
 
-  float md(-9999999.0);
+  float md(9999999.0);
   //Add in successors for parents who are equal to the min
   for(auto const& a: s){
     MultiEdge output;
@@ -241,27 +257,27 @@ bool jointDFS(MultiEdge const& s, float d, float term, std::vector<std::set<Node
       //std::cout << "Keep Successors of " << *a.second << "\n";
       for(auto const& b: a.second->successors){
         output.emplace_back(a.second,b);
-        md=max(md,b->depth);
+        md=min(md,b->depth);
       }
     }else{
       //std::cout << "Keep Just " << *a.second << "\n";
       output.push_back(a);
-      md=max(md,a.second->depth);
+      md=min(md,a.second->depth);
     }
     if(output.empty()){
       // Stay at state...
       output.emplace_back(a.second,new Node(a.second->n,a.second->depth+1.0));
-      md=max(md,a.second->depth+1.0);
+      md=min(md,a.second->depth+1.0); // Amount of time to wait
     }
     //std::cout << "successor  of " << s << "gets("<<*a<< "): " << output << "\n";
     successors.push_back(output);
-    //for(int agent(0); agent<successors.size(); ++agent){
-      //std::cout << "Agent: " << agent << "\n\t";
-      //for(int succ(0); succ<successors[agent].size(); ++succ)
-        //std::cout << *successors[agent][succ].second << ",";
-      //std::cout << std::endl;
-    //}
   }
+  //for(int agent(0); agent<successors.size(); ++agent){
+    //std::cout << "Agent: " << agent << "\n\t";
+    //for(int succ(0); succ<successors[agent].size(); ++succ)
+      //std::cout << *successors[agent][succ].second << ",";
+    //std::cout << std::endl;
+  //}
   std::vector<MultiEdge> crossProduct;
   generatePermutations(successors,crossProduct,0,MultiEdge());
   bool value(false);
@@ -282,7 +298,7 @@ bool jointDFS(MultiEdge const& s, float d, float term, std::vector<std::set<Node
 bool jointDFS(MultiState const& s, float maxdepth, std::vector<std::set<Node*,NodePtrComp>>& answer){
   MultiEdge act;
   float sd(1.0);
-  for(auto const& n:s){
+  for(auto const& n:s){ // Add null parents for the initial movements
     act.emplace_back(nullptr,n);
     /*for(auto const& m:n->successors){
       sd=min(sd,m->depth);
@@ -328,13 +344,23 @@ bool checkAnswer(std::vector<std::set<Node*,NodePtrComp>> const& answer){
 }
 
 struct ICTSNode{
+  ICTSNode(ICTSNode* parent,int agent, int size):dag(parent->dag),sizes(parent->sizes),root(parent->root),maxdepth(parent->maxdepth){
+    sizes[agent]=size;
+    maxdepth=max(maxdepth,Node::env->HCost(starts[agent],ends[agent])+sizes[agent]);
+    //std::cout << "agent " << agent << " GetMDD("<<(Node::env->HCost(starts[agent],ends[agent])+sizes[agent])<<")\n";
+    dag[agent].clear();
+    GetMDD(starts[agent],ends[agent],dag[agent],root,Node::env->HCost(starts[agent],ends[agent])+sizes[agent]);
+    // Replace new root node on top of old.
+    std::swap(root[agent],root[root.size()-1]);
+    root.resize(root.size()-1);
+  }
   ICTSNode(std::vector<float> const& s):dag(s.size()),sizes(s),maxdepth(-99999999){
     root.reserve(s.size());
     for(int i(0); i<starts.size(); ++i){
       maxdepth=max(maxdepth,Node::env->HCost(starts[i],ends[i])+sizes[i]);
-      std::cout << "agent " << i << " GetMDD("<<(Node::env->HCost(starts[i],ends[i])+sizes[i])<<")\n";
+      //std::cout << "agent " << i << " GetMDD("<<(Node::env->HCost(starts[i],ends[i])+sizes[i])<<")\n";
       GetMDD(starts[i],ends[i],dag[i],root,Node::env->HCost(starts[i],ends[i])+sizes[i]);
-      std::cout << i << ":\n" << root[i] << "\n";
+      //std::cout << i << ":\n" << root[i] << "\n";
     }
   }
 
@@ -382,26 +408,28 @@ struct ICTSNodePtrComp
 std::vector<xyLoc> ICTSNode::starts;
 std::vector<xyLoc> ICTSNode::ends;
 
-std::priority_queue<ICTSNode*,std::vector<ICTSNode*>,ICTSNodePtrComp> q;
-std::unordered_set<std::string> deconf;
-
 void join(std::stringstream& s, std::vector<float> const& x){
   copy(x.begin(),x.end(), std::ostream_iterator<float>(s,","));
 }
 
 int main(){
+  int seed(123456);
+  srand(seed);
+for(int t(0); t<100; ++t){
+  std::priority_queue<ICTSNode*,std::vector<ICTSNode*>,ICTSNodePtrComp> q;
+  std::unordered_set<std::string> deconf;
+
+  //checked.clear();
+  std::cout << "Trial #"<<t<<"\n";
   MapEnvironment env(new Map(8,8));
   env.SetNineConnected();
   Node::env=&env;
-  int numAgents(6);
+  int numAgents(12);
   std::set<xyLoc> st;
   std::set<xyLoc> en;
   std::vector<xyLoc> s;
   std::vector<xyLoc> e;
-  int seed(123456);
-  srand(seed);
   // Get disjoint start and goal locations
-  /*
   for(int i(0);i<numAgents;++i){
     auto a(st.emplace(rand()%8,rand()%8));
     while(!a.second){
@@ -415,11 +443,17 @@ int main(){
     }
     while(!a.second);
     e.push_back(*a.first);
-  }*/
+  }
+  /*
   s.emplace_back(1,1);
   e.emplace_back(4,4);
   s.emplace_back(3,0);
   e.emplace_back(3,4);
+  s.emplace_back(0,2);
+  e.emplace_back(3,1);
+  s.emplace_back(2,0);
+  e.emplace_back(1,3);
+  */
   //s.emplace_back(0,5);
   //e.emplace_back(3,0);
   //s.emplace_back(1,1);
@@ -429,8 +463,13 @@ int main(){
   ICTSNode::starts=std::vector<xyLoc>(s.begin(),s.end());
   ICTSNode::ends=std::vector<xyLoc>(e.begin(),e.end());
   std::vector<float> sizes(ICTSNode::ends.size());
+  for(int i(0); i<ICTSNode::ends.size(); ++i){
+    std::cout << i <<": "<<ICTSNode::starts[i] << "-->"<<ICTSNode::ends[i] << "\n";
+  }
 
   std::cout << std::setprecision(3);
+  Timer tmr;
+  tmr.StartTimer();
   q.push(new ICTSNode(sizes));
   while(q.size()){
     ICTSNode* parent(q.top());
@@ -440,24 +479,22 @@ int main(){
     }
     std::cout << "\n";
     q.pop();
-    std::cout << "SIC" << parent->SIC() << "\n";
+    std::cout << "SIC: " << parent->SIC() << "\n";
     if(parent->isValid()){
-      return 0;
+      break;
     }
     for(int i(0); i<parent->sizes.size(); ++i){
       std::vector<float> s(parent->sizes);
-      s[i]+=.4;
-      //std::string sv = std::accumulate(s.begin()+1, s.end(), std::to_string(s[0]),
-                     //[](const std::string& a, int b){
-                           //return a + ',' + std::to_string(b);
-                     //});
+      s[i]++;
       std::stringstream sv;
       join(sv,s);
       if(deconf.find(sv.str())==deconf.end()){
-        q.push(new ICTSNode(s));
+        q.push(new ICTSNode(parent,i,s[i]));
         deconf.insert(sv.str());
       }
     }
   }
+  std::cout << tmr.EndTimer() << " elapsed\n";
+}
   return 1;
 }
