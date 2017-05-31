@@ -35,6 +35,7 @@
 #include <iterator>
 #include "Map2DEnvironment.h"
 #include "VelocityObstacle.h"
+#include "TemplateAStar.h"
 
 
 struct Hashable{
@@ -415,7 +416,7 @@ void join(std::stringstream& s, std::vector<float> const& x){
 int main(){
   int seed(123456);
   srand(seed);
-for(int t(0); t<100; ++t){
+for(int t(0); t<1; ++t){
   std::priority_queue<ICTSNode*,std::vector<ICTSNode*>,ICTSNodePtrComp> q;
   std::unordered_set<std::string> deconf;
 
@@ -424,7 +425,7 @@ for(int t(0); t<100; ++t){
   MapEnvironment env(new Map(8,8));
   env.SetNineConnected();
   Node::env=&env;
-  int numAgents(12);
+  int numAgents(8);
   std::set<xyLoc> st;
   std::set<xyLoc> en;
   std::vector<xyLoc> s;
@@ -460,6 +461,57 @@ for(int t(0); t<100; ++t){
   //e.emplace_back(6,1);
   //s.emplace_back(3,0);
   //e.emplace_back(4,2);
+  TemplateAStar<xyLoc,tDirection,MapEnvironment> astar;
+  std::vector<std::vector<std::pair<xyLoc,float>>> solution; // Independence Detection framework
+  std::vector<std::vector<std::pair<xyLoc,xyLoc>>> ID; // Independence Detection framework
+  // Add a singleton group for all groups
+  for(int i(0); i<s.size(); ++i){
+    std::vector<std::pair<xyLoc,xyLoc>> group;
+    group.emplace_back(s[i],e[i]);
+    ID.push_back(group);
+  }
+  for(auto const& group: ID){
+    std::vector<xyLoc> path;
+    astar.GetPath(&env,group[0].first,group[0].second,path);
+    std::vector<std::pair<xyLoc,float>> timePath;
+    timePath.emplace_back(path[0],0.0);
+    for(int i(1); i<path.size(); ++i){
+      timePath.emplace_back(path[i],timePath[timePath.size()-1].second+Util::distance(path[i-1].x,path[i-1].y,path[i].x,path[i].y));
+    }
+    solution.push_back(timePath);
+  }
+
+  // Check all pairs for collision
+  for(int i(0); i<solution.size(); ++i){
+    for(int j(i+1); j<solution.size(); ++j){
+      // check collision between i and j
+      int a(1);
+      int b(1);
+      if(solution[i].size() > a && solution[j].size() > b){
+        float t(min(solution[i][a].second,solution[j][b].second));
+        bool collision(false);
+        while(1){
+          if(a==solution[i].size() || b==solution[j].size()){break;}
+          Vector2D A(solution[i][a-1].first.x,solution[i][a-1].first.y);
+          Vector2D B(solution[j][b-1].first.x,solution[j][b-1].first.y);
+          Vector2D VA(solution[i][a-1].first.x-solution[i][a].first.x,solution[i][a-1].first.y-solution[i][a].first.y);
+          Vector2D VB(solution[j][b-1].first.x-solution[j][b].first.x,solution[j][b-1].first.y-solution[j][b].first.y);
+          if(collisionImminent(A,VA,.25,solution[i][a-1].second,solution[i][a].second,B,VB,.25,solution[j][b-1].second,solution[j][b].second)){
+            collision=true;
+            std::cout << i << " and " << j << " collide at " << solution[i][a-1].second << "~" << solution[i][a].second << "\n";
+            break;
+          }
+          if(fequal(solution[i][a].second,solution[j][b].second)){
+            ++a;++b;
+          }else if(fless(solution[i][a].second,solution[j][b].second)){
+            ++a;
+          }else{++b;}
+        }
+        // Combine agents i and j
+      }
+    }
+  }
+
   ICTSNode::starts=std::vector<xyLoc>(s.begin(),s.end());
   ICTSNode::ends=std::vector<xyLoc>(e.begin(),e.end());
   std::vector<float> sizes(ICTSNode::ends.size());
