@@ -83,6 +83,11 @@ struct Node : public Hashable{
   //return (EdgeHash(edge1) * 16777619) ^ EdgeHash(edge2);
 //}
 
+typedef std::vector<xyLoc> Points;
+typedef std::pair<Points,Points> Instance;
+typedef std::vector<std::pair<xyLoc,float>> TimePath;
+typedef std::vector<TimePath> Solution;
+
 typedef std::vector<Node*> MultiState; // rank=agent num
 typedef std::vector<std::pair<Node*,Node*>> MultiEdge; // rank=agent num
 typedef std::unordered_map<uint64_t,Node> DAG;
@@ -140,7 +145,7 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& root
     return true;
   }
 
-  std::vector<xyLoc> successors;
+  Points successors;
   Node::env->GetSuccessors(start,successors);
   bool result(false);
   for(auto const& node: successors){
@@ -345,32 +350,33 @@ bool checkAnswer(std::vector<std::set<Node*,NodePtrComp>> const& answer){
 }
 
 struct ICTSNode{
-  ICTSNode(ICTSNode* parent,int agent, int size):dag(parent->dag),sizes(parent->sizes),root(parent->root),maxdepth(parent->maxdepth){
+  ICTSNode(ICTSNode* parent,int agent, int size):instance(parent->instance),dag(parent->dag),sizes(parent->sizes),root(parent->root),maxdepth(parent->maxdepth){
     sizes[agent]=size;
-    maxdepth=max(maxdepth,Node::env->HCost(starts[agent],ends[agent])+sizes[agent]);
-    //std::cout << "agent " << agent << " GetMDD("<<(Node::env->HCost(starts[agent],ends[agent])+sizes[agent])<<")\n";
+    maxdepth=max(maxdepth,Node::env->HCost(instance.first[agent],instance.second[agent])+sizes[agent]);
+    //std::cout << "agent " << agent << " GetMDD("<<(Node::env->HCost(instance.first[agent],instance.second[agent])+sizes[agent])<<")\n";
     dag[agent].clear();
-    GetMDD(starts[agent],ends[agent],dag[agent],root,Node::env->HCost(starts[agent],ends[agent])+sizes[agent]);
+    GetMDD(instance.first[agent],instance.second[agent],dag[agent],root,Node::env->HCost(instance.first[agent],instance.second[agent])+sizes[agent]);
     // Replace new root node on top of old.
     std::swap(root[agent],root[root.size()-1]);
     root.resize(root.size()-1);
   }
-  ICTSNode(std::vector<float> const& s):dag(s.size()),sizes(s),maxdepth(-99999999){
+
+  ICTSNode(Instance const& inst, std::vector<float> const& s):instance(inst),dag(s.size()),sizes(s),maxdepth(-99999999){
     root.reserve(s.size());
-    for(int i(0); i<starts.size(); ++i){
-      maxdepth=max(maxdepth,Node::env->HCost(starts[i],ends[i])+sizes[i]);
-      //std::cout << "agent " << i << " GetMDD("<<(Node::env->HCost(starts[i],ends[i])+sizes[i])<<")\n";
-      GetMDD(starts[i],ends[i],dag[i],root,Node::env->HCost(starts[i],ends[i])+sizes[i]);
+    for(int i(0); i<instance.first.size(); ++i){
+      maxdepth=max(maxdepth,Node::env->HCost(instance.first[i],instance.second[i])+sizes[i]);
+      //std::cout << "agent " << i << " GetMDD("<<(Node::env->HCost(instance.first[i],instance.second[i])+sizes[i])<<")\n";
+      GetMDD(instance.first[i],instance.second[i],dag[i],root,Node::env->HCost(instance.first[i],instance.second[i])+sizes[i]);
       //std::cout << i << ":\n" << root[i] << "\n";
     }
   }
 
+  Instance instance;
   std::vector<DAG> dag;
   std::vector<float> sizes;
   MultiState root;
   float maxdepth;
-  static std::vector<xyLoc> starts;
-  static std::vector<xyLoc> ends;
+  Instance points;
 
   bool isValid(){
     // Do a depth-first search; if the search terminates at a goal, its valid.
@@ -406,81 +412,12 @@ struct ICTSNodePtrComp
   bool operator()(const ICTSNode* lhs, const ICTSNode* rhs) const  { return lhs->SIC()>rhs->SIC(); }
 };
 
-std::vector<xyLoc> ICTSNode::starts;
-std::vector<xyLoc> ICTSNode::ends;
-
 void join(std::stringstream& s, std::vector<float> const& x){
   copy(x.begin(),x.end(), std::ostream_iterator<float>(s,","));
 }
 
-int main(){
-  int seed(123456);
-  srand(seed);
-for(int t(0); t<1; ++t){
-  std::priority_queue<ICTSNode*,std::vector<ICTSNode*>,ICTSNodePtrComp> q;
-  std::unordered_set<std::string> deconf;
-
-  //checked.clear();
-  std::cout << "Trial #"<<t<<"\n";
-  MapEnvironment env(new Map(8,8));
-  env.SetNineConnected();
-  Node::env=&env;
-  int numAgents(8);
-  std::set<xyLoc> st;
-  std::set<xyLoc> en;
-  std::vector<xyLoc> s;
-  std::vector<xyLoc> e;
-  // Get disjoint start and goal locations
-  for(int i(0);i<numAgents;++i){
-    auto a(st.emplace(rand()%8,rand()%8));
-    while(!a.second){
-      a=st.emplace(rand()%8,rand()%8);
-    }
-    s.push_back(*a.first);
-
-    a=en.emplace(rand()%8,rand()%8);
-    while(!a.second){
-      a=en.emplace(rand()%8,rand()%8);
-    }
-    while(!a.second);
-    e.push_back(*a.first);
-  }
-  /*
-  s.emplace_back(1,1);
-  e.emplace_back(4,4);
-  s.emplace_back(3,0);
-  e.emplace_back(3,4);
-  s.emplace_back(0,2);
-  e.emplace_back(3,1);
-  s.emplace_back(2,0);
-  e.emplace_back(1,3);
-  */
-  //s.emplace_back(0,5);
-  //e.emplace_back(3,0);
-  //s.emplace_back(1,1);
-  //e.emplace_back(6,1);
-  //s.emplace_back(3,0);
-  //e.emplace_back(4,2);
-  TemplateAStar<xyLoc,tDirection,MapEnvironment> astar;
-  std::vector<std::vector<std::pair<xyLoc,float>>> solution; // Independence Detection framework
-  std::vector<std::vector<std::pair<xyLoc,xyLoc>>> ID; // Independence Detection framework
-  // Add a singleton group for all groups
-  for(int i(0); i<s.size(); ++i){
-    std::vector<std::pair<xyLoc,xyLoc>> group;
-    group.emplace_back(s[i],e[i]);
-    ID.push_back(group);
-  }
-  for(auto const& group: ID){
-    std::vector<xyLoc> path;
-    astar.GetPath(&env,group[0].first,group[0].second,path);
-    std::vector<std::pair<xyLoc,float>> timePath;
-    timePath.emplace_back(path[0],0.0);
-    for(int i(1); i<path.size(); ++i){
-      timePath.emplace_back(path[i],timePath[timePath.size()-1].second+Util::distance(path[i-1].x,path[i-1].y,path[i].x,path[i].y));
-    }
-    solution.push_back(timePath);
-  }
-
+bool detectIndependence(Solution const& solution, std::vector<int>& groups){
+  bool independent(true);
   // Check all pairs for collision
   for(int i(0); i<solution.size(); ++i){
     for(int j(i+1); j<solution.size(); ++j){
@@ -499,6 +436,9 @@ for(int t(0); t<1; ++t){
           if(collisionImminent(A,VA,.25,solution[i][a-1].second,solution[i][a].second,B,VB,.25,solution[j][b-1].second,solution[j][b].second)){
             collision=true;
             std::cout << i << " and " << j << " collide at " << solution[i][a-1].second << "~" << solution[i][a].second << "\n";
+            // Combine agents i and j
+            groups[j]=groups[i];
+            independent=false;
             break;
           }
           if(fequal(solution[i][a].second,solution[j][b].second)){
@@ -507,46 +447,131 @@ for(int t(0); t<1; ++t){
             ++a;
           }else{++b;}
         }
-        // Combine agents i and j
       }
     }
   }
-
-  ICTSNode::starts=std::vector<xyLoc>(s.begin(),s.end());
-  ICTSNode::ends=std::vector<xyLoc>(e.begin(),e.end());
-  std::vector<float> sizes(ICTSNode::ends.size());
-  for(int i(0); i<ICTSNode::ends.size(); ++i){
-    std::cout << i <<": "<<ICTSNode::starts[i] << "-->"<<ICTSNode::ends[i] << "\n";
-  }
-
-  std::cout << std::setprecision(3);
-  Timer tmr;
-  tmr.StartTimer();
-  q.push(new ICTSNode(sizes));
-  while(q.size()){
-    ICTSNode* parent(q.top());
-    std::cout << "pop ";
-    for(auto const& a: parent->sizes){
-      std::cout << a << " ";
-    }
-    std::cout << "\n";
-    q.pop();
-    std::cout << "SIC: " << parent->SIC() << "\n";
-    if(parent->isValid()){
-      break;
-    }
-    for(int i(0); i<parent->sizes.size(); ++i){
-      std::vector<float> s(parent->sizes);
-      s[i]++;
-      std::stringstream sv;
-      join(sv,s);
-      if(deconf.find(sv.str())==deconf.end()){
-        q.push(new ICTSNode(parent,i,s[i]));
-        deconf.insert(sv.str());
-      }
-    }
-  }
-  std::cout << tmr.EndTimer() << " elapsed\n";
+  return independent;
 }
+
+int main(){
+  int seed(123456);
+  srand(seed);
+  for(int t(0); t<1; ++t){
+    //checked.clear();
+    std::cout << "Trial #"<<t<<"\n";
+    MapEnvironment env(new Map(8,8));
+    env.SetNineConnected();
+    Node::env=&env;
+    int numAgents(8);
+    std::set<xyLoc> st;
+    std::set<xyLoc> en;
+    Points s;
+    Points e;
+    // Get disjoint start and goal locations
+    for(int i(0);i<numAgents;++i){
+      auto a(st.emplace(rand()%8,rand()%8));
+      while(!a.second){
+        a=st.emplace(rand()%8,rand()%8);
+      }
+      s.push_back(*a.first);
+
+      a=en.emplace(rand()%8,rand()%8);
+      while(!a.second){
+        a=en.emplace(rand()%8,rand()%8);
+      }
+      while(!a.second);
+      e.push_back(*a.first);
+    }
+    /*
+       s.emplace_back(1,1);
+       e.emplace_back(4,4);
+       s.emplace_back(3,0);
+       e.emplace_back(3,4);
+       s.emplace_back(0,2);
+       e.emplace_back(3,1);
+       s.emplace_back(2,0);
+       e.emplace_back(1,3);
+       */
+    //s.emplace_back(0,5);
+    //e.emplace_back(3,0);
+    //s.emplace_back(1,1);
+    //e.emplace_back(6,1);
+    //s.emplace_back(3,0);
+    //e.emplace_back(4,2);
+    TemplateAStar<xyLoc,tDirection,MapEnvironment> astar;
+    Solution solution;
+    std::vector<int> group(s.size()); // Agent#-->group#
+    // Add a singleton group for all groups
+    for(int i(0); i<s.size(); ++i){
+      group[i]=i; // Initially in its own group
+    }
+
+    // Start timing
+    std::cout << std::setprecision(3);
+    Timer tmr;
+    tmr.StartTimer();
+
+    // Initial individual paths.
+    for(int i(0); i<s.size(); ++i){
+      Points path;
+      astar.GetPath(&env,s[i],e[i],path);
+      TimePath timePath;
+      timePath.emplace_back(path[0],0.0);
+      for(int i(1); i<path.size(); ++i){
+        timePath.emplace_back(path[i],timePath[timePath.size()-1].second+Util::distance(path[i-1].x,path[i-1].y,path[i].x,path[i].y));
+      }
+      solution.push_back(timePath);
+    }
+
+    while(!detectIndependence(solution,group)){
+      // Create groups
+      std::unordered_map<int,Instance> G;
+      std::unordered_map<int,std::vector<int>> Gid;
+      for(int g(0);g<group.size();++g){
+        G[group[g]].first.push_back(s[g]);
+        G[group[g]].second.push_back(e[g]);
+        Gid[group[g]].push_back(g);
+      }
+      for(auto const& g:G){
+        if(g.second.first.size()>1){
+          std::cout << "Group: " << g.first <<":\n";
+          std::vector<float> sizes(g.second.first.size());
+          for(int i(0); i<g.second.first.size(); ++i){
+            std::cout << g.second.first[i] << "-->" << g.second.second[i] << "\n";
+          }
+          std::priority_queue<ICTSNode*,std::vector<ICTSNode*>,ICTSNodePtrComp> q;
+          std::unordered_set<std::string> deconf;
+
+          q.push(new ICTSNode(g.second,sizes));
+
+          while(q.size()){
+            ICTSNode* parent(q.top());
+            std::cout << "pop ";
+            for(auto const& a: parent->sizes){
+              std::cout << a << " ";
+            }
+            std::cout << "\n";
+            q.pop();
+            std::cout << "SIC: " << parent->SIC() << "\n";
+            if(parent->isValid()){
+              break;
+            }
+            for(int i(0); i<parent->sizes.size(); ++i){
+              std::vector<float> sz(parent->sizes);
+              sz[i]++;
+              std::stringstream sv;
+              join(sv,sz);
+              if(deconf.find(sv.str())==deconf.end()){
+                q.push(new ICTSNode(parent,i,sz[i]));
+                deconf.insert(sv.str());
+              }
+            }
+          }
+        }
+      }
+    }
+
+    std::cout << tmr.EndTimer() << " elapsed\n";
+  }
   return 1;
 }
