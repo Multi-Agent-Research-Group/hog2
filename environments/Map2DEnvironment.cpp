@@ -14,7 +14,7 @@
 
 using namespace Graphics2D;
 
-MapEnvironment::MapEnvironment(Map *_m, bool useOccupancy):h(nullptr),map(_m),oi(useOccupancy?new BaseMapOccupancyInterface(map):nullptr),DIAGONAL_COST(ROOT_TWO),connectedness(8)
+MapEnvironment::MapEnvironment(Map *_m, bool useOccupancy):h(nullptr),map(_m),oi(useOccupancy?new BaseMapOccupancyInterface(map):nullptr),DIAGONAL_COST(ROOT_TWO),SQRT_5(sqrt(5.0),SQRT_10(sqrt(10.0),SQRT_13(sqrt(13)),connectedness(8)
 {}
 
 MapEnvironment::MapEnvironment(MapEnvironment *me)
@@ -47,35 +47,59 @@ void MapEnvironment::SetGraphHeuristic(GraphHeuristic *gh)
 void MapEnvironment::GetSuccessors(const xyLoc &loc, std::vector<xyLoc> &neighbors) const
 {
 	neighbors.resize(0);
-	bool up=false, down=false;
+	bool up=false, down=false, up2=false, down2=false;;
 	// 
 	if ((map->CanStep(loc.x, loc.y, loc.x, loc.y+1)))
 	{
 		down = true;
 		neighbors.push_back(xyLoc(loc.x, loc.y+1));
+                if(connectedness>9 && map->CanStep(loc.x, loc.y, loc.x, loc.y+2)){
+                  down2=true;
+                  neighbors.push_back(xyLoc(loc.x, loc.y+2));
+                }
 	}
 	if ((map->CanStep(loc.x, loc.y, loc.x, loc.y-1)))
 	{
 		up = true;
 		neighbors.push_back(xyLoc(loc.x, loc.y-1));
+                if(connectedness>9 && map->CanStep(loc.x, loc.y, loc.x, loc.y+2)){
+                  up2=true;
+                  neighbors.push_back(xyLoc(loc.x, loc.y-2));
+                }
 	}
 	if ((map->CanStep(loc.x, loc.y, loc.x-1, loc.y)))
-	{
+        {
+          neighbors.push_back(xyLoc(loc.x-1, loc.y));
+          bool upLeft=false, upRight=false, left2=false;
+          if (connectedness>5){
+            if(up && (map->CanStep(loc.x, loc.y, loc.x-1, loc.y-1)))){
+              upLeft=true;
+              neighbors.push_back(xyLoc(loc.x-1, loc.y-1));
+            }
+            if(connectedness>9){
+              if(map->CanStep(loc.x, loc.y, loc.x-2, loc.y)){ // left 2
+                neighbors.push_back(xyLoc(loc.x-2, loc.y));
+                if(upLeft && map->CanStep(loc.x, loc.y, loc.x-2, loc.y-1)){
+                  neighbors.push_back(xyLoc(loc.x-2, loc.y));
+                }
+              }
+            }
+          }
 
-		if (connectedness>5 && (up && (map->CanStep(loc.x, loc.y, loc.x-1, loc.y-1))))
-			neighbors.push_back(xyLoc(loc.x-1, loc.y-1));
-
-		if (connectedness>5 && (down && (map->CanStep(loc.x, loc.y, loc.x-1, loc.y+1))))
-			neighbors.push_back(xyLoc(loc.x-1, loc.y+1));
-		neighbors.push_back(xyLoc(loc.x-1, loc.y));
-	}
+          if (connectedness>5 && (down && (map->CanStep(loc.x, loc.y, loc.x-1, loc.y+1)))){
+            upRight=true;
+            neighbors.push_back(xyLoc(loc.x-1, loc.y+1));
+          }
+        }
 	if ((map->CanStep(loc.x, loc.y, loc.x+1, loc.y)))
 	{
-		if (connectedness>5 && (up && (map->CanStep(loc.x, loc.y, loc.x+1, loc.y-1))))
-			neighbors.push_back(xyLoc(loc.x+1, loc.y-1));
-		if (connectedness>5 && (down && (map->CanStep(loc.x, loc.y, loc.x+1, loc.y+1))))
-			neighbors.push_back(xyLoc(loc.x+1, loc.y+1));
 		neighbors.push_back(xyLoc(loc.x+1, loc.y));
+		if (connectedness>5 && (up && (map->CanStep(loc.x, loc.y, loc.x+1, loc.y-1)))){
+			neighbors.push_back(xyLoc(loc.x+1, loc.y-1));
+                }
+		if (connectedness>5 && (down && (map->CanStep(loc.x, loc.y, loc.x+1, loc.y+1)))){
+			neighbors.push_back(xyLoc(loc.x+1, loc.y+1));
+                }
 	}
         if(connectedness%2) // Is waiting allowed?
         {

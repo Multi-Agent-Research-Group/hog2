@@ -165,10 +165,16 @@ public:
 	bool FiveConnected() { return connectedness==5; }
 	bool EightConnected() { return connectedness==8; }
 	bool NineConnected() { return connectedness==9; }
+	bool TwentyFourConnected() { return connectedness==24; }
+	bool TwentyFiveConnected() { return connectedness==25; }
+	bool EightyConnected() { return connectedness==80; }
+	bool EightyOneConnected() { return connectedness==81; }
 	void SetFourConnected() { connectedness=4; }
 	void SetFiveConnected() { connectedness=5; }
 	void SetEightConnected() { connectedness=8; }
 	void SetNineConnected() { connectedness=9; }
+	void SetEightyConnected() { connectedness=80; }
+	void SetEightyOneConnected() { connectedness=81; }
 	//virtual BaseMapOccupancyInterface* GetOccupancyInterface(){std::cout<<"Mapenv\n";return oi;}
 	//virtual xyLoc GetNextState(xyLoc &s, tDirection dir);
 	double GetPathLength(std::vector<xyLoc> &neighbors);
@@ -177,6 +183,9 @@ protected:
 	Map *map;
 	BaseMapOccupancyInterface *oi;
 	double DIAGONAL_COST;
+	double SQRT_5;
+	double SQRT_10;
+	double SQRT_13;
 	uint8_t connectedness;
 };
 
