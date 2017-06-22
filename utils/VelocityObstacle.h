@@ -21,5 +21,9 @@ Vector2D B, Vector2D VB, double radiusB, double startTimeB, double endTimeB);
 
 bool collisionImminent(Vector2D const A, Vector2D const VA, double radiusA, double startTimeA, double endTimeA,
 Vector2D B, Vector2D VB, double radiusB, double startTimeB, double endTimeB);
+double  getCollisionTime(Vector2D const A, Vector2D const VA, double radiusA, double startTimeA, double endTimeA,
+Vector2D B, Vector2D VB, double radiusB, double startTimeB, double endTimeB);
+std::pair<double,double> getCollisionInterval(Vector2D const A, Vector2D const VA, double radiusA, double startTimeA, double endTimeA,
+Vector2D B, Vector2D VB, double radiusB, double startTimeB, double endTimeB);
 
 #endif

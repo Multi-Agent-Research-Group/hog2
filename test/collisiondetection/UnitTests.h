@@ -553,4 +553,27 @@ TEST(RadialVisibility, ComputeVisibilityGrid){
   }
 }
   
+TEST(CollisionInterval, GetCollisionIntervalWhenExists){
+  Vector2D A(3,1);
+  Vector2D VA(0,1);
+  VA.Normalize();
+  double radius(.25);
+  Vector2D B(1,2);
+  Vector2D VB(1,1);
+  VB.Normalize();
+
+  // SCENARIO
+  //==========
+  //    ^ ^
+  //    |/
+  //    X
+  //   /|
+  //  B |
+  //    A
+  //
+  //==========
+
+  auto intvl(getCollisionInterval(A,VA,radius,0.0,6.0,B,VB,radius,0.0,6.0));
+  std::cout << "Collision interval is: " << intvl.first << "," << intvl.second << "\n";
+}
 #endif

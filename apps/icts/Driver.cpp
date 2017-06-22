@@ -378,9 +378,9 @@ struct ICTSNode{
   float maxdepth;
   Instance points;
 
-  bool isValid(){
+  bool isValid(std::vector<std::set<Node*,NodePtrComp>>& answer){
     // Do a depth-first search; if the search terminates at a goal, its valid.
-    std::vector<std::set<Node*,NodePtrComp>> answer(sizes.size());
+    answer.resize(sizes.size());
     if(jointDFS(root,maxdepth,answer)){// && checkAnswer(answer)){
       checkAnswer(answer);
       std::cout << "Answer:\n";
@@ -532,18 +532,20 @@ int main(){
         G[group[g]].second.push_back(e[g]);
         Gid[group[g]].push_back(g);
       }
-      for(auto const& g:G){
-        if(g.second.first.size()>1){
-          std::cout << "Group: " << g.first <<":\n";
-          std::vector<float> sizes(g.second.first.size());
-          for(int i(0); i<g.second.first.size(); ++i){
-            std::cout << g.second.first[i] << "-->" << g.second.second[i] << "\n";
+      for(int j(0); j<G.size(); ++j){
+        auto g(G[j]);
+        if(g.first.size()>1){
+          std::cout << "Group " << j <<":\n";
+          std::vector<float> sizes(g.first.size());
+          for(int i(0); i<g.first.size(); ++i){
+            std::cout << Gid[j][i] << ":" << g.first[i] << "-->" << g.second[i] << "\n";
           }
           std::priority_queue<ICTSNode*,std::vector<ICTSNode*>,ICTSNodePtrComp> q;
           std::unordered_set<std::string> deconf;
 
-          q.push(new ICTSNode(g.second,sizes));
+          q.push(new ICTSNode(g,sizes));
 
+          std::vector<std::set<Node*,NodePtrComp>> answer;
           while(q.size()){
             ICTSNode* parent(q.top());
             std::cout << "pop ";
@@ -553,7 +555,16 @@ int main(){
             std::cout << "\n";
             q.pop();
             std::cout << "SIC: " << parent->SIC() << "\n";
-            if(parent->isValid()){
+            if(parent->isValid(answer)){
+              int i(0);
+              for(auto const& b:answer){
+                TimePath p;
+                for(auto const& a:b){
+                  p.emplace_back(a->n,a->depth);
+                }
+                solution[Gid[j][i]]=p;
+                ++i;
+              }
               break;
             }
             for(int i(0); i<parent->sizes.size(); ++i){
@@ -567,6 +578,11 @@ int main(){
               }
             }
           }
+        }
+      }
+      for(auto const& p:solution){
+        for(auto const& t: p){
+// Print solution
         }
       }
     }

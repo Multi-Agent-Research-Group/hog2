@@ -136,3 +136,60 @@ bool collisionImminent(Vector2D A, Vector2D VA, double radiusA, double startTime
   // Collision will occur if collision time is before the end of the shortest segment
   return fleq(ctime,std::min(endTimeB,endTimeA)-startTimeA);
 }
+
+// Get collision time between two agents - that is the time that they will "start" colliding.
+// Agents have a position, velocity, start time, end time and radius.
+// Note: this is analogous to an agent traversing an edge from time "start" to "end" at constant velocity.
+// -1 is a seminal value meaning "no collision in the future."
+double getCollisionTime(Vector2D A, Vector2D VA, double radiusA, double startTimeA, double endTimeA, Vector2D B, Vector2D VB, double radiusB, double startTimeB, double endTimeB){
+  // check for time overlap
+  if(fgreater(startTimeA,endTimeB)||fgreater(startTimeB,endTimeA)){return -1;}
+
+  if(fgreater(startTimeB,startTimeA)){
+    // Move A forward to the same time instant as B
+    A+=VA*(startTimeB-startTimeA);
+    startTimeA=startTimeB;
+  }else if(fless(startTimeB,startTimeA)){
+    B+=VB*(startTimeA-startTimeB);
+    startTimeB=startTimeA;
+  }
+
+  double r(radiusA+radiusB); // Combined radius
+  Vector2D w(B-A);
+  double c(w.sq()-r*r);
+  if(c<0){return 0.0;} // Agents are currently colliding
+
+  // Use the quadratic formula to detect nearest collision (if any)
+  Vector2D v(VA-VB);
+  double a(v.sq());
+  double b(w*v);
+
+  double dscr(b*b-a*c);
+  if(fleq(dscr,0)){ return -1; } // No collision will occur in the future
+
+  return (b-sqrt(dscr))/a + startTimeA; // Absolute collision time
+}
+
+// Get continuous collision interval for two agents (return -1,-1 if such does not exist)
+std::pair<double,double> getCollisionInterval(Vector2D A, Vector2D VA, double radiusA, double startTimeA, double endTimeA, Vector2D B, Vector2D VB, double radiusB, double startTimeB, double endTimeB){
+  double collisionStart(getCollisionTime(A,VA,radiusA,startTimeA,endTimeA,B,VB,radiusB,startTimeB,endTimeB));
+
+  // Is collision in the past?
+  if(fless(collisionStart,0)){
+    return std::make_pair(-1.0,-1.0);
+  }
+  
+  // Traverse edges in reverse to see when the collision will end.
+
+  // Reverse the times - make them relative to the end time of the traversal
+  double maxEndTime(std::max(endTimeA,endTimeB));
+  double rStartTimeA(maxEndTime-endTimeA);
+  double rStartTimeB(maxEndTime-endTimeB);
+  double rEndTimeA(maxEndTime-startTimeA);
+  double rEndTimeB(maxEndTime-startTimeB);
+  Vector2D rA(A+(VA*(endTimeA-startTimeA))); // Move A to the end of the edge
+  Vector2D rB(B+(VB*(endTimeB-startTimeB))); // Move B to the end of the edge
+  double collisionEnd(maxEndTime-getCollisionTime(rA,-VA,radiusA,rStartTimeA,rEndTimeA,rB,-VB,radiusB,rStartTimeB,rEndTimeB));
+  assert(collisionStart<=collisionEnd);
+  return std::make_pair(collisionStart,collisionEnd);
+}
