@@ -218,6 +218,7 @@ public:
 	bool AdjacentCorners(long x, long y, tCorner corner) const;
 	// returns whether we can step between two locations or not
 	bool CanStep(long x1, long y1, long x2, long y2) const;
+        inline bool IsTraversable(long x, long y)const{ return x>=0&&x<width&&y>=0&&y<height&&(GetTerrainType(x,y)&0xF0); }
 	
 	void OpenGLDraw(tDisplay how = kPolygons) const;
 	bool GetOpenGLCoord(int _x, int _y, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const;

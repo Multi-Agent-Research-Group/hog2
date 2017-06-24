@@ -11,6 +11,7 @@
 #include "SVGUtil.h"
 #include <cstring>
 #include "Graphics2D.h"
+#include "PositionalUtils.h"
 
 using namespace Graphics2D;
 
@@ -49,6 +50,11 @@ void MapEnvironment::SetGraphHeuristic(GraphHeuristic *gh)
 
 void MapEnvironment::GetSuccessors(const xyLoc &loc, std::vector<xyLoc> &neighbors) const
 {
+        // Implement any-angle branching
+        if(connectedness>81){
+          if(solution.size()==0){
+          }
+        }
 	neighbors.resize(0);
 	bool up=false, down=false, up2=false, down2=false;
 	// 
@@ -483,6 +489,10 @@ void MapEnvironment::ApplyAction(xyLoc &s, tDirection dir) const
 
 double MapEnvironment::HCost(const xyLoc &l1, const xyLoc &l2) const
 {
+        if(connectedness>81){
+          // Straight line distance
+          return Util::distance(l1.x,l1.y,l2.x,l2.y);
+        }
 	double h1, h2;
 	if (connectedness<6)
 	{
@@ -1182,7 +1192,6 @@ double MapEnvironment::GetPathLength(std::vector<xyLoc> &neighbors)
 	}
 	return length;
 }
-
 
 /************************************************************/
 

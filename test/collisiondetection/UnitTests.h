@@ -5,6 +5,8 @@
 #include "Timer.h"
 #include <gtest/gtest.h>
 #include <map>
+#include "Map2DEnvironment.h"
+#include "AnyAngleSipp.h"
 
 TEST(VelocityObstacle, IsInsidePass){
   Vector2D A(3,1);
@@ -515,7 +517,7 @@ float rfloat(float low=-5, float high=5){
 TEST(VelocityObstacle, PerfTest){
   //Timer t;
   //t.StartTimer();
-  for(int i(0); i<10000000; ++i){
+  for(int i(0); i<1000; ++i){
     detectCollision(Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),.25,rfloat(0,10),rfloat(0,10),Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),.25,rfloat(0,10),rfloat(0,10));
   }
   //std::cout << "Total time (VelocityObstacle)" << t.EndTimer() << "\n";
@@ -524,7 +526,7 @@ TEST(VelocityObstacle, PerfTest){
 TEST(Quadratic, PerfTest){
   //Timer t;
   //t.StartTimer();
-  for(int i(0); i<10000000; ++i){
+  for(int i(0); i<1000; ++i){
     collisionImminent(Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),.25,rfloat(0,10),rfloat(0,10),Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),.25,rfloat(0,10),rfloat(0,10));
   }
   //std::cout << "Total time (Quadratic)" << t.EndTimer() << "\n";
@@ -575,5 +577,32 @@ TEST(CollisionInterval, GetCollisionIntervalWhenExists){
 
   auto intvl(getCollisionInterval(A,VA,radius,0.0,6.0,B,VB,radius,0.0,6.0));
   std::cout << "Collision interval is: " << intvl.first << "," << intvl.second << "\n";
+}
+
+TEST(AnyAngle, GetPath){
+  Map map(8,8);
+  AnyAngleSipp<Map,AANode> AA(0,false);
+  AANode s(1,1);
+  AANode g(7,3);
+  std::vector<AANode> succ;
+  AA.GetPath(succ,s,g,map);
+  for(auto const& ss: succ)
+    std::cout << ss.x << "," << ss.y << "@" << ss.g << "\n";
+}
+
+TEST(AnyAngle, GetPathWithTimeConstraint){
+  Map map(8,8);
+  AnyAngleSipp<Map,AANode> AA(0,false);
+  Intervals intervals;
+  intervals.push_back({0,.5});
+  intervals.push_back({4,99999999});
+  AA.setConstraint(2,1,1.1);
+  AA.setSafeIntervals(2,1,intervals);
+  AANode s(1,1);
+  AANode g(7,3);
+  std::vector<AANode> succ;
+  AA.GetPath(succ,s,g,map);
+  for(auto const& ss: succ)
+    std::cout << ss.x << "," << ss.y << "@" << ss.g << "\n";
 }
 #endif

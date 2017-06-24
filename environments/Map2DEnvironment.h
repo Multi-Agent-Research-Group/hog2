@@ -43,6 +43,16 @@ struct xyLocHash
 	}
 };
 
+struct AANode : xyLoc {
+  AANode(uint16_t _x, uint16_t _y):xyLoc(_x,_y),F(0),g(0),Parent(nullptr){}
+  AANode():xyLoc(0,0),F(0),g(0),Parent(nullptr){}
+  float   F;
+  float   g;
+  AANode*   Parent;
+  std::pair<double,double> interval;
+};
+
+
 static std::ostream& operator <<(std::ostream & out, const xyLoc &loc)
 {
 	out << "(" << loc.x << ", " << loc.y << ")";
@@ -169,15 +179,19 @@ public:
 	bool TwentyFiveConnected() { return connectedness==25; }
 	bool EightyConnected() { return connectedness==80; }
 	bool EightyOneConnected() { return connectedness==81; }
+	bool AnyAngleConnected() { return connectedness>81; }
 	void SetFourConnected() { connectedness=4; }
 	void SetFiveConnected() { connectedness=5; }
 	void SetEightConnected() { connectedness=8; }
 	void SetNineConnected() { connectedness=9; }
 	void SetEightyConnected() { connectedness=80; }
 	void SetEightyOneConnected() { connectedness=81; }
+	void SetAnyAngleConnected() { connectedness=255; }
 	//virtual BaseMapOccupancyInterface* GetOccupancyInterface(){std::cout<<"Mapenv\n";return oi;}
 	//virtual xyLoc GetNextState(xyLoc &s, tDirection dir);
 	double GetPathLength(std::vector<xyLoc> &neighbors);
+        std::vector<std::vector<std::pair<xyLoc,double>>> solution;
+        void findIntervals(xyLoc curNode, std::vector<std::pair<double,double>>& intervals, std::vector<double>& EAT, int w) const;
 protected:
 	GraphHeuristic *h;
 	Map *map;
