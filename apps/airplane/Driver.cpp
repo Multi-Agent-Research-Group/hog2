@@ -244,10 +244,6 @@ void InitHeadless(){
   // we are inducing high conflict areas.
   std::cout << "Adding " << num_airplanes << "planes." << std::endl;
 
-  if(!gui){
-    Timer::Timeout func(std::bind(&CBSGroup<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>,NonUnitTimeCAT<airtimeState,AirplaneConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >::processSolution, group, std::placeholders::_1));
-    group->timer->StartTimeout(std::chrono::seconds(killtime),func);
-  }
   for (int i = 0; i < num_airplanes; i++) {
     if(waypoints.size()<num_airplanes){
       // Adding random waypoints
@@ -303,6 +299,10 @@ void InitHeadless(){
     for(auto const& n: group->tree[0].paths[i])
       std::cout << n << "\n";
     if(gui){sim->AddUnit(unit);} // Add to the group
+  }
+  if(!gui){
+    Timer::Timeout func(std::bind(&CBSGroup<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>,NonUnitTimeCAT<airtimeState,AirplaneConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >::processSolution, group, std::placeholders::_1));
+    group->timer->StartTimeout(std::chrono::seconds(killtime),func);
   }
   //assert(false && "Exit early");
 }
