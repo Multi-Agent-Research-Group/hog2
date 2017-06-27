@@ -6,7 +6,7 @@
 #include <gtest/gtest.h>
 #include <map>
 #include "Map2DEnvironment.h"
-//#include "AnyAngleSipp.h"
+#include "AnyAngleSipp.h"
 
 TEST(VelocityObstacle, IsInsidePass){
   Vector2D A(3,1);
@@ -578,7 +578,7 @@ TEST(CollisionInterval, GetCollisionIntervalWhenExists){
   auto intvl(getCollisionInterval(A,VA,radius,0.0,6.0,B,VB,radius,0.0,6.0));
   std::cout << "Collision interval is: " << intvl.first << "," << intvl.second << "\n";
 }
-/*
+
 TEST(AnyAngle, GetPath){
   Map map(8,8);
   AnyAngleSipp<Map,AANode> AA(0,false);
@@ -604,5 +604,5 @@ TEST(AnyAngle, GetPathWithTimeConstraint){
   AA.GetPath(succ,s,g,map);
   for(auto const& ss: succ)
     std::cout << ss.x << "," << ss.y << "@" << ss.g << "\n";
-}*/
+}
 #endif
