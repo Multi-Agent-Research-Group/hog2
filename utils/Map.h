@@ -225,6 +225,7 @@ public:
 	bool GetOpenGLCoord(float _x, float _y, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const;
 	void GetPointFromCoordinate(point3d loc, int &px, int &py) const;
 	double GetCoordinateScale();
+        bool LineOfSight(int x, int y, int _x, int _y) const;
 	
 	void SetDrawLand(bool land);
 	bool GetDrawLand() { return drawLand; }

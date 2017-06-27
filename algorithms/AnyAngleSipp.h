@@ -106,6 +106,7 @@ private:
     void makeSecondaryPath(State curState);
     void calculateLineSegment(std::vector<State> &line, State const& start, State const& goal);
     void addConstraints(int curAgent);
+    void addConstraints(std::vector<State> const& path);
     State resetParent(State current, State Parent, Map const& map);
     bool findPath(std::vector<State>& solution, State const& s, State const& g, Map const& map);
     std::vector<std::pair<int, int> > findConflictCells(State cur);
@@ -544,26 +545,15 @@ void AnyAngleSipp<Map,State>::addConstraints(std::vector<State> const& path)
 {
     State cur;
     std::vector<std::pair<int,int>> cells;
-    if(sresult.pathInfo[curAgent].sections.size() == 1)
+    for(int a = 1; a < path.size(); a++)
     {
-        constraint add;
-        add.agent = curAgent;
-        add.x = sresult.pathInfo[curAgent].sections.back().x;
-        add.y = sresult.pathInfo[curAgent].sections.back().y;
-        add.g = 0;
-        add.goal = true;
-        ctable[hash(add.x,add.y)].push_back(add);
-        return;
-    }
-    for(int a = 1; a < sresult.pathInfo[curAgent].sections.size(); a++)
-    {
-        cur = sresult.pathInfo[curAgent].sections[a];
+        cur = path[a];
         cells = findConflictCells(cur);
         int x1 = cur.x, y1 = cur.y, x0 = cur.Parent->x, y0 = cur.Parent->y;
         if(x1 != x0 || y1 != y0)
             cur.Parent->g = cur.g - calculateDistanceFromCellToCell(x0, y0, x1, y1);
         constraint add;
-        add.agent = curAgent;
+        add.agent = 0;
         int dx = abs(x1 - x0);
         int dy = abs(y1 - y0);
         if(dx == 0 && dy == 0)
@@ -591,7 +581,7 @@ void AnyAngleSipp<Map,State>::addConstraints(std::vector<State> const& path)
             {
                 add.x = cells[i].first;
                 add.y = cells[i].second;
-                add.agent = curAgent;
+                add.agent = 0;
                 std::pair<double,double> ps,pg;
                 ps={x0, y0};
                 pg={x1, y1};
@@ -614,12 +604,12 @@ void AnyAngleSipp<Map,State>::addConstraints(std::vector<State> const& path)
                     con.x = x1;
                     con.y = y1;
                 }
-                con.g = cur.Parent->g + calculateDistanceFromCellToCell(cur.Parent->x, cur.Parent->y, con.x, con.y);
-                if(add.x == sresult.pathInfo[curAgent].sections.back().x && add.y == sresult.pathInfo[curAgent].sections.back().y)
+                con.g = cur.Parent->g + Util::distance(cur.Parent->x, cur.Parent->y, con.x, con.y);
+                if(add.x == path.back().x && add.y == path.back().y)
                     con.goal = true;
                 else
                     con.goal = false;
-                con.agent = curAgent;
+                con.agent = 0;
                 uint32_t key(hash(add.x,add.y));
                 if(ctable[key].empty() || fabs(ctable[key].back().g-con.g)>CN_EPSILON)
                     ctable[key].push_back(con);
@@ -628,7 +618,7 @@ void AnyAngleSipp<Map,State>::addConstraints(std::vector<State> const& path)
             {
                 add.x = cells[i].first;
                 add.y = cells[i].second;
-                add.agent = curAgent;
+                add.agent = 0;
                 Interval ps, pg, interval;
                 ps = {x0, y0};
                 pg = {x1, y1};

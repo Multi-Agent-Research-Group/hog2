@@ -1865,6 +1865,84 @@ bool Map::GetOpenGLCoord(float _x, float _y, GLdouble &x, GLdouble &y, GLdouble 
 }
 
 /**
+ * Returns whether there is line of sight between two coordinates
+ */
+
+bool Map::LineOfSight(int x, int y, int x2, int y2) const{
+    int delta_x(std::abs(x - x2));
+    int delta_y(std::abs(y - y2));
+    int step_x(x < x2 ? 1 : -1);
+    int step_y(y < y2 ? 1 : -1);
+    int error(0);
+    int sep_value = delta_x*delta_x + delta_y*delta_y;
+    if(delta_x == 0)
+    {
+        for(; y != y2; y += step_y)
+            if(!IsTraversable(x, y))
+                return false;
+    }
+    else if(delta_y == 0)
+    {
+        for(; x != x2; x += step_x)
+            if(IsTraversable(x, y))
+                return false;
+    }
+    else if(delta_x > delta_y)
+    {
+        for(; x != x2; x += step_x)
+        {
+            if(!IsTraversable(x, y))
+                return false;
+            if(!IsTraversable(x, y + step_y))
+                return false;
+            error += delta_y;
+            if(error > delta_x)
+            {
+                if(((error << 1) - delta_x - delta_y)*((error << 1) - delta_x - delta_y) < sep_value)
+                    if(!IsTraversable(x + step_x, y))
+                        return false;
+                if((3*delta_x - ((error << 1) - delta_y))*(3*delta_x - ((error << 1) - delta_y)) < sep_value)
+                    if(!IsTraversable(x, y + 2*step_y))
+                        return false;
+                y += step_y;
+                error -= delta_x;
+            }
+        }
+        if(!IsTraversable(x, y))
+            return false;
+        if(!IsTraversable(x, y + step_y))
+            return false;
+    }
+    else
+    {
+        for(; y != y2; y += step_y)
+        {
+            if(!IsTraversable(x, y))
+                return false;
+            if(!IsTraversable(x + step_x, y))
+                return false;
+            error += delta_x;
+            if(error > delta_y)
+            {
+                if(((error << 1) - delta_x - delta_y)*((error << 1) - delta_x - delta_y) < sep_value)
+                    if(!IsTraversable(x, y + step_y))
+                        return false;
+                if((3*delta_y - ((error << 1) - delta_x))*(3*delta_y - ((error << 1) - delta_x)) < sep_value)
+                    if(!IsTraversable(x + 2*step_x, y))
+                        return false;
+                x += step_x;
+                error -= delta_y;
+            }
+        }
+        if(!IsTraversable(x, y))
+            return false;
+        if(!IsTraversable(x + step_x, y))
+            return false;
+    }
+    return true;
+}
+
+/**
 * Returns the scale multiplier between openGL coordinates and map coordinates.
  * If you measure a distance in openGL coordinate space, you can multiply it by
  * this value to convert it to map space, where the distance between adjacent tiles

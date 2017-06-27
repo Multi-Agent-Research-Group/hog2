@@ -553,11 +553,16 @@ double MapEnvironment::GCost(const xyLoc &l1, const xyLoc &l2) const
 	if (l1.x == l2.x) return 1.0*multiplier;
 	if (l1.y == l2.y) return 1.0*multiplier;
 	if (l1 == l2) return 0.0;
-	return DIAGONAL_COST*multiplier;
+	if (abs(l1.x-l2.x)==1) return DIAGONAL_COST*multiplier;
+        return Util::distance(l1.x,l1.y,l2.x,l2.y);
 //	double h = HCost(l1, l2);
 //	if (fgreater(h, DIAGONAL_COST))
 //		return DBL_MAX;
 //	return h;
+}
+
+bool MapEnvironment::LineOfSight(const xyLoc &node, const xyLoc &goal) const{
+  return map->LineOfSight(node.x,node.y,goal.x,goal.y);
 }
 
 bool MapEnvironment::GoalTest(const xyLoc &node, const xyLoc &goal) const

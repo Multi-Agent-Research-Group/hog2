@@ -45,6 +45,7 @@ enum dataLocation {
 };
 
 const uint64_t kTAStarNoNode = 0xFFFFFFFFFFFFFFFFull;
+const uint64_t kTAStarSelf = 0xFFFFFFFFFFFFFFFEull;
 
 template<typename state>
 class AStarOpenClosedData {
@@ -177,7 +178,7 @@ uint64_t AStarOpenClosed<state, CmpKey, dataStructure>::AddOpenNode(const state 
 	if (table.find(hash) != table.end())
 	{
 		//return -1; // TODO: find correct id and return
-		assert(false &&  "Foud the hash in the table already!");
+		assert(false &&  "Found the hash in the table already!");
 	}
 	elements.push_back(dataStructure(val, g, h, parent, theHeap.size(), kOpenList));
 	if (parent == kTAStarNoNode)

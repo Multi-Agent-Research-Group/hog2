@@ -131,6 +131,7 @@ public:
 	virtual double HCost(const xyLoc &node1, const xyLoc &node2) const;
 	virtual double GCost(const xyLoc &node1, const xyLoc &node2) const;
 	virtual double GCost(const xyLoc &node1, const tDirection &act) const;
+        bool LineOfSight(const xyLoc &node, const xyLoc &goal) const;
 	bool GoalTest(const xyLoc &node, const xyLoc &goal) const;
 
 	bool GoalTest(const xyLoc &){
