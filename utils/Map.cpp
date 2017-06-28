@@ -1884,7 +1884,7 @@ bool Map::LineOfSight(int x, int y, int x2, int y2) const{
     else if(delta_y == 0)
     {
         for(; x != x2; x += step_x)
-            if(IsTraversable(x, y))
+            if(!IsTraversable(x, y))
                 return false;
     }
     else if(delta_x > delta_y)

@@ -271,7 +271,10 @@ bool ThetaStar<state,action,environment>::DoSingleSearchStep(std::vector<state> 
     if(update.second>=0){
       openNode.parentID=update.first;
       openNode.g=update.second;
+      std::cout << "Reset parent of " << currOpenNode << " to " << openNode.parentID <<"\n";
       //openClosedList.Print();
+    }else{
+      std::cout << "Leave parent of " << currOpenNode << " as " << openNode.parentID <<"\n";
     }
   }
 
@@ -335,6 +338,7 @@ template <class state, class action, class environment>
 std::pair<uint64_t,double> ThetaStar<state, action,environment>::SetVertex(AStarOpenClosedData<xyLoc> const& p){
   AStarOpenClosedData<xyLoc>& pp(openClosedList.Lookup(p.parentID));
   if(!env->LineOfSight(pp.data,p.data)){
+    std::cout << "No LOS: " << pp.data << " " << p.data << "\n";
     uint64_t best(0);
     bool found(false);
     double bestg(9999999);
@@ -348,6 +352,7 @@ std::pair<uint64_t,double> ThetaStar<state, action,environment>::SetVertex(AStar
         if(fless(g,bestg)){
          bestg=g;
          best=id;
+         std::cout << "Reset parent of " << p.data << " from " << pp.data << " to " << n <<"\n";
          found=true;
         }
       }
@@ -355,7 +360,7 @@ std::pair<uint64_t,double> ThetaStar<state, action,environment>::SetVertex(AStar
     assert(found && "best is zero .. this is not possible!");
     return {best,bestg};
   }else{
-    return {0,0.0};
+    return {0,-1.0};
   }
 }
 
@@ -364,7 +369,7 @@ std::pair<uint64_t,double> ThetaStar<state, action,environment>::ComputeCost(ASt
   AStarOpenClosedData<xyLoc>& pp(openClosedList.Lookup(p.parentID));
   double newg(pp.g+env->GCost(pp.data,c));
   if(fless(newg,oldg)){
-      return {0,newg};
+      return {p.parentID,newg};
   }
   return {0,-1.0};
 }
