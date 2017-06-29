@@ -38,6 +38,7 @@ class Map2DConstrainedEnvironment : public SearchEnvironment<xytLoc, tDirection>
 {
 public:
 	Map2DConstrainedEnvironment(Map *m);
+	Map2DConstrainedEnvironment(MapEnvironment *m);
 	void AddConstraint(constraint c);
 	void AddConstraint(xytLoc loc);
 	void AddConstraint(xytLoc loc, tDirection dir);

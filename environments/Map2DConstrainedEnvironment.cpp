@@ -22,6 +22,11 @@ Map2DConstrainedEnvironment::Map2DConstrainedEnvironment(Map *m)
 	mapEnv->SetFourConnected();
 }
 
+Map2DConstrainedEnvironment::Map2DConstrainedEnvironment(MapEnvironment *m)
+{
+	mapEnv = m;
+}
+
 void Map2DConstrainedEnvironment::AddConstraint(constraint c)
 {
 	constraints.push_back(c);

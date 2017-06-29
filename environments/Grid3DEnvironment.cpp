@@ -15,13 +15,13 @@
 
 using namespace Graphics2D;
 
-MapEnvironment::MapEnvironment(Map *_m, bool useOccupancy):h(nullptr),map(_m),oi(useOccupancy?new BaseMapOccupancyInterface(map):nullptr),DIAGONAL_COST(ROOT_TWO),connectedness(8){
+Grid3DEnvironment::Grid3DEnvironment(Map *_m, bool useOccupancy):h(nullptr),map(_m),oi(useOccupancy?new BaseMapOccupancyInterface(map):nullptr),DIAGONAL_COST(ROOT_TWO),connectedness(8){
   SQRT_5=sqrt(5.0);
   SQRT_10=sqrt(10.0);
   SQRT_13=sqrt(13);
 }
 
-MapEnvironment::MapEnvironment(MapEnvironment *me)
+Grid3DEnvironment::Grid3DEnvironment(Grid3DEnvironment *me)
 {
 	map = me->map->Clone();
 	h = 0;
@@ -32,23 +32,23 @@ MapEnvironment::MapEnvironment(MapEnvironment *me)
 	connectedness = me->connectedness;
 }
 
-MapEnvironment::~MapEnvironment()
+Grid3DEnvironment::~Grid3DEnvironment()
 {
 //	delete map;
 	delete oi;
 }
 
-GraphHeuristic *MapEnvironment::GetGraphHeuristic()
+GraphHeuristic *Grid3DEnvironment::GetGraphHeuristic()
 {
 	return h;
 }
 
-void MapEnvironment::SetGraphHeuristic(GraphHeuristic *gh)
+void Grid3DEnvironment::SetGraphHeuristic(GraphHeuristic *gh)
 {
 	h = gh;
 }
 
-void MapEnvironment::GetSuccessors(const xyLoc &loc, std::vector<xyLoc> &neighbors) const
+void Grid3DEnvironment::GetSuccessors(const xyzLoc &loc, std::vector<xyzLoc> &neighbors) const
 {
         // Implement any-angle branching
         if(connectedness>49){
@@ -61,69 +61,69 @@ void MapEnvironment::GetSuccessors(const xyLoc &loc, std::vector<xyLoc> &neighbo
 	if ((map->CanStep(loc.x, loc.y, loc.x, loc.y+1)))
 	{
 		d = true;
-		neighbors.push_back(xyLoc(loc.x, loc.y+1));
+		neighbors.push_back(xyzLoc(loc.x, loc.y+1));
                 if(connectedness>9 && map->IsTraversable(loc.x, loc.y+2)){
                   d2=true;
-                  neighbors.push_back(xyLoc(loc.x, loc.y+2));
+                  neighbors.push_back(xyzLoc(loc.x, loc.y+2));
                 }
 	}
 	if ((map->CanStep(loc.x, loc.y, loc.x, loc.y-1)))
 	{
 		u = true;
-		neighbors.push_back(xyLoc(loc.x, loc.y-1));
+		neighbors.push_back(xyzLoc(loc.x, loc.y-1));
                 if(connectedness>9 && map->IsTraversable(loc.x, loc.y-2)){
                   u2=true;
-                  neighbors.push_back(xyLoc(loc.x, loc.y-2));
+                  neighbors.push_back(xyzLoc(loc.x, loc.y-2));
                 }
 	}
 	if ((map->CanStep(loc.x, loc.y, loc.x-1, loc.y)))
         {
           l=true;
-          neighbors.push_back(xyLoc(loc.x-1, loc.y));
+          neighbors.push_back(xyzLoc(loc.x-1, loc.y));
           if (connectedness>5){
             // Left is open ...
             if(connectedness>9 && map->IsTraversable(loc.x-2, loc.y)){ // left 2
               l2=true;
-              neighbors.push_back(xyLoc(loc.x-2, loc.y));
+              neighbors.push_back(xyzLoc(loc.x-2, loc.y));
             }
             if(u && (map->CanStep(loc.x, loc.y, loc.x-1, loc.y-1))){
               ul=true;
-              neighbors.push_back(xyLoc(loc.x-1, loc.y-1));
+              neighbors.push_back(xyzLoc(loc.x-1, loc.y-1));
               if(connectedness>9){
                 // Left, Up, Left2 and UpLeft are open...
                 if(l2 && map->IsTraversable(loc.x-2, loc.y-1)){
                   ul2=true;
-                  neighbors.push_back(xyLoc(loc.x-2, loc.y-1));
+                  neighbors.push_back(xyzLoc(loc.x-2, loc.y-1));
                 }
                 // Left, Up2, Up and UpLeft are open...
                 if(u2 && map->IsTraversable(loc.x-1, loc.y-2)){
                   u2l=true;
-                  neighbors.push_back(xyLoc(loc.x-1, loc.y-2));
+                  neighbors.push_back(xyzLoc(loc.x-1, loc.y-2));
                 }
                 if(ul2 && u2l && map->IsTraversable(loc.x-2, loc.y-2)){
                   u2l2=true;
-                  neighbors.push_back(xyLoc(loc.x-2, loc.y-2));
+                  neighbors.push_back(xyzLoc(loc.x-2, loc.y-2));
                 }
               }
             }
 
             if (d && (map->CanStep(loc.x, loc.y, loc.x-1, loc.y+1))){
-              neighbors.push_back(xyLoc(loc.x-1, loc.y+1));
+              neighbors.push_back(xyzLoc(loc.x-1, loc.y+1));
               dl=true;
               if(connectedness>9){
                 // Left, Down, Left2 and UpLeft are open...
                 if(l2 && map->IsTraversable(loc.x-2, loc.y+1)){
                   dl2=true;
-                  neighbors.push_back(xyLoc(loc.x-2, loc.y+1));
+                  neighbors.push_back(xyzLoc(loc.x-2, loc.y+1));
                 }
                 // Left, Up2, Up and UpLeft are open...
                 if(d2 && map->IsTraversable(loc.x-1, loc.y+2)){
                   d2l=true;
-                  neighbors.push_back(xyLoc(loc.x-1, loc.y+2));
+                  neighbors.push_back(xyzLoc(loc.x-1, loc.y+2));
                 }
                 if(dl2 && d2l && map->IsTraversable(loc.x-2, loc.y+2)){
                   d2l2=true;
-                  neighbors.push_back(xyLoc(loc.x-2, loc.y+2));
+                  neighbors.push_back(xyzLoc(loc.x-2, loc.y+2));
                 }
               }
             } // down && downleft
@@ -133,51 +133,51 @@ void MapEnvironment::GetSuccessors(const xyLoc &loc, std::vector<xyLoc> &neighbo
 	if ((map->CanStep(loc.x, loc.y, loc.x+1, loc.y)))
         {
           r=true;
-          neighbors.push_back(xyLoc(loc.x+1, loc.y));
+          neighbors.push_back(xyzLoc(loc.x+1, loc.y));
           if (connectedness>5){
             // Right is open ...
             if(connectedness>9 && map->IsTraversable(loc.x+2, loc.y)){ // right 2
               r2=true;
-              neighbors.push_back(xyLoc(loc.x+2, loc.y));
+              neighbors.push_back(xyzLoc(loc.x+2, loc.y));
             }
             if(u && (map->CanStep(loc.x, loc.y, loc.x+1, loc.y-1))){
               ur=true;
-              neighbors.push_back(xyLoc(loc.x+1, loc.y-1));
+              neighbors.push_back(xyzLoc(loc.x+1, loc.y-1));
               if(connectedness>9){
                 // Right, Up, Right2 and UpRight are open...
                 if(r2 && map->IsTraversable(loc.x+2, loc.y-1)){
                   ur2=true;
-                  neighbors.push_back(xyLoc(loc.x+2, loc.y-1));
+                  neighbors.push_back(xyzLoc(loc.x+2, loc.y-1));
                 }
                 // Right, Up2, Up and UpRight are open...
                 if(u2 && map->IsTraversable(loc.x+1, loc.y-2)){
                   u2r=true;
-                  neighbors.push_back(xyLoc(loc.x+1, loc.y-2));
+                  neighbors.push_back(xyzLoc(loc.x+1, loc.y-2));
                 }
                 if(ur2 && u2r && map->IsTraversable(loc.x+2, loc.y-2)){
                   u2r2=true;
-                  neighbors.push_back(xyLoc(loc.x+2, loc.y-2));
+                  neighbors.push_back(xyzLoc(loc.x+2, loc.y-2));
                 }
               }
             }
 
             if (d && (map->CanStep(loc.x, loc.y, loc.x+1, loc.y+1))){
               dr=true;
-              neighbors.push_back(xyLoc(loc.x+1, loc.y+1));
+              neighbors.push_back(xyzLoc(loc.x+1, loc.y+1));
               if(connectedness>9){
                 // Right, Down, Right2 and UpRight are open...
                 if(r2 && map->IsTraversable(loc.x+2, loc.y+1)){
                   dr2=true;
-                  neighbors.push_back(xyLoc(loc.x+2, loc.y+1));
+                  neighbors.push_back(xyzLoc(loc.x+2, loc.y+1));
                 }
                 // Right, Up2, Up and UpRight are open...
                 if(d2 && map->IsTraversable(loc.x+1, loc.y+2)){
                   d2r=true;
-                  neighbors.push_back(xyLoc(loc.x+1, loc.y+2));
+                  neighbors.push_back(xyzLoc(loc.x+1, loc.y+2));
                 }
                 if(dr2 && d2r && map->IsTraversable(loc.x+2, loc.y+2)){
                   d2r2=true;
-                  neighbors.push_back(xyLoc(loc.x+2, loc.y+2));
+                  neighbors.push_back(xyzLoc(loc.x+2, loc.y+2));
                 }
               }
             } // down && downright
@@ -186,86 +186,86 @@ void MapEnvironment::GetSuccessors(const xyLoc &loc, std::vector<xyLoc> &neighbo
 
         if(connectedness>25){
           if(d2 && map->IsTraversable(loc.x, loc.y+3))
-            neighbors.push_back(xyLoc(loc.x, loc.y+3));
+            neighbors.push_back(xyzLoc(loc.x, loc.y+3));
           if(u2 && map->IsTraversable(loc.x, loc.y-3))
-            neighbors.push_back(xyLoc(loc.x, loc.y-3));
+            neighbors.push_back(xyzLoc(loc.x, loc.y-3));
           if(r2 && map->IsTraversable(loc.x+3, loc.y))
-            neighbors.push_back(xyLoc(loc.x+3, loc.y));
+            neighbors.push_back(xyzLoc(loc.x+3, loc.y));
           if(l2 && map->IsTraversable(loc.x-3, loc.y))
-            neighbors.push_back(xyLoc(loc.x-3, loc.y));
+            neighbors.push_back(xyzLoc(loc.x-3, loc.y));
 
           // ul3
           //if(l2 && map->IsTraversable(loc.x-2, loc.y-1) && map->IsTraversable(loc.x-3, loc.y-1))
           if(l2 && ul2 && map->IsTraversable(loc.x-3, loc.y-1))
-            neighbors.push_back(xyLoc(loc.x-3, loc.y-1));
+            neighbors.push_back(xyzLoc(loc.x-3, loc.y-1));
           // dl3
           //if(l2 && map->IsTraversable(loc.x-2, loc.y+1) && map->IsTraversable(loc.x-3, loc.y+1))
           if(l2 && dl2  && map->IsTraversable(loc.x-3, loc.y+1))
-            neighbors.push_back(xyLoc(loc.x-3, loc.y+1));
+            neighbors.push_back(xyzLoc(loc.x-3, loc.y+1));
           // ur3
           //if(r2 && map->IsTraversable(loc.x+2, loc.y-1) && map->IsTraversable(loc.x+3, loc.y-1))
           if(r2 && ur2 && map->IsTraversable(loc.x+3, loc.y-1))
-            neighbors.push_back(xyLoc(loc.x+3, loc.y-1));
+            neighbors.push_back(xyzLoc(loc.x+3, loc.y-1));
           // dr3
           //if(r2 && map->IsTraversable(loc.x+2, loc.y+1) && map->IsTraversable(loc.x+3, loc.y+1))
           if(r2 && dr2 && map->IsTraversable(loc.x+3, loc.y+1))
-            neighbors.push_back(xyLoc(loc.x+3, loc.y+1));
+            neighbors.push_back(xyzLoc(loc.x+3, loc.y+1));
             
           // u3l
           //if(u2 && map->IsTraversable(loc.x-1, loc.y-2) && map->IsTraversable(loc.x-1, loc.y-3))
           if(u2 && u2l && map->IsTraversable(loc.x-1, loc.y-3))
-            neighbors.push_back(xyLoc(loc.x-1, loc.y-3));
+            neighbors.push_back(xyzLoc(loc.x-1, loc.y-3));
           // d3l
           //if(d2 && map->IsTraversable(loc.x-1, loc.y+2) && map->IsTraversable(loc.x-1, loc.y+3))
           if(d2 && d2l && map->IsTraversable(loc.x-1, loc.y+3))
-            neighbors.push_back(xyLoc(loc.x-1, loc.y+3));
+            neighbors.push_back(xyzLoc(loc.x-1, loc.y+3));
           // u3r
           //if(u2 && map->IsTraversable(loc.x+1, loc.y-2) && map->IsTraversable(loc.x+1, loc.y-3))
           if(u2 && u2r && map->IsTraversable(loc.x+1, loc.y-3))
-            neighbors.push_back(xyLoc(loc.x+1, loc.y-3));
+            neighbors.push_back(xyzLoc(loc.x+1, loc.y-3));
           // d3r
           //if(d2 && map->IsTraversable(loc.x+1, loc.y+2) && map->IsTraversable(loc.x+1, loc.y+3))
           if(d2 && d2r && map->IsTraversable(loc.x+1, loc.y+3))
-            neighbors.push_back(xyLoc(loc.x+1, loc.y+3));
+            neighbors.push_back(xyzLoc(loc.x+1, loc.y+3));
             
           // u2l3
           if(u2l2 && map->IsTraversable(loc.x-3,loc.y-1) && map->IsTraversable(loc.x-3, loc.y-2))
-            neighbors.push_back(xyLoc(loc.x-3, loc.y-2));
+            neighbors.push_back(xyzLoc(loc.x-3, loc.y-2));
           // d2l3
           if(d2l2 && map->IsTraversable(loc.x-3,loc.y+1) && map->IsTraversable(loc.x-3, loc.y+2))
-            neighbors.push_back(xyLoc(loc.x-3, loc.y+2));
+            neighbors.push_back(xyzLoc(loc.x-3, loc.y+2));
           // u2r3
           if(u2r2 && map->IsTraversable(loc.x+3,loc.y-1) && map->IsTraversable(loc.x+3, loc.y-2))
-            neighbors.push_back(xyLoc(loc.x+3, loc.y-2));
+            neighbors.push_back(xyzLoc(loc.x+3, loc.y-2));
           // d2r3
           if(d2r2 && map->IsTraversable(loc.x+3,loc.y+1) && map->IsTraversable(loc.x+3, loc.y+2))
-            neighbors.push_back(xyLoc(loc.x+3, loc.y+2));
+            neighbors.push_back(xyzLoc(loc.x+3, loc.y+2));
             
           // u3l2
           if(u2l2 && map->IsTraversable(loc.x-1,loc.y-3) && map->IsTraversable(loc.x-2, loc.y-3))
-            neighbors.push_back(xyLoc(loc.x-2, loc.y-3));
+            neighbors.push_back(xyzLoc(loc.x-2, loc.y-3));
           // d3l2
           if(d2l2 && map->IsTraversable(loc.x-1,loc.y+3) && map->IsTraversable(loc.x-2, loc.y+3))
-            neighbors.push_back(xyLoc(loc.x-2, loc.y+3));
+            neighbors.push_back(xyzLoc(loc.x-2, loc.y+3));
           // u3r2
           if(u2r2 && map->IsTraversable(loc.x+1,loc.y-3) && map->IsTraversable(loc.x+2, loc.y-3))
-            neighbors.push_back(xyLoc(loc.x+2, loc.y-3));
+            neighbors.push_back(xyzLoc(loc.x+2, loc.y-3));
           // d3r2
           if(d2r2 && map->IsTraversable(loc.x+1,loc.y+3) && map->IsTraversable(loc.x+2, loc.y+3))
-            neighbors.push_back(xyLoc(loc.x+2, loc.y+3));
+            neighbors.push_back(xyzLoc(loc.x+2, loc.y+3));
             
           // u3l3
           if(u2l2 && map->IsTraversable(loc.x-2,loc.y-3) && map->IsTraversable(loc.x-3,loc.y-2) && map->IsTraversable(loc.x-3, loc.y-3))
-            neighbors.push_back(xyLoc(loc.x-3, loc.y-3));
+            neighbors.push_back(xyzLoc(loc.x-3, loc.y-3));
           // d3l3
           if(d2l2 && map->IsTraversable(loc.x-2,loc.y+3) && map->IsTraversable(loc.x-3,loc.y+2) && map->IsTraversable(loc.x-3, loc.y+3))
-            neighbors.push_back(xyLoc(loc.x-3, loc.y+3));
+            neighbors.push_back(xyzLoc(loc.x-3, loc.y+3));
           // u3r3
           if(u2r2 && map->IsTraversable(loc.x+2,loc.y-3) && map->IsTraversable(loc.x+3,loc.y-2) && map->IsTraversable(loc.x+3, loc.y-3))
-            neighbors.push_back(xyLoc(loc.x+3, loc.y-3));
+            neighbors.push_back(xyzLoc(loc.x+3, loc.y-3));
           // d3r3
           if(d2r2 && map->IsTraversable(loc.x+2,loc.y+3) && map->IsTraversable(loc.x+3,loc.y+2) && map->IsTraversable(loc.x+3, loc.y+3))
-            neighbors.push_back(xyLoc(loc.x+3, loc.y+3));
+            neighbors.push_back(xyzLoc(loc.x+3, loc.y+3));
         }
         if(connectedness%2) // Is waiting allowed?
         {
@@ -273,8 +273,8 @@ void MapEnvironment::GetSuccessors(const xyLoc &loc, std::vector<xyLoc> &neighbo
         }
 }
 
-bool MapEnvironment::GetNextSuccessor(const xyLoc &currOpenNode, const xyLoc &goal,
-									  xyLoc &next, double &currHCost, uint64_t &special,
+bool Grid3DEnvironment::GetNextSuccessor(const xyzLoc &currOpenNode, const xyzLoc &goal,
+									  xyzLoc &next, double &currHCost, uint64_t &special,
 									  bool &validMove)
 {
   // In the case of 5-connectedness; next successor does not look at waiting in place
@@ -286,8 +286,8 @@ bool MapEnvironment::GetNextSuccessor(const xyLoc &currOpenNode, const xyLoc &go
 
 }
 
-bool MapEnvironment::GetNext4Successor(const xyLoc &currOpenNode, const xyLoc &goal,
-									   xyLoc &next, double &currHCost, uint64_t &special,
+bool Grid3DEnvironment::GetNext4Successor(const xyzLoc &currOpenNode, const xyzLoc &goal,
+									   xyzLoc &next, double &currHCost, uint64_t &special,
 									  bool &validMove)
 {
 	validMove = false;
@@ -403,8 +403,8 @@ bool MapEnvironment::GetNext4Successor(const xyLoc &currOpenNode, const xyLoc &g
 	return false;
 }
 
-bool MapEnvironment::GetNext8Successor(const xyLoc &currOpenNode, const xyLoc &goal,
-									   xyLoc &next, double &currHCost, uint64_t &special,
+bool Grid3DEnvironment::GetNext8Successor(const xyzLoc &currOpenNode, const xyzLoc &goal,
+									   xyzLoc &next, double &currHCost, uint64_t &special,
 									   bool &validMove)
 {
 	// in addition to the 16 obvious cases, when diagonal movess cross the 
@@ -539,7 +539,7 @@ bool MapEnvironment::GetNext8Successor(const xyLoc &currOpenNode, const xyLoc &g
 //	return false;
 }
 
-void MapEnvironment::GetActions(const xyLoc &loc, std::vector<tDirection> &actions) const
+void Grid3DEnvironment::GetActions(const xyzLoc &loc, std::vector<tDirection> &actions) const
 {
 	bool up=false, down=false;
 	if ((map->CanStep(loc.x, loc.y, loc.x, loc.y+1)))
@@ -579,7 +579,7 @@ void MapEnvironment::GetActions(const xyLoc &loc, std::vector<tDirection> &actio
 // TODO: add 24 and 48 cases.
 }
 
-tDirection MapEnvironment::GetAction(const xyLoc &s1, const xyLoc &s2) const
+tDirection Grid3DEnvironment::GetAction(const xyzLoc &s1, const xyzLoc &s2) const
 {
 	int result = kStay;
 	switch (s1.x-s2.x)
@@ -602,7 +602,7 @@ tDirection MapEnvironment::GetAction(const xyLoc &s1, const xyLoc &s2) const
 	return (tDirection)result;
 }
 
-bool MapEnvironment::InvertAction(tDirection &a) const
+bool Grid3DEnvironment::InvertAction(tDirection &a) const
 {
 	switch (a)
 	{
@@ -661,9 +661,9 @@ bool MapEnvironment::InvertAction(tDirection &a) const
 	return true;
 }
 
-void MapEnvironment::ApplyAction(xyLoc &s, tDirection dir) const
+void Grid3DEnvironment::ApplyAction(xyzLoc &s, tDirection dir) const
 {
-	//xyLoc old = s;
+	//xyzLoc old = s;
 	switch (dir)
 	{
 		case kN: s.y-=1; break;
@@ -727,7 +727,7 @@ void MapEnvironment::ApplyAction(xyLoc &s, tDirection dir) const
 //	s = old;
 }
 
-double MapEnvironment::HCost(const xyLoc &l1, const xyLoc &l2) const
+double Grid3DEnvironment::HCost(const xyzLoc &l1, const xyzLoc &l2) const
 {
         if(connectedness>49){
           // Straight line distance
@@ -761,7 +761,7 @@ double MapEnvironment::HCost(const xyLoc &l1, const xyLoc &l2) const
 	return std::max(h1, h2);
 }
 
-double MapEnvironment::GCost(const xyLoc &l, const tDirection &act) const
+double Grid3DEnvironment::GCost(const xyzLoc &l, const tDirection &act) const
 {
 	double multiplier = 1.0;
 //	if (map->GetTerrainType(l.x, l.y) == kSwamp)
@@ -825,7 +825,7 @@ double MapEnvironment::GCost(const xyLoc &l, const tDirection &act) const
 	return 0;
 }
 
-double MapEnvironment::GCost(const xyLoc &l1, const xyLoc &l2) const
+double Grid3DEnvironment::GCost(const xyzLoc &l1, const xyzLoc &l2) const
 {
 	double multiplier = 1.0;
 //	if (map->GetTerrainType(l1.x, l1.y) == kSwamp)
@@ -843,33 +843,33 @@ double MapEnvironment::GCost(const xyLoc &l1, const xyLoc &l2) const
 //	return h;
 }
 
-bool MapEnvironment::LineOfSight(const xyLoc &node, const xyLoc &goal) const{
+bool Grid3DEnvironment::LineOfSight(const xyzLoc &node, const xyzLoc &goal) const{
   return map->LineOfSight(node.x,node.y,goal.x,goal.y);
 }
 
-bool MapEnvironment::GoalTest(const xyLoc &node, const xyLoc &goal) const
+bool Grid3DEnvironment::GoalTest(const xyzLoc &node, const xyzLoc &goal) const
 {
 	return ((node.x == goal.x) && (node.y == goal.y));
 }
 
-uint64_t MapEnvironment::GetMaxHash() const
+uint64_t Grid3DEnvironment::GetMaxHash() const
 {
 	return map->GetMapWidth()*map->GetMapHeight();
 }
 
-uint64_t MapEnvironment::GetStateHash(const xyLoc &node) const
+uint64_t Grid3DEnvironment::GetStateHash(const xyzLoc &node) const
 {
 	//return (((uint64_t)node.x)<<16)|node.y;
 	return node.y*map->GetMapWidth()+node.x;
 	//	return (node.x<<16)|node.y;
 }
 
-uint64_t MapEnvironment::GetActionHash(tDirection act) const
+uint64_t Grid3DEnvironment::GetActionHash(tDirection act) const
 {
 	return (uint32_t) act;
 }
 
-void MapEnvironment::OpenGLDraw() const
+void Grid3DEnvironment::OpenGLDraw() const
 {
 	//std::cout<<"drawing\n";
 	map->OpenGLDraw();
@@ -877,7 +877,7 @@ void MapEnvironment::OpenGLDraw() const
 //	for (int i=0; i<map->GetMapWidth(); i++)
 //		for (int j=0; j<map->GetMapHeight(); j++)
 //		{
-//			xyLoc l;
+//			xyzLoc l;
 //			l.x = i;
 //			l.y = j;
 //			if (oi && oi->GetStateOccupied(l))
@@ -890,7 +890,7 @@ void MapEnvironment::OpenGLDraw() const
 	
 
 
-void MapEnvironment::OpenGLDraw(const xyLoc &l) const
+void Grid3DEnvironment::OpenGLDraw(const xyzLoc &l) const
 {
 	GLdouble xx, yy, zz, rad;
 	map->GetOpenGLCoord(l.x, l.y, xx, yy, zz, rad);
@@ -901,7 +901,7 @@ void MapEnvironment::OpenGLDraw(const xyLoc &l) const
 	DrawSphere(xx, yy, zz, rad);
 }
 
-void MapEnvironment::OpenGLDraw(const xyLoc &l1, const xyLoc &l2, float v) const
+void Grid3DEnvironment::OpenGLDraw(const xyzLoc &l1, const xyzLoc &l2, float v) const
 {
 	GLdouble xx, yy, zz, rad;
 	GLdouble xx2, yy2, zz2;
@@ -920,7 +920,7 @@ void MapEnvironment::OpenGLDraw(const xyLoc &l1, const xyLoc &l2, float v) const
 	DrawSphere(xx, yy, zz, rad);
 }
 
-//void MapEnvironment::OpenGLDraw(const xyLoc &l, GLfloat r, GLfloat g, GLfloat b) const
+//void Grid3DEnvironment::OpenGLDraw(const xyzLoc &l, GLfloat r, GLfloat g, GLfloat b) const
 //{
 //	GLdouble xx, yy, zz, rad;
 //	map->GetOpenGLCoord(l.x, l.y, xx, yy, zz, rad);
@@ -929,10 +929,10 @@ void MapEnvironment::OpenGLDraw(const xyLoc &l1, const xyLoc &l2, float v) const
 //}
 
 
-void MapEnvironment::OpenGLDraw(const xyLoc& initial, const tDirection &dir) const
+void Grid3DEnvironment::OpenGLDraw(const xyzLoc& initial, const tDirection &dir) const
 {
 	
-	xyLoc s = initial;
+	xyzLoc s = initial;
 	GLdouble xx, yy, zz, rad;
 	map->GetOpenGLCoord(s.x, s.y, xx, yy, zz, rad);
 	
@@ -1002,7 +1002,7 @@ void MapEnvironment::OpenGLDraw(const xyLoc& initial, const tDirection &dir) con
 	
 }
 
-void MapEnvironment::GLDrawLine(const xyLoc &a, const xyLoc &b) const
+void Grid3DEnvironment::GLDrawLine(const xyzLoc &a, const xyzLoc &b) const
 {
 	GLdouble xx1, yy1, zz1, rad;
 	GLdouble xx2, yy2, zz2;
@@ -1045,7 +1045,7 @@ void MapEnvironment::GLDrawLine(const xyLoc &a, const xyLoc &b) const
 //	glEnd();
 }
 
-void MapEnvironment::GLLabelState(const xyLoc &s, const char *str, double scale) const
+void Grid3DEnvironment::GLLabelState(const xyzLoc &s, const char *str, double scale) const
 {
 	glPushMatrix();
 	
@@ -1068,7 +1068,7 @@ void MapEnvironment::GLLabelState(const xyLoc &s, const char *str, double scale)
 	glPopMatrix();
 }
 
-void MapEnvironment::GLLabelState(const xyLoc &s, const char *str) const
+void Grid3DEnvironment::GLLabelState(const xyzLoc &s, const char *str) const
 {
 	glPushMatrix();
 
@@ -1091,7 +1091,7 @@ void MapEnvironment::GLLabelState(const xyLoc &s, const char *str) const
 	glPopMatrix();
 }
 
-std::string MapEnvironment::SVGHeader()
+std::string Grid3DEnvironment::SVGHeader()
 {
 	std::string s;
 	// 10% margin on all sides of image
@@ -1103,7 +1103,7 @@ std::string MapEnvironment::SVGHeader()
 	return s;
 }
 
-std::string MapEnvironment::SVGDraw()
+std::string Grid3DEnvironment::SVGDraw()
 {
 	std::string s;
 	recColor black = {0.0, 0.0, 0.0};
@@ -1232,7 +1232,7 @@ std::string MapEnvironment::SVGDraw()
 	return s;
 }
 
-std::string MapEnvironment::SVGDraw(const xyLoc &l)
+std::string Grid3DEnvironment::SVGDraw(const xyzLoc &l)
 {
 	std::string s;
 	if (map->GetTerrainType(l.x, l.y) == kGround)
@@ -1246,7 +1246,7 @@ std::string MapEnvironment::SVGDraw(const xyLoc &l)
 	return s;
 }
 
-std::string MapEnvironment::SVGFrameRect(int left, int top, int right, int bottom, int width)
+std::string Grid3DEnvironment::SVGFrameRect(int left, int top, int right, int bottom, int width)
 {
 	std::string s;
 
@@ -1258,7 +1258,7 @@ std::string MapEnvironment::SVGFrameRect(int left, int top, int right, int botto
 	return s;
 }
 
-std::string MapEnvironment::SVGLabelState(const xyLoc &l, const char *str, double scale) const
+std::string Grid3DEnvironment::SVGLabelState(const xyzLoc &l, const char *str, double scale) const
 {
 	std::string s;
 	recColor c;// = {0.5, 0.5, 0};
@@ -1273,7 +1273,7 @@ std::string MapEnvironment::SVGLabelState(const xyLoc &l, const char *str, doubl
 //	return s;
 }
 
-std::string MapEnvironment::SVGDrawLine(const xyLoc &p1, const xyLoc &p2, int width) const
+std::string Grid3DEnvironment::SVGDrawLine(const xyzLoc &p1, const xyzLoc &p2, int width) const
 {
 	//<line x1="0" y1="0" x2="200" y2="200" style="stroke:rgb(255,255,255);stroke-width:1" />
 	//std::string s;
@@ -1291,7 +1291,7 @@ std::string MapEnvironment::SVGDrawLine(const xyLoc &p1, const xyLoc &p2, int wi
 }
 
 
-void MapEnvironment::Draw() const
+void Grid3DEnvironment::Draw() const
 {
 	recColor black = {0.0, 0.0, 0.0};
 	
@@ -1427,7 +1427,7 @@ void MapEnvironment::Draw() const
 	}
 }
 
-void MapEnvironment::Draw(const xyLoc &l) const
+void Grid3DEnvironment::Draw(const xyzLoc &l) const
 {
 	GLdouble px, py, t, rad;
 	map->GetOpenGLCoord(l.x, l.y, px, py, t, rad);
@@ -1450,7 +1450,7 @@ void MapEnvironment::Draw(const xyLoc &l) const
 	}
 }
 
-void MapEnvironment::DrawLine(const xyLoc &a, const xyLoc &b, double width) const
+void Grid3DEnvironment::DrawLine(const xyzLoc &a, const xyzLoc &b, double width) const
 {
 	GLdouble xx1, yy1, zz1, rad;
 	GLdouble xx2, yy2, zz2;
@@ -1465,9 +1465,9 @@ void MapEnvironment::DrawLine(const xyLoc &a, const xyLoc &b, double width) cons
 }
 
 
-//void MapEnvironment::OpenGLDraw(const xyLoc& initial, const tDirection &dir, GLfloat r, GLfloat g, GLfloat b) const
+//void Grid3DEnvironment::OpenGLDraw(const xyzLoc& initial, const tDirection &dir, GLfloat r, GLfloat g, GLfloat b) const
 //{
-//	xyLoc s = initial;
+//	xyzLoc s = initial;
 //	GLdouble xx, yy, zz, rad;
 //	map->GetOpenGLCoord(s.x, s.y, xx, yy, zz, rad);
 //	
@@ -1495,7 +1495,7 @@ void MapEnvironment::DrawLine(const xyLoc &a, const xyLoc &b, double width) cons
 //	glEnd();
 //}
 
-void MapEnvironment::GetNextState(const xyLoc &currents, tDirection dir, xyLoc &news) const
+void Grid3DEnvironment::GetNextState(const xyzLoc &currents, tDirection dir, xyzLoc &news) const
  {
 	news = currents;
  	switch (dir)
@@ -1554,7 +1554,7 @@ void MapEnvironment::GetNextState(const xyLoc &currents, tDirection dir, xyLoc &
 	}	
 }
 
-double MapEnvironment::GetPathLength(std::vector<xyLoc> &neighbors)
+double Grid3DEnvironment::GetPathLength(std::vector<xyzLoc> &neighbors)
 {
 	double length = 0;
 	for (unsigned int x = 1; x < neighbors.size(); x++)
@@ -1566,14 +1566,14 @@ double MapEnvironment::GetPathLength(std::vector<xyLoc> &neighbors)
 
 /************************************************************/
 
-AbsMapEnvironment::AbsMapEnvironment(MapAbstraction *_ma)
-:MapEnvironment(_ma->GetMap())
+AbsGrid3DEnvironment::AbsGrid3DEnvironment(MapAbstraction *_ma)
+:Grid3DEnvironment(_ma->GetMap())
 {
 	ma = _ma;
 	
 }
 
-AbsMapEnvironment::~AbsMapEnvironment()
+AbsGrid3DEnvironment::~AbsGrid3DEnvironment()
 {
 	map = 0;
 	//delete ma;
@@ -1621,7 +1621,7 @@ BaseMapOccupancyInterface::~BaseMapOccupancyInterface()
 * @param s The state for which we want to set the occupancy
 * @param occupied Whether or not the state is occupied
 */
-void BaseMapOccupancyInterface::SetStateOccupied(const xyLoc &s, bool occupied)
+void BaseMapOccupancyInterface::SetStateOccupied(const xyzLoc &s, bool occupied)
 {
 	// Make sure the location is valid
 	// unsigned, so must be greater than 0
@@ -1638,7 +1638,7 @@ void BaseMapOccupancyInterface::SetStateOccupied(const xyLoc &s, bool occupied)
 * @param s The state for which we want to know the occupancy information
 * @return True if the state is occupied, false otherwise. 
 */
-bool BaseMapOccupancyInterface::GetStateOccupied(const xyLoc &s)
+bool BaseMapOccupancyInterface::GetStateOccupied(const xyzLoc &s)
 {
 	// unsigned, so must be greater than 0
 	assert(/*s.x>=0 &&*/ s.x<=mapWidth && /*s.y>=0 && */s.y<=mapHeight);
@@ -1674,13 +1674,13 @@ long BaseMapOccupancyInterface::CalculateIndex(uint16_t x, uint16_t y)
 * @param oldState The unit's previous state
 * @param newState The unit's new state
 */
-void BaseMapOccupancyInterface::MoveUnitOccupancy(const xyLoc &oldState, const xyLoc &newState)
+void BaseMapOccupancyInterface::MoveUnitOccupancy(const xyzLoc &oldState, const xyzLoc &newState)
 {
 	SetStateOccupied(oldState, false);
 	SetStateOccupied(newState, true);
 }
 
-bool BaseMapOccupancyInterface::CanMove(const xyLoc &, const xyLoc &l2)
+bool BaseMapOccupancyInterface::CanMove(const xyzLoc &, const xyzLoc &l2)
 {
 	if (!(GetStateOccupied(l2)))
 	{
