@@ -271,10 +271,10 @@ bool ThetaStar<state,action,environment>::DoSingleSearchStep(std::vector<state> 
     if(update.second>=0){
       openNode.parentID=update.first;
       openNode.g=update.second;
-      std::cout << "Reset parent of " << currOpenNode << " to " << openNode.parentID <<"\n";
+      //std::cout << "Reset parent of " << currOpenNode << " to " << openNode.parentID <<" " << update.second << "\n";
       //openClosedList.Print();
     }else{
-      std::cout << "Leave parent of " << currOpenNode << " as " << openNode.parentID <<"\n";
+      //std::cout << "Leave parent of " << currOpenNode << " as " << openClosedList.Lookup(openNode.parentID).data <<"\n";
     }
   }
 
@@ -314,6 +314,7 @@ bool ThetaStar<state,action,environment>::DoSingleSearchStep(std::vector<state> 
             //openClosedList.Lookup(theID).reopened = true;
             openClosedList.Lookup(theID).parentID = update.first;
             openClosedList.Lookup(theID).g = update.second;
+            //std::cout << "Update " << succ[x] << " to p=" << openClosedList.Lookup(update.first).data << " " << update.second << "\n";
             openClosedList.KeyChanged(theID);
             //openClosedList.Print();
           }
@@ -322,6 +323,7 @@ bool ThetaStar<state,action,environment>::DoSingleSearchStep(std::vector<state> 
       case kNotFound:
         {
           auto update(ComputeCost(openNode,succ[x],9999999));
+          //std::cout << "Create " << succ[x] << " with p=" << openClosedList.Lookup(update.first).data << " " << update.second << "\n";
           openClosedList.AddOpenNode(succ[x],
               env->GetStateHash(succ[x]),
               update.second,
@@ -338,7 +340,7 @@ template <class state, class action, class environment>
 std::pair<uint64_t,double> ThetaStar<state, action,environment>::SetVertex(AStarOpenClosedData<xyLoc> const& p){
   AStarOpenClosedData<xyLoc>& pp(openClosedList.Lookup(p.parentID));
   if(!env->LineOfSight(pp.data,p.data)){
-    std::cout << "No LOS: " << pp.data << " " << p.data << "\n";
+    //std::cout << "No LOS: " << pp.data << " " << p.data << "\n";
     uint64_t best(0);
     bool found(false);
     double bestg(9999999);
@@ -346,13 +348,14 @@ std::pair<uint64_t,double> ThetaStar<state, action,environment>::SetVertex(AStar
     env->GetSuccessors(p.data,neighbors);
     uint64_t id(0);
     for(auto const& n:neighbors){
+      if(p.data == n) continue;
       auto loc(openClosedList.Lookup(env->GetStateHash(n),id));
       if(kClosedList==loc){ // Have we seen this before?
         double g(openClosedList.Lookat(id).g+env->GCost(p.data,n));
         if(fless(g,bestg)){
          bestg=g;
          best=id;
-         std::cout << "Reset parent of " << p.data << " from " << pp.data << " to " << n <<"\n";
+         //std::cout << "Reset parent of " << p.data << " from " << pp.data << " to " << n << " " << bestg << "\n";
          found=true;
         }
       }

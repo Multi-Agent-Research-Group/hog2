@@ -58,6 +58,7 @@ PROJECTS = \
   demos/idastar \
   test/airplane \
   test/collisiondetection \
+  test/environments \
 #  apps/multiagent \
 #  apps/measure_inconsistency 
 #  simulation \
@@ -116,6 +117,7 @@ PROJECTS_ALL = \
   demos/idastar \
   test/airplane \
   test/collisiondetection \
+  test/environments \
 #	apps/coprobber
 
 # sequentially to avoid same sub-target in sub-make invoked twice

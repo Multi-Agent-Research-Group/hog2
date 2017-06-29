@@ -178,15 +178,17 @@ public:
 	bool NineConnected() { return connectedness==9; }
 	bool TwentyFourConnected() { return connectedness==24; }
 	bool TwentyFiveConnected() { return connectedness==25; }
-	bool EightyConnected() { return connectedness==80; }
-	bool EightyOneConnected() { return connectedness==81; }
-	bool AnyAngleConnected() { return connectedness>81; }
+	bool FortyEightConnected() { return connectedness==48; }
+	bool FortyNineConnected() { return connectedness==49; }
+	bool AnyAngleConnected() { return connectedness>49; }
 	void SetFourConnected() { connectedness=4; }
 	void SetFiveConnected() { connectedness=5; }
 	void SetEightConnected() { connectedness=8; }
 	void SetNineConnected() { connectedness=9; }
-	void SetEightyConnected() { connectedness=80; }
-	void SetEightyOneConnected() { connectedness=81; }
+	void SetTwentyFourConnected() { connectedness=24; }
+	void SetTwentyFiveonnected() { connectedness=25; }
+	void SetFortyEightConnected() { connectedness=48; }
+	void SetFortyNineConnected() { connectedness=49; }
 	void SetAnyAngleConnected() { connectedness=255; }
 	//virtual BaseMapOccupancyInterface* GetOccupancyInterface(){std::cout<<"Mapenv\n";return oi;}
 	//virtual xyLoc GetNextState(xyLoc &s, tDirection dir);

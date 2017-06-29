@@ -616,7 +616,6 @@ class StraightLineHeuristic : public Heuristic<xyLoc> {
 };
 
 TEST(Theta, GetPath){
-  return;
   Map map(8,8);
   MapEnvironment env(&map);
   env.SetFiveConnected();
@@ -641,11 +640,11 @@ TEST(Theta, GetObstructedPath){
   std::vector<xyLoc> solution;
   tstar.GetPath(&env,{1,1},{7,3},solution);
   for(int i(1);i<solution.size(); ++i){
-    std::cout<<env.LineOfSight(solution[i-1],solution[i]) << "\n";
+    ASSERT_TRUE(env.LineOfSight(solution[i-1],solution[i]));
   }
-  std::cout<<env.LineOfSight({1,2},{7,3}) << "visible \n";
   for(auto const& ss: solution){
     std::cout << ss.x << "," << ss.y << "\n";
   }
+  std::cout << std::endl;
 }
 #endif

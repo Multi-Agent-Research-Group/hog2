@@ -51,68 +51,214 @@ void MapEnvironment::SetGraphHeuristic(GraphHeuristic *gh)
 void MapEnvironment::GetSuccessors(const xyLoc &loc, std::vector<xyLoc> &neighbors) const
 {
         // Implement any-angle branching
-        if(connectedness>81){
+        if(connectedness>49){
           if(solution.size()==0){
           }
         }
 	neighbors.resize(0);
-	bool up=false, down=false, up2=false, down2=false;
+	bool u=false, d=false, l=false, r=false, u2=false, d2=false, l2=false, r2=false, ur=false, ul=false, dr=false, dl=false, u2l=false, d2l=false, u2r=false, d2r=false, ul2=false, ur2=false, dl2=false, dr2=false, u2r2=false, u2l2=false, d2r2=false, d2l2=false;
 	// 
 	if ((map->CanStep(loc.x, loc.y, loc.x, loc.y+1)))
 	{
-		down = true;
+		d = true;
 		neighbors.push_back(xyLoc(loc.x, loc.y+1));
-                if(connectedness>9 && map->CanStep(loc.x, loc.y, loc.x, loc.y+2)){
-                  down2=true;
+                if(connectedness>9 && map->IsTraversable(loc.x, loc.y+2)){
+                  d2=true;
                   neighbors.push_back(xyLoc(loc.x, loc.y+2));
                 }
 	}
 	if ((map->CanStep(loc.x, loc.y, loc.x, loc.y-1)))
 	{
-		up = true;
+		u = true;
 		neighbors.push_back(xyLoc(loc.x, loc.y-1));
-                if(connectedness>9 && map->CanStep(loc.x, loc.y, loc.x, loc.y+2)){
-                  up2=true;
+                if(connectedness>9 && map->IsTraversable(loc.x, loc.y-2)){
+                  u2=true;
                   neighbors.push_back(xyLoc(loc.x, loc.y-2));
                 }
 	}
 	if ((map->CanStep(loc.x, loc.y, loc.x-1, loc.y)))
         {
-          bool left=true;
+          l=true;
           neighbors.push_back(xyLoc(loc.x-1, loc.y));
-          bool upLeft=false, upLeft2=false, left2=false;
           if (connectedness>5){
-            if(up && (map->CanStep(loc.x, loc.y, loc.x-1, loc.y-1))){
-              upLeft=true;
-              neighbors.push_back(xyLoc(loc.x-1, loc.y-1));
-              if(upLeft && map->CanStep(loc.x, loc.y, loc.x-2, loc.y-1)){
-                upLeft2=true;
-                neighbors.push_back(xyLoc(loc.x-2, loc.y));
-              }
-            }
-          }
-          if(connectedness>9){
-            if(map->CanStep(loc.x, loc.y, loc.x-2, loc.y)){ // left 2
-              left2=true;
+            // Left is open ...
+            if(connectedness>9 && map->IsTraversable(loc.x-2, loc.y)){ // left 2
+              l2=true;
               neighbors.push_back(xyLoc(loc.x-2, loc.y));
             }
-          }
+            if(u && (map->CanStep(loc.x, loc.y, loc.x-1, loc.y-1))){
+              ul=true;
+              neighbors.push_back(xyLoc(loc.x-1, loc.y-1));
+              if(connectedness>9){
+                // Left, Up, Left2 and UpLeft are open...
+                if(l2 && map->IsTraversable(loc.x-2, loc.y-1)){
+                  ul2=true;
+                  neighbors.push_back(xyLoc(loc.x-2, loc.y-1));
+                }
+                // Left, Up2, Up and UpLeft are open...
+                if(u2 && map->IsTraversable(loc.x-1, loc.y-2)){
+                  u2l=true;
+                  neighbors.push_back(xyLoc(loc.x-1, loc.y-2));
+                }
+                if(ul2 && u2l && map->IsTraversable(loc.x-2, loc.y-2)){
+                  u2l2=true;
+                  neighbors.push_back(xyLoc(loc.x-2, loc.y-2));
+                }
+              }
+            }
 
-          if (connectedness>5 && (down && (map->CanStep(loc.x, loc.y, loc.x-1, loc.y+1)))){
-            bool downLeft=true;
-            neighbors.push_back(xyLoc(loc.x-1, loc.y+1));
-          }
-        }
+            if (d && (map->CanStep(loc.x, loc.y, loc.x-1, loc.y+1))){
+              neighbors.push_back(xyLoc(loc.x-1, loc.y+1));
+              dl=true;
+              if(connectedness>9){
+                // Left, Down, Left2 and UpLeft are open...
+                if(l2 && map->IsTraversable(loc.x-2, loc.y+1)){
+                  dl2=true;
+                  neighbors.push_back(xyLoc(loc.x-2, loc.y+1));
+                }
+                // Left, Up2, Up and UpLeft are open...
+                if(d2 && map->IsTraversable(loc.x-1, loc.y+2)){
+                  d2l=true;
+                  neighbors.push_back(xyLoc(loc.x-1, loc.y+2));
+                }
+                if(dl2 && d2l && map->IsTraversable(loc.x-2, loc.y+2)){
+                  d2l2=true;
+                  neighbors.push_back(xyLoc(loc.x-2, loc.y+2));
+                }
+              }
+            } // down && downleft
+          } // connectedness>5
+        } // left
+
 	if ((map->CanStep(loc.x, loc.y, loc.x+1, loc.y)))
-	{
-		neighbors.push_back(xyLoc(loc.x+1, loc.y));
-		if (connectedness>5 && (up && (map->CanStep(loc.x, loc.y, loc.x+1, loc.y-1)))){
-			neighbors.push_back(xyLoc(loc.x+1, loc.y-1));
+        {
+          r=true;
+          neighbors.push_back(xyLoc(loc.x+1, loc.y));
+          if (connectedness>5){
+            // Right is open ...
+            if(connectedness>9 && map->IsTraversable(loc.x+2, loc.y)){ // right 2
+              r2=true;
+              neighbors.push_back(xyLoc(loc.x+2, loc.y));
+            }
+            if(u && (map->CanStep(loc.x, loc.y, loc.x+1, loc.y-1))){
+              ur=true;
+              neighbors.push_back(xyLoc(loc.x+1, loc.y-1));
+              if(connectedness>9){
+                // Right, Up, Right2 and UpRight are open...
+                if(r2 && map->IsTraversable(loc.x+2, loc.y-1)){
+                  ur2=true;
+                  neighbors.push_back(xyLoc(loc.x+2, loc.y-1));
                 }
-		if (connectedness>5 && (down && (map->CanStep(loc.x, loc.y, loc.x+1, loc.y+1)))){
-			neighbors.push_back(xyLoc(loc.x+1, loc.y+1));
+                // Right, Up2, Up and UpRight are open...
+                if(u2 && map->IsTraversable(loc.x+1, loc.y-2)){
+                  u2r=true;
+                  neighbors.push_back(xyLoc(loc.x+1, loc.y-2));
                 }
-	}
+                if(ur2 && u2r && map->IsTraversable(loc.x+2, loc.y-2)){
+                  u2r2=true;
+                  neighbors.push_back(xyLoc(loc.x+2, loc.y-2));
+                }
+              }
+            }
+
+            if (d && (map->CanStep(loc.x, loc.y, loc.x+1, loc.y+1))){
+              dr=true;
+              neighbors.push_back(xyLoc(loc.x+1, loc.y+1));
+              if(connectedness>9){
+                // Right, Down, Right2 and UpRight are open...
+                if(r2 && map->IsTraversable(loc.x+2, loc.y+1)){
+                  dr2=true;
+                  neighbors.push_back(xyLoc(loc.x+2, loc.y+1));
+                }
+                // Right, Up2, Up and UpRight are open...
+                if(d2 && map->IsTraversable(loc.x+1, loc.y+2)){
+                  d2r=true;
+                  neighbors.push_back(xyLoc(loc.x+1, loc.y+2));
+                }
+                if(dr2 && d2r && map->IsTraversable(loc.x+2, loc.y+2)){
+                  d2r2=true;
+                  neighbors.push_back(xyLoc(loc.x+2, loc.y+2));
+                }
+              }
+            } // down && downright
+          } // connectedness>5
+        } // right
+std::cout << connectedness << "---\n";
+        if(connectedness>25){
+          if(d2 && map->IsTraversable(loc.x, loc.y+3))
+            neighbors.push_back(xyLoc(loc.x, loc.y+3));
+          if(u2 && map->IsTraversable(loc.x, loc.y-3))
+            neighbors.push_back(xyLoc(loc.x, loc.y-3));
+          if(r2 && map->IsTraversable(loc.x+3, loc.y))
+            neighbors.push_back(xyLoc(loc.x+3, loc.y));
+          if(l2 && map->IsTraversable(loc.x-3, loc.y))
+            neighbors.push_back(xyLoc(loc.x-3, loc.y));
+
+          // ul3
+          if(l2 && ul2 && map->IsTraversable(loc.x-3, loc.y-1))
+            neighbors.push_back(xyLoc(loc.x-3, loc.y-1));
+          // dl3
+          if(l2 && dl2 && map->IsTraversable(loc.x-3, loc.y+1))
+            neighbors.push_back(xyLoc(loc.x-3, loc.y+1));
+          // ur3
+          if(r2 && ur2 && map->IsTraversable(loc.x+3, loc.y-1))
+            neighbors.push_back(xyLoc(loc.x+3, loc.y-1));
+          // dr3
+          if(r2 && dr2 && map->IsTraversable(loc.x+3, loc.y+1))
+            neighbors.push_back(xyLoc(loc.x+3, loc.y+1));
+            
+          // u3l
+          if(u2 && u2l && map->IsTraversable(loc.x-1, loc.y-3))
+            neighbors.push_back(xyLoc(loc.x-1, loc.y-3));
+          // d3l
+          if(u2 && d2l && map->IsTraversable(loc.x-1, loc.y+3))
+            neighbors.push_back(xyLoc(loc.x-1, loc.y+3));
+          // u3r
+          if(d2 && u2r && map->IsTraversable(loc.x+1, loc.y-3))
+            neighbors.push_back(xyLoc(loc.x+1, loc.y-3));
+          // d3r
+          if(d2 && d2r && map->IsTraversable(loc.x+1, loc.y+3))
+            neighbors.push_back(xyLoc(loc.x+1, loc.y+3));
+            
+          // u2l3
+          if(u2l2 && map->IsTraversable(loc.x-3,loc.y-1) && map->IsTraversable(loc.x-3, loc.y-2))
+            neighbors.push_back(xyLoc(loc.x-3, loc.y-2));
+          // d2l3
+          if(d2l2 && map->IsTraversable(loc.x-3,loc.y+1) && map->IsTraversable(loc.x-3, loc.y+2))
+            neighbors.push_back(xyLoc(loc.x-3, loc.y+2));
+          // u2r3
+          if(u2r2 && map->IsTraversable(loc.x+3,loc.y-1) && map->IsTraversable(loc.x+3, loc.y-2))
+            neighbors.push_back(xyLoc(loc.x+3, loc.y-2));
+          // d2r3
+          if(d2r2 && map->IsTraversable(loc.x+3,loc.y+1) && map->IsTraversable(loc.x+3, loc.y+2))
+            neighbors.push_back(xyLoc(loc.x+3, loc.y+2));
+            
+          // u3l2
+          if(u2l2 && map->IsTraversable(loc.x-1,loc.y-3) && map->IsTraversable(loc.x-2, loc.y-3))
+            neighbors.push_back(xyLoc(loc.x-2, loc.y-3));
+          // d3l2
+          if(d2l2 && map->IsTraversable(loc.x-1,loc.y+3) && map->IsTraversable(loc.x-2, loc.y+3))
+            neighbors.push_back(xyLoc(loc.x-2, loc.y+3));
+          // u3r2
+          if(u2r2 && map->IsTraversable(loc.x+1,loc.y-3) && map->IsTraversable(loc.x+2, loc.y-3))
+            neighbors.push_back(xyLoc(loc.x+2, loc.y-3));
+          // d3r2
+          if(d2r2 && map->IsTraversable(loc.x+1,loc.y+3) && map->IsTraversable(loc.x+2, loc.y+3))
+            neighbors.push_back(xyLoc(loc.x+2, loc.y+3));
+            
+          // u3l3
+          if(u2l2 && map->IsTraversable(loc.x-2,loc.y-3) && map->IsTraversable(loc.x-3,loc.y-2) && map->IsTraversable(loc.x-3, loc.y-3))
+            neighbors.push_back(xyLoc(loc.x-3, loc.y-3));
+          // d3l3
+          if(d2l2 && map->IsTraversable(loc.x-2,loc.y+3) && map->IsTraversable(loc.x-3,loc.y+2) && map->IsTraversable(loc.x-3, loc.y+3))
+            neighbors.push_back(xyLoc(loc.x-3, loc.y+3));
+          // u3r3
+          if(u2r2 && map->IsTraversable(loc.x+2,loc.y-3) && map->IsTraversable(loc.x+3,loc.y-2) && map->IsTraversable(loc.x+3, loc.y-3))
+            neighbors.push_back(xyLoc(loc.x+3, loc.y-3));
+          // d3r3
+          if(d2r2 && map->IsTraversable(loc.x+2,loc.y+3) && map->IsTraversable(loc.x+3,loc.y+2) && map->IsTraversable(loc.x+3, loc.y+3))
+            neighbors.push_back(xyLoc(loc.x+3, loc.y+3));
+        }
         if(connectedness%2) // Is waiting allowed?
         {
 		neighbors.push_back(loc);
@@ -489,7 +635,7 @@ void MapEnvironment::ApplyAction(xyLoc &s, tDirection dir) const
 
 double MapEnvironment::HCost(const xyLoc &l1, const xyLoc &l2) const
 {
-        if(connectedness>81){
+        if(connectedness>49){
           // Straight line distance
           return Util::distance(l1.x,l1.y,l2.x,l2.y);
         }
@@ -550,8 +696,8 @@ double MapEnvironment::GCost(const xyLoc &l1, const xyLoc &l2) const
 //	{
 //		multiplier = 3.0;
 //	}
-	if (l1.x == l2.x) return 1.0*multiplier;
-	if (l1.y == l2.y) return 1.0*multiplier;
+	if (l1.x == l2.x) return abs(l1.y-l2.y)*multiplier;
+	if (l1.y == l2.y) return abs(l1.x-l2.x)*multiplier;
 	if (l1 == l2) return 0.0;
 	if (abs(l1.x-l2.x)==1) return DIAGONAL_COST*multiplier;
         return Util::distance(l1.x,l1.y,l2.x,l2.y);
