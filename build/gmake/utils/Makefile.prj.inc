@@ -40,6 +40,7 @@ SRC_CPP = \
 	utils/GLUtil.cpp \
 	utils/IntervalTree.cpp \
 	utils/LinearRegression.cpp \
+	utils/Map3d.cpp \
 	utils/Map.cpp \
 	utils/MapOverlay.cpp \
 	utils/NN.cpp \

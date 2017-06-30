@@ -1,5 +1,5 @@
 /*
- *  Map2DEnvironment.h
+ *  Grid3dEnvironment.h
  *  hog2
  *
  *  Created by Nathan Sturtevant on 4/20/07.
@@ -7,14 +7,14 @@
  *
  */
 
-#ifndef MAP2DENVIRONMENT_H
-#define MAP2DENVIRONMENT_H
+#ifndef GRID3DENVIRONMENT_H
+#define GRID3DENVIRONMENT_H
 
 #include <stdint.h>
 #include <stdlib.h>
 #include <string>
 #include <iostream>
-#include "Map.h"
+#include "Map3d.h"
 #include "MapAbstraction.h"
 #include "SearchEnvironment.h"
 #include "UnitSimulation.h"
@@ -24,7 +24,6 @@
 
 #include <cassert>
 
-//#include "BaseMapOccupancyInterface.h"
 
 struct xyzLoc {
 public:
@@ -55,11 +54,16 @@ static bool operator==(const xyzLoc &l1, const xyzLoc &l2) {
 }
 
 static bool operator!=(const xyzLoc &l1, const xyzLoc &l2) {
-	return (l1.x != l2.x) || (l1.y != l2.y) && (l1.z != l2.z);
+	return (l1.x != l2.x) || (l1.y != l2.y) || (l1.z != l2.z);
 }
 
 
-enum tDirection {
+enum t3DDirection {
+  kU
+};
+
+/*
+enum t3DDirection {
   kN=0x8, kS=0x4, kE=0x2, kW=0x1, kNW=kN|kW, kNE=kN|kE,
   kSE=kS|kE, kSW=kS|kW, kStay=0, kTeleport=kSW|kNE, kAll=0x3FFF,
   kNN=0x80,
@@ -191,43 +195,12 @@ enum tDirection {
   kDNNNWW=kD|kNNN|kWW,
   kDNNWWW=kD|kNN|kWWW,
   kDNNNWWW=kD|kNNN|kWWW
-};
+};*/
 
-class BaseMapOccupancyInterface : public OccupancyInterface<xyzLoc,tDirection>
+class Grid3DEnvironment : public SearchEnvironment<xyzLoc, t3DDirection>
 {
 public:
-	BaseMapOccupancyInterface(Map* m);
-	virtual ~BaseMapOccupancyInterface();
-	virtual void SetStateOccupied(const xyzLoc&, bool);
-	virtual bool GetStateOccupied(const xyzLoc&);
-	virtual bool CanMove(const xyzLoc&, const xyzLoc&);
-	virtual void MoveUnitOccupancy(const xyzLoc &, const xyzLoc&);
-
-private:
-	//BitVector *bitvec; /// For each map position, set if occupied
-	std::vector<bool> bitvec;
-	long mapWidth; /// Used to compute index into bitvector
-	long mapHeight; /// used to compute index into bitvector
-
-	long CalculateIndex(uint16_t x, uint16_t y);
-};
-
-
-const int numPrimitiveActions = 8;
-const int numActions = 10;
-const tDirection possibleDir[numActions] = { kN, kNE, kE, kSE, kS, kSW, kW, kNW, kStay, kTeleport };
-const int kStayIndex = 8; // index of kStay
-
-
-
-
-//typedef OccupancyInterface<xyzLoc, tDirection> BaseMapOccupancyInterface;
-
-
-class Grid3DEnvironment : public SearchEnvironment<xyzLoc, tDirection>
-{
-public:
-	Grid3DEnvironment(Map *m, bool useOccupancy = false);
+	Grid3DEnvironment(Map3D *m, bool=false);
 	Grid3DEnvironment(Grid3DEnvironment *);
 	virtual ~Grid3DEnvironment();
 	void SetGraphHeuristic(GraphHeuristic *h);
@@ -236,12 +209,10 @@ public:
 	bool GetNextSuccessor(const xyzLoc &currOpenNode, const xyzLoc &goal, xyzLoc &next, double &currHCost, uint64_t &special, bool &validMove);
 	bool GetNext4Successor(const xyzLoc &currOpenNode, const xyzLoc &goal, xyzLoc &next, double &currHCost, uint64_t &special, bool &validMove);
 	bool GetNext8Successor(const xyzLoc &currOpenNode, const xyzLoc &goal, xyzLoc &next, double &currHCost, uint64_t &special, bool &validMove);
-	void GetActions(const xyzLoc &nodeID, std::vector<tDirection> &actions) const;
-	tDirection GetAction(const xyzLoc &s1, const xyzLoc &s2) const;
-	virtual void ApplyAction(xyzLoc &s, tDirection dir) const;
-	virtual BaseMapOccupancyInterface *GetOccupancyInfo() { return oi; }
-
-	virtual bool InvertAction(tDirection &a) const;
+	void GetActions(const xyzLoc &nodeID, std::vector<t3DDirection> &actions) const;
+	t3DDirection GetAction(const xyzLoc &s1, const xyzLoc &s2) const;
+	virtual void ApplyAction(xyzLoc &s, t3DDirection dir) const;
+	virtual bool InvertAction(t3DDirection &a) const;
 
 //	bool Contractable(const xyzLoc &where);
 	
@@ -250,7 +221,7 @@ public:
 		exit(1); return -1.0;}
 	virtual double HCost(const xyzLoc &node1, const xyzLoc &node2) const;
 	virtual double GCost(const xyzLoc &node1, const xyzLoc &node2) const;
-	virtual double GCost(const xyzLoc &node1, const tDirection &act) const;
+	virtual double GCost(const xyzLoc &node1, const t3DDirection &act) const;
         bool LineOfSight(const xyzLoc &node, const xyzLoc &goal) const;
 	bool GoalTest(const xyzLoc &node, const xyzLoc &goal) const;
 
@@ -260,73 +231,44 @@ public:
 
 	uint64_t GetMaxHash() const;
 	uint64_t GetStateHash(const xyzLoc &node) const;
-	uint64_t GetActionHash(tDirection act) const;
+	uint64_t GetActionHash(t3DDirection act) const;
 	virtual void OpenGLDraw() const;
 	virtual void OpenGLDraw(const xyzLoc &l) const;
 	virtual void OpenGLDraw(const xyzLoc &l1, const xyzLoc &l2, float v) const;
-	virtual void OpenGLDraw(const xyzLoc &, const tDirection &) const;
+	virtual void OpenGLDraw(const xyzLoc &, const t3DDirection &) const;
 	virtual void GLLabelState(const xyzLoc &, const char *) const;
 	virtual void GLLabelState(const xyzLoc &s, const char *str, double scale) const;
 	virtual void GLDrawLine(const xyzLoc &x, const xyzLoc &y) const;
-	
-	std::string SVGHeader();
-	std::string SVGDraw();
-	std::string SVGDraw(const xyzLoc &);
-	std::string SVGLabelState(const xyzLoc &, const char *, double scale) const;
-	std::string SVGDrawLine(const xyzLoc &x, const xyzLoc &y, int width=1) const;
-	std::string SVGFrameRect(int left, int top, int right, int bottom, int width = 1);
 
 	virtual void Draw() const;
 	virtual void Draw(const xyzLoc &l) const;
 	virtual void DrawLine(const xyzLoc &x, const xyzLoc &y, double width = 1.0) const;
 
 	
-	//virtual void OpenGLDraw(const xyzLoc &, const tDirection &, GLfloat r, GLfloat g, GLfloat b) const;
+	//virtual void OpenGLDraw(const xyzLoc &, const t3DDirection &, GLfloat r, GLfloat g, GLfloat b) const;
 	//virtual void OpenGLDraw(const xyzLoc &l, GLfloat r, GLfloat g, GLfloat b) const;
-	Map* GetMap() const { return map; }
+	Map3D* GetMap() const { return map; }
 
-	virtual void GetNextState(const xyzLoc &currents, tDirection dir, xyzLoc &news) const;
+	virtual void GetNextState(const xyzLoc &currents, t3DDirection dir, xyzLoc &news) const;
 
 	void StoreGoal(xyzLoc &) {} // stores the locations for the given goal state
 	void ClearGoal() {}
 	bool IsGoalStored() const {return false;}
-	void SetDiagonalCost(double val) { DIAGONAL_COST = val; }
-	double GetDiagonalCost() { return DIAGONAL_COST; }
-	bool FourConnected() { return connectedness==4; }
-	bool FiveConnected() { return connectedness==5; }
-	bool EightConnected() { return connectedness==8; }
-	bool NineConnected() { return connectedness==9; }
-	bool TwentyFourConnected() { return connectedness==24; }
-	bool TwentyFiveConnected() { return connectedness==25; }
-	bool FortyEightConnected() { return connectedness==48; }
-	bool FortyNineConnected() { return connectedness==49; }
-	bool AnyAngleConnected() { return connectedness>49; }
-	void SetFourConnected() { connectedness=4; }
-	void SetFiveConnected() { connectedness=5; }
-	void SetEightConnected() { connectedness=8; }
-	void SetNineConnected() { connectedness=9; }
-	void SetTwentyFourConnected() { connectedness=24; }
-	void SetTwentyFiveonnected() { connectedness=25; }
-	void SetFortyEightConnected() { connectedness=48; }
-	void SetFortyNineConnected() { connectedness=49; }
-	void SetAnyAngleConnected() { connectedness=255; }
-	//virtual BaseMapOccupancyInterface* GetOccupancyInterface(){std::cout<<"Mapenv\n";return oi;}
-	//virtual xyzLoc GetNextState(xyzLoc &s, tDirection dir);
+	void SetOneConnected() { connectedness=1; }
+	void SetTwoConnected() { connectedness=2; }
+	void SetThreeConnected() { connectedness=3; }
+	//virtual xyzLoc GetNextState(xyzLoc &s, t3DDirection dir);
 	double GetPathLength(std::vector<xyzLoc> &neighbors);
         std::vector<std::vector<std::pair<xyzLoc,double>>> solution;
         void findIntervals(xyzLoc curNode, std::vector<std::pair<double,double>>& intervals, std::vector<double>& EAT, int w) const;
 protected:
 	GraphHeuristic *h;
-	Map *map;
-	BaseMapOccupancyInterface *oi;
-	double DIAGONAL_COST;
-	double SQRT_5;
-	double SQRT_10;
-	double SQRT_13;
+	Map3D *map;
 	uint8_t connectedness;
+	bool waitAllowed;
 };
 
-class AbsGrid3DEnvironment : public Grid3DEnvironment
+/*class AbsGrid3DEnvironment : public Grid3DEnvironment
 {
 public:
 	AbsGrid3DEnvironment(MapAbstraction *ma);
@@ -334,20 +276,19 @@ public:
 	MapAbstraction *GetMapAbstraction() { return ma; }
 	void OpenGLDraw() const { map->OpenGLDraw(); ma->OpenGLDraw(); }
 	void OpenGLDraw(const xyzLoc &l) const { Grid3DEnvironment::OpenGLDraw(l); }
-	void OpenGLDraw(const xyzLoc& s, const tDirection &dir) const {Grid3DEnvironment::OpenGLDraw(s,dir);}
+	void OpenGLDraw(const xyzLoc& s, const t3DDirection &dir) const {Grid3DEnvironment::OpenGLDraw(s,dir);}
 	void OpenGLDraw(const xyzLoc &l1, const xyzLoc &l2, float v) const { Grid3DEnvironment::OpenGLDraw(l1, l2, v); }
 
-	//virtual BaseMapOccupancyInterface* GetOccupancyInterface(){std::cout<<"AbsMap\n";return oi;}
 protected:
 	MapAbstraction *ma;
-};
+};*/
 
-typedef UnitSimulation<xyzLoc, tDirection, Grid3DEnvironment> UnitMapSimulation;
-typedef UnitSimulation<xyzLoc, tDirection, AbsGrid3DEnvironment> UnitAbsMapSimulation;
+typedef UnitSimulation<xyzLoc, t3DDirection, Grid3DEnvironment> UnitMap3DSimulation;
+//typedef UnitSimulation<xyzLoc, t3DDirection, AbsGrid3DEnvironment> UnitAbsMap3DSimulation;
 
 
 //template<>
-//void UnitSimulation<xyzLoc, tDirection, Grid3DEnvironment>::OpenGLDraw()
+//void UnitSimulation<xyzLoc, t3DDirection, Grid3DEnvironment>::OpenGLDraw()
 //{
 //	env->OpenGLDraw();
 //	for (unsigned int x = 0; x < units.size(); x++)
@@ -357,7 +298,7 @@ typedef UnitSimulation<xyzLoc, tDirection, AbsGrid3DEnvironment> UnitAbsMapSimul
 //}
 //
 //template<>
-//void UnitSimulation<xyzLoc, tDirection, AbsGrid3DEnvironment>::OpenGLDraw()
+//void UnitSimulation<xyzLoc, t3DDirection, AbsGrid3DEnvironment>::OpenGLDraw()
 //{
 //	env->OpenGLDraw();
 //	for (unsigned int x = 0; x < units.size(); x++)

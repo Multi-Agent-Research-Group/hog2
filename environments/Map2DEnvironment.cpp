@@ -727,38 +727,95 @@ void MapEnvironment::ApplyAction(xyLoc &s, tDirection dir) const
 //	s = old;
 }
 
+double _h4(double dx, double dy, double result=0.0);
+  return dx+dy+result;
+}
+
+double h4(const xyLoc &l1, const xyLoc &l2){
+  return _h4(abs(l1.x-l2.x),abs(l1.y-l2.y));
+}
+
+double _h8(double dx,double dy,double result=0){
+  if(dx>dy){ // Swap
+    double tmp(dx); dx=dy; dy=tmp;
+  }
+  if(dy>=dx){
+    result += dx*SQRT_2
+      dy -= dx
+      dx -= dx
+  }
+  return _h4(dy,dx,result)
+}
+
+double h8(const xyLoc &l1, const xyLoc &l2){
+  return _h8(abs(l1.x-l2.x),abs(l1.y-l2.y));
+}
+
+double _h24(double dx,double dy,double result=0){
+  if(dx>dy){ // Swap
+    double tmp(dx); dx=dy; dy=tmp;
+  }
+  if(dy>1){
+    double diff(dy-dx);
+    if(diff >=1){
+      double s5=std::min(diff,dx);
+      result += s5*SQRT_5;
+      dy -= s5*2; //up/down 2
+      dx -= s5; //over 1
+    }
+  }
+  return _h8(dx,dy,result)
+}
+
+double h24(const xyLoc &l1, const xyLoc &l2){
+  return _h24(abs(l1.x-l2.x),abs(l1.y-l2.y));
+}
+
+double _h48(double dx,double dy,double result=0){
+  if(dx>dy){ // Swap
+    double tmp(dx); dx=dy; dy=tmp;
+  }
+  if(dy>2){
+    double diff(dy-dx);
+    double steps(dy/3);
+    double twos(steps-dx);
+    double twos(dx-ones);
+    double ddx(dx/3);
+    if(diff==2){
+      
+    }
+    if(diff>=1){
+      s5=std::min(diff,dx);
+      result += s5*SQRT_5;
+      dy -= s5*2; //up/down 2
+      dx -= s5; //over 1
+    }
+  }
+  return _h24(dx,dy,result)
+}
+
+double h48(const xyLoc &l1, const xyLoc &l2){
+  return _h48(abs(l1.x-l2.x),abs(l1.y-l2.y));
+}
+
+
 double MapEnvironment::HCost(const xyLoc &l1, const xyLoc &l2) const
 {
-        if(connectedness>49){
-          // Straight line distance
-          return Util::distance(l1.x,l1.y,l2.x,l2.y);
-        }
-	double h1, h2;
-	if (connectedness<6)
-	{
-		h1 = abs(l1.x-l2.x)+abs(l1.y-l2.y);
-	}
-	else {
-		double a = ((l1.x>l2.x)?(l1.x-l2.x):(l2.x-l1.x));
-		double b = ((l1.y>l2.y)?(l1.y-l2.y):(l2.y-l1.y));
-		//return sqrt(a*a+b*b);
-		h1 = (a>b)?(b*DIAGONAL_COST+a-b):(a*DIAGONAL_COST+b-a);
-	}
-
-	if (h == 0)
-		return h1;
-	
-	int n1 = map->GetNodeNum(l1.x, l1.y);
-	int n2 = map->GetNodeNum(l2.x, l2.y);
-	if ((n1 != -1) && (n2 != -1))
-	{
-		graphState nn1 = n1;
-		graphState nn2 = n2;
-		h2 = h->HCost(nn1, nn2);
-	}
-	else
-		h2 = 0;
-	return std::max(h1, h2);
+  switch(connectedness){
+  case 4:
+  case 5:
+    return h4(l1,l2);
+  case 8:
+  case 9:
+    return h8(l1,l2);
+  case 24:
+  case 25:
+    return h24(l1,l2);
+  case 48:
+  case 49:
+    return h48(l1,l2);
+  default: return Util::distance(l1.x,l1.y,l2.x,l2.y);
+  }
 }
 
 double MapEnvironment::GCost(const xyLoc &l, const tDirection &act) const
