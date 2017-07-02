@@ -245,6 +245,14 @@ protected:
 	double SQRT_10;
 	double SQRT_13;
 	uint8_t connectedness;
+        double _h4(unsigned dx, unsigned dy, double result=0.0)const;
+        double h4(const xyLoc &l1, const xyLoc &l2)const;
+        double _h8(unsigned dx,unsigned dy,double result=0)const;
+        double h8(const xyLoc &l1, const xyLoc &l2)const;
+        double _h24(unsigned dx,unsigned dy,double result=0)const;
+        double h24(const xyLoc &l1, const xyLoc &l2)const;
+        double _h48(unsigned dx,unsigned dy,double result=0)const;
+        double h48(const xyLoc &l1, const xyLoc &l2)const;
 };
 
 class AbsMapEnvironment : public MapEnvironment

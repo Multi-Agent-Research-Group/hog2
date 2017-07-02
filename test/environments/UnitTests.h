@@ -5,8 +5,9 @@
 #include <gtest/gtest.h>
 #include "Map2DEnvironment.h"
 #include "Grid3DEnvironment.h"
+#include "TemplateAStar.h"
 
-TEST(Map2D, TwentyFourConnected){
+TEST(Map2D, TwentyFourConnected_Successors){
   Map map(8,8);
   MapEnvironment env(&map);
   env.SetTwentyFourConnected();
@@ -22,7 +23,7 @@ TEST(Map2D, TwentyFourConnected){
   }
 }
 
-TEST(Map2D, TwentyFourConnectedWObstacle){
+TEST(Map2D, TwentyFourConnectedWObstacle_Successors){
   Map map(8,8);
   MapEnvironment env(&map);
   map.SetTerrainType(4,3,kOutOfBounds); // Should knock out 10: r,ur,u2r,dr,d2r,r2,u2r2,ur2,dr2,d2r2
@@ -39,7 +40,7 @@ TEST(Map2D, TwentyFourConnectedWObstacle){
   }
 }
 
-TEST(Map2D, FortyEightConnected){
+TEST(Map2D, FortyEightConnected_Successors){
   Map map(8,8);
   MapEnvironment env(&map);
   env.SetFortyEightConnected();
@@ -55,7 +56,7 @@ TEST(Map2D, FortyEightConnected){
   }
 }
 
-TEST(Map2D, FortyEightConnectedWObstacle){
+TEST(Map2D, FortyEightConnectedWObstacle_Successors){
   Map map(8,8);
   MapEnvironment env(&map);
   map.SetTerrainType(4,3,kOutOfBounds);
@@ -87,6 +88,7 @@ TEST(Map3D, OneConnected){
     }
   }
 }
+
 TEST(Map3D, TwoConnected){
   Map3D map(8,8,8);
   Grid3DEnvironment env(&map);
@@ -146,6 +148,76 @@ TEST(Map2D, SingleConnectedWObstacle){
     for(int j(i+1);j<successors.size(); ++j){
       ASSERT_NE(successors[i],successors[j]);
     }
+  }
+}
+
+TEST(Map2D, FortyEightConnected_GCost){
+  Map map(8,8);
+  MapEnvironment env(&map);
+  env.SetFortyNineConnected();
+  ASSERT_EQ(1.0,env.GCost({0,0},{0,0}));
+  ASSERT_EQ(0.0,env.HCost({0,0},{0,0}));
+  ASSERT_EQ(1.0,env.GCost({0,0},{1,0}));
+  ASSERT_EQ(1.0,env.HCost({0,0},{1,0}));
+  ASSERT_DOUBLE_EQ(sqrt(2),env.GCost({0,0},{1,1}));
+  ASSERT_DOUBLE_EQ(sqrt(2),env.HCost({0,0},{1,1}));
+  ASSERT_DOUBLE_EQ(sqrt(5),env.GCost({0,0},{1,2}));
+  ASSERT_DOUBLE_EQ(sqrt(5),env.HCost({0,0},{1,2}));
+  ASSERT_DOUBLE_EQ(sqrt(10),env.GCost({0,0},{1,3}));
+  ASSERT_DOUBLE_EQ(sqrt(10),env.HCost({0,0},{1,3}));
+  ASSERT_DOUBLE_EQ(sqrt(13),env.GCost({0,0},{2,3}));
+  ASSERT_DOUBLE_EQ(sqrt(13),env.HCost({0,0},{2,3}));
+  ASSERT_DOUBLE_EQ(sqrt(13)*2.,env.HCost({0,0},{4,6}));
+  ASSERT_DOUBLE_EQ(sqrt(13)*2.+1.,env.HCost({0,0},{4,7}));
+  ASSERT_DOUBLE_EQ(sqrt(5)*4.,env.HCost({0,0},{4,8}));
+  ASSERT_DOUBLE_EQ(sqrt(10)+3.*sqrt(5),env.HCost({0,0},{4,9}));
+  ASSERT_DOUBLE_EQ(sqrt(13)+3.*sqrt(5),env.HCost({0,0},{5,9}));
+  ASSERT_DOUBLE_EQ(3.*sqrt(13),env.HCost({0,0},{6,9}));
+  ASSERT_DOUBLE_EQ(2.*sqrt(13)+3*sqrt(2),env.HCost({0,0},{7,9}));
+  ASSERT_DOUBLE_EQ(sqrt(13)+6*sqrt(2),env.HCost({0,0},{8,9}));
+  ASSERT_DOUBLE_EQ(9*sqrt(2),env.HCost({0,0},{9,9}));
+  ASSERT_DOUBLE_EQ(8*sqrt(2)+sqrt(5),env.HCost({0,0},{9,10}));
+  ASSERT_DOUBLE_EQ(7*sqrt(2)+2*sqrt(5),env.HCost({0,0},{9,11}));
+}
+
+TEST(Map2D, TwentyFourConnected_AdmissTest){
+  TemplateAStar<xyLoc,tDirection,MapEnvironment> astar;
+  Map map(100,100);
+  MapEnvironment env(&map);
+  env.SetTwentyFourConnected();
+  for(int i(0); i<1000; ++i){
+    std::vector<xyLoc> path;
+    xyLoc s({rand()%100,rand()%100});
+    xyLoc g({rand()%100,rand()%100});
+    astar.GetPath(&env,s,g,path);
+    double t(0);
+    std::cout << "----------------\n" << path[0] << "\n";
+    for(int j(1); j<path.size(); ++j){
+      t += env.GCost(path[j-1],path[j]);
+      //std::cout << path[j] << "\n";
+    }
+    //std::cout << s << " " << g << " " << t << " " << env.HCost(s,g) << "\n";
+    ASSERT_TRUE(fequal(t,env.HCost(s,g)));
+  }
+}
+TEST(Map2D, FortyEightConnected_AdmissTest){
+  TemplateAStar<xyLoc,tDirection,MapEnvironment> astar;
+  Map map(100,100);
+  MapEnvironment env(&map);
+  env.SetFortyEightConnected();
+  for(int i(0); i<1000; ++i){
+    std::vector<xyLoc> path;
+    xyLoc s({rand()%100,rand()%100});
+    xyLoc g({rand()%100,rand()%100});
+    astar.GetPath(&env,s,g,path);
+    double t(0);
+    std::cout << "----------------\n" << path[0] << "\n";
+    for(int j(1); j<path.size(); ++j){
+      t += env.GCost(path[j-1],path[j]);
+      std::cout << path[j] << "\n";
+    }
+    std::cout << s << " " << g << " " << t << " " << env.HCost(s,g) << "\n";
+    ASSERT_TRUE(fequal(t,env.HCost(s,g)));
   }
 }
 #endif

@@ -10,12 +10,13 @@
 #include "FPUtil.h"
 #include "SVGUtil.h"
 #include <cstring>
+#include <iomanip>
 #include "Graphics2D.h"
 #include "PositionalUtils.h"
 
 using namespace Graphics2D;
 
-MapEnvironment::MapEnvironment(Map *_m, bool useOccupancy):h(nullptr),map(_m),oi(useOccupancy?new BaseMapOccupancyInterface(map):nullptr),DIAGONAL_COST(ROOT_TWO),connectedness(8){
+MapEnvironment::MapEnvironment(Map *_m, bool useOccupancy):h(nullptr),map(_m),oi(useOccupancy?new BaseMapOccupancyInterface(map):nullptr),DIAGONAL_COST(sqrt(2)),connectedness(8){
   SQRT_5=sqrt(5.0);
   SQRT_10=sqrt(10.0);
   SQRT_13=sqrt(13);
@@ -56,7 +57,7 @@ void MapEnvironment::GetSuccessors(const xyLoc &loc, std::vector<xyLoc> &neighbo
           }
         }
 	neighbors.resize(0);
-	bool u=false, d=false, l=false, r=false, u2=false, d2=false, l2=false, r2=false, ur=false, ul=false, dr=false, dl=false, u2l=false, d2l=false, u2r=false, d2r=false, ul2=false, ur2=false, dl2=false, dr2=false, u2r2=false, u2l2=false, d2r2=false, d2l2=false;
+	bool u=false, d=false, /*l=false, r=false,*/ u2=false, d2=false, l2=false, r2=false, /*ur=false, ul=false, dr=false, dl=false,*/ u2l=false, d2l=false, u2r=false, d2r=false, ul2=false, ur2=false, dl2=false, dr2=false, u2r2=false, u2l2=false, d2r2=false, d2l2=false;
 	// 
 	if ((map->CanStep(loc.x, loc.y, loc.x, loc.y+1)))
 	{
@@ -78,7 +79,7 @@ void MapEnvironment::GetSuccessors(const xyLoc &loc, std::vector<xyLoc> &neighbo
 	}
 	if ((map->CanStep(loc.x, loc.y, loc.x-1, loc.y)))
         {
-          l=true;
+          //l=true;
           neighbors.push_back(xyLoc(loc.x-1, loc.y));
           if (connectedness>5){
             // Left is open ...
@@ -87,7 +88,7 @@ void MapEnvironment::GetSuccessors(const xyLoc &loc, std::vector<xyLoc> &neighbo
               neighbors.push_back(xyLoc(loc.x-2, loc.y));
             }
             if(u && (map->CanStep(loc.x, loc.y, loc.x-1, loc.y-1))){
-              ul=true;
+              //ul=true;
               neighbors.push_back(xyLoc(loc.x-1, loc.y-1));
               if(connectedness>9){
                 // Left, Up, Left2 and UpLeft are open...
@@ -109,7 +110,7 @@ void MapEnvironment::GetSuccessors(const xyLoc &loc, std::vector<xyLoc> &neighbo
 
             if (d && (map->CanStep(loc.x, loc.y, loc.x-1, loc.y+1))){
               neighbors.push_back(xyLoc(loc.x-1, loc.y+1));
-              dl=true;
+              //dl=true;
               if(connectedness>9){
                 // Left, Down, Left2 and UpLeft are open...
                 if(l2 && map->IsTraversable(loc.x-2, loc.y+1)){
@@ -132,7 +133,7 @@ void MapEnvironment::GetSuccessors(const xyLoc &loc, std::vector<xyLoc> &neighbo
 
 	if ((map->CanStep(loc.x, loc.y, loc.x+1, loc.y)))
         {
-          r=true;
+          //r=true;
           neighbors.push_back(xyLoc(loc.x+1, loc.y));
           if (connectedness>5){
             // Right is open ...
@@ -141,7 +142,7 @@ void MapEnvironment::GetSuccessors(const xyLoc &loc, std::vector<xyLoc> &neighbo
               neighbors.push_back(xyLoc(loc.x+2, loc.y));
             }
             if(u && (map->CanStep(loc.x, loc.y, loc.x+1, loc.y-1))){
-              ur=true;
+              //ur=true;
               neighbors.push_back(xyLoc(loc.x+1, loc.y-1));
               if(connectedness>9){
                 // Right, Up, Right2 and UpRight are open...
@@ -162,7 +163,7 @@ void MapEnvironment::GetSuccessors(const xyLoc &loc, std::vector<xyLoc> &neighbo
             }
 
             if (d && (map->CanStep(loc.x, loc.y, loc.x+1, loc.y+1))){
-              dr=true;
+              //dr=true;
               neighbors.push_back(xyLoc(loc.x+1, loc.y+1));
               if(connectedness>9){
                 // Right, Down, Right2 and UpRight are open...
@@ -727,80 +728,92 @@ void MapEnvironment::ApplyAction(xyLoc &s, tDirection dir) const
 //	s = old;
 }
 
-double _h4(double dx, double dy, double result=0.0);
+double MapEnvironment::_h4(unsigned dx, unsigned dy, double result)const{
   return dx+dy+result;
 }
 
-double h4(const xyLoc &l1, const xyLoc &l2){
+double MapEnvironment::h4(const xyLoc &l1, const xyLoc &l2)const{
   return _h4(abs(l1.x-l2.x),abs(l1.y-l2.y));
 }
 
-double _h8(double dx,double dy,double result=0){
+double MapEnvironment::_h8(unsigned dx,unsigned dy,double result)const{
+  static double const SQRT_2(std::sqrt(2.0));
   if(dx>dy){ // Swap
-    double tmp(dx); dx=dy; dy=tmp;
+    unsigned tmp(dx); dx=dy; dy=tmp;
   }
   if(dy>=dx){
-    result += dx*SQRT_2
-      dy -= dx
-      dx -= dx
+    result += dx*SQRT_2;
+      dy -= dx;
+      dx = 0;
   }
-  return _h4(dy,dx,result)
+  return _h4(dy,dx,result);
 }
 
-double h8(const xyLoc &l1, const xyLoc &l2){
+double MapEnvironment::h8(const xyLoc &l1, const xyLoc &l2)const{
   return _h8(abs(l1.x-l2.x),abs(l1.y-l2.y));
 }
 
-double _h24(double dx,double dy,double result=0){
+double MapEnvironment::_h24(unsigned dx,unsigned dy,double result)const{
+  static double const SQRT_5(sqrt(5));
   if(dx>dy){ // Swap
-    double tmp(dx); dx=dy; dy=tmp;
+    unsigned tmp(dx); dx=dy; dy=tmp;
   }
   if(dy>1){
-    double diff(dy-dx);
+    unsigned diff(dy-dx);
     if(diff >=1){
-      double s5=std::min(diff,dx);
+      unsigned s5=std::min(diff,dx);
       result += s5*SQRT_5;
       dy -= s5*2; //up/down 2
       dx -= s5; //over 1
     }
   }
-  return _h8(dx,dy,result)
+  return _h8(dy,dx,result);
 }
 
-double h24(const xyLoc &l1, const xyLoc &l2){
+double MapEnvironment::h24(const xyLoc &l1, const xyLoc &l2)const{
   return _h24(abs(l1.x-l2.x),abs(l1.y-l2.y));
 }
 
-double _h48(double dx,double dy,double result=0){
+double MapEnvironment::_h48(unsigned dx,unsigned dy,double result)const{
+  static double const SQRT_10(sqrt(10));
+  static double const SQRT_13(sqrt(13));
+  if(dx==dy) return _h8(dx,dy,result);
   if(dx>dy){ // Swap
-    double tmp(dx); dx=dy; dy=tmp;
+    unsigned tmp(dx); dx=dy; dy=tmp;
   }
-  if(dy>2){
-    double diff(dy-dx);
-    double steps(dy/3);
-    double twos(steps-dx);
-    double twos(dx-ones);
-    double ddx(dx/3);
-    if(diff==2){
-      
-    }
-    if(diff>=1){
-      s5=std::min(diff,dx);
-      result += s5*SQRT_5;
-      dy -= s5*2; //up/down 2
-      dx -= s5; //over 1
+  if(2*dx==dy) return _h24(dy,dx,result);
+  unsigned steps(dy/3);
+  if(steps>=dx){
+    result += SQRT_10*dx;
+    dy-=dx*3;
+    dx=0;
+  }else if(dx>=2*steps){
+    unsigned s2(3*steps-dx);
+      result += s2*SQRT_13;
+      dx-=2*s2;
+      dy-=s2*3;
+  }else if(steps<dx && dx<=2*steps){
+    unsigned s1(dx-steps);
+    unsigned s2(2*steps-dx);
+    if(s1<s2){
+      result += s1*SQRT_10;
+      dx-=s1;
+      dy-=s1*3;
+    }else{
+      result += s2*SQRT_13;
+      dx-=2*s2;
+      dy-=s2*3;
     }
   }
-  return _h24(dx,dy,result)
+  return _h24(dy,dx,result);
 }
 
-double h48(const xyLoc &l1, const xyLoc &l2){
+double MapEnvironment::h48(const xyLoc &l1, const xyLoc &l2)const{
   return _h48(abs(l1.x-l2.x),abs(l1.y-l2.y));
 }
 
 
-double MapEnvironment::HCost(const xyLoc &l1, const xyLoc &l2) const
-{
+double MapEnvironment::HCost(const xyLoc &l1, const xyLoc &l2)const{
   switch(connectedness){
   case 4:
   case 5:
@@ -836,68 +849,70 @@ double MapEnvironment::GCost(const xyLoc &l, const tDirection &act) const
 		case kNE: return DIAGONAL_COST*multiplier;
 		case kSE: return DIAGONAL_COST*multiplier;
 
-		case kNN: 2.0*multiplier;
-		case kNNE: SQRT_5*multiplier;
-		case kNEE: SQRT_5*multiplier;
-		case kNNEE: 2.0*DIAGONAL_COST*multiplier;
-		case kEE: 2.0*multiplier;
-		case kSSE: SQRT_5*multiplier;
-		case kSEE: SQRT_5*multiplier;
-		case kSSEE: 2.0*DIAGONAL_COST*multiplier;
-		case kSS: 2.0*multiplier;
-		case kSSW: SQRT_5*multiplier;
-		case kSWW: SQRT_5*multiplier;
-		case kSSWW: 2.0*DIAGONAL_COST*multiplier;
-		case kWW: 2.0*multiplier;
-		case kNNW: SQRT_5*multiplier;
-		case kNWW: SQRT_5*multiplier;
-		case kNNWW: 2.0*DIAGONAL_COST*multiplier;
+		case kNN: return 2.0*multiplier;
+		case kNNE: return SQRT_5*multiplier;
+		case kNEE: return SQRT_5*multiplier;
+		case kNNEE: return 2.0*DIAGONAL_COST*multiplier;
+		case kEE: return 2.0*multiplier;
+		case kSSE: return SQRT_5*multiplier;
+		case kSEE: return SQRT_5*multiplier;
+		case kSSEE: return 2.0*DIAGONAL_COST*multiplier;
+		case kSS: return 2.0*multiplier;
+		case kSSW: return SQRT_5*multiplier;
+		case kSWW: return SQRT_5*multiplier;
+		case kSSWW: return 2.0*DIAGONAL_COST*multiplier;
+		case kWW: return 2.0*multiplier;
+		case kNNW: return SQRT_5*multiplier;
+		case kNWW: return SQRT_5*multiplier;
+		case kNNWW: return 2.0*DIAGONAL_COST*multiplier;
 
-		case kNNN: 3.0*multiplier;
-		case kNNNE: SQRT_10*multiplier;
-		case kNEEE: SQRT_10*multiplier;
-		case kNNNEE: SQRT_13*multiplier;
-		case kNNEEE: SQRT_13*multiplier;
-		case kNNNEEE: 3.0*DIAGONAL_COST*multiplier;
-		case kEEE: 3.0*multiplier;
-		case kSSSE: SQRT_10*multiplier;
-		case kSEEE: SQRT_10*multiplier;
-		case kSSEEE: SQRT_13*multiplier;
-		case kSSSEE: SQRT_13*multiplier;
-		case kSSSEEE: 3.0*DIAGONAL_COST*multiplier;
-		case kSSS: 3.0*multiplier;
-		case kSSSW: SQRT_10*multiplier;
-		case kSWWW: SQRT_10*multiplier;
-		case kSSWWW: SQRT_13*multiplier;
-		case kSSSWW: SQRT_13*multiplier;
-		case kSSSWWW: 3.0*DIAGONAL_COST*multiplier;
-		case kWWW: 3.0*multiplier;
-		case kNNNW: SQRT_10*multiplier;
-		case kNWWW: SQRT_10*multiplier;
-		case kNNNWW: SQRT_13*multiplier;
-		case kNNWWW: SQRT_13*multiplier;
-		case kNNNWWW: 3.0*DIAGONAL_COST*multiplier;
-		default: return 0;
+		case kNNN: return 3.0*multiplier;
+		case kNNNE: return SQRT_10*multiplier;
+		case kNEEE: return SQRT_10*multiplier;
+		case kNNNEE: return SQRT_13*multiplier;
+		case kNNEEE: return SQRT_13*multiplier;
+		case kNNNEEE: return 3.0*DIAGONAL_COST*multiplier;
+		case kEEE: return 3.0*multiplier;
+		case kSSSE: return SQRT_10*multiplier;
+		case kSEEE: return SQRT_10*multiplier;
+		case kSSEEE: return SQRT_13*multiplier;
+		case kSSSEE: return SQRT_13*multiplier;
+		case kSSSEEE: return 3.0*DIAGONAL_COST*multiplier;
+		case kSSS: return 3.0*multiplier;
+		case kSSSW: return SQRT_10*multiplier;
+		case kSWWW: return SQRT_10*multiplier;
+		case kSSWWW: return SQRT_13*multiplier;
+		case kSSSWW: return SQRT_13*multiplier;
+		case kSSSWWW: return 3.0*DIAGONAL_COST*multiplier;
+		case kWWW: return 3.0*multiplier;
+		case kNNNW: return SQRT_10*multiplier;
+		case kNWWW: return SQRT_10*multiplier;
+		case kNNNWW: return SQRT_13*multiplier;
+		case kNNWWW: return SQRT_13*multiplier;
+		case kNNNWWW: return 3.0*DIAGONAL_COST*multiplier;
+		default: return multiplier;
 	}
 	return 0;
 }
 
 double MapEnvironment::GCost(const xyLoc &l1, const xyLoc &l2) const
 {
-	double multiplier = 1.0;
-//	if (map->GetTerrainType(l1.x, l1.y) == kSwamp)
-//	{
-//		multiplier = 3.0;
-//	}
-	if (l1.x == l2.x) return abs(l1.y-l2.y)*multiplier;
-	if (l1.y == l2.y) return abs(l1.x-l2.x)*multiplier;
-	if (l1 == l2) return 0.0;
-	if (abs(l1.x-l2.x)==1) return DIAGONAL_COST*multiplier;
-        return Util::distance(l1.x,l1.y,l2.x,l2.y);
-//	double h = HCost(l1, l2);
-//	if (fgreater(h, DIAGONAL_COST))
-//		return DBL_MAX;
-//	return h;
+  double multiplier = 1.0;
+  if(l1.x-l2.x==0&&l1.y-l2.y==0) return multiplier*(connectedness%2);
+  //	if (map->GetTerrainType(l1.x, l1.y) == kSwamp)
+  //	{
+  //		multiplier = 3.0;
+  //	}
+  //if (l1 == l2) return 1.0;
+  //if (l1.x == l2.x) return abs(l1.y-l2.y)*multiplier;
+  //if (l1.y == l2.y) return abs(l1.x-l2.x)*multiplier;
+  //if (l1 == l2) return 0.0;
+  //if (abs(l1.x-l2.x)==1) return DIAGONAL_COST*multiplier;
+  return multiplier*Util::distance(l1.x,l1.y,l2.x,l2.y);
+  //	double h = HCost(l1, l2);
+  //	if (fgreater(h, DIAGONAL_COST))
+  //		return DBL_MAX;
+  //	return h;
 }
 
 bool MapEnvironment::LineOfSight(const xyLoc &node, const xyLoc &goal) const{
