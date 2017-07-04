@@ -37,6 +37,11 @@
 #include "VelocityObstacle.h"
 #include "TemplateAStar.h"
 
+struct Group{
+  Group(int i){agents.insert(i);}
+  std::unordered_set<int> agents;
+  //~Group(){std::cout << "Destroy " << this << "\n";}
+};
 
 struct Hashable{
   virtual uint64_t Hash()const=0;
@@ -91,6 +96,16 @@ typedef std::vector<TimePath> Solution;
 typedef std::vector<Node*> MultiState; // rank=agent num
 typedef std::vector<std::pair<Node*,Node*>> MultiEdge; // rank=agent num
 typedef std::unordered_map<uint64_t,Node> DAG;
+
+std::ostream& operator << (std::ostream& ss, Group const* n){
+  std::string sep("{");
+  for(auto const& a: n->agents){
+    ss << sep << a;
+    sep=",";
+  }
+  ss << "}";
+  return ss;
+}
 
 std::ostream& operator << (std::ostream& ss, MultiState const& n){
   int i(0);
@@ -330,7 +345,7 @@ bool checkAnswer(std::vector<std::set<Node*,NodePtrComp>> const& answer){
         Vector2D VA((*a)->n.x-(*ap)->n.x,(*a)->n.y-(*ap)->n.y);
         Vector2D VB((*b)->n.x-(*bp)->n.x,(*b)->n.y-(*bp)->n.y);
         if(collisionImminent(A,VA,.25,(*ap)->depth,(*a)->depth,B,VB,.25,(*bp)->depth,(*b)->depth)){
-          std::cout << "Collision: " << i << ":" << **ap << "-->" << **a << "," << j << ":" << **bp << "-->" << **b << "\n";
+          //std::cout << "Collision: " << i << ":" << **ap << "-->" << **a << "," << j << ":" << **bp << "-->" << **b << "\n";
           return false;
         }
         if(fless((*a)->depth,(*b)->depth)){
@@ -416,11 +431,12 @@ void join(std::stringstream& s, std::vector<float> const& x){
   copy(x.begin(),x.end(), std::ostream_iterator<float>(s,","));
 }
 
-bool detectIndependence(Solution const& solution, std::vector<int>& groups){
+bool detectIndependence(Solution const& solution, std::vector<Group*>& group, std::unordered_set<Group*>& groups){
   bool independent(true);
   // Check all pairs for collision
   for(int i(0); i<solution.size(); ++i){
     for(int j(i+1); j<solution.size(); ++j){
+      if(group[i]==group[j]) continue; // This can happen if both collide with a common agent
       // check collision between i and j
       int a(1);
       int b(1);
@@ -436,8 +452,16 @@ bool detectIndependence(Solution const& solution, std::vector<int>& groups){
           if(collisionImminent(A,VA,.25,solution[i][a-1].second,solution[i][a].second,B,VB,.25,solution[j][b-1].second,solution[j][b].second)){
             collision=true;
             //std::cout << i << " and " << j << " collide at " << solution[i][a-1].second << "~" << solution[i][a].second << solution[i][a-1].first << "-->" << solution[i][a].first << " X " << solution[j][b-1].first << "-->" << solution[j][b].first << "\n";
-            // Combine agents i and j
-            groups[j]=groups[i];
+            // Combine groups i and j
+            
+            Group* toDelete(group[j]);
+            groups.erase(group[j]);
+            for(auto a:group[j]->agents){
+              group[i]->agents.insert(a);
+              group[a]=group[i];
+            }
+            delete toDelete;
+            
             independent=false;
             break;
           }
@@ -453,18 +477,48 @@ bool detectIndependence(Solution const& solution, std::vector<int>& groups){
   return independent;
 }
 
-int main(){
+int main(int argc, char ** argv){
+  MapEnvironment env(new Map(8,8));
+  env.SetFiveConnected();
+  if(argc==2){
+    switch(atoi(argv[1])){
+      case 4:
+        env.SetFourConnected();
+        break;
+      case 8:
+        env.SetEightConnected();
+        break;
+      case 9:
+        env.SetNineConnected();
+        break;
+      case 24:
+        env.SetTwentyFourConnected();
+        break;
+      case 25:
+        env.SetTwentyFiveConnected();
+        break;
+      case 48:
+        env.SetFortyEightConnected();
+        break;
+      case 49:
+        env.SetFortyNineConnected();
+        break;
+      case 5:
+      default:
+        env.SetFiveConnected();
+        break;
+    }
+  }
+  Node::env=&env;
   int seed(123456);
   srand(seed);
   for(int n(6); n<13; n+=2){
     std::cout << "N="<<n<<"\n";
+    double total(0.0);
+    int numAgents(n);
     for(int t(0); t<100; ++t){
       //checked.clear();
-      std::cout << "Trial #"<<t<<"\n";
-      MapEnvironment env(new Map(8,8));
-      env.SetNineConnected();
-      Node::env=&env;
-      int numAgents(n);
+      //std::cout << "Trial #"<<t<<"\n";
       std::set<xyLoc> st;
       std::set<xyLoc> en;
       Points s;
@@ -478,10 +532,9 @@ int main(){
         s.push_back(*a.first);
 
         a=en.emplace(rand()%8,rand()%8);
-        while(!a.second){
+        while(!a.second || s[i]==*a.first){
           a=en.emplace(rand()%8,rand()%8);
         }
-        while(!a.second);
         e.push_back(*a.first);
       }
       /*
@@ -503,14 +556,16 @@ int main(){
       TemplateAStar<xyLoc,tDirection,MapEnvironment> astar;
       Solution solution;
       //std::cout << "Init groups\n";
-      std::vector<int> group(s.size()); // Agent#-->group#
+      std::vector<Group*> group(s.size()); // Agent#-->group#
+      std::unordered_set<Group*> groups;
       // Add a singleton group for all groups
       for(int i(0); i<s.size(); ++i){
-        group[i]=i; // Initially in its own group
+        group[i]=new Group(i); // Initially in its own group
+        groups.insert(group[i]);
       }
 
       // Start timing
-      std::cout << std::setprecision(3);
+      //std::cout << std::setprecision(3);
       Timer tmr;
       tmr.StartTimer();
 
@@ -519,30 +574,45 @@ int main(){
         Points path;
         astar.GetPath(&env,s[i],e[i],path);
         TimePath timePath;
+        //std::cout << s[i] << "-->" << e[i] << "\n";
         timePath.emplace_back(path[0],0.0);
         for(int i(1); i<path.size(); ++i){
           timePath.emplace_back(path[i],timePath[timePath.size()-1].second+Util::distance(path[i-1].x,path[i-1].y,path[i].x,path[i].y));
         }
         solution.push_back(timePath);
       }
+      //std::cout << "Initial solution:\n";
+      //int ii(0);
+      //for(auto const& p:solution){
+        //std::cout << ii++ << "\n";
+        //for(auto const& t: p){
+          // Print solution
+          //std::cout << t.first << "," << t.second << "\n";
+        //}
+      //}
 
-      while(!detectIndependence(solution,group)){
+      while(!detectIndependence(solution,group,groups)){
+      std::unordered_map<int,Instance> G;
+      std::unordered_map<int,std::vector<int>> Gid;
+        //std::cout << "There are " << groups.size() << " groups" << std::endl;
         // Create groups
-        std::unordered_map<int,Instance> G;
-        std::unordered_map<int,std::vector<int>> Gid;
-        for(int g(0);g<group.size();++g){
-          G[group[g]].first.push_back(s[g]);
-          G[group[g]].second.push_back(e[g]);
-          Gid[group[g]].push_back(g);
+        int g(0);
+        for(auto const& grp:groups){
+          for(a:grp->agents){
+            G[g].first.push_back(s[a]);
+            G[g].second.push_back(e[a]);
+            Gid[g].push_back(a);
+          }
+          ++g;
         }
         for(int j(0); j<G.size(); ++j){
           auto g(G[j]);
-          if(g.first.size()>1){
             //std::cout << "Group " << j <<":\n";
-            std::vector<float> sizes(g.first.size());
             //for(int i(0); i<g.first.size(); ++i){
               //std::cout << Gid[j][i] << ":" << g.first[i] << "-->" << g.second[i] << "\n";
             //}
+          if(g.first.size()>1){
+            std::vector<float> sizes(g.first.size());
             std::priority_queue<ICTSNode*,std::vector<ICTSNode*>,ICTSNodePtrComp> q;
             std::unordered_set<std::string> deconf;
 
@@ -593,16 +663,20 @@ int main(){
         //}
         //}
         //std::cout << "Re-init groups\n";
-        group.resize(s.size()); // Agent#-->group#
+        //group.resize(s.size()); // Agent#-->group#
         // Add a singleton group for all groups
-        for(int i(0); i<s.size(); ++i){
-          group[i]=i; // In its own group
-        }
+        //for(int i(0); i<s.size(); ++i){
+          //group[i]=i; // In its own group
+        //}
 
       }
 
-      std::cout << tmr.EndTimer() << " elapsed\n";
+      double elapsed(tmr.EndTimer());
+      //std::cout << elapsed << " elapsed";
+      //std::cout << std::endl;
+     total += elapsed;
     }
+    std::cout << "Average time: " << total/100. << std::endl;
   }
   return 1;
 }

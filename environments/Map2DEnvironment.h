@@ -227,7 +227,7 @@ public:
 	void SetEightConnected() { connectedness=8; }
 	void SetNineConnected() { connectedness=9; }
 	void SetTwentyFourConnected() { connectedness=24; }
-	void SetTwentyFiveonnected() { connectedness=25; }
+	void SetTwentyFiveConnected() { connectedness=25; }
 	void SetFortyEightConnected() { connectedness=48; }
 	void SetFortyNineConnected() { connectedness=49; }
 	void SetAnyAngleConnected() { connectedness=255; }
