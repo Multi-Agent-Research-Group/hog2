@@ -248,12 +248,12 @@ void generatePermutations(std::vector<MultiEdge>& positions, std::vector<MultiEd
 // In order for this to work, we cannot generate sets of positions, we must generate sets of actions, since at time 1.0 an action from parent A at time 0.0 may have finished, while another action from the same parent A may still be in progress. 
 
 // Return true if we get to the desired depth
-bool jointDFS(MultiEdge const& s, float d, float term, std::vector<std::set<Node*,NodePtrComp>>& answer){
+bool jointDFS(MultiEdge const& s, float d, float term, std::vector<std::set<Node*,NodePtrComp>>& answer,double increment=1.0){
   //std::cout << d << std::string((int)d,' ');
   //for(int a(0); a<s.size(); ++a){
     //std::cout << " s " << *s[a].second << "\n";
   //}
-  if(fgeq(d,term)){
+  if(fgreater(d,term-increment)){
     for(int a(0); a<s.size(); ++a){
       //std::cout << "push " << *s[a].second << " " << s.size() << "\n";
       answer[a].insert(s[a].second);
@@ -287,8 +287,8 @@ bool jointDFS(MultiEdge const& s, float d, float term, std::vector<std::set<Node
     }
     if(output.empty()){
       // Stay at state...
-      output.emplace_back(a.second,new Node(a.second->n,a.second->depth+1.0));
-      md=min(md,a.second->depth+1.0); // Amount of time to wait
+      output.emplace_back(a.second,new Node(a.second->n,a.second->depth+increment));
+      md=min(md,a.second->depth+increment); // Amount of time to wait
     }
     //std::cout << "successor  of " << s << "gets("<<*a<< "): " << output << "\n";
     successors.push_back(output);
@@ -304,7 +304,7 @@ bool jointDFS(MultiEdge const& s, float d, float term, std::vector<std::set<Node
   bool value(false);
   for(auto const& a: crossProduct){
     //std::cout << "eval " << a << "\n";
-    value = jointDFS(a,md,term,answer);
+    value = jointDFS(a,md,term,answer,increment);
     if(value){
       for(int a(0); a<s.size(); ++a){
         //std::cout << "push " << *s[a] << "\n";
@@ -316,7 +316,7 @@ bool jointDFS(MultiEdge const& s, float d, float term, std::vector<std::set<Node
   return value;
 }
 
-bool jointDFS(MultiState const& s, float maxdepth, std::vector<std::set<Node*,NodePtrComp>>& answer){
+bool jointDFS(MultiState const& s, float maxdepth, std::vector<std::set<Node*,NodePtrComp>>& answer, double increment=1.0){
   MultiEdge act;
   float sd(1.0);
   for(auto const& n:s){ // Add null parents for the initial movements
@@ -327,7 +327,7 @@ bool jointDFS(MultiState const& s, float maxdepth, std::vector<std::set<Node*,No
     //act.push_back(a);
   }
 
-  return jointDFS(act,0.0,maxdepth,answer);
+  return jointDFS(act,0.0,maxdepth,answer,increment);
 }
 
 // Not part of the algorithm... just for validating the answers
@@ -365,7 +365,7 @@ bool checkAnswer(std::vector<std::set<Node*,NodePtrComp>> const& answer){
 }
 
 struct ICTSNode{
-  ICTSNode(ICTSNode* parent,int agent, int size):instance(parent->instance),dag(parent->dag),sizes(parent->sizes),root(parent->root),maxdepth(parent->maxdepth){
+  ICTSNode(ICTSNode* parent,int agent, int size):instance(parent->instance),dag(parent->dag),sizes(parent->sizes),root(parent->root),maxdepth(parent->maxdepth),increment(parent->increment){
     sizes[agent]=size;
     maxdepth=max(maxdepth,Node::env->HCost(instance.first[agent],instance.second[agent])+sizes[agent]);
     //std::cout << "agent " << agent << " GetMDD("<<(Node::env->HCost(instance.first[agent],instance.second[agent])+sizes[agent])<<")\n";
@@ -376,7 +376,7 @@ struct ICTSNode{
     root.resize(root.size()-1);
   }
 
-  ICTSNode(Instance const& inst, std::vector<float> const& s):instance(inst),dag(s.size()),sizes(s),maxdepth(-99999999){
+  ICTSNode(Instance const& inst, std::vector<float> const& s, double inc=1.0):instance(inst),dag(s.size()),sizes(s),maxdepth(-99999999),increment(inc){
     root.reserve(s.size());
     for(int i(0); i<instance.first.size(); ++i){
       maxdepth=max(maxdepth,Node::env->HCost(instance.first[i],instance.second[i])+sizes[i]);
@@ -391,13 +391,14 @@ struct ICTSNode{
   std::vector<float> sizes;
   MultiState root;
   float maxdepth;
+  double increment;
   Instance points;
 
   bool isValid(std::vector<std::set<Node*,NodePtrComp>>& answer){
     // Do a depth-first search; if the search terminates at a goal, its valid.
     answer.resize(sizes.size());
-    if(jointDFS(root,maxdepth,answer)){// && checkAnswer(answer)){
-      checkAnswer(answer);
+    if(jointDFS(root,maxdepth,answer,increment)){// && checkAnswer(answer)){
+      //assert(checkAnswer(answer));
       //std::cout << "Answer:\n";
       //for(int agent(0); agent<answer.size(); ++agent){
         //std::cout << agent << ":\n";
