@@ -511,11 +511,14 @@ int main(int argc, char ** argv){
   }
   Node::env=&env;
   int seed(123456);
+  double timeout(300);
   srand(seed);
   for(int n(6); n<13; n+=2){
     std::cout << "N="<<n<<"\n";
     double total(0.0);
+    double length(0.0);
     int numAgents(n);
+    int failed(0);
     for(int t(0); t<100; ++t){
       //checked.clear();
       //std::cout << "Trial #"<<t<<"\n";
@@ -574,13 +577,14 @@ int main(int argc, char ** argv){
         Points path;
         astar.GetPath(&env,s[i],e[i],path);
         TimePath timePath;
-        //std::cout << s[i] << "-->" << e[i] << "\n";
+        //std::cout << s[i] << "-->" << e[i] << std::endl;
         timePath.emplace_back(path[0],0.0);
         for(int i(1); i<path.size(); ++i){
           timePath.emplace_back(path[i],timePath[timePath.size()-1].second+Util::distance(path[i-1].x,path[i-1].y,path[i].x,path[i].y));
         }
         solution.push_back(timePath);
       }
+      //std::cout << std::endl;
       //std::cout << "Initial solution:\n";
       //int ii(0);
       //for(auto const& p:solution){
@@ -591,6 +595,7 @@ int main(int argc, char ** argv){
         //}
       //}
 
+      double elapsed(timeout);
       while(!detectIndependence(solution,group,groups)){
       std::unordered_map<int,Instance> G;
       std::unordered_map<int,std::vector<int>> Gid;
@@ -650,8 +655,17 @@ int main(int argc, char ** argv){
                   deconf.insert(sv.str());
                 }
               }
+              if(tmr.TimeCut() > timeout){
+                elapsed = timeout;
+                while(q.size()) q.pop();
+                failed++;
+                std::cout << "failed" << std::endl;
+              }
             }
           }
+        }
+        for(auto const& p:solution){
+          length += p.size();
         }
         //std::cout << "Solution:\n";
         //int ii(0);
@@ -671,12 +685,14 @@ int main(int argc, char ** argv){
 
       }
 
-      double elapsed(tmr.EndTimer());
+      elapsed=tmr.EndTimer();
       //std::cout << elapsed << " elapsed";
       //std::cout << std::endl;
      total += elapsed;
     }
     std::cout << "Average time: " << total/100. << std::endl;
+    std::cout << "Average path: " << length/(100.*n) << std::endl;
+    std::cout << failed << " failures" << std::endl;
   }
   return 1;
 }
