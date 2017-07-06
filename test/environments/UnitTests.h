@@ -151,6 +151,50 @@ TEST(Map2D, SingleConnectedWObstacle){
   }
 }
 
+TEST(Map2D, TwentyFourConnected_AdmissTest){
+  return;
+  TemplateAStar<xyLoc,tDirection,MapEnvironment> astar;
+  Map map(100,100);
+  MapEnvironment env(&map);
+  env.SetTwentyFourConnected();
+  for(int i(0); i<1000; ++i){
+    std::vector<xyLoc> path;
+    xyLoc s({rand()%100,rand()%100});
+    xyLoc g({rand()%100,rand()%100});
+    astar.GetPath(&env,s,g,path);
+    double t(0);
+    std::cout << path.size() << "----------------\n" << path[0] << "\n";
+    for(int j(1); j<path.size(); ++j){
+      t += env.GCost(path[j-1],path[j]);
+      //std::cout << path[j] << "\n";
+    }
+    //std::cout << s << " " << g << " " << t << " " << env.HCost(s,g) << "\n";
+    ASSERT_TRUE(fequal(t,env.HCost(s,g)));
+  }
+}
+
+TEST(Map2D, FortyEightConnected_AdmissTest){
+  TemplateAStar<xyLoc,tDirection,MapEnvironment> astar;
+  Map map(100,100);
+  MapEnvironment env(&map);
+  env.SetFortyEightConnected();
+  for(int i(0); i<1000; ++i){
+    std::vector<xyLoc> path;
+    xyLoc s({rand()%100,rand()%100});
+    xyLoc g({rand()%100,rand()%100});
+    //std::cout << s << " " << g << "\n";
+    astar.GetPath(&env,s,g,path);
+    double t(0);
+    //std::cout << path.size() << "----------------\n" << path[0] << "\n";
+    for(int j(1); j<path.size(); ++j){
+      t += env.GCost(path[j-1],path[j]);
+      //std::cout << path[j] << "\n";
+    }
+    //std::cout << s << " " << g << " " << t << " " << env.HCost(s,g) << "\n";
+    ASSERT_TRUE(fequal(t,env.HCost(s,g)));
+  }
+}
+
 TEST(Map2D, FortyEightConnected_GCost){
   Map map(8,8);
   MapEnvironment env(&map);
@@ -168,7 +212,7 @@ TEST(Map2D, FortyEightConnected_GCost){
   ASSERT_DOUBLE_EQ(sqrt(13),env.GCost({0,0},{2,3}));
   ASSERT_DOUBLE_EQ(sqrt(13),env.HCost({0,0},{2,3}));
   ASSERT_DOUBLE_EQ(sqrt(13)*2.,env.HCost({0,0},{4,6}));
-  ASSERT_DOUBLE_EQ(sqrt(13)*2.+1.,env.HCost({0,0},{4,7}));
+  ASSERT_DOUBLE_EQ(sqrt(13)+2*sqrt(5),env.HCost({0,0},{4,7}));
   ASSERT_DOUBLE_EQ(sqrt(5)*4.,env.HCost({0,0},{4,8}));
   ASSERT_DOUBLE_EQ(sqrt(10)+3.*sqrt(5),env.HCost({0,0},{4,9}));
   ASSERT_DOUBLE_EQ(sqrt(13)+3.*sqrt(5),env.HCost({0,0},{5,9}));
@@ -176,48 +220,12 @@ TEST(Map2D, FortyEightConnected_GCost){
   ASSERT_DOUBLE_EQ(2.*sqrt(13)+3*sqrt(2),env.HCost({0,0},{7,9}));
   ASSERT_DOUBLE_EQ(sqrt(13)+6*sqrt(2),env.HCost({0,0},{8,9}));
   ASSERT_DOUBLE_EQ(9*sqrt(2),env.HCost({0,0},{9,9}));
-  ASSERT_DOUBLE_EQ(8*sqrt(2)+sqrt(5),env.HCost({0,0},{9,10}));
-  ASSERT_DOUBLE_EQ(7*sqrt(2)+2*sqrt(5),env.HCost({0,0},{9,11}));
+  ASSERT_DOUBLE_EQ(7*sqrt(2)+sqrt(13),env.HCost({0,0},{9,10}));
+  ASSERT_DOUBLE_EQ(5*sqrt(2)+2*sqrt(13),env.HCost({0,0},{9,11}));
+  ASSERT_DOUBLE_EQ(6*sqrt(5)+sqrt(13),env.HCost({0,0},{8,15}));
+  ASSERT_DOUBLE_EQ(5*sqrt(5)+sqrt(10),env.HCost({0,0},{13,6}));
+  ASSERT_DOUBLE_EQ(5*sqrt(2)+17.*sqrt(13),env.HCost({0,0},{56,39}));
+  ASSERT_DOUBLE_EQ(sqrt(5)+6.*sqrt(10),env.HCost({0,0},{20,7}));
 }
 
-TEST(Map2D, TwentyFourConnected_AdmissTest){
-  TemplateAStar<xyLoc,tDirection,MapEnvironment> astar;
-  Map map(100,100);
-  MapEnvironment env(&map);
-  env.SetTwentyFourConnected();
-  for(int i(0); i<1000; ++i){
-    std::vector<xyLoc> path;
-    xyLoc s({rand()%100,rand()%100});
-    xyLoc g({rand()%100,rand()%100});
-    astar.GetPath(&env,s,g,path);
-    double t(0);
-    std::cout << "----------------\n" << path[0] << "\n";
-    for(int j(1); j<path.size(); ++j){
-      t += env.GCost(path[j-1],path[j]);
-      //std::cout << path[j] << "\n";
-    }
-    //std::cout << s << " " << g << " " << t << " " << env.HCost(s,g) << "\n";
-    ASSERT_TRUE(fequal(t,env.HCost(s,g)));
-  }
-}
-TEST(Map2D, FortyEightConnected_AdmissTest){
-  TemplateAStar<xyLoc,tDirection,MapEnvironment> astar;
-  Map map(100,100);
-  MapEnvironment env(&map);
-  env.SetFortyEightConnected();
-  for(int i(0); i<1000; ++i){
-    std::vector<xyLoc> path;
-    xyLoc s({rand()%100,rand()%100});
-    xyLoc g({rand()%100,rand()%100});
-    astar.GetPath(&env,s,g,path);
-    double t(0);
-    std::cout << "----------------\n" << path[0] << "\n";
-    for(int j(1); j<path.size(); ++j){
-      t += env.GCost(path[j-1],path[j]);
-      std::cout << path[j] << "\n";
-    }
-    std::cout << s << " " << g << " " << t << " " << env.HCost(s,g) << "\n";
-    ASSERT_TRUE(fequal(t,env.HCost(s,g)));
-  }
-}
 #endif

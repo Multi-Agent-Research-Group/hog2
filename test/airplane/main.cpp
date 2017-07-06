@@ -3,7 +3,7 @@
 
 int main(int argc, char **argv){
   //testAdmissibility();
-  testPathUniqueness();
+  test2DPathUniqueness();
 
   testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();

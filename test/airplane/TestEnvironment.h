@@ -14,6 +14,7 @@
 #include "AirplaneGrid3DOctile.h"
 #include "AirplaneMultiAgent.h"
 #include "TemplateIntervalTree.h"
+#include "Map2DEnvironment.h"
 #include <iostream>
 #include <algorithm>
 #include <queue>
@@ -177,6 +178,91 @@ std::cout << goal << "\n";
 std::cout << ix << "\n";
 std::cout << fromIndex(ix,start) << "\n";
 
+}
+
+void test2DPathUniqueness(){
+  std::cout << "testPathUniqueness\n";
+  srand(123456);
+
+  Map map(20,20);
+  MapEnvironment env(&map);
+  TemplateAStar<xyLoc, tDirection, MapEnvironment> astar;
+  std::vector<int> c({4,8,24,48});
+  for(auto i:c){
+    env.SetConnectedness(i);
+    double total(0.0);
+    double numOpt(0.0);
+    double incl(0.0);
+    //for(int i(0); i<1; ++i){
+    for(int i(0); i<1000; ++i){
+      std::set<uint64_t> hashes;
+      xyLoc start(rand() % 20, rand() % 20);
+      xyLoc goal(rand() % 20, rand() % 20);
+      //std::cout << i << "\n";
+      //std::cout << "\n"<<start << "\n" << goal << "\n";
+      //std::cout << "=====================" << std::endl;
+      //std::cout << "\n";
+      if(env.GoalTest(start,goal))continue;
+      std::vector<xyLoc> soln;
+      double hc1(env.HCost(start,goal));
+      astar.GetPath(&env,start,goal,soln);
+      double cStar(env.GetPathLength(soln));
+      for(auto const& a: soln){
+        hashes.insert(env.GetStateHash(a));
+        //std::cout << a << "\n";
+      }
+      incl += 1.0;
+      numOpt += soln.size();
+      //std::cout << soln.size() << "/";
+
+      //std::cout << "cstar " << cStar << "\n";
+      while(true){
+        astar.DoSingleSearchStep(soln);
+        uint64_t key(astar.openClosedList.Peek());
+        double f(astar.openClosedList.Lookup(key).g+astar.openClosedList.Lookup(key).h);
+        //std::cout << "-"<<std::endl;
+        //std::cout << f << std::endl;
+        if(fgreater(f,cStar)){
+          break;
+        }
+      }
+
+      //if(i%100==0)std::cout << i << "\n";
+      std::queue<std::pair<xyLoc,double> > q;
+      q.push(std::make_pair(goal,0.0));
+      while(q.size()){
+        //std::cout << "_" << q.size() << std::endl;
+        std::pair<xyLoc,double> s(q.front());
+        q.pop();
+        std::vector<xyLoc> ancestors;
+        env.GetReverseSuccessors(s.first,ancestors);
+        //std::cout << s.first << "-----------\n";
+        for(auto const& a: ancestors){
+          //std::cout << " ."<< std::endl;
+          uint64_t key(env.GetStateHash(a));
+          double g1(env.GCost(a,s.first)+s.second);
+          double g2;
+          //std::cout <<"a"<< a << "-->g" << s.first <<"="<<g1<<"\n";
+          if(astar.GetClosedListGCost(a,g2)){
+            //std::cout << "   g"<<s.first << "-->a" << a <<"="<<g2<<"\n";
+            if(fequal(g1+g2,cStar)&&hashes.find(key)==hashes.end()){
+              //std::cout << " push "<< a<< std::endl;
+              hashes.insert(key);
+              q.push(std::make_pair(a,g1));
+            }
+          }
+          //else
+            //std::cout << "a not in \n";
+        }
+      }
+      //for(auto const& a: hashes){
+        //std::cout << env.GetState(a) << "\n";
+      //}
+      total+=hashes.size();
+      //std::cout << hashes.size() << "\n";
+    }
+    std::cout << total/incl << "/" << numOpt/incl << "=" << (total/numOpt) << "\n";
+  }
 }
 
 void testPathUniqueness(){
