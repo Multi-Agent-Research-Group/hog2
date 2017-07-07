@@ -424,6 +424,7 @@ TEST(PlatformState, HCost) {
 
 */
 
+/* Tests for running on state space without a latticec
 TEST(AStarNonHolonomicComparator, experiment){
   PlatformState s(42,48,10,0,0,3);
   PlatformState g(38,35,10,0,0,3);
@@ -441,9 +442,11 @@ TEST(AStarNonHolonomicComparator, experiment){
   astar.GetPath(&env,s,g,sol);
   std::cout << "Regular A* expansions: " << astar.GetNodesExpanded() << " unique:" << astar.GetUniqueNodesExpanded() << " generations: " << astar.GetNodesTouched() << " mem: " << astar.GetMemoryUsage() << " path len: " << sol.size() << " cost: " << env.GetPathLength(sol) << " Hval: " << env.HCost(s,g) << "\n";
 }
+*/
 
 TEST(AStar, PEA)
 {
+  /*
   {
     PlatformState s(42,48,10,0,0,3);
     //PlatformState g(38,35,10,0,0,3);
@@ -473,6 +476,7 @@ TEST(AStar, PEA)
     ASSERT_EQ(sol2.size(),sol.size());
     ASSERT_TRUE(fequal(env.GetPathLength(sol2),env.GetPathLength(sol)));
   }
+*/
   {
     airplaneState s(10, 10, 16, 3, 0, false);
     airplaneState g(40, 20, 11, 3, 0, false);

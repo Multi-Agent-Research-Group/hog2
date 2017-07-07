@@ -39,7 +39,7 @@ public:
 	/// CONSTRAINTS
 	
 	/** Add a constraint to the model */
-	void AddConstraint(Constraint<airtimeState> c);
+	void AddConstraint(Constraint<airtimeState> const& c);
 	void AddSoftConstraint(SoftConstraint<airtimeState> const& c){sconstraints.push_back(c);}
 
 	void AddPointConstraint(const airtimeState &loc);

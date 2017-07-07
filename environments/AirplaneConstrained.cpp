@@ -63,7 +63,7 @@ AirplaneConstrainedEnvironment::AirplaneConstrainedEnvironment(AirplaneEnvironme
 /// CONSTRAINT MANAGEMENT
 
 // Add a constraint of any type
-void AirplaneConstrainedEnvironment::AddConstraint(Constraint<airtimeState> c)
+void AirplaneConstrainedEnvironment::AddConstraint(Constraint<airtimeState> const& c)
 {
 	constraints.push_back(c);
 }

@@ -8,6 +8,7 @@
 #include "Map2DEnvironment.h"
 #include "AnyAngleSipp.h"
 #include "ThetaStar.h"
+#include "PEThetaStar.h"
 
 TEST(VelocityObstacle, IsInsidePass){
   Vector2D A(3,1);
@@ -627,6 +628,18 @@ TEST(Theta, GetPath){
     std::cout << ss.x << "," << ss.y << "\n";
 }
 
+TEST(PETheta, GetPath){
+  Map map(8,8);
+  MapEnvironment env(&map);
+  env.SetFiveConnected();
+  PEThetaStar<xyLoc,tDirection,MapEnvironment> tstar;
+  tstar.SetHeuristic(new StraightLineHeuristic());
+  std::vector<xyLoc> solution;
+  tstar.GetPath(&env,{1,1},{7,3},solution);
+  for(auto const& ss: solution)
+    std::cout << ss.x << "," << ss.y << "\n";
+}
+
 TEST(Theta, GetObstructedPath){
   Map map(8,8);
   MapEnvironment env(&map);
@@ -644,6 +657,27 @@ TEST(Theta, GetObstructedPath){
   }
   for(auto const& ss: solution){
     std::cout << ss.x << "," << ss.y << "\n";
+  }
+  std::cout << std::endl;
+}
+
+TEST(PETheta, GetObstructedPath){
+  Map map(8,8);
+  MapEnvironment env(&map);
+  //map.SetTerrainType(2,0,kOutOfBounds);
+  map.SetTerrainType(2,1,kOutOfBounds);
+  //map.SetTerrainType(2,2,kOutOfBounds);
+  std::cout << map.IsTraversable(2,1) << "traversable\n";
+  env.SetFiveConnected();
+  PEThetaStar<xyLoc,tDirection,MapEnvironment> tstar;
+  tstar.SetHeuristic(new StraightLineHeuristic());
+  std::vector<xyLoc> solution;
+  tstar.GetPath(&env,{1,1},{7,3},solution);
+  for(auto const& ss: solution){
+    std::cout << ss.x << "," << ss.y << "\n";
+  }
+  for(int i(1);i<solution.size(); ++i){
+    ASSERT_TRUE(env.LineOfSight(solution[i-1],solution[i]));
   }
   std::cout << std::endl;
 }

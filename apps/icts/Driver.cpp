@@ -604,7 +604,7 @@ int main(int argc, char ** argv){
         // Create groups
         int g(0);
         for(auto const& grp:groups){
-          for(a:grp->agents){
+          for(auto a:grp->agents){
             G[g].first.push_back(s[a]);
             G[g].second.push_back(e[a]);
             Gid[g].push_back(a);
