@@ -1813,3 +1813,4 @@ bool BaseMapOccupancyInterface::CanMove(const xyLoc &, const xyLoc &l2)
 	}
 	
 }
+

@@ -57,13 +57,13 @@ void Map2DConstrainedEnvironment::GetSuccessors(const xytLoc &nodeID, std::vecto
           }
         }
 	// TODO: Add kStay
-	if (!ViolatesConstraint(nodeID, nodeID, nodeID.t, 1.0))
+	/*if (!ViolatesConstraint(nodeID, nodeID, nodeID.t, 1.0))
 	{
 		xytLoc newLoc;
 		newLoc = nodeID;
 		newLoc.t = nodeID.t+1;
 		neighbors.push_back(newLoc);
-	}
+	}*/
 //	std::cout << "Successors of " << nodeID << " are:" << std::endl;
 //	for (unsigned int x = 0; x < neighbors.size(); x++)
 //		std::cout << neighbors[x] << " ";
@@ -156,6 +156,7 @@ bool Map2DConstrainedEnvironment::InvertAction(tDirection &a) const
 /** Heuristic value between two arbitrary nodes. **/
 double Map2DConstrainedEnvironment::HCost(const xytLoc &node1, const xytLoc &node2) const
 {
+        return mapEnv->HCost(node1, node2);
 	double res1 = mapEnv->HCost(node1, node2);
 	double res2 = (node2.t>node1.t)?(node2.t-node1.t):0;
 	//std::cout << "h(" << node1 << ", " << node2 << ") = " << res1 << " " << res2 << std::endl;
@@ -164,7 +165,7 @@ double Map2DConstrainedEnvironment::HCost(const xytLoc &node1, const xytLoc &nod
 
 bool Map2DConstrainedEnvironment::GoalTest(const xytLoc &node, const xytLoc &goal) const
 {
-	return (node == goal && node.t >= goal.t);
+	return (node.x == goal.x && node.y == goal.y && node.t >= goal.t);
 }
 
 
@@ -241,5 +242,57 @@ void Map2DConstrainedEnvironment::GLDrawLine(const xytLoc &x, const xytLoc &y) c
 	map->GetOpenGLCoord(y.x, y.y, xx, yy, zz, rad);
 	glVertex3f(xx, yy, zz-y.t*rad);
 	glEnd();
+}
+
+template<>
+bool Constraint<xytLoc>::ConflictsWith(const xytLoc &state) const
+{
+  if(state.landed || end_state.landed && start_state.landed) return false;
+  Vector2D A(state);
+  Vector2D VA(0,0);
+  //VA.NormalIize();
+  static double aradius(0.25);
+  static double bradius(0.25);
+  Vector2D B(start_state);
+  Vector2D VB(end_state);
+  VB-=B; // Direction vector
+  //VB.Normalize();
+  if(collisionImminent(A,VA,aradius,state.t,state.t+1.0,B,VB,bradius,start_state.t,end_state.t)){
+    return true;
+  }
+  return false;
+}
+
+// Check both vertex and edge constraints
+template<>
+bool Constraint<xytLoc>::ConflictsWith(const xytLoc &from, const xytLoc &to) const
+{
+  Vector2D A(from);
+  Vector2D VA(to);
+  VA-=A; // Direction vector
+  //VA.NormalIize();
+  static double aradius(0.25);
+  static double bradius(0.25);
+  Vector2D B(start_state);
+  Vector2D VB(end_state);
+  VB-=B; // Direction vector
+  //VB.Normalize();
+  if(collisionImminent(A,VA,aradius,from.t,to.t,B,VB,bradius,start_state.t,end_state.t)){
+    return true;
+  }
+  return false;
+}
+
+template<>
+bool Constraint<xytLoc>::ConflictsWith(const Constraint<xytLoc> &x) const
+{
+  return ConflictsWith(x.start_state, x.end_state);
+}
+
+
+template<>
+void Constraint<xytLoc>::OpenGLDraw() const 
+{
+  return;
 }
 

@@ -226,6 +226,8 @@ TEST(Map2D, FortyEightConnected_GCost){
   ASSERT_DOUBLE_EQ(5*sqrt(5)+sqrt(10),env.HCost({0,0},{13,6}));
   ASSERT_DOUBLE_EQ(5*sqrt(2)+17.*sqrt(13),env.HCost({0,0},{56,39}));
   ASSERT_DOUBLE_EQ(sqrt(5)+6.*sqrt(10),env.HCost({0,0},{20,7}));
+  ASSERT_DOUBLE_EQ(sqrt(5)+6.*sqrt(10),env.HCost({12,44},{51,41}));
+  ASSERT_DOUBLE_EQ(sqrt(5)+6.*sqrt(10),env.HCost({12,38},{51,41}));
 }
 
 #endif

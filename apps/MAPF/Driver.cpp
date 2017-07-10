@@ -3,7 +3,7 @@
 #include "UnitSimulation.h"
 #include "ScenarioLoader.h"
 #include "Map2DConstrainedEnvironment.h"
-#include "CBSUnits.h"
+#include "CBSUnits2.h"
 #include "NonUnitTimeCAT.h"
 
 #include <sstream>
@@ -166,29 +166,37 @@ void InitHeadless(){
   srandom(seed);
   Map* map(new Map(64,64));
   MapEnvironment* w4 = new MapEnvironment(map); w4->SetFourConnected();
-  MapEnvironment* w5 = new MapEnvironment(map); w4->SetFourConnected();
-  MapEnvironment* w8 = new MapEnvironment(map); w4->SetEightConnected();
-  MapEnvironment* w9 = new MapEnvironment(map); w4->SetNineConnected();
-  MapEnvironment* w24 = new MapEnvironment(map); w4->SetTwentyFourConnected();
-  MapEnvironment* w25 = new MapEnvironment(map); w4->SetTwentyFiveConnected();
-  MapEnvironment* w48 = new MapEnvironment(map); w4->SetFortyEightConnected();
-  MapEnvironment* w49 = new MapEnvironment(map); w4->SetFortyNineConnected();
+  MapEnvironment* w5 = new MapEnvironment(map); w5->SetFiveConnected();
+  MapEnvironment* w8 = new MapEnvironment(map); w8->SetEightConnected();
+  MapEnvironment* w9 = new MapEnvironment(map); w9->SetNineConnected();
+  MapEnvironment* w24 = new MapEnvironment(map); w24->SetTwentyFourConnected();
+  MapEnvironment* w25 = new MapEnvironment(map); w25->SetTwentyFiveConnected();
+  MapEnvironment* w48 = new MapEnvironment(map); w48->SetFortyEightConnected();
+  MapEnvironment* w49 = new MapEnvironment(map); w49->SetFortyNineConnected();
   // Cardinal Grid
   environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w4->name(),new Map2DConstrainedEnvironment(w4),0,cutoffs[0],weights[0]));
+  std::cout << "Added " << w4->name() << " @" << cutoffs[0] << " conflicts\n";
   // Cardinal Grid w/ Waiting
   environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w5->name(),new Map2DConstrainedEnvironment(w5),0,cutoffs[1],weights[1]));
+  std::cout << "Added " << w5->name() << " @" << cutoffs[1] << " conflicts\n";
   // Octile Grid
   environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w8->name(),new Map2DConstrainedEnvironment(w8),0,cutoffs[2],weights[2]));
+  std::cout << "Added " << w8->name() << " @" << cutoffs[2] << " conflicts\n";
   // Octile Grid w/ Waiting
   environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w9->name(),new Map2DConstrainedEnvironment(w9),0,cutoffs[3],weights[3]));
+  std::cout << "Added " << w9->name() << " @" << cutoffs[3] << " conflicts\n";
   // 24-connected Grid
   environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w24->name(),new Map2DConstrainedEnvironment(w24),0,cutoffs[4],weights[4]));
+  std::cout << "Added " << w24->name() << " @" << cutoffs[4] << " conflicts\n";
   // 24-connected Grid w/ Waiting
   environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w25->name(),new Map2DConstrainedEnvironment(w25),0,cutoffs[5],weights[5]));
+  std::cout << "Added " << w25->name() << " @" << cutoffs[5] << " conflicts\n";
   // 48-connected Grid
   environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w48->name(),new Map2DConstrainedEnvironment(w48),0,cutoffs[6],weights[6]));
+  std::cout << "Added " << w48->name() << " @" << cutoffs[6] << " conflicts\n";
   // 48-connected Grid w/ Waiting
   environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w49->name(),new Map2DConstrainedEnvironment(w49),0,cutoffs[7],weights[7]));
+  std::cout << "Added " << w49->name() << " @" << cutoffs[7] << " conflicts\n";
 
   /*for(auto& e:environs){
     for(auto& s:sconstraints){
@@ -240,7 +248,7 @@ void InitHeadless(){
             if(waypoints[j].size()<n)
             {
               xytLoc a(waypoints[j][n]);
-              // Make sure that no gubgoals at similar times have a conflict
+              // Make sure that no subgoals at similar times have a conflict
               Constraint<xytLoc> x_c(a);
               if(x_c.ConflictsWith(start)){conflict=true;break;}
             }
