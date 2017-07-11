@@ -3,7 +3,7 @@
 #include "UnitSimulation.h"
 #include "ScenarioLoader.h"
 #include "Map2DConstrainedEnvironment.h"
-#include "CBSUnits2.h"
+#include "CBSUnits.h"
 #include "NonUnitTimeCAT.h"
 
 #include <sstream>

@@ -787,7 +787,6 @@ double MapEnvironment::_h48(unsigned dx,unsigned dy,double result)const{
   if(3*dx==2*dy) return (dx/2)*SQRT_13;
   unsigned steps(dy/3);
   unsigned ss2(dy/2);
-  unsigned ry(dy%3);
   if(steps>=dx){
     //std::cout << dx << " " << dy << " " << "case 1\n";
     result += SQRT_10*dx;
@@ -818,42 +817,7 @@ double MapEnvironment::_h48(unsigned dx,unsigned dy,double result)const{
     result += steps*SQRT_13;
     dx-=steps*2;
     dy-=steps*3;
-  }else{
-   std::cout << "Missed\n";
-  }/*else if(steps<dx && dx<=2*steps){
-    unsigned s2s(dy/2);
-    unsigned r2(dx-s2s);
-    if(r2>0){
-    std::cout << dx << " " << dy << " " << "case 3\n";
-      dx-=2*r2;
-      dy-=3*r2;
-      result += r2*SQRT_13;
-    }else if(r2==0 && dy%2){
-    std::cout << dx << " " << dy << " " << "case 4\n";
-      dx--;
-      dy-=3;
-      result += SQRT_10;
-    }else if(r2<0){
-    std::cout << dx << " " << dy << " " << "case 5\n";
-      dx+=r2;
-      dy+=3*r2;
-      result += r2*SQRT_13;
-    }else{
-      unsigned s1(dx-steps);
-      unsigned s2(2*steps-dx);
-      if(s1<s2){
-    std::cout << dx << " " << dy << " " << "case 6\n";
-        result += s1*SQRT_10;
-        dx-=s1;
-        dy-=s1*3;
-      }else{
-    std::cout << dx << " " << dy << " " << "case 7\n";
-        result += s2*SQRT_13;
-        dx-=2*s2;
-        dy-=s2*3;
-      }
-    }
-  }*/
+  }
   return _h24(dy,dx,result);
 }
 
