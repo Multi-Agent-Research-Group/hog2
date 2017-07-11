@@ -70,7 +70,7 @@ std::vector<std::vector<xytLoc> > waypoints;
     {
       group->ExpandOneCBSNode();
     }
-    for(int i(0);i<group->GetNumMembers();++i){
+    if(verbose)for(int i(0);i<group->GetNumMembers();++i){
       std::cout << "final path for agent " << i << ":\n";
       for(auto const& n: group->tree.back().paths[i])
         std::cout << n << "\n";
@@ -161,7 +161,7 @@ void MyWindowHandler(unsigned long windowID, tWindowEventType eType)
 
 
 void InitHeadless(){
-  std::cout << "Setting seed " << seed << "\n";
+  //std::cout << "Setting seed " << seed << "\n";
   srand(seed);
   srandom(seed);
   Map* map(new Map(64,64));
@@ -175,28 +175,28 @@ void InitHeadless(){
   MapEnvironment* w49 = new MapEnvironment(map); w49->SetFortyNineConnected();
   // Cardinal Grid
   environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w4->name(),new Map2DConstrainedEnvironment(w4),0,cutoffs[0],weights[0]));
-  std::cout << "Added " << w4->name() << " @" << cutoffs[0] << " conflicts\n";
+  if(verbose)std::cout << "Added " << w4->name() << " @" << cutoffs[0] << " conflicts\n";
   // Cardinal Grid w/ Waiting
   environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w5->name(),new Map2DConstrainedEnvironment(w5),0,cutoffs[1],weights[1]));
-  std::cout << "Added " << w5->name() << " @" << cutoffs[1] << " conflicts\n";
+  if(verbose)std::cout << "Added " << w5->name() << " @" << cutoffs[1] << " conflicts\n";
   // Octile Grid
   environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w8->name(),new Map2DConstrainedEnvironment(w8),0,cutoffs[2],weights[2]));
-  std::cout << "Added " << w8->name() << " @" << cutoffs[2] << " conflicts\n";
+  if(verbose)std::cout << "Added " << w8->name() << " @" << cutoffs[2] << " conflicts\n";
   // Octile Grid w/ Waiting
   environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w9->name(),new Map2DConstrainedEnvironment(w9),0,cutoffs[3],weights[3]));
-  std::cout << "Added " << w9->name() << " @" << cutoffs[3] << " conflicts\n";
+  if(verbose)std::cout << "Added " << w9->name() << " @" << cutoffs[3] << " conflicts\n";
   // 24-connected Grid
   environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w24->name(),new Map2DConstrainedEnvironment(w24),0,cutoffs[4],weights[4]));
-  std::cout << "Added " << w24->name() << " @" << cutoffs[4] << " conflicts\n";
+  if(verbose)std::cout << "Added " << w24->name() << " @" << cutoffs[4] << " conflicts\n";
   // 24-connected Grid w/ Waiting
   environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w25->name(),new Map2DConstrainedEnvironment(w25),0,cutoffs[5],weights[5]));
-  std::cout << "Added " << w25->name() << " @" << cutoffs[5] << " conflicts\n";
+  if(verbose)std::cout << "Added " << w25->name() << " @" << cutoffs[5] << " conflicts\n";
   // 48-connected Grid
   environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w48->name(),new Map2DConstrainedEnvironment(w48),0,cutoffs[6],weights[6]));
-  std::cout << "Added " << w48->name() << " @" << cutoffs[6] << " conflicts\n";
+  if(verbose)std::cout << "Added " << w48->name() << " @" << cutoffs[6] << " conflicts\n";
   // 48-connected Grid w/ Waiting
   environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w49->name(),new Map2DConstrainedEnvironment(w49),0,cutoffs[7],weights[7]));
-  std::cout << "Added " << w49->name() << " @" << cutoffs[7] << " conflicts\n";
+  if(verbose)std::cout << "Added " << w49->name() << " @" << cutoffs[7] << " conflicts\n";
 
   /*for(auto& e:environs){
     for(auto& s:sconstraints){
@@ -224,7 +224,7 @@ void InitHeadless(){
   }
 
 
-  std::cout << "Adding " << num_agents << "planes." << std::endl;
+  if(verbose)std::cout << "Adding " << num_agents << "agents." << std::endl;
 
   for (int i = 0; i < num_agents; i++) {
     if(waypoints.size()<num_agents){
@@ -235,27 +235,30 @@ void InitHeadless(){
       if(r>0){
         numsubgoals = rand()%(maxsubgoals-minsubgoals)+minsubgoals+1;
       }
-      std::cout << "Agent " << i << " add " << numsubgoals << " subgoals\n";
+      if(verbose)std::cout << "Agent " << i << " add " << numsubgoals << " subgoals\n";
+
       for(int n(0); n<numsubgoals; ++n){
         bool conflict(true);
         while(conflict){
           conflict=false;
           xyLoc rs1(rand() % 64, rand() % 64);
+          if(!ace->GetMap()->IsTraversable(rs1.x,rs1.y)){conflict=true;continue;}
           xytLoc start(rs1, 0);
           for (int j = 0; j < waypoints.size(); j++)
           {
             if(i==j){continue;}
-            if(waypoints[j].size()<n)
+            if(waypoints[j].size()>n)
             {
               xytLoc a(waypoints[j][n]);
               // Make sure that no subgoals at similar times have a conflict
-              Constraint<xytLoc> x_c(a);
-              if(x_c.ConflictsWith(start)){conflict=true;break;}
+              Constraint<xytLoc> x_c(a,a);
+              if(x_c.ConflictsWith(start,start)){conflict=true;break;}
+              if(a==start){conflict=true;break;}
             }
-            xytLoc a(start,1.0);
+            /*xytLoc a(start,1.0);
             xytLoc b(a);
             b.x++;
-            if(conflict=ace->ViolatesConstraint(a,b)){break;}
+            if(conflict=ace->ViolatesConstraint(a,b)){break;}*/
           }
           if(!conflict) s.push_back(start);
         }
@@ -269,16 +272,18 @@ void InitHeadless(){
         ++w;
     }
 
-    std::cout << "Set unit " << i << " subgoals: ";
-    for(auto &a: waypoints[i])
-      std::cout << a << " ";
-    std::cout << std::endl;
+    if(verbose){
+      std::cout << "Set unit " << i << " subgoals: ";
+      for(auto &a: waypoints[i])
+        std::cout << a << " ";
+      std::cout << std::endl;
+    }
     float softEff(.9);
     CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >* unit = new CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >(waypoints[i],softEff);
     unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
     group->AddUnit(unit); // Add to the group
-    std::cout << "initial path for agent " << i << ":\n";
-    for(auto const& n: group->tree[0].paths[i])
+    if(verbose)std::cout << "initial path for agent " << i << ":\n";
+    if(verbose)for(auto const& n: group->tree[0].paths[i])
       std::cout << n << "\n";
     if(gui){sim->AddUnit(unit);} // Add to the group
   }

@@ -628,21 +628,23 @@ void CBSGroup<state,action,environment,comparison,conflicttable>::processSolutio
 
     // Update the actual unit path
     unit->SetPath(tree[bestNode].paths[x]);
-    std::cout << "Agent " << x << ": " << "\n";
-    unsigned wpt(0);
-    signed ix(0);
-    for(auto &a: tree[bestNode].paths[x])
-    {
-        std::cout << a << " " << wpt << " " << unit->GetWaypoint(wpt) << "\n";
+    if(verbose){
+      std::cout << "Agent " << x << ": " << "\n";
+      unsigned wpt(0);
+      signed ix(0);
+      for(auto &a: tree[bestNode].paths[x])
+      {
+        //std::cout << a << " " << wpt << " " << unit->GetWaypoint(wpt) << "\n";
         if(ix++==tree[bestNode].wpts[x][wpt])
         {
-            std::cout << " *" << a << "\n";
-            wpt++;
+          std::cout << " *" << a << "\n";
+          wpt++;
         }
         else
         {
-            std::cout << "  " << a << "\n";
+          std::cout << "  " << a << "\n";
         }
+      }
     }
   }
   fflush(stdout);
@@ -686,7 +688,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable>::SetEnvironment
   bool set(false);
   for (int i = 0; i < this->environments.size(); i++) {
     if (numConflicts >= environments[i].conflict_cutoff) {
-      std::cout << "Setting to env# " << i << " b/c " << numConflicts << " >= " << environments[i].conflict_cutoff<<environments[i].environment->name()<<std::endl;
+      //std::cout << "Setting to env# " << i << " b/c " << numConflicts << " >= " << environments[i].conflict_cutoff<<environments[i].environment->name()<<std::endl;
       //std::cout<<environments[i].environment->getGoal()<<"\n";
       currentEnvironment = &(environments[i]);
       set=true;
@@ -1093,8 +1095,8 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable>::HasConflic
   unsigned numConflicts(0);
   // To check for conflicts, we loop through the timed actions, and check 
   // each bit to see if a constraint is violated
-  int xmax = a.size();
-  int ymax = b.size();
+  int xmax(a.size());
+  int ymax(b.size());
 
   if(verbose)std::cout << "Checking for conflicts between: "<<x << " and "<<y<<" ranging from:" << xmax <<"," << ymax << " update: " << update << "\n";
 
@@ -1114,8 +1116,8 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable>::HasConflic
     // we have to deal with it, if not, then we don't.
 
     // Figure out which indices we're comparing
-    int xTime = max(0, min(i, xmax-1));
-    int yTime = max(0, min(j, ymax-1));
+    int xTime(max(0, min(i, xmax-1)));
+    int yTime(max(0, min(j, ymax-1)));
 
     // Check if we're looking directly at a waypoint.
     // Increment so that we know we've passed it.
@@ -1124,8 +1126,8 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable>::HasConflic
         //std::cout << " " << xTime << " " << pxTime << " " << pwptA;std::cout << " " << A->GetWaypoint(pwptA+1) << " " << a[xTime] << "==?" << (A->GetWaypoint(pwptA+1)==a[xTime]) <<  "\n";
         //std::cout << "if(yTime != pyTime && B->GetWaypoint(pwptB+1)==b[yTime]){++pwptB; pyTime=yTime;}\n";
         //std::cout << " " << yTime << " " << pyTime << " " << pwptB;std::cout << " " << B->GetWaypoint(pwptB+1) << " " << b[yTime] << "==?" << (B->GetWaypoint(pwptB+1)==b[yTime]) <<  "\n";
-        if(xTime != pxTime && xTime == wa[pwptA+1]){++pwptA; pxTime=xTime;}
-        if(yTime != pyTime && yTime == wb[pwptB+1]){++pwptB; pyTime=yTime;}
+        if(xTime != pxTime && pwptA+2<wa.size() && xTime == wa[pwptA+1]){++pwptA; pxTime=xTime;}
+        if(yTime != pyTime && pwptB+2<wb.size() && yTime == wb[pwptB+1]){++pwptB; pyTime=yTime;}
     }
 
     if(verbose)std::cout << "Looking at positions " << xTime <<":"<<a[xTime].t << "," << j<<":"<<b[yTime].t << std::endl;

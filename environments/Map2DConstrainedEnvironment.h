@@ -22,7 +22,7 @@
 struct xytLoc : xyLoc {
 	xytLoc(xyLoc loc, float time):xyLoc(loc), t(time) {}
 	xytLoc(uint16_t _x, uint16_t _y, float time):xyLoc(_x,_y), t(time) {}
-	xytLoc() { t = 0; }
+	xytLoc():xyLoc(),t(0),nc(-1){}
 	float t;
         int16_t nc; // Number of conflicts, for conflict avoidance table
         operator Vector2D()const{return Vector2D(x,y);}
@@ -72,6 +72,7 @@ public:
 	virtual void OpenGLDraw(const xytLoc&) const;
 	virtual void OpenGLDraw(const xytLoc&, const tDirection&) const;
 	virtual void GLDrawLine(const xytLoc &x, const xytLoc &y) const;
+        virtual Map* GetMap()const{return mapEnv->GetMap();}
 private:
 	bool ViolatesConstraint(const xyLoc &from, const xyLoc &to, float time, float inc) const;
 

@@ -43,32 +43,19 @@ void Map2DConstrainedEnvironment::ClearConstraints()
 
 void Map2DConstrainedEnvironment::GetSuccessors(const xytLoc &nodeID, std::vector<xytLoc> &neighbors) const
 {
-	std::vector<xyLoc> n;
-	mapEnv->GetSuccessors(nodeID, n);
+  std::vector<xyLoc> n;
+  mapEnv->GetSuccessors(nodeID, n);
 
-	// TODO: remove illegal successors
-	for (unsigned int x = 0; x < n.size(); x++)
-        {
-          float inc(mapEnv->GetConnectedness()>5?(Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y)):1.0);
-          if (!ViolatesConstraint(nodeID, n[x], nodeID.t, inc))
-          {
-            xytLoc newLoc(n[x],nodeID.t+inc);
-            neighbors.push_back(newLoc);
-          }
-        }
-	// TODO: Add kStay
-	/*if (!ViolatesConstraint(nodeID, nodeID, nodeID.t, 1.0))
-	{
-		xytLoc newLoc;
-		newLoc = nodeID;
-		newLoc.t = nodeID.t+1;
-		neighbors.push_back(newLoc);
-	}*/
-//	std::cout << "Successors of " << nodeID << " are:" << std::endl;
-//	for (unsigned int x = 0; x < neighbors.size(); x++)
-//		std::cout << neighbors[x] << " ";
-//	std::cout << std::endl;
-	
+  // TODO: remove illegal successors
+  for (unsigned int x = 0; x < n.size(); x++)
+  {
+    float inc(mapEnv->GetConnectedness()>5?(Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y)):1.0);
+    if (!ViolatesConstraint(nodeID, n[x], nodeID.t, inc))
+    {
+      xytLoc newLoc(n[x],nodeID.t+inc);
+      neighbors.push_back(newLoc);
+    }
+  }
 }
 bool Map2DConstrainedEnvironment::ViolatesConstraint(const xytLoc &from, const xytLoc &to) const{
   Vector2D A(from);
@@ -93,24 +80,7 @@ bool Map2DConstrainedEnvironment::ViolatesConstraint(const xytLoc &from, const x
 
 bool Map2DConstrainedEnvironment::ViolatesConstraint(const xyLoc &from, const xyLoc &to, float time, float inc) const
 {
-  if(mapEnv->GetConnectedness()<6){
-    for (unsigned int x = 0; x < constraints.size(); x++)
-    {
-      tDirection dir(GetAction(constraints[x].start_state,constraints[x].end_state));
-      if ((dir == kTeleport) && time+inc == constraints[x].start_state.t && (to == constraints[x].start_state))
-        return true;
-      if ((dir != kTeleport) && time+inc == constraints[x].start_state.t && (constraints[x].start_state == to))
-      {
-        xyLoc tmp(to);
-        mapEnv->UndoAction(tmp, dir);
-        if (tmp == from)
-          return true;
-      }
-    }
-  }else{
-    return ViolatesConstraint(xytLoc(from,time),xytLoc(to,time+inc));
-  }
-  return false;
+  return ViolatesConstraint(xytLoc(from,time),xytLoc(to,time+inc));
 }
 
 void Map2DConstrainedEnvironment::GetActions(const xytLoc &nodeID, std::vector<tDirection> &actions) const
@@ -247,7 +217,7 @@ void Map2DConstrainedEnvironment::GLDrawLine(const xytLoc &x, const xytLoc &y) c
 template<>
 bool Constraint<xytLoc>::ConflictsWith(const xytLoc &state) const
 {
-  if(state.landed || end_state.landed && start_state.landed) return false;
+  /*if(state.landed || end_state.landed && start_state.landed) return false;
   Vector2D A(state);
   Vector2D VA(0,0);
   //VA.NormalIize();
@@ -259,8 +229,8 @@ bool Constraint<xytLoc>::ConflictsWith(const xytLoc &state) const
   //VB.Normalize();
   if(collisionImminent(A,VA,aradius,state.t,state.t+1.0,B,VB,bradius,start_state.t,end_state.t)){
     return true;
-  }
-  return false;
+  }*/
+  return false; // There is really no such thing as a vertex conflict in continuous time domains.
 }
 
 // Check both vertex and edge constraints
