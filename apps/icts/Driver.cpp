@@ -671,6 +671,10 @@ int main(int argc, char ** argv){
             for(auto n:toDelete){
               delete n;
             }
+            while(!q.empty()){
+              delete q.top();
+              q.pop();
+            }
           }
         }
         for(auto const& path:solution){
