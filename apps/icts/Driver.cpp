@@ -626,6 +626,7 @@ int main(int argc, char ** argv){
             q.push(new ICTSNode(g,sizes));
 
             std::vector<std::set<Node*,NodePtrComp>> answer;
+            std::vector<ICTSNode*> toDelete;
             while(q.size()){
               ICTSNode* parent(q.top());
               //std::cout << "pop ";
@@ -663,6 +664,10 @@ int main(int argc, char ** argv){
                 failed++;
                 std::cout << "failed" << std::endl;
               }
+              toDelete.push_back(parent);
+            }
+            for(auto n:toDelete){
+              delete n;
             }
           }
         }
@@ -688,7 +693,10 @@ int main(int argc, char ** argv){
         //for(int i(0); i<s.size(); ++i){
           //group[i]=i; // In its own group
         //}
+      }
 
+      for(auto y:groups){
+        delete y;
       }
 
       elapsed=tmr.EndTimer();
