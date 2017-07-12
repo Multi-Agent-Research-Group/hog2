@@ -37,6 +37,8 @@
 #include "VelocityObstacle.h"
 #include "TemplateAStar.h"
 
+int renderScene(){}
+
 struct Group{
   Group(int i){agents.insert(i);}
   std::unordered_set<int> agents;
@@ -514,7 +516,7 @@ int main(int argc, char ** argv){
   int seed(123456);
   double timeout(300);
   srand(seed);
-  for(int n(6); n<13; n+=2){
+  for(int n(6); n<17; n+=2){
     std::cout << "N="<<n<<"\n";
     double total(0.0);
     double length(0.0);
