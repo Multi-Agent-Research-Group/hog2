@@ -459,7 +459,7 @@ bool CBSGroup<state,action,environment,comparison,conflicttable>::ExpandOneCBSNo
   else
   {
     // Notify the user of the conflict
-    if(verbose)std::cout << "TREE " << bestNode << "Conflict found between unit " << c1.unit1 << " and unit " << c2.unit1 << " @:" << c2.c.start() <<  " and " << c1.c.start() << " NC " << numConflicts << " prev-W " << c1.prevWpt << " " << c2.prevWpt << "\n";
+    /*if(verbose)*/std::cout << "TREE " << bestNode << "Conflict found between unit " << c1.unit1 << " and unit " << c2.unit1 << " @:" << c2.c.start() <<  " and " << c1.c.start() << " NC " << numConflicts << " prev-W " << c1.prevWpt << " " << c2.prevWpt << "\n";
 
     // Don't create new nodes if either bypass was successful
     // Note, these calls will add nodes to the openList
@@ -628,22 +628,24 @@ void CBSGroup<state,action,environment,comparison,conflicttable>::processSolutio
 
     // Update the actual unit path
     unit->SetPath(tree[bestNode].paths[x]);
-    //std::cout << "Agent " << x << ": " << "\n";
-    unsigned wpt(0);
-    signed ix(0);
-    //for(auto &a: tree[bestNode].paths[x])
-    //{
+    if(verbose){
+      std::cout << "Agent " << x << ": " << "\n";
+      unsigned wpt(0);
+      signed ix(0);
+      for(auto &a: tree[bestNode].paths[x])
+      {
         //std::cout << a << " " << wpt << " " << unit->GetWaypoint(wpt) << "\n";
-        //if(ix++==tree[bestNode].wpts[x][wpt])
-        //{
-            //std::cout << " *" << a << "\n";
-            //wpt++;
-        //}
-        //else
-        //{
-            //std::cout << "  " << a << "\n";
-        //}
-    //}
+        if(ix++==tree[bestNode].wpts[x][wpt])
+        {
+          std::cout << " *" << a << "\n";
+          wpt++;
+        }
+        else
+        {
+          std::cout << "  " << a << "\n";
+        }
+      }
+    }
   }
   fflush(stdout);
   if(elapsed<0){
@@ -1058,10 +1060,10 @@ void CBSGroup<state,action,environment,comparison,conflicttable>::Replan(int loc
     comparison::CAT->remove(tree[location].paths[theUnit],currentEnvironment->environment,theUnit);
   }
 
-  std::cout << "Replan agent " << theUnit << "\n";
+  //std::cout << "Replan agent " << theUnit << "\n";
   TOTAL_EXPANSIONS += ReplanLeg<state,action,environment,comparison,conflicttable>(c, astar, currentEnvironment->environment, tree[location].paths[theUnit], tree[location].wpts[theUnit], tree[location].con.prevWpt, tree[location].con.prevWpt+1);
   for(int i(0); i<tree[location].paths.size(); ++i)
-  std::cout << "Replanned agent "<<i<<" path " << tree[location].paths[i].size() << "\n";
+  //std::cout << "Replanned agent "<<i<<" path " << tree[location].paths[i].size() << "\n";
 
   if(killex != INT_MAX && TOTAL_EXPANSIONS>killex)
     processSolution(-timer->EndTimer());
@@ -1093,8 +1095,8 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable>::HasConflic
   unsigned numConflicts(0);
   // To check for conflicts, we loop through the timed actions, and check 
   // each bit to see if a constraint is violated
-  int xmax = a.size();
-  int ymax = b.size();
+  int xmax(a.size());
+  int ymax(b.size());
 
   if(verbose)std::cout << "Checking for conflicts between: "<<x << " and "<<y<<" ranging from:" << xmax <<"," << ymax << " update: " << update << "\n";
 
@@ -1114,8 +1116,8 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable>::HasConflic
     // we have to deal with it, if not, then we don't.
 
     // Figure out which indices we're comparing
-    int xTime = max(0, min(i, xmax-1));
-    int yTime = max(0, min(j, ymax-1));
+    int xTime(max(0, min(i, xmax-1)));
+    int yTime(max(0, min(j, ymax-1)));
 
     // Check if we're looking directly at a waypoint.
     // Increment so that we know we've passed it.
@@ -1124,8 +1126,8 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable>::HasConflic
         //std::cout << " " << xTime << " " << pxTime << " " << pwptA;std::cout << " " << A->GetWaypoint(pwptA+1) << " " << a[xTime] << "==?" << (A->GetWaypoint(pwptA+1)==a[xTime]) <<  "\n";
         //std::cout << "if(yTime != pyTime && B->GetWaypoint(pwptB+1)==b[yTime]){++pwptB; pyTime=yTime;}\n";
         //std::cout << " " << yTime << " " << pyTime << " " << pwptB;std::cout << " " << B->GetWaypoint(pwptB+1) << " " << b[yTime] << "==?" << (B->GetWaypoint(pwptB+1)==b[yTime]) <<  "\n";
-        if(xTime != pxTime && xTime == wa[pwptA+1]){++pwptA; pxTime=xTime;}
-        if(yTime != pyTime && yTime == wb[pwptB+1]){++pwptB; pyTime=yTime;}
+        if(xTime != pxTime && pwptA+2<wa.size() && xTime == wa[pwptA+1]){++pwptA; pxTime=xTime;}
+        if(yTime != pyTime && pwptB+2<wb.size() && yTime == wb[pwptB+1]){++pwptB; pyTime=yTime;}
     }
 
     if(verbose)std::cout << "Looking at positions " << xTime <<":"<<a[xTime].t << "," << j<<":"<<b[yTime].t << std::endl;

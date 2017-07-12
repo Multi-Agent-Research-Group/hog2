@@ -775,35 +775,48 @@ double MapEnvironment::h24(const xyLoc &l1, const xyLoc &l2)const{
 }
 
 double MapEnvironment::_h48(unsigned dx,unsigned dy,double result)const{
+  static double const SQRT_2(std::sqrt(2.0));
   static double const SQRT_10(sqrt(10));
   static double const SQRT_13(sqrt(13));
-  if(dx==dy) return _h8(dx,dy,result);
+  if(dx==dy) return dx*SQRT_2;
   if(dx>dy){ // Swap
     unsigned tmp(dx); dx=dy; dy=tmp;
   }
-  if(2*dx==dy) return _h24(dy,dx,result);
+  if(2*dx==dy) return dx*SQRT_5;
+  if(3*dx==dy) return dx*SQRT_10;
+  if(3*dx==2*dy) return (dx/2)*SQRT_13;
   unsigned steps(dy/3);
+  unsigned ss2(dy/2);
   if(steps>=dx){
+    //std::cout << dx << " " << dy << " " << "case 1\n";
     result += SQRT_10*dx;
     dy-=dx*3;
     dx=0;
-  }else if(dx>=2*steps){
-    unsigned s2(3*steps-dx);
-      result += s2*SQRT_13;
-      dx-=2*s2;
-      dy-=s2*3;
-  }else if(steps<dx && dx<=2*steps){
-    unsigned s1(dx-steps);
-    unsigned s2(2*steps-dx);
-    if(s1<s2){
-      result += s1*SQRT_10;
-      dx-=s1;
-      dy-=s1*3;
-    }else{
-      result += s2*SQRT_13;
-      dx-=2*s2;
-      dy-=s2*3;
-    }
+  }else if(dx>2*steps){
+    //std::cout << steps << "-" << (dx%steps) << "+" << (dy%steps) << " " << dx << " " << dy << " " << "case 2\n";
+    unsigned ddx(dx-2*steps);
+    unsigned ddy(dy-3*steps);
+    if(ddx>ddy)
+      steps-=ddx-ddy;
+    result += steps*SQRT_13;
+    dx-=2*steps;
+    dy-=steps*3;
+  }else if(steps<dx && ss2>=dx){
+    //std::cout << dx << " " << dy << " " << "case n\n";
+    unsigned ddx(dx-steps);
+    unsigned ddy(dy-3*steps);
+    steps-=(2*ddx-ddy);
+    result += steps*SQRT_10;
+    dx-=steps;
+    dy-=steps*3;
+  }else if(ss2<dx && 2*steps>=dx){
+    //std::cout << dx << " " << dy << " " << "case p\n";
+    unsigned ddx(2*steps-dx);
+    unsigned ddy(dy-3*steps);
+    steps-=(2*ddx+ddy);
+    result += steps*SQRT_13;
+    dx-=steps*2;
+    dy-=steps*3;
   }
   return _h24(dy,dx,result);
 }
@@ -1764,3 +1777,4 @@ bool BaseMapOccupancyInterface::CanMove(const xyLoc &, const xyLoc &l2)
 	}
 	
 }
+

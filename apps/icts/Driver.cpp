@@ -166,10 +166,10 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& root
   Node::env->GetSuccessors(start,successors);
   bool result(false);
   for(auto const& node: successors){
-    float ddiff(1.0);
-    if(abs(node.x-start.x)>=1 && abs(node.y-start.y)>=1){
-      ddiff = M_SQRT2;
-    }
+    float ddiff(std::max(Util::distance(node.x,node.y,start.x,start.y),1.0));
+    //if(abs(node.x-start.x)>=1 && abs(node.y-start.y)>=1){
+      //ddiff = M_SQRT2;
+    //}
     if(LimitedDFS(node,end,dag,root,depth-ddiff,maxDepth)){
       Node n(start,maxDepth-depth);
       uint64_t hash(n.Hash());
@@ -522,6 +522,7 @@ int main(int argc, char ** argv){
     double length(0.0);
     int numAgents(n);
     int failed(0);
+    double cost(0);
     for(int t(0); t<100; ++t){
       //checked.clear();
       //std::cout << "Trial #"<<t<<"\n";
@@ -606,7 +607,7 @@ int main(int argc, char ** argv){
         // Create groups
         int g(0);
         for(auto const& grp:groups){
-          for(a:grp->agents){
+          for(auto a:grp->agents){
             G[g].first.push_back(s[a]);
             G[g].second.push_back(e[a]);
             Gid[g].push_back(a);
@@ -627,6 +628,7 @@ int main(int argc, char ** argv){
             q.push(new ICTSNode(g,sizes));
 
             std::vector<std::set<Node*,NodePtrComp>> answer;
+            std::vector<ICTSNode*> toDelete;
             while(q.size()){
               ICTSNode* parent(q.top());
               //std::cout << "pop ";
@@ -664,11 +666,19 @@ int main(int argc, char ** argv){
                 failed++;
                 std::cout << "failed" << std::endl;
               }
+              toDelete.push_back(parent);
+            }
+            for(auto n:toDelete){
+              delete n;
             }
           }
         }
-        for(auto const& p:solution){
-          length += p.size();
+        for(auto const& path:solution){
+          length += path.size();
+          for(int j(1); j<path.size(); ++j){
+            if(path[j-1].first!=path[j].first)
+              cost += env.GCost(path[j-1].first,path[j].first);
+          }
         }
         //std::cout << "Solution:\n";
         //int ii(0);
@@ -685,7 +695,10 @@ int main(int argc, char ** argv){
         //for(int i(0); i<s.size(); ++i){
           //group[i]=i; // In its own group
         //}
+      }
 
+      for(auto y:groups){
+        delete y;
       }
 
       elapsed=tmr.EndTimer();
@@ -695,6 +708,7 @@ int main(int argc, char ** argv){
     }
     std::cout << "Average time: " << total/100. << std::endl;
     std::cout << "Average path: " << length/(100.*n) << std::endl;
+    std::cout << "Average cost: " << cost/(100.) << std::endl;
     std::cout << failed << " failures" << std::endl;
   }
   return 1;

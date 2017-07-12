@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <string>
 #include <iostream>
+#include <sstream>
 #include "Map.h"
 #include "MapAbstraction.h"
 #include "SearchEnvironment.h"
@@ -28,11 +29,12 @@
 
 struct xyLoc {
 public:
-	xyLoc() { x = -1; y = -1; }
-	xyLoc(uint16_t _x, uint16_t _y) :x(_x), y(_y) {}
+	xyLoc():x(-1),y(-1),landed(false){}
+	xyLoc(uint16_t _x, uint16_t _y, bool l=false) :x(_x), y(_y), landed(l) {}
         bool operator<(xyLoc const& other)const{return x==other.x?y<other.y:x<other.x;}
 	uint16_t x;
 	uint16_t y;
+        bool landed; // Have we already arrived at the goal? (always leave this false if agent can block other agents)
 };
 
 struct xyLocHash
@@ -153,7 +155,9 @@ public:
 	virtual ~MapEnvironment();
 	void SetGraphHeuristic(GraphHeuristic *h);
 	GraphHeuristic *GetGraphHeuristic();
+        virtual char const*const name()const{std::stringstream ss; ss<<"Map2DEnvironment("<<(int)connectedness<<"-connected)"; return ss.str().c_str();}
 	virtual void GetSuccessors(const xyLoc &nodeID, std::vector<xyLoc> &neighbors) const;
+	virtual void GetReverseSuccessors(const xyLoc &nodeID, std::vector<xyLoc> &neighbors) const{GetSuccessors(nodeID,neighbors);}
 	bool GetNextSuccessor(const xyLoc &currOpenNode, const xyLoc &goal, xyLoc &next, double &currHCost, uint64_t &special, bool &validMove);
 	bool GetNext4Successor(const xyLoc &currOpenNode, const xyLoc &goal, xyLoc &next, double &currHCost, uint64_t &special, bool &validMove);
 	bool GetNext8Successor(const xyLoc &currOpenNode, const xyLoc &goal, xyLoc &next, double &currHCost, uint64_t &special, bool &validMove);
@@ -231,6 +235,8 @@ public:
 	void SetFortyEightConnected() { connectedness=48; }
 	void SetFortyNineConnected() { connectedness=49; }
 	void SetAnyAngleConnected() { connectedness=255; }
+        void SetConnectedness(int c){ connectedness=c; }
+        uint8_t GetConnectedness()const{ return connectedness; }
 	//virtual BaseMapOccupancyInterface* GetOccupancyInterface(){std::cout<<"Mapenv\n";return oi;}
 	//virtual xyLoc GetNextState(xyLoc &s, tDirection dir);
 	double GetPathLength(std::vector<xyLoc> &neighbors);

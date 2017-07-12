@@ -82,7 +82,7 @@ template<typename State, typename Action>
 class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
   public:
     /** Add a constraint to the model */
-    virtual void AddConstraint(Constraint<State> c) = 0;
+    virtual void AddConstraint(Constraint<State> const& c) = 0;
     /** Clear the constraints */
     virtual void ClearConstraints() = 0;
     /** Get the possible actions from a state */

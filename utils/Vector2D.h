@@ -42,6 +42,7 @@ class Vector2D {
     inline double operator *(Vector2D const& other){return x * other.x + y * other.y;}
     // Negation
     inline Vector2D operator -(Vector2D const& other)const{return Vector2D(x-other.x,y-other.y);}
+    inline void operator -=(Vector2D const& other){x-=other.x;y-=other.y;}
     inline Vector2D operator -()const{return Vector2D(-x,-y);}
     // Slope angle of this vector
     inline float atan(){ return atan2(y,x); }
