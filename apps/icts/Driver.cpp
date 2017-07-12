@@ -250,7 +250,7 @@ void generatePermutations(std::vector<MultiEdge>& positions, std::vector<MultiEd
 // In order for this to work, we cannot generate sets of positions, we must generate sets of actions, since at time 1.0 an action from parent A at time 0.0 may have finished, while another action from the same parent A may still be in progress. 
 
 // Return true if we get to the desired depth
-bool jointDFS(MultiEdge const& s, float d, float term, std::vector<std::set<Node*,NodePtrComp>>& answer,double increment=1.0){
+bool jointDFS(MultiEdge const& s, float d, float term, std::vector<std::set<Node*,NodePtrComp>>& answer,std::vector<Node*>& toDelete,double increment=1.0){
   //std::cout << d << std::string((int)d,' ');
   //for(int a(0); a<s.size(); ++a){
     //std::cout << " s " << *s[a].second << "\n";
@@ -290,6 +290,7 @@ bool jointDFS(MultiEdge const& s, float d, float term, std::vector<std::set<Node
     if(output.empty()){
       // Stay at state...
       output.emplace_back(a.second,new Node(a.second->n,a.second->depth+increment));
+      toDelete.push_back(output.back().second);
       md=min(md,a.second->depth+increment); // Amount of time to wait
     }
     //std::cout << "successor  of " << s << "gets("<<*a<< "): " << output << "\n";
@@ -306,7 +307,7 @@ bool jointDFS(MultiEdge const& s, float d, float term, std::vector<std::set<Node
   bool value(false);
   for(auto const& a: crossProduct){
     //std::cout << "eval " << a << "\n";
-    value = jointDFS(a,md,term,answer,increment);
+    value = jointDFS(a,md,term,answer,toDelete,increment);
     if(value){
       for(int a(0); a<s.size(); ++a){
         //std::cout << "push " << *s[a] << "\n";
@@ -318,7 +319,7 @@ bool jointDFS(MultiEdge const& s, float d, float term, std::vector<std::set<Node
   return value;
 }
 
-bool jointDFS(MultiState const& s, float maxdepth, std::vector<std::set<Node*,NodePtrComp>>& answer, double increment=1.0){
+bool jointDFS(MultiState const& s, float maxdepth, std::vector<std::set<Node*,NodePtrComp>>& answer, std::vector<Node*>& toDelete, double increment=1.0){
   MultiEdge act;
   float sd(1.0);
   for(auto const& n:s){ // Add null parents for the initial movements
@@ -329,7 +330,7 @@ bool jointDFS(MultiState const& s, float maxdepth, std::vector<std::set<Node*,No
     //act.push_back(a);
   }
 
-  return jointDFS(act,0.0,maxdepth,answer,increment);
+  return jointDFS(act,0.0,maxdepth,answer,toDelete,increment);
 }
 
 // Not part of the algorithm... just for validating the answers
@@ -388,6 +389,8 @@ struct ICTSNode{
     }
   }
 
+  ~ICTSNode(){for(auto d:toDelete){delete d;}}
+
   Instance instance;
   std::vector<DAG> dag;
   std::vector<float> sizes;
@@ -395,11 +398,12 @@ struct ICTSNode{
   float maxdepth;
   double increment;
   Instance points;
+  std::vector<Node*> toDelete;
 
   bool isValid(std::vector<std::set<Node*,NodePtrComp>>& answer){
     // Do a depth-first search; if the search terminates at a goal, its valid.
     answer.resize(sizes.size());
-    if(jointDFS(root,maxdepth,answer,increment)){// && checkAnswer(answer)){
+    if(jointDFS(root,maxdepth,answer,toDelete,increment)){// && checkAnswer(answer)){
       //assert(checkAnswer(answer));
       //std::cout << "Answer:\n";
       //for(int agent(0); agent<answer.size(); ++agent){
