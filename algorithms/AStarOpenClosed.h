@@ -32,41 +32,18 @@
 #include <vector>
 #include <ext/hash_map>
 #include <stdint.h>
+#include "OpenClosedInterface.h"
 
 struct AHash64 {
 	size_t operator()(const uint64_t &x) const
 	{ return (size_t)(x); }
 };
 
-enum dataLocation {
-	kOpenList,
-	kClosedList,
-	kNotFound
-};
-
-const uint64_t kTAStarNoNode = 0xFFFFFFFFFFFFFFFFull;
-const uint64_t kTAStarSelf = 0xFFFFFFFFFFFFFFFEull;
-
-template<typename state>
-class AStarOpenClosedData {
-public:
-	AStarOpenClosedData() {}
-	AStarOpenClosedData(const state &theData, double gCost, double hCost, uint64_t parent, uint64_t openLoc, dataLocation location)
-	:data(theData), g(gCost), h(hCost), parentID(parent), openLocation(openLoc), where(location) { reopened = false; }
-	state data;
-	double g;
-	double h;
-	uint64_t parentID;
-	uint64_t openLocation;
-	bool reopened;
-	dataLocation where;
-};
-
 template<typename state, typename CmpKey, class dataStructure = AStarOpenClosedData<state> >
 struct cmp_t;
 
 template<typename state, typename CmpKey, class dataStructure = AStarOpenClosedData<state> >
-class AStarOpenClosed {
+class AStarOpenClosed : public OpenClosedInterface<state, dataStructure> {
   friend class cmp_t<state, CmpKey, dataStructure>;
 public:
 	AStarOpenClosed();

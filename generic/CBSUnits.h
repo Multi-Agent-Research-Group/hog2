@@ -33,7 +33,7 @@
 template <class state>
 struct CompareLowGCost;
 
-template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
 class CBSUnit;
 
 
@@ -53,8 +53,8 @@ struct CompareLowGCost {
 // Helper functions
 
 // Plan path between waypoints
-template <typename state, typename action, typename environment, typename comparison, typename conflicttable>
-unsigned ReplanLeg(CBSUnit<state,action,environment,comparison,conflicttable>* c, TemplateAStar<state, action, environment, AStarOpenClosed<state, comparison> >& astar, environment* env, std::vector<state>& thePath, std::vector<int>& wpts, unsigned s, unsigned g)
+template <typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
+unsigned ReplanLeg(CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>* c, searchalgo& astar, environment* env, std::vector<state>& thePath, std::vector<int>& wpts, unsigned s, unsigned g)
 {
   env->setSoftConstraintEffectiveness(1.0);
   int insertPoint(wpts[s]); // Starting index of this leg
@@ -119,8 +119,8 @@ unsigned ReplanLeg(CBSUnit<state,action,environment,comparison,conflicttable>* c
 }
 
 // Plan path between waypoints
-template <typename state, typename action, typename environment, typename comparison, typename conflicttable>
-unsigned GetFullPath(CBSUnit<state,action,environment,comparison,conflicttable>* c, TemplateAStar<state, action, environment, AStarOpenClosed<state,comparison> >& astar, environment* env, std::vector<state>& thePath, std::vector<int>& wpts, unsigned agent)
+template <typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
+unsigned GetFullPath(CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>* c, searchalgo& astar, environment* env, std::vector<state>& thePath, std::vector<int>& wpts, unsigned agent)
 {
   env->setSoftConstraintEffectiveness(c->getVisibility());
   int insertPoint(0);
@@ -138,7 +138,7 @@ unsigned GetFullPath(CBSUnit<state,action,environment,comparison,conflicttable>*
   unsigned offset(0);
   comparison::currentEnv=(environment*)env;
   if(comparison::useCAT){
-    comparison::currentAstar=&astar;
+    comparison::openList=astar.GetOpenList();
     comparison::currentAgent=agent;
   }
   for(int i(0); i<wpts.size(); ++i){
@@ -167,7 +167,7 @@ unsigned GetFullPath(CBSUnit<state,action,environment,comparison,conflicttable>*
   return expansions;
 }
 
-template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable,class searchalgo=TemplateAStar<state, action, environment, AStarOpenClosed<state, comparison>>>
 class CBSUnit : public Unit<state, action, environment> {
 public:
   CBSUnit(std::vector<state> const &gs, float viz=0)
@@ -220,7 +220,7 @@ struct Conflict {
         int prevWpt;
 };
 
-template<typename state, typename conflicttable>
+template<typename state, typename conflicttable, class searchalgo>
 struct CBSTreeNode {
 	CBSTreeNode():parent(0),satisfiable(true),cat(){}
 	std::vector< std::vector<int> > wpts;
@@ -232,8 +232,8 @@ struct CBSTreeNode {
         conflicttable cat; // Conflict avoidance table
 };
 
-template<typename state, typename conflicttable>
-static std::ostream& operator <<(std::ostream & out, const CBSTreeNode<state,conflicttable> &act)
+template<typename state, typename conflicttable, class searchalgo>
+static std::ostream& operator <<(std::ostream & out, const CBSTreeNode<state,conflicttable,searchalgo> &act)
 {
 	out << "(paths:"<<act.paths.size()<<", parent: "<<act.parent<< ", satisfiable: "<<act.satisfiable<<")";
 	return out;
@@ -251,7 +251,7 @@ struct EnvironmentContainer {
 };
 
 
-template <typename state, typename action, typename environment, typename comparison, typename conflicttable>
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable,class searchalgo=TemplateAStar<state, action, environment, AStarOpenClosed<state, comparison>>>
 class CBSGroup : public UnitGroup<state, action, environment>
 {
   public:
@@ -269,7 +269,7 @@ class CBSGroup : public UnitGroup<state, action, environment>
     bool donePlanning() {return planFinished;}
     bool ExpandOneCBSNode();
 
-    std::vector<CBSTreeNode<state,conflicttable> > tree;
+    std::vector<CBSTreeNode<state,conflicttable,searchalgo> > tree;
     void processSolution(double);
   private:    
 
@@ -277,7 +277,7 @@ class CBSGroup : public UnitGroup<state, action, environment>
     bool Bypass(int best, unsigned numConflicts, Conflict<state> const& c1);
     void Replan(int location);
     unsigned HasConflict(std::vector<state> const& a, std::vector<int> const& wa, std::vector<state> const& b, std::vector<int> const& wb, int x, int y, Conflict<state> &c1, Conflict<state> &c2, bool update, bool verbose=false);
-    unsigned FindFirstConflict(CBSTreeNode<state,conflicttable>  const& location, Conflict<state> &c1, Conflict<state> &c2);
+    unsigned FindFirstConflict(CBSTreeNode<state,conflicttable,searchalgo>  const& location, Conflict<state> &c1, Conflict<state> &c2);
 
     bool planFinished;
 
@@ -289,8 +289,8 @@ class CBSGroup : public UnitGroup<state, action, environment>
     void ClearEnvironmentConstraints();
     void AddEnvironmentConstraint(Constraint<state> c);
 
-    TemplateAStar<state, action, environment, AStarOpenClosed<state, comparison > > astar;
-    TemplateAStar<state, action, environment, AStarOpenClosed<state, CompareLowGCost<state> > > astar2;
+    searchalgo astar;
+    searchalgo astar2;
     double time;
 
     unsigned int bestNode;
@@ -334,20 +334,20 @@ public:
     bool verbose=false;
 };
 
-template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
-bool CBSGroup<state,action,environment,comparison,conflicttable>::greedyCT=false;
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
+bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::greedyCT=false;
 
 /** AIR CBS UNIT DEFINITIONS */
 
-template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
-void CBSUnit<state,action,environment,comparison,conflicttable>::SetPath(std::vector<state> &p)
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
+void CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>::SetPath(std::vector<state> &p)
 {
   myPath = p;
   std::reverse(myPath.begin(), myPath.end());
 }
 
-template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
-void CBSUnit<state,action,environment,comparison,conflicttable>::OpenGLDraw(const environment *ae, 
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
+void CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>::OpenGLDraw(const environment *ae, 
     const SimulationInfo<state,action,environment> *si) const
 {
   GLfloat r, g, b;
@@ -382,7 +382,7 @@ void CBSUnit<state,action,environment,comparison,conflicttable>::OpenGLDraw(cons
   }
 }
 
-/*void CBSUnit<state,action,environment,comparison,conflicttable>::UpdateGoal(state &s, state &g)
+/*void CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>::UpdateGoal(state &s, state &g)
   {
   start = s;
   goal = g;
@@ -393,24 +393,24 @@ void CBSUnit<state,action,environment,comparison,conflicttable>::OpenGLDraw(cons
 /** CBS GROUP DEFINITIONS */
 
 
-template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
-void CBSGroup<state,action,environment,comparison,conflicttable>::ClearEnvironmentConstraints(){
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
+void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::ClearEnvironmentConstraints(){
   for (EnvironmentContainer<state,action,environment> env : this->environments) {
     env.environment->ClearConstraints();
   }
 }
 
 
-template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
-void CBSGroup<state,action,environment,comparison,conflicttable>::AddEnvironmentConstraint(Constraint<state>  c){
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
+void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::AddEnvironmentConstraint(Constraint<state>  c){
   for (EnvironmentContainer<state,action,environment> env : this->environments) {
     env.environment->AddConstraint(c);
   }
 }
 
 /** constructor **/
-template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
-CBSGroup<state,action,environment,comparison,conflicttable>::CBSGroup(std::vector<EnvironmentContainer<state,action,environment> > const& environs,bool v)
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
+CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::CBSGroup(std::vector<EnvironmentContainer<state,action,environment> > const& environs,bool v)
 : time(0), bestNode(0), planFinished(false), nobypass(false)
     , ECBSheuristic(false), killex(INT_MAX), keeprunning(false),
     seed(1234567), timer(0), verbose(v)
@@ -437,8 +437,8 @@ CBSGroup<state,action,environment,comparison,conflicttable>::CBSGroup(std::vecto
 
 /** Expand a single CBS node */
 // Return true while processing
-template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
-bool CBSGroup<state,action,environment,comparison,conflicttable>::ExpandOneCBSNode()
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
+bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::ExpandOneCBSNode()
 {
   openList.pop();
   // There's no reason to expand if the plan is finished.
@@ -517,7 +517,7 @@ bool CBSGroup<state,action,environment,comparison,conflicttable>::ExpandOneCBSNo
     for (unsigned int x = 0; x < tree[bestNode].paths.size(); x++)
     {
       // Grab the unit
-      CBSUnit<state,action,environment,comparison,conflicttable> *unit = (CBSUnit<state,action,environment,comparison,conflicttable>*) this->GetMember(x);
+      CBSUnit<state,action,environment,comparison,conflicttable,searchalgo> *unit = (CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>*) this->GetMember(x);
 
       // Prune these paths to the current simulation time
       state current;
@@ -540,8 +540,8 @@ bool CBSGroup<state,action,environment,comparison,conflicttable>::ExpandOneCBSNo
   return true;
 }
 
-template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
-bool CBSUnit<state,action,environment,comparison,conflicttable>::MakeMove(environment *ae, OccupancyInterface<state,action> *,
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
+bool CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>::MakeMove(environment *ae, OccupancyInterface<state,action> *,
 							 SimulationInfo<state,action,environment> * si, action& a)
 {
   if (myPath.size() > 1 && si->GetSimulationTime() > myPath[myPath.size()-2].t)
@@ -580,8 +580,8 @@ bool CBSUnit<state,action,environment,comparison,conflicttable>::MakeMove(enviro
   return false;
 }
 
-template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
-bool CBSGroup<state,action,environment,comparison,conflicttable>::MakeMove(Unit<state, action, environment> *u, environment *e,
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
+bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::MakeMove(Unit<state, action, environment> *u, environment *e,
     SimulationInfo<state,action,environment> *si, action& a)
 {
   if (planFinished && si->GetSimulationTime() > time)
@@ -599,8 +599,8 @@ bool CBSGroup<state,action,environment,comparison,conflicttable>::MakeMove(Unit<
   return false;
 }
 
-template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
-void CBSGroup<state,action,environment,comparison,conflicttable>::processSolution(double elapsed)
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
+void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::processSolution(double elapsed)
 {
 
   double cost(0.0);
@@ -611,7 +611,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable>::processSolutio
     cost += currentEnvironment->environment->GetPathLength(tree[bestNode].paths[x]);
     total += tree[bestNode].paths[x].size();
     // Grab the unit
-    CBSUnit<state,action,environment,comparison,conflicttable> *unit = (CBSUnit<state,action,environment,comparison,conflicttable>*) this->GetMember(x);
+    CBSUnit<state,action,environment,comparison,conflicttable,searchalgo> *unit = (CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>*) this->GetMember(x);
 
     // Prune these paths to the current simulation time
     /*state current;
@@ -676,19 +676,19 @@ void CBSGroup<state,action,environment,comparison,conflicttable>::processSolutio
 }
 
 /** Update the location of a unit */
-template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
-void CBSGroup<state,action,environment,comparison,conflicttable>::UpdateLocation(Unit<state, action, environment> *u, environment *e, state &loc, 
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
+void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::UpdateLocation(Unit<state, action, environment> *u, environment *e, state &loc, 
     bool success, SimulationInfo<state,action,environment> *si)
 {
   u->UpdateLocation(e, loc, success, si);
 }
 
-template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
-void CBSGroup<state,action,environment,comparison,conflicttable>::SetEnvironment(unsigned numConflicts){
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
+void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::SetEnvironment(unsigned numConflicts){
   bool set(false);
   for (int i = 0; i < this->environments.size(); i++) {
     if (numConflicts >= environments[i].conflict_cutoff) {
-      //std::cout << "Setting to env# " << i << " b/c " << numConflicts << " >= " << environments[i].conflict_cutoff<<environments[i].environment->name()<<std::endl;
+      if(verbose)std::cout << "Setting to env# " << i << " b/c " << numConflicts << " >= " << environments[i].conflict_cutoff<<environments[i].environment->name()<<std::endl;
       //std::cout<<environments[i].environment->getGoal()<<"\n";
       currentEnvironment = &(environments[i]);
       set=true;
@@ -703,10 +703,10 @@ void CBSGroup<state,action,environment,comparison,conflicttable>::SetEnvironment
 }
 
 /** Add a new unit with a new start and goal state to the CBS group */
-template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
-void CBSGroup<state,action,environment,comparison,conflicttable>::AddUnit(Unit<state, action, environment> *u)
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
+void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::AddUnit(Unit<state, action, environment> *u)
 {
-  CBSUnit<state,action,environment,comparison,conflicttable> *c = (CBSUnit<state,action,environment,comparison,conflicttable>*)u;
+  CBSUnit<state,action,environment,comparison,conflicttable,searchalgo> *c = (CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>*)u;
   c->setUnitNumber(this->GetNumMembers());
   // Add the new unit to the group, and construct an CBSUnit
   UnitGroup<state,action,environment>::AddUnit(u);
@@ -729,7 +729,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable>::AddUnit(Unit<s
   agentEnvs[c->getUnitNumber()]=currentEnvironment->environment;
   comparison::CAT = &(tree[0].cat);
   comparison::CAT->set(&tree[0].paths);
-  TOTAL_EXPANSIONS+=GetFullPath<state,action,environment,comparison,conflicttable>(c, astar, currentEnvironment->environment, tree[0].paths.back(),tree[0].wpts.back(),this->GetNumMembers()-1);
+  TOTAL_EXPANSIONS+=GetFullPath<state,action,environment,comparison,conflicttable,searchalgo>(c, astar, currentEnvironment->environment, tree[0].paths.back(),tree[0].wpts.back(),this->GetNumMembers()-1);
   if(killex != INT_MAX && TOTAL_EXPANSIONS>killex)
       processSolution(-timer->EndTimer());
   //std::cout << "AddUnit agent: " << (this->GetNumMembers()-1) << " expansions: " << astar.GetNodesExpanded() << "\n";
@@ -750,8 +750,8 @@ void CBSGroup<state,action,environment,comparison,conflicttable>::AddUnit(Unit<s
   openList.push(OpenListNode(0, 0, 0));
 }
 
-template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
-void CBSGroup<state,action,environment,comparison,conflicttable>::UpdateUnitGoal(Unit<state, action, environment> *u, state newGoal)
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
+void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::UpdateUnitGoal(Unit<state, action, environment> *u, state newGoal)
 {
 
   //std::cout << "Replanning units..." << std::endl;
@@ -778,7 +778,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable>::UpdateUnitGoal
     //std::cout << "Updating member " << (x + 1) << " of " << this->GetNumMembers() << std::endl;
 
     // Get the unit
-    CBSUnit<state,action,environment,comparison,conflicttable> *c = (CBSUnit<state,action,environment,comparison,conflicttable>*)this->GetMember(x);
+    CBSUnit<state,action,environment,comparison,conflicttable,searchalgo> *c = (CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>*)this->GetMember(x);
     if(c!=u) continue;
 
     // Obtain the unit's current location and current goal
@@ -838,8 +838,8 @@ void CBSGroup<state,action,environment,comparison,conflicttable>::UpdateUnitGoal
 }
 
 /** Update Unit Path */
-template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
-void CBSGroup<state,action,environment,comparison,conflicttable>::UpdateSingleUnitPath(Unit<state, action, environment> *u, state newGoal)
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
+void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::UpdateSingleUnitPath(Unit<state, action, environment> *u, state newGoal)
 {
 
   //std::cout << "Replanning Single Unit Path..." << std::endl;
@@ -851,7 +851,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable>::UpdateSingleUn
   // Add constraints for the rest of the units' pre-planned paths
   for (int x = 0; x < this->GetNumMembers(); x++) {
     if (this->GetMember(x) != u) {
-      CBSUnit<state,action,environment,comparison,conflicttable> *c = (CBSUnit<state,action,environment,comparison,conflicttable>*)this->GetMember(x);
+      CBSUnit<state,action,environment,comparison,conflicttable,searchalgo> *c = (CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>*)this->GetMember(x);
 
       // Loop over the pre-planned path
       for (int i = 0; i < c->GetPath().size(); i++) {
@@ -881,7 +881,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable>::UpdateSingleUn
 
 
   // Get the unit location
-  CBSUnit<state,action,environment,comparison,conflicttable> *c = (CBSUnit<state,action,environment,comparison,conflicttable>*)u;
+  CBSUnit<state,action,environment,comparison,conflicttable,searchalgo> *c = (CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>*)u;
   state current = c->GetPath()[0];
 
   // Plan a new path for the unit
@@ -901,8 +901,8 @@ void CBSGroup<state,action,environment,comparison,conflicttable>::UpdateSingleUn
 }
 
 // Loads conflicts into environements and returns the number of conflicts loaded.
-template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
-unsigned CBSGroup<state,action,environment,comparison,conflicttable>::LoadConstraintsForNode(int location){
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
+unsigned CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::LoadConstraintsForNode(int location){
   // Select the unit from the tree with the new constraint
   int theUnit(tree[location].con.unit1);
   unsigned numConflicts(0);
@@ -927,8 +927,8 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable>::LoadConstr
 
 // Attempts a bypass around the conflict using an alternate optimal path
 // Returns whether the bypass was effective
-template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
-bool CBSGroup<state,action,environment,comparison,conflicttable>::Bypass(int best, unsigned numConflicts, Conflict<state> const& c1)
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
+bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Bypass(int best, unsigned numConflicts, Conflict<state> const& c1)
 {
   if(nobypass)return false;
   LoadConstraintsForNode(best);
@@ -940,7 +940,7 @@ bool CBSGroup<state,action,environment,comparison,conflicttable>::Bypass(int bes
   std::vector<state> newPath(tree[best].paths[c1.unit1]);
   std::vector<int> newWpts(tree[best].wpts[c1.unit1]);
   // Re-perform the search with the same constraints (since the start and goal are the same)
-  CBSUnit<state,action,environment,comparison,conflicttable> *c = (CBSUnit<state,action,environment,comparison,conflicttable>*)this->GetMember(c1.unit1);
+  CBSUnit<state,action,environment,comparison,conflicttable,searchalgo> *c = (CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>*)this->GetMember(c1.unit1);
   //currentEnvironment->environment->setGoal(*tree[best].paths[c1.unit1].rbegin());
   //astar2.SetStopAfterAllOpt(true);
   astar2.noncritical=true; // Because it's bypass, we can kill early if the search prolongs. this var is reset internally by the routine.
@@ -952,7 +952,7 @@ bool CBSGroup<state,action,environment,comparison,conflicttable>::Bypass(int bes
   bool orig(comparison::useCAT);
   comparison::useCAT=false;
   // TODO fix this to replan in reverse
-  TOTAL_EXPANSIONS += ReplanLeg<state,action,environment,comparison,conflicttable>(c, astar, currentEnvironment->environment, newPath, newWpts, c1.prevWpt, c1.prevWpt+1);
+  TOTAL_EXPANSIONS += ReplanLeg<state,action,environment,comparison,conflicttable,searchalgo>(c, astar, currentEnvironment->environment, newPath, newWpts, c1.prevWpt, c1.prevWpt+1);
     if(killex != INT_MAX && TOTAL_EXPANSIONS>killex)
       processSolution(-timer->EndTimer());
   comparison::useCAT=orig;
@@ -963,7 +963,7 @@ bool CBSGroup<state,action,environment,comparison,conflicttable>::Bypass(int bes
     return false;
   }
 
-  CBSTreeNode<state,conflicttable> newNode(tree[best]);
+  CBSTreeNode<state,conflicttable,searchalgo> newNode(tree[best]);
   newNode.paths[c1.unit1] = newPath;
   newNode.wpts[c1.unit1] = newWpts;
   unsigned bypassConflicts(FindFirstConflict(newNode, c3, c4));
@@ -1024,8 +1024,8 @@ bool CBSGroup<state,action,environment,comparison,conflicttable>::Bypass(int bes
 
 
 /** Replan a node given a constraint */
-template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
-void CBSGroup<state,action,environment,comparison,conflicttable>::Replan(int location)
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
+void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Replan(int location)
 {
   // Select the unit from the tree with the new constraint
   int theUnit = tree[location].con.unit1;
@@ -1036,7 +1036,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable>::Replan(int loc
   SetEnvironment(numConflicts);
 
   // Select the air unit from the group
-  CBSUnit<state,action,environment,comparison,conflicttable> *c = (CBSUnit<state,action,environment,comparison,conflicttable>*)this->GetMember(theUnit);
+  CBSUnit<state,action,environment,comparison,conflicttable,searchalgo> *c = (CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>*)this->GetMember(theUnit);
 
   // Retreive the unit start and goal
   //state start, goal;
@@ -1050,7 +1050,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable>::Replan(int loc
   //agentEnvs[c->getUnitNumber()]=currentEnvironment->environment;
   //astar.GetPath(currentEnvironment->environment, start, goal, thePath);
   //std::vector<state> thePath(tree[location].paths[theUnit]);
-  comparison::currentAstar=&astar;
+  comparison::openList=astar.GetOpenList();
   comparison::currentEnv=(environment*)currentEnvironment->environment;
   comparison::currentAgent=theUnit;
   comparison::CAT=&(tree[location].cat);
@@ -1061,7 +1061,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable>::Replan(int loc
   }
 
   //std::cout << "Replan agent " << theUnit << "\n";
-  TOTAL_EXPANSIONS += ReplanLeg<state,action,environment,comparison,conflicttable>(c, astar, currentEnvironment->environment, tree[location].paths[theUnit], tree[location].wpts[theUnit], tree[location].con.prevWpt, tree[location].con.prevWpt+1);
+  TOTAL_EXPANSIONS += ReplanLeg<state,action,environment,comparison,conflicttable,searchalgo>(c, astar, currentEnvironment->environment, tree[location].paths[theUnit], tree[location].wpts[theUnit], tree[location].con.prevWpt, tree[location].con.prevWpt+1);
   for(int i(0); i<tree[location].paths.size(); ++i)
   //std::cout << "Replanned agent "<<i<<" path " << tree[location].paths[i].size() << "\n";
 
@@ -1089,8 +1089,8 @@ void CBSGroup<state,action,environment,comparison,conflicttable>::Replan(int loc
   // Issue tickets on the path
 }
 
-template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
-unsigned CBSGroup<state,action,environment,comparison,conflicttable>::HasConflict(std::vector<state> const& a, std::vector<int> const& wa, std::vector<state> const& b, std::vector<int> const& wb, int x, int y, Conflict<state> &c1, Conflict<state> &c2, bool update, bool verbose)
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
+unsigned CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::HasConflict(std::vector<state> const& a, std::vector<int> const& wa, std::vector<state> const& b, std::vector<int> const& wb, int x, int y, Conflict<state> &c1, Conflict<state> &c2, bool update, bool verbose)
 {
   unsigned numConflicts(0);
   // To check for conflicts, we loop through the timed actions, and check 
@@ -1100,8 +1100,8 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable>::HasConflic
 
   if(verbose)std::cout << "Checking for conflicts between: "<<x << " and "<<y<<" ranging from:" << xmax <<"," << ymax << " update: " << update << "\n";
 
-  //CBSUnit<state,action,environment,comparison,conflicttable>* A = (CBSUnit<state,action,environment,comparison,conflicttable>*) this->GetMember(x);
-  //CBSUnit<state,action,environment,comparison,conflicttable>* B = (CBSUnit<state,action,environment,comparison,conflicttable>*) this->GetMember(y);
+  //CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>* A = (CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>*) this->GetMember(x);
+  //CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>* B = (CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>*) this->GetMember(y);
   //std::cout << "x,y "<<x<<" "<<y<<"\n";
 
   signed pwptA(-1); // waypoint number directly after which a conflict occurs
@@ -1218,8 +1218,8 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable>::HasConflic
 }
 
 /** Find the first place that there is a conflict in the tree */
-template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
-unsigned CBSGroup<state,action,environment,comparison,conflicttable>::FindFirstConflict(CBSTreeNode<state,conflicttable> const& location, Conflict<state> &c1, Conflict<state> &c2)
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
+unsigned CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::FindFirstConflict(CBSTreeNode<state,conflicttable,searchalgo> const& location, Conflict<state> &c1, Conflict<state> &c2)
 {
 
   unsigned numConflicts(0);
@@ -1239,15 +1239,15 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable>::FindFirstC
 }
 
 /** Draw the AIR CBS group */
-template<typename state, typename action, typename environment, typename comparison, typename conflicttable>
-void CBSGroup<state,action,environment,comparison,conflicttable>::OpenGLDraw(const environment *ae, const SimulationInfo<state,action,environment> * sim)  const
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
+void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::OpenGLDraw(const environment *ae, const SimulationInfo<state,action,environment> * sim)  const
 {
 	/*
 	GLfloat r, g, b;
 	glLineWidth(2.0);
 	for (unsigned int x = 0; x < tree[bestNode].paths.size(); x++)
 	{
-		CBSUnit<state,action,environment,comparison,conflicttable> *unit = (CBSUnit<state,action,environment,comparison,conflicttable>*)this->GetMember(x);
+		CBSUnit<state,action,environment,comparison,conflicttable,searchalgo> *unit = (CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>*)this->GetMember(x);
 		unit->GetColor(r, g, b);
 		ae->SetColor(r, g, b);
 		for (unsigned int y = 0; y < tree[bestNode].paths[x].size(); y++)

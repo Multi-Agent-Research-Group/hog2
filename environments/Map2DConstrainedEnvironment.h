@@ -116,7 +116,7 @@ class TieBreaking {
           CAT->get(i1.data.t,i1.data.t+HASH_INTERVAL,matches);
 
           // Get number of conflicts in the parent
-          state const*const parent1(i1.parentID?&(currentAstar->GetItem(i1.parentID).data):nullptr);
+          state const*const parent1(i1.parentID?&(openList->Lookat(i1.parentID).data):nullptr);
           unsigned nc1(parent1?parent1->nc:0);
           //std::cout << "  matches " << matches.size() << "\n";
 
@@ -141,7 +141,7 @@ class TieBreaking {
           CAT->get(i2.data.t,i2.data.t+HASH_INTERVAL,matches);
 
           // Get number of conflicts in the parent
-          state const*const parent2(i2.parentID?&(currentAstar->GetItem(i2.parentID).data):nullptr);
+          state const*const parent2(i2.parentID?&(openList->Lookat(i2.parentID).data):nullptr);
           unsigned nc2(parent2?parent2->nc:0);
           //std::cout << "  matches " << matches.size() << "\n";
 
@@ -177,7 +177,7 @@ class TieBreaking {
     }
     return (fgreater(ci1.g+ci1.h, ci2.g+ci2.h));
   }
-    static TemplateAStar<state, action, environment, AStarOpenClosed<state, TieBreaking<state,action,environment> > >* currentAstar;
+    static OpenClosedInterface<state,AStarOpenClosedData<state>>* openList;
     static Map2DConstrainedEnvironment* currentEnv;
     static uint8_t currentAgent;
     static bool randomalg;
@@ -186,7 +186,7 @@ class TieBreaking {
 };
 
 template <typename state, typename action, typename environment>
-TemplateAStar<state, action, environment, AStarOpenClosed<state, TieBreaking<state,action,environment> > >* TieBreaking<state,action,environment>::currentAstar=0;
+OpenClosedInterface<state,AStarOpenClosedData<state>>* TieBreaking<state,action,environment>::openList=0;
 template <typename state, typename action, typename environment>
 Map2DConstrainedEnvironment* TieBreaking<state,action,environment>::currentEnv=0;
 template <typename state, typename action, typename environment>

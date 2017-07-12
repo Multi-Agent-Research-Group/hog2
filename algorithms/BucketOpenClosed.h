@@ -9,11 +9,11 @@
 #ifndef hog2_glut_BucketOpenClosed_h
 #define hog2_glut_BucketOpenClosed_h
 
-#include "AStarOpenClosed.h"
+#include "OpenClosedInterface.h"
 #include <list>
 
 template<typename state, typename CmpKey, class dataStructure = AStarOpenClosedData<state> >
-class BucketOpenClosed {
+class BucketOpenClosed : public OpenClosedInterface<state, dataStructure> {
 public:
 	BucketOpenClosed();
 	~BucketOpenClosed();

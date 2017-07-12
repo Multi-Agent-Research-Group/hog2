@@ -52,6 +52,7 @@ PROJECTS = \
   apps/canonicalGrids \
   apps/delta \
   apps/MAPF \
+  apps/aama \
   demos/DFID \
   demos/dijkstra \
   demos/astar \

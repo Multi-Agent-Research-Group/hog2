@@ -62,7 +62,7 @@ struct ThetaStarCompare {
 /**
  * A templated version of A*, based on HOG genericAStar
  */
-template <class state, class action, class environment>
+template <class state, class action, class environment, class openList = AStarOpenClosed<state, ThetaStarCompare<state>>>
 class ThetaStar : public GenericSearchAlgorithm<state,action,environment> {
 public:
 	ThetaStar() { ResetNodeCount(); theHeuristic=nullptr; env = nullptr; stopAfterGoal = true; weight=1; reopenNodes = false; }
@@ -71,7 +71,8 @@ public:
 	
 	void GetPath(environment *, const state& , const state& , std::vector<action> & ) { assert(false); };
 	
-	AStarOpenClosed<state, ThetaStarCompare<state>, AStarOpenClosedData<state> > openClosedList;
+        inline openList* GetOpenList(){return &openClosedList;}
+	openList openClosedList;
 	//BucketOpenClosed<state, ThetaStarCompare<state>, AStarOpenClosedData<xyLoc> > openClosedList;
 	state goal, start;
 	
@@ -144,7 +145,7 @@ private:
  * @return The name of the algorithm
  */
 
-template <class state, class action, class environment>
+template <class state, class action, class environment, class openList>
 const char *ThetaStar<state,action,environment>::GetName()
 {
 	static char name[32];
@@ -163,7 +164,7 @@ const char *ThetaStar<state,action,environment>::GetName()
  * @param thePath A vector of states which will contain an optimal path 
  * between from and to when the function returns, if one exists. 
  */
-template <class state, class action, class environment>
+template <class state, class action, class environment, class openList>
 void ThetaStar<state,action,environment>::GetPath(environment *_env, const state& from, const state& to, std::vector<state> &thePath)
 {
 	//discardcount=0;
@@ -184,7 +185,7 @@ void ThetaStar<state,action,environment>::GetPath(environment *_env, const state
  * @param to The goal state
  * @return TRUE if initialization was successful, FALSE otherwise
  */
-template <class state, class action, class environment>
+template <class state, class action, class environment, class openList>
 bool ThetaStar<state,action,environment>::InitializeSearch(environment *_env, const state& from, const state& to, std::vector<state> &thePath)
 {
 	if(theHeuristic==nullptr)theHeuristic = _env;
@@ -223,7 +224,7 @@ bool ThetaStar<state,action,environment>::InitializeSearch(environment *_env, co
  * @author Thayne Walker
  * @date 06/27/17
  */
-template <class state, class action, class environment>
+template <class state, class action, class environment, class openList>
 void ThetaStar<state,action,environment>::AddAdditionalStartState(state& newState)
 {
 	openClosedList.AddOpenNode(newState, env->GetStateHash(newState), 0, weight*theHeuristic->HCost(start, goal));
@@ -234,7 +235,7 @@ void ThetaStar<state,action,environment>::AddAdditionalStartState(state& newStat
  * @author Thayne Walker
  * @date 06/27/17
  */
-template <class state, class action, class environment>
+template <class state, class action, class environment, class openList>
 void ThetaStar<state,action,environment>::AddAdditionalStartState(state& newState, double cost)
 {
 	openClosedList.AddOpenNode(newState, env->GetStateHash(newState), cost, weight*theHeuristic->HCost(start, goal));
@@ -250,7 +251,7 @@ void ThetaStar<state,action,environment>::AddAdditionalStartState(state& newStat
  * @return TRUE if there is no path or if we have found the goal, FALSE
  * otherwise
  */
-template <class state, class action, class environment>
+template <class state, class action, class environment, class openList>
 bool ThetaStar<state,action,environment>::DoSingleSearchStep(std::vector<state> &thePath){
   if (openClosedList.OpenSize() == 0)
   {
@@ -336,8 +337,8 @@ bool ThetaStar<state,action,environment>::DoSingleSearchStep(std::vector<state> 
   return false;
 }
 
-template <class state, class action, class environment>
-std::pair<uint64_t,double> ThetaStar<state, action,environment>::SetVertex(AStarOpenClosedData<xyLoc> const& p){
+template <class state, class action, class environment, class openList>
+std::pair<uint64_t,double> ThetaStar<state,action,environment,openList>::SetVertex(AStarOpenClosedData<xyLoc> const& p){
   AStarOpenClosedData<xyLoc>& pp(openClosedList.Lookup(p.parentID));
   if(!env->LineOfSight(pp.data,p.data)){
     //std::cout << "No LOS: " << pp.data << " " << p.data << "\n";
@@ -367,8 +368,8 @@ std::pair<uint64_t,double> ThetaStar<state, action,environment>::SetVertex(AStar
   }
 }
 
-template <class state, class action, class environment>
-std::pair<uint64_t,double> ThetaStar<state, action,environment>::ComputeCost(AStarOpenClosedData<xyLoc> const& p, state& c, double oldg){
+template <class state, class action, class environment, class openList>
+std::pair<uint64_t,double> ThetaStar<state,action,environment,openList>::ComputeCost(AStarOpenClosedData<xyLoc> const& p, state& c, double oldg){
   AStarOpenClosedData<xyLoc>& pp(openClosedList.Lookup(p.parentID));
   double newg(pp.g+env->GCost(pp.data,c));
   if(fless(newg,oldg)){
@@ -384,8 +385,8 @@ std::pair<uint64_t,double> ThetaStar<state, action,environment>::ComputeCost(ASt
  * 
  * @return The first state in the open list. 
  */
-template <class state, class action, class environment>
-state ThetaStar<state, action,environment>::CheckNextNode()
+template <class state, class action, class environment, class openList>
+state ThetaStar<state,action,environment,openList>::CheckNextNode()
 {
 	uint64_t key = openClosedList.Peek();
 	return openClosedList.Lookup(key).data;
@@ -402,8 +403,8 @@ state ThetaStar<state, action,environment>::CheckNextNode()
  * @param goalNode the goal state
  * @param thePath will contain the path from goalNode to the start state
  */
-template <class state, class action,class environment>
-void ThetaStar<state, action,environment>::ExtractPathToStartFromID(uint64_t node, std::vector<state> &thePath)
+template <class state, class action,class environment, class openList>
+void ThetaStar<state,action,environment,openList>::ExtractPathToStartFromID(uint64_t node, std::vector<state> &thePath)
 {
   do {
     thePath.push_back(openClosedList.Lookup(node).data);
@@ -418,8 +419,8 @@ void ThetaStar<state, action,environment>::ExtractPathToStartFromID(uint64_t nod
  * @author Thayne Walker
  * @date 06/27/17
  */
-template <class state, class action, class environment>
-void ThetaStar<state, action,environment>::PrintStats()
+template <class state, class action, class environment, class openList>
+void ThetaStar<state,action,environment,openList>::PrintStats()
 {
 	printf("%u items in closed list\n", (unsigned int)openClosedList.ClosedSize());
 	printf("%u items in open queue\n", (unsigned int)openClosedList.OpenSize());
@@ -432,8 +433,8 @@ void ThetaStar<state, action,environment>::PrintStats()
  * 
  * @return The combined number of elements in the closed list and open queue
  */
-template <class state, class action, class environment>
-int ThetaStar<state, action,environment>::GetMemoryUsage()
+template <class state, class action, class environment, class openList>
+int ThetaStar<state,action,environment,openList>::GetMemoryUsage()
 {
 	return openClosedList.size();
 }
@@ -448,8 +449,8 @@ int ThetaStar<state, action,environment>::GetMemoryUsage()
  * @return success Whether we found the value or not
  * more states
  */
-template <class state, class action, class environment>
-bool ThetaStar<state, action,environment>::GetClosedListGCost(const state &val, double &gCost) const
+template <class state, class action, class environment, class openList>
+bool ThetaStar<state,action,environment,openList>::GetClosedListGCost(const state &val, double &gCost) const
 {
 	uint64_t theID;
 	dataLocation loc = openClosedList.Lookup(env->GetStateHash(val), theID);
@@ -467,8 +468,8 @@ bool ThetaStar<state, action,environment>::GetClosedListGCost(const state &val, 
  * @date 06/27/17
  * 
  */
-template <class state, class action, class environment>
-void ThetaStar<state, action,environment>::OpenGLDraw() const
+template <class state, class action, class environment, class openList>
+void ThetaStar<state,action,environment,openList>::OpenGLDraw() const
 {
 	double transparency = 1.0;
 	if (openClosedList.size() == 0)

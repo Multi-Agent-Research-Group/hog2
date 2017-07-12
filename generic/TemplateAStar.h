@@ -73,6 +73,7 @@ public:
 	virtual ~TemplateAStar() {}
 	void GetPath(environment *env, const state& from, const state& to, std::vector<state> &thePath);
 	void GetPath(environment *, const state& , const state& , std::vector<action> & );
+        inline openList* GetOpenList(){return &openClosedList;}
 	
 	openList openClosedList;
 	//AStarOpenClosed<state, AStarCompare<state> > openClosedList;

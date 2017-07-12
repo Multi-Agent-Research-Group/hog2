@@ -403,7 +403,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 		std::cout << "Reading instance from file: \""<<argument[1]<<"\"\n";
 		std::ifstream ss(argument[1]);
 		int x,y;
-                float t;
+                float t(0.0);
 		std::string line;
 		num_agents=0;
 		while(std::getline(ss, line)){
@@ -411,7 +411,14 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 			std::istringstream is(line);
 			std::string field;
 			while(is >> field){
-				sscanf(field.c_str(),"%d,%d,%f", &x,&y,&t);
+                                size_t n(std::count(field.begin(), field.end(), ','));
+                                if(n==1){
+                                  sscanf(field.c_str(),"%d,%d", &x,&y);
+                                }else if(n==2){
+				  sscanf(field.c_str(),"%d,%d,%f", &x,&y,&t);
+                                }else{
+                                  assert(!"Invalid value inside problem file");
+                                }
 				wpts.emplace_back(x,y,t);
 			}
 			waypoints.push_back(wpts);
