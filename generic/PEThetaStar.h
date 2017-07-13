@@ -65,14 +65,14 @@ struct PEThetaStarCompare {
 template <class state, class action, class environment>
 class PEThetaStar : public GenericSearchAlgorithm<state,action,environment> {
 public:
-	PEThetaStar() { ResetNodeCount(); theHeuristic=nullptr; env = nullptr; stopAfterGoal = true; weight=1;}
+	PEThetaStar() { verbose=false; ResetNodeCount(); theHeuristic=nullptr; env = nullptr; stopAfterGoal = true; weight=1;}
 	virtual ~PEThetaStar() {}
 	void GetPath(environment *env, const state& from, const state& to, std::vector<state> &thePath);
 	
 	void GetPath(environment *, const state& , const state& , std::vector<action> & ) { assert(false); };
 	
 	AStarOpenClosed<state, PEThetaStarCompare<state>, AStarOpenClosedData<state> > openClosedList;
-	//BucketOpenClosed<state, PEThetaStarCompare<state>, AStarOpenClosedData<xyLoc> > openClosedList;
+	//BucketOpenClosed<state, PEThetaStarCompare<state>, AStarOpenClosedData<state> > openClosedList;
 	state goal, start;
 	
 	bool InitializeSearch(environment *env, const state& from, const state& to, std::vector<state> &thePath);
@@ -116,10 +116,12 @@ public:
 	void OpenGLDraw() const;
 	
 	void SetWeight(double w) {weight = w;}
+        inline void SetVerbose(bool v) {verbose=v;}
 private:
+        bool verbose;
 	std::vector<state> succ;
-        std::pair<uint64_t,double> SetVertex(AStarOpenClosedData<xyLoc> const& p);
-        std::pair<uint64_t,double> ComputeCost(AStarOpenClosedData<xyLoc> const& p, state& c, double oldg);
+        std::pair<uint64_t,double> SetVertex(AStarOpenClosedData<state> const& p);
+        std::pair<uint64_t,double> ComputeCost(AStarOpenClosedData<state> const& p, state& c, double oldg);
 	uint64_t nodesTouched, nodesExpanded;
 	environment *env;
 	bool stopAfterGoal;
@@ -360,8 +362,8 @@ bool PEThetaStar<state,action,environment>::DoSingleSearchStep(std::vector<state
 }
 
 template <class state, class action, class environment>
-std::pair<uint64_t,double> PEThetaStar<state, action,environment>::SetVertex(AStarOpenClosedData<xyLoc> const& p){
-  AStarOpenClosedData<xyLoc>& pp(openClosedList.Lookup(p.parentID));
+std::pair<uint64_t,double> PEThetaStar<state, action,environment>::SetVertex(AStarOpenClosedData<state> const& p){
+  AStarOpenClosedData<state>& pp(openClosedList.Lookup(p.parentID));
   if(!env->LineOfSight(pp.data,p.data)){
     //std::cout << "No LOS: " << pp.data << " " << p.data << "\n";
     uint64_t best(0);
@@ -391,8 +393,8 @@ std::pair<uint64_t,double> PEThetaStar<state, action,environment>::SetVertex(ASt
 }
 
 template <class state, class action, class environment>
-std::pair<uint64_t,double> PEThetaStar<state, action,environment>::ComputeCost(AStarOpenClosedData<xyLoc> const& p, state& c, double oldg){
-  AStarOpenClosedData<xyLoc>& pp(openClosedList.Lookup(p.parentID));
+std::pair<uint64_t,double> PEThetaStar<state, action,environment>::ComputeCost(AStarOpenClosedData<state> const& p, state& c, double oldg){
+  AStarOpenClosedData<state>& pp(openClosedList.Lookup(p.parentID));
   double newg(pp.g+env->GCost(pp.data,c));
   if(fless(newg,oldg)){
       return {p.parentID,newg};

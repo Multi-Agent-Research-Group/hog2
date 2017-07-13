@@ -73,6 +73,7 @@ public:
 	virtual void OpenGLDraw(const xytLoc&, const tDirection&) const;
 	virtual void GLDrawLine(const xytLoc &x, const xytLoc &y) const;
         virtual Map* GetMap()const{return mapEnv->GetMap();}
+        bool LineOfSight(const xytLoc &x, const xytLoc &y)const{return mapEnv->LineOfSight(x,y);}
 private:
 	bool ViolatesConstraint(const xyLoc &from, const xyLoc &to, float time, float inc) const;
 

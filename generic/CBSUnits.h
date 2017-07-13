@@ -141,7 +141,7 @@ unsigned GetFullPath(CBSUnit<state,action,environment,comparison,conflicttable,s
     comparison::openList=astar.GetOpenList();
     comparison::currentAgent=agent;
   }
-  for(int i(0); i<wpts.size(); ++i){
+  for(int i(0); i<wpts.size()-1; ++i){
     std::vector<state> path;
     state start(thePath.size()?thePath.back():c->GetWaypoint(i));
     start.landed=false;

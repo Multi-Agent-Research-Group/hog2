@@ -65,7 +65,7 @@ struct ThetaStarCompare {
 template <class state, class action, class environment, class openList = AStarOpenClosed<state, ThetaStarCompare<state>>>
 class ThetaStar : public GenericSearchAlgorithm<state,action,environment> {
 public:
-	ThetaStar() { ResetNodeCount(); theHeuristic=nullptr; env = nullptr; stopAfterGoal = true; weight=1; reopenNodes = false; }
+	ThetaStar() { ResetNodeCount(); verbose=false; noncritical=false; theHeuristic=nullptr; env = nullptr; stopAfterGoal = true; weight=1; reopenNodes = false; }
 	virtual ~ThetaStar() {}
 	void GetPath(environment *env, const state& from, const state& to, std::vector<state> &thePath);
 	
@@ -73,7 +73,7 @@ public:
 	
         inline openList* GetOpenList(){return &openClosedList;}
 	openList openClosedList;
-	//BucketOpenClosed<state, ThetaStarCompare<state>, AStarOpenClosedData<xyLoc> > openClosedList;
+	//BucketOpenClosed<state, ThetaStarCompare<state>, AStarOpenClosedData<state> > openClosedList;
 	state goal, start;
 	
 	bool InitializeSearch(environment *env, const state& from, const state& to, std::vector<state> &thePath);
@@ -120,10 +120,13 @@ public:
 	void OpenGLDraw() const;
 	
 	void SetWeight(double w) {weight = w;}
+        void SetVerbose(bool v){verbose=v;}
+        bool noncritical;
 private:
+        bool verbose;
 	std::vector<state> succ;
-        std::pair<uint64_t,double> SetVertex(AStarOpenClosedData<xyLoc> const& p);
-        std::pair<uint64_t,double> ComputeCost(AStarOpenClosedData<xyLoc> const& p, state& c, double oldg);
+        std::pair<uint64_t,double> SetVertex(AStarOpenClosedData<state> const& p);
+        std::pair<uint64_t,double> ComputeCost(AStarOpenClosedData<state> const& p, state& c, double oldg);
 	uint64_t nodesTouched, nodesExpanded;
 	environment *env;
 	bool stopAfterGoal;
@@ -146,7 +149,7 @@ private:
  */
 
 template <class state, class action, class environment, class openList>
-const char *ThetaStar<state,action,environment>::GetName()
+const char *ThetaStar<state,action,environment,openList>::GetName()
 {
 	static char name[32];
 	sprintf(name, "ThetaStar[]");
@@ -165,7 +168,7 @@ const char *ThetaStar<state,action,environment>::GetName()
  * between from and to when the function returns, if one exists. 
  */
 template <class state, class action, class environment, class openList>
-void ThetaStar<state,action,environment>::GetPath(environment *_env, const state& from, const state& to, std::vector<state> &thePath)
+void ThetaStar<state,action,environment,openList>::GetPath(environment *_env, const state& from, const state& to, std::vector<state> &thePath)
 {
 	//discardcount=0;
   	if (!InitializeSearch(_env, from, to, thePath))
@@ -186,7 +189,7 @@ void ThetaStar<state,action,environment>::GetPath(environment *_env, const state
  * @return TRUE if initialization was successful, FALSE otherwise
  */
 template <class state, class action, class environment, class openList>
-bool ThetaStar<state,action,environment>::InitializeSearch(environment *_env, const state& from, const state& to, std::vector<state> &thePath)
+bool ThetaStar<state,action,environment,openList>::InitializeSearch(environment *_env, const state& from, const state& to, std::vector<state> &thePath)
 {
 	if(theHeuristic==nullptr)theHeuristic = _env;
 	thePath.resize(0);
@@ -225,7 +228,7 @@ bool ThetaStar<state,action,environment>::InitializeSearch(environment *_env, co
  * @date 06/27/17
  */
 template <class state, class action, class environment, class openList>
-void ThetaStar<state,action,environment>::AddAdditionalStartState(state& newState)
+void ThetaStar<state,action,environment,openList>::AddAdditionalStartState(state& newState)
 {
 	openClosedList.AddOpenNode(newState, env->GetStateHash(newState), 0, weight*theHeuristic->HCost(start, goal));
 }
@@ -236,7 +239,7 @@ void ThetaStar<state,action,environment>::AddAdditionalStartState(state& newStat
  * @date 06/27/17
  */
 template <class state, class action, class environment, class openList>
-void ThetaStar<state,action,environment>::AddAdditionalStartState(state& newState, double cost)
+void ThetaStar<state,action,environment,openList>::AddAdditionalStartState(state& newState, double cost)
 {
 	openClosedList.AddOpenNode(newState, env->GetStateHash(newState), cost, weight*theHeuristic->HCost(start, goal));
 }
@@ -252,7 +255,7 @@ void ThetaStar<state,action,environment>::AddAdditionalStartState(state& newStat
  * otherwise
  */
 template <class state, class action, class environment, class openList>
-bool ThetaStar<state,action,environment>::DoSingleSearchStep(std::vector<state> &thePath){
+bool ThetaStar<state,action,environment,openList>::DoSingleSearchStep(std::vector<state> &thePath){
   if (openClosedList.OpenSize() == 0)
   {
     thePath.resize(0); // no path found!
@@ -272,10 +275,10 @@ bool ThetaStar<state,action,environment>::DoSingleSearchStep(std::vector<state> 
     if(update.second>=0){
       openNode.parentID=update.first;
       openNode.g=update.second;
-      //std::cout << "Reset parent of " << currOpenNode << " to " << openNode.parentID <<" " << update.second << "\n";
+      if(verbose)std::cout << "Reset parent of " << currOpenNode << " to " << openNode.parentID <<" " << update.second << "\n";
       //openClosedList.Print();
     }else{
-      //std::cout << "Leave parent of " << currOpenNode << " as " << openClosedList.Lookup(openNode.parentID).data <<"\n";
+      if(verbose)std::cout << "Leave parent of " << currOpenNode << " as " << openClosedList.Lookup(openNode.parentID).data <<"\n";
     }
   }
 
@@ -284,6 +287,13 @@ bool ThetaStar<state,action,environment>::DoSingleSearchStep(std::vector<state> 
     ExtractPathToStartFromID(nodeid, thePath);
     // Path is backwards - reverse
     reverse(thePath.begin(), thePath.end()); 
+    float total(0.0);
+    state const& p(thePath[0]);
+    for(auto& n:thePath){
+      total+=Util::distance(p.x,p.y,n.x,n.y);
+      n.t=total;
+      p=n;
+    }
     return true;
   }
 
@@ -315,7 +325,7 @@ bool ThetaStar<state,action,environment>::DoSingleSearchStep(std::vector<state> 
             //openClosedList.Lookup(theID).reopened = true;
             openClosedList.Lookup(theID).parentID = update.first;
             openClosedList.Lookup(theID).g = update.second;
-            //std::cout << "Update " << succ[x] << " to p=" << openClosedList.Lookup(update.first).data << " " << update.second << "\n";
+            if(verbose)std::cout << "Update " << succ[x] << " to p=" << openClosedList.Lookup(update.first).data << " " << update.second << "\n";
             openClosedList.KeyChanged(theID);
             //openClosedList.Print();
           }
@@ -324,7 +334,7 @@ bool ThetaStar<state,action,environment>::DoSingleSearchStep(std::vector<state> 
       case kNotFound:
         {
           auto update(ComputeCost(openNode,succ[x],9999999));
-          //std::cout << "Create " << succ[x] << " with p=" << openClosedList.Lookup(update.first).data << " " << update.second << "\n";
+          if(verbose)std::cout << "Create " << succ[x] << " with p=" << openClosedList.Lookup(update.first).data << " " << update.second << "\n";
           openClosedList.AddOpenNode(succ[x],
               env->GetStateHash(succ[x]),
               update.second,
@@ -338,8 +348,8 @@ bool ThetaStar<state,action,environment>::DoSingleSearchStep(std::vector<state> 
 }
 
 template <class state, class action, class environment, class openList>
-std::pair<uint64_t,double> ThetaStar<state,action,environment,openList>::SetVertex(AStarOpenClosedData<xyLoc> const& p){
-  AStarOpenClosedData<xyLoc>& pp(openClosedList.Lookup(p.parentID));
+std::pair<uint64_t,double> ThetaStar<state,action,environment,openList>::SetVertex(AStarOpenClosedData<state> const& p){
+  AStarOpenClosedData<state>& pp(openClosedList.Lookup(p.parentID));
   if(!env->LineOfSight(pp.data,p.data)){
     //std::cout << "No LOS: " << pp.data << " " << p.data << "\n";
     uint64_t best(0);
@@ -369,8 +379,8 @@ std::pair<uint64_t,double> ThetaStar<state,action,environment,openList>::SetVert
 }
 
 template <class state, class action, class environment, class openList>
-std::pair<uint64_t,double> ThetaStar<state,action,environment,openList>::ComputeCost(AStarOpenClosedData<xyLoc> const& p, state& c, double oldg){
-  AStarOpenClosedData<xyLoc>& pp(openClosedList.Lookup(p.parentID));
+std::pair<uint64_t,double> ThetaStar<state,action,environment,openList>::ComputeCost(AStarOpenClosedData<state> const& p, state& c, double oldg){
+  AStarOpenClosedData<state>& pp(openClosedList.Lookup(p.parentID));
   double newg(pp.g+env->GCost(pp.data,c));
   if(fless(newg,oldg)){
       return {p.parentID,newg};

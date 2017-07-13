@@ -10,7 +10,7 @@
 
 bool operator==(const xytLoc &l1, const xytLoc &l2)
 {
-	return (l1.t == l2.t) && (l1.x == l2.x) && (l1.y==l2.y);
+	return fequal(l1.t,l2.t) && (l1.x == l2.x) && (l1.y==l2.y);
 }
 
 Map2DConstrainedEnvironment::Map2DConstrainedEnvironment(Map *m)
