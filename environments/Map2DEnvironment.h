@@ -155,7 +155,7 @@ public:
 	virtual ~MapEnvironment();
 	void SetGraphHeuristic(GraphHeuristic *h);
 	GraphHeuristic *GetGraphHeuristic();
-        virtual char const*const name()const{std::stringstream ss; ss<<"Map2DEnvironment("<<(int)connectedness<<"-connected)"; return ss.str().c_str();}
+        virtual std::string name()const{std::stringstream ss; ss<<"Map2DEnvironment("<<(int)connectedness<<"-connected)"; return ss.str();}
 	virtual void GetSuccessors(const xyLoc &nodeID, std::vector<xyLoc> &neighbors) const;
 	virtual void GetReverseSuccessors(const xyLoc &nodeID, std::vector<xyLoc> &neighbors) const{GetSuccessors(nodeID,neighbors);}
 	bool GetNextSuccessor(const xyLoc &currOpenNode, const xyLoc &goal, xyLoc &next, double &currHCost, uint64_t &special, bool &validMove);

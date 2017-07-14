@@ -81,7 +81,7 @@ class AirplaneHiFiGridlessEnvironment : public ConstrainedEnvironment<PlatformSt
         double descendCost=-0.00005); // Fuel cost for descending
     //std::string const& perimeterFile=std::string("airplanePerimeter.dat"));
 
-    virtual char const*const name()const{return "AirplaneHiFiGridlessEnvironment";}
+    virtual std::string name()const{return "AirplaneHiFiGridlessEnvironment";}
     void AddConstraint(Constraint<PlatformState> c);
     void AddSoftConstraint(SoftConstraint<PlatformState> c){sconstraints.push_back(c);}
     void ClearConstraints();

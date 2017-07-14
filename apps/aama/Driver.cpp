@@ -183,12 +183,14 @@ void InitHeadless(){
   MapEnvironment* w48 = new MapEnvironment(map); w48->SetFortyEightConnected();
   MapEnvironment* w49 = new MapEnvironment(map); w49->SetFortyNineConnected();
   // Cardinal Grid
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w4->name(),new Map2DConstrainedEnvironment(w4),sh,cutoffs[0],weights[0]));
+  /*environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w4->name(),new Map2DConstrainedEnvironment(w4),sh,cutoffs[0],weights[0]));
   if(verbose)std::cout << "Added " << w4->name() << " @" << cutoffs[0] << " conflicts\n";
+  */
   // Cardinal Grid w/ Waiting
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w5->name(),new Map2DConstrainedEnvironment(w5),sh,cutoffs[1],weights[1]));
-  if(verbose)std::cout << "Added " << w5->name() << " @" << cutoffs[1] << " conflicts\n";
+  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w5->name(),new Map2DConstrainedEnvironment(w5),sh,cutoffs[0],weights[0]));
+  if(verbose)std::cout << "Added " << w5->name() << " @" << cutoffs[0] << " conflicts\n";
   // Octile Grid
+  /*
   environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w8->name(),new Map2DConstrainedEnvironment(w8),sh,cutoffs[2],weights[2]));
   if(verbose)std::cout << "Added " << w8->name() << " @" << cutoffs[2] << " conflicts\n";
   // Octile Grid w/ Waiting
@@ -206,12 +208,11 @@ void InitHeadless(){
   // 48-connected Grid w/ Waiting
   environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w49->name(),new Map2DConstrainedEnvironment(w49),sh,cutoffs[7],weights[7]));
   if(verbose)std::cout << "Added " << w49->name() << " @" << cutoffs[7] << " conflicts\n";
+  */
 
-  /*for(auto& e:environs){
-    for(auto& s:sconstraints){
-      e.environment->AddSoftConstraint(s);
-    }
-  }*/
+  for(auto& e:environs){
+    e.environment->SetIgnoreTime(true);
+  }
 
   ace=environs.rbegin()->environment;
 
@@ -319,12 +320,12 @@ void MyComputationHandler()
 void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 {
 
-	if (ace){
-        for(auto u : group->GetMembers()){
-            glLineWidth(2.0);
-            //ace->GLDrawPath(((CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS>,ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>>>> const*)u)->GetPath(),((CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS>,ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>>>> const*)u)->GetWaypoints());
-        }
+  if (ace){
+    for(auto u : group->GetMembers()){
+      glLineWidth(2.0);
+      ace->GLDrawPath(((CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS>,ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>>>> const*)u)->GetPath(),((CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS>,ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>>>> const*)u)->GetWaypoints());
     }
+  }
 
   //static double ptime[500];
   //memset(ptime,0,500*sizeof(double));

@@ -46,7 +46,7 @@ public:
 	//void AddConstraint(xytLoc const& loc);
 	void AddConstraint(xytLoc const& loc, tDirection dir);
 	void ClearConstraints();
-        virtual char const*const name()const{return mapEnv->name();}
+        virtual std::string name()const{return mapEnv->name();}
 	virtual void GetSuccessors(const xytLoc &nodeID, std::vector<xytLoc> &neighbors) const;
 	virtual void GetActions(const xytLoc &nodeID, std::vector<tDirection> &actions) const;
 	virtual tDirection GetAction(const xytLoc &s1, const xytLoc &s2) const;
@@ -72,9 +72,12 @@ public:
 	virtual void OpenGLDraw(const xytLoc&) const;
 	virtual void OpenGLDraw(const xytLoc&, const tDirection&) const;
 	virtual void GLDrawLine(const xytLoc &x, const xytLoc &y) const;
+        void GLDrawPath(const std::vector<xytLoc> &p, const std::vector<xytLoc> &waypoints) const;
         virtual Map* GetMap()const{return mapEnv->GetMap();}
-        bool LineOfSight(const xytLoc &x, const xytLoc &y)const{return mapEnv->LineOfSight(x,y);}
+        bool LineOfSight(const xytLoc &x, const xytLoc &y)const{return mapEnv->LineOfSight(x,y) && !ViolatesConstraint(x,y);}
+        void SetIgnoreTime(bool i){ignoreTime=i;}
 private:
+        bool ignoreTime;
 	bool ViolatesConstraint(const xyLoc &from, const xyLoc &to, float time, float inc) const;
 
 	std::vector<Constraint<xytLoc>> constraints;

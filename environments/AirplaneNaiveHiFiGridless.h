@@ -40,7 +40,7 @@ class AirplaneNaiveHiFiGridlessEnvironment : public AirplaneHiFiGridlessEnvironm
         double descendCost=-0.00005); // Fuel cost for descending
     //std::string const& perimeterFile=std::string("airplanePerimeter.dat"));
 
-    virtual char const*const name()const{return "AirplaneNaiveHiFiGridlessEnvironment";}
+    virtual std::string name()const{return "AirplaneNaiveHiFiGridlessEnvironment";}
     virtual void GetActions(const PlatformState &nodeID, std::vector<PlatformAction> &actions) const;
     virtual void GetReverseActions(const PlatformState &nodeID, std::vector<PlatformAction> &actions) const;
 

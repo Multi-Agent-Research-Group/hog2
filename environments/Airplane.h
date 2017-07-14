@@ -54,7 +54,7 @@ public:
           double gridSize=3.0, // Horizontal grid width (meters)
           std::string const& perimeterFile=std::string("airplanePerimeter.dat"));
 	
-  virtual char const*const name()const{return "AirplaneEnvironment";}
+  virtual std::string name()const{return "AirplaneEnvironment";}
   // Successors and actions
   virtual void GetSuccessors(const airplaneState &nodeID, std::vector<airplaneState> &neighbors) const;
   virtual void GetReverseSuccessors(const airplaneState &nodeID, std::vector<airplaneState> &neighbors) const;

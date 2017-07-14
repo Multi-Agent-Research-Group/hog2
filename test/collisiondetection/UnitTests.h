@@ -620,14 +620,15 @@ TEST(Theta, GetPath){
   Map map(8,8);
   MapEnvironment menv(&map);
   Map2DConstrainedEnvironment env(&menv);
+  env.SetIgnoreTime(true);
   menv.SetFiveConnected();
-  ThetaStar<xytLoc,tDirection,MapEnvironment> tstar;
+  ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment> tstar;
   tstar.SetHeuristic(new StraightLineHeuristic());
   tstar.SetVerbose(true);
   std::vector<xytLoc> solution;
-  tstar.GetPath(&menv,{1,1,0},{7,3,0},solution);
+  tstar.GetPath(&env,{1,1,0},{7,3,0},solution);
   for(auto const& ss: solution)
-    std::cout << ss.x << "," << ss.y << "\n";
+    std::cout << ss << "\n";
 }
 
 /*

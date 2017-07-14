@@ -13,13 +13,13 @@ bool operator==(const xytLoc &l1, const xytLoc &l2)
 	return fequal(l1.t,l2.t) && (l1.x == l2.x) && (l1.y==l2.y);
 }
 
-Map2DConstrainedEnvironment::Map2DConstrainedEnvironment(Map *m)
+Map2DConstrainedEnvironment::Map2DConstrainedEnvironment(Map *m):ignoreTime(false)
 {
 	mapEnv = new MapEnvironment(m);
 	mapEnv->SetFourConnected();
 }
 
-Map2DConstrainedEnvironment::Map2DConstrainedEnvironment(MapEnvironment *m)
+Map2DConstrainedEnvironment::Map2DConstrainedEnvironment(MapEnvironment *m):ignoreTime(false)
 {
 	mapEnv = m;
 }
@@ -50,7 +50,7 @@ void Map2DConstrainedEnvironment::GetSuccessors(const xytLoc &nodeID, std::vecto
   for (unsigned int x = 0; x < n.size(); x++)
   {
     float inc(mapEnv->GetConnectedness()>5?(Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y)):1.0);
-    if (!ViolatesConstraint(nodeID, n[x], nodeID.t, inc))
+    //if (!ViolatesConstraint(nodeID, n[x], nodeID.t, inc))
     {
       xytLoc newLoc(n[x],nodeID.t+inc);
       neighbors.push_back(newLoc);
@@ -141,13 +141,15 @@ bool Map2DConstrainedEnvironment::GoalTest(const xytLoc &node, const xytLoc &goa
 
 uint64_t Map2DConstrainedEnvironment::GetStateHash(const xytLoc &node) const
 {
-	uint64_t hash;
-	hash = node.x;
-	hash <<= 16;
-	hash |= node.y;
-	hash <<= 32;
-	hash |= *(uint32_t*)&node.t;
-	return hash;
+  uint64_t hash;
+  hash = node.x;
+  hash <<= 16;
+  hash |= node.y;
+  if(!ignoreTime){
+    hash <<= 32;
+    hash |= *(uint32_t*)&node.t;
+  }
+  return hash;
 }
 
 uint64_t Map2DConstrainedEnvironment::GetActionHash(tDirection act) const
@@ -195,7 +197,7 @@ void Map2DConstrainedEnvironment::OpenGLDraw(const xytLoc& l) const
 
 void Map2DConstrainedEnvironment::OpenGLDraw(const xytLoc&, const tDirection&) const
 {
-	
+       std::cout << "Draw move\n";
 }
 
 void Map2DConstrainedEnvironment::GLDrawLine(const xytLoc &x, const xytLoc &y) const
@@ -214,6 +216,15 @@ void Map2DConstrainedEnvironment::GLDrawLine(const xytLoc &x, const xytLoc &y) c
 	glEnd();
 }
 
+void Map2DConstrainedEnvironment::GLDrawPath(const std::vector<xytLoc> &p, const std::vector<xytLoc> &waypoints) const
+{
+        if(p.size()<2) return;
+        int wpt(0);
+        //TODO Draw waypoints as cubes.
+        for(auto a(p.begin()+1); a!=p.end(); ++a){
+          GLDrawLine(*(a-1),*a);
+        }
+}
 template<>
 bool Constraint<xytLoc>::ConflictsWith(const xytLoc &state) const
 {

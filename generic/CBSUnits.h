@@ -920,7 +920,7 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>:
     location = tree[location].parent;
   } while (location != 0);
   //Implement ECBS prioritization which penalizes the second element in a path.
-  if(ECBSheuristic && strstr(currentEnvironment->environment->name(),"Highway")==NULL && tree[location].paths[tree[location].con.unit1].size()>1)
+  if(ECBSheuristic && strstr(currentEnvironment->environment->name().c_str(),"Highway")==NULL && tree[location].paths[tree[location].con.unit1].size()>1)
     AddEnvironmentConstraint(Constraint<state>(tree[location].paths[tree[location].con.unit1][1]));
   return numConflicts;
 }

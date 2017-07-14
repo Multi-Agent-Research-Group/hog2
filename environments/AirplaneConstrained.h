@@ -34,7 +34,7 @@ public:
 	//AirplaneConstrainedEnvironment();
 	/** Construct a constrained environment from an existing environment */
 	AirplaneConstrainedEnvironment(AirplaneEnvironment* ae,int width=80,int length=80,int height=20);
-        virtual char const*const name()const{return ae->name();}
+        virtual std::string name()const{return ae->name();}
 
 	/// CONSTRAINTS
 	

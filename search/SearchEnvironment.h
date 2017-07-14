@@ -34,7 +34,7 @@ public:
 	virtual int GetNumSuccessors(const state &stateID) const
 	{ std::vector<state> neighbors; GetSuccessors(stateID, neighbors); return (int)neighbors.size(); }
 
-        virtual char const*const name()const{return "SearchEnvironment";}
+        virtual std::string name()const{return "SearchEnvironment";}
 	virtual action GetAction(const state &s1, const state &s2) const;
 	virtual void ApplyAction(state &s, action a) const = 0;
 	virtual void UndoAction(state &s, action a) const

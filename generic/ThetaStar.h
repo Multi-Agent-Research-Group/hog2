@@ -288,15 +288,16 @@ bool ThetaStar<state,action,environment,openList>::DoSingleSearchStep(std::vecto
     // Path is backwards - reverse
     reverse(thePath.begin(), thePath.end()); 
     float total(0.0);
-    state const& p(thePath[0]);
+    state* p(&thePath[0]);
     for(auto& n:thePath){
-      total+=Util::distance(p.x,p.y,n.x,n.y);
+      total+=Util::distance(p->x,p->y,n.x,n.y);
       n.t=total;
-      p=n;
+      p=&n;
     }
     return true;
   }
 
+  succ.resize(0);
   env->GetSuccessors(currOpenNode, succ);
   double fCost = openNode.h+openNode.g;
 
@@ -334,6 +335,7 @@ bool ThetaStar<state,action,environment,openList>::DoSingleSearchStep(std::vecto
       case kNotFound:
         {
           auto update(ComputeCost(openNode,succ[x],9999999));
+          succ[x].t=update.second;
           if(verbose)std::cout << "Create " << succ[x] << " with p=" << openClosedList.Lookup(update.first).data << " " << update.second << "\n";
           openClosedList.AddOpenNode(succ[x],
               env->GetStateHash(succ[x]),

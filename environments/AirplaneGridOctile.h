@@ -29,7 +29,7 @@ class AirplaneGridOctileEnvironment : public AirplaneEnvironment
         double gridSize=3.0, // Horizontal grid width
         std::string const& perimeterFile=std::string("airplanePerimeter.dat"));
 
-    virtual char const*const name()const{return "AirplaneGridOctileEnvironment";}
+    virtual std::string name()const{return "AirplaneGridOctileEnvironment";}
 
     virtual void GetActions(const airplaneState &nodeID, std::vector<airplaneAction> &actions) const;
     virtual airplaneAction GetAction(const airplaneState &node1, const airplaneState &node2) const;
