@@ -487,7 +487,7 @@ bool detectIndependence(Solution const& solution, std::vector<Group*>& group, st
 int main(int argc, char ** argv){
   MapEnvironment env(new Map(8,8));
   env.SetFiveConnected();
-  if(argc==2){
+  if(argc>1){
     switch(atoi(argv[1])){
       case 4:
         env.SetFourConnected();
@@ -516,11 +516,15 @@ int main(int argc, char ** argv){
         break;
     }
   }
+  int n(6);
+  if(argc>2){
+    n=atoi(argv[2]);
+  }
   Node::env=&env;
   int seed(123456);
   double timeout(300);
   srand(seed);
-  for(int n(6); n<17; n+=2){
+  {
     std::cout << "N="<<n<<"\n";
     double total(0.0);
     double length(0.0);
