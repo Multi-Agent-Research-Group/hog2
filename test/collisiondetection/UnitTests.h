@@ -8,6 +8,7 @@
 #include "Map2DConstrainedEnvironment.h"
 #include "AnyAngleSipp.h"
 #include "ThetaStar.h"
+#include "EPEThetaStar.h"
 #include "PEThetaStar.h"
 
 TEST(VelocityObstacle, IsInsidePass){
@@ -631,6 +632,21 @@ TEST(Theta, GetPath){
     std::cout << ss << "\n";
 }
 
+TEST(EPETheta, GetPath){
+  Map map(8,8);
+  MapEnvironment menv(&map);
+  Map2DConstrainedEnvironment env(&menv);
+  env.SetIgnoreTime(true);
+  menv.SetFiveConnected();
+  EPEThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment> tstar;
+  tstar.SetHeuristic(new StraightLineHeuristic());
+  tstar.SetVerbose(true);
+  std::vector<xytLoc> solution;
+  tstar.GetPath(&env,{1,1,0},{7,3,0},solution);
+  for(auto const& ss: solution)
+    std::cout << ss << "\n";
+}
+
 /*
 TEST(PETheta, GetPath){
   Map map(8,8);
@@ -645,11 +661,35 @@ TEST(PETheta, GetPath){
   for(auto const& ss: solution)
     std::cout << ss.x << "," << ss.y << "\n";
 }
+*/
+
+/*TEST(Theta, GetObstructedPath){
+  Map map(8,8);
+  MapEnvironment env(&map);
+  //map.SetTerrainType(2,0,kOutOfBounds);
+  map.SetTerrainType(2,1,kOutOfBounds);
+  //map.SetTerrainType(2,2,kOutOfBounds);
+  std::cout << map.IsTraversable(2,1) << "traversable\n";
+  env.SetFiveConnected();
+  ThetaStar<xytLoc,tDirection,MapEnvironment> tstar;
+  tstar.SetHeuristic(new StraightLineHeuristic());
+  tstar.SetVerbose(true);
+  std::vector<xytLoc> solution;
+  tstar.GetPath(&env,{1,1},{7,3},solution);
+  for(int i(1);i<solution.size(); ++i){
+    ASSERT_TRUE(env.LineOfSight(solution[i-1],solution[i]));
+  }
+  for(auto const& ss: solution){
+    std::cout << ss.x << "," << ss.y << "\n";
+  }
+  std::cout << std::endl;
+}*/
 
 TEST(Theta, GetObstructedPath){
   Map map(8,8);
   MapEnvironment menv(&map);
   Map2DConstrainedEnvironment env(&menv);
+  env.SetIgnoreTime(true);
   //map.SetTerrainType(2,0,kOutOfBounds);
   map.SetTerrainType(2,1,kOutOfBounds);
   //map.SetTerrainType(2,2,kOutOfBounds);
@@ -669,16 +709,17 @@ TEST(Theta, GetObstructedPath){
   std::cout << std::endl;
 }
 
-TEST(PETheta, GetObstructedPath){
+TEST(EPETheta, GetObstructedPath){
   Map map(8,8);
   MapEnvironment menv(&map);
   Map2DConstrainedEnvironment env(&menv);
+  env.SetIgnoreTime(true);
   //map.SetTerrainType(2,0,kOutOfBounds);
   map.SetTerrainType(2,1,kOutOfBounds);
   //map.SetTerrainType(2,2,kOutOfBounds);
   std::cout << map.IsTraversable(2,1) << "traversable\n";
   menv.SetFiveConnected();
-  PEThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment> tstar;
+  EPEThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment> tstar;
   tstar.SetHeuristic(new StraightLineHeuristic());
   tstar.SetVerbose(true);
   std::vector<xytLoc> solution;
@@ -691,5 +732,5 @@ TEST(PETheta, GetObstructedPath){
   }
   std::cout << std::endl;
 }
-*/
+
 #endif

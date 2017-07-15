@@ -5,7 +5,7 @@
 # $Source: /usr/cvsroot/project_hog/build/gmake/apps/nathan/Makefile.prj.inc,v $
 #-----------------------------------------------------------------------------
 
-NAME = aama
+NAME = aacbs
 DBG_NAME = $(NAME)
 REL_NAME = $(NAME)
 
@@ -69,4 +69,4 @@ endif
 default : all
 
 SRC_CPP = \
-	apps/aama/Driver.cpp
+	apps/aacbs/Driver.cpp

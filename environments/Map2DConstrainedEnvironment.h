@@ -47,6 +47,7 @@ public:
 	void AddConstraint(xytLoc const& loc, tDirection dir);
 	void ClearConstraints();
         virtual std::string name()const{return mapEnv->name();}
+	bool GetNextSuccessor(const xytLoc &currOpenNode, const xytLoc &goal, xytLoc &next, double &currHCost, uint64_t &special, bool &validMove);
 	virtual void GetSuccessors(const xytLoc &nodeID, std::vector<xytLoc> &neighbors) const;
 	virtual void GetActions(const xytLoc &nodeID, std::vector<tDirection> &actions) const;
 	virtual tDirection GetAction(const xytLoc &s1, const xytLoc &s2) const;

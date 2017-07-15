@@ -41,6 +41,11 @@ void Map2DConstrainedEnvironment::ClearConstraints()
 	constraints.resize(0);
 }
 
+bool Map2DConstrainedEnvironment::GetNextSuccessor(const xytLoc &currOpenNode, const xytLoc &goal, xytLoc &next, double &currHCost, uint64_t &special, bool &validMove){
+  return mapEnv->GetNextSuccessor(currOpenNode,goal,next,currHCost,special,validMove);
+}
+  
+
 void Map2DConstrainedEnvironment::GetSuccessors(const xytLoc &nodeID, std::vector<xytLoc> &neighbors) const
 {
   std::vector<xyLoc> n;
