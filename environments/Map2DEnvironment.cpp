@@ -16,7 +16,7 @@
 
 using namespace Graphics2D;
 
-MapEnvironment::MapEnvironment(Map *_m, bool useOccupancy):h(nullptr),map(_m),oi(useOccupancy?new BaseMapOccupancyInterface(map):nullptr),DIAGONAL_COST(sqrt(2)),connectedness(8){
+MapEnvironment::MapEnvironment(Map *_m, bool useOccupancy):start(nullptr),h(nullptr),map(_m),oi(useOccupancy?new BaseMapOccupancyInterface(map):nullptr),DIAGONAL_COST(sqrt(2)),connectedness(8){
   SQRT_5=sqrt(5.0);
   SQRT_10=sqrt(10.0);
   SQRT_13=sqrt(13);
@@ -279,12 +279,28 @@ bool MapEnvironment::GetNextSuccessor(const xyLoc &currOpenNode, const xyLoc &go
 									  bool &validMove)
 {
   // In the case of 5-connectedness; next successor does not look at waiting in place
-  if (connectedness<6)
+  if (connectedness==4)
     return GetNext4Successor(currOpenNode, goal, next, currHCost, special, validMove);
+  if (connectedness==5)
+    return GetNext5Successor(currOpenNode, goal, next, currHCost, special, validMove);
 
   // In the case of 9-connectedness; next successor does not look at waiting in place
   return GetNext8Successor(currOpenNode, goal, next, currHCost, special, validMove);
 
+}
+
+bool MapEnvironment::GetNext5Successor(const xyLoc &currOpenNode, const xyLoc &goal,
+									   xyLoc &next, double &currHCost, uint64_t &special,
+									  bool &validMove)
+{
+	if (special < 4) // Non-wait action
+		return GetNext4Successor(currOpenNode,goal,next,currHCost,special,validMove);
+        // Wait action
+	validMove = true;
+        //currHCost+=0;
+        next = xyLoc(currOpenNode); // Copy it
+        special++;
+	return false;
 }
 
 bool MapEnvironment::GetNext4Successor(const xyLoc &currOpenNode, const xyLoc &goal,
@@ -308,19 +324,29 @@ bool MapEnvironment::GetNext4Successor(const xyLoc &currOpenNode, const xyLoc &g
 	// 3,4. same x and different y (+/-)
 	// 5,6,7,8. same x/y difference (+/-) combinations
 	int theEntry = 0;
-	const tDirection order[8][8] =
-	{
+	static const tDirection order[2][8][8] =
+	{{
+		{kN, kE, kW, kS},
+		{kS, kE, kW, kN},
+		{kW, kN, kS, kE},
+		{kE, kN, kS, kW},
+
+		{kW, kN, kE, kS},
+		{kW, kS, kN, kE},
+		{kE, kN, kW, kS},
+		{kE, kS, kW, kN},
+	},{
 		{kN, kE, kW, kS},
 		{kS, kE, kW, kN},
 		{kW, kN, kS, kE},
 		{kE, kN, kS, kW},
 
 		{kN, kW, kE, kS},
-		{kW, kS, kN, kE},
+		{kS, kW, kN, kE},
 		{kN, kE, kW, kS},
 		{kS, kE, kW, kN},
-	};
-	const double hIncrease[8][8] = 
+	}};
+	static const double hIncrease[8][8] = 
 	{
 		{1.0, 0.0, 0.0, 0.0},
 		{1.0, 0.0, 0.0, 0.0},
@@ -349,13 +375,24 @@ bool MapEnvironment::GetNext4Successor(const xyLoc &currOpenNode, const xyLoc &g
 	else if (currOpenNode.x < goal.x && currOpenNode.y < goal.y)
 	{ theEntry = 7; }
 
+        int diffx(currOpenNode.x-goal.x); diffx*=diffx;
+        int diffy(currOpenNode.y-goal.y); diffy*=diffy;
+        int selector(int(diffx<diffy));
+        if(!selector && diffx==diffy && start){
+          diffx = currOpenNode.x-start->x; diffx*=diffx;
+          diffy = currOpenNode.y-start->y; diffy*=diffy;
+          selector=int(diffx>diffy);
+        }
+
 //	std::cout << special << " h from " << currHCost << " to "
 //	<< currHCost + hIncrease[theEntry][special] << std::endl;
 	switch (special) {
 		case 0:
 			next = currOpenNode;
+
+                        //prefer to close the greatest gap (x or y) first
 			currHCost += hIncrease[theEntry][special];
-			ApplyAction(next, order[theEntry][special]);
+			ApplyAction(next, order[selector][theEntry][special]);
 			special++;
 			if (map->CanStep(currOpenNode.x, currOpenNode.y, next.x, next.y))
 			{
@@ -366,7 +403,7 @@ bool MapEnvironment::GetNext4Successor(const xyLoc &currOpenNode, const xyLoc &g
 		case 1:
 			next = currOpenNode;
 			currHCost += hIncrease[theEntry][special];
-			ApplyAction(next, order[theEntry][special]);
+			ApplyAction(next, order[selector][theEntry][special]);
 			special++;
 			if (map->CanStep(currOpenNode.x, currOpenNode.y, next.x, next.y))
 			{
@@ -378,7 +415,7 @@ bool MapEnvironment::GetNext4Successor(const xyLoc &currOpenNode, const xyLoc &g
 			next = currOpenNode;
 			currHCost += 1;
 			currHCost += hIncrease[theEntry][special];
-			ApplyAction(next, order[theEntry][special]);
+			ApplyAction(next, order[selector][theEntry][special]);
 			special++;
 			if (map->CanStep(currOpenNode.x, currOpenNode.y, next.x, next.y))
 			{
@@ -389,7 +426,7 @@ bool MapEnvironment::GetNext4Successor(const xyLoc &currOpenNode, const xyLoc &g
 		case 3:
 			next = currOpenNode;
 			currHCost += hIncrease[theEntry][special];
-			ApplyAction(next, order[theEntry][special]);
+			ApplyAction(next, order[selector][theEntry][special]);
 			special++;
 			if (map->CanStep(currOpenNode.x, currOpenNode.y, next.x, next.y))
 			{

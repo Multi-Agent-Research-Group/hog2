@@ -55,10 +55,12 @@ void Map2DConstrainedEnvironment::GetSuccessors(const xytLoc &nodeID, std::vecto
   for (unsigned int x = 0; x < n.size(); x++)
   {
     float inc(mapEnv->GetConnectedness()>5?(Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y)):1.0);
-    //if (!ViolatesConstraint(nodeID, n[x], nodeID.t, inc))
+    if (!ViolatesConstraint(nodeID, n[x], nodeID.t, inc))
     {
       xytLoc newLoc(n[x],nodeID.t+inc);
       neighbors.push_back(newLoc);
+    }else{
+      std::cout << n[x] << " violates\n";
     }
   }
 }
@@ -77,6 +79,7 @@ bool Map2DConstrainedEnvironment::ViolatesConstraint(const xytLoc &from, const x
     VB-=B; // Direction vector
     //VB.Normalize();
     if(collisionImminent(A,VA,aradius,from.t,to.t,B,VB,bradius,constraints[x].start_state.t,constraints[x].end_state.t)){
+      std::cout << from << " collides with " << to << "\n";
       return true;
     }
   }
@@ -153,8 +156,23 @@ uint64_t Map2DConstrainedEnvironment::GetStateHash(const xytLoc &node) const
   if(!ignoreTime){
     hash <<= 32;
     hash |= *(uint32_t*)&node.t;
+    //std::cout << "time to hash" << (*(uint32_t*)&node.t) << "\n";
   }
   return hash;
+}
+
+void Map2DConstrainedEnvironment::GetStateFromHash(uint64_t hash, xytLoc &s) const
+{
+  if(!ignoreTime){
+    uint32_t tmp=(hash&(0x100000000-1));
+    //std::cout << "time from hash" << (hash&(0x100000000-1)) << "\n";
+    s.t=*(float*)&tmp;
+    s.y=(hash>>32)&(0x10000-1);
+    s.x=(hash>>48)&(0x10000-1);
+  }else{
+    s.y=(hash)&(0x10000-1);
+    s.x=(hash>>16)&(0x10000-1);
+  }
 }
 
 uint64_t Map2DConstrainedEnvironment::GetActionHash(tDirection act) const

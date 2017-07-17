@@ -709,6 +709,54 @@ TEST(Theta, GetObstructedPath){
   std::cout << std::endl;
 }
 
+TEST(Theta1, GetObstructedPath1){
+  Map map(8,8);
+  MapEnvironment menv(&map);
+  Map2DConstrainedEnvironment env(&menv);
+  env.SetIgnoreTime(true);
+  //map.SetTerrainType(2,0,kOutOfBounds);
+  map.SetTerrainType(4,6,kOutOfBounds);
+  //map.SetTerrainType(2,2,kOutOfBounds);
+  std::cout << map.IsTraversable(2,1) << "traversable\n";
+  menv.SetFiveConnected();
+  ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment> tstar;
+  tstar.SetHeuristic(new StraightLineHeuristic());
+  tstar.SetVerbose(true);
+  std::vector<xytLoc> solution;
+  tstar.GetPath(&env,{0,5,0},{6,6,0},solution);
+  for(auto const& ss: solution){
+    std::cout << ss.x << "," << ss.y << "\n";
+  }
+  for(int i(1);i<solution.size(); ++i){
+    ASSERT_TRUE(env.LineOfSight(solution[i-1],solution[i]));
+  }
+  std::cout << std::endl;
+}
+
+/*TEST(Theta1, GetObstructedPath2){
+  Map map(8,8);
+  MapEnvironment menv(&map);
+  Map2DConstrainedEnvironment env(&menv);
+  env.SetIgnoreTime(true);
+  //map.SetTerrainType(2,0,kOutOfBounds);
+  map.SetTerrainType(4,6,kOutOfBounds);
+  //map.SetTerrainType(2,2,kOutOfBounds);
+  std::cout << map.IsTraversable(2,1) << "traversable\n";
+  menv.SetFiveConnected();
+  EPEThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment> tstar;
+  tstar.SetHeuristic(new StraightLineHeuristic());
+  tstar.SetVerbose(true);
+  std::vector<xytLoc> solution;
+  tstar.GetPath(&env,{0,5,0},{6,6,0},solution);
+  for(auto const& ss: solution){
+    std::cout << ss.x << "," << ss.y << "\n";
+  }
+  for(int i(1);i<solution.size(); ++i){
+    ASSERT_TRUE(env.LineOfSight(solution[i-1],solution[i]));
+  }
+  std::cout << std::endl;
+}
+
 TEST(EPETheta, GetObstructedPath){
   Map map(8,8);
   MapEnvironment menv(&map);
@@ -733,4 +781,75 @@ TEST(EPETheta, GetObstructedPath){
   std::cout << std::endl;
 }
 
+TEST(EPETheta, GetObstructedPathComp){
+  Map map(8,8);
+  MapEnvironment menv(&map);
+  menv.SetFiveConnected();
+  Map2DConstrainedEnvironment env(&menv);
+  env.SetIgnoreTime(true);
+  // Set some obstacles...
+  for(int i(0); i<10; ++i){
+    map.SetTerrainType(rand()%8,rand()%8,kOutOfBounds);
+  }
+
+  for(int i(0); i<10; ++i){
+
+    xytLoc start(rand()%8,rand()%8,0);
+    while(!map.IsTraversable(start.x,start.y)){
+      start.x=rand()%8;
+      start.y=rand()%8;
+    }
+    xytLoc goal(rand()%8,rand()%8,0);
+    while(!map.IsTraversable(goal.x,goal.y)){
+      goal.x=rand()%8;
+      goal.y=rand()%8;
+    }
+    std::cout << "search: " << start << "-->" << goal << "\n";
+    for(int y(7);y>=0; --y){
+      std::cout << y << ": ";
+      for(int x(0);x<8; ++x){
+        if(map.IsTraversable(x,y)){
+          if(start.x==x && start.y==y)std::cout<<"s";
+          else if(goal.x==x && goal.y==y)std::cout<<"g";
+          else std::cout<<".";
+        } else std::cout<<"#";
+      }
+      std::cout << ":\n";
+    }
+
+    std::vector<xytLoc> solution1;
+    {
+      ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment> tstar;
+      tstar.SetHeuristic(new StraightLineHeuristic());
+      tstar.SetVerbose(true);
+      tstar.GetPath(&env,start,goal,solution1);
+      std::cout << "Theta expanded" << tstar.GetNodesExpanded() << "\n";
+      for(int i(1);i<solution1.size(); ++i){
+        ASSERT_TRUE(env.LineOfSight(solution1[i-1],solution1[i]));
+      }
+      for(auto const& ss: solution1){
+        std::cout << ss.x << "," << ss.y << "\n";
+      }
+    }
+
+    std::vector<xytLoc> solution;
+    {
+      EPEThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment> tstar;
+      tstar.SetHeuristic(new StraightLineHeuristic());
+      tstar.SetVerbose(true);
+      tstar.GetPath(&env,start,goal,solution);
+      std::cout << "EPETheta expanded" << tstar.GetNodesExpanded() << "\n";
+    }
+    for(auto const& ss: solution){
+      std::cout << ss.x << "," << ss.y << "\n";
+    }
+    ASSERT_EQ(solution1.size(),solution.size());
+    for(int i(1);i<solution.size(); ++i){
+      ASSERT_TRUE(env.LineOfSight(solution[i-1],solution[i]));
+      std::cout << solution1[i] << " ==? " << solution[i] << "\n";
+      ASSERT_TRUE(solution1[i]==solution[i]);
+    }
+  }
+  std::cout << std::endl;
+}*/
 #endif

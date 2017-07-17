@@ -706,6 +706,11 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Set
 template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
 void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::AddUnit(Unit<state, action, environment> *u)
 {
+  astar.SetExternalExpansionsPtr(&TOTAL_EXPANSIONS);
+  astar2.SetExternalExpansionsPtr(&TOTAL_EXPANSIONS);
+  astar.SetExternalExpansionLimit(killex);
+  astar2.SetExternalExpansionLimit(killex);
+
   CBSUnit<state,action,environment,comparison,conflicttable,searchalgo> *c = (CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>*)u;
   c->setUnitNumber(this->GetNumMembers());
   // Add the new unit to the group, and construct an CBSUnit
@@ -729,7 +734,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Add
   agentEnvs[c->getUnitNumber()]=currentEnvironment->environment;
   comparison::CAT = &(tree[0].cat);
   comparison::CAT->set(&tree[0].paths);
-  TOTAL_EXPANSIONS+=GetFullPath<state,action,environment,comparison,conflicttable,searchalgo>(c, astar, currentEnvironment->environment, tree[0].paths.back(),tree[0].wpts.back(),this->GetNumMembers()-1);
+  GetFullPath<state,action,environment,comparison,conflicttable,searchalgo>(c, astar, currentEnvironment->environment, tree[0].paths.back(),tree[0].wpts.back(),this->GetNumMembers()-1);
   if(killex != INT_MAX && TOTAL_EXPANSIONS>killex)
       processSolution(-timer->EndTimer());
   //std::cout << "AddUnit agent: " << (this->GetNumMembers()-1) << " expansions: " << astar.GetNodesExpanded() << "\n";
@@ -800,7 +805,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Upd
     //astar.GetPath(currentEnvironment->environment, current, goal, thePath);
     std::vector<state> thePath;
     DoHAStar(current, goal, thePath);
-    TOTAL_EXPANSIONS += astar.GetNodesExpanded();
+    //TOTAL_EXPANSIONS += astar.GetNodesExpanded(); // This is now done incrementally by astar
     if(killex != INT_MAX && TOTAL_EXPANSIONS>killex)
       processSolution(-timer->EndTimer());
     //std::cout << "exp replan " << astar.GetNodesExpanded() << "\n";
@@ -952,7 +957,7 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Byp
   bool orig(comparison::useCAT);
   comparison::useCAT=false;
   // TODO fix this to replan in reverse
-  TOTAL_EXPANSIONS += ReplanLeg<state,action,environment,comparison,conflicttable,searchalgo>(c, astar, currentEnvironment->environment, newPath, newWpts, c1.prevWpt, c1.prevWpt+1);
+  ReplanLeg<state,action,environment,comparison,conflicttable,searchalgo>(c, astar, currentEnvironment->environment, newPath, newWpts, c1.prevWpt, c1.prevWpt+1);
     if(killex != INT_MAX && TOTAL_EXPANSIONS>killex)
       processSolution(-timer->EndTimer());
   comparison::useCAT=orig;
@@ -1061,7 +1066,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Rep
   }
 
   //std::cout << "Replan agent " << theUnit << "\n";
-  TOTAL_EXPANSIONS += ReplanLeg<state,action,environment,comparison,conflicttable,searchalgo>(c, astar, currentEnvironment->environment, tree[location].paths[theUnit], tree[location].wpts[theUnit], tree[location].con.prevWpt, tree[location].con.prevWpt+1);
+  ReplanLeg<state,action,environment,comparison,conflicttable,searchalgo>(c, astar, currentEnvironment->environment, tree[location].paths[theUnit], tree[location].wpts[theUnit], tree[location].con.prevWpt, tree[location].con.prevWpt+1);
   for(int i(0); i<tree[location].paths.size(); ++i)
   //std::cout << "Replanned agent "<<i<<" path " << tree[location].paths[i].size() << "\n";
 

@@ -160,6 +160,7 @@ public:
 	virtual void GetReverseSuccessors(const xyLoc &nodeID, std::vector<xyLoc> &neighbors) const{GetSuccessors(nodeID,neighbors);}
 	bool GetNextSuccessor(const xyLoc &currOpenNode, const xyLoc &goal, xyLoc &next, double &currHCost, uint64_t &special, bool &validMove);
 	bool GetNext4Successor(const xyLoc &currOpenNode, const xyLoc &goal, xyLoc &next, double &currHCost, uint64_t &special, bool &validMove);
+	bool GetNext5Successor(const xyLoc &currOpenNode, const xyLoc &goal, xyLoc &next, double &currHCost, uint64_t &special, bool &validMove);
 	bool GetNext8Successor(const xyLoc &currOpenNode, const xyLoc &goal, xyLoc &next, double &currHCost, uint64_t &special, bool &validMove);
 	void GetActions(const xyLoc &nodeID, std::vector<tDirection> &actions) const;
 	tDirection GetAction(const xyLoc &s1, const xyLoc &s2) const;
@@ -242,8 +243,10 @@ public:
 	double GetPathLength(std::vector<xyLoc> &neighbors);
         std::vector<std::vector<std::pair<xyLoc,double>>> solution;
         void findIntervals(xyLoc curNode, std::vector<std::pair<double,double>>& intervals, std::vector<double>& EAT, int w) const;
+        void SetStart(xyLoc const* s){start=s;}
 protected:
 	GraphHeuristic *h;
+        xyLoc const* start;
 	Map *map;
 	BaseMapOccupancyInterface *oi;
 	double DIAGONAL_COST;

@@ -171,7 +171,7 @@ public:
 	void Save(FILE *f);
 	Map *Clone() { return new Map(this); }
 	const char *GetMapName();
-	void Print(int scale = 1);
+	void Print(int scale = 1)const;
 	/** return the width of the map */
 	inline long GetMapWidth() const { return width; }
 	/** return the height of the map */

@@ -65,7 +65,7 @@ struct ThetaStarCompare {
 template <class state, class action, class environment, class openList = AStarOpenClosed<state, ThetaStarCompare<state>>>
 class ThetaStar : public GenericSearchAlgorithm<state,action,environment> {
 public:
-	ThetaStar() { ResetNodeCount(); verbose=false; noncritical=false; theHeuristic=nullptr; env = nullptr; stopAfterGoal = true; weight=1; reopenNodes = false; }
+	ThetaStar():totalExternalNodesExpanded(nullptr),externalExpansionLimit(INT_MAX),verbose(false),noncritical(false),theHeuristic(nullptr),env(nullptr),stopAfterGoal(true),weight(1),reopenNodes(false){ResetNodeCount(); }
 	virtual ~ThetaStar() {}
 	void GetPath(environment *env, const state& from, const state& to, std::vector<state> &thePath);
 	
@@ -122,7 +122,11 @@ public:
 	void SetWeight(double w) {weight = w;}
         void SetVerbose(bool v){verbose=v;}
         bool noncritical;
+        void SetExternalExpansionsPtr(uint* ptr){totalExternalNodesExpanded=ptr;}
+        void SetExternalExpansionLimit(uint limit){externalExpansionLimit=limit;}
 private:
+        uint* totalExternalNodesExpanded;
+        uint externalExpansionLimit;
         bool verbose;
 	std::vector<state> succ;
         std::pair<uint64_t,double> SetVertex(AStarOpenClosedData<state> const& p);
@@ -269,13 +273,20 @@ bool ThetaStar<state,action,environment,openList>::DoSingleSearchStep(std::vecto
   if (!openNode.reopened)
     uniqueNodesExpanded++;
   nodesExpanded++;
+  if(totalExternalNodesExpanded){
+    (*totalExternalNodesExpanded)++; // Increment external counter
+    if(*totalExternalNodesExpanded>externalExpansionLimit){
+      thePath.resize(0);
+      return true;
+    }
+  }
 
   {
     auto update(SetVertex(openNode));
     if(update.second>=0){
       openNode.parentID=update.first;
       openNode.g=update.second;
-      if(verbose)std::cout << "Reset parent of " << currOpenNode << " to " << openNode.parentID <<" " << update.second << "\n";
+      if(verbose)std::cout << "Reset parent of " << currOpenNode << " to " << openClosedList.Lookup(openNode.parentID).data <<" " << update.second << "\n";
       //openClosedList.Print();
     }else{
       if(verbose)std::cout << "Leave parent of " << currOpenNode << " as " << openClosedList.Lookup(openNode.parentID).data <<"\n";
@@ -371,6 +382,12 @@ std::pair<uint64_t,double> ThetaStar<state,action,environment,openList>::SetVert
          //std::cout << "Reset parent of " << p.data << " from " << pp.data << " to " << n << " " << bestg << "\n";
          found=true;
         }
+      }
+    }
+    if(!found){
+      std::cout << "No neighbor was closed!: " << p.data << "\n";
+      for(auto const& n:neighbors){
+        std::cout << n << "\n";
       }
     }
     assert(found && "best is zero .. this is not possible!");

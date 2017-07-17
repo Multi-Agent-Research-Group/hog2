@@ -4,6 +4,7 @@
 #include "Timer.h"
 #include <gtest/gtest.h>
 #include "Map2DEnvironment.h"
+#include "Map2DConstrainedEnvironment.h"
 #include "Grid3DEnvironment.h"
 #include "TemplateAStar.h"
 
@@ -226,8 +227,21 @@ TEST(Map2D, FortyEightConnected_GCost){
   ASSERT_DOUBLE_EQ(5*sqrt(5)+sqrt(10),env.HCost({0,0},{13,6}));
   ASSERT_DOUBLE_EQ(5*sqrt(2)+17.*sqrt(13),env.HCost({0,0},{56,39}));
   ASSERT_DOUBLE_EQ(sqrt(5)+6.*sqrt(10),env.HCost({0,0},{20,7}));
-  ASSERT_DOUBLE_EQ(sqrt(5)+6.*sqrt(10),env.HCost({12,44},{51,41}));
-  ASSERT_DOUBLE_EQ(sqrt(5)+6.*sqrt(10),env.HCost({12,38},{51,41}));
+  //ASSERT_DOUBLE_EQ(sqrt(5)+6.*sqrt(10),env.HCost({12,44},{51,41}));
+  //ASSERT_DOUBLE_EQ(sqrt(5)+6.*sqrt(10),env.HCost({12,38},{51,41}));
+}
+
+TEST(Map2D, HashUnhash){
+  Map map(100,100);
+  MapEnvironment env(&map);
+  Map2DConstrainedEnvironment e2(&env);
+  for(int i(0); i<1000; ++i){
+    xytLoc s({rand()%100,rand()%100},(rand()%100000)/1000.0);
+    uint64_t hash=e2.GetStateHash(s);
+    xytLoc x;
+    e2.GetStateFromHash(hash,x);
+    ASSERT_EQ(s,x);
+  }
 }
 
 #endif

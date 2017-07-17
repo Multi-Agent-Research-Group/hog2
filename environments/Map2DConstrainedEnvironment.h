@@ -20,8 +20,8 @@
 #include "TemplateAStar.h"
 
 struct xytLoc : xyLoc {
-	xytLoc(xyLoc loc, float time):xyLoc(loc), t(time) {}
-	xytLoc(uint16_t _x, uint16_t _y, float time):xyLoc(_x,_y), t(time) {}
+	xytLoc(xyLoc loc, float time):xyLoc(loc), t(time) ,nc(-1){}
+	xytLoc(uint16_t _x, uint16_t _y, float time):xyLoc(_x,_y), t(time) ,nc(-1){}
 	xytLoc():xyLoc(),t(0),nc(-1){}
 	float t;
         int16_t nc; // Number of conflicts, for conflict avoidance table
@@ -66,6 +66,7 @@ public:
 	virtual bool GoalTest(const xytLoc &node, const xytLoc &goal) const;
 	
 	virtual uint64_t GetStateHash(const xytLoc &node) const;
+        virtual void GetStateFromHash(uint64_t hash, xytLoc &s) const;
 	virtual uint64_t GetActionHash(tDirection act) const;
 
 	virtual void OpenGLDraw() const;
@@ -99,8 +100,8 @@ unsigned checkForConflict(state const*const parent, state const*const node, stat
 }
 
 
-#define HASH_INTERVAL 0.09
-#define HASH_INTERVAL_HUNDREDTHS 9
+#define HASH_INTERVAL 0.50
+#define HASH_INTERVAL_HUNDREDTHS 50
 
 template <typename state, typename action, typename environment>
 class TieBreaking {
