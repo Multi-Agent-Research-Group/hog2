@@ -404,8 +404,24 @@ struct ICTSNode{
   Instance points;
   std::vector<Node*> toDelete;
   static uint64_t count;
+  static bool pairwise;
 
   bool isValid(std::vector<std::set<Node*,NodePtrComp>>& answer){
+    if(root.size()>2 && pairwise){
+      // Perform pairwise check
+      for(int i(0); i<root.size(); ++i){
+        for(int j(i+1); j<root.size(); ++j){
+          MultiState tmproot(2);
+          tmproot[0]=root[i];
+          tmproot[1]=root[j];
+          std::vector<std::set<Node*,NodePtrComp>> tmpanswer(sizes.size());
+          std::vector<Node*> toDeleteTmp;
+          if(!jointDFS(tmproot,maxdepth,tmpanswer,toDeleteTmp,increment)){
+            return false;
+          }
+        }
+      }
+    }
     // Do a depth-first search; if the search terminates at a goal, its valid.
     answer.resize(sizes.size());
     if(jointDFS(root,maxdepth,answer,toDelete,increment)){// && checkAnswer(answer)){
@@ -435,6 +451,7 @@ struct ICTSNode{
 };
 
 uint64_t ICTSNode::count(0);
+bool ICTSNode::pairwise(true);
 
 struct ICTSNodePtrComp
 {
@@ -527,31 +544,35 @@ int main(int argc, char ** argv){
   Points s;
   Points e;
   if(argc>2){
-    //std::cout << "Reading instance from file: \""<<argv[2]<<"\"\n";
-    std::ifstream ss(argv[2]);
-    int x,y;
-    std::string line;
-    while(std::getline(ss, line)){
-      std::istringstream is(line);
-      std::string field;
-      bool goal(0);
-      while(is >> field){
-        sscanf(field.c_str(),"%d,%d", &x,&y);
-        if(goal){
-          e.emplace_back(x,y);
-          //std::cout << e.back() << "\n";
-        }else{
-          s.emplace_back(x,y);
-          //std::cout << s.back() << "-->";
+    if(argv[2][0]=='r'){ // Param is "r6" for random instance, 6-agents
+      n=atoi(argv[2]+1);
+    }else{
+      //std::cout << "Reading instance from file: \""<<argv[2]<<"\"\n";
+      std::ifstream ss(argv[2]);
+      int x,y;
+      std::string line;
+      while(std::getline(ss, line)){
+        std::istringstream is(line);
+        std::string field;
+        bool goal(0);
+        while(is >> field){
+          sscanf(field.c_str(),"%d,%d", &x,&y);
+          if(goal){
+            e.emplace_back(x,y);
+            //std::cout << e.back() << "\n";
+          }else{
+            s.emplace_back(x,y);
+            //std::cout << s.back() << "-->";
+          }
+          goal=!goal;
         }
-        goal=!goal;
       }
+      n=s.size();
+      //std::cout << "read " << n << " instances\n";
     }
-    n=s.size();
-    //std::cout << "read " << n << " instances\n";
   }
-  if(argc>3){
-    n=atoi(argv[3]);
+  if(argc>3){ // Anything in the 3rd parameter indicates turn off pairwise
+    ICTSNode::pairwise==false;
   }
   Node::env=&env;
   double timeout(300);
