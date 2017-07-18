@@ -60,7 +60,7 @@ void Map2DConstrainedEnvironment::GetSuccessors(const xytLoc &nodeID, std::vecto
       xytLoc newLoc(n[x],nodeID.t+inc);
       neighbors.push_back(newLoc);
     }else{
-      std::cout << n[x] << " violates\n";
+      //std::cout << n[x] << " violates\n";
     }
   }
 }
@@ -79,7 +79,7 @@ bool Map2DConstrainedEnvironment::ViolatesConstraint(const xytLoc &from, const x
     VB-=B; // Direction vector
     //VB.Normalize();
     if(collisionImminent(A,VA,aradius,from.t,to.t,B,VB,bradius,constraints[x].start_state.t,constraints[x].end_state.t)){
-      std::cout << from << " collides with " << to << "\n";
+      //std::cout << from << " collides with " << to << "\n";
       return true;
     }
   }
