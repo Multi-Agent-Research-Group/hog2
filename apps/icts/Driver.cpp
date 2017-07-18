@@ -70,8 +70,9 @@ namespace std
 
 struct Node : public Hashable{
 	static MapEnvironment* env;
-	Node(){}
-	Node(xyLoc a, float d):n(a),depth(d),optimal(false){}
+        static uint64_t count;
+	Node(){count++;}
+	Node(xyLoc a, float d):n(a),depth(d),optimal(false){count++;}
 	xyLoc n;
 	float depth;
         bool optimal;
@@ -129,6 +130,7 @@ std::ostream& operator << (std::ostream& ss, Node const* n){
 }
 
 MapEnvironment* Node::env=nullptr;
+uint64_t Node::count(0);
 
 bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& root, float depth, float maxDepth){
   //std::cout << start << "-->" << end << " g:" << (maxDepth-depth) << " h:" << Node::env->HCost(start,end) << " f:" << ((maxDepth-depth)+Node::env->HCost(start,end)) << "\n";
@@ -369,6 +371,7 @@ bool checkAnswer(std::vector<std::set<Node*,NodePtrComp>> const& answer){
 
 struct ICTSNode{
   ICTSNode(ICTSNode* parent,int agent, int size):instance(parent->instance),dag(parent->dag),sizes(parent->sizes),root(parent->root),maxdepth(parent->maxdepth),increment(parent->increment){
+    count++;
     sizes[agent]=size;
     maxdepth=max(maxdepth,Node::env->HCost(instance.first[agent],instance.second[agent])+sizes[agent]);
     //std::cout << "agent " << agent << " GetMDD("<<(Node::env->HCost(instance.first[agent],instance.second[agent])+sizes[agent])<<")\n";
@@ -380,6 +383,7 @@ struct ICTSNode{
   }
 
   ICTSNode(Instance const& inst, std::vector<float> const& s, double inc=1.0):instance(inst),dag(s.size()),sizes(s),maxdepth(-99999999),increment(inc){
+    count++;
     root.reserve(s.size());
     for(int i(0); i<instance.first.size(); ++i){
       maxdepth=max(maxdepth,Node::env->HCost(instance.first[i],instance.second[i])+sizes[i]);
@@ -399,6 +403,7 @@ struct ICTSNode{
   double increment;
   Instance points;
   std::vector<Node*> toDelete;
+  static uint64_t count;
 
   bool isValid(std::vector<std::set<Node*,NodePtrComp>>& answer){
     // Do a depth-first search; if the search terminates at a goal, its valid.
@@ -428,6 +433,8 @@ struct ICTSNode{
     return total;
   }
 };
+
+uint64_t ICTSNode::count(0);
 
 struct ICTSNodePtrComp
 {
@@ -517,27 +524,52 @@ int main(int argc, char ** argv){
     }
   }
   int n(6);
+  Points s;
+  Points e;
   if(argc>2){
-    n=atoi(argv[2]);
+    //std::cout << "Reading instance from file: \""<<argv[2]<<"\"\n";
+    std::ifstream ss(argv[2]);
+    int x,y;
+    std::string line;
+    while(std::getline(ss, line)){
+      std::istringstream is(line);
+      std::string field;
+      bool goal(0);
+      while(is >> field){
+        sscanf(field.c_str(),"%d,%d", &x,&y);
+        if(goal){
+          e.emplace_back(x,y);
+          //std::cout << e.back() << "\n";
+        }else{
+          s.emplace_back(x,y);
+          //std::cout << s.back() << "-->";
+        }
+        goal=!goal;
+      }
+    }
+    n=s.size();
+    //std::cout << "read " << n << " instances\n";
+  }
+  if(argc>3){
+    n=atoi(argv[3]);
   }
   Node::env=&env;
-  int seed(123456);
   double timeout(300);
-  srand(seed);
   {
-    std::cout << "N="<<n<<"\n";
+    //std::cout << "N="<<n<<"\n";
     double total(0.0);
     double length(0.0);
     int numAgents(n);
     int failed(0);
     double cost(0);
-    for(int t(0); t<100; ++t){
+    //for(int t(0); t<100; ++t){
       //checked.clear();
       //std::cout << "Trial #"<<t<<"\n";
+    if(s.empty()){
+      int seed(123456);
+      srand(seed);
       std::set<xyLoc> st;
       std::set<xyLoc> en;
-      Points s;
-      Points e;
       // Get disjoint start and goal locations
       for(int i(0);i<numAgents;++i){
         auto a(st.emplace(rand()%8,rand()%8));
@@ -552,22 +584,7 @@ int main(int argc, char ** argv){
         }
         e.push_back(*a.first);
       }
-      /*
-         s.emplace_back(1,1);
-         e.emplace_back(4,4);
-         s.emplace_back(3,0);
-         e.emplace_back(3,4);
-         s.emplace_back(0,2);
-         e.emplace_back(3,1);
-         s.emplace_back(2,0);
-         e.emplace_back(1,3);
-         */
-      //s.emplace_back(0,5);
-      //e.emplace_back(3,0);
-      //s.emplace_back(1,1);
-      //e.emplace_back(6,1);
-      //s.emplace_back(3,0);
-      //e.emplace_back(4,2);
+    }
       TemplateAStar<xyLoc,tDirection,MapEnvironment> astar;
       Solution solution;
       //std::cout << "Init groups\n";
@@ -587,25 +604,32 @@ int main(int argc, char ** argv){
       // Initial individual paths.
       for(int i(0); i<s.size(); ++i){
         Points path;
-        astar.GetPath(&env,s[i],e[i],path);
+        if(s[i]==e[i]){
+          path.push_back(s[i]);
+        }else{
+          astar.GetPath(&env,s[i],e[i],path);
+        }
         TimePath timePath;
         //std::cout << s[i] << "-->" << e[i] << std::endl;
+        if(path.empty()){std::cout << "AStar failed on instance " << i << " - No solution\n"; return 0;}
         timePath.emplace_back(path[0],0.0);
         for(int i(1); i<path.size(); ++i){
           timePath.emplace_back(path[i],timePath[timePath.size()-1].second+Util::distance(path[i-1].x,path[i-1].y,path[i].x,path[i].y));
         }
         solution.push_back(timePath);
       }
-      //std::cout << std::endl;
-      //std::cout << "Initial solution:\n";
-      //int ii(0);
-      //for(auto const& p:solution){
-        //std::cout << ii++ << "\n";
-        //for(auto const& t: p){
-          // Print solution
-          //std::cout << t.first << "," << t.second << "\n";
-        //}
-      //}
+      /*
+         std::cout << std::endl;
+         std::cout << "Initial solution:\n";
+         int ii(0);
+         for(auto const& p:solution){
+         std::cout << ii++ << "\n";
+         for(auto const& t: p){
+      // Print solution
+      std::cout << t.first << "," << t.second << "\n";
+      }
+      }
+       */
 
       double elapsed(timeout);
       while(!detectIndependence(solution,group,groups)){
@@ -672,7 +696,7 @@ int main(int argc, char ** argv){
                 elapsed = timeout;
                 while(q.size()) q.pop();
                 failed++;
-                std::cout << "failed" << std::endl;
+                //std::cout << "failed" << std::endl;
               }
               toDelete.push_back(parent);
             }
@@ -685,28 +709,23 @@ int main(int argc, char ** argv){
             }
           }
         }
-        for(auto const& path:solution){
-          length += path.size();
-          for(int j(1); j<path.size(); ++j){
-            if(path[j-1].first!=path[j].first)
-              cost += env.GCost(path[j-1].first,path[j].first);
-          }
+      }
+      /*std::cout << "Solution:\n";
+      ii=0;
+      for(auto const& p:solution){
+        std::cout << ii++ << "\n";
+        for(auto const& t: p){
+          // Print solution
+          std::cout << t.first << "," << t.second << "\n";
         }
-        //std::cout << "Solution:\n";
-        //int ii(0);
-        //for(auto const& p:solution){
-        //std::cout << ii++ << "\n";
-        //for(auto const& t: p){
-        //// Print solution
-        //std::cout << t.first << "," << t.second << "\n";
-        //}
-        //}
-        //std::cout << "Re-init groups\n";
-        //group.resize(s.size()); // Agent#-->group#
-        // Add a singleton group for all groups
-        //for(int i(0); i<s.size(); ++i){
-          //group[i]=i; // In its own group
-        //}
+      }
+      */
+      for(auto const& path:solution){
+        length += path.size();
+        for(int j(1); j<path.size(); ++j){
+          if(path[j-1].first!=path[j].first)
+            cost += env.GCost(path[j-1].first,path[j].first);
+        }
       }
 
       for(auto y:groups){
@@ -717,11 +736,10 @@ int main(int argc, char ** argv){
       //std::cout << elapsed << " elapsed";
       //std::cout << std::endl;
      total += elapsed;
-    }
-    std::cout << "Average time: " << total/100. << std::endl;
-    std::cout << "Average path: " << length/(100.*n) << std::endl;
-    std::cout << "Average cost: " << cost/(100.) << std::endl;
-    std::cout << failed << " failures" << std::endl;
+    //}
+    std::cout << argv[2] << "," << argv[1] << "," << ICTSNode::count << ","<< Node::count << "," << total << "," << length << "," << cost;
+    if(failed)std::cout << " failure";
+    std::cout << std::endl;
   }
-  return 1;
+  return 0;
 }
