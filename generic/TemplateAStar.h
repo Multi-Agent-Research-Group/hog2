@@ -153,7 +153,7 @@ public:
         void SetSuccessorFunc(void (environment::*sf)(const state&, std::vector<state>&) const){SuccessorFunc=sf;}
         void SetActionFunc(action (environment::*af)(const state&, const state&) const){ActionFunc=af;}
         void SetExternalExpansionsPtr(uint* ptr){totalExternalNodesExpanded=ptr;}
-        void SetExternalExpansionLimit(uint limit){externalExpansionLimit=limit; std::cout << "Expansion limit set to: " << limit << "\n";}
+        void SetExternalExpansionLimit(uint limit){externalExpansionLimit=limit;}// std::cout << "Expansion limit set to: " << limit << "\n";}
 private:
 	uint64_t nodesTouched, nodesExpanded;
 //	bool GetNextNode(state &next);

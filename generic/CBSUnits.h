@@ -656,7 +656,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::pro
     std::cout << "Finished the plan using " << TOTAL_EXPANSIONS << " expansions.\n";
     std::cout << seed<<":Time elapsed: " << elapsed << "\n";
   }
-  for(auto e:environments)
+  /*for(auto e:environments)
   {
     unsigned total=0;
     for(auto a: agentEnvs)
@@ -666,7 +666,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::pro
     if(e.astar_weight > 1)
       tmp = "Weighted";
     std::cout << seed<<":%Environment used: " << tmp<<e.environment->name() <<": "<< total/double(agentEnvs.size())<<"\n";
-  }
+  }*/
   std::cout << seed<<":Total conflicts: " << tree.size() << std::endl;
   TOTAL_EXPANSIONS = 0;
   planFinished = true;
