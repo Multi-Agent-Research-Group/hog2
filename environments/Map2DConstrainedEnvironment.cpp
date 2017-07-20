@@ -68,7 +68,7 @@ bool Map2DConstrainedEnvironment::ViolatesConstraint(const xytLoc &from, const x
   Vector2D A(from);
   Vector2D VA(to);
   VA-=A; // Direction vector
-  //VA.NormalIize();
+  VA.Normalize();
   static double aradius(0.25);
   static double bradius(0.25);
   // TODO: Put constraints into a kD tree so that we only need to compare vs relevant constraints
@@ -77,7 +77,7 @@ bool Map2DConstrainedEnvironment::ViolatesConstraint(const xytLoc &from, const x
     Vector2D B(constraints[x].start_state);
     Vector2D VB(constraints[x].end_state);
     VB-=B; // Direction vector
-    //VB.Normalize();
+    VB.Normalize();
     if(collisionImminent(A,VA,aradius,from.t,to.t,B,VB,bradius,constraints[x].start_state.t,constraints[x].end_state.t)){
       //std::cout << from << " collides with " << to << "\n";
       return true;
@@ -254,7 +254,7 @@ bool Constraint<xytLoc>::ConflictsWith(const xytLoc &state) const
   /*if(state.landed || end_state.landed && start_state.landed) return false;
   Vector2D A(state);
   Vector2D VA(0,0);
-  //VA.NormalIize();
+  //VA.Normalize();
   static double aradius(0.25);
   static double bradius(0.25);
   Vector2D B(start_state);
@@ -274,13 +274,13 @@ bool Constraint<xytLoc>::ConflictsWith(const xytLoc &from, const xytLoc &to) con
   Vector2D A(from);
   Vector2D VA(to);
   VA-=A; // Direction vector
-  //VA.NormalIize();
+  VA.Normalize();
   static double aradius(0.25);
   static double bradius(0.25);
   Vector2D B(start_state);
   Vector2D VB(end_state);
   VB-=B; // Direction vector
-  //VB.Normalize();
+  VB.Normalize();
   if(collisionImminent(A,VA,aradius,from.t,to.t,B,VB,bradius,start_state.t,end_state.t)){
     return true;
   }

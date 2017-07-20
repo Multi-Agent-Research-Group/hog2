@@ -468,6 +468,26 @@ TEST(Quadratic, DetectCollisionWhenHeadOn){
   ASSERT_TRUE(collisionImminent(A,VA,aradius,1.0,8.0,B,VB*2.2,bradius,0.0,6.0));
 }
 
+TEST(Quadratic, Contrived){
+  Vector2D A(0,0);
+  Vector2D VA(2,1);
+  VA.Normalize();
+  double radius(.25);
+  Vector2D B(2,0);
+  Vector2D VB(-1,0);
+  VB.Normalize();
+
+  // SCENARIO
+  //==========
+  //  .>
+  // B<A
+  //
+  //==========
+
+  ASSERT_TRUE(collisionImminent(A,VA,radius,0.0,sqrt(5.),B,VB,radius,0.0,1.0));
+  ASSERT_TRUE(collisionImminent(B,VB,radius,0.0,1.0,A,VA,radius,0.0,sqrt(5.)));
+}
+
 void drawcircle(int x0, int y0, int r, std::map<int,int>& coords){
     int x = r;
     int y = 0;
