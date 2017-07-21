@@ -308,6 +308,7 @@ bool ThetaStar<state,action,environment,openList>::DoSingleSearchStep(std::vecto
     return true;
   }
 
+  if(verbose)std::cout << "Expanding: " << openClosedList.Lookup(nodeid).data << " with f:" << openClosedList.Lookup(nodeid).g+openClosedList.Lookup(nodeid).h << std::endl;
   succ.resize(0);
   env->GetSuccessors(currOpenNode, succ);
   double fCost = openNode.h+openNode.g;
@@ -347,7 +348,8 @@ bool ThetaStar<state,action,environment,openList>::DoSingleSearchStep(std::vecto
         {
           auto update(ComputeCost(openNode,succ[x],9999999));
           succ[x].t=update.second;
-          if(verbose)std::cout << "Create " << succ[x] << " with p=" << openClosedList.Lookup(update.first).data << " " << update.second << "\n";
+          //if(verbose)std::cout << "Create " << succ[x] << " with p=" << openClosedList.Lookup(update.first).data << " " << update.second << "\n";
+          if(verbose)std::cout << "Add node ("<<std::hex<<env->GetStateHash(succ[x])<<std::dec<<") to open " << succ[x] << update.second << "+" << (weight*theHeuristic->HCost(succ[x], goal)) << "=" << (update.second+weight*theHeuristic->HCost(succ[x], goal)) << "\n";
           openClosedList.AddOpenNode(succ[x],
               env->GetStateHash(succ[x]),
               update.second,
@@ -374,7 +376,9 @@ std::pair<uint64_t,double> ThetaStar<state,action,environment,openList>::SetVert
     for(auto const& n:neighbors){
       if(p.data == n) continue;
       auto loc(openClosedList.Lookup(env->GetStateHash(n),id));
+      /*if(verbose)*/ std::cout << "Neighbor: " << openClosedList.Lookat(id).data << " ";
       if(kClosedList==loc){ // Have we seen this before?
+        /*if(verbose)*/ std::cout << "closed\n";
         double g(openClosedList.Lookat(id).g+env->GCost(p.data,n));
         if(fless(g,bestg)){
          bestg=g;
@@ -382,7 +386,7 @@ std::pair<uint64_t,double> ThetaStar<state,action,environment,openList>::SetVert
          //std::cout << "Reset parent of " << p.data << " from " << pp.data << " to " << n << " " << bestg << "\n";
          found=true;
         }
-      }
+      } else /*if(verbose)*/ std::cout << "NOT closed\n";
     }
     if(!found){
       std::cout << "No neighbor was closed!: " << p.data << "\n";
