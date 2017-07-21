@@ -16,6 +16,7 @@
 #include "ConstrainedEnvironment.h"
 #include "constants.h"
 #include <iostream>
+#include "Vector2D.h"
 
 const int8_t k45 = 1;
 const int8_t k90 = 2;
@@ -237,6 +238,7 @@ struct airtimeState : public airplaneState {
 	airtimeState(uint16_t x,uint16_t y, uint16_t height, uint8_t speed, uint8_t heading, bool landed = false, float time=0, int c=-1) : airplaneState(x,y,height,speed,heading,landed), t(time),nc(c){}
 
 	airtimeState() :airplaneState(), t(0), nc(-1) {}
+        operator Vector2D()const{return Vector2D(x,y);}
 	float t;
         int16_t nc; // Number of conflicts
 };

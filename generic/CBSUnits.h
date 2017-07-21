@@ -24,6 +24,7 @@
 #include "Unit.h"
 #include "UnitGroup.h"
 #include "ConstrainedEnvironment.h"
+#include "VelocityObstacle.h"
 //#include "TemplateIntervalTree.h"
 #include "TemplateAStar.h"
 #include "Heuristic.h"
@@ -324,6 +325,7 @@ class CBSGroup : public UnitGroup<state, action, environment>
     std::vector<SearchEnvironment<state,action>*> agentEnvs;
 public:
     // Algorithm parameters
+    bool verify;
     bool nobypass;
     bool ECBSheuristic; // For ECBS
     unsigned killex; // Kill after this many expansions
@@ -411,7 +413,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Add
 /** constructor **/
 template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
 CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::CBSGroup(std::vector<EnvironmentContainer<state,action,environment> > const& environs,bool v)
-: time(0), bestNode(0), planFinished(false), nobypass(false)
+: time(0), bestNode(0), planFinished(false), verify(false), nobypass(false)
     , ECBSheuristic(false), killex(INT_MAX), keeprunning(false),
     seed(1234567), timer(0), verbose(v)
 {
@@ -615,15 +617,15 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::pro
 
     // Prune these paths to the current simulation time
     /*state current;
-    unit->GetLocation(current);
-    std::vector<state> newPath;
-    newPath.push_back(current); // Add the current simulation node to the new path
+      unit->GetLocation(current);
+      std::vector<state> newPath;
+      newPath.push_back(current); // Add the current simulation node to the new path
 
     // For everything in the path that's new, add the path back
     for (state xNode : tree[bestNode].paths[x]) {
-      if (current.t < xNode.t - 0.0001) {
-        newPath.push_back(xNode);
-      }
+    if (current.t < xNode.t - 0.0001) {
+    newPath.push_back(xNode);
+    }
     }*/
 
     // Update the actual unit path
@@ -643,6 +645,28 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::pro
         else
         {
           std::cout << "  " << a << "\n";
+        }
+      }
+    }
+    if(verify){
+      static double aradius(0.25);
+      static double bradius(0.25);
+      for(unsigned int y = x+1; y < tree[bestNode].paths.size(); y++){
+        for(unsigned i(1); i<tree[bestNode].paths[x].size(); ++i){
+          Vector2D A(tree[bestNode].paths[x][i-1]);
+          Vector2D VA(tree[bestNode].paths[x][i]);
+          VA-=A; // Direction vector
+          VA.Normalize();
+          for(unsigned j(1); j<tree[bestNode].paths[y].size(); ++j){
+            Vector2D B(tree[bestNode].paths[y][j-1]);
+            Vector2D VB(tree[bestNode].paths[y][j]);
+            VB-=B; // Direction vector
+            VB.Normalize();
+
+            if(collisionImminent(A,VA,aradius,tree[bestNode].paths[x][i-1].t,tree[bestNode].paths[x][i].t,B,VB,bradius,tree[bestNode].paths[y][j-1].t,tree[bestNode].paths[y][j].t)){
+              std::cout << "ERROR: Solution invalid; collision at: " << tree[bestNode].paths[x][i-1] << "-->" << tree[bestNode].paths[x][i] << ", " << tree[bestNode].paths[y][j-1] << "-->" << tree[bestNode].paths[y][j] << std::endl;
+            }
+          }
         }
       }
     }
