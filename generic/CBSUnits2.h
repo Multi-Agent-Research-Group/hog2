@@ -1,13 +1,13 @@
 //
-//  AirplaneCBSUnits.h
+//  AirplaneCBSUnits2.h
 //  hog2 glut
 //
 //  Created by David Chan on 6/8/16.
 //  Copyright (c) 2016 University of Denver. All rights reserved.
 //
 
-#ifndef __hog2_glut__AirplaneCBSUnits__
-#define __hog2_glut__AirplaneCBSUnits__
+#ifndef __hog2_glut__AirplaneCBSUnits2__
+#define __hog2_glut__AirplaneCBSUnits2__
 
 #include <iostream>
 #include <limits> 
@@ -216,7 +216,7 @@ private:
 
 template<typename state>
 struct Conflict {
-	Constraint<state> c;
+	Constraint<TemporalVector> c;
 	int unit1;
         int prevWpt;
 };
@@ -290,7 +290,7 @@ class CBSGroup : public UnitGroup<state, action, environment>
 
     void SetEnvironment(unsigned);
     void ClearEnvironmentConstraints();
-    void AddEnvironmentConstraint(Constraint<state> c);
+    void AddEnvironmentConstraint(Constraint<TemporalVector> c);
 
     double time;
 
@@ -365,20 +365,20 @@ void CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>::Open
     {
       float perc = (stop_t.t - si->GetSimulationTime())/(stop_t.t - start_t.t);
       ae->OpenGLDraw(stop_t, start_t, perc);
-      Constraint<state> c(stop_t, start_t);
+      Constraint<TemporalVector> c(stop_t, start_t);
       glColor3f(1, 0, 0);
       c.OpenGLDraw();
     } else {		
       ae->OpenGLDraw(current);
       glColor3f(1, 0, 0);
-      Constraint<state> c(current);
+      Constraint<TemporalVector> c(current);
       c.OpenGLDraw();
     }
   } else {
     if (current.landed)
       return;
     ae->OpenGLDraw(current);
-    Constraint<state> c(current);
+    Constraint<TemporalVector> c(current);
     glColor3f(1, 0, 0);
     c.OpenGLDraw();
   }
@@ -404,7 +404,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Cle
 
 
 template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
-void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::AddEnvironmentConstraint(Constraint<state>  c){
+void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::AddEnvironmentConstraint(Constraint<TemporalVector>  c){
   //if(verbose)std::cout << "Add constraint " << c.start_state << "-->" << c.end_state << "\n";
   for (EnvironmentContainer<state,action,environment> env : this->environments) {
     env.environment->AddConstraint(c);
@@ -463,7 +463,43 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Exp
   {
     // Notify the user of the conflict
     if(verbose){
-      std::cout << "TREE " << bestNode <<"("<<tree[bestNode].parent << ") Conflict found between unit " << c1.unit1 << " and unit " << c2.unit1 << " @:" << c2.c.start() << "-->" << c2.c.end() <<  " and " << c1.c.start() << "-->" << c1.c.end() << " NC " << numConflicts << " prev-W " << c1.prevWpt << " " << c2.prevWpt << "\n";
+      std::cout << "TREE " << bestNode <<"("<<tree[bestNode].parent << ") Conflict found between unit " << c1.unit1 << " and unit " << c2.unit1 << " @:" << c1.c.start() << "-->" << c1.c.end() <<  " and " << c2.c.start() << "-->" << c2.c.end() << " NC " << numConflicts << " prev-W " << c1.prevWpt << " " << c2.prevWpt << "\n";
+      // Swap units
+      /*unsigned tmp(c1.unit1);
+      c1.unit1=c2.unit1;
+      c2.unit1=tmp;*/
+
+      // Pare down the collision area:
+      if(false){
+        static double aradius(0.25);
+        static double bradius(0.25);
+        Vector2D A(c1.c.start_state);
+        Vector2D VA(c1.c.end_state);
+        VA-=A; // Direction vector
+        VA.Normalize();
+        Vector2D B(c2.c.start_state);
+        Vector2D VB(c2.c.end_state);
+        VB-=B; // Direction vector
+        VB.Normalize();
+        auto ivl(getCollisionInterval(A,VA,aradius,c1.c.start_state.t,c1.c.end_state.t,B,VB,bradius,c2.c.start_state.t,c2.c.end_state.t));
+        Vector2D A1=A+VA*ivl.first;
+        Vector2D A2=A+VA*ivl.second;
+        Vector2D B1=B+VB*ivl.first;
+        Vector2D B2=B+VB*ivl.second;
+        c1.c.start_state.x=A1.x;
+        c1.c.start_state.y=A1.y;
+        c1.c.start_state.t=ivl.first;
+        c1.c.end_state.x=A2.x;
+        c1.c.end_state.y=A2.y;
+        c1.c.end_state.t=ivl.second;
+        c2.c.start_state.x=B1.x;
+        c2.c.start_state.y=B1.y;
+        c2.c.start_state.t=ivl.first;
+        c2.c.end_state.x=B2.x;
+        c2.c.end_state.y=B2.y;
+        c2.c.end_state.t=ivl.second;
+        if(verbose)std::cout << "fixed conflicts unit " << c1.unit1 << ": " << c1.c.start() << "-->" << c1.c.end() <<  " and unit " << c2.unit1 << ": "<< c2.c.start() << "-->" << c2.c.end() << std::endl; 
+      }
       std::cout << c1.unit1 << ":\n";
       for(auto const& a:tree[bestNode].paths[c1.unit1]){
         std::cout << a << "\n";
@@ -680,6 +716,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::pro
     if(verify){
       static double aradius(0.25);
       static double bradius(0.25);
+      bool valid(true);
       for(unsigned int y = x+1; y < tree[bestNode].paths.size(); y++){
         for(unsigned i(1); i<tree[bestNode].paths[x].size(); ++i){
           Vector2D A(tree[bestNode].paths[x][i-1]);
@@ -693,11 +730,13 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::pro
             VB.Normalize();
 
             if(collisionImminent(A,VA,aradius,tree[bestNode].paths[x][i-1].t,tree[bestNode].paths[x][i].t,B,VB,bradius,tree[bestNode].paths[y][j-1].t,tree[bestNode].paths[y][j].t)){
+              valid=false;
               std::cout << "ERROR: Solution invalid; collision at: " << tree[bestNode].paths[x][i-1] << "-->" << tree[bestNode].paths[x][i] << ", " << tree[bestNode].paths[y][j-1] << "-->" << tree[bestNode].paths[y][j] << std::endl;
             }
           }
         }
       }
+      if(valid)std::cout << "VALID"<<std::endl;
     }
   }
   fflush(stdout);
@@ -899,63 +938,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Upd
 template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
 void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::UpdateSingleUnitPath(Unit<state, action, environment> *u, state newGoal)
 {
-
   //std::cout << "Replanning Single Unit Path..." << std::endl;
-
-  //std::cout << "Clear the environmental constraints" << std::endl;
-  // Clear the constraints from the environment set
-  ClearEnvironmentConstraints();
-
-  // Add constraints for the rest of the units' pre-planned paths
-  for (int x = 0; x < this->GetNumMembers(); x++) {
-    if (this->GetMember(x) != u) {
-      CBSUnit<state,action,environment,comparison,conflicttable,searchalgo> *c = (CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>*)this->GetMember(x);
-
-      // Loop over the pre-planned path
-      for (int i = 0; i < c->GetPath().size(); i++) {
-        // Add a vertex constraint. If you're landed, you don't collide with
-        // anything
-        if (!(c->GetPath()[i].landed)) {
-          Constraint<state> c1(c->GetPath()[i]);
-          AddEnvironmentConstraint(c1);
-        }
-
-        // If we can add an edge constraint (because we know where we're going...)
-        if (i +1 < c->GetPath().size()) {
-          // Add edge consraints if the plane is landing, taking off, or 
-          // just in the air. If both states stay landed, no edge constraint
-          if (!(c->GetPath()[i].landed && !c->GetPath()[i+1].landed) ||
-              !(c->GetPath()[i].landed && c->GetPath()[i+1].landed) || 
-              (c->GetPath()[i].landed && !c->GetPath()[i+1].landed)
-             ) 
-          {
-            Constraint<state> c2(c->GetPath()[i], c->GetPath()[i+1]);
-            AddEnvironmentConstraint(c2);
-          }
-        }
-      } /* End loop over pre-planned path */
-    } /* End if */
-  } /* End for */
-
-
-  // Get the unit location
-  CBSUnit<state,action,environment,comparison,conflicttable,searchalgo> *c = (CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>*)u;
-  state current = c->GetPath()[0];
-
-  // Plan a new path for the unit
-  //std::cout << "Going from " << current << " to " << newGoal << std::endl;
-  //astar.GetPath(currentEnvironment->environment, current, newGoal, thePath);
-  std::vector<state> thePath;
-  DoHAStar(current, newGoal, thePath);
-  //std::cout << "Finished replanning with " << astar.GetNodesExpanded() << " expansions." << std::endl;
-
-  //std::cout << "New Path: ";
-  //for (auto &a : thePath)
-  //std::cout << a << " ";
-  //std::cout << std::endl;
-
-  // Update the Unit Path
-  c->SetPath(thePath);
 }
 
 // Loads conflicts into environements and returns the number of conflicts loaded.
@@ -980,7 +963,7 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>:
   }// while (location != 0);
   //Implement ECBS prioritization which penalizes the second element in a path.
   if(ECBSheuristic && strstr(currentEnvironment->environment->name().c_str(),"Highway")==NULL && tree[location].paths[tree[location].con.unit1].size()>1)
-    AddEnvironmentConstraint(Constraint<state>(tree[location].paths[tree[location].con.unit1][1]));
+    AddEnvironmentConstraint(Constraint<TemporalVector>(tree[location].paths[tree[location].con.unit1][1]));
   return numConflicts;
 }
 
@@ -1121,8 +1104,11 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Rep
 
   //std::cout << "Replan agent " << theUnit << "\n";
   ReplanLeg<state,action,environment,comparison,conflicttable,searchalgo>(c, astar, currentEnvironment->environment, tree[location].paths[theUnit], tree[location].wpts[theUnit], tree[location].con.prevWpt, tree[location].con.prevWpt+1);
-  for(int i(0); i<tree[location].paths.size(); ++i)
-  //std::cout << "Replanned agent "<<i<<" path " << tree[location].paths[i].size() << "\n";
+  if(verbose){
+    std::cout << "Replanned agent "<<theUnit << "\n";
+    for(auto const& i:tree[location].paths[theUnit])
+      std::cout << "  " << i << "\n";
+  }
 
   if(killex != INT_MAX && TOTAL_EXPANSIONS>killex)
     processSolution(-timer->EndTimer());
@@ -1192,8 +1178,8 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>:
     if(verbose)std::cout << "Looking at positions " << xTime <<":"<<a[xTime].t << "," << j<<":"<<b[yTime].t << std::endl;
 
     // Check the point constraints
-    Constraint<state> x_c(a[xTime]);
-    state y_c =b[yTime];
+    //Constraint<TemporalVector> x_c(a[xTime]);
+    //state y_c =b[yTime];
 
 
     // Deal with landing conflicts, we don't conflict if one of the planes stays landed at
@@ -1208,7 +1194,7 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>:
 
 
       // Check the vertex conflict
-      if (x_c.ConflictsWith(y_c) && ++numConflicts && update)
+      /*if (x_c.ConflictsWith(y_c) && ++numConflicts && update)
       {
         c1.c = x_c;
         c2.c = y_c;
@@ -1221,11 +1207,11 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>:
 
         update = false;
         return 1;
-      }
+      }*/
 
       // Check the edge conflicts
-      Constraint<state> x_e_c(a[xTime], a[min(xmax-1, xTime+1)]);
-      Constraint<state> y_e_c(b[yTime], b[min(ymax-1, yTime+1)]);
+      Constraint<TemporalVector> x_e_c(a[xTime], a[min(xmax-1, xTime+1)]);
+      Constraint<TemporalVector> y_e_c(b[yTime], b[min(ymax-1, yTime+1)]);
 
       if (x_e_c.ConflictsWith(y_e_c) && ++numConflicts && update)
       {
@@ -1319,4 +1305,4 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Ope
 }
 
 
-#endif /* defined(__hog2_glut__AirplaneCBSUnits__) */
+#endif /* defined(__hog2_glut__AirplaneCBSUnits2__) */

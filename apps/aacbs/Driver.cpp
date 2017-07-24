@@ -3,7 +3,7 @@
 #include "UnitSimulation.h"
 #include "ScenarioLoader.h"
 #include "Map2DConstrainedEnvironment.h"
-#include "CBSUnits.h"
+#include "CBSUnits2.h"
 #include "NonUnitTimeCAT.h"
 #include "ThetaStar.h"
 
@@ -31,36 +31,36 @@ double frameIncrement = 1.0/10000.0;
 std::vector<std::vector<xytLoc> > waypoints;
 //std::vector<SoftConstraint<xytLoc> > sconstraints;
 
-  int cutoffs[10] = {0,9999,9999,9999,9999,9999,9999,9999,9999,9999}; // for each env
-  double weights[10] = {1,1,1,1,1,1,1,1,1,1}; // for each env
-  std::vector<EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment> > environs;
-  int seed = clock();
-  int num_agents = 5;
-  int minsubgoals(1);
-  int maxsubgoals(1);
-  bool use_wait = false;
-  bool nobypass = false;
+int cutoffs[10] = {0,9999,9999,9999,9999,9999,9999,9999,9999,9999}; // for each env
+double weights[10] = {1,1,1,1,1,1,1,1,1,1}; // for each env
+std::vector<EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment> > environs;
+int seed = clock();
+int num_agents = 5;
+int minsubgoals(1);
+int maxsubgoals(1);
+bool use_wait = false;
+bool nobypass = false;
 
-  bool paused = false;
+bool paused = false;
 
-  Map2DConstrainedEnvironment *ace = 0;
-  UnitSimulation<xytLoc, tDirection, Map2DConstrainedEnvironment> *sim = 0;
-  CBSGroup<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS>,ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>>>>* group = 0;
+Map2DConstrainedEnvironment *ace = 0;
+UnitSimulation<xytLoc, tDirection, Map2DConstrainedEnvironment> *sim = 0;
+CBSGroup<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS>,ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>>>>* group = 0;
 
-  bool gui=true;
-  void InitHeadless();
+bool gui=true;
+void InitHeadless();
 
-  int main(int argc, char* argv[])
-  {
-    if (argc > 1) {
-      num_agents = atoi(argv[1]);
-    }
+int main(int argc, char* argv[])
+{
+  if (argc > 1) {
+    num_agents = atoi(argv[1]);
+  }
 
 
   InstallHandlers();
   ProcessCommandLineArgs(argc, argv);
-  
-  
+
+
   if(gui)
   {
     RunHOGGUI(argc, argv);
@@ -72,7 +72,7 @@ std::vector<std::vector<xytLoc> > waypoints;
     {
       group->ExpandOneCBSNode();
     }
-    if(verbose)for(int i(0);i<group->GetNumMembers();++i){
+    /*if(verbose)*/for(int i(0);i<group->GetNumMembers();++i){
       std::cout << "final path for agent " << i << ":\n";
       for(auto const& n: group->tree.back().paths[i])
         std::cout << n << "\n";
@@ -174,7 +174,7 @@ void InitHeadless(){
   //std::cout << "Setting seed " << seed << "\n";
   srand(seed);
   srandom(seed);
-  Map* map(new Map(64,64));
+  Map* map(new Map(8,8));
   StraightLineHeuristic* sh(new StraightLineHeuristic());
   MapEnvironment* w4 = new MapEnvironment(map); w4->SetFourConnected();
   MapEnvironment* w5 = new MapEnvironment(map); w5->SetFiveConnected();
@@ -185,14 +185,13 @@ void InitHeadless(){
   MapEnvironment* w48 = new MapEnvironment(map); w48->SetFortyEightConnected();
   MapEnvironment* w49 = new MapEnvironment(map); w49->SetFortyNineConnected();
   // Cardinal Grid
-  /*environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w4->name(),new Map2DConstrainedEnvironment(w4),sh,cutoffs[0],weights[0]));
+  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w4->name(),new Map2DConstrainedEnvironment(w4),sh,cutoffs[0],weights[0]));
   if(verbose)std::cout << "Added " << w4->name() << " @" << cutoffs[0] << " conflicts\n";
-  */
+  /*
   // Cardinal Grid w/ Waiting
   environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w5->name(),new Map2DConstrainedEnvironment(w5),sh,cutoffs[0],weights[0]));
   if(verbose)std::cout << "Added " << w5->name() << " @" << cutoffs[0] << " conflicts\n";
   // Octile Grid
-  /*
   environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w8->name(),new Map2DConstrainedEnvironment(w8),sh,cutoffs[2],weights[2]));
   if(verbose)std::cout << "Added " << w8->name() << " @" << cutoffs[2] << " conflicts\n";
   // Octile Grid w/ Waiting
@@ -227,6 +226,8 @@ void InitHeadless(){
   group->ECBSheuristic=ECBSheuristic;
   group->nobypass=nobypass;
   group->verify=verify;
+  //group->astar.SetSuccessorFunc(&Map2DConstrainedEnvironment::GetAllSuccessors);
+  //group->astar2.SetSuccessorFunc(&Map2DConstrainedEnvironment::GetAllSuccessors);
   TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>::randomalg=randomalg;
   TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>::useCAT=useCAT;
   if(gui){
@@ -254,7 +255,7 @@ void InitHeadless(){
         bool conflict(true);
         while(conflict){
           conflict=false;
-          xyLoc rs1(rand() % 64, rand() % 64);
+          xyLoc rs1(rand() % 8, rand() % 8);
           if(!ace->GetMap()->IsTraversable(rs1.x,rs1.y)){conflict=true;continue;}
           xytLoc start(rs1, 0);
           for (int j = 0; j < waypoints.size(); j++)

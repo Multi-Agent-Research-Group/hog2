@@ -28,6 +28,20 @@ struct xytLoc : xyLoc {
         operator Vector2D()const{return Vector2D(x,y);}
 };
 
+struct TemporalVector : Vector2D {
+	TemporalVector(Vector2D const& loc, double time):Vector2D(loc), t(time){}
+	TemporalVector(xytLoc const& loc):Vector2D(loc), t(loc.t){}
+	TemporalVector(double _x, double _y, float time):Vector2D(_x,_y), t(time){}
+	TemporalVector():Vector2D(),t(0){}
+	double t;
+};
+
+static std::ostream& operator <<(std::ostream & out, const TemporalVector &loc)
+{
+	out << "(" << loc.x << ", " << loc.y << ": " << loc.t << ")";
+	return out;
+}
+	
 static std::ostream& operator <<(std::ostream & out, const xytLoc &loc)
 {
 	out << "(" << loc.x << ", " << loc.y << ": " << loc.t << ")";
@@ -36,19 +50,20 @@ static std::ostream& operator <<(std::ostream & out, const xytLoc &loc)
 	
 bool operator==(const xytLoc &l1, const xytLoc &l2);
 
-
 class Map2DConstrainedEnvironment : public ConstrainedEnvironment<xytLoc, tDirection>
 {
 public:
 	Map2DConstrainedEnvironment(Map *m);
 	Map2DConstrainedEnvironment(MapEnvironment *m);
 	virtual void AddConstraint(Constraint<xytLoc> const& c);
+	virtual void AddConstraint(Constraint<TemporalVector> const& c);
 	//void AddConstraint(xytLoc const& loc);
 	void AddConstraint(xytLoc const& loc, tDirection dir);
 	void ClearConstraints();
         virtual std::string name()const{return mapEnv->name();}
 	bool GetNextSuccessor(const xytLoc &currOpenNode, const xytLoc &goal, xytLoc &next, double &currHCost, uint64_t &special, bool &validMove);
 	virtual void GetSuccessors(const xytLoc &nodeID, std::vector<xytLoc> &neighbors) const;
+	virtual void GetAllSuccessors(const xytLoc &nodeID, std::vector<xytLoc> &neighbors) const;
 	virtual void GetActions(const xytLoc &nodeID, std::vector<tDirection> &actions) const;
 	virtual tDirection GetAction(const xytLoc &s1, const xytLoc &s2) const;
 	virtual void ApplyAction(xytLoc &s, tDirection a) const;
@@ -83,6 +98,7 @@ private:
 	bool ViolatesConstraint(const xyLoc &from, const xyLoc &to, float time, float inc) const;
 
 	std::vector<Constraint<xytLoc>> constraints;
+	std::vector<Constraint<TemporalVector>> vconstraints;
 	MapEnvironment *mapEnv;
 };
 typedef std::set<IntervalData> ConflictSet;

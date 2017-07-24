@@ -106,7 +106,7 @@ Vector2D B, Vector2D VB, double radiusB, double startTimeB, double endTimeB){
 // placed at pi and pj with velocity and radius.
 bool collisionImminent(Vector2D A, Vector2D VA, double radiusA, double startTimeA, double endTimeA, Vector2D B, Vector2D VB, double radiusB, double startTimeB, double endTimeB){
   // check for time overlap
-  if(fgreater(startTimeA,endTimeB)||fgreater(startTimeB,endTimeA)){return false;}
+  if(fgreater(startTimeA-radiusA,endTimeB)||fgreater(startTimeB-radiusB,endTimeA)){return false;}
 
   if(fgreater(startTimeB,startTimeA)){
     // Move A to the same time instant as B

@@ -468,6 +468,21 @@ TEST(Quadratic, DetectCollisionWhenHeadOn){
   ASSERT_TRUE(collisionImminent(A,VA,aradius,1.0,8.0,B,VB*2.2,bradius,0.0,6.0));
 }
 
+TEST(Quadratic, DetectCollisionWhenOneEndsEarlier){
+  Vector2D A(7,7);
+  Vector2D VA(-1,-1);
+  VA.Normalize();
+  double aradius(0.25);
+  Vector2D B(0,0);
+  Vector2D VB(1,1);
+  VB.Normalize();
+  double bradius(.25);
+
+  // Suppose edges cross in the middle at some point.
+  ASSERT_FALSE(collisionImminent(A,VA,aradius,0.0,4.24264,B,VB,bradius,0.0,9.8995));
+  ASSERT_TRUE(collisionImminent(A,VA,aradius,0.0,4.84264,B,VB,bradius,0.0,9.8995));
+}
+
 TEST(Quadratic, Contrived){
   Vector2D A(0,0);
   Vector2D VA(2,1);
@@ -486,6 +501,34 @@ TEST(Quadratic, Contrived){
 
   ASSERT_TRUE(collisionImminent(A,VA,radius,0.0,sqrt(5.),B,VB,radius,0.0,1.0));
   ASSERT_TRUE(collisionImminent(B,VB,radius,0.0,1.0,A,VA,radius,0.0,sqrt(5.)));
+}
+
+TEST(Quadratic, Contrived2){
+  Vector2D A(0,0);
+  Vector2D VA(7,7);
+  VA.Normalize();
+  double radius(.25);
+  Vector2D B(4,4);
+  Vector2D VB(-1,1);
+  VB.Normalize();
+
+  double sB(Util::distance(7,0,4,4));
+  ASSERT_TRUE(collisionImminent(A,VA,radius,0.0,sqrt(2.)*7.,B,VB,radius,sB,sB+sqrt(2.)));
+  //ASSERT_TRUE(collisionImminent(B,VB,radius,0.0,1.0,A,VA,radius,0.0,sqrt(5.)));
+}
+
+TEST(Quadratic, Contrived3){
+  Vector2D A(0,0);
+  Vector2D VA(7,7);
+  VA.Normalize();
+  double radius(.25);
+  Vector2D B(7,0);
+  Vector2D VB(-3,4);
+  VB.Normalize();
+
+  double sB(Util::distance(7,0,4,4));
+  ASSERT_FALSE(collisionImminent(A,VA,radius,0.0,sqrt(2.)*7.,B,VB,radius,0,5));
+  //ASSERT_TRUE(collisionImminent(B,VB,radius,0.0,1.0,A,VA,radius,0.0,sqrt(5.)));
 }
 
 void drawcircle(int x0, int y0, int r, std::map<int,int>& coords){

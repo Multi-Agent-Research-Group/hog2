@@ -39,6 +39,7 @@ void Map2DConstrainedEnvironment::AddConstraint(xytLoc const& loc, tDirection di
 void Map2DConstrainedEnvironment::ClearConstraints()
 {
 	constraints.resize(0);
+	vconstraints.resize(0);
 }
 
 bool Map2DConstrainedEnvironment::GetNextSuccessor(const xytLoc &currOpenNode, const xytLoc &goal, xytLoc &next, double &currHCost, uint64_t &special, bool &validMove){
@@ -64,7 +65,32 @@ void Map2DConstrainedEnvironment::GetSuccessors(const xytLoc &nodeID, std::vecto
     }
   }
 }
+
+void Map2DConstrainedEnvironment::GetAllSuccessors(const xytLoc &nodeID, std::vector<xytLoc> &neighbors) const
+{
+  std::vector<xyLoc> n;
+  mapEnv->GetSuccessors(nodeID, n);
+
+  // TODO: remove illegal successors
+  for (unsigned int x = 0; x < n.size(); x++)
+  {
+    float inc(mapEnv->GetConnectedness()>5?(Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y)):1.0);
+    xytLoc newLoc(n[x],nodeID.t+inc);
+    neighbors.push_back(newLoc);
+  }
+}
+
 bool Map2DConstrainedEnvironment::ViolatesConstraint(const xytLoc &from, const xytLoc &to) const{
+  
+  /*for(unsigned int x = 0; x < constraints.size(); x++)
+  {
+    if(from.x==constraints[x].start_state.x && from.y==constraints[x].start_state.y &&
+        to.x==constraints[x].end_state.x && to.y==constraints[x].end_state.y)
+      return true;
+  }
+  return false;
+  */
+
   Vector2D A(from);
   Vector2D VA(to);
   VA-=A; // Direction vector
@@ -72,15 +98,17 @@ bool Map2DConstrainedEnvironment::ViolatesConstraint(const xytLoc &from, const x
   static double aradius(0.25);
   static double bradius(0.25);
   // TODO: Put constraints into a kD tree so that we only need to compare vs relevant constraints
-  for(unsigned int x = 0; x < constraints.size(); x++)
+  for(unsigned int x = 0; x < vconstraints.size(); x++)
   {
-    Vector2D B(constraints[x].start_state);
-    Vector2D VB(constraints[x].end_state);
+    Vector2D B(vconstraints[x].start_state);
+    Vector2D VB(vconstraints[x].end_state);
     VB-=B; // Direction vector
     VB.Normalize();
-    if(collisionImminent(A,VA,aradius,from.t,to.t,B,VB,bradius,constraints[x].start_state.t,constraints[x].end_state.t)){
-      //std::cout << from << " collides with " << to << "\n";
+    if(collisionImminent(A,VA,aradius,from.t,to.t,B,VB,bradius,vconstraints[x].start_state.t,vconstraints[x].end_state.t)){
+      //std::cout << from << " --> " << to << " collides with " << vconstraints[x].start_state << "-->" << vconstraints[x].end_state << "\n";
       return true;
+    }else{
+      //std::cout << from << " --> " << to << " does not collide with " << vconstraints[x].start_state << "-->" << vconstraints[x].end_state << "\n";
     }
   }
   return false;
@@ -118,6 +146,11 @@ void Map2DConstrainedEnvironment::UndoAction(xytLoc &s, tDirection a) const
 void Map2DConstrainedEnvironment::AddConstraint(Constraint<xytLoc> const& c)
 {
 	constraints.push_back(c);
+}
+
+void Map2DConstrainedEnvironment::AddConstraint(Constraint<TemporalVector> const& c)
+{
+	vconstraints.push_back(c);
 }
 
 void Map2DConstrainedEnvironment::GetReverseActions(const xytLoc &nodeID, std::vector<tDirection> &actions) const
@@ -248,6 +281,7 @@ void Map2DConstrainedEnvironment::GLDrawPath(const std::vector<xytLoc> &p, const
           GLDrawLine(*(a-1),*a);
         }
 }
+
 template<>
 bool Constraint<xytLoc>::ConflictsWith(const xytLoc &state) const
 {
@@ -296,6 +330,58 @@ bool Constraint<xytLoc>::ConflictsWith(const Constraint<xytLoc> &x) const
 
 template<>
 void Constraint<xytLoc>::OpenGLDraw() const 
+{
+  return;
+}
+
+template<>
+bool Constraint<TemporalVector>::ConflictsWith(const TemporalVector &state) const
+{
+  /*if(state.landed || end_state.landed && start_state.landed) return false;
+  Vector2D A(state);
+  Vector2D VA(0,0);
+  //VA.Normalize();
+  static double aradius(0.25);
+  static double bradius(0.25);
+  Vector2D B(start_state);
+  Vector2D VB(end_state);
+  VB-=B; // Direction vector
+  //VB.Normalize();
+  if(collisionImminent(A,VA,aradius,state.t,state.t+1.0,B,VB,bradius,start_state.t,end_state.t)){
+    return true;
+  }*/
+  return false; // There is really no such thing as a vertex conflict in continuous time domains.
+}
+
+// Check both vertex and edge constraints
+template<>
+bool Constraint<TemporalVector>::ConflictsWith(const TemporalVector &from, const TemporalVector &to) const
+{
+  Vector2D A(from);
+  Vector2D VA(to);
+  VA-=A; // Direction vector
+  VA.Normalize();
+  static double aradius(0.25);
+  static double bradius(0.25);
+  Vector2D B(start_state);
+  Vector2D VB(end_state);
+  VB-=B; // Direction vector
+  VB.Normalize();
+  if(collisionImminent(A,VA,aradius,from.t,to.t,B,VB,bradius,start_state.t,end_state.t)){
+    return true;
+  }
+  return false;
+}
+
+template<>
+bool Constraint<TemporalVector>::ConflictsWith(const Constraint<TemporalVector> &x) const
+{
+  return ConflictsWith(x.start_state, x.end_state);
+}
+
+
+template<>
+void Constraint<TemporalVector>::OpenGLDraw() const 
 {
   return;
 }
