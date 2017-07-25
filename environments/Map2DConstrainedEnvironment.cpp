@@ -225,19 +225,19 @@ void Map2DConstrainedEnvironment::OpenGLDraw() const
 		map->GetOpenGLCoord(constraints[x].start_state.x, constraints[x].start_state.y, xx, yy, zz, rad);
 		glColor4f(1.0, 0.0, 0.0, 0.5);
 		//glColor3f(0.5, 0.5, 0.5);
-		DrawSphere(xx, yy, zz-constraints[x].start_state.t*rad, rad);
+		DrawSphere(xx, yy, zz-constraints[x].start_state.t*rad, rad/2.);
 	}
 }
 
 void Map2DConstrainedEnvironment::OpenGLDraw(const xytLoc& s, const xytLoc& e, float perc) const
 {
-	GLfloat r, g, b, t;
-	GetColor(r, g, b, t);
-	Map *map = mapEnv->GetMap();
-	GLdouble xx, yy, zz, rad;
-	map->GetOpenGLCoord(s.x, s.y, xx, yy, zz, rad);
-	glColor4f(r, g, b, t);
-	DrawSphere(xx, yy, zz-s.t*rad, rad); // zz-s.t*2*rad
+  GLfloat r, g, b, t;
+  GetColor(r, g, b, t);
+  Map *map = mapEnv->GetMap();
+  GLdouble xx, yy, zz, rad;
+  map->GetOpenGLCoord((1-perc)*s.x+perc*e.x, (1-perc)*s.y+perc*e.y, xx, yy, zz, rad);
+  glColor4f(r, g, b, t);
+  DrawSphere(xx, yy, zz, rad/2.0); // zz-s.t*2*rad
 }
 
 void Map2DConstrainedEnvironment::OpenGLDraw(const xytLoc& l) const
@@ -248,7 +248,7 @@ void Map2DConstrainedEnvironment::OpenGLDraw(const xytLoc& l) const
 	GLdouble xx, yy, zz, rad;
 	map->GetOpenGLCoord(l.x, l.y, xx, yy, zz, rad);
 	glColor4f(r, g, b, t);
-	DrawSphere(xx, yy, zz-l.t*rad, rad); // zz-l.t*2*rad
+	DrawSphere(xx, yy, zz-l.t*rad, rad/2.0); // zz-l.t*2*rad
 }
 
 void Map2DConstrainedEnvironment::OpenGLDraw(const xytLoc&, const tDirection&) const
@@ -266,9 +266,9 @@ void Map2DConstrainedEnvironment::GLDrawLine(const xytLoc &x, const xytLoc &y) c
 	GetColor(r, g, b, t);
 	glColor4f(r, g, b, t);
 	glBegin(GL_LINES);
-	glVertex3f(xx, yy, zz-x.t*rad);
+	glVertex3f(xx, yy, zz);
 	map->GetOpenGLCoord(y.x, y.y, xx, yy, zz, rad);
-	glVertex3f(xx, yy, zz-y.t*rad);
+	glVertex3f(xx, yy, zz);
 	glEnd();
 }
 
@@ -329,9 +329,16 @@ bool Constraint<xytLoc>::ConflictsWith(const Constraint<xytLoc> &x) const
 
 
 template<>
-void Constraint<xytLoc>::OpenGLDraw() const 
+void Constraint<xytLoc>::OpenGLDraw(Map* map) const 
 {
-  return;
+  GLdouble xx, yy, zz, rad;
+  glColor3f(1, 0, 0);
+  glBegin(GL_LINES);
+  map->GetOpenGLCoord(start_state.x, start_state.y, xx, yy, zz, rad);
+  glVertex3f(xx, yy, rad);
+  map->GetOpenGLCoord(end_state.x, end_state.y, xx, yy, zz, rad);
+  glVertex3f(xx, yy, rad);
+  glEnd();
 }
 
 template<>
@@ -381,8 +388,20 @@ bool Constraint<TemporalVector>::ConflictsWith(const Constraint<TemporalVector> 
 
 
 template<>
-void Constraint<TemporalVector>::OpenGLDraw() const 
+void Constraint<TemporalVector>::OpenGLDraw(Map* map) const 
 {
-  return;
+	GLdouble xx, yy, zz, rad;
+	glColor3f(1, 0, 0);
+	map->GetOpenGLCoord(start_state.x, start_state.y, xx, yy, zz, rad);
+	DrawSphere(xx, yy, zz, rad/2.0); // zz-l.t*2*rad
+	
+        glLineWidth(4.0);
+	glBegin(GL_LINES);
+	glVertex3f(xx, yy, rad);
+	map->GetOpenGLCoord(end_state.x, end_state.y, xx, yy, zz, rad);
+	glVertex3f(xx, yy, rad);
+	glEnd();
+        usleep(100000);
+	DrawSphere(xx, yy, zz, rad/2.0); // zz-l.t*2*rad
 }
 

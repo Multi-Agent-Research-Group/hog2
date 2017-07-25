@@ -314,16 +314,15 @@ void InitSim(){
 
 void MyComputationHandler()
 {
-	while (true)
-	{
-		sim->StepTime(stepsPerFrame);
-	}
+  while (true)
+  {
+    sim->StepTime(stepsPerFrame);
+  }
 }
 
 //std::vector<tDirection> acts;
 void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 {
-
   if (ace){
     for(auto u : group->GetMembers()){
       glLineWidth(2.0);
@@ -333,31 +332,31 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 
   //static double ptime[500];
   //memset(ptime,0,500*sizeof(double));
-	if (sim)
-		sim->OpenGLDraw();
-	if (!paused) {
-		sim->StepTime(stepsPerFrame);
-		
-		/*std::cout << "Printing locations at time: " << sim->GetSimulationTime() << std::endl;
-		for (int x = 0; x < group->GetNumMembers(); x ++) {
-			CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS>,ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>>>> *c = (CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS>,ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>>>>*)group->GetMember(x);
-			xytLoc cur;
-			c->GetLocation(cur);
-                        //if(!fequal(ptime[x],sim->GetSimulationTime())
-			std::cout << "\t" << x << ":" << cur << std::endl;
-		}*/
-	}
+  if (sim)
+    sim->OpenGLDraw();
+  if (!paused) {
+    sim->StepTime(stepsPerFrame);
+
+    /*std::cout << "Printing locations at time: " << sim->GetSimulationTime() << std::endl;
+      for (int x = 0; x < group->GetNumMembers(); x ++) {
+      CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS>,ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>>>> *c = (CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS>,ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>>>>*)group->GetMember(x);
+      xytLoc cur;
+      c->GetLocation(cur);
+    //if(!fequal(ptime[x],sim->GetSimulationTime())
+    std::cout << "\t" << x << ":" << cur << std::endl;
+    }*/
+  }
 
 
-	if (recording)
-	{
-		static int index = 0;
-		char fname[255];
-		sprintf(fname, "movies/cbs-%05d", index);
-		SaveScreenshot(windowID, fname);
-		printf("Saving '%s'\n", fname);
-		index++;
-	}
+  if (recording)
+  {
+    static int index = 0;
+    char fname[255];
+    sprintf(fname, "movies/cbs-%05d", index);
+    SaveScreenshot(windowID, fname);
+    printf("Saving '%s'\n", fname);
+    index++;
+  }
 }
 
 int MyCLHandler(char *argument[], int maxNumArgs)

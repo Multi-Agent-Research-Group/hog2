@@ -365,22 +365,22 @@ void CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>::Open
     {
       float perc = (stop_t.t - si->GetSimulationTime())/(stop_t.t - start_t.t);
       ae->OpenGLDraw(stop_t, start_t, perc);
-      Constraint<TemporalVector> c(stop_t, start_t);
-      glColor3f(1, 0, 0);
-      c.OpenGLDraw();
+      //Constraint<TemporalVector> c(stop_t, start_t);
+      //glColor3f(1, 0, 0);
+      //c.OpenGLDraw();
     } else {		
-      ae->OpenGLDraw(current);
-      glColor3f(1, 0, 0);
-      Constraint<TemporalVector> c(current);
-      c.OpenGLDraw();
+      //ae->OpenGLDraw(stop_t);
+      //glColor3f(1, 0, 0);
+      //Constraint<TemporalVector> c(current);
+      //c.OpenGLDraw();
     }
   } else {
     if (current.landed)
       return;
-    ae->OpenGLDraw(current);
-    Constraint<TemporalVector> c(current);
-    glColor3f(1, 0, 0);
-    c.OpenGLDraw();
+    //ae->OpenGLDraw(current);
+    //Constraint<TemporalVector> c(current);
+    //glColor3f(1, 0, 0);
+    //c.OpenGLDraw();
   }
 }
 
@@ -1287,21 +1287,14 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>:
 template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
 void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::OpenGLDraw(const environment *ae, const SimulationInfo<state,action,environment> * sim)  const
 {
-	/*
-	GLfloat r, g, b;
-	glLineWidth(2.0);
-	for (unsigned int x = 0; x < tree[bestNode].paths.size(); x++)
-	{
-		CBSUnit<state,action,environment,comparison,conflicttable,searchalgo> *unit = (CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>*)this->GetMember(x);
-		unit->GetColor(r, g, b);
-		ae->SetColor(r, g, b);
-		for (unsigned int y = 0; y < tree[bestNode].paths[x].size(); y++)
-		{
-			ae->OpenGLDraw(tree[bestNode].paths[x][y]);
-		}
-	}
-	glLineWidth(1.0);
-	*/
+  GLfloat r, g, b;
+  glLineWidth(4.0);
+  int location(bestNode);
+  while(location!=0){
+    tree[location].con.c.OpenGLDraw(currentEnvironment->environment->GetMap());
+    location = tree[location].parent;
+  }
+  glLineWidth(1.0);
 }
 
 

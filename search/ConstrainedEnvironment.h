@@ -10,6 +10,7 @@
 #define __hog2_glut__ConstrainedEnvironment__
 
 #include <vector>
+#include "Map.h"
 #include "SearchEnvironment.h"
 #include "PositionalUtils.h"
 
@@ -36,7 +37,7 @@ class State{
 
 class DrawableConstraint{
   public:
-    virtual void OpenGLDraw() const=0;
+    virtual void OpenGLDraw(Map*) const=0;
     static int width;
     static int length;
     static int height;
@@ -53,7 +54,7 @@ class SoftConstraint : public DrawableConstraint {
       double d(Util::distance(center.x,center.y,center.height,other.x,other.y,other.height)/scale);
       return std::max(0.0,logr/d-logr/radius);
     }
-    virtual void OpenGLDraw() const {}
+    virtual void OpenGLDraw(Map*) const {}
 
     State center;
     double radius;
@@ -73,7 +74,7 @@ class Constraint : public DrawableConstraint{
     virtual bool ConflictsWith(State const& s) const {return start_state == s || end_state == s;}
     virtual bool ConflictsWith(State const& from, State const& to) const {return ConflictsWith(from) || ConflictsWith(to);}
     virtual bool ConflictsWith(Constraint const& x) const {return ConflictsWith(x.start_state, x.end_state);}
-    virtual void OpenGLDraw() const {}
+    virtual void OpenGLDraw(Map*) const {}
 
     State start_state;
     State end_state;

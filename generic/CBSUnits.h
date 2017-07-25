@@ -361,26 +361,26 @@ void CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>::Open
     state start_t = myPath[myPath.size()-1];
     state stop_t = myPath[myPath.size()-2];
 
-    if (si->GetSimulationTime() <= stop_t.t && si->GetSimulationTime() >= start_t.t)
+    if(si->GetSimulationTime() <= stop_t.t && si->GetSimulationTime() >= start_t.t)
     {
       float perc = (stop_t.t - si->GetSimulationTime())/(stop_t.t - start_t.t);
       ae->OpenGLDraw(stop_t, start_t, perc);
-      Constraint<state> c(stop_t, start_t);
-      glColor3f(1, 0, 0);
-      c.OpenGLDraw();
+      //Constraint<state> c(stop_t, start_t);
+      //glColor3f(1, 0, 0);
+      //c.OpenGLDraw();
     } else {		
-      ae->OpenGLDraw(current);
+      ae->OpenGLDraw(stop_t);
       glColor3f(1, 0, 0);
-      Constraint<state> c(current);
-      c.OpenGLDraw();
+      //Constraint<state> c(stop_t);
+      //c.OpenGLDraw();
     }
   } else {
     if (current.landed)
       return;
     ae->OpenGLDraw(current);
-    Constraint<state> c(current);
-    glColor3f(1, 0, 0);
-    c.OpenGLDraw();
+    //Constraint<state> c(current);
+    //glColor3f(1, 0, 0);
+    //c.OpenGLDraw(si->GetEnvironment()->GetMap());
   }
 }
 
