@@ -37,6 +37,32 @@
 #include "VelocityObstacle.h"
 #include "TemplateAStar.h"
 
+template<typename T, typename C>
+class custom_priority_queue : public std::priority_queue<T, std::vector<T>, C>
+{
+  public:
+
+    bool remove(const T& value) {
+      toDelete.insert(value->key());
+    }
+    bool removeAll(int agent, int count){
+      for(auto const& value:this->c){
+        if(value->sizes[agent]<count){
+          toDelete.insert(value->key());
+        }
+      }
+    }
+    virtual T popTop(){
+      T val(this->top());
+      while(toDelete.find(val->key()) != toDelete.end()){
+        this->pop();
+        val=this->top();
+      }
+      return val;
+    }
+    std::unordered_set<std::string> toDelete;
+};
+
 int renderScene(){}
 
 struct Group{
@@ -244,9 +270,9 @@ void generatePermutations(std::vector<MultiEdge>& positions, std::vector<MultiEd
       VA.Normalize();
       Vector2D VB(current[j].second->n.x-current[j].first->n.x,current[j].second->n.y-current[j].first->n.y);
       VB.Normalize();
-      std::cout << "Test for collision: " << *positions[agent][i].first << "-->" << *positions[agent][i].second << " " << *current[j].first << "-->" << *current[j].second << "\n";
+      //std::cout << "Test for collision: " << *positions[agent][i].first << "-->" << *positions[agent][i].second << " " << *current[j].first << "-->" << *current[j].second << "\n";
       if(collisionImminent(A,VA,.25,positions[agent][i].first->depth,positions[agent][i].second->depth,B,VB,.25,current[j].first->depth,current[j].second->depth)){
-        std::cout << "Collision averted: " << *positions[agent][i].first << "-->" << *positions[agent][i].second << " " << *current[j].first << "-->" << *current[j].second << "\n";
+        //std::cout << "Collision averted: " << *positions[agent][i].first << "-->" << *positions[agent][i].second << " " << *current[j].first << "-->" << *current[j].second << "\n";
         found=true;
         //checked.insert(hash);
         break;
@@ -378,6 +404,10 @@ bool checkAnswer(std::vector<std::set<Node*,NodePtrComp>> const& answer){
   return true;
 }
 
+void join(std::stringstream& s, std::vector<float> const& x){
+  copy(x.begin(),x.end(), std::ostream_iterator<float>(s,","));
+}
+
 struct ICTSNode{
   ICTSNode(ICTSNode* parent,int agent, int size):instance(parent->instance),dag(parent->dag),sizes(parent->sizes),root(parent->root),maxdepth(parent->maxdepth),increment(parent->increment){
     count++;
@@ -385,6 +415,7 @@ struct ICTSNode{
     maxdepth=max(maxdepth,Node::env->HCost(instance.first[agent],instance.second[agent])+sizes[agent]);
     //std::cout << "agent " << agent << " GetMDD("<<(Node::env->HCost(instance.first[agent],instance.second[agent])+sizes[agent])<<")\n";
     dag[agent].clear();
+    replanned.push_back(agent);
     GetMDD(instance.first[agent],instance.second[agent],dag[agent],root,Node::env->HCost(instance.first[agent],instance.second[agent])+sizes[agent]);
     // Replace new root node on top of old.
     std::swap(root[agent],root[root.size()-1]);
@@ -394,7 +425,9 @@ struct ICTSNode{
   ICTSNode(Instance const& inst, std::vector<float> const& s, double inc=1.0):instance(inst),dag(s.size()),sizes(s),maxdepth(-99999999),increment(inc){
     count++;
     root.reserve(s.size());
+    replanned.resize(s.size());
     for(int i(0); i<instance.first.size(); ++i){
+      replanned[i]=i;
       maxdepth=max(maxdepth,Node::env->HCost(instance.first[i],instance.second[i])+sizes[i]);
       //std::cout << "agent " << i << " GetMDD("<<(Node::env->HCost(instance.first[i],instance.second[i])+sizes[i])<<")\n";
       GetMDD(instance.first[i],instance.second[i],dag[i],root,Node::env->HCost(instance.first[i],instance.second[i])+sizes[i]);
@@ -403,6 +436,13 @@ struct ICTSNode{
   }
 
   ~ICTSNode(){for(auto d:toDelete){delete d;}}
+
+  // Get unique identifier for this node
+  std::string key()const{
+    std::stringstream sv;
+    join(sv,sizes);
+    return sv.str();
+  }
 
   Instance instance;
   std::vector<DAG> dag;
@@ -414,18 +454,38 @@ struct ICTSNode{
   std::vector<Node*> toDelete;
   static uint64_t count;
   static bool pairwise;
+  std::vector<int> replanned; // Set of nodes that was just re-planned
 
-  bool isValid(std::vector<std::set<Node*,NodePtrComp>>& answer){
+  bool isValid(std::vector<std::set<Node*,NodePtrComp>>& answer, std::pair<int,int>& conflicting){
+    conflicting.first=conflicting.second=-1;
     if(root.size()>2 && pairwise){
       // Perform pairwise check
-      for(int i(0); i<root.size(); ++i){
-        for(int j(i+1); j<root.size(); ++j){
+      if(replanned.size()>1){
+        for(int i(0); i<root.size(); ++i){
+          for(int j(i+1); j<root.size(); ++j){
+            MultiState tmproot(2);
+            tmproot[0]=root[i];
+            tmproot[1]=root[j];
+            std::vector<std::set<Node*,NodePtrComp>> tmpanswer(sizes.size());
+            std::vector<Node*> toDeleteTmp;
+            if(!jointDFS(tmproot,maxdepth,tmpanswer,toDeleteTmp,increment)){
+              conflicting.first=i;
+              conflicting.second=j;
+              return false;
+            }
+          }
+        }
+      }else{
+        for(int i(0); i<root.size(); ++i){
+          if(i==replanned[0]){continue;}
           MultiState tmproot(2);
           tmproot[0]=root[i];
-          tmproot[1]=root[j];
+          tmproot[1]=root[replanned[0]];
           std::vector<std::set<Node*,NodePtrComp>> tmpanswer(sizes.size());
           std::vector<Node*> toDeleteTmp;
           if(!jointDFS(tmproot,maxdepth,tmpanswer,toDeleteTmp,increment)){
+            conflicting.first=i;
+            conflicting.second=replanned[0];
             return false;
           }
         }
@@ -466,10 +526,6 @@ struct ICTSNodePtrComp
 {
   bool operator()(const ICTSNode* lhs, const ICTSNode* rhs) const  { return lhs->SIC()>rhs->SIC(); }
 };
-
-void join(std::stringstream& s, std::vector<float> const& x){
-  copy(x.begin(),x.end(), std::ostream_iterator<float>(s,","));
-}
 
 bool detectIndependence(Solution const& solution, std::vector<Group*>& group, std::unordered_set<Group*>& groups){
   bool independent(true);
@@ -617,20 +673,21 @@ int main(int argc, char ** argv){
     }
 
     Solution solution;
-    {
+    if(false){
       Instance g;
       g.first.emplace_back(1,1);
       g.first.emplace_back(3,0);
       g.second.emplace_back(5,5);
       g.second.emplace_back(3,5);
+      std::pair<int,int> conflicting;
       {
       std::vector<std::set<Node*,NodePtrComp>> answer;
       ICTSNode test(g,{0,0});
-      std::cout << (test.isValid(answer)?"solved\n":"failed\n");
+      std::cout << (test.isValid(answer,conflicting)?"solved\n":"failed\n");
       }
       std::vector<std::set<Node*,NodePtrComp>> answer;
       ICTSNode test(g,{1,0});
-      std::cout << (test.isValid(answer)?"solved\n":"failed\n");
+      std::cout << (test.isValid(answer,conflicting)?"solved\n":"failed\n");
       for(auto const& b:answer){
         TimePath p;
         for(auto const& a:b){
@@ -719,7 +776,7 @@ int main(int argc, char ** argv){
         //}
         if(g.first.size()>1){
           std::vector<float> sizes(g.first.size());
-          std::priority_queue<ICTSNode*,std::vector<ICTSNode*>,ICTSNodePtrComp> q;
+          custom_priority_queue<ICTSNode*,ICTSNodePtrComp> q;
           std::unordered_set<std::string> deconf;
 
           q.push(new ICTSNode(g,sizes));
@@ -727,15 +784,16 @@ int main(int argc, char ** argv){
           std::vector<std::set<Node*,NodePtrComp>> answer;
           std::vector<ICTSNode*> toDelete;
           while(q.size()){
-            ICTSNode* parent(q.top());
+            ICTSNode* parent(q.popTop());
             //std::cout << "pop ";
             //for(auto const& a: parent->sizes){
             //std::cout << a << " ";
             //}
             //std::cout << "\n";
-            q.pop();
+            //q.pop();
             //std::cout << "SIC: " << parent->SIC() << "\n";
-            if(parent->isValid(answer)){
+            std::pair<int,int> conflicting;
+            if(parent->isValid(answer,conflicting)){
               int i(0);
               for(auto const& b:answer){
                 TimePath p;
@@ -747,14 +805,40 @@ int main(int argc, char ** argv){
               }
               break;
             }
-            for(int i(0); i<parent->sizes.size(); ++i){
-              std::vector<float> sz(parent->sizes);
-              sz[i]++;
-              std::stringstream sv;
-              join(sv,sz);
-              if(deconf.find(sv.str())==deconf.end()){
-                q.push(new ICTSNode(parent,i,sz[i]));
-                deconf.insert(sv.str());
+            // Was a conflict found in the pairwise check?
+            if(conflicting.first!=-1){
+              {
+                std::vector<float> sz(parent->sizes);
+                sz[conflicting.first]++;
+                std::stringstream sv;
+                join(sv,sz);
+                q.removeAll(conflicting.first,sz[conflicting.first]);
+                if(deconf.find(sv.str())==deconf.end()){
+                  q.push(new ICTSNode(parent,conflicting.first,sz[conflicting.first]));
+                  deconf.insert(sv.str());
+                }else{std::cout << "Already seen "<<sv.str()<<"\n";}
+              }
+              {
+                std::vector<float> sz(parent->sizes);
+                sz[conflicting.second]++;
+                std::stringstream sv;
+                join(sv,sz);
+                q.removeAll(conflicting.second,sz[conflicting.second]);
+                if(deconf.find(sv.str())==deconf.end()){
+                  q.push(new ICTSNode(parent,conflicting.second,sz[conflicting.second]));
+                  deconf.insert(sv.str());
+                }else{std::cout << "Already seen "<<sv.str()<<"\n";}
+              }
+            }else{
+              for(int i(0); i<parent->sizes.size(); ++i){
+                std::vector<float> sz(parent->sizes);
+                sz[i]++;
+                std::stringstream sv;
+                join(sv,sz);
+                if(deconf.find(sv.str())==deconf.end()){
+                  q.push(new ICTSNode(parent,i,sz[i]));
+                  deconf.insert(sv.str());
+                }
               }
             }
             if(tmr.TimeCut() > timeout){
@@ -775,16 +859,16 @@ int main(int argc, char ** argv){
         }
       }
     }
-    /*std::cout << "Solution:\n";
-      ii=0;
+    std::cout << "Solution:\n";
+      int ii=0;
       for(auto const& p:solution){
-      std::cout << ii++ << "\n";
-      for(auto const& t: p){
-    // Print solution
-    std::cout << t.first << "," << t.second << "\n";
-    }
-    }
-    */
+        std::cout << ii++ << "\n";
+        for(auto const& t: p){
+          // Print solution
+          std::cout << t.first << "," << t.second << "\n";
+        }
+      }
+    
     for(auto const& path:solution){
       length += path.size();
       for(int j(1); j<path.size(); ++j){

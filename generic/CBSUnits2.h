@@ -470,7 +470,7 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Exp
       c2.unit1=tmp;*/
 
       // Pare down the collision area:
-      if(false){
+      if(true){
         static double aradius(0.25);
         static double bradius(0.25);
         Vector2D A(c1.c.start_state);
