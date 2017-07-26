@@ -265,6 +265,74 @@ TEST(Quadratic, IsInsideFail){
   ASSERT_FALSE(collisionImminent(A-A,VA,radius,0,5,B,VB,radius,0,5));
 }
 
+TEST(Quadratic3D, DetectCollisionWhenExists){
+  Vector3D A(5,1,1);
+  Vector3D VA(0,1,1);
+  VA.Normalize();
+  double radius(.25);
+  Vector3D B(1,2,2);
+  Vector3D VB(1,1,1);
+  VB.Normalize();
+
+  // SCENARIO (side view) (x,y-axis)
+  //============
+  //
+  //      ^ ^
+  //      |/
+  //      X
+  //     /|
+  //    / |
+  //   /  |
+  //  B   |
+  //      A
+  //
+  //============
+
+  // SCENARIO (side view) (y,z-axis)
+  //============
+  //
+  //        ^
+  //       /
+  //      /
+  //     /
+  //    /
+  //   B 
+  //  A  
+  //
+  //============
+
+  // SCENARIO (top view) (z,x-axis)
+  //============
+  //
+  //      ^ ^
+  //      |/
+  //      X
+  //     /|
+  //    / |
+  //   /  |
+  //  B   |
+  //      A
+  //
+  //============
+
+  // Suppose edges cross in the middle at some point.
+  ASSERT_TRUE(collisionImminent(A,VA,radius,0.0,8.0,B,VB,radius,0.0,8.0));
+  // Suppose edges end at the same point
+  ASSERT_TRUE(collisionImminent(A,VA,radius,0.0,6.3,B,VB,radius,0.0,6.3));
+  // Suppose edges end before collision actually occurs (at time step 2.2)
+  ASSERT_FALSE(collisionImminent(A,VA,radius,0.0,6.2,B,VB,radius,0.0,6.2));
+  // Suppose agents start at a different time
+  ASSERT_FALSE(collisionImminent(A,VA,radius,1.0,9.0,B,VB,radius,0.0,9.0));
+  // Suppose one agent is moving faster
+  ASSERT_FALSE(collisionImminent(A,VA*2,radius,0.0,8.0,B,VB,radius,0.0,8.0));
+  ASSERT_FALSE(collisionImminent(A,VA,radius,0.0,8.0,B,VB*2,radius,0.0,8.0));
+  // Suppose both agents are moving faster
+  ASSERT_TRUE(collisionImminent(A,VA*2,radius,0.0,4.0,B,VB*2,radius,0.0,4.0));
+  // Suppose one agent is moving faster, but starting later
+  ASSERT_TRUE(collisionImminent(A,VA*2,radius,3.5,8.0,B,VB,radius,0.0,8.0));
+}
+
+
 TEST(Quadratic, DetectCollisionWhenExists){
   Vector2D A(3,1);
   Vector2D VA(0,1);

@@ -2,6 +2,7 @@
 #define VELOCITYOBSTACLE_H
 
 #include "Vector2D.h"
+#include "Vector3D.h"
 #include "PositionalUtils.h"
 #include <vector>
 
@@ -16,14 +17,22 @@ class VelocityObstacle{
 
 bool getTangentOfCircle(Vector2D const& center, double radius, Vector2D const& point, std::vector<Vector2D>& tangents);
 
-bool detectCollision(Vector2D A, Vector2D VA, double radiusA, double startTimeA, double endTimeA,
-Vector2D B, Vector2D VB, double radiusB, double startTimeB, double endTimeB);
+bool detectCollision(Vector2D A, Vector2D const& VA, double radiusA, double startTimeA, double endTimeA,
+Vector2D B, Vector2D const& VB, double radiusB, double startTimeB, double endTimeB);
 
-bool collisionImminent(Vector2D const A, Vector2D const VA, double radiusA, double startTimeA, double endTimeA,
-Vector2D B, Vector2D VB, double radiusB, double startTimeB, double endTimeB);
-double  getCollisionTime(Vector2D const A, Vector2D const VA, double radiusA, double startTimeA, double endTimeA,
-Vector2D B, Vector2D VB, double radiusB, double startTimeB, double endTimeB);
-std::pair<double,double> getCollisionInterval(Vector2D const A, Vector2D const VA, double radiusA, double startTimeA, double endTimeA,
-Vector2D B, Vector2D VB, double radiusB, double startTimeB, double endTimeB);
+bool collisionImminent(Vector2D const A, Vector2D const& VA, double radiusA, double startTimeA, double endTimeA,
+Vector2D B, Vector2D const& VB, double radiusB, double startTimeB, double endTimeB);
+bool collisionImminent(Vector3D const A, Vector3D const& VA, double radiusA, double startTimeA, double endTimeA,
+Vector3D const B, Vector3D const& VB, double radiusB, double startTimeB, double endTimeB);
+
+double  getCollisionTime(Vector2D const A, Vector2D const& VA, double radiusA, double startTimeA, double endTimeA,
+Vector2D B, Vector2D const& VB, double radiusB, double startTimeB, double endTimeB);
+double  getCollisionTime(Vector3D const A, Vector3D const& VA, double radiusA, double startTimeA, double endTimeA,
+Vector3D B, Vector3D const& VB, double radiusB, double startTimeB, double endTimeB);
+
+std::pair<double,double> getCollisionInterval(Vector2D const A, Vector2D const& VA, double radiusA, double startTimeA, double endTimeA,
+Vector2D B, Vector2D const& VB, double radiusB, double startTimeB, double endTimeB);
+std::pair<double,double> getCollisionInterval(Vector3D const A, Vector3D const& VA, double radiusA, double startTimeA, double endTimeA,
+Vector3D B, Vector3D const& VB, double radiusB, double startTimeB, double endTimeB);
 
 #endif

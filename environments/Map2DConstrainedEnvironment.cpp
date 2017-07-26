@@ -401,7 +401,6 @@ void Constraint<TemporalVector>::OpenGLDraw(Map* map) const
 	map->GetOpenGLCoord(end_state.x, end_state.y, xx, yy, zz, rad);
 	glVertex3f(xx, yy, rad);
 	glEnd();
-        usleep(100000);
 	DrawSphere(xx, yy, zz, rad/2.0); // zz-l.t*2*rad
 }
 
