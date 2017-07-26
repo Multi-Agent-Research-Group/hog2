@@ -316,7 +316,10 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 	if (ace){
         for(auto u : group->GetMembers()){
             glLineWidth(2.0);
-            //ace->GLDrawPath(((CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> > const*)u)->GetPath(),((CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> > const*)u)->GetWaypoints());
+            GLfloat r, g, b;
+            u->GetColor(r, g, b);
+            ace->SetColor(r,g,b);
+            ace->GLDrawPath(((CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> > const*)u)->GetPath(),((CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> > const*)u)->GetWaypoints());
         }
     }
 
