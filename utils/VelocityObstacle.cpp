@@ -1,5 +1,6 @@
 #include "VelocityObstacle.h"
 #include <assert.h>
+#include <iostream>
 
 VelocityObstacle::VelocityObstacle(Vector2D const& a, Vector2D const& va, Vector2D const& b, Vector2D const& vb, double r1, double r2)
   : VO(a+vb), VL(0,0), VR(0,0)
@@ -67,8 +68,8 @@ bool VelocityObstacle::IsInside(Vector2D const& point) const{
 //         agent A movement end time
 //         same for agent B
 //
-bool detectCollision(Vector2D A, Vector2D VA, double radiusA, double startTimeA, double endTimeA,
-Vector2D B, Vector2D VB, double radiusB, double startTimeB, double endTimeB){
+bool detectCollision(Vector2D A, Vector2D const& VA, double radiusA, double startTimeA, double endTimeA,
+Vector2D B, Vector2D const& VB, double radiusB, double startTimeB, double endTimeB){
   // check for time overlap
   if(fgreater(startTimeA,endTimeB)||fgreater(startTimeB,endTimeA)){return false;}
 
@@ -104,9 +105,9 @@ Vector2D B, Vector2D VB, double radiusB, double startTimeB, double endTimeB){
 
 // Detect whether collision is occurring or will occur between 2 agents
 // placed at pi and pj with velocity and radius.
-bool collisionImminent(Vector2D A, Vector2D VA, double radiusA, double startTimeA, double endTimeA, Vector2D B, Vector2D VB, double radiusB, double startTimeB, double endTimeB){
+bool collisionImminent(Vector2D A, Vector2D const& VA, double radiusA, double startTimeA, double endTimeA, Vector2D B, Vector2D const& VB, double radiusB, double startTimeB, double endTimeB){
   // check for time overlap
-  if(fgreater(startTimeA,endTimeB)||fgreater(startTimeB,endTimeA)){return false;}
+  if(fgreater(startTimeA-radiusA,endTimeB)||fgreater(startTimeB-radiusB,endTimeA)){return false;}
 
   if(fgreater(startTimeB,startTimeA)){
     // Move A to the same time instant as B
@@ -137,11 +138,44 @@ bool collisionImminent(Vector2D A, Vector2D VA, double radiusA, double startTime
   return fleq(ctime,std::min(endTimeB,endTimeA)-startTimeA);
 }
 
+bool collisionImminent(Vector3D A, Vector3D const& VA, double radiusA, double startTimeA, double endTimeA, Vector3D B, Vector3D const& VB, double radiusB, double startTimeB, double endTimeB){
+  // check for time overlap
+  if(fgreater(startTimeA-radiusA,endTimeB)||fgreater(startTimeB-radiusB,endTimeA)){return false;}
+
+  if(fgreater(startTimeB,startTimeA)){
+    // Move A to the same time instant as B
+    A+=VA*(startTimeB-startTimeA);
+    startTimeA=startTimeB;
+  }else if(fless(startTimeB,startTimeA)){
+    B+=VB*(startTimeA-startTimeB);
+    startTimeB=startTimeA;
+  }
+
+  double r(radiusA+radiusB); // Combined radius
+  Vector3D w(B-A);
+  double c(w.sq()-r*r);
+  if(c<0){return true;} // Agents are currently colliding
+
+  // Use the quadratic formula to detect nearest collision (if any)
+  Vector3D v(VA-VB);
+  double a(v.sq());
+  double b(w*v);
+
+  double dscr(b*b-a*c);
+  if(fleq(dscr,0)){ return false; }
+
+  double ctime((b-sqrt(dscr))/a); // Collision time
+  if(fless(ctime,0)){ return false; }
+
+  // Collision will occur if collision time is before the end of the shortest segment
+  return fleq(ctime,std::min(endTimeB,endTimeA)-startTimeA);
+}
+
 // Get collision time between two agents - that is the time that they will "start" colliding.
 // Agents have a position, velocity, start time, end time and radius.
 // Note: this is analogous to an agent traversing an edge from time "start" to "end" at constant velocity.
 // -1 is a seminal value meaning "no collision in the future."
-double getCollisionTime(Vector2D A, Vector2D VA, double radiusA, double startTimeA, double endTimeA, Vector2D B, Vector2D VB, double radiusB, double startTimeB, double endTimeB){
+double getCollisionTime(Vector2D A, Vector2D const& VA, double radiusA, double startTimeA, double endTimeA, Vector2D B, Vector2D const& VB, double radiusB, double startTimeB, double endTimeB){
   // check for time overlap
   if(fgreater(startTimeA,endTimeB)||fgreater(startTimeB,endTimeA)){return -1;}
 
@@ -170,8 +204,37 @@ double getCollisionTime(Vector2D A, Vector2D VA, double radiusA, double startTim
   return (b-sqrt(dscr))/a + startTimeA; // Absolute collision time
 }
 
+double getCollisionTime(Vector3D A, Vector3D const& VA, double radiusA, double startTimeA, double endTimeA, Vector3D B, Vector3D const& VB, double radiusB, double startTimeB, double endTimeB){
+  // check for time overlap
+  if(fgreater(startTimeA,endTimeB)||fgreater(startTimeB,endTimeA)){return -1;}
+
+  if(fgreater(startTimeB,startTimeA)){
+    // Move A forward to the same time instant as B
+    A+=VA*(startTimeB-startTimeA);
+    startTimeA=startTimeB;
+  }else if(fless(startTimeB,startTimeA)){
+    B+=VB*(startTimeA-startTimeB);
+    startTimeB=startTimeA;
+  }
+
+  double r(radiusA+radiusB); // Combined radius
+  Vector3D w(B-A);
+  double c(w.sq()-r*r);
+  if(c<0){return 0.0;} // Agents are currently colliding
+
+  // Use the quadratic formula to detect nearest collision (if any)
+  Vector3D v(VA-VB);
+  double a(v.sq());
+  double b(w*v);
+
+  double dscr(b*b-a*c);
+  if(fleq(dscr,0)){ return -1; } // No collision will occur in the future
+
+  return (b-sqrt(dscr))/a + startTimeA; // Absolute collision time
+}
+
 // Get continuous collision interval for two agents (return -1,-1 if such does not exist)
-std::pair<double,double> getCollisionInterval(Vector2D A, Vector2D VA, double radiusA, double startTimeA, double endTimeA, Vector2D B, Vector2D VB, double radiusB, double startTimeB, double endTimeB){
+std::pair<double,double> getCollisionInterval(Vector3D A, Vector3D const& VA, double radiusA, double startTimeA, double endTimeA, Vector3D B, Vector3D const& VB, double radiusB, double startTimeB, double endTimeB){
   double collisionStart(getCollisionTime(A,VA,radiusA,startTimeA,endTimeA,B,VB,radiusB,startTimeB,endTimeB));
 
   // Is collision in the past?
@@ -187,9 +250,42 @@ std::pair<double,double> getCollisionInterval(Vector2D A, Vector2D VA, double ra
   double rStartTimeB(maxEndTime-endTimeB);
   double rEndTimeA(maxEndTime-startTimeA);
   double rEndTimeB(maxEndTime-startTimeB);
-  Vector2D rA(A+(VA*(endTimeA-startTimeA))); // Move A to the end of the edge
-  Vector2D rB(B+(VB*(endTimeB-startTimeB))); // Move B to the end of the edge
+  Vector3D rA(A+(VA*(endTimeA-startTimeA))); // Move A to the end of the edge
+  Vector3D rB(B+(VB*(endTimeB-startTimeB))); // Move B to the end of the edge
   double collisionEnd(maxEndTime-getCollisionTime(rA,-VA,radiusA,rStartTimeA,rEndTimeA,rB,-VB,radiusB,rStartTimeB,rEndTimeB));
+  assert(collisionStart<=collisionEnd);
+  return std::make_pair(collisionStart,collisionEnd);
+}
+std::pair<double,double> getCollisionInterval(Vector2D A, Vector2D const& VA, double radiusA, double startTimeA, double endTimeA, Vector2D B, Vector2D const& VB, double radiusB, double startTimeB, double endTimeB){
+  double collisionStart(getCollisionTime(A,VA,radiusA,startTimeA,endTimeA,B,VB,radiusB,startTimeB,endTimeB));
+  //std::cout << "Collision Start: " << collisionStart << "\n";
+  // Is collision in the past?
+  if(fless(collisionStart,0)){
+    return std::make_pair(-1.0,-1.0);
+  }
+  
+  // Traverse edges in reverse to see when the collision will end.
+
+  // Reverse the times - make them relative to the end time of the traversal
+  if(fgreater(startTimeB,startTimeA)){
+    // Move A forward to the same time instant as B
+    //std::cout << "Move A by : " << (startTimeB-startTimeA) << "\n";
+    A+=VA*(startTimeB-startTimeA);
+    startTimeA=startTimeB;
+  }else if(fless(startTimeB,startTimeA)){
+    //std::cout << "Move B by : " << (startTimeA-startTimeB) << "\n";
+    B+=VB*(startTimeA-startTimeB);
+    startTimeB=startTimeA;
+  }
+  //std::cout << "A:"<<A<<"B:"<<B<<"\n";
+
+  double duration(std::min(endTimeA-startTimeA,endTimeB-startTimeB));
+  //std::cout << "Move both by : " << duration << "\n";
+  Vector2D rA(A+(VA*duration)); // Move A to the end of the edge
+  Vector2D rB(B+(VB*duration)); // Move B to the end of the edge
+  //std::cout << "rA:"<<rA<<"rB:"<<rB<<"\n";
+  double collisionEnd(startTimeA+duration-getCollisionTime(rA,-VA,radiusA,0,duration,rB,-VB,radiusB,0,duration));
+  //std::cout << "Collision End: " << collisionEnd << "\n";
   assert(collisionStart<=collisionEnd);
   return std::make_pair(collisionStart,collisionEnd);
 }

@@ -1085,7 +1085,7 @@ bool Constraint<PlatformState>::ConflictsWith(const Constraint<PlatformState> &x
 }
 
 
-void Constraint<PlatformState>::OpenGLDraw() const 
+void Constraint<PlatformState>::OpenGLDraw(Map*) const 
 {
   glLineWidth(2.0); // Make it wide
   static int halfWidth(DrawableConstraint::width/2.0);

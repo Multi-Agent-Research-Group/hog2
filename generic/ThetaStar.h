@@ -65,7 +65,7 @@ struct ThetaStarCompare {
 template <class state, class action, class environment, class openList = AStarOpenClosed<state, ThetaStarCompare<state>>>
 class ThetaStar : public GenericSearchAlgorithm<state,action,environment> {
 public:
-	ThetaStar() { ResetNodeCount(); verbose=false; noncritical=false; theHeuristic=nullptr; env = nullptr; stopAfterGoal = true; weight=1; reopenNodes = false; }
+	ThetaStar():totalExternalNodesExpanded(nullptr),externalExpansionLimit(INT_MAX),verbose(false),noncritical(false),theHeuristic(nullptr),env(nullptr),stopAfterGoal(true),weight(1),reopenNodes(false),SuccessorFunc(&environment::GetSuccessors),ActionFunc(&environment::GetAction),GCostFunc(&environment::GCost){ResetNodeCount();}
 	virtual ~ThetaStar() {}
 	void GetPath(environment *env, const state& from, const state& to, std::vector<state> &thePath);
 	
@@ -120,9 +120,17 @@ public:
 	void OpenGLDraw() const;
 	
 	void SetWeight(double w) {weight = w;}
+        void SetGCostFunc(void (environment::*gf)(const state&, const state&) const){GCostFunc=gf;}
+        void SetHCostFunc(void (environment::*hf)(const state&, const state&) const){HCostFunc=hf;}
+        void SetSuccessorFunc(void (environment::*sf)(const state&, std::vector<state>&) const){SuccessorFunc=sf;}
+        void SetActionFunc(action (environment::*af)(const state&, const state&) const){ActionFunc=af;}
         void SetVerbose(bool v){verbose=v;}
         bool noncritical;
+        void SetExternalExpansionsPtr(uint* ptr){totalExternalNodesExpanded=ptr;}
+        void SetExternalExpansionLimit(uint limit){externalExpansionLimit=limit;}
 private:
+        uint* totalExternalNodesExpanded;
+        uint externalExpansionLimit;
         bool verbose;
 	std::vector<state> succ;
         std::pair<uint64_t,double> SetVertex(AStarOpenClosedData<state> const& p);
@@ -136,6 +144,10 @@ private:
 	bool reopenNodes;
 	uint64_t uniqueNodesExpanded;
 	Heuristic<state> *theHeuristic;
+        double (environment::*HCostFunc)(const state&, const state&) const;
+        double (environment::*GCostFunc)(const state&, const state&) const;
+        void (environment::*SuccessorFunc)(const state&, std::vector<state>&) const;
+        action (environment::*ActionFunc)(const state&, const state&) const;
 };
 
 //static const bool verbose = false;
@@ -269,13 +281,20 @@ bool ThetaStar<state,action,environment,openList>::DoSingleSearchStep(std::vecto
   if (!openNode.reopened)
     uniqueNodesExpanded++;
   nodesExpanded++;
+  if(totalExternalNodesExpanded){
+    (*totalExternalNodesExpanded)++; // Increment external counter
+    if(*totalExternalNodesExpanded>externalExpansionLimit){
+      thePath.resize(0);
+      return true;
+    }
+  }
 
   {
     auto update(SetVertex(openNode));
     if(update.second>=0){
+      if(verbose)std::cout << "Reset parent of " << currOpenNode << " to " << openClosedList.Lookup(update.first).data << " from " << openClosedList.Lookup(openNode.parentID).data <<" " << update.second << "\n";
       openNode.parentID=update.first;
       openNode.g=update.second;
-      if(verbose)std::cout << "Reset parent of " << currOpenNode << " to " << openNode.parentID <<" " << update.second << "\n";
       //openClosedList.Print();
     }else{
       if(verbose)std::cout << "Leave parent of " << currOpenNode << " as " << openClosedList.Lookup(openNode.parentID).data <<"\n";
@@ -297,8 +316,9 @@ bool ThetaStar<state,action,environment,openList>::DoSingleSearchStep(std::vecto
     return true;
   }
 
+  if(verbose)std::cout << "Expanding: " << openClosedList.Lookup(nodeid).data << " with f:" << openClosedList.Lookup(nodeid).g+openClosedList.Lookup(nodeid).h << std::endl;
   succ.resize(0);
-  env->GetSuccessors(currOpenNode, succ);
+  (env->*SuccessorFunc)(currOpenNode, succ);
   double fCost = openNode.h+openNode.g;
 
   nodesTouched++;
@@ -306,7 +326,7 @@ bool ThetaStar<state,action,environment,openList>::DoSingleSearchStep(std::vecto
 
   for (unsigned int x = 0; x < succ.size(); x++)
   {
-    double edgeCost(env->GCost(currOpenNode, succ[x]));
+    double edgeCost((env->*GCostFunc)(currOpenNode, succ[x]));
 
     switch (openClosedList.Lookup(env->GetStateHash(succ[x]), theID))
     {
@@ -318,7 +338,7 @@ bool ThetaStar<state,action,environment,openList>::DoSingleSearchStep(std::vecto
         break;
       case kOpenList:
         {
-          //edgeCost = env->GCost(openNode.data, neighbors[x]);
+          //edgeCost = (env->*GCostFunc)(openNode.data, neighbors[x]);
           auto update(ComputeCost(openNode,succ[x],openClosedList.Lookup(theID).g));
           //if (fless(openNode.g+edgeCost, openClosedList.Lookup(theID).g))
           if(update.second>=0 && fless(update.second, openClosedList.Lookup(theID).g))
@@ -326,6 +346,7 @@ bool ThetaStar<state,action,environment,openList>::DoSingleSearchStep(std::vecto
             //openClosedList.Lookup(theID).reopened = true;
             openClosedList.Lookup(theID).parentID = update.first;
             openClosedList.Lookup(theID).g = update.second;
+            //openClosedList.Lookup(theID).data.t = update.second;
             if(verbose)std::cout << "Update " << succ[x] << " to p=" << openClosedList.Lookup(update.first).data << " " << update.second << "\n";
             openClosedList.KeyChanged(theID);
             //openClosedList.Print();
@@ -336,7 +357,8 @@ bool ThetaStar<state,action,environment,openList>::DoSingleSearchStep(std::vecto
         {
           auto update(ComputeCost(openNode,succ[x],9999999));
           succ[x].t=update.second;
-          if(verbose)std::cout << "Create " << succ[x] << " with p=" << openClosedList.Lookup(update.first).data << " " << update.second << "\n";
+          //if(verbose)std::cout << "Create " << succ[x] << " with p=" << openClosedList.Lookup(update.first).data << " " << update.second << "\n";
+          if(verbose)std::cout << "Add node ("<<std::hex<<env->GetStateHash(succ[x])<<std::dec<<") to open " << succ[x] << update.second << "+" << (weight*theHeuristic->HCost(succ[x], goal)) << "=" << (update.second+weight*theHeuristic->HCost(succ[x], goal)) << "\n";
           openClosedList.AddOpenNode(succ[x],
               env->GetStateHash(succ[x]),
               update.second,
@@ -352,28 +374,41 @@ bool ThetaStar<state,action,environment,openList>::DoSingleSearchStep(std::vecto
 template <class state, class action, class environment, class openList>
 std::pair<uint64_t,double> ThetaStar<state,action,environment,openList>::SetVertex(AStarOpenClosedData<state> const& p){
   AStarOpenClosedData<state>& pp(openClosedList.Lookup(p.parentID));
+  if(pp.data==p.data)return {0,-1.0};
   if(!env->LineOfSight(pp.data,p.data)){
-    //std::cout << "No LOS: " << pp.data << " " << p.data << "\n";
+    if(verbose)std::cout << "No LOS: " << pp.data << " " << p.data << "\n";
     uint64_t best(0);
     bool found(false);
     double bestg(9999999);
     std::vector<state> neighbors;
-    env->GetSuccessors(p.data,neighbors);
+    env->GetAllSuccessors(p.data,neighbors);
     uint64_t id(0);
-    for(auto const& n:neighbors){
+    for(auto& n:neighbors){
       if(p.data == n) continue;
       auto loc(openClosedList.Lookup(env->GetStateHash(n),id));
-      if(kClosedList==loc){ // Have we seen this before?
-        double g(openClosedList.Lookat(id).g+env->GCost(p.data,n));
-        if(fless(g,bestg)){
-         bestg=g;
-         best=id;
-         //std::cout << "Reset parent of " << p.data << " from " << pp.data << " to " << n << " " << bestg << "\n";
-         found=true;
-        }
+      ///*if(verbose)*/ std::cout << "Neighbor: " << openClosedList.Lookat(id).data << " ";
+      if(kClosedList==loc){
+        // TODO: The appropriate time from the parent is necessary
+        // Fix the time (since this is being considered as a new parent);
+        if(env->LineOfSight(openClosedList.Lookat(id).data,p.data)){ // Have we seen this before?
+           if(verbose) std::cout << "LOS (neighbor) " << openClosedList.Lookat(id).data << " " << p.data << "\n";
+          double g(openClosedList.Lookat(id).g+(env->*GCostFunc)(p.data,n));
+          if(fless(g,bestg)){
+            bestg=g;
+            best=id;
+            if(verbose)std::cout << "Reset parent of " << p.data << " from " << pp.data << " to " << n << " " << bestg << "\n";
+            found=true;
+          }
+        } else if(verbose) std::cout << "NO LOS (neighbor) " << n << " " << p.data << "\n";
       }
     }
-    assert(found && "best is zero .. this is not possible!");
+    if(!found){
+      std::cout << "No neighbor was closed!: " << p.data << "\n";
+      for(auto const& n:neighbors){
+        std::cout << n << "\n";
+      }
+    }
+    //assert(found && "best is zero .. this is not possible!");
     return {best,bestg};
   }else{
     return {0,-1.0};
@@ -383,7 +418,7 @@ std::pair<uint64_t,double> ThetaStar<state,action,environment,openList>::SetVert
 template <class state, class action, class environment, class openList>
 std::pair<uint64_t,double> ThetaStar<state,action,environment,openList>::ComputeCost(AStarOpenClosedData<state> const& p, state& c, double oldg){
   AStarOpenClosedData<state>& pp(openClosedList.Lookup(p.parentID));
-  double newg(pp.g+env->GCost(pp.data,c));
+  double newg(pp.g+(env->*GCostFunc)(pp.data,c));
   if(fless(newg,oldg)){
       return {p.parentID,newg};
   }

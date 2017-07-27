@@ -912,7 +912,7 @@ void Map::saveRaw(FILE *f)
 * left normal in the horizontal scale. For the moment we leave ground blank
 * and draw the walls as x/X/^. No other ground type is drawn.
 */
-void Map::Print(int _scale)
+void Map::Print(int _scale) const
 {
 	//  printf("%c[%d;%dmHeight\n", 27, 4, 30);
 	//  printf("%c[%d;%dm", 27, 0, 0);

@@ -342,7 +342,7 @@ void AirplaneConstrainedEnvironment::OpenGLDraw() const
         // Soft constraints
 	for (int i = 0; i < sconstraints.size(); i++)
 	{
-		sconstraints.at(i).OpenGLDraw();	
+		sconstraints.at(i).OpenGLDraw(0);	
 	}
 
 	// Draw the restricted airspace
@@ -486,7 +486,7 @@ bool Constraint<airtimeState>::ConflictsWith(const Constraint<airtimeState> &x) 
 }
 
 
-void SoftConstraint<airtimeState>::OpenGLDraw() const 
+void SoftConstraint<airtimeState>::OpenGLDraw(Map*) const 
 {
         static float halfWidth(DrawableConstraint::width/2.0);
         static float halfLength(DrawableConstraint::length/2.0);

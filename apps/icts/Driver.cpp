@@ -37,6 +37,32 @@
 #include "VelocityObstacle.h"
 #include "TemplateAStar.h"
 
+template<typename T, typename C>
+class custom_priority_queue : public std::priority_queue<T, std::vector<T>, C>
+{
+  public:
+
+    bool remove(const T& value) {
+      toDelete.insert(value->key());
+    }
+    bool removeAll(int agent, int count){
+      for(auto const& value:this->c){
+        if(value->sizes[agent]<count){
+          toDelete.insert(value->key());
+        }
+      }
+    }
+    virtual T popTop(){
+      T val(this->top());
+      while(toDelete.find(val->key()) != toDelete.end()){
+        this->pop();
+        val=this->top();
+      }
+      return val;
+    }
+    std::unordered_set<std::string> toDelete;
+};
+
 int renderScene(){}
 
 struct Group{
@@ -70,8 +96,9 @@ namespace std
 
 struct Node : public Hashable{
 	static MapEnvironment* env;
-	Node(){}
-	Node(xyLoc a, float d):n(a),depth(d),optimal(false){}
+        static uint64_t count;
+	Node(){count++;}
+	Node(xyLoc a, float d):n(a),depth(d),optimal(false){count++;}
 	xyLoc n;
 	float depth;
         bool optimal;
@@ -80,6 +107,11 @@ struct Node : public Hashable{
 	std::unordered_set<Node*> successors;
 	virtual uint64_t Hash()const{return (env->GetStateHash(n)<<32) | ((uint32_t)floor(depth*1000.));}
 	virtual float Depth()const{return depth; }
+        virtual void Print(std::ostream& ss, int d=0) const {
+          ss << std::string(d,' ')<<n << "_" << depth << std::endl;
+          for(auto const& m: successors)
+            m->Print(ss,d+1);
+        }
 };
 
 //std::unordered_set<uint64_t> checked;
@@ -122,13 +154,15 @@ std::ostream& operator << (std::ostream& ss, Node const& n){
 }
 
 std::ostream& operator << (std::ostream& ss, Node const* n){
-  ss << std::string(n->depth,' ')<<n->n << "_" << n->depth << std::endl;
-  for(auto const& m: n->successors)
-    ss << m;
+  n->Print(ss);
+  //ss << std::string(n->depth,' ')<<n->n << "_" << n->depth << std::endl;
+  //for(auto const& m: n->successors)
+    //ss << m;
   return ss;
 }
 
 MapEnvironment* Node::env=nullptr;
+uint64_t Node::count(0);
 
 bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& root, float depth, float maxDepth){
   //std::cout << start << "-->" << end << " g:" << (maxDepth-depth) << " h:" << Node::env->HCost(start,end) << " f:" << ((maxDepth-depth)+Node::env->HCost(start,end)) << "\n";
@@ -149,7 +183,7 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& root
     }
     Node* parent(&dag[hash]);
     float d(maxDepth-depth);
-    while(fless(d++,maxDepth)){
+    while(fleq(++d,maxDepth)){
       // Wait at goal
       Node current(start,d);
       uint64_t chash(current.Hash());
@@ -211,6 +245,7 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& root
 // Perform conflict check by moving forward in time at increments of the smallest time step
 // Test the efficiency of VO vs. time-vector approach
 void GetMDD(xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& root, float depth){
+  std::cout << "MDD up to depth: " << depth << "\n";
   LimitedDFS(start,end,dag,root,depth,depth);
 }
 
@@ -232,10 +267,12 @@ void generatePermutations(std::vector<MultiEdge>& positions, std::vector<MultiEd
       Vector2D A(positions[agent][i].first->n.x,positions[agent][i].first->n.y);
       Vector2D B(current[j].first->n.x,current[j].first->n.y);
       Vector2D VA(positions[agent][i].second->n.x-positions[agent][i].first->n.x,positions[agent][i].second->n.y-positions[agent][i].first->n.y);
+      VA.Normalize();
       Vector2D VB(current[j].second->n.x-current[j].first->n.x,current[j].second->n.y-current[j].first->n.y);
+      VB.Normalize();
       //std::cout << "Test for collision: " << *positions[agent][i].first << "-->" << *positions[agent][i].second << " " << *current[j].first << "-->" << *current[j].second << "\n";
       if(collisionImminent(A,VA,.25,positions[agent][i].first->depth,positions[agent][i].second->depth,B,VB,.25,current[j].first->depth,current[j].second->depth)){
-        //std::cout << "Collision averted: " << A << " " << B << "\n";
+        //std::cout << "Collision averted: " << *positions[agent][i].first << "-->" << *positions[agent][i].second << " " << *current[j].first << "-->" << *current[j].second << "\n";
         found=true;
         //checked.insert(hash);
         break;
@@ -367,12 +404,18 @@ bool checkAnswer(std::vector<std::set<Node*,NodePtrComp>> const& answer){
   return true;
 }
 
+void join(std::stringstream& s, std::vector<float> const& x){
+  copy(x.begin(),x.end(), std::ostream_iterator<float>(s,","));
+}
+
 struct ICTSNode{
   ICTSNode(ICTSNode* parent,int agent, int size):instance(parent->instance),dag(parent->dag),sizes(parent->sizes),root(parent->root),maxdepth(parent->maxdepth),increment(parent->increment){
+    count++;
     sizes[agent]=size;
     maxdepth=max(maxdepth,Node::env->HCost(instance.first[agent],instance.second[agent])+sizes[agent]);
     //std::cout << "agent " << agent << " GetMDD("<<(Node::env->HCost(instance.first[agent],instance.second[agent])+sizes[agent])<<")\n";
     dag[agent].clear();
+    replanned.push_back(agent);
     GetMDD(instance.first[agent],instance.second[agent],dag[agent],root,Node::env->HCost(instance.first[agent],instance.second[agent])+sizes[agent]);
     // Replace new root node on top of old.
     std::swap(root[agent],root[root.size()-1]);
@@ -380,16 +423,26 @@ struct ICTSNode{
   }
 
   ICTSNode(Instance const& inst, std::vector<float> const& s, double inc=1.0):instance(inst),dag(s.size()),sizes(s),maxdepth(-99999999),increment(inc){
+    count++;
     root.reserve(s.size());
+    replanned.resize(s.size());
     for(int i(0); i<instance.first.size(); ++i){
+      replanned[i]=i;
       maxdepth=max(maxdepth,Node::env->HCost(instance.first[i],instance.second[i])+sizes[i]);
       //std::cout << "agent " << i << " GetMDD("<<(Node::env->HCost(instance.first[i],instance.second[i])+sizes[i])<<")\n";
       GetMDD(instance.first[i],instance.second[i],dag[i],root,Node::env->HCost(instance.first[i],instance.second[i])+sizes[i]);
-      //std::cout << i << ":\n" << root[i] << "\n";
+      std::cout << i << ":\n" << root[i] << "\n";
     }
   }
 
   ~ICTSNode(){for(auto d:toDelete){delete d;}}
+
+  // Get unique identifier for this node
+  std::string key()const{
+    std::stringstream sv;
+    join(sv,sizes);
+    return sv.str();
+  }
 
   Instance instance;
   std::vector<DAG> dag;
@@ -399,8 +452,45 @@ struct ICTSNode{
   double increment;
   Instance points;
   std::vector<Node*> toDelete;
+  static uint64_t count;
+  static bool pairwise;
+  std::vector<int> replanned; // Set of nodes that was just re-planned
 
-  bool isValid(std::vector<std::set<Node*,NodePtrComp>>& answer){
+  bool isValid(std::vector<std::set<Node*,NodePtrComp>>& answer, std::pair<int,int>& conflicting){
+    conflicting.first=conflicting.second=-1;
+    if(root.size()>2 && pairwise){
+      // Perform pairwise check
+      if(replanned.size()>1){
+        for(int i(0); i<root.size(); ++i){
+          for(int j(i+1); j<root.size(); ++j){
+            MultiState tmproot(2);
+            tmproot[0]=root[i];
+            tmproot[1]=root[j];
+            std::vector<std::set<Node*,NodePtrComp>> tmpanswer(sizes.size());
+            std::vector<Node*> toDeleteTmp;
+            if(!jointDFS(tmproot,maxdepth,tmpanswer,toDeleteTmp,increment)){
+              conflicting.first=i;
+              conflicting.second=j;
+              return false;
+            }
+          }
+        }
+      }else{
+        for(int i(0); i<root.size(); ++i){
+          if(i==replanned[0]){continue;}
+          MultiState tmproot(2);
+          tmproot[0]=root[i];
+          tmproot[1]=root[replanned[0]];
+          std::vector<std::set<Node*,NodePtrComp>> tmpanswer(sizes.size());
+          std::vector<Node*> toDeleteTmp;
+          if(!jointDFS(tmproot,maxdepth,tmpanswer,toDeleteTmp,increment)){
+            conflicting.first=i;
+            conflicting.second=replanned[0];
+            return false;
+          }
+        }
+      }
+    }
     // Do a depth-first search; if the search terminates at a goal, its valid.
     answer.resize(sizes.size());
     if(jointDFS(root,maxdepth,answer,toDelete,increment)){// && checkAnswer(answer)){
@@ -429,14 +519,13 @@ struct ICTSNode{
   }
 };
 
+uint64_t ICTSNode::count(0);
+bool ICTSNode::pairwise(true);
+
 struct ICTSNodePtrComp
 {
   bool operator()(const ICTSNode* lhs, const ICTSNode* rhs) const  { return lhs->SIC()>rhs->SIC(); }
 };
-
-void join(std::stringstream& s, std::vector<float> const& x){
-  copy(x.begin(),x.end(), std::ostream_iterator<float>(s,","));
-}
 
 bool detectIndependence(Solution const& solution, std::vector<Group*>& group, std::unordered_set<Group*>& groups){
   bool independent(true);
@@ -517,27 +606,56 @@ int main(int argc, char ** argv){
     }
   }
   int n(6);
+  Points s;
+  Points e;
   if(argc>2){
-    n=atoi(argv[2]);
+    if(argv[2][0]=='r'){ // Param is "r6" for random instance, 6-agents
+      n=atoi(argv[2]+1);
+    }else{
+      //std::cout << "Reading instance from file: \""<<argv[2]<<"\"\n";
+      std::ifstream ss(argv[2]);
+      int x,y;
+      std::string line;
+      while(std::getline(ss, line)){
+        std::istringstream is(line);
+        std::string field;
+        bool goal(0);
+        while(is >> field){
+          sscanf(field.c_str(),"%d,%d", &x,&y);
+          if(goal){
+            e.emplace_back(x,y);
+            //std::cout << e.back() << "\n";
+          }else{
+            s.emplace_back(x,y);
+            //std::cout << s.back() << "-->";
+          }
+          goal=!goal;
+        }
+      }
+      n=s.size();
+      //std::cout << "read " << n << " instances\n";
+    }
+  }
+  if(argc>3){ // Anything in the 3rd parameter indicates turn off pairwise
+    ICTSNode::pairwise==false;
   }
   Node::env=&env;
-  int seed(123456);
   double timeout(300);
-  srand(seed);
   {
-    std::cout << "N="<<n<<"\n";
+    //std::cout << "N="<<n<<"\n";
     double total(0.0);
     double length(0.0);
     int numAgents(n);
     int failed(0);
     double cost(0);
-    for(int t(0); t<100; ++t){
-      //checked.clear();
-      std::cout << "Trial #"<<t<<std::endl;
+    //for(int t(0); t<100; ++t){
+    //checked.clear();
+    //std::cout << "Trial #"<<t<<"\n";
+    if(s.empty()){
+      int seed(123456);
+      srand(seed);
       std::set<xyLoc> st;
       std::set<xyLoc> en;
-      Points s;
-      Points e;
       // Get disjoint start and goal locations
       for(int i(0);i<numAgents;++i){
         auto a(st.emplace(rand()%8,rand()%8));
@@ -552,112 +670,166 @@ int main(int argc, char ** argv){
         }
         e.push_back(*a.first);
       }
-      /*
-         s.emplace_back(1,1);
-         e.emplace_back(4,4);
-         s.emplace_back(3,0);
-         e.emplace_back(3,4);
-         s.emplace_back(0,2);
-         e.emplace_back(3,1);
-         s.emplace_back(2,0);
-         e.emplace_back(1,3);
-         */
-      //s.emplace_back(0,5);
-      //e.emplace_back(3,0);
-      //s.emplace_back(1,1);
-      //e.emplace_back(6,1);
-      //s.emplace_back(3,0);
-      //e.emplace_back(4,2);
-      TemplateAStar<xyLoc,tDirection,MapEnvironment> astar;
-      Solution solution;
-      //std::cout << "Init groups\n";
-      std::vector<Group*> group(s.size()); // Agent#-->group#
-      std::unordered_set<Group*> groups;
-      // Add a singleton group for all groups
-      for(int i(0); i<s.size(); ++i){
-        group[i]=new Group(i); // Initially in its own group
-        groups.insert(group[i]);
+    }
+
+    Solution solution;
+    if(false){
+      Instance g;
+      g.first.emplace_back(1,1);
+      g.first.emplace_back(3,0);
+      g.second.emplace_back(5,5);
+      g.second.emplace_back(3,5);
+      std::pair<int,int> conflicting;
+      {
+      std::vector<std::set<Node*,NodePtrComp>> answer;
+      ICTSNode test(g,{0,0});
+      std::cout << (test.isValid(answer,conflicting)?"solved\n":"failed\n");
       }
-
-      // Start timing
-      //std::cout << std::setprecision(3);
-      Timer tmr;
-      tmr.StartTimer();
-
-      // Initial individual paths.
-      for(int i(0); i<s.size(); ++i){
-        Points path;
-        astar.GetPath(&env,s[i],e[i],path);
-        TimePath timePath;
-        //std::cout << s[i] << "-->" << e[i] << std::endl;
-        timePath.emplace_back(path[0],0.0);
-        for(int i(1); i<path.size(); ++i){
-          timePath.emplace_back(path[i],timePath[timePath.size()-1].second+Util::distance(path[i-1].x,path[i-1].y,path[i].x,path[i].y));
+      std::vector<std::set<Node*,NodePtrComp>> answer;
+      ICTSNode test(g,{1,0});
+      std::cout << (test.isValid(answer,conflicting)?"solved\n":"failed\n");
+      for(auto const& b:answer){
+        TimePath p;
+        for(auto const& a:b){
+          p.emplace_back(a->n,a->depth);
         }
-        solution.push_back(timePath);
+        solution.push_back(p);
       }
-      //std::cout << std::endl;
-      //std::cout << "Initial solution:\n";
-      //int ii(0);
-      //for(auto const& p:solution){
-        //std::cout << ii++ << "\n";
-        //for(auto const& t: p){
+      std::cout << "Solution:\n";
+      int ii=0;
+      for(auto const& p:solution){
+        std::cout << ii++ << "\n";
+        for(auto const& t: p){
           // Print solution
-          //std::cout << t.first << "," << t.second << "\n";
-        //}
-      //}
+          std::cout << t.first << "," << t.second << "\n";
+        }
+      }
+      std::cout << std::endl;
+      return 0;
+    }
+    
+    TemplateAStar<xyLoc,tDirection,MapEnvironment> astar;
+    //std::cout << "Init groups\n";
+    std::vector<Group*> group(s.size()); // Agent#-->group#
+    std::unordered_set<Group*> groups;
+    // Add a singleton group for all groups
+    for(int i(0); i<s.size(); ++i){
+      group[i]=new Group(i); // Initially in its own group
+      groups.insert(group[i]);
+    }
 
-      double elapsed(timeout);
-      while(!detectIndependence(solution,group,groups)){
+    // Start timing
+    //std::cout << std::setprecision(3);
+    Timer tmr;
+    tmr.StartTimer();
+
+    // Initial individual paths.
+    for(int i(0); i<s.size(); ++i){
+      Points path;
+      if(s[i]==e[i]){
+        path.push_back(s[i]);
+      }else{
+        astar.GetPath(&env,s[i],e[i],path);
+      }
+      TimePath timePath;
+      //std::cout << s[i] << "-->" << e[i] << std::endl;
+      if(path.empty()){std::cout << "AStar failed on instance " << i << " - No solution\n"; return 0;}
+      timePath.emplace_back(path[0],0.0);
+      for(int i(1); i<path.size(); ++i){
+        timePath.emplace_back(path[i],timePath[timePath.size()-1].second+Util::distance(path[i-1].x,path[i-1].y,path[i].x,path[i].y));
+      }
+      solution.push_back(timePath);
+    }
+    /*
+       std::cout << std::endl;
+       std::cout << "Initial solution:\n";
+       int ii(0);
+       for(auto const& p:solution){
+       std::cout << ii++ << "\n";
+       for(auto const& t: p){
+    // Print solution
+    std::cout << t.first << "," << t.second << "\n";
+    }
+    }
+    */
+
+    double elapsed(timeout);
+    while(!detectIndependence(solution,group,groups)){
       std::unordered_map<int,Instance> G;
       std::unordered_map<int,std::vector<int>> Gid;
-        //std::cout << "There are " << groups.size() << " groups" << std::endl;
-        // Create groups
-        int g(0);
-        for(auto const& grp:groups){
-          for(auto a:grp->agents){
-            G[g].first.push_back(s[a]);
-            G[g].second.push_back(e[a]);
-            Gid[g].push_back(a);
-          }
-          ++g;
+      //std::cout << "There are " << groups.size() << " groups" << std::endl;
+      // Create groups
+      int g(0);
+      for(auto const& grp:groups){
+        for(auto a:grp->agents){
+          G[g].first.push_back(s[a]);
+          G[g].second.push_back(e[a]);
+          Gid[g].push_back(a);
         }
-        for(int j(0); j<G.size(); ++j){
-          auto g(G[j]);
-            //std::cout << "Group " << j <<":\n";
-            //for(int i(0); i<g.first.size(); ++i){
-              //std::cout << Gid[j][i] << ":" << g.first[i] << "-->" << g.second[i] << "\n";
+        ++g;
+      }
+      for(int j(0); j<G.size(); ++j){
+        auto g(G[j]);
+        //std::cout << "Group " << j <<":\n";
+        //for(int i(0); i<g.first.size(); ++i){
+        //std::cout << Gid[j][i] << ":" << g.first[i] << "-->" << g.second[i] << "\n";
+        //}
+        if(g.first.size()>1){
+          std::vector<float> sizes(g.first.size());
+          custom_priority_queue<ICTSNode*,ICTSNodePtrComp> q;
+          std::unordered_set<std::string> deconf;
+
+          q.push(new ICTSNode(g,sizes));
+
+          std::vector<std::set<Node*,NodePtrComp>> answer;
+          std::vector<ICTSNode*> toDelete;
+          while(q.size()){
+            ICTSNode* parent(q.popTop());
+            //std::cout << "pop ";
+            //for(auto const& a: parent->sizes){
+            //std::cout << a << " ";
             //}
-          if(g.first.size()>1){
-            std::vector<float> sizes(g.first.size());
-            std::priority_queue<ICTSNode*,std::vector<ICTSNode*>,ICTSNodePtrComp> q;
-            std::unordered_set<std::string> deconf;
-
-            q.push(new ICTSNode(g,sizes));
-
-            std::vector<std::set<Node*,NodePtrComp>> answer;
-            std::vector<ICTSNode*> toDelete;
-            while(q.size()){
-              ICTSNode* parent(q.top());
-              //std::cout << "pop ";
-              //for(auto const& a: parent->sizes){
-                //std::cout << a << " ";
-              //}
-              //std::cout << "\n";
-              q.pop();
-              //std::cout << "SIC: " << parent->SIC() << "\n";
-              if(parent->isValid(answer)){
-                int i(0);
-                for(auto const& b:answer){
-                  TimePath p;
-                  for(auto const& a:b){
-                    p.emplace_back(a->n,a->depth);
-                  }
-                  solution[Gid[j][i]]=p;
-                  ++i;
+            //std::cout << "\n";
+            //q.pop();
+            //std::cout << "SIC: " << parent->SIC() << "\n";
+            std::pair<int,int> conflicting;
+            if(parent->isValid(answer,conflicting)){
+              int i(0);
+              for(auto const& b:answer){
+                TimePath p;
+                for(auto const& a:b){
+                  p.emplace_back(a->n,a->depth);
                 }
-                break;
+                solution[Gid[j][i]]=p;
+                ++i;
               }
+              break;
+            }
+            // Was a conflict found in the pairwise check?
+            if(conflicting.first!=-1){
+              {
+                std::vector<float> sz(parent->sizes);
+                sz[conflicting.first]++;
+                std::stringstream sv;
+                join(sv,sz);
+                q.removeAll(conflicting.first,sz[conflicting.first]);
+                if(deconf.find(sv.str())==deconf.end()){
+                  q.push(new ICTSNode(parent,conflicting.first,sz[conflicting.first]));
+                  deconf.insert(sv.str());
+                }else{std::cout << "Already seen "<<sv.str()<<"\n";}
+              }
+              {
+                std::vector<float> sz(parent->sizes);
+                sz[conflicting.second]++;
+                std::stringstream sv;
+                join(sv,sz);
+                q.removeAll(conflicting.second,sz[conflicting.second]);
+                if(deconf.find(sv.str())==deconf.end()){
+                  q.push(new ICTSNode(parent,conflicting.second,sz[conflicting.second]));
+                  deconf.insert(sv.str());
+                }else{std::cout << "Already seen "<<sv.str()<<"\n";}
+              }
+            }else{
               for(int i(0); i<parent->sizes.size(); ++i){
                 std::vector<float> sz(parent->sizes);
                 sz[i]++;
@@ -668,60 +840,55 @@ int main(int argc, char ** argv){
                   deconf.insert(sv.str());
                 }
               }
-              if(tmr.TimeCut() > timeout){
-                elapsed = timeout;
-                while(q.size()) q.pop();
-                failed++;
-                std::cout << "failed" << std::endl;
-              }
-              toDelete.push_back(parent);
             }
-            for(auto r:toDelete){
-              delete r;
+            if(tmr.TimeCut() > timeout){
+              elapsed = timeout;
+              while(q.size()) q.pop();
+              failed++;
+              //std::cout << "failed" << std::endl;
             }
-            while(!q.empty()){
-              delete q.top();
-              q.pop();
-            }
+            toDelete.push_back(parent);
+          }
+          for(auto n:toDelete){
+            delete n;
+          }
+          while(!q.empty()){
+            delete q.top();
+            q.pop();
           }
         }
-        for(auto const& path:solution){
-          length += path.size();
-          for(int j(1); j<path.size(); ++j){
-            if(path[j-1].first!=path[j].first)
-              cost += env.GCost(path[j-1].first,path[j].first);
-          }
-        }
-        //std::cout << "Solution:\n";
-        //int ii(0);
-        //for(auto const& p:solution){
-        //std::cout << ii++ << "\n";
-        //for(auto const& t: p){
-        //// Print solution
-        //std::cout << t.first << "," << t.second << "\n";
-        //}
-        //}
-        //std::cout << "Re-init groups\n";
-        //group.resize(s.size()); // Agent#-->group#
-        // Add a singleton group for all groups
-        //for(int i(0); i<s.size(); ++i){
-          //group[i]=i; // In its own group
-        //}
       }
-
-      for(auto y:groups){
-        delete y;
-      }
-
-      elapsed=tmr.EndTimer();
-      //std::cout << elapsed << " elapsed";
-      //std::cout << std::endl;
-     total += elapsed;
     }
-    std::cout << "Average time: " << total/100. << std::endl;
-    std::cout << "Average path: " << length/(100.*n) << std::endl;
-    std::cout << "Average cost: " << cost/(100.) << std::endl;
-    std::cout << failed << " failures" << std::endl;
+    std::cout << "Solution:\n";
+      int ii=0;
+      for(auto const& p:solution){
+        std::cout << ii++ << "\n";
+        for(auto const& t: p){
+          // Print solution
+          std::cout << t.first << "," << t.second << "\n";
+        }
+      }
+    
+    for(auto const& path:solution){
+      length += path.size();
+      for(int j(1); j<path.size(); ++j){
+        if(path[j-1].first!=path[j].first)
+          cost += env.GCost(path[j-1].first,path[j].first);
+      }
+    }
+
+    for(auto y:groups){
+      delete y;
+    }
+
+    elapsed=tmr.EndTimer();
+    //std::cout << elapsed << " elapsed";
+    //std::cout << std::endl;
+    total += elapsed;
+    //}
+    std::cout << argv[2] << "," << argv[1] << "," << ICTSNode::count << ","<< Node::count << "," << total << "," << length << "," << cost;
+    if(failed)std::cout << " failure";
+    std::cout << std::endl;
   }
-  return 1;
+  return 0;
 }

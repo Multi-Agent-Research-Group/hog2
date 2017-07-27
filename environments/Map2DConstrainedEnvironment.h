@@ -20,14 +20,28 @@
 #include "TemplateAStar.h"
 
 struct xytLoc : xyLoc {
-	xytLoc(xyLoc loc, float time):xyLoc(loc), t(time) {}
-	xytLoc(uint16_t _x, uint16_t _y, float time):xyLoc(_x,_y), t(time) {}
+	xytLoc(xyLoc loc, float time):xyLoc(loc), t(time) ,nc(-1){}
+	xytLoc(uint16_t _x, uint16_t _y, float time):xyLoc(_x,_y), t(time) ,nc(-1){}
 	xytLoc():xyLoc(),t(0),nc(-1){}
 	float t;
         int16_t nc; // Number of conflicts, for conflict avoidance table
         operator Vector2D()const{return Vector2D(x,y);}
 };
 
+struct TemporalVector : Vector2D {
+	TemporalVector(Vector2D const& loc, double time):Vector2D(loc), t(time){}
+	TemporalVector(xytLoc const& loc):Vector2D(loc), t(loc.t){}
+	TemporalVector(double _x, double _y, float time):Vector2D(_x,_y), t(time){}
+	TemporalVector():Vector2D(),t(0){}
+	double t;
+};
+
+static std::ostream& operator <<(std::ostream & out, const TemporalVector &loc)
+{
+	out << "(" << loc.x << ", " << loc.y << ": " << loc.t << ")";
+	return out;
+}
+	
 static std::ostream& operator <<(std::ostream & out, const xytLoc &loc)
 {
 	out << "(" << loc.x << ", " << loc.y << ": " << loc.t << ")";
@@ -36,19 +50,20 @@ static std::ostream& operator <<(std::ostream & out, const xytLoc &loc)
 	
 bool operator==(const xytLoc &l1, const xytLoc &l2);
 
-
 class Map2DConstrainedEnvironment : public ConstrainedEnvironment<xytLoc, tDirection>
 {
 public:
 	Map2DConstrainedEnvironment(Map *m);
 	Map2DConstrainedEnvironment(MapEnvironment *m);
 	virtual void AddConstraint(Constraint<xytLoc> const& c);
+	virtual void AddConstraint(Constraint<TemporalVector> const& c);
 	//void AddConstraint(xytLoc const& loc);
 	void AddConstraint(xytLoc const& loc, tDirection dir);
 	void ClearConstraints();
         virtual std::string name()const{return mapEnv->name();}
 	bool GetNextSuccessor(const xytLoc &currOpenNode, const xytLoc &goal, xytLoc &next, double &currHCost, uint64_t &special, bool &validMove);
 	virtual void GetSuccessors(const xytLoc &nodeID, std::vector<xytLoc> &neighbors) const;
+	virtual void GetAllSuccessors(const xytLoc &nodeID, std::vector<xytLoc> &neighbors) const;
 	virtual void GetActions(const xytLoc &nodeID, std::vector<tDirection> &actions) const;
 	virtual tDirection GetAction(const xytLoc &s1, const xytLoc &s2) const;
 	virtual void ApplyAction(xytLoc &s, tDirection a) const;
@@ -66,6 +81,7 @@ public:
 	virtual bool GoalTest(const xytLoc &node, const xytLoc &goal) const;
 	
 	virtual uint64_t GetStateHash(const xytLoc &node) const;
+        virtual void GetStateFromHash(uint64_t hash, xytLoc &s) const;
 	virtual uint64_t GetActionHash(tDirection act) const;
 
 	virtual void OpenGLDraw() const;
@@ -82,6 +98,7 @@ private:
 	bool ViolatesConstraint(const xyLoc &from, const xyLoc &to, float time, float inc) const;
 
 	std::vector<Constraint<xytLoc>> constraints;
+	std::vector<Constraint<TemporalVector>> vconstraints;
 	MapEnvironment *mapEnv;
 };
 typedef std::set<IntervalData> ConflictSet;
@@ -99,8 +116,8 @@ unsigned checkForConflict(state const*const parent, state const*const node, stat
 }
 
 
-#define HASH_INTERVAL 0.09
-#define HASH_INTERVAL_HUNDREDTHS 9
+#define HASH_INTERVAL 0.50
+#define HASH_INTERVAL_HUNDREDTHS 50
 
 template <typename state, typename action, typename environment>
 class TieBreaking {

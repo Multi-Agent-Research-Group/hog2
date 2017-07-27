@@ -39,6 +39,7 @@
 
 
 #include <iostream>
+#include <limits.h> 
 #include "FPUtil.h"
 #include <ext/hash_map>
 #include "AStarOpenClosed.h"
@@ -69,7 +70,7 @@ struct AStarCompare {
 template <class state, class action, class environment, class openList = AStarOpenClosed<state, AStarCompare<state>> >
 class TemplateAStar : public GenericSearchAlgorithm<state,action,environment> {
 public:
-	TemplateAStar():env(0),useBPMX(0),radius(4.0),stopAfterGoal(true),doPartialExpansion(false),verbose(false),weight(1),useRadius(false),useOccupancyInfo(false),radEnv(0),reopenNodes(false),theHeuristic(0),directed(false),noncritical(false),SuccessorFunc(&environment::GetSuccessors),ActionFunc(&environment::GetAction),GCostFunc(&environment::GCost){ResetNodeCount();}
+	TemplateAStar():env(0),totalExternalNodesExpanded(nullptr),externalExpansionLimit(INT_MAX),useBPMX(0),radius(4.0),stopAfterGoal(true),doPartialExpansion(false),verbose(false),weight(1),useRadius(false),useOccupancyInfo(false),radEnv(0),reopenNodes(false),theHeuristic(0),directed(false),noncritical(false),SuccessorFunc(&environment::GetSuccessors),ActionFunc(&environment::GetAction),GCostFunc(&environment::GCost){ResetNodeCount();}
 	virtual ~TemplateAStar() {}
 	void GetPath(environment *env, const state& from, const state& to, std::vector<state> &thePath);
 	void GetPath(environment *, const state& , const state& , std::vector<action> & );
@@ -151,6 +152,8 @@ public:
         void SetHCostFunc(void (environment::*hf)(const state&, const state&) const){HCostFunc=hf;}
         void SetSuccessorFunc(void (environment::*sf)(const state&, std::vector<state>&) const){SuccessorFunc=sf;}
         void SetActionFunc(action (environment::*af)(const state&, const state&) const){ActionFunc=af;}
+        void SetExternalExpansionsPtr(uint* ptr){totalExternalNodesExpanded=ptr;}
+        void SetExternalExpansionLimit(uint limit){externalExpansionLimit=limit;}// std::cout << "Expansion limit set to: " << limit << "\n";}
 private:
 	uint64_t nodesTouched, nodesExpanded;
 //	bool GetNextNode(state &next);
@@ -165,6 +168,8 @@ private:
 	std::vector<double> hCosts;
 	std::vector<dataLocation> neighborLoc;
 	environment *env;
+        uint* totalExternalNodesExpanded;
+        uint externalExpansionLimit;
 	bool stopAfterGoal;
 	bool doPartialExpansion;
         bool verbose;
@@ -345,6 +350,14 @@ if(this->nodesExpanded>1000 && this->noncritical){
 	if (!openClosedList.Lookup(nodeid).reopened)
 		uniqueNodesExpanded++;
 	nodesExpanded++;
+        // Limit expansions WRT to an external counter (e.g. high-level search)
+        if(totalExternalNodesExpanded){
+          (*totalExternalNodesExpanded)++; // Increment external counter
+          if(*totalExternalNodesExpanded>externalExpansionLimit){
+            thePath.resize(0);
+            return true;
+          }
+        }
 
         
         double G(openClosedList.Lookup(nodeid).g);

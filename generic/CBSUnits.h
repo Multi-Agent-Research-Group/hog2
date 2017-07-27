@@ -24,6 +24,7 @@
 #include "Unit.h"
 #include "UnitGroup.h"
 #include "ConstrainedEnvironment.h"
+#include "VelocityObstacle.h"
 //#include "TemplateIntervalTree.h"
 #include "TemplateAStar.h"
 #include "Heuristic.h"
@@ -271,6 +272,8 @@ class CBSGroup : public UnitGroup<state, action, environment>
 
     std::vector<CBSTreeNode<state,conflicttable,searchalgo> > tree;
     void processSolution(double);
+    searchalgo astar;
+    searchalgo astar2;
   private:    
 
     unsigned LoadConstraintsForNode(int location);
@@ -289,8 +292,6 @@ class CBSGroup : public UnitGroup<state, action, environment>
     void ClearEnvironmentConstraints();
     void AddEnvironmentConstraint(Constraint<state> c);
 
-    searchalgo astar;
-    searchalgo astar2;
     double time;
 
     unsigned int bestNode;
@@ -324,6 +325,7 @@ class CBSGroup : public UnitGroup<state, action, environment>
     std::vector<SearchEnvironment<state,action>*> agentEnvs;
 public:
     // Algorithm parameters
+    bool verify;
     bool nobypass;
     bool ECBSheuristic; // For ECBS
     unsigned killex; // Kill after this many expansions
@@ -359,26 +361,26 @@ void CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>::Open
     state start_t = myPath[myPath.size()-1];
     state stop_t = myPath[myPath.size()-2];
 
-    if (si->GetSimulationTime() <= stop_t.t && si->GetSimulationTime() >= start_t.t)
+    if(si->GetSimulationTime() <= stop_t.t && si->GetSimulationTime() >= start_t.t)
     {
       float perc = (stop_t.t - si->GetSimulationTime())/(stop_t.t - start_t.t);
       ae->OpenGLDraw(stop_t, start_t, perc);
-      Constraint<state> c(stop_t, start_t);
-      glColor3f(1, 0, 0);
-      c.OpenGLDraw();
+      //Constraint<state> c(stop_t, start_t);
+      //glColor3f(1, 0, 0);
+      //c.OpenGLDraw();
     } else {		
-      ae->OpenGLDraw(current);
+      ae->OpenGLDraw(stop_t);
       glColor3f(1, 0, 0);
-      Constraint<state> c(current);
-      c.OpenGLDraw();
+      //Constraint<state> c(stop_t);
+      //c.OpenGLDraw();
     }
   } else {
     if (current.landed)
       return;
     ae->OpenGLDraw(current);
-    Constraint<state> c(current);
-    glColor3f(1, 0, 0);
-    c.OpenGLDraw();
+    //Constraint<state> c(current);
+    //glColor3f(1, 0, 0);
+    //c.OpenGLDraw(si->GetEnvironment()->GetMap());
   }
 }
 
@@ -403,6 +405,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Cle
 
 template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
 void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::AddEnvironmentConstraint(Constraint<state>  c){
+  //if(verbose)std::cout << "Add constraint " << c.start_state << "-->" << c.end_state << "\n";
   for (EnvironmentContainer<state,action,environment> env : this->environments) {
     env.environment->AddConstraint(c);
   }
@@ -411,7 +414,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Add
 /** constructor **/
 template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
 CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::CBSGroup(std::vector<EnvironmentContainer<state,action,environment> > const& environs,bool v)
-: time(0), bestNode(0), planFinished(false), nobypass(false)
+: time(0), bestNode(0), planFinished(false), verify(false), nobypass(false)
     , ECBSheuristic(false), killex(INT_MAX), keeprunning(false),
     seed(1234567), timer(0), verbose(v)
 {
@@ -459,7 +462,17 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Exp
   else
   {
     // Notify the user of the conflict
-    /*if(verbose)*/std::cout << "TREE " << bestNode << "Conflict found between unit " << c1.unit1 << " and unit " << c2.unit1 << " @:" << c2.c.start() <<  " and " << c1.c.start() << " NC " << numConflicts << " prev-W " << c1.prevWpt << " " << c2.prevWpt << "\n";
+    if(verbose){
+      std::cout << "TREE " << bestNode <<"("<<tree[bestNode].parent << ") Conflict found between unit " << c1.unit1 << " and unit " << c2.unit1 << " @:" << c2.c.start() << "-->" << c2.c.end() <<  " and " << c1.c.start() << "-->" << c1.c.end() << " NC " << numConflicts << " prev-W " << c1.prevWpt << " " << c2.prevWpt << "\n";
+      std::cout << c1.unit1 << ":\n";
+      for(auto const& a:tree[bestNode].paths[c1.unit1]){
+        std::cout << a << "\n";
+      }
+      std::cout << c2.unit1 << ":\n";
+      for(auto const& a:tree[bestNode].paths[c2.unit1]){
+        std::cout << a << "\n";
+      }
+    }
 
     // Don't create new nodes if either bypass was successful
     // Note, these calls will add nodes to the openList
@@ -486,26 +499,44 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Exp
 
       // We now replan in the tree for both of the child nodes
       Replan(last);
-      Replan(last+1);
       unsigned nc1(numConflicts);
-      unsigned nc2(numConflicts);
       //unsigned nc1(FindFirstConflict(tree[last], c1, c2));
       //unsigned nc2(FindFirstConflict(tree[last+1], c1, c2));
 
 
       // Add the new nodes to the open list
       double cost = 0;
-      for (int y = 0; y < tree[last].paths.size(); y++)
+      for (int y = 0; y < tree[last].paths.size(); y++){
+        if(verbose){
+          std::cout << "Agent " << y <<":\n";
+          for(auto const& ff:tree[last].paths[y]){
+            std::cout << ff << "\n";
+          }
+        }
         cost += currentEnvironment->environment->GetPathLength(tree[last].paths[y]);
+      }
       OpenListNode l1(last, cost, nc1);
-      //std::cout << "New CT NODE: " << last << " " << cost << " " << nc1 << "\n";
+      if(verbose){
+        std::cout << "New CT NODE: " << last << " replanned: " << c1.unit1 << " cost: " << cost << " " << nc1 << "\n";
+      }
       openList.push(l1);
 
+      Replan(last+1);
+      unsigned nc2(numConflicts);
       cost = 0;
-      for (int y = 0; y < tree[last+1].paths.size(); y++)
+      for (int y = 0; y < tree[last+1].paths.size(); y++){
+        if(verbose){
+          std::cout << "Agent " << y <<":\n";
+          for(auto const& ff:tree[last+1].paths[y]){
+            std::cout << ff << "\n";
+          }
+        }
         cost += currentEnvironment->environment->GetPathLength(tree[last+1].paths[y]);
+      }
       OpenListNode l2(last+1, cost, nc2);
-      //std::cout << "New CT NODE: " << last+1 << " " << cost << " " << nc2 << "\n";
+      if(verbose){
+        std::cout << "New CT NODE: " << last+1 << " replanned: " << c2.unit1 << " cost: " << cost << " " << nc2 << "\n";
+      }
       openList.push(l2);
     }
 
@@ -615,15 +646,15 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::pro
 
     // Prune these paths to the current simulation time
     /*state current;
-    unit->GetLocation(current);
-    std::vector<state> newPath;
-    newPath.push_back(current); // Add the current simulation node to the new path
+      unit->GetLocation(current);
+      std::vector<state> newPath;
+      newPath.push_back(current); // Add the current simulation node to the new path
 
     // For everything in the path that's new, add the path back
     for (state xNode : tree[bestNode].paths[x]) {
-      if (current.t < xNode.t - 0.0001) {
-        newPath.push_back(xNode);
-      }
+    if (current.t < xNode.t - 0.0001) {
+    newPath.push_back(xNode);
+    }
     }*/
 
     // Update the actual unit path
@@ -646,6 +677,28 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::pro
         }
       }
     }
+    if(verify){
+      static double aradius(0.25);
+      static double bradius(0.25);
+      for(unsigned int y = x+1; y < tree[bestNode].paths.size(); y++){
+        for(unsigned i(1); i<tree[bestNode].paths[x].size(); ++i){
+          Vector2D A(tree[bestNode].paths[x][i-1]);
+          Vector2D VA(tree[bestNode].paths[x][i]);
+          VA-=A; // Direction vector
+          VA.Normalize();
+          for(unsigned j(1); j<tree[bestNode].paths[y].size(); ++j){
+            Vector2D B(tree[bestNode].paths[y][j-1]);
+            Vector2D VB(tree[bestNode].paths[y][j]);
+            VB-=B; // Direction vector
+            VB.Normalize();
+
+            if(collisionImminent(A,VA,aradius,tree[bestNode].paths[x][i-1].t,tree[bestNode].paths[x][i].t,B,VB,bradius,tree[bestNode].paths[y][j-1].t,tree[bestNode].paths[y][j].t)){
+              std::cout << "ERROR: Solution invalid; collision at: " << tree[bestNode].paths[x][i-1] << "-->" << tree[bestNode].paths[x][i] << ", " << tree[bestNode].paths[y][j-1] << "-->" << tree[bestNode].paths[y][j] << std::endl;
+            }
+          }
+        }
+      }
+    }
   }
   fflush(stdout);
   if(elapsed<0){
@@ -656,7 +709,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::pro
     std::cout << "Finished the plan using " << TOTAL_EXPANSIONS << " expansions.\n";
     std::cout << seed<<":Time elapsed: " << elapsed << "\n";
   }
-  for(auto e:environments)
+  /*for(auto e:environments)
   {
     unsigned total=0;
     for(auto a: agentEnvs)
@@ -666,7 +719,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::pro
     if(e.astar_weight > 1)
       tmp = "Weighted";
     std::cout << seed<<":%Environment used: " << tmp<<e.environment->name() <<": "<< total/double(agentEnvs.size())<<"\n";
-  }
+  }*/
   std::cout << seed<<":Total conflicts: " << tree.size() << std::endl;
   TOTAL_EXPANSIONS = 0;
   planFinished = true;
@@ -706,6 +759,11 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Set
 template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
 void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::AddUnit(Unit<state, action, environment> *u)
 {
+  astar.SetExternalExpansionsPtr(&TOTAL_EXPANSIONS);
+  astar2.SetExternalExpansionsPtr(&TOTAL_EXPANSIONS);
+  astar.SetExternalExpansionLimit(killex);
+  astar2.SetExternalExpansionLimit(killex);
+
   CBSUnit<state,action,environment,comparison,conflicttable,searchalgo> *c = (CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>*)u;
   c->setUnitNumber(this->GetNumMembers());
   // Add the new unit to the group, and construct an CBSUnit
@@ -729,7 +787,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Add
   agentEnvs[c->getUnitNumber()]=currentEnvironment->environment;
   comparison::CAT = &(tree[0].cat);
   comparison::CAT->set(&tree[0].paths);
-  TOTAL_EXPANSIONS+=GetFullPath<state,action,environment,comparison,conflicttable,searchalgo>(c, astar, currentEnvironment->environment, tree[0].paths.back(),tree[0].wpts.back(),this->GetNumMembers()-1);
+  GetFullPath<state,action,environment,comparison,conflicttable,searchalgo>(c, astar, currentEnvironment->environment, tree[0].paths.back(),tree[0].wpts.back(),this->GetNumMembers()-1);
   if(killex != INT_MAX && TOTAL_EXPANSIONS>killex)
       processSolution(-timer->EndTimer());
   //std::cout << "AddUnit agent: " << (this->GetNumMembers()-1) << " expansions: " << astar.GetNodesExpanded() << "\n";
@@ -800,7 +858,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Upd
     //astar.GetPath(currentEnvironment->environment, current, goal, thePath);
     std::vector<state> thePath;
     DoHAStar(current, goal, thePath);
-    TOTAL_EXPANSIONS += astar.GetNodesExpanded();
+    //TOTAL_EXPANSIONS += astar.GetNodesExpanded(); // This is now done incrementally by astar
     if(killex != INT_MAX && TOTAL_EXPANSIONS>killex)
       processSolution(-timer->EndTimer());
     //std::cout << "exp replan " << astar.GetNodesExpanded() << "\n";
@@ -911,14 +969,15 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>:
   ClearEnvironmentConstraints();
 
   // Add all of the constraints in the parents of the current node to the environment
-  do {
+  while(location!=0){
     if(theUnit == tree[location].con.unit1)
     {
       numConflicts++;
       AddEnvironmentConstraint(tree[location].con.c);
+      if(verbose)std::cout << "Adding constraint (in accumulation)" << tree[location].con.c.start_state << "-->" << tree[location].con.c.end_state << " for unit " << theUnit << "\n";
     }
     location = tree[location].parent;
-  } while (location != 0);
+  }// while (location != 0);
   //Implement ECBS prioritization which penalizes the second element in a path.
   if(ECBSheuristic && strstr(currentEnvironment->environment->name().c_str(),"Highway")==NULL && tree[location].paths[tree[location].con.unit1].size()>1)
     AddEnvironmentConstraint(Constraint<state>(tree[location].paths[tree[location].con.unit1][1]));
@@ -952,7 +1011,7 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Byp
   bool orig(comparison::useCAT);
   comparison::useCAT=false;
   // TODO fix this to replan in reverse
-  TOTAL_EXPANSIONS += ReplanLeg<state,action,environment,comparison,conflicttable,searchalgo>(c, astar, currentEnvironment->environment, newPath, newWpts, c1.prevWpt, c1.prevWpt+1);
+  ReplanLeg<state,action,environment,comparison,conflicttable,searchalgo>(c, astar, currentEnvironment->environment, newPath, newWpts, c1.prevWpt, c1.prevWpt+1);
     if(killex != INT_MAX && TOTAL_EXPANSIONS>killex)
       processSolution(-timer->EndTimer());
   comparison::useCAT=orig;
@@ -1061,7 +1120,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Rep
   }
 
   //std::cout << "Replan agent " << theUnit << "\n";
-  TOTAL_EXPANSIONS += ReplanLeg<state,action,environment,comparison,conflicttable,searchalgo>(c, astar, currentEnvironment->environment, tree[location].paths[theUnit], tree[location].wpts[theUnit], tree[location].con.prevWpt, tree[location].con.prevWpt+1);
+  ReplanLeg<state,action,environment,comparison,conflicttable,searchalgo>(c, astar, currentEnvironment->environment, tree[location].paths[theUnit], tree[location].wpts[theUnit], tree[location].con.prevWpt, tree[location].con.prevWpt+1);
   for(int i(0); i<tree[location].paths.size(); ++i)
   //std::cout << "Replanned agent "<<i<<" path " << tree[location].paths[i].size() << "\n";
 

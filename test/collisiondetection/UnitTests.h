@@ -265,6 +265,74 @@ TEST(Quadratic, IsInsideFail){
   ASSERT_FALSE(collisionImminent(A-A,VA,radius,0,5,B,VB,radius,0,5));
 }
 
+TEST(Quadratic3D, DetectCollisionWhenExists){
+  Vector3D A(5,1,1);
+  Vector3D VA(0,1,1);
+  VA.Normalize();
+  double radius(.25);
+  Vector3D B(1,2,2);
+  Vector3D VB(1,1,1);
+  VB.Normalize();
+
+  // SCENARIO (side view) (x,y-axis)
+  //============
+  //
+  //      ^ ^
+  //      |/
+  //      X
+  //     /|
+  //    / |
+  //   /  |
+  //  B   |
+  //      A
+  //
+  //============
+
+  // SCENARIO (side view) (y,z-axis)
+  //============
+  //
+  //        ^
+  //       /
+  //      /
+  //     /
+  //    /
+  //   B 
+  //  A  
+  //
+  //============
+
+  // SCENARIO (top view) (z,x-axis)
+  //============
+  //
+  //      ^ ^
+  //      |/
+  //      X
+  //     /|
+  //    / |
+  //   /  |
+  //  B   |
+  //      A
+  //
+  //============
+
+  // Suppose edges cross in the middle at some point.
+  ASSERT_TRUE(collisionImminent(A,VA,radius,0.0,8.0,B,VB,radius,0.0,8.0));
+  // Suppose edges end at the same point
+  ASSERT_TRUE(collisionImminent(A,VA,radius,0.0,6.3,B,VB,radius,0.0,6.3));
+  // Suppose edges end before collision actually occurs (at time step 2.2)
+  ASSERT_FALSE(collisionImminent(A,VA,radius,0.0,6.2,B,VB,radius,0.0,6.2));
+  // Suppose agents start at a different time
+  ASSERT_FALSE(collisionImminent(A,VA,radius,1.0,9.0,B,VB,radius,0.0,9.0));
+  // Suppose one agent is moving faster
+  ASSERT_FALSE(collisionImminent(A,VA*2,radius,0.0,8.0,B,VB,radius,0.0,8.0));
+  ASSERT_FALSE(collisionImminent(A,VA,radius,0.0,8.0,B,VB*2,radius,0.0,8.0));
+  // Suppose both agents are moving faster
+  ASSERT_TRUE(collisionImminent(A,VA*2,radius,0.0,4.0,B,VB*2,radius,0.0,4.0));
+  // Suppose one agent is moving faster, but starting later
+  ASSERT_TRUE(collisionImminent(A,VA*2,radius,3.5,8.0,B,VB,radius,0.0,8.0));
+}
+
+
 TEST(Quadratic, DetectCollisionWhenExists){
   Vector2D A(3,1);
   Vector2D VA(0,1);
@@ -466,6 +534,69 @@ TEST(Quadratic, DetectCollisionWhenHeadOn){
   ASSERT_TRUE(collisionImminent(A,VA*2,aradius,0.0,3.0,B,VB*2,bradius,0.0,3.0));
   // Suppose one agent is moving faster, but starting later
   ASSERT_TRUE(collisionImminent(A,VA,aradius,1.0,8.0,B,VB*2.2,bradius,0.0,6.0));
+}
+
+TEST(Quadratic, DetectCollisionWhenOneEndsEarlier){
+  Vector2D A(7,7);
+  Vector2D VA(-1,-1);
+  VA.Normalize();
+  double aradius(0.25);
+  Vector2D B(0,0);
+  Vector2D VB(1,1);
+  VB.Normalize();
+  double bradius(.25);
+
+  // Suppose edges cross in the middle at some point.
+  ASSERT_FALSE(collisionImminent(A,VA,aradius,0.0,4.24264,B,VB,bradius,0.0,9.8995));
+  ASSERT_TRUE(collisionImminent(A,VA,aradius,0.0,4.84264,B,VB,bradius,0.0,9.8995));
+}
+
+TEST(Quadratic, Contrived){
+  Vector2D A(0,0);
+  Vector2D VA(2,1);
+  VA.Normalize();
+  double radius(.25);
+  Vector2D B(2,0);
+  Vector2D VB(-1,0);
+  VB.Normalize();
+
+  // SCENARIO
+  //==========
+  //  .>
+  // B<A
+  //
+  //==========
+
+  ASSERT_TRUE(collisionImminent(A,VA,radius,0.0,sqrt(5.),B,VB,radius,0.0,1.0));
+  ASSERT_TRUE(collisionImminent(B,VB,radius,0.0,1.0,A,VA,radius,0.0,sqrt(5.)));
+}
+
+TEST(Quadratic, Contrived2){
+  Vector2D A(0,0);
+  Vector2D VA(7,7);
+  VA.Normalize();
+  double radius(.25);
+  Vector2D B(4,4);
+  Vector2D VB(-1,1);
+  VB.Normalize();
+
+  double sB(Util::distance(7,0,4,4));
+  ASSERT_TRUE(collisionImminent(A,VA,radius,0.0,sqrt(2.)*7.,B,VB,radius,sB,sB+sqrt(2.)));
+  //ASSERT_TRUE(collisionImminent(B,VB,radius,0.0,1.0,A,VA,radius,0.0,sqrt(5.)));
+}
+
+TEST(Quadratic, Contrived3){
+  Vector2D A(0,0);
+  Vector2D VA(7,7);
+  VA.Normalize();
+  double radius(.25);
+  Vector2D B(7,0);
+  Vector2D VB(-3,4);
+  VB.Normalize();
+
+  double sB(Util::distance(7,0,4,4));
+  ASSERT_FALSE(collisionImminent(A,VA,radius,0.0,sqrt(2.)*7.,B,VB,radius,0,5));
+  //ASSERT_TRUE(collisionImminent(B,VB,radius,0.0,1.0,A,VA,radius,0.0,sqrt(5.)));
 }
 
 void drawcircle(int x0, int y0, int r, std::map<int,int>& coords){
@@ -709,6 +840,54 @@ TEST(Theta, GetObstructedPath){
   std::cout << std::endl;
 }
 
+TEST(Theta1, GetObstructedPath1){
+  Map map(8,8);
+  MapEnvironment menv(&map);
+  Map2DConstrainedEnvironment env(&menv);
+  env.SetIgnoreTime(true);
+  //map.SetTerrainType(2,0,kOutOfBounds);
+  map.SetTerrainType(4,6,kOutOfBounds);
+  //map.SetTerrainType(2,2,kOutOfBounds);
+  std::cout << map.IsTraversable(2,1) << "traversable\n";
+  menv.SetFiveConnected();
+  ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment> tstar;
+  tstar.SetHeuristic(new StraightLineHeuristic());
+  tstar.SetVerbose(true);
+  std::vector<xytLoc> solution;
+  tstar.GetPath(&env,{0,5,0},{6,6,0},solution);
+  for(auto const& ss: solution){
+    std::cout << ss.x << "," << ss.y << "\n";
+  }
+  for(int i(1);i<solution.size(); ++i){
+    ASSERT_TRUE(env.LineOfSight(solution[i-1],solution[i]));
+  }
+  std::cout << std::endl;
+}
+
+/*TEST(Theta1, GetObstructedPath2){
+  Map map(8,8);
+  MapEnvironment menv(&map);
+  Map2DConstrainedEnvironment env(&menv);
+  env.SetIgnoreTime(true);
+  //map.SetTerrainType(2,0,kOutOfBounds);
+  map.SetTerrainType(4,6,kOutOfBounds);
+  //map.SetTerrainType(2,2,kOutOfBounds);
+  std::cout << map.IsTraversable(2,1) << "traversable\n";
+  menv.SetFiveConnected();
+  EPEThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment> tstar;
+  tstar.SetHeuristic(new StraightLineHeuristic());
+  tstar.SetVerbose(true);
+  std::vector<xytLoc> solution;
+  tstar.GetPath(&env,{0,5,0},{6,6,0},solution);
+  for(auto const& ss: solution){
+    std::cout << ss.x << "," << ss.y << "\n";
+  }
+  for(int i(1);i<solution.size(); ++i){
+    ASSERT_TRUE(env.LineOfSight(solution[i-1],solution[i]));
+  }
+  std::cout << std::endl;
+}
+
 TEST(EPETheta, GetObstructedPath){
   Map map(8,8);
   MapEnvironment menv(&map);
@@ -733,4 +912,75 @@ TEST(EPETheta, GetObstructedPath){
   std::cout << std::endl;
 }
 
+TEST(EPETheta, GetObstructedPathComp){
+  Map map(8,8);
+  MapEnvironment menv(&map);
+  menv.SetFiveConnected();
+  Map2DConstrainedEnvironment env(&menv);
+  env.SetIgnoreTime(true);
+  // Set some obstacles...
+  for(int i(0); i<10; ++i){
+    map.SetTerrainType(rand()%8,rand()%8,kOutOfBounds);
+  }
+
+  for(int i(0); i<10; ++i){
+
+    xytLoc start(rand()%8,rand()%8,0);
+    while(!map.IsTraversable(start.x,start.y)){
+      start.x=rand()%8;
+      start.y=rand()%8;
+    }
+    xytLoc goal(rand()%8,rand()%8,0);
+    while(!map.IsTraversable(goal.x,goal.y)){
+      goal.x=rand()%8;
+      goal.y=rand()%8;
+    }
+    std::cout << "search: " << start << "-->" << goal << "\n";
+    for(int y(7);y>=0; --y){
+      std::cout << y << ": ";
+      for(int x(0);x<8; ++x){
+        if(map.IsTraversable(x,y)){
+          if(start.x==x && start.y==y)std::cout<<"s";
+          else if(goal.x==x && goal.y==y)std::cout<<"g";
+          else std::cout<<".";
+        } else std::cout<<"#";
+      }
+      std::cout << ":\n";
+    }
+
+    std::vector<xytLoc> solution1;
+    {
+      ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment> tstar;
+      tstar.SetHeuristic(new StraightLineHeuristic());
+      tstar.SetVerbose(true);
+      tstar.GetPath(&env,start,goal,solution1);
+      std::cout << "Theta expanded" << tstar.GetNodesExpanded() << "\n";
+      for(int i(1);i<solution1.size(); ++i){
+        ASSERT_TRUE(env.LineOfSight(solution1[i-1],solution1[i]));
+      }
+      for(auto const& ss: solution1){
+        std::cout << ss.x << "," << ss.y << "\n";
+      }
+    }
+
+    std::vector<xytLoc> solution;
+    {
+      EPEThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment> tstar;
+      tstar.SetHeuristic(new StraightLineHeuristic());
+      tstar.SetVerbose(true);
+      tstar.GetPath(&env,start,goal,solution);
+      std::cout << "EPETheta expanded" << tstar.GetNodesExpanded() << "\n";
+    }
+    for(auto const& ss: solution){
+      std::cout << ss.x << "," << ss.y << "\n";
+    }
+    ASSERT_EQ(solution1.size(),solution.size());
+    for(int i(1);i<solution.size(); ++i){
+      ASSERT_TRUE(env.LineOfSight(solution[i-1],solution[i]));
+      std::cout << solution1[i] << " ==? " << solution[i] << "\n";
+      ASSERT_TRUE(solution1[i]==solution[i]);
+    }
+  }
+  std::cout << std::endl;
+}*/
 #endif

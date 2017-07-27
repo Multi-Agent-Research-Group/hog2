@@ -3,7 +3,7 @@
 #include "UnitSimulation.h"
 #include "ScenarioLoader.h"
 #include "Map2DConstrainedEnvironment.h"
-#include "CBSUnits.h"
+#include "CBSUnits2.h"
 #include "NonUnitTimeCAT.h"
 #include "ThetaStar.h"
 
@@ -13,6 +13,7 @@ bool greedyCT = false; // use greedy heuristic at the high-level
 bool ECBSheuristic = false; // use ECBS heuristic at low-level
 bool randomalg = false; // Randomize tiebreaking
 bool useCAT = false; // Use conflict avoidance table
+bool verify = false;
 bool mouseTracking;
 unsigned killtime(3600); // Kill after some number of seconds
 unsigned killex(INT_MAX); // Kill after some number of expansions
@@ -26,40 +27,42 @@ bool recording = false; // Record frames
 bool verbose(false);
 double simTime = 0;
 double stepsPerFrame = 1.0/100.0;
+double currStepRate(1.0/10000.0);
 double frameIncrement = 1.0/10000.0;
 std::vector<std::vector<xytLoc> > waypoints;
 //std::vector<SoftConstraint<xytLoc> > sconstraints;
 
-  int cutoffs[10] = {0,9999,9999,9999,9999,9999,9999,9999,9999,9999}; // for each env
-  double weights[10] = {1,1,1,1,1,1,1,1,1,1}; // for each env
-  std::vector<EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment> > environs;
-  int seed = clock();
-  int num_agents = 5;
-  int minsubgoals(1);
-  int maxsubgoals(1);
-  bool use_wait = false;
-  bool nobypass = false;
+int cutoffs[10] = {0,9999,9999,9999,9999,9999,9999,9999,9999,9999}; // for each env
+double weights[10] = {1,1,1,1,1,1,1,1,1,1}; // for each env
+std::vector<EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment> > environs;
+int seed = clock();
+int num_agents = 5;
+int minsubgoals(1);
+int maxsubgoals(1);
+bool use_wait = false;
+bool nobypass = false;
 
-  bool paused = false;
+bool paused = false;
 
-  Map2DConstrainedEnvironment *ace = 0;
-  UnitSimulation<xytLoc, tDirection, Map2DConstrainedEnvironment> *sim = 0;
-  CBSGroup<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS>,ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>>>>* group = 0;
+Map2DConstrainedEnvironment *ace = 0;
+UnitSimulation<xytLoc, tDirection, Map2DConstrainedEnvironment> *sim = 0;
+CBSGroup<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS>,ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>>>>* group = 0;
 
-  bool gui=true;
-  void InitHeadless();
+bool gui=true;
+int animate(0);
+void InitHeadless();
 
-  int main(int argc, char* argv[])
-  {
-    if (argc > 1) {
-      num_agents = atoi(argv[1]);
-    }
+int main(int argc, char* argv[])
+{
+  if (argc > 1) {
+    num_agents = atoi(argv[1]);
+  }
 
 
   InstallHandlers();
   ProcessCommandLineArgs(argc, argv);
-  
-  
+
+
   if(gui)
   {
     RunHOGGUI(argc, argv);
@@ -71,7 +74,7 @@ std::vector<std::vector<xytLoc> > waypoints;
     {
       group->ExpandOneCBSNode();
     }
-    if(verbose)for(int i(0);i<group->GetNumMembers();++i){
+    /*if(verbose)*/for(int i(0);i<group->GetNumMembers();++i){
       std::cout << "final path for agent " << i << ":\n";
       for(auto const& n: group->tree.back().paths[i])
         std::cout << n << "\n";
@@ -131,9 +134,11 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-constraints", "-constraints", "Load constraints from file");
 	InstallCommandLineHandler(MyCLHandler, "-killtime", "-killtime", "Kill after this many seconds");
 	InstallCommandLineHandler(MyCLHandler, "-killex", "-killex", "Kill after this many expansions");
+	InstallCommandLineHandler(MyCLHandler, "-animate", "-animate", "Animate CBS search");
 	InstallCommandLineHandler(MyCLHandler, "-nogui", "-nogui", "Turn off gui");
 	InstallCommandLineHandler(MyCLHandler, "-verbose", "-verbose", "Turn on verbose output");
 	InstallCommandLineHandler(MyCLHandler, "-cat", "-cat", "Use Conflict Avoidance Table (CAT)");
+	InstallCommandLineHandler(MyCLHandler, "-verify", "-verify", "Verify results");
 	InstallCommandLineHandler(MyCLHandler, "-random", "-random", "Randomize conflict resolution order");
 	InstallCommandLineHandler(MyCLHandler, "-greedyCT", "-greedyCT", "Greedy sort high-level search by number of conflicts (GCBS)");
 	InstallCommandLineHandler(MyCLHandler, "-ECBSheuristic", "-ECBSheuristic", "Use heuristic in low-level search");
@@ -172,7 +177,7 @@ void InitHeadless(){
   //std::cout << "Setting seed " << seed << "\n";
   srand(seed);
   srandom(seed);
-  Map* map(new Map(64,64));
+  Map* map(new Map(8,8));
   StraightLineHeuristic* sh(new StraightLineHeuristic());
   MapEnvironment* w4 = new MapEnvironment(map); w4->SetFourConnected();
   MapEnvironment* w5 = new MapEnvironment(map); w5->SetFiveConnected();
@@ -183,14 +188,13 @@ void InitHeadless(){
   MapEnvironment* w48 = new MapEnvironment(map); w48->SetFortyEightConnected();
   MapEnvironment* w49 = new MapEnvironment(map); w49->SetFortyNineConnected();
   // Cardinal Grid
-  /*environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w4->name(),new Map2DConstrainedEnvironment(w4),sh,cutoffs[0],weights[0]));
+  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w4->name(),new Map2DConstrainedEnvironment(w4),sh,cutoffs[0],weights[0]));
   if(verbose)std::cout << "Added " << w4->name() << " @" << cutoffs[0] << " conflicts\n";
-  */
+  /*
   // Cardinal Grid w/ Waiting
   environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w5->name(),new Map2DConstrainedEnvironment(w5),sh,cutoffs[0],weights[0]));
   if(verbose)std::cout << "Added " << w5->name() << " @" << cutoffs[0] << " conflicts\n";
   // Octile Grid
-  /*
   environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w8->name(),new Map2DConstrainedEnvironment(w8),sh,cutoffs[2],weights[2]));
   if(verbose)std::cout << "Added " << w8->name() << " @" << cutoffs[2] << " conflicts\n";
   // Octile Grid w/ Waiting
@@ -221,9 +225,13 @@ void InitHeadless(){
   group->timer=new Timer();
   group->seed=seed;
   group->keeprunning=gui;
+  group->animate=animate;
   group->killex=killex;
   group->ECBSheuristic=ECBSheuristic;
   group->nobypass=nobypass;
+  group->verify=verify;
+  //group->astar.SetSuccessorFunc(&Map2DConstrainedEnvironment::GetAllSuccessors);
+  //group->astar2.SetSuccessorFunc(&Map2DConstrainedEnvironment::GetAllSuccessors);
   TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>::randomalg=randomalg;
   TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>::useCAT=useCAT;
   if(gui){
@@ -251,7 +259,7 @@ void InitHeadless(){
         bool conflict(true);
         while(conflict){
           conflict=false;
-          xyLoc rs1(rand() % 64, rand() % 64);
+          xyLoc rs1(rand() % 8, rand() % 8);
           if(!ace->GetMap()->IsTraversable(rs1.x,rs1.y)){conflict=true;continue;}
           xytLoc start(rs1, 0);
           for (int j = 0; j < waypoints.size(); j++)
@@ -310,50 +318,54 @@ void InitSim(){
 
 void MyComputationHandler()
 {
-	while (true)
-	{
-		sim->StepTime(stepsPerFrame);
-	}
+  while (true)
+  {
+    sim->StepTime(currStepRate);
+  }
 }
 
 //std::vector<tDirection> acts;
 void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 {
-
   if (ace){
     for(auto u : group->GetMembers()){
-      glLineWidth(2.0);
+      if(group->donePlanning()){currStepRate=stepsPerFrame;}
+      glLineWidth(4.0);
+      GLfloat r, g, b;
+      u->GetColor(r, g, b);
+      ace->SetColor(r,g,b);
+      
       ace->GLDrawPath(((CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS>,ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>>>> const*)u)->GetPath(),((CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS>,ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>>>> const*)u)->GetWaypoints());
     }
   }
 
   //static double ptime[500];
   //memset(ptime,0,500*sizeof(double));
-	if (sim)
-		sim->OpenGLDraw();
-	if (!paused) {
-		sim->StepTime(stepsPerFrame);
-		
-		/*std::cout << "Printing locations at time: " << sim->GetSimulationTime() << std::endl;
-		for (int x = 0; x < group->GetNumMembers(); x ++) {
-			CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS>,ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>>>> *c = (CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS>,ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>>>>*)group->GetMember(x);
-			xytLoc cur;
-			c->GetLocation(cur);
-                        //if(!fequal(ptime[x],sim->GetSimulationTime())
-			std::cout << "\t" << x << ":" << cur << std::endl;
-		}*/
-	}
+  if (sim)
+    sim->OpenGLDraw();
+  if (!paused) {
+    sim->StepTime(currStepRate);
+
+    /*std::cout << "Printing locations at time: " << sim->GetSimulationTime() << std::endl;
+      for (int x = 0; x < group->GetNumMembers(); x ++) {
+      CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS>,ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>>>> *c = (CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS>,ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>>>>*)group->GetMember(x);
+      xytLoc cur;
+      c->GetLocation(cur);
+    //if(!fequal(ptime[x],sim->GetSimulationTime())
+    std::cout << "\t" << x << ":" << cur << std::endl;
+    }*/
+  }
 
 
-	if (recording)
-	{
-		static int index = 0;
-		char fname[255];
-		sprintf(fname, "movies/cbs-%05d", index);
-		SaveScreenshot(windowID, fname);
-		printf("Saving '%s'\n", fname);
-		index++;
-	}
+  if (recording)
+  {
+    static int index = 0;
+    char fname[255];
+    sprintf(fname, "movies/cbs-%05d", index);
+    SaveScreenshot(windowID, fname);
+    printf("Saving '%s'\n", fname);
+    index++;
+  }
 }
 
 int MyCLHandler(char *argument[], int maxNumArgs)
@@ -367,6 +379,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 	if(strcmp(argument[0], "-greedyCT") == 0)
 	{
                 greedyCT = true;
+		return 1;
+	}
+	if(strcmp(argument[0], "-verify") == 0)
+	{
+                verify = true;
 		return 1;
 	}
 	if(strcmp(argument[0], "-cat") == 0)
@@ -387,6 +404,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 	if(strcmp(argument[0], "-killtime") == 0)
 	{
                 killtime = atoi(argument[1]);
+		return 2;
+	}
+	if(strcmp(argument[0], "-animate") == 0)
+	{
+		animate=atoi(argument[1]);
 		return 2;
 	}
 	if(strcmp(argument[0], "-nogui") == 0)

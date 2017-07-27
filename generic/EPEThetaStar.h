@@ -52,13 +52,14 @@ class EPEThetaOpenClosedData {
 public:
 	EPEThetaOpenClosedData() {}
 	EPEThetaOpenClosedData(const state &theData, double gCost, double hCost, uint64_t parent, uint64_t openLoc, dataLocation location)
-	:data(theData), g(gCost), h(hCost), parentID(parent), openLocation(openLoc), where(location), special(0) { reopened = false; }
+	:data(theData), g(gCost), h(hCost), parentID(parent), openLocation(openLoc), reopened(false), visited(false), where(location), special(0){}
 	state data;
 	double g;
 	double h;
 	uint64_t parentID;
 	uint64_t openLocation;
 	bool reopened;
+	bool visited;
 	dataLocation where;
 	uint64_t special;
 };
@@ -81,7 +82,7 @@ struct EPEThetaStarCompare {
 template <class state, class action, class environment, class openList=AStarOpenClosed<state, EPEThetaStarCompare<state>, EPEThetaOpenClosedData<state>>>
 class EPEThetaStar : public GenericSearchAlgorithm<state,action,environment> {
 public:
-	EPEThetaStar() { ResetNodeCount(); verbose=false; noncritical=false; env = 0; stopAfterGoal = true; weight=1; reopenNodes = false; }
+	EPEThetaStar():totalExternalNodesExpanded(nullptr),externalExpansionLimit(INT_MAX),verbose(false),noncritical(false),env(0),stopAfterGoal(true),weight(1),reopenNodes(false){ResetNodeCount();}
 	virtual ~EPEThetaStar() {}
 	void GetPath(environment *env, const state& from, const state& to, std::vector<state> &thePath);
 	
@@ -137,7 +138,11 @@ public:
 	void SetWeight(double w) {weight = w;}
         void SetVerbose(bool v){verbose=v;}
         bool noncritical;
+        void SetExternalExpansionsPtr(uint* ptr){totalExternalNodesExpanded=ptr;}
+        void SetExternalExpansionLimit(uint limit){externalExpansionLimit=limit;}
 private:
+        uint* totalExternalNodesExpanded;
+        uint externalExpansionLimit;
         bool verbose;
 	uint64_t nodesTouched, nodesExpanded;
         std::pair<uint64_t,double> SetVertex(EPEThetaOpenClosedData<state> const& p);
@@ -275,17 +280,26 @@ bool EPEThetaStar<state,action,environment,openList>::DoSingleSearchStep(std::ve
 	uint64_t nodeid = openClosedList.Peek();
         EPEThetaOpenClosedData<state>& openNode = openClosedList.Lookup(nodeid);
 	const state &currOpenNode = openClosedList.Lookup(nodeid).data;
+        std::cout << "visiting " << currOpenNode << "\n";
+        openNode.visited=true;
 	
 	if (!openClosedList.Lookup(nodeid).reopened)
 		uniqueNodesExpanded++;
 	nodesExpanded++;
+        if(totalExternalNodesExpanded){
+          (*totalExternalNodesExpanded)++; // Increment external counter
+          if(*totalExternalNodesExpanded>externalExpansionLimit){
+            thePath.resize(0);
+            return true;
+          }
+        }
 	
         {
           auto update(SetVertex(openNode));
           if(update.second>=0){
             openNode.parentID=update.first;
             openNode.g=update.second;
-            if(verbose)std::cout << "Reset parent of " << currOpenNode << " to " << openNode.parentID <<" " << update.second << "\n";
+            if(verbose)std::cout << "Reset parent of " << currOpenNode << " to " << openClosedList.Lookup(openNode.parentID).data <<" " << update.second << "\n";
             //openClosedList.Print();
           }else{
             if(verbose)std::cout << "Leave parent of " << currOpenNode << " as " << openClosedList.Lookup(openNode.parentID).data <<"\n";
@@ -360,6 +374,7 @@ bool EPEThetaStar<state,action,environment,openList>::DoSingleSearchStep(std::ve
             {
               auto update(ComputeCost(openNode,next,9999999));
               next.t=update.second;
+              if(verbose)std::cout << "Create " << next << " with p=" << openClosedList.Lookup(update.first).data << " " << update.second << "\n";
               openClosedList.AddOpenNode(next,
                   env->GetStateHash(next),
                   update.second,
@@ -386,12 +401,12 @@ std::pair<uint64_t,double> EPEThetaStar<state,action,environment,openList>::SetV
     for(auto const& n:neighbors){
       if(p.data == n) continue;
       auto loc(openClosedList.Lookup(env->GetStateHash(n),id));
-      if(kClosedList==loc){ // Have we seen this before?
+      if(kClosedList==loc || kOpenList==loc && openClosedList.Lookat(id).visited){ // Have we seen this before?
         double g(openClosedList.Lookat(id).g+env->GCost(p.data,n));
         if(fless(g,bestg)){
          bestg=g;
          best=id;
-         //std::cout << "Reset parent of " << p.data << " from " << pp.data << " to " << n << " " << bestg << "\n";
+         std::cout << "Reset parent of " << p.data << " from " << pp.data << " to " << n << " " << bestg << "\n";
          found=true;
         }
       }
