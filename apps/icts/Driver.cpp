@@ -533,7 +533,7 @@ int main(int argc, char ** argv){
     double cost(0);
     for(int t(0); t<100; ++t){
       //checked.clear();
-      //std::cout << "Trial #"<<t<<"\n";
+      std::cout << "Trial #"<<t<<std::endl;
       std::set<xyLoc> st;
       std::set<xyLoc> en;
       Points s;
@@ -676,8 +676,8 @@ int main(int argc, char ** argv){
               }
               toDelete.push_back(parent);
             }
-            for(auto n:toDelete){
-              delete n;
+            for(auto r:toDelete){
+              delete r;
             }
             while(!q.empty()){
               delete q.top();
