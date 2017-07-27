@@ -467,9 +467,9 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Exp
       std::cout << "TREE " << bestNode <<"("<<tree[bestNode].parent << ") Conflict found between unit " << c1.unit1 << " and unit " << c2.unit1 << " @:" << c1.c.start() << "-->" << c1.c.end() <<  " and " << c2.c.start() << "-->" << c2.c.end() << " NC " << numConflicts << " prev-W " << c1.prevWpt << " " << c2.prevWpt << "\n";
     }
     // Swap units
-    /*unsigned tmp(c1.unit1);
+    unsigned tmp(c1.unit1);
       c1.unit1=c2.unit1;
-      c2.unit1=tmp;*/
+      c2.unit1=tmp;
 
     // Pare down the collision area:
     if(true){

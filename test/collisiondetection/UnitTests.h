@@ -820,7 +820,7 @@ TEST(Theta, GetObstructedPath){
   Map map(8,8);
   MapEnvironment menv(&map);
   Map2DConstrainedEnvironment env(&menv);
-  env.SetIgnoreTime(true);
+  //env.SetIgnoreTime(true);
   //map.SetTerrainType(2,0,kOutOfBounds);
   map.SetTerrainType(2,1,kOutOfBounds);
   //map.SetTerrainType(2,2,kOutOfBounds);
@@ -831,13 +831,13 @@ TEST(Theta, GetObstructedPath){
   tstar.SetVerbose(true);
   std::vector<xytLoc> solution;
   tstar.GetPath(&env,{1,1,0},{7,3,0},solution);
-  for(int i(1);i<solution.size(); ++i){
-    ASSERT_TRUE(env.LineOfSight(solution[i-1],solution[i]));
-  }
   for(auto const& ss: solution){
     std::cout << ss.x << "," << ss.y << "\n";
   }
   std::cout << std::endl;
+  for(int i(1);i<solution.size(); ++i){
+    ASSERT_TRUE(env.LineOfSight(solution[i-1],solution[i]));
+  }
 }
 
 TEST(Theta1, GetObstructedPath1){
@@ -858,6 +858,127 @@ TEST(Theta1, GetObstructedPath1){
   for(auto const& ss: solution){
     std::cout << ss.x << "," << ss.y << "\n";
   }
+  for(int i(1);i<solution.size(); ++i){
+    ASSERT_TRUE(env.LineOfSight(solution[i-1],solution[i]));
+  }
+  std::cout << std::endl;
+}
+
+TEST(Theta1, TestStepAside){
+  Map map(8,8);
+  MapEnvironment menv(&map);
+  Map2DConstrainedEnvironment env(&menv);
+  //map.SetTerrainType(2,0,kOutOfBounds);
+  // Make This map
+  // ##########
+  // #        #
+  // #        #
+  // #        #
+  // #  #     #
+  // ### ######
+  // #s      g#
+  // ##########
+  //  Add a moving obstacle
+  // ##########
+  // #        #
+  // #        #
+  // #        #
+  // #  #     #
+  // ### ######
+  // #s   <-og#
+  // ##########
+  map.SetTerrainType(0,0,kOutOfBounds);
+  map.SetTerrainType(0,1,kOutOfBounds);
+  map.SetTerrainType(0,2,kOutOfBounds);
+  map.SetTerrainType(1,0,kOutOfBounds);
+  map.SetTerrainType(1,2,kOutOfBounds);
+  map.SetTerrainType(2,0,kOutOfBounds);
+  map.SetTerrainType(2,2,kOutOfBounds);
+  map.SetTerrainType(3,0,kOutOfBounds);
+  map.SetTerrainType(3,3,kOutOfBounds);
+  map.SetTerrainType(4,0,kOutOfBounds);
+  map.SetTerrainType(4,2,kOutOfBounds);
+  map.SetTerrainType(5,0,kOutOfBounds);
+  map.SetTerrainType(5,2,kOutOfBounds);
+  map.SetTerrainType(6,0,kOutOfBounds);
+  map.SetTerrainType(6,2,kOutOfBounds);
+  map.SetTerrainType(7,0,kOutOfBounds);
+  map.SetTerrainType(7,1,kOutOfBounds);
+  map.SetTerrainType(7,2,kOutOfBounds);
+  menv.SetFiveConnected();
+  ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment> tstar;
+  tstar.SetHeuristic(new StraightLineHeuristic());
+  tstar.SetVerbose(true);
+  std::vector<xytLoc> solution;
+  // No moving obstacle...
+  tstar.GetPath(&env,{1,1,0},{6,1,0},solution);
+  for(auto const& ss: solution){
+    std::cout << ss.x << "," << ss.y << "\n";
+  }
+  ASSERT_TRUE(solution.size()>1);
+  for(int i(1);i<solution.size(); ++i){
+    ASSERT_TRUE(env.LineOfSight(solution[i-1],solution[i]));
+  }
+  std::cout << "with obstacle" << std::endl;
+  env.AddConstraint(Constraint<TemporalVector>({6,1,0},{1,1,6}));
+  tstar.GetPath(&env,{1,1,0},{6,1,0},solution);
+  for(auto const& ss: solution){
+    std::cout << ss.x << "," << ss.y << "\n";
+  }
+  ASSERT_TRUE(solution.size()>1);
+  for(int i(1);i<solution.size(); ++i){
+    ASSERT_TRUE(env.LineOfSight(solution[i-1],solution[i]));
+  }
+  std::cout << std::endl;
+}
+
+TEST(Theta1, TestDodging){
+  Map map(8,8);
+  MapEnvironment menv(&map);
+  Map2DConstrainedEnvironment env(&menv);
+  //map.SetTerrainType(2,0,kOutOfBounds);
+  // Make This map
+  // #########
+  // #       #
+  // #       #
+  // #       #
+  // #       #
+  // #########
+  // #    <-o#
+  // #s <-o g#
+  // #########
+  map.SetTerrainType(0,0,kOutOfBounds);
+  map.SetTerrainType(0,1,kOutOfBounds);
+  map.SetTerrainType(0,2,kOutOfBounds);
+  map.SetTerrainType(0,3,kOutOfBounds);
+  map.SetTerrainType(1,0,kOutOfBounds);
+  map.SetTerrainType(1,3,kOutOfBounds);
+  map.SetTerrainType(2,0,kOutOfBounds);
+  map.SetTerrainType(2,3,kOutOfBounds);
+  map.SetTerrainType(3,0,kOutOfBounds);
+  map.SetTerrainType(3,3,kOutOfBounds);
+  map.SetTerrainType(4,0,kOutOfBounds);
+  map.SetTerrainType(4,3,kOutOfBounds);
+  map.SetTerrainType(5,0,kOutOfBounds);
+  map.SetTerrainType(5,3,kOutOfBounds);
+  map.SetTerrainType(6,0,kOutOfBounds);
+  map.SetTerrainType(6,3,kOutOfBounds);
+  map.SetTerrainType(7,0,kOutOfBounds);
+  map.SetTerrainType(7,1,kOutOfBounds);
+  map.SetTerrainType(7,2,kOutOfBounds);
+  map.SetTerrainType(7,3,kOutOfBounds);
+  menv.SetFiveConnected();
+  ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment> tstar;
+  tstar.SetHeuristic(new StraightLineHeuristic());
+  tstar.SetVerbose(true);
+  std::vector<xytLoc> solution;
+  env.AddConstraint(Constraint<TemporalVector>({4,1,0},{1,1,6}));
+  env.AddConstraint(Constraint<TemporalVector>({7,2,0},{1,2,6}));
+  tstar.GetPath(&env,{1,1,0},{6,1,0},solution);
+  for(auto const& ss: solution){
+    std::cout << ss.x << "," << ss.y << "\n";
+  }
+  ASSERT_TRUE(solution.size()>1);
   for(int i(1);i<solution.size(); ++i){
     ASSERT_TRUE(env.LineOfSight(solution[i-1],solution[i]));
   }

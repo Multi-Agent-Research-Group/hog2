@@ -303,7 +303,7 @@ bool ThetaStar<state,action,environment,openList>::DoSingleSearchStep(std::vecto
     return true;
   }
 
-  if(verbose)std::cout << "Expanding: " << openClosedList.Lookup(nodeid).data << " with f:" << openClosedList.Lookup(nodeid).g+openClosedList.Lookup(nodeid).h << std::endl;
+  if(verbose)std::cout << "Expanding: " << openClosedList.Lookup(nodeid).data<<std::hex<<"("<<env->GetStateHash(openClosedList.Lookup(nodeid).data)<<")"<<std::dec << "(parent)"<<openClosedList.Lookup(openNode.parentID).data <<" with f:" << openClosedList.Lookup(nodeid).g+openClosedList.Lookup(nodeid).h << std::endl;
   succ.resize(0);
   (env->*SuccessorFunc)(currOpenNode, succ);
   double fCost = openNode.h+openNode.g;
@@ -315,6 +315,7 @@ bool ThetaStar<state,action,environment,openList>::DoSingleSearchStep(std::vecto
   {
     double edgeCost((env->*GCostFunc)(currOpenNode, succ[x]));
 
+    if(verbose)std::cout << "Lookup (" <<std::hex<<env->GetStateHash(succ[x])<<std::dec<<") in open " << succ[x]<<"\n";
     switch (openClosedList.Lookup(env->GetStateHash(succ[x]), theID))
     {
       case kClosedList:
@@ -344,14 +345,17 @@ bool ThetaStar<state,action,environment,openList>::DoSingleSearchStep(std::vecto
         {
           auto update(ComputeCost(openNode,succ[x],openNode.g+edgeCost,9999999));
           succ[x].t=update.second;
-          //if(verbose)std::cout << "Create " << succ[x] << " with p=" << openClosedList.Lookup(update.first).data << " " << update.second << "\n";
-          if(verbose)std::cout << "Add node ("<<std::hex<<env->GetStateHash(succ[x])<<std::dec<<") to open " << succ[x] << update.second << "+" << (weight*theHeuristic->HCost(succ[x], goal)) << "=" << (update.second+weight*theHeuristic->HCost(succ[x], goal)) << "\n";
-          openClosedList.AddOpenNode(succ[x],
-              env->GetStateHash(succ[x]),
-              update.second,
-              weight*theHeuristic->HCost(succ[x], goal),
-              update.first);
-          //openClosedList.Print();
+          // If time was updated, check if it is still not in open
+          if(openClosedList.Lookup(env->GetStateHash(succ[x]), theID)==kNotFound){
+            //if(verbose)std::cout << "Create " << succ[x] << " with p=" << openClosedList.Lookup(update.first).data << " " << update.second << "\n";
+            if(verbose)std::cout << "  Add node ("<<std::hex<<env->GetStateHash(succ[x])<<std::dec<<") to open " << succ[x] << update.second << "+" << (weight*theHeuristic->HCost(succ[x], goal)) << "=" << (update.second+weight*theHeuristic->HCost(succ[x], goal)) << "\n";
+            openClosedList.AddOpenNode(succ[x],
+                env->GetStateHash(succ[x]),
+                update.second,
+                weight*theHeuristic->HCost(succ[x], goal),
+                update.first);
+            //openClosedList.Print();
+          }else{std::cout << "Discarded (already seen)\n";}
         }
     }
   }
@@ -360,17 +364,27 @@ bool ThetaStar<state,action,environment,openList>::DoSingleSearchStep(std::vecto
 
 template <class state, class action, class environment, class openList>
 std::pair<uint64_t,double> ThetaStar<state,action,environment,openList>::ComputeCost(AStarOpenClosedData<state> const& p, state& c, double newg, double oldg){
+  uint64_t pid;
+  openClosedList.Lookup(env->GetStateHash(p.data),pid);
   AStarOpenClosedData<state>& pp(openClosedList.Lookup(p.parentID));
+  // Special cases for waiting actions
+  if(pp.data.x==c.x&&pp.data.y==c.y)return{pid,newg}; // parent of parent is same as self
+  if(p.data.x==c.x&&p.data.y==c.y)return{pid,newg}; // parent is same as self
+
   if(env->LineOfSight(pp.data,c)){
-    newg=pp.g+(env->*GCostFunc)(p.data,c);
+    if(verbose)std::cout << "  LOS " << pp.data << "-->" << c << "\n";
+    newg=pp.g+(env->*GCostFunc)(pp.data,c);
     if(fless(newg,oldg)){
-      if(verbose)std::cout << "Reset parent of " << c << " to " << pp.data << " from " << p.data <<" " << newg << "\n";
+      if(verbose)std::cout << "  Change parent of " << c << " to " << pp.data << " from " << p.data <<" " << newg << "\n";
       return {p.parentID,newg};
     }
   }else if(fless(newg,oldg)){
-      if(verbose)std::cout << "Leave parent of " << c << " as " << p.data <<" " << newg << "\n";
-    return {p.openLocation,newg};
+    if(verbose)std::cout << "  NO LOS " << pp.data << "-->" << c << "\n";
+    if(verbose)std::cout << "  Change gcost of " << c << " with parent " << p.data<<"("<<p.openLocation<<")" <<" to " << newg << "\n";
+    return {pid,newg};
   }
+  if(verbose)std::cout << "  NO LOS " << pp.data << "-->" << c << "\n";
+  if(verbose)std::cout << "  Leave parent of " << c << " as " << p.data <<" " << newg << "\n";
   return {0,-1.0};
 }
 

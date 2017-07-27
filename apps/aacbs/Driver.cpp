@@ -5,6 +5,7 @@
 #include "Map2DConstrainedEnvironment.h"
 #include "CBSUnits2.h"
 #include "NonUnitTimeCAT.h"
+//#include "LazyThetaStar.h"
 #include "ThetaStar.h"
 
 #include <sstream>
@@ -214,9 +215,10 @@ void InitHeadless(){
   if(verbose)std::cout << "Added " << w49->name() << " @" << cutoffs[7] << " conflicts\n";
   */
 
-  for(auto& e:environs){
-    e.environment->SetIgnoreTime(true);
-  }
+  //For use with LazyThetaStar only...
+  //for(auto& e:environs){
+    //e.environment->SetIgnoreTime(true);
+  //}
 
   ace=environs.rbegin()->environment;
 

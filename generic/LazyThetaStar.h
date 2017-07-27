@@ -381,7 +381,7 @@ std::pair<uint64_t,double> ThetaStar<state,action,environment,openList>::SetVert
     bool found(false);
     double bestg(9999999);
     std::vector<state> neighbors;
-    env->GetAllSuccessors(p.data,neighbors);
+    env->GetSuccessors(p.data,neighbors);
     uint64_t id(0);
     for(auto& n:neighbors){
       if(p.data == n) continue;
