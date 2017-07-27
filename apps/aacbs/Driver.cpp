@@ -27,6 +27,7 @@ bool recording = false; // Record frames
 bool verbose(false);
 double simTime = 0;
 double stepsPerFrame = 1.0/100.0;
+double currStepRate(1.0/10000.0);
 double frameIncrement = 1.0/10000.0;
 std::vector<std::vector<xytLoc> > waypoints;
 //std::vector<SoftConstraint<xytLoc> > sconstraints;
@@ -48,6 +49,7 @@ UnitSimulation<xytLoc, tDirection, Map2DConstrainedEnvironment> *sim = 0;
 CBSGroup<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS>,ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>>>>* group = 0;
 
 bool gui=true;
+int animate(0);
 void InitHeadless();
 
 int main(int argc, char* argv[])
@@ -132,6 +134,7 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-constraints", "-constraints", "Load constraints from file");
 	InstallCommandLineHandler(MyCLHandler, "-killtime", "-killtime", "Kill after this many seconds");
 	InstallCommandLineHandler(MyCLHandler, "-killex", "-killex", "Kill after this many expansions");
+	InstallCommandLineHandler(MyCLHandler, "-animate", "-animate", "Animate CBS search");
 	InstallCommandLineHandler(MyCLHandler, "-nogui", "-nogui", "Turn off gui");
 	InstallCommandLineHandler(MyCLHandler, "-verbose", "-verbose", "Turn on verbose output");
 	InstallCommandLineHandler(MyCLHandler, "-cat", "-cat", "Use Conflict Avoidance Table (CAT)");
@@ -222,6 +225,7 @@ void InitHeadless(){
   group->timer=new Timer();
   group->seed=seed;
   group->keeprunning=gui;
+  group->animate=animate;
   group->killex=killex;
   group->ECBSheuristic=ECBSheuristic;
   group->nobypass=nobypass;
@@ -316,7 +320,7 @@ void MyComputationHandler()
 {
   while (true)
   {
-    sim->StepTime(stepsPerFrame);
+    sim->StepTime(currStepRate);
   }
 }
 
@@ -325,7 +329,12 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 {
   if (ace){
     for(auto u : group->GetMembers()){
-      glLineWidth(2.0);
+      if(group->donePlanning()){currStepRate=stepsPerFrame;}
+      glLineWidth(4.0);
+      GLfloat r, g, b;
+      u->GetColor(r, g, b);
+      ace->SetColor(r,g,b);
+      
       ace->GLDrawPath(((CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS>,ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>>>> const*)u)->GetPath(),((CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS>,ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>>>> const*)u)->GetWaypoints());
     }
   }
@@ -335,7 +344,7 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
   if (sim)
     sim->OpenGLDraw();
   if (!paused) {
-    sim->StepTime(stepsPerFrame);
+    sim->StepTime(currStepRate);
 
     /*std::cout << "Printing locations at time: " << sim->GetSimulationTime() << std::endl;
       for (int x = 0; x < group->GetNumMembers(); x ++) {
@@ -395,6 +404,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 	if(strcmp(argument[0], "-killtime") == 0)
 	{
                 killtime = atoi(argument[1]);
+		return 2;
+	}
+	if(strcmp(argument[0], "-animate") == 0)
+	{
+		animate=atoi(argument[1]);
 		return 2;
 	}
 	if(strcmp(argument[0], "-nogui") == 0)

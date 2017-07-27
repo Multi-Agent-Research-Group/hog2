@@ -1,5 +1,6 @@
 #include "VelocityObstacle.h"
 #include <assert.h>
+#include <iostream>
 
 VelocityObstacle::VelocityObstacle(Vector2D const& a, Vector2D const& va, Vector2D const& b, Vector2D const& vb, double r1, double r2)
   : VO(a+vb), VL(0,0), VR(0,0)
@@ -257,7 +258,7 @@ std::pair<double,double> getCollisionInterval(Vector3D A, Vector3D const& VA, do
 }
 std::pair<double,double> getCollisionInterval(Vector2D A, Vector2D const& VA, double radiusA, double startTimeA, double endTimeA, Vector2D B, Vector2D const& VB, double radiusB, double startTimeB, double endTimeB){
   double collisionStart(getCollisionTime(A,VA,radiusA,startTimeA,endTimeA,B,VB,radiusB,startTimeB,endTimeB));
-
+  //std::cout << "Collision Start: " << collisionStart << "\n";
   // Is collision in the past?
   if(fless(collisionStart,0)){
     return std::make_pair(-1.0,-1.0);
@@ -266,14 +267,25 @@ std::pair<double,double> getCollisionInterval(Vector2D A, Vector2D const& VA, do
   // Traverse edges in reverse to see when the collision will end.
 
   // Reverse the times - make them relative to the end time of the traversal
-  double maxEndTime(std::max(endTimeA,endTimeB));
-  double rStartTimeA(maxEndTime-endTimeA);
-  double rStartTimeB(maxEndTime-endTimeB);
-  double rEndTimeA(maxEndTime-startTimeA);
-  double rEndTimeB(maxEndTime-startTimeB);
-  Vector2D rA(A+(VA*(endTimeA-startTimeA))); // Move A to the end of the edge
-  Vector2D rB(B+(VB*(endTimeB-startTimeB))); // Move B to the end of the edge
-  double collisionEnd(maxEndTime-getCollisionTime(rA,-VA,radiusA,rStartTimeA,rEndTimeA,rB,-VB,radiusB,rStartTimeB,rEndTimeB));
+  if(fgreater(startTimeB,startTimeA)){
+    // Move A forward to the same time instant as B
+    //std::cout << "Move A by : " << (startTimeB-startTimeA) << "\n";
+    A+=VA*(startTimeB-startTimeA);
+    startTimeA=startTimeB;
+  }else if(fless(startTimeB,startTimeA)){
+    //std::cout << "Move B by : " << (startTimeA-startTimeB) << "\n";
+    B+=VB*(startTimeA-startTimeB);
+    startTimeB=startTimeA;
+  }
+  //std::cout << "A:"<<A<<"B:"<<B<<"\n";
+
+  double duration(std::min(endTimeA-startTimeA,endTimeB-startTimeB));
+  //std::cout << "Move both by : " << duration << "\n";
+  Vector2D rA(A+(VA*duration)); // Move A to the end of the edge
+  Vector2D rB(B+(VB*duration)); // Move B to the end of the edge
+  //std::cout << "rA:"<<rA<<"rB:"<<rB<<"\n";
+  double collisionEnd(startTimeA+duration-getCollisionTime(rA,-VA,radiusA,0,duration,rB,-VB,radiusB,0,duration));
+  //std::cout << "Collision End: " << collisionEnd << "\n";
   assert(collisionStart<=collisionEnd);
   return std::make_pair(collisionStart,collisionEnd);
 }

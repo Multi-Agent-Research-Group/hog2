@@ -330,6 +330,7 @@ public:
     bool ECBSheuristic; // For ECBS
     unsigned killex; // Kill after this many expansions
     bool keeprunning; // Whether to keep running after finding the answer (e.g. for ui)
+    int animate; // Add pauses for animation
     int seed;
     Timer* timer;
     static bool greedyCT;
@@ -415,7 +416,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Add
 template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
 CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::CBSGroup(std::vector<EnvironmentContainer<state,action,environment> > const& environs,bool v)
 : time(0), bestNode(0), planFinished(false), verify(false), nobypass(false)
-    , ECBSheuristic(false), killex(INT_MAX), keeprunning(false),
+    , ECBSheuristic(false), killex(INT_MAX), keeprunning(false), animate(0),
     seed(1234567), timer(0), verbose(v)
 {
   //std::cout << "THRESHOLD " << threshold << "\n";
@@ -464,42 +465,53 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Exp
     // Notify the user of the conflict
     if(verbose){
       std::cout << "TREE " << bestNode <<"("<<tree[bestNode].parent << ") Conflict found between unit " << c1.unit1 << " and unit " << c2.unit1 << " @:" << c1.c.start() << "-->" << c1.c.end() <<  " and " << c2.c.start() << "-->" << c2.c.end() << " NC " << numConflicts << " prev-W " << c1.prevWpt << " " << c2.prevWpt << "\n";
-      // Swap units
-      /*unsigned tmp(c1.unit1);
+    }
+    // Swap units
+    /*unsigned tmp(c1.unit1);
       c1.unit1=c2.unit1;
       c2.unit1=tmp;*/
 
-      // Pare down the collision area:
-      if(true){
-        static double aradius(0.25);
-        static double bradius(0.25);
-        Vector2D A(c1.c.start_state);
-        Vector2D VA(c1.c.end_state);
-        VA-=A; // Direction vector
-        VA.Normalize();
-        Vector2D B(c2.c.start_state);
-        Vector2D VB(c2.c.end_state);
-        VB-=B; // Direction vector
-        VB.Normalize();
-        auto ivl(getCollisionInterval(A,VA,aradius,c1.c.start_state.t,c1.c.end_state.t,B,VB,bradius,c2.c.start_state.t,c2.c.end_state.t));
-        Vector2D A1=A+VA*ivl.first;
-        Vector2D A2=A+VA*ivl.second;
-        Vector2D B1=B+VB*ivl.first;
-        Vector2D B2=B+VB*ivl.second;
-        c1.c.start_state.x=A1.x;
-        c1.c.start_state.y=A1.y;
-        c1.c.start_state.t=ivl.first;
-        c1.c.end_state.x=A2.x;
-        c1.c.end_state.y=A2.y;
-        c1.c.end_state.t=ivl.second;
-        c2.c.start_state.x=B1.x;
-        c2.c.start_state.y=B1.y;
-        c2.c.start_state.t=ivl.first;
-        c2.c.end_state.x=B2.x;
-        c2.c.end_state.y=B2.y;
-        c2.c.end_state.t=ivl.second;
-        if(verbose)std::cout << "fixed conflicts unit " << c1.unit1 << ": " << c1.c.start() << "-->" << c1.c.end() <<  " and unit " << c2.unit1 << ": "<< c2.c.start() << "-->" << c2.c.end() << std::endl; 
-      }
+    // Pare down the collision area:
+    if(true){
+      static double aradius(0.25);
+      static double bradius(0.25);
+      Vector2D A(c1.c.start_state);
+      Vector2D VA(c1.c.end_state);
+      VA-=A; // Direction vector
+      VA.Normalize();
+      Vector2D B(c2.c.start_state);
+      Vector2D VB(c2.c.end_state);
+      VB-=B; // Direction vector
+      VB.Normalize();
+      if(verbose)std::cout << "Collision Interval" << c1.unit1 << ": " << c1.c.start() << "-->" << c1.c.end() <<  " and unit " << c2.unit1 << ": "<< c2.c.start() << "-->" << c2.c.end() << std::endl;
+      auto ivl(getCollisionInterval(A,VA,aradius,c1.c.start_state.t,c1.c.end_state.t,B,VB,bradius,c2.c.start_state.t,c2.c.end_state.t));
+      if(verbose)std::cout << "A interval " << c1.c.start_state.t << " -- " << c1.c.end_state.t << std::endl;
+     if(verbose) std::cout << "B interval " << c2.c.start_state.t << " -- " << c2.c.end_state.t << std::endl;
+     if(verbose) std::cout << "interval " << ivl.first << " -- " << ivl.second << std::endl;
+      Vector2D A1=A+VA*(ivl.first-c1.c.start_state.t);
+      Vector2D A2=A+VA*(ivl.second-c1.c.start_state.t);
+      Vector2D B1=B+VB*(ivl.first-c2.c.start_state.t);
+      Vector2D B2=B+VB*(ivl.second-c2.c.start_state.t);
+      c1.c.start_state.x=A1.x;
+      c1.c.start_state.y=A1.y;
+      c1.c.start_state.t=ivl.first;
+      c1.c.end_state.x=A2.x;
+      c1.c.end_state.y=A2.y;
+      c1.c.end_state.t=ivl.second;
+      c2.c.start_state.x=B1.x;
+      c2.c.start_state.y=B1.y;
+      c2.c.start_state.t=ivl.first;
+      c2.c.end_state.x=B2.x;
+      c2.c.end_state.y=B2.y;
+      c2.c.end_state.t=ivl.second;
+      if(verbose)std::cout << "fixed conflicts unit " << c1.unit1 << ": " << c1.c.start() << "-->" << c1.c.end() <<  " and unit " << c2.unit1 << ": "<< c2.c.start() << "-->" << c2.c.end() << std::endl; 
+    }
+    if(animate){
+      c1.c.OpenGLDraw(currentEnvironment->environment->GetMap());
+      c2.c.OpenGLDraw(currentEnvironment->environment->GetMap());
+      usleep(animate*1000);
+    }
+    if(verbose){
       std::cout << c1.unit1 << ":\n";
       for(auto const& a:tree[bestNode].paths[c1.unit1]){
         std::cout << a << "\n";
@@ -581,27 +593,27 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Exp
 
     // Set the visible paths for every unit in the node
     if(keeprunning)
-    for (unsigned int x = 0; x < tree[bestNode].paths.size(); x++)
-    {
-      // Grab the unit
-      CBSUnit<state,action,environment,comparison,conflicttable,searchalgo> *unit = (CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>*) this->GetMember(x);
+      for (unsigned int x = 0; x < tree[bestNode].paths.size(); x++)
+      {
+        // Grab the unit
+        CBSUnit<state,action,environment,comparison,conflicttable,searchalgo> *unit = (CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>*) this->GetMember(x);
 
-      // Prune these paths to the current simulation time
-      state current;
-      unit->GetLocation(current);
-      std::vector<state> newPath;
-      newPath.push_back(current); // Add the current simulation node to the new path
+        // Prune these paths to the current simulation time
+        state current;
+        unit->GetLocation(current);
+        std::vector<state> newPath;
+        newPath.push_back(current); // Add the current simulation node to the new path
 
-      // For everything in the path that's new, add the path back
-      for (state xNode : tree[bestNode].paths[x]) {
-        if (current.t < xNode.t - 0.0001) {
-          newPath.push_back(xNode);
+        // For everything in the path that's new, add the path back
+        for (state xNode : tree[bestNode].paths[x]) {
+          if (current.t < xNode.t - 0.0001) {
+            newPath.push_back(xNode);
+          }
         }
-      }
 
-      // Update the actual unit path
-      unit->SetPath(newPath);
-    }
+        // Update the actual unit path
+        unit->SetPath(newPath);
+      }
 
   }
   return true;
@@ -1287,6 +1299,7 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>:
 template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
 void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::OpenGLDraw(const environment *ae, const SimulationInfo<state,action,environment> * sim)  const
 {
+/*
   GLfloat r, g, b;
   glLineWidth(4.0);
   int location(bestNode);
@@ -1295,6 +1308,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Ope
     location = tree[location].parent;
   }
   glLineWidth(1.0);
+*/
 }
 
 

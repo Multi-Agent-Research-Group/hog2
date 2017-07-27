@@ -396,7 +396,7 @@ std::pair<uint64_t,double> ThetaStar<state,action,environment,openList>::SetVert
           if(fless(g,bestg)){
             bestg=g;
             best=id;
-            std::cout << "Reset parent of " << p.data << " from " << pp.data << " to " << n << " " << bestg << "\n";
+            if(verbose)std::cout << "Reset parent of " << p.data << " from " << pp.data << " to " << n << " " << bestg << "\n";
             found=true;
           }
         } else if(verbose) std::cout << "NO LOS (neighbor) " << n << " " << p.data << "\n";
