@@ -493,6 +493,33 @@ TEST(Quadratic, DetectCollisionWhenParallel){
   ASSERT_TRUE(collisionImminent(A,VA,aradius,1.0,8.0,B,VB*2.2,bradius,0.0,6.0));
 }
 
+TEST(Quadratic, WaitingCollision){
+  Vector2D A(3,6);
+  Vector2D VA(-1,0);
+  VA.Normalize();
+  double aradius(0.25);
+  Vector2D B(1,2);
+  Vector2D VB(1,5);
+  VB.Normalize();
+  double bradius(.25);
+
+  // SCENARIO A is "fatter" than B or vice versa
+  // radius of one is too fat to pass the other in parallel
+  //==========
+  //    A
+  //    |
+  //    v
+  //    ^
+  //    |
+  //    B
+  //==========
+
+  // No collision occurs here
+
+  // Suppose edges cross in the middle at some point.
+  ASSERT_TRUE(collisionImminent(A,VA,aradius,5.0,6.0,B,VB,bradius,1.0,6.09902));
+}
+
 TEST(Quadratic, DetectCollisionWhenHeadOn){
   Vector2D A(3,5);
   Vector2D VA(0,-1);

@@ -293,11 +293,12 @@ bool ThetaStar<state,action,environment,openList>::DoSingleSearchStep(std::vecto
     ExtractPathToStartFromID(nodeid, thePath);
     // Path is backwards - reverse
     reverse(thePath.begin(), thePath.end()); 
-    float total(0.0);
+    if(thePath.size() == 0&&verbose)std::cout<<"No answer\n";
+    float total(-1.0);
     state* p(&thePath[0]);
     for(auto& n:thePath){
-      total+=Util::distance(p->x,p->y,n.x,n.y);
-      n.t=total;
+      total+=(env->*GCostFunc)(*p,n);
+      if(!fequal(n.t,total))std::cout << "Time is bad: ("<<total<<")" << *p << "-->" << n << "\n";
       p=&n;
     }
     return true;
@@ -315,7 +316,7 @@ bool ThetaStar<state,action,environment,openList>::DoSingleSearchStep(std::vecto
   {
     double edgeCost((env->*GCostFunc)(currOpenNode, succ[x]));
 
-    if(verbose)std::cout << "Lookup (" <<std::hex<<env->GetStateHash(succ[x])<<std::dec<<") in open " << succ[x]<<"\n";
+    if(verbose)std::cout << "  Lookup successor (" <<std::hex<<env->GetStateHash(succ[x])<<std::dec<<") in open " << succ[x]<<"\n";
     switch (openClosedList.Lookup(env->GetStateHash(succ[x]), theID))
     {
       case kClosedList:
@@ -329,35 +330,58 @@ bool ThetaStar<state,action,environment,openList>::DoSingleSearchStep(std::vecto
           //edgeCost = (env->*GCostFunc)(openNode.data, neighbors[x]);
           auto update(ComputeCost(openNode,succ[x],openNode.g+edgeCost,openClosedList.Lookup(theID).g));
           //if (fless(openNode.g+edgeCost, openClosedList.Lookup(theID).g))
-          if(update.second>=0)
-          {
-            //openClosedList.Lookup(theID).reopened = true;
-            openClosedList.Lookup(theID).parentID = update.first;
-            openClosedList.Lookup(theID).g = update.second;
-            //openClosedList.Lookup(theID).data.t = update.second;
-            if(verbose)std::cout << "Update " << succ[x] << " to p=" << openClosedList.Lookup(update.first).data << " " << update.second << "\n";
-            openClosedList.KeyChanged(theID);
-            //openClosedList.Print();
+          if(update.second>=0){
+            auto newNode(succ[x]);
+            newNode.t=update.second;
+            if(verbose)std::cout << "  Update " << succ[x] << " to ";
+            uint64_t newid;
+            if(openClosedList.Lookup(env->GetStateHash(newNode), newid)==kNotFound){
+              // This may happen if re-parented
+              if(verbose)std::cout << newNode << " p=" << openClosedList.Lookup(update.first).data << " " << update.second << "\n";
+              openClosedList.AddOpenNode(newNode,
+                  env->GetStateHash(newNode),
+                  update.second,
+                  weight*theHeuristic->HCost(newNode, goal),
+                  update.first);
+            }else{if(verbose)std::cout << "  Discarded (new open update already seen)\n";}
+            //}else if(update.first!=openClosedList.Lookup(theID).parentID){
+              // This might not ever happen since a new parent necessarily means a reduction in g-cost
+            //assert(!"This shouldn't happen since a new parent necessarily means a reduction in g-cost");
+            //openClosedList.Lookup(theID).parentID = update.first;
+            //openClosedList.Lookup(theID).g = update.second;
+              //openClosedList.KeyChanged(theID);
+            //}
           }
         }
         break;
       case kNotFound:
         {
-          auto update(ComputeCost(openNode,succ[x],openNode.g+edgeCost,9999999));
-          succ[x].t=update.second;
-          // If time was updated, check if it is still not in open
-          if(openClosedList.Lookup(env->GetStateHash(succ[x]), theID)==kNotFound){
-            //if(verbose)std::cout << "Create " << succ[x] << " with p=" << openClosedList.Lookup(update.first).data << " " << update.second << "\n";
-            if(verbose)std::cout << "  Add node ("<<std::hex<<env->GetStateHash(succ[x])<<std::dec<<") to open " << succ[x] << update.second << "+" << (weight*theHeuristic->HCost(succ[x], goal)) << "=" << (update.second+weight*theHeuristic->HCost(succ[x], goal)) << "\n";
+          if(currOpenNode.x==succ[x].x&&currOpenNode.y==succ[x].y){
+            // This is a wait action
             openClosedList.AddOpenNode(succ[x],
                 env->GetStateHash(succ[x]),
-                update.second,
+                openNode.g+edgeCost,
                 weight*theHeuristic->HCost(succ[x], goal),
-                update.first);
-            //openClosedList.Print();
-          }else{std::cout << "Discarded (already seen)\n";}
+                nodeid);
+          }else{
+            auto update(ComputeCost(openNode,succ[x],openNode.g+edgeCost,9999999));
+            succ[x].t=update.second;
+            // If time was updated, check if it is still not in open
+            if(openClosedList.Lookup(env->GetStateHash(succ[x]), theID)==kNotFound){
+              //if(verbose)std::cout << "Create " << succ[x] << " with p=" << openClosedList.Lookup(update.first).data << " " << update.second << "\n";
+              if(verbose)std::cout << "  Add node ("<<std::hex<<env->GetStateHash(succ[x])<<std::dec<<") to open " << succ[x] << update.second << "+" << (weight*theHeuristic->HCost(succ[x], goal)) << "=" << (update.second+weight*theHeuristic->HCost(succ[x], goal)) << "\n";
+              openClosedList.AddOpenNode(succ[x],
+                  env->GetStateHash(succ[x]),
+                  update.second,
+                  weight*theHeuristic->HCost(succ[x], goal),
+                  update.first);
+              //openClosedList.Print();
+            }else{if(verbose)std::cout << "  Discarded (already seen)\n";}
+          }
         }
     }
+    //usleep(10000);
+    //OpenGLDraw();
   }
   return false;
 }
@@ -370,6 +394,7 @@ std::pair<uint64_t,double> ThetaStar<state,action,environment,openList>::Compute
   // Special cases for waiting actions
   if(pp.data.x==c.x&&pp.data.y==c.y)return{pid,newg}; // parent of parent is same as self
   if(p.data.x==c.x&&p.data.y==c.y)return{pid,newg}; // parent is same as self
+  if(p.data.x==pp.data.x&&p.data.y==pp.data.y)return{pid,newg}; // parent is same as self
 
   if(env->LineOfSight(pp.data,c)){
     if(verbose)std::cout << "  LOS " << pp.data << "-->" << c << "\n";

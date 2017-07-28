@@ -183,6 +183,7 @@ public:
   { if (success) current = newLoc; else assert(!"CBS Unit: Movement failed"); }
 
   void GetLocation(state &l) { l = current; }
+  //void OpenGLDraw(const environment *, const SimulationInfo<state,action,environment> *,float soltime) const;
   void OpenGLDraw(const environment *, const SimulationInfo<state,action,environment> *) const;
   void GetGoal(state &s) { s = waypoints[goal]; }
   void GetStart(state &s) { s = waypoints[start]; }
@@ -351,7 +352,7 @@ void CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>::SetP
 
 template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
 void CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>::OpenGLDraw(const environment *ae, 
-    const SimulationInfo<state,action,environment> *si) const
+    const SimulationInfo<state,action,environment> *si)const//, float soltime) const
 {
   GLfloat r, g, b;
   this->GetColor(r, g, b);
@@ -467,9 +468,9 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Exp
       std::cout << "TREE " << bestNode <<"("<<tree[bestNode].parent << ") Conflict found between unit " << c1.unit1 << " and unit " << c2.unit1 << " @:" << c1.c.start() << "-->" << c1.c.end() <<  " and " << c2.c.start() << "-->" << c2.c.end() << " NC " << numConflicts << " prev-W " << c1.prevWpt << " " << c2.prevWpt << "\n";
     }
     // Swap units
-    unsigned tmp(c1.unit1);
+    /*unsigned tmp(c1.unit1);
       c1.unit1=c2.unit1;
-      c2.unit1=tmp;
+      c2.unit1=tmp;*/
 
     // Pare down the collision area:
     if(true){
@@ -483,7 +484,7 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Exp
       Vector2D VB(c2.c.end_state);
       VB-=B; // Direction vector
       VB.Normalize();
-      if(verbose)std::cout << "Collision Interval" << c1.unit1 << ": " << c1.c.start() << "-->" << c1.c.end() <<  " and unit " << c2.unit1 << ": "<< c2.c.start() << "-->" << c2.c.end() << std::endl;
+      if(verbose)std::cout << "Collision Interval " << c1.unit1 << ": " << c1.c.start() << "-->" << c1.c.end() <<  " and unit " << c2.unit1 << ": "<< c2.c.start() << "-->" << c2.c.end() << std::endl;
       auto ivl(getCollisionInterval(A,VA,aradius,c1.c.start_state.t,c1.c.end_state.t,B,VB,bradius,c2.c.start_state.t,c2.c.end_state.t));
       if(verbose)std::cout << "A interval " << c1.c.start_state.t << " -- " << c1.c.end_state.t << std::endl;
      if(verbose) std::cout << "B interval " << c2.c.start_state.t << " -- " << c2.c.end_state.t << std::endl;
@@ -970,6 +971,9 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>:
       numConflicts++;
       AddEnvironmentConstraint(tree[location].con.c);
       if(verbose)std::cout << "Adding constraint (in accumulation)" << tree[location].con.c.start_state << "-->" << tree[location].con.c.end_state << " for unit " << theUnit << "\n";
+      if(animate){
+        //tree[location].con.c.OpenGLDraw(currentEnvironment->environment->GetMap());
+      }
     }
     location = tree[location].parent;
   }// while (location != 0);
