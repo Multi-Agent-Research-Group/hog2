@@ -219,6 +219,8 @@ bool ThetaStar<state,action,environment,openList>::InitializeSearch(environment 
 	
 	if (env->GoalTest(from, to) && (stopAfterGoal)) //assumes that from and to are valid states
 	{
+                thePath.push_back(from);
+                thePath.push_back(to);
 		return false;
 	}
 	

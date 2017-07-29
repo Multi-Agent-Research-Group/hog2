@@ -711,7 +711,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::pro
 
     // Update the actual unit path
     unit->SetPath(tree[bestNode].paths[x]);
-    if(verbose){
+    if(true){
       std::cout << "Agent " << x << ": " << "\n";
       unsigned wpt(0);
       signed ix(0);
@@ -755,15 +755,26 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::pro
       if(valid)std::cout << "VALID"<<std::endl;
     }
   }
+  std::cout << "Final Constraints:\n";
+  if(true){
+    int location=bestNode;
+    while(location!=0){
+      AddEnvironmentConstraint(tree[location].con.c);
+      if(true)std::cout << "Unit: " << tree[location].con.unit1 << " " << tree[location].con.c.start_state << "-->" << tree[location].con.c.end_state << "\n";
+      if(animate){
+        //tree[location].con.c.OpenGLDraw(currentEnvironment->environment->GetMap());
+      }
+      location = tree[location].parent;
+    }// while (location != 0);
+  }
   fflush(stdout);
   if(elapsed<0){
-    std::cout << "FAILED\n";
-    std::cout << "Finished with failure using " << TOTAL_EXPANSIONS << " expansions.\n";
+    std::cout << seed<<":FAILED\n";
     std::cout << seed<<":Time elapsed: " << elapsed*(-1.0) << "\n";
   }else{
-    std::cout << "Finished the plan using " << TOTAL_EXPANSIONS << " expansions.\n";
     std::cout << seed<<":Time elapsed: " << elapsed << "\n";
   }
+  std::cout << seed<<":expansions: " << TOTAL_EXPANSIONS << " expansions.\n";
   /*for(auto e:environments)
   {
     unsigned total=0;
