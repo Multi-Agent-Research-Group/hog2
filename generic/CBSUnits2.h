@@ -82,7 +82,10 @@ unsigned ReplanLeg(CBSUnit<state,action,environment,comparison,conflicttable,sea
   //std::cout << "Replan took: " << tmr.EndTimer() << std::endl;
   //std::cout << "New leg " << path.size() << "\n";
   //for(auto &p: path){std::cout << p << "\n";}
-  if(path.empty())return astar.GetNodesExpanded(); //no solution found
+  if(path.empty()){
+    thePath.resize(0);
+    return astar.GetNodesExpanded(); //no solution found
+  }
   float newTime(path.rbegin()->t); // Save the track end time of the new leg
 
   // Insert new path in front of the insert point

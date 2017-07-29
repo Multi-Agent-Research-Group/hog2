@@ -494,12 +494,12 @@ TEST(Quadratic, DetectCollisionWhenParallel){
 }
 
 TEST(Quadratic, WaitingCollision){
-  Vector2D A(3,6);
-  Vector2D VA(-1,0);
+  Vector2D A(5,0);
+  Vector2D VA(-1,1);
   VA.Normalize();
   double aradius(0.25);
-  Vector2D B(1,2);
-  Vector2D VB(1,5);
+  Vector2D B(3,0);
+  Vector2D VB(3,1);
   VB.Normalize();
   double bradius(.25);
 
@@ -517,7 +517,11 @@ TEST(Quadratic, WaitingCollision){
   // No collision occurs here
 
   // Suppose edges cross in the middle at some point.
-  ASSERT_TRUE(collisionImminent(A,VA,aradius,5.0,6.0,B,VB,bradius,1.0,6.09902));
+  ASSERT_TRUE(collisionImminent(A,VA,aradius,0.0,1.42,B,VB,bradius,0.0,3.16228));
+  VB={0,1};
+  ASSERT_TRUE(collisionImminent(A,VA,aradius,0.0,1.42,B,VB,bradius,0.0,3.16228));
+  VB={1,0};
+  ASSERT_TRUE(collisionImminent(A,VA,aradius,0.0,1.42,B,VB,bradius,0.0,3.16228));
 }
 
 TEST(Quadratic, DetectCollisionWhenHeadOn){
@@ -783,7 +787,7 @@ TEST(Theta, GetPath){
   menv.SetFiveConnected();
   ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment> tstar;
   tstar.SetHeuristic(new StraightLineHeuristic());
-  tstar.SetVerbose(true);
+  //tstar.SetVerbose(true);
   std::vector<xytLoc> solution;
   tstar.GetPath(&env,{1,1,0},{7,3,0},solution);
   for(auto const& ss: solution)
@@ -798,7 +802,7 @@ TEST(EPETheta, GetPath){
   menv.SetFiveConnected();
   EPEThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment> tstar;
   tstar.SetHeuristic(new StraightLineHeuristic());
-  tstar.SetVerbose(true);
+  //tstar.SetVerbose(true);
   std::vector<xytLoc> solution;
   tstar.GetPath(&env,{1,1,0},{7,3,0},solution);
   for(auto const& ss: solution)
@@ -855,7 +859,7 @@ TEST(Theta, GetObstructedPath){
   menv.SetFiveConnected();
   ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment> tstar;
   tstar.SetHeuristic(new StraightLineHeuristic());
-  tstar.SetVerbose(true);
+  //tstar.SetVerbose(true);
   std::vector<xytLoc> solution;
   tstar.GetPath(&env,{1,1,0},{7,3,0},solution);
   for(auto const& ss: solution){
@@ -879,12 +883,45 @@ TEST(Theta1, GetObstructedPath1){
   menv.SetFiveConnected();
   ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment> tstar;
   tstar.SetHeuristic(new StraightLineHeuristic());
-  tstar.SetVerbose(true);
+  //tstar.SetVerbose(true);
   std::vector<xytLoc> solution;
   tstar.GetPath(&env,{0,5,0},{6,6,0},solution);
   for(auto const& ss: solution){
     std::cout << ss.x << "," << ss.y << "\n";
   }
+  for(int i(1);i<solution.size(); ++i){
+    ASSERT_TRUE(env.LineOfSight(solution[i-1],solution[i]));
+  }
+  std::cout << std::endl;
+}
+
+TEST(Theta1, TestAnomaly){
+  Map map(8,8);
+  MapEnvironment menv(&map);
+  Map2DConstrainedEnvironment env(&menv);
+  menv.SetFiveConnected();
+  ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment> tstar;
+  tstar.SetHeuristic(new StraightLineHeuristic());
+  //tstar.SetVerbose(true);
+  std::vector<xytLoc> solution;
+  // No moving obstacle...
+  tstar.GetPath(&env,{5,0,0},{7,3,0},solution);
+  for(auto const& ss: solution){
+    std::cout << ss.x << "," << ss.y << "\n";
+  }
+  ASSERT_TRUE(solution.size()>1);
+  for(int i(1);i<solution.size(); ++i){
+    ASSERT_TRUE(env.LineOfSight(solution[i-1],solution[i]));
+  }
+  std::cout << "with obstacle" << std::endl;
+  env.AddConstraint(Constraint<TemporalVector>({5.47308, 0.91218, 0.534187},{5.04052, 0.840086, 0.972719}));
+  env.AddConstraint(Constraint<TemporalVector>({5.75685,0.121576, 0.271853},{5.34873, 0.325637, 0.728147}));
+  env.AddConstraint(Constraint<TemporalVector>({3.97549, 0.325165, 1.02826},{4.19533, 0.398442, 1.25998}));
+  tstar.GetPath(&env,{5,0,0},{7,3,0},solution);
+  for(auto const& ss: solution){
+    std::cout << ss.x << "," << ss.y << "\n";
+  }
+  ASSERT_TRUE(solution.size()>1);
   for(int i(1);i<solution.size(); ++i){
     ASSERT_TRUE(env.LineOfSight(solution[i-1],solution[i]));
   }
@@ -935,7 +972,7 @@ TEST(Theta1, TestStepAside){
   menv.SetFiveConnected();
   ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment> tstar;
   tstar.SetHeuristic(new StraightLineHeuristic());
-  tstar.SetVerbose(true);
+  //tstar.SetVerbose(true);
   std::vector<xytLoc> solution;
   // No moving obstacle...
   tstar.GetPath(&env,{1,1,0},{6,1,0},solution);
@@ -997,7 +1034,7 @@ TEST(Theta1, TestDodging){
   menv.SetFiveConnected();
   ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment> tstar;
   tstar.SetHeuristic(new StraightLineHeuristic());
-  tstar.SetVerbose(true);
+  //tstar.SetVerbose(true);
   std::vector<xytLoc> solution;
   env.AddConstraint(Constraint<TemporalVector>({4,1,0},{1,1,6}));
   env.AddConstraint(Constraint<TemporalVector>({7,2,0},{1,2,6}));
