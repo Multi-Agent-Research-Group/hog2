@@ -287,15 +287,20 @@ void generatePermutations(std::vector<MultiEdge>& positions, std::vector<MultiEd
 // In order for this to work, we cannot generate sets of positions, we must generate sets of actions, since at time 1.0 an action from parent A at time 0.0 may have finished, while another action from the same parent A may still be in progress. 
 
 // Return true if we get to the desired depth
-bool jointDFS(MultiEdge const& s, float d, float term, std::vector<std::set<Node*,NodePtrComp>>& answer,std::vector<Node*>& toDelete,double increment=1.0){
+bool jointDFS(MultiEdge const& s, float d, float term, std::vector<std::set<Node*,NodePtrComp>>& answer,std::vector<Node*>& toDelete, double& best, double increment=1.0){
   //std::cout << d << std::string((int)d,' ');
   //for(int a(0); a<s.size(); ++a){
     //std::cout << " s " << *s[a].second << "\n";
   //}
   if(fgreater(d,term-increment)){
-    for(int a(0); a<s.size(); ++a){
-      //std::cout << "push " << *s[a].second << " " << s.size() << "\n";
-      answer[a].insert(s[a].second);
+    if(fless(d,best)){
+      best=d;
+      std::cout << "BEST="<<best<<"\n";
+      answer.resize(0);
+      for(int a(0); a<s.size(); ++a){
+        //std::cout << "push " << *s[a].second << " " << s.size() << "\n";
+        answer[a].insert(s[a].second);
+      }
     }
     return true;
   }
@@ -344,13 +349,14 @@ bool jointDFS(MultiEdge const& s, float d, float term, std::vector<std::set<Node
   bool value(false);
   for(auto const& a: crossProduct){
     //std::cout << "eval " << a << "\n";
-    value = jointDFS(a,md,term,answer,toDelete,increment);
-    if(value){
+    if(jointDFS(a,md,term,answer,toDelete,best,increment)){
+      value=true;
       for(int a(0); a<s.size(); ++a){
         //std::cout << "push " << *s[a] << "\n";
         answer[a].insert(s[a].second);
       }
-      return true;
+      // Uncomment this in order to return first solution...
+      //return true;
     }
   }
   return value;
@@ -366,8 +372,9 @@ bool jointDFS(MultiState const& s, float maxdepth, std::vector<std::set<Node*,No
     }*/
     //act.push_back(a);
   }
+  double best(9999999);
 
-  return jointDFS(act,0.0,maxdepth,answer,toDelete,increment);
+  return jointDFS(act,0.0,maxdepth,answer,toDelete,best,increment);
 }
 
 // Not part of the algorithm... just for validating the answers
@@ -494,7 +501,7 @@ struct ICTSNode{
     }
     // Do a depth-first search; if the search terminates at a goal, its valid.
     answer.resize(sizes.size());
-    if(jointDFS(root,maxdepth,answer,toDelete,increment)){// && checkAnswer(answer)){
+    if(jointDFS(root,maxdepth,answer,toDelete,increment) && checkAnswer(answer)){
       //assert(checkAnswer(answer));
       //std::cout << "Answer:\n";
       //for(int agent(0); agent<answer.size(); ++agent){
@@ -866,7 +873,7 @@ int main(int argc, char ** argv){
         }
       }
     }
-    /*std::cout << "Solution:\n";
+    std::cout << "Solution:\n";
       int ii=0;
       for(auto const& p:solution){
         std::cout << ii++ << "\n";
@@ -875,7 +882,6 @@ int main(int argc, char ** argv){
           std::cout << t.first << "," << t.second << "\n";
         }
       }
-    */
     for(auto const& path:solution){
       length += path.size();
       for(int j(1); j<path.size(); ++j){
