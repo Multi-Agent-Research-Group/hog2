@@ -276,8 +276,8 @@ bool ThetaStar<state,action,environment,openList>::DoSingleSearchStep(std::vecto
     return true;
   }
   uint64_t nodeid = openClosedList.Close();
-  AStarOpenClosedData<state>& openNode = openClosedList.Lookup(nodeid);
-  const state& currOpenNode = openNode.data;
+  AStarOpenClosedData<state> openNode(openClosedList.Lookup(nodeid));
+  const state currOpenNode(openNode.data);
 
   if (!openNode.reopened)
     uniqueNodesExpanded++;
@@ -300,7 +300,7 @@ bool ThetaStar<state,action,environment,openList>::DoSingleSearchStep(std::vecto
     state* p(&thePath[0]);
     for(auto& n:thePath){
       total+=(env->*GCostFunc)(*p,n);
-      if(!fequal(n.t,total))std::cout << "Time is bad: ("<<total<<")" << *p << "-->" << n << "\n";
+      if(!((n.t >= total - .001) && (n.t <= total+.001)))std::cout << "Time is bad: ("<<total<<")" << *p << "-->" << n << "\n";
       p=&n;
     }
     return true;
@@ -309,7 +309,7 @@ bool ThetaStar<state,action,environment,openList>::DoSingleSearchStep(std::vecto
   if(verbose)std::cout << "Expanding: " << openClosedList.Lookup(nodeid).data<<std::hex<<"("<<env->GetStateHash(openClosedList.Lookup(nodeid).data)<<")"<<std::dec << "(parent)"<<openClosedList.Lookup(openNode.parentID).data <<" with f:" << openClosedList.Lookup(nodeid).g+openClosedList.Lookup(nodeid).h << std::endl;
   succ.resize(0);
   (env->*SuccessorFunc)(currOpenNode, succ);
-  double fCost = openNode.h+openNode.g;
+  //double fCost = openNode.h+openNode.g;
 
   nodesTouched++;
   uint64_t theID;

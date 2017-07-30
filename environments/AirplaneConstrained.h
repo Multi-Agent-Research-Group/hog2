@@ -120,6 +120,7 @@ public:
 	virtual void GLDrawLine(const airtimeState &x, const airtimeState &y) const;
 	virtual void OpenGLDraw(const airtimeState& oldState, const airtimeState &newState, float perc) const;
 	virtual void GLDrawPath(const std::vector<airtimeState> &p,const std::vector<airtimeState> &wpts) const;
+        virtual Map* GetMap()const{return nullptr;}
 
 	// Override the color method.
 	virtual void SetColor(double r, double g, double b, double t = 1.0) const {this->ae->SetColor(r,g,b,t);}

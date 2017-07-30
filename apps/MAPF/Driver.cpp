@@ -19,9 +19,9 @@ unsigned killex(INT_MAX); // Kill after some number of expansions
 int px1, py1, px2, py2;
 int absType = 0;
 int mapSize = 128;
-int width = 80;
-int length = 80;
-int height = 80;
+int width = 64;
+int length = 64;
+int height = 0;
 bool recording = false; // Record frames
 bool verbose(false);
 double simTime = 0;
@@ -47,6 +47,7 @@ std::vector<std::vector<xytLoc> > waypoints;
   CBSGroup<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >* group = 0;
 
   bool gui=true;
+  int animate(0);
   void InitHeadless();
 
   int main(int argc, char* argv[])
@@ -134,6 +135,7 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-nogui", "-nogui", "Turn off gui");
 	InstallCommandLineHandler(MyCLHandler, "-verbose", "-verbose", "Turn on verbose output");
 	InstallCommandLineHandler(MyCLHandler, "-cat", "-cat", "Use Conflict Avoidance Table (CAT)");
+	InstallCommandLineHandler(MyCLHandler, "-animate", "-animate", "Animate CBS search");
 	InstallCommandLineHandler(MyCLHandler, "-verify", "-verify", "Verify results");
 	InstallCommandLineHandler(MyCLHandler, "-random", "-random", "Randomize conflict resolution order");
 	InstallCommandLineHandler(MyCLHandler, "-greedyCT", "-greedyCT", "Greedy sort high-level search by number of conflicts (GCBS)");
@@ -166,7 +168,7 @@ void InitHeadless(){
   //std::cout << "Setting seed " << seed << "\n";
   srand(seed);
   srandom(seed);
-  Map* map(new Map(64,64));
+  Map* map(new Map(width,length));
   MapEnvironment* w4 = new MapEnvironment(map); w4->SetFourConnected();
   MapEnvironment* w5 = new MapEnvironment(map); w5->SetFiveConnected();
   MapEnvironment* w8 = new MapEnvironment(map); w8->SetEightConnected();
@@ -213,6 +215,7 @@ void InitHeadless(){
   group->timer=new Timer();
   group->seed=seed;
   group->keeprunning=gui;
+  group->animate=animate;
   group->killex=killex;
   group->ECBSheuristic=ECBSheuristic;
   group->nobypass=nobypass;
@@ -388,6 +391,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 	if(strcmp(argument[0], "-killtime") == 0)
 	{
                 killtime = atoi(argument[1]);
+		return 2;
+	}
+	if(strcmp(argument[0], "-animate") == 0)
+	{
+		animate=atoi(argument[1]);
 		return 2;
 	}
 	if(strcmp(argument[0], "-nogui") == 0)

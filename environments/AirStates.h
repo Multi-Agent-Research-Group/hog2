@@ -276,7 +276,7 @@ struct Constraint<airtimeState>
 	virtual bool ConflictsWith(const airtimeState &state) const;
 	virtual bool ConflictsWith(const airtimeState &from, const airtimeState &to) const;
 	virtual bool ConflictsWith(const Constraint<airtimeState> &x) const;
-	virtual void OpenGLDraw() const;
+	virtual void OpenGLDraw(Map*m=0) const;
 
         airtimeState start_state;
         airtimeState end_state;

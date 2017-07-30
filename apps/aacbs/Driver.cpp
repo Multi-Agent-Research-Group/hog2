@@ -21,9 +21,9 @@ unsigned killex(INT_MAX); // Kill after some number of expansions
 int px1, py1, px2, py2;
 int absType = 0;
 int mapSize = 128;
-int width = 80;
-int length = 80;
-int height = 80;
+int width = 8;
+int length = 8;
+int height = 0;
 bool recording = false; // Record frames
 bool verbose(false);
 double simTime = 0;
@@ -179,7 +179,7 @@ void InitHeadless(){
   //std::cout << "Setting seed " << seed << "\n";
   srand(seed);
   srandom(seed);
-  Map* map(new Map(8,8));
+  Map* map(new Map(width,length));
   StraightLineHeuristic* sh(new StraightLineHeuristic());
   MapEnvironment* w4 = new MapEnvironment(map); w4->SetFourConnected();
   MapEnvironment* w5 = new MapEnvironment(map); w5->SetFiveConnected();

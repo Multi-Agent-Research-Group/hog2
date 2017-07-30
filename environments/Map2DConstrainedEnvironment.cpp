@@ -98,6 +98,19 @@ bool Map2DConstrainedEnvironment::ViolatesConstraint(const xytLoc &from, const x
   static double aradius(0.25);
   static double bradius(0.25);
   // TODO: Put constraints into a kD tree so that we only need to compare vs relevant constraints
+  for(unsigned int x = 0; x < constraints.size(); x++)
+  {
+    Vector2D B(constraints[x].start_state);
+    Vector2D VB(constraints[x].end_state);
+    VB-=B; // Direction vector
+    VB.Normalize();
+    if(collisionImminent(A,VA,aradius,from.t,to.t,B,VB,bradius,constraints[x].start_state.t,constraints[x].end_state.t)){
+      //std::cout << from << " --> " << to << " collides with " << vconstraints[x].start_state << "-->" << vconstraints[x].end_state << "\n";
+      return true;
+    }else{
+      //std::cout << from << " --> " << to << " does not collide with " << vconstraints[x].start_state << "-->" << vconstraints[x].end_state << "\n";
+    }
+  }
   for(unsigned int x = 0; x < vconstraints.size(); x++)
   {
     Vector2D B(vconstraints[x].start_state);
@@ -323,11 +336,12 @@ void Constraint<xytLoc>::OpenGLDraw(Map* map) const
 {
   GLdouble xx, yy, zz, rad;
   glColor3f(1, 0, 0);
+  glLineWidth(12.0);
   glBegin(GL_LINES);
   map->GetOpenGLCoord(start_state.x, start_state.y, xx, yy, zz, rad);
-  glVertex3f(xx, yy, rad);
+  glVertex3f(xx, yy, -rad);
   map->GetOpenGLCoord(end_state.x, end_state.y, xx, yy, zz, rad);
-  glVertex3f(xx, yy, rad);
+  glVertex3f(xx, yy, -rad);
   glEnd();
 }
 

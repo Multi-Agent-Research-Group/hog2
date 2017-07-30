@@ -82,7 +82,10 @@ unsigned ReplanLeg(CBSUnit<state,action,environment,comparison,conflicttable,sea
   //std::cout << "Replan took: " << tmr.EndTimer() << std::endl;
   //std::cout << "New leg " << path.size() << "\n";
   //for(auto &p: path){std::cout << p << "\n";}
-  if(path.empty())return astar.GetNodesExpanded(); //no solution found
+  if(path.empty()){
+    thePath.resize(0);
+    return astar.GetNodesExpanded(); //no solution found
+  }
   float newTime(path.rbegin()->t); // Save the track end time of the new leg
 
   // Insert new path in front of the insert point
@@ -332,6 +335,7 @@ public:
     bool keeprunning; // Whether to keep running after finding the answer (e.g. for ui)
     int seed;
     Timer* timer;
+    int animate; // Add pauses for animation
     static bool greedyCT;
     bool verbose=false;
 };
@@ -415,7 +419,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Add
 template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
 CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::CBSGroup(std::vector<EnvironmentContainer<state,action,environment> > const& environs,bool v)
 : time(0), bestNode(0), planFinished(false), verify(false), nobypass(false)
-    , ECBSheuristic(false), killex(INT_MAX), keeprunning(false),
+    , ECBSheuristic(false), killex(INT_MAX), keeprunning(false),animate(0),
     seed(1234567), timer(0), verbose(v)
 {
   //std::cout << "THRESHOLD " << threshold << "\n";
@@ -461,6 +465,10 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Exp
   // Otherwise, we need to deal with the conflicts
   else
   {
+    // Swap units
+    unsigned tmp(c1.unit1);
+      c1.unit1=c2.unit1;
+      c2.unit1=tmp;
     // Notify the user of the conflict
     if(verbose){
       std::cout << "TREE " << bestNode <<"("<<tree[bestNode].parent << ") Conflict found between unit " << c1.unit1 << " and unit " << c2.unit1 << " @:" << c2.c.start() << "-->" << c2.c.end() <<  " and " << c1.c.start() << "-->" << c1.c.end() << " NC " << numConflicts << " prev-W " << c1.prevWpt << " " << c2.prevWpt << "\n";
@@ -472,6 +480,11 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Exp
       for(auto const& a:tree[bestNode].paths[c2.unit1]){
         std::cout << a << "\n";
       }
+    }
+    if(animate){
+      c1.c.OpenGLDraw(currentEnvironment->environment->GetMap());
+      c2.c.OpenGLDraw(currentEnvironment->environment->GetMap());
+      usleep(animate*1000);
     }
 
     // Don't create new nodes if either bypass was successful
@@ -702,13 +715,12 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::pro
   }
   fflush(stdout);
   if(elapsed<0){
-    std::cout << "FAILED\n";
-    std::cout << "Finished with failure using " << TOTAL_EXPANSIONS << " expansions.\n";
+    std::cout << seed<<":FAILED\n";
     std::cout << seed<<":Time elapsed: " << elapsed*(-1.0) << "\n";
   }else{
-    std::cout << "Finished the plan using " << TOTAL_EXPANSIONS << " expansions.\n";
     std::cout << seed<<":Time elapsed: " << elapsed << "\n";
   }
+  std::cout << seed<<":expansions: " << TOTAL_EXPANSIONS << " expansions.\n";
   /*for(auto e:environments)
   {
     unsigned total=0;

@@ -761,9 +761,9 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::pro
     while(location!=0){
       AddEnvironmentConstraint(tree[location].con.c);
       if(true)std::cout << "Unit: " << tree[location].con.unit1 << " " << tree[location].con.c.start_state << "-->" << tree[location].con.c.end_state << "\n";
-      if(animate){
+      //if(animate){
         //tree[location].con.c.OpenGLDraw(currentEnvironment->environment->GetMap());
-      }
+      //}
       location = tree[location].parent;
     }// while (location != 0);
   }
@@ -985,9 +985,9 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>:
       numConflicts++;
       AddEnvironmentConstraint(tree[location].con.c);
       if(verbose)std::cout << "Adding constraint (in accumulation)" << tree[location].con.c.start_state << "-->" << tree[location].con.c.end_state << " for unit " << theUnit << "\n";
-      if(animate){
+      //if(animate){
         //tree[location].con.c.OpenGLDraw(currentEnvironment->environment->GetMap());
-      }
+      //}
     }
     location = tree[location].parent;
   }// while (location != 0);
