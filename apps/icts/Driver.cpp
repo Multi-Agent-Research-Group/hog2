@@ -245,7 +245,7 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& root
 // Perform conflict check by moving forward in time at increments of the smallest time step
 // Test the efficiency of VO vs. time-vector approach
 void GetMDD(xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& root, float depth){
-  std::cout << "MDD up to depth: " << depth << "\n";
+  //std::cout << "MDD up to depth: " << depth << "\n";
   LimitedDFS(start,end,dag,root,depth,depth);
 }
 
@@ -431,7 +431,7 @@ struct ICTSNode{
       maxdepth=max(maxdepth,Node::env->HCost(instance.first[i],instance.second[i])+sizes[i]);
       //std::cout << "agent " << i << " GetMDD("<<(Node::env->HCost(instance.first[i],instance.second[i])+sizes[i])<<")\n";
       GetMDD(instance.first[i],instance.second[i],dag[i],root,Node::env->HCost(instance.first[i],instance.second[i])+sizes[i]);
-      std::cout << i << ":\n" << root[i] << "\n";
+      //std::cout << i << ":\n" << root[i] << "\n";
     }
   }
 
@@ -454,6 +454,7 @@ struct ICTSNode{
   std::vector<Node*> toDelete;
   static uint64_t count;
   static bool pairwise;
+  static bool forwardjump;
   std::vector<int> replanned; // Set of nodes that was just re-planned
 
   bool isValid(std::vector<std::set<Node*,NodePtrComp>>& answer, std::pair<int,int>& conflicting){
@@ -520,7 +521,8 @@ struct ICTSNode{
 };
 
 uint64_t ICTSNode::count(0);
-bool ICTSNode::pairwise(true);
+bool ICTSNode::pairwise(false);
+bool ICTSNode::forwardjump(false);
 
 struct ICTSNodePtrComp
 {
@@ -612,7 +614,7 @@ int main(int argc, char ** argv){
     if(argv[2][0]=='r'){ // Param is "r6" for random instance, 6-agents
       n=atoi(argv[2]+1);
     }else{
-      //std::cout << "Reading instance from file: \""<<argv[2]<<"\"\n";
+      std::cout << "Reading instance from file: \""<<argv[2]<<"\"\n";
       std::ifstream ss(argv[2]);
       int x,y;
       std::string line;
@@ -636,8 +638,13 @@ int main(int argc, char ** argv){
       //std::cout << "read " << n << " instances\n";
     }
   }
-  if(argc>3){ // Anything in the 3rd parameter indicates turn off pairwise
-    ICTSNode::pairwise==false;
+  if(argc>3){ // Anything in the 3rd parameter indicates turn on pairwise
+    ICTSNode::pairwise=true;
+    std::cout << "pairwise\n";
+    if(argv[3][0]=='f'){
+      std::cout << "forwardjump\n";
+      ICTSNode::forwardjump=true;
+    }
   }
   Node::env=&env;
   double timeout(300);
@@ -806,7 +813,7 @@ int main(int argc, char ** argv){
               break;
             }
             // Was a conflict found in the pairwise check?
-            if(conflicting.first!=-1){
+            if(ICTSNode::forwardjump&&conflicting.first!=-1){
               {
                 std::vector<float> sz(parent->sizes);
                 sz[conflicting.first]++;
@@ -859,7 +866,7 @@ int main(int argc, char ** argv){
         }
       }
     }
-    std::cout << "Solution:\n";
+    /*std::cout << "Solution:\n";
       int ii=0;
       for(auto const& p:solution){
         std::cout << ii++ << "\n";
@@ -868,7 +875,7 @@ int main(int argc, char ** argv){
           std::cout << t.first << "," << t.second << "\n";
         }
       }
-    
+    */
     for(auto const& path:solution){
       length += path.size();
       for(int j(1); j<path.size(); ++j){
