@@ -295,7 +295,7 @@ bool jointDFS(MultiEdge const& s, float d, float term, std::vector<std::set<Node
   if(fgreater(d,term-increment)){
     if(fless(d,best)){
       best=d;
-      std::cout << "BEST="<<best<<"\n";
+      //std::cout << "BEST="<<best<<"\n";
       answer.resize(0);
       for(int a(0); a<s.size(); ++a){
         //std::cout << "push " << *s[a].second << " " << s.size() << "\n";
@@ -582,6 +582,42 @@ bool detectIndependence(Solution const& solution, std::vector<Group*>& group, st
   return independent;
 }
 
+Solution solution;
+unsigned timeout(300);
+double total(0.0);
+double length(0.0);
+int failed(0);
+double cost(0);
+char* p2;
+Timer tmr;
+
+void printResults(){
+  std::cout << "Solution:\n";
+  int ii=0;
+  for(auto const& p:solution){
+    std::cout << ii++ << "\n";
+    for(auto const& t: p){
+      // Print solution
+      std::cout << t.first << "," << t.second << "\n";
+    }
+  }
+  for(auto const& path:solution){
+    length += path.size();
+    for(int j(1); j<path.size(); ++j){
+      if(path[j-1].first!=path[j].first)
+        cost += Node::env->GCost(path[j-1].first,path[j].first);
+    }
+  }
+  total=tmr.EndTimer();
+  //std::cout << elapsed << " elapsed";
+  //std::cout << std::endl;
+  //total += elapsed;
+  std::cout << p2 << "," << int(Node::env->GetConnectedness()) << "," << ICTSNode::count << ","<< Node::count << "," << total << "," << length << "," << cost;
+  if(total >= timeout)std::cout << " failure";
+  std::cout << std::endl;
+  exit(1);
+}
+
 int main(int argc, char ** argv){
   MapEnvironment env(new Map(8,8));
   env.SetFiveConnected();
@@ -618,6 +654,7 @@ int main(int argc, char ** argv){
   Points s;
   Points e;
   if(argc>2){
+    p2=argv[2];
     if(argv[2][0]=='r'){ // Param is "r6" for random instance, 6-agents
       n=atoi(argv[2]+1);
     }else{
@@ -654,14 +691,9 @@ int main(int argc, char ** argv){
     }
   }
   Node::env=&env;
-  double timeout(300);
   {
     //std::cout << "N="<<n<<"\n";
-    double total(0.0);
-    double length(0.0);
     int numAgents(n);
-    int failed(0);
-    double cost(0);
     //for(int t(0); t<100; ++t){
     //checked.clear();
     //std::cout << "Trial #"<<t<<"\n";
@@ -686,7 +718,6 @@ int main(int argc, char ** argv){
       }
     }
 
-    Solution solution;
     if(false){
       Instance g;
       g.first.emplace_back(1,1);
@@ -732,11 +763,6 @@ int main(int argc, char ** argv){
       groups.insert(group[i]);
     }
 
-    // Start timing
-    //std::cout << std::setprecision(3);
-    Timer tmr;
-    tmr.StartTimer();
-
     // Initial individual paths.
     for(int i(0); i<s.size(); ++i){
       Points path;
@@ -767,7 +793,13 @@ int main(int argc, char ** argv){
     }
     */
 
-    double elapsed(timeout);
+    //double elapsed(timeout);
+    // Start timing
+    //std::cout << std::setprecision(3);
+    tmr.StartTimer();
+
+    Timer::Timeout func(std::bind(&printResults));
+    tmr.StartTimeout(std::chrono::seconds(timeout),func);
     while(!detectIndependence(solution,group,groups)){
       std::unordered_map<int,Instance> G;
       std::unordered_map<int,std::vector<int>> Gid;
@@ -855,16 +887,16 @@ int main(int argc, char ** argv){
                 }
               }
             }
-            if(tmr.TimeCut() > timeout){
-              elapsed = timeout;
+            /*if(tmr.TimeCut() > timeout){
+              //elapsed = timeout;
               while(q.size()) q.pop();
               failed++;
               //std::cout << "failed" << std::endl;
-            }
+            }*/
             toDelete.push_back(parent);
           }
-          for(auto n:toDelete){
-            delete n;
+          for(auto z:toDelete){
+            delete z;
           }
           while(!q.empty()){
             delete q.top();
@@ -873,35 +905,12 @@ int main(int argc, char ** argv){
         }
       }
     }
-    std::cout << "Solution:\n";
-      int ii=0;
-      for(auto const& p:solution){
-        std::cout << ii++ << "\n";
-        for(auto const& t: p){
-          // Print solution
-          std::cout << t.first << "," << t.second << "\n";
-        }
-      }
-    for(auto const& path:solution){
-      length += path.size();
-      for(int j(1); j<path.size(); ++j){
-        if(path[j-1].first!=path[j].first)
-          cost += env.GCost(path[j-1].first,path[j].first);
-      }
-    }
 
     for(auto y:groups){
       delete y;
     }
 
-    elapsed=tmr.EndTimer();
-    //std::cout << elapsed << " elapsed";
-    //std::cout << std::endl;
-    total += elapsed;
-    //}
-    std::cout << argv[2] << "," << argv[1] << "," << ICTSNode::count << ","<< Node::count << "," << total << "," << length << "," << cost;
-    if(failed)std::cout << " failure";
-    std::cout << std::endl;
   }
+  printResults();
   return 0;
 }
