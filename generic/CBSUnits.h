@@ -373,15 +373,15 @@ void CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>::Open
       //glColor3f(1, 0, 0);
       //c.OpenGLDraw();
     } else {		
-      ae->OpenGLDraw(stop_t);
-      glColor3f(1, 0, 0);
+      //ae->OpenGLDraw(stop_t);
+      //glColor3f(1, 0, 0);
       //Constraint<state> c(stop_t);
       //c.OpenGLDraw();
     }
   } else {
     if (current.landed)
       return;
-    ae->OpenGLDraw(current);
+    //ae->OpenGLDraw(current);
     //Constraint<state> c(current);
     //glColor3f(1, 0, 0);
     //c.OpenGLDraw(si->GetEnvironment()->GetMap());
