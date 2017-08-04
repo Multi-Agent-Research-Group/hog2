@@ -498,10 +498,11 @@ void SoftConstraint<airtimeState>::OpenGLDraw(Map*) const
 
 	//glDisable(GL_LIGHTING);
 
-        glEnable(GL_BLEND);
-        glBlendFunc (GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
+	glLineWidth(1.0); // Make it wide
+        //glEnable(GL_BLEND);
+        //glBlendFunc (GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
         glPushMatrix();
-        glColor4f(1, 0, 0, .1);
+        glColor3f(1, 0, 0);
         glTranslatef(x, y, z);
         glutWireSphere((radius/DrawableConstraint::width)*2.0, 20,20);
         glPopMatrix();

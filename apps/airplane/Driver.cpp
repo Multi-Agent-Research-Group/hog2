@@ -137,6 +137,7 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-seed", "-seed <number>", "Seed for random number generator (defaults to clock)");
 	InstallCommandLineHandler(MyCLHandler, "-nobypass", "-nobypass", "Turn off bypass option");
 	InstallCommandLineHandler(MyCLHandler, "-record", "-record", "Record frames");
+	InstallCommandLineHandler(MyCLHandler, "-pause", "-pause", "Record frames");
 	InstallCommandLineHandler(MyCLHandler, "-cutoffs", "-cutoffs <n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>", "Number of conflicts to tolerate before switching to less constrained layer of environment. Environments are ordered as: CardinalGrid,OctileGrid,Cardinal3D,Octile3D,H4,H8,Simple,Cardinal,Octile,48Highway");
 	InstallCommandLineHandler(MyCLHandler, "-weights", "-weights <n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>", "Weight to apply to the low-level search for each environment entered as: CardinalGrid,OctileGrid,Cardinal3D,Octile3D,H4,H8,Simple,Cardinal,Octile,48Highway");
 	InstallCommandLineHandler(MyCLHandler, "-probfile", "-probfile", "Load MAPF instance from file");
@@ -453,6 +454,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 			}
 		}
 		return 2;
+	}
+	if(strcmp(argument[0], "-pause") == 0)
+	{
+		paused = true;
+		return 1;
 	}
 	if(strcmp(argument[0], "-record") == 0)
 	{

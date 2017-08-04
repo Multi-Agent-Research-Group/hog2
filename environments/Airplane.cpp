@@ -1590,6 +1590,7 @@ void AirplaneEnvironment::OpenGLDraw() const
     glColor3f(1.0, 1.0, 1.0);
     DrawBoxFrame(0, 0, 0.75, 1.0);
 
+/*
   for (landingStrip st : landingStrips)
   {
     //Draw the dashed line down the middle
@@ -1612,7 +1613,7 @@ void AirplaneEnvironment::OpenGLDraw() const
     this->OpenGLDraw(st.launch_state);
 
   }
-
+*/
 #endif
 
 }
