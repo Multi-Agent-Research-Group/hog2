@@ -9,6 +9,7 @@
 #ifndef __hog2_glut__AirplaneConstrainedEnvironment__
 #define __hog2_glut__AirplaneConstrainedEnvironment__
 
+#include "Map.h"
 #include "Airplane.h"
 #include "ConstrainedEnvironment.h"
 #include "NonUnitTimeCAT.h"

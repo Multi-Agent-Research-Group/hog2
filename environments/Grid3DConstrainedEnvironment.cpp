@@ -1,64 +1,58 @@
 //
-//  Map2DConstrainedEnvironment.cpp
+//  Grid3DConstrainedEnvironment.cpp
 //  hog2 glut
 //
 //  Created by Nathan Sturtevant on 8/3/12.
 //  Copyright (c) 2012 University of Denver. All rights reserved.
 //
 
-#include "Map2DConstrainedEnvironment.h"
+#include "Grid3DConstrainedEnvironment.h"
 
-bool operator==(const xytLoc &l1, const xytLoc &l2)
+bool operator==(const xyztLoc &l1, const xyztLoc &l2)
 {
 	return fequal(l1.t,l2.t) && (l1.x == l2.x) && (l1.y==l2.y);
 }
 
-Map2DConstrainedEnvironment::Map2DConstrainedEnvironment(Map *m):ignoreTime(false)
+Grid3DConstrainedEnvironment::Grid3DConstrainedEnvironment(Map3D *m):ignoreTime(false)
 {
-	mapEnv = new MapEnvironment(m);
-	mapEnv->SetFourConnected();
+	mapEnv = new Grid3DEnvironment(m);
 }
 
-Map2DConstrainedEnvironment::Map2DConstrainedEnvironment(MapEnvironment *m):ignoreTime(false)
+Grid3DConstrainedEnvironment::Grid3DConstrainedEnvironment(Grid3DEnvironment *m):ignoreTime(false)
 {
 	mapEnv = m;
 }
 
-/*void Map2DConstrainedEnvironment::AddConstraint(xytLoc loc)
+/*void Grid3DConstrainedEnvironment::AddConstraint(xyztLoc loc)
 {
 	AddConstraint(loc, kTeleport);
 }*/
 
-void Map2DConstrainedEnvironment::AddConstraint(xytLoc const& loc, tDirection dir)
+void Grid3DConstrainedEnvironment::AddConstraint(xyztLoc const& loc, t3DDirection dir)
 {
-        xytLoc tmp(loc);
+        xyztLoc tmp(loc);
         ApplyAction(tmp,dir);
 	constraints.emplace_back(loc,tmp);
 }
 
-void Map2DConstrainedEnvironment::ClearConstraints()
+void Grid3DConstrainedEnvironment::ClearConstraints()
 {
 	constraints.resize(0);
 	vconstraints.resize(0);
 }
 
-bool Map2DConstrainedEnvironment::GetNextSuccessor(const xytLoc &currOpenNode, const xytLoc &goal, xytLoc &next, double &currHCost, uint64_t &special, bool &validMove){
-  return mapEnv->GetNextSuccessor(currOpenNode,goal,next,currHCost,special,validMove);
-}
-  
-
-void Map2DConstrainedEnvironment::GetSuccessors(const xytLoc &nodeID, std::vector<xytLoc> &neighbors) const
+void Grid3DConstrainedEnvironment::GetSuccessors(const xyztLoc &nodeID, std::vector<xyztLoc> &neighbors) const
 {
-  std::vector<xyLoc> n;
+  std::vector<xyzLoc> n;
   mapEnv->GetSuccessors(nodeID, n);
 
   // TODO: remove illegal successors
   for (unsigned int x = 0; x < n.size(); x++)
   {
-    float inc(mapEnv->GetConnectedness()>5?(Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y)):1.0);
+    float inc(mapEnv->GetConnectedness()>0?(Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y)):1.0);
     if (!ViolatesConstraint(nodeID, n[x], nodeID.t, inc))
     {
-      xytLoc newLoc(n[x],nodeID.t+inc);
+      xyztLoc newLoc(n[x],nodeID.t+inc);
       neighbors.push_back(newLoc);
     }else{
       //std::cout << n[x] << " violates\n";
@@ -66,21 +60,21 @@ void Map2DConstrainedEnvironment::GetSuccessors(const xytLoc &nodeID, std::vecto
   }
 }
 
-void Map2DConstrainedEnvironment::GetAllSuccessors(const xytLoc &nodeID, std::vector<xytLoc> &neighbors) const
+void Grid3DConstrainedEnvironment::GetAllSuccessors(const xyztLoc &nodeID, std::vector<xyztLoc> &neighbors) const
 {
-  std::vector<xyLoc> n;
+  std::vector<xyzLoc> n;
   mapEnv->GetSuccessors(nodeID, n);
 
   // TODO: remove illegal successors
   for (unsigned int x = 0; x < n.size(); x++)
   {
     float inc(mapEnv->GetConnectedness()>5?(Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y)):1.0);
-    xytLoc newLoc(n[x],nodeID.t+inc);
+    xyztLoc newLoc(n[x],nodeID.t+inc);
     neighbors.push_back(newLoc);
   }
 }
 
-bool Map2DConstrainedEnvironment::ViolatesConstraint(const xytLoc &from, const xytLoc &to) const{
+bool Grid3DConstrainedEnvironment::ViolatesConstraint(const xyztLoc &from, const xyztLoc &to) const{
   
   /*for(unsigned int x = 0; x < constraints.size(); x++)
   {
@@ -91,8 +85,8 @@ bool Map2DConstrainedEnvironment::ViolatesConstraint(const xytLoc &from, const x
   return false;
   */
 
-  Vector2D A(from);
-  Vector2D VA(to);
+  Vector3D A(from);
+  Vector3D VA(to);
   VA-=A; // Direction vector
   VA.Normalize();
   static double aradius(0.25);
@@ -100,8 +94,8 @@ bool Map2DConstrainedEnvironment::ViolatesConstraint(const xytLoc &from, const x
   // TODO: Put constraints into a kD tree so that we only need to compare vs relevant constraints
   for(unsigned int x = 0; x < constraints.size(); x++)
   {
-    Vector2D B(constraints[x].start_state);
-    Vector2D VB(constraints[x].end_state);
+    Vector3D B(constraints[x].start_state);
+    Vector3D VB(constraints[x].end_state);
     VB-=B; // Direction vector
     VB.Normalize();
     if(collisionImminent(A,VA,aradius,from.t,to.t,B,VB,bradius,constraints[x].start_state.t,constraints[x].end_state.t)){
@@ -113,8 +107,8 @@ bool Map2DConstrainedEnvironment::ViolatesConstraint(const xytLoc &from, const x
   }
   for(unsigned int x = 0; x < vconstraints.size(); x++)
   {
-    Vector2D B(vconstraints[x].start_state);
-    Vector2D VB(vconstraints[x].end_state);
+    Vector3D B(vconstraints[x].start_state);
+    Vector3D VB(vconstraints[x].end_state);
     VB-=B; // Direction vector
     VB.Normalize();
     if(collisionImminent(A,VA,aradius,from.t,to.t,B,VB,bradius,vconstraints[x].start_state.t,vconstraints[x].end_state.t)){
@@ -127,58 +121,58 @@ bool Map2DConstrainedEnvironment::ViolatesConstraint(const xytLoc &from, const x
   return false;
 }
 
-bool Map2DConstrainedEnvironment::ViolatesConstraint(const xyLoc &from, const xyLoc &to, float time, float inc) const
+bool Grid3DConstrainedEnvironment::ViolatesConstraint(const xyzLoc &from, const xyzLoc &to, float time, float inc) const
 {
-  return ViolatesConstraint(xytLoc(from,time),xytLoc(to,time+inc));
+  return ViolatesConstraint(xyztLoc(from,time),xyztLoc(to,time+inc));
 }
 
-void Map2DConstrainedEnvironment::GetActions(const xytLoc &nodeID, std::vector<tDirection> &actions) const
+void Grid3DConstrainedEnvironment::GetActions(const xyztLoc &nodeID, std::vector<t3DDirection> &actions) const
 {
 	mapEnv->GetActions(nodeID, actions);
 
 	// TODO: remove illegal actions
 }
 
-tDirection Map2DConstrainedEnvironment::GetAction(const xytLoc &s1, const xytLoc &s2) const
+t3DDirection Grid3DConstrainedEnvironment::GetAction(const xyztLoc &s1, const xyztLoc &s2) const
 {
 	return mapEnv->GetAction(s1, s2);
 }
 
-void Map2DConstrainedEnvironment::ApplyAction(xytLoc &s, tDirection a) const
+void Grid3DConstrainedEnvironment::ApplyAction(xyztLoc &s, t3DDirection a) const
 {
 	mapEnv->ApplyAction(s, a);
 	s.t+=1;
 }
 
-void Map2DConstrainedEnvironment::UndoAction(xytLoc &s, tDirection a) const
+void Grid3DConstrainedEnvironment::UndoAction(xyztLoc &s, t3DDirection a) const
 {
 	mapEnv->UndoAction(s, a);
 	s.t-=1;
 }
 
-void Map2DConstrainedEnvironment::AddConstraint(Constraint<xytLoc> const& c)
+void Grid3DConstrainedEnvironment::AddConstraint(Constraint<xyztLoc> const& c)
 {
 	constraints.push_back(c);
 }
 
-void Map2DConstrainedEnvironment::AddConstraint(Constraint<TemporalVector> const& c)
+void Grid3DConstrainedEnvironment::AddConstraint(Constraint<TemporalVector3D> const& c)
 {
 	vconstraints.push_back(c);
 }
 
-void Map2DConstrainedEnvironment::GetReverseActions(const xytLoc &nodeID, std::vector<tDirection> &actions) const
+void Grid3DConstrainedEnvironment::GetReverseActions(const xyztLoc &nodeID, std::vector<t3DDirection> &actions) const
 {
 	// Get the action information from the hidden env
 	//this->mapEnv->GetReverseActions(nodeID, actions);
 }
-bool Map2DConstrainedEnvironment::InvertAction(tDirection &a) const
+bool Grid3DConstrainedEnvironment::InvertAction(t3DDirection &a) const
 {
 	return mapEnv->InvertAction(a);
 }
 
 
 /** Heuristic value between two arbitrary nodes. **/
-double Map2DConstrainedEnvironment::HCost(const xytLoc &node1, const xytLoc &node2) const
+double Grid3DConstrainedEnvironment::HCost(const xyztLoc &node1, const xyztLoc &node2) const
 {
         return mapEnv->HCost(node1, node2);
 	double res1 = mapEnv->HCost(node1, node2);
@@ -187,29 +181,32 @@ double Map2DConstrainedEnvironment::HCost(const xytLoc &node1, const xytLoc &nod
 	return max(res1, res2);
 }
 
-bool Map2DConstrainedEnvironment::GoalTest(const xytLoc &node, const xytLoc &goal) const
+bool Grid3DConstrainedEnvironment::GoalTest(const xyztLoc &node, const xyztLoc &goal) const
 {
 	return (node.x == goal.x && node.y == goal.y && node.t >= goal.t);
 }
 
 
-uint64_t Map2DConstrainedEnvironment::GetStateHash(const xytLoc &node) const
+uint64_t Grid3DConstrainedEnvironment::GetStateHash(const xyztLoc &node) const
 {
-  uint64_t hash;
-  hash = node.x;
-  hash <<= 16;
-  hash |= node.y;
-  if(!ignoreTime){
-    hash <<= 32;
-    hash |= *(uint32_t*)&node.t;
-    //std::cout << "time to hash" << (*(uint32_t*)&node.t) << "\n";
-  }
-  return hash;
+  uint64_t h1;
+  h1 = node.x;
+  h1 <<= 16;
+  h1 |= node.y;
+  h1 <<= 16;
+  h1 |= node.z;
+  h1 <<= 16;
+  h1 |= node.v;
+  uint64_t h2(*(uint32_t*)&node.t);
+  h2 <<=32;
+  h2 |= h2;
+  return (h1 * 16777619) ^ h2;
 }
 
-void Map2DConstrainedEnvironment::GetStateFromHash(uint64_t hash, xytLoc &s) const
+void Grid3DConstrainedEnvironment::GetStateFromHash(uint64_t hash, xyztLoc &s) const
 {
-  if(!ignoreTime){
+  assert(!"Hash is irreversible...");
+  /*if(!ignoreTime){
     uint32_t tmp=(hash&(0x100000000-1));
     //std::cout << "time from hash" << (hash&(0x100000000-1)) << "\n";
     s.t=*(float*)&tmp;
@@ -218,51 +215,51 @@ void Map2DConstrainedEnvironment::GetStateFromHash(uint64_t hash, xytLoc &s) con
   }else{
     s.y=(hash)&(0x10000-1);
     s.x=(hash>>16)&(0x10000-1);
-  }
+  }*/
 }
 
-uint64_t Map2DConstrainedEnvironment::GetActionHash(tDirection act) const
+uint64_t Grid3DConstrainedEnvironment::GetActionHash(t3DDirection act) const
 {
 	return act;
 }
 
 
-void Map2DConstrainedEnvironment::OpenGLDraw() const
+void Grid3DConstrainedEnvironment::OpenGLDraw() const
 {
 	mapEnv->OpenGLDraw();
 }
 
-void Map2DConstrainedEnvironment::OpenGLDraw(const xytLoc& s, const xytLoc& e, float perc) const
+void Grid3DConstrainedEnvironment::OpenGLDraw(const xyztLoc& s, const xyztLoc& e, float perc) const
 {
   GLfloat r, g, b, t;
   GetColor(r, g, b, t);
-  Map *map = mapEnv->GetMap();
+  Map3D *map = mapEnv->GetMap();
   GLdouble xx, yy, zz, rad;
   map->GetOpenGLCoord((1-perc)*s.x+perc*e.x, (1-perc)*s.y+perc*e.y, xx, yy, zz, rad);
   glColor4f(r, g, b, t);
   DrawSphere(xx, yy, zz, rad/2.0); // zz-s.t*2*rad
 }
 
-void Map2DConstrainedEnvironment::OpenGLDraw(const xytLoc& l) const
+void Grid3DConstrainedEnvironment::OpenGLDraw(const xyztLoc& l) const
 {
   GLfloat r, g, b, t;
   GetColor(r, g, b, t);
-  Map *map = mapEnv->GetMap();
+  Map3D *map = mapEnv->GetMap();
   GLdouble xx, yy, zz, rad;
   map->GetOpenGLCoord(l.x, l.y, xx, yy, zz, rad);
   glColor4f(r, g, b, t);
   DrawSphere(xx, yy, zz-l.t*rad, rad/2.0); // zz-l.t*2*rad
 }
 
-void Map2DConstrainedEnvironment::OpenGLDraw(const xytLoc&, const tDirection&) const
+void Grid3DConstrainedEnvironment::OpenGLDraw(const xyztLoc&, const t3DDirection&) const
 {
        std::cout << "Draw move\n";
 }
 
-void Map2DConstrainedEnvironment::GLDrawLine(const xytLoc &x, const xytLoc &y) const
+void Grid3DConstrainedEnvironment::GLDrawLine(const xyztLoc &x, const xyztLoc &y) const
 {
 	GLdouble xx, yy, zz, rad;
-	Map *map = mapEnv->GetMap();
+	Map3D *map = mapEnv->GetMap();
 	map->GetOpenGLCoord(x.x, x.y, xx, yy, zz, rad);
 	
 	GLfloat r, g, b, t;
@@ -275,7 +272,7 @@ void Map2DConstrainedEnvironment::GLDrawLine(const xytLoc &x, const xytLoc &y) c
 	glEnd();
 }
 
-void Map2DConstrainedEnvironment::GLDrawPath(const std::vector<xytLoc> &p, const std::vector<xytLoc> &waypoints) const
+void Grid3DConstrainedEnvironment::GLDrawPath(const std::vector<xyztLoc> &p, const std::vector<xyztLoc> &waypoints) const
 {
         if(p.size()<2) return;
         int wpt(0);
@@ -286,16 +283,16 @@ void Map2DConstrainedEnvironment::GLDrawPath(const std::vector<xytLoc> &p, const
 }
 
 template<>
-bool Constraint<xytLoc>::ConflictsWith(const xytLoc &state) const
+bool Constraint<xyztLoc>::ConflictsWith(const xyztLoc &state) const
 {
   /*if(state.landed || end_state.landed && start_state.landed) return false;
-  Vector2D A(state);
-  Vector2D VA(0,0);
+  Vector3D A(state);
+  Vector3D VA(0,0);
   //VA.Normalize();
   static double aradius(0.25);
   static double bradius(0.25);
-  Vector2D B(start_state);
-  Vector2D VB(end_state);
+  Vector3D B(start_state);
+  Vector3D VB(end_state);
   VB-=B; // Direction vector
   //VB.Normalize();
   if(collisionImminent(A,VA,aradius,state.t,state.t+1.0,B,VB,bradius,start_state.t,end_state.t)){
@@ -306,16 +303,16 @@ bool Constraint<xytLoc>::ConflictsWith(const xytLoc &state) const
 
 // Check both vertex and edge constraints
 template<>
-bool Constraint<xytLoc>::ConflictsWith(const xytLoc &from, const xytLoc &to) const
+bool Constraint<xyztLoc>::ConflictsWith(const xyztLoc &from, const xyztLoc &to) const
 {
-  Vector2D A(from);
-  Vector2D VA(to);
+  Vector3D A(from);
+  Vector3D VA(to);
   VA-=A; // Direction vector
   VA.Normalize();
   static double aradius(0.25);
   static double bradius(0.25);
-  Vector2D B(start_state);
-  Vector2D VB(end_state);
+  Vector3D B(start_state);
+  Vector3D VB(end_state);
   VB-=B; // Direction vector
   VB.Normalize();
   if(collisionImminent(A,VA,aradius,from.t,to.t,B,VB,bradius,start_state.t,end_state.t)){
@@ -325,14 +322,14 @@ bool Constraint<xytLoc>::ConflictsWith(const xytLoc &from, const xytLoc &to) con
 }
 
 template<>
-bool Constraint<xytLoc>::ConflictsWith(const Constraint<xytLoc> &x) const
+bool Constraint<xyztLoc>::ConflictsWith(const Constraint<xyztLoc> &x) const
 {
   return ConflictsWith(x.start_state, x.end_state);
 }
 
 
 template<>
-void Constraint<xytLoc>::OpenGLDraw(MapInterface* map) const 
+void Constraint<xyztLoc>::OpenGLDraw(MapInterface* map) const 
 {
   GLdouble xx, yy, zz, rad;
   glColor3f(1, 0, 0);
@@ -346,16 +343,16 @@ void Constraint<xytLoc>::OpenGLDraw(MapInterface* map) const
 }
 
 template<>
-bool Constraint<TemporalVector>::ConflictsWith(const TemporalVector &state) const
+bool Constraint<TemporalVector3D>::ConflictsWith(const TemporalVector3D &state) const
 {
   /*if(state.landed || end_state.landed && start_state.landed) return false;
-  Vector2D A(state);
-  Vector2D VA(0,0);
+  Vector3D A(state);
+  Vector3D VA(0,0);
   //VA.Normalize();
   static double aradius(0.25);
   static double bradius(0.25);
-  Vector2D B(start_state);
-  Vector2D VB(end_state);
+  Vector3D B(start_state);
+  Vector3D VB(end_state);
   VB-=B; // Direction vector
   //VB.Normalize();
   if(collisionImminent(A,VA,aradius,state.t,state.t+1.0,B,VB,bradius,start_state.t,end_state.t)){
@@ -366,16 +363,16 @@ bool Constraint<TemporalVector>::ConflictsWith(const TemporalVector &state) cons
 
 // Check both vertex and edge constraints
 template<>
-bool Constraint<TemporalVector>::ConflictsWith(const TemporalVector &from, const TemporalVector &to) const
+bool Constraint<TemporalVector3D>::ConflictsWith(const TemporalVector3D &from, const TemporalVector3D &to) const
 {
-  Vector2D A(from);
-  Vector2D VA(to);
+  Vector3D A(from);
+  Vector3D VA(to);
   VA-=A; // Direction vector
   VA.Normalize();
   static double aradius(0.25);
   static double bradius(0.25);
-  Vector2D B(start_state);
-  Vector2D VB(end_state);
+  Vector3D B(start_state);
+  Vector3D VB(end_state);
   VB-=B; // Direction vector
   VB.Normalize();
   if(collisionImminent(A,VA,aradius,from.t,to.t,B,VB,bradius,start_state.t,end_state.t)){
@@ -385,29 +382,13 @@ bool Constraint<TemporalVector>::ConflictsWith(const TemporalVector &from, const
 }
 
 template<>
-bool Constraint<TemporalVector>::ConflictsWith(const Constraint<TemporalVector> &x) const
+bool Constraint<TemporalVector3D>::ConflictsWith(const Constraint<TemporalVector3D> &x) const
 {
   return ConflictsWith(x.start_state, x.end_state);
 }
 
-void glDrawCircle(GLfloat x, GLfloat y, GLfloat radius){
-  static const int lineAmount(20); //# of segments
-
-  static const GLfloat twicePi(2.0f * PI);
-
-  glBegin(GL_LINE_LOOP);
-  for(int i(0); i <= lineAmount;i++) { 
-    glVertex3f(
-        x + (radius * cos(i *  twicePi / lineAmount)), 
-        y + (radius* sin(i * twicePi / lineAmount)),
-        -.1);
-  }
-  glEnd();
-}
-
-
 template<>
-void Constraint<TemporalVector>::OpenGLDraw(MapInterface* map) const 
+void Constraint<TemporalVector3D>::OpenGLDraw(MapInterface* map) const 
 {
 	GLdouble xx, yy, zz, rad;
 	glColor3f(1, 0, 0);

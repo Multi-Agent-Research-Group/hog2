@@ -276,7 +276,7 @@ struct Constraint<airtimeState>
 	virtual bool ConflictsWith(const airtimeState &state) const;
 	virtual bool ConflictsWith(const airtimeState &from, const airtimeState &to) const;
 	virtual bool ConflictsWith(const Constraint<airtimeState> &x) const;
-	virtual void OpenGLDraw(Map*m=0) const;
+	virtual void OpenGLDraw(MapInterface*m=0) const;
 
         airtimeState start_state;
         airtimeState end_state;
@@ -292,7 +292,7 @@ class SoftConstraint<airtimeState> : public DrawableConstraint {
       double d(Util::distance(center.x,center.y,center.height,other.x,other.y,other.height)/scale);
       return std::max(0.0,logr/d-logr/radius);
     }
-    virtual void OpenGLDraw(Map*) const;
+    virtual void OpenGLDraw(MapInterface*) const;
 
     airtimeState center;
     double radius;
@@ -477,7 +477,7 @@ struct Constraint<PlatformState>{
   virtual bool ConflictsWith(const PlatformState &state) const;
   virtual bool ConflictsWith(const PlatformState &from, const PlatformState &to) const;
   virtual bool ConflictsWith(const Constraint<PlatformState> &x) const;
-  virtual void OpenGLDraw(Map*) const;
+  virtual void OpenGLDraw(MapInterface*) const;
 
   PlatformState start_state;
   PlatformState end_state;

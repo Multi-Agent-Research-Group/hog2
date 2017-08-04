@@ -50,6 +50,7 @@ SRC_CPP = \
 	environments/AirStates.cpp \
 	environments/GraphEnvironment.cpp \
 	environments/GraphRefinementEnvironment.cpp \
+	environments/Grid3DConstrainedEnvironment.cpp \
 	environments/Grid3DEnvironment.cpp \
 	environments/Map2DEnvironment.cpp \
 	environments/Map2DConstrainedEnvironment.cpp \

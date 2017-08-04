@@ -1,111 +1,116 @@
 //
-//  Map2DConstrainedEnvironment.h
+//  Grid3DConstrainedEnvironment.h
 //  hog2 glut
 //
-//  Created by Nathan Sturtevant on 8/3/12.
-//  Copyright (c) 2012 University of Denver. All rights reserved.
+//  Created by Thayne Walker on 8/4/2017
 //
 
-#ifndef __hog2_glut__Map2DConstrainedEnvironment__
-#define __hog2_glut__Map2DConstrainedEnvironment__
+#ifndef __hog2_glut__Grid3DConstrainedEnvironment__
+#define __hog2_glut__Grid3DConstrainedEnvironment__
 
 #include <iostream>
 
-#include "Map2DEnvironment.h"
-#include "Vector2D.h"
+#include "Grid3DEnvironment.h"
+#include "Vector3D.h"
 #include "VelocityObstacle.h"
 #include "NonUnitTimeCAT.h"
 #include "ConstrainedEnvironment.h"
 #include "PositionalUtils.h"
 #include "TemplateAStar.h"
 
-struct xytLoc : xyLoc {
-	xytLoc(xyLoc loc, float time):xyLoc(loc), t(time) ,nc(-1){}
-	xytLoc(uint16_t _x, uint16_t _y, float time):xyLoc(_x,_y), t(time) ,nc(-1){}
-	xytLoc():xyLoc(),t(0),nc(-1){}
-	float t;
+struct xyztLoc : xyzLoc {
+	xyztLoc(xyzLoc loc, float time):xyzLoc(loc), t(time) ,nc(-1){}
+	xyztLoc(uint16_t _x, uint16_t _y, uint16_t _z, float time):xyzLoc(_x,_y,_z), t(time) ,nc(-1){}
+	xyztLoc(uint16_t _x, uint16_t _y, uint16_t _z, uint16_t _v, float time):xyzLoc(_x,_y,_z,_v), t(time) ,nc(-1){}
+	xyztLoc():xyzLoc(),t(0),nc(-1){}
         int16_t nc; // Number of conflicts, for conflict avoidance table
-        operator Vector2D()const{return Vector2D(x,y);}
-        bool sameLoc(xytLoc const& other)const{return x==other.x&&y==other.y;}
+	float t;
+        operator Vector3D()const{return Vector3D(x,y,z);}
+        bool sameLoc(xyztLoc const& other)const{return x==other.x&&y==other.y&&z==other.z;}
 };
 
-struct TemporalVector : Vector2D {
-	TemporalVector(Vector2D const& loc, double time):Vector2D(loc), t(time){}
-	TemporalVector(xytLoc const& loc):Vector2D(loc), t(loc.t){}
-	TemporalVector(double _x, double _y, float time):Vector2D(_x,_y), t(time){}
-	TemporalVector():Vector2D(),t(0){}
+struct TemporalVector3D : Vector3D {
+	TemporalVector3D(Vector3D const& loc, double time):Vector3D(loc), t(time){}
+	TemporalVector3D(xyztLoc const& loc):Vector3D(loc), t(loc.t){}
+	TemporalVector3D(double _x, double _y, double _z, float time):Vector3D(_x,_y,_z), t(time){}
+	TemporalVector3D():Vector3D(),t(0){}
 	double t;
 };
 
-static std::ostream& operator <<(std::ostream & out, const TemporalVector &loc)
+static std::ostream& operator <<(std::ostream & out, const TemporalVector3D &loc)
 {
 	out << "(" << loc.x << ", " << loc.y << ": " << loc.t << ")";
 	return out;
 }
 	
-static std::ostream& operator <<(std::ostream & out, const xytLoc &loc)
+static std::ostream& operator <<(std::ostream & out, const xyztLoc &loc)
 {
 	out << "(" << loc.x << ", " << loc.y << ": " << loc.t << ")";
 	return out;
 }
 	
-bool operator==(const xytLoc &l1, const xytLoc &l2);
+bool operator==(const xyztLoc &l1, const xyztLoc &l2);
 
-class Map2DConstrainedEnvironment : public ConstrainedEnvironment<xytLoc, tDirection>
+class Grid3DConstrainedEnvironment : public ConstrainedEnvironment<xyztLoc, t3DDirection>
 {
 public:
-	Map2DConstrainedEnvironment(Map *m);
-	Map2DConstrainedEnvironment(MapEnvironment *m);
-	virtual void AddConstraint(Constraint<xytLoc> const& c);
-	virtual void AddConstraint(Constraint<TemporalVector> const& c);
-	//void AddConstraint(xytLoc const& loc);
-	void AddConstraint(xytLoc const& loc, tDirection dir);
+	Grid3DConstrainedEnvironment(Map3D *m);
+	Grid3DConstrainedEnvironment(Grid3DEnvironment *m);
+	virtual void AddConstraint(Constraint<xyztLoc> const& c);
+	virtual void AddConstraint(Constraint<TemporalVector3D> const& c);
+	//void AddConstraint(xyztLoc const& loc);
+	void AddConstraint(xyztLoc const& loc, t3DDirection dir);
 	void ClearConstraints();
         virtual std::string name()const{return mapEnv->name();}
-	bool GetNextSuccessor(const xytLoc &currOpenNode, const xytLoc &goal, xytLoc &next, double &currHCost, uint64_t &special, bool &validMove);
-	virtual void GetSuccessors(const xytLoc &nodeID, std::vector<xytLoc> &neighbors) const;
-	virtual void GetAllSuccessors(const xytLoc &nodeID, std::vector<xytLoc> &neighbors) const;
-	virtual void GetActions(const xytLoc &nodeID, std::vector<tDirection> &actions) const;
-	virtual tDirection GetAction(const xytLoc &s1, const xytLoc &s2) const;
-	virtual void ApplyAction(xytLoc &s, tDirection a) const;
-	virtual void UndoAction(xytLoc &s, tDirection a) const;
-	virtual void GetReverseActions(const xytLoc &nodeID, std::vector<tDirection> &actions) const;
-	bool ViolatesConstraint(const xytLoc &from, const xytLoc &to) const;
+	virtual void GetSuccessors(const xyztLoc &nodeID, std::vector<xyztLoc> &neighbors) const;
+	virtual void GetAllSuccessors(const xyztLoc &nodeID, std::vector<xyztLoc> &neighbors) const;
+	virtual void GetActions(const xyztLoc &nodeID, std::vector<t3DDirection> &actions) const;
+	virtual t3DDirection GetAction(const xyztLoc &s1, const xyztLoc &s2) const;
+	virtual void ApplyAction(xyztLoc &s, t3DDirection a) const;
+	virtual void UndoAction(xyztLoc &s, t3DDirection a) const;
+	virtual void GetReverseActions(const xyztLoc &nodeID, std::vector<t3DDirection> &actions) const;
+	bool ViolatesConstraint(const xyztLoc &from, const xyztLoc &to) const;
         void setSoftConstraintEffectiveness(double){}
 	
-	virtual bool InvertAction(tDirection &a) const;
+	virtual bool InvertAction(t3DDirection &a) const;
 	
 	/** Heuristic value between two arbitrary nodes. **/
-	virtual double HCost(const xytLoc &node1, const xytLoc &node2) const;
-	virtual double GCost(const xytLoc &node1, const xytLoc &node2) const { return mapEnv->GCost(node1,node2); }
-	virtual double GCost(const xytLoc &node, const tDirection &act) const { return  mapEnv->GCost(node,act); }
-	virtual bool GoalTest(const xytLoc &node, const xytLoc &goal) const;
+	virtual double HCost(const xyztLoc &node1, const xyztLoc &node2) const;
+	virtual double GCost(const xyztLoc &node1, const xyztLoc &node2) const { return mapEnv->GCost(node1,node2); }
+	virtual double GCost(const xyztLoc &node, const t3DDirection &act) const { return  mapEnv->GCost(node,act); }
+	virtual bool GoalTest(const xyztLoc &node, const xyztLoc &goal) const;
 	
-	virtual uint64_t GetStateHash(const xytLoc &node) const;
-        virtual void GetStateFromHash(uint64_t hash, xytLoc &s) const;
-	virtual uint64_t GetActionHash(tDirection act) const;
+	virtual uint64_t GetStateHash(const xyztLoc &node) const;
+        virtual void GetStateFromHash(uint64_t hash, xyztLoc &s) const;
+	virtual uint64_t GetActionHash(t3DDirection act) const;
 
 	virtual void OpenGLDraw() const;
-        void OpenGLDraw(const xytLoc& s, const xytLoc& t, float perc) const;
-	virtual void OpenGLDraw(const xytLoc&) const;
-	virtual void OpenGLDraw(const xytLoc&, const tDirection&) const;
-	virtual void GLDrawLine(const xytLoc &x, const xytLoc &y) const;
-        void GLDrawPath(const std::vector<xytLoc> &p, const std::vector<xytLoc> &waypoints) const;
-        virtual Map* GetMap()const{return mapEnv->GetMap();}
-        bool LineOfSight(const xytLoc &x, const xytLoc &y)const{return mapEnv->LineOfSight(x,y) && !ViolatesConstraint(x,y);}
+        void OpenGLDraw(const xyztLoc& s, const xyztLoc& t, float perc) const;
+	virtual void OpenGLDraw(const xyztLoc&) const;
+	virtual void OpenGLDraw(const xyztLoc&, const t3DDirection&) const;
+	virtual void GLDrawLine(const xyztLoc &x, const xyztLoc &y) const;
+        void GLDrawPath(const std::vector<xyztLoc> &p, const std::vector<xyztLoc> &waypoints) const;
+        virtual Map3D* GetMap()const{return mapEnv->GetMap();}
+        bool LineOfSight(const xyztLoc &x, const xyztLoc &y)const{return mapEnv->LineOfSight(x,y) && !ViolatesConstraint(x,y);}
         void SetIgnoreTime(bool i){ignoreTime=i;}
 private:
         bool ignoreTime;
-	bool ViolatesConstraint(const xyLoc &from, const xyLoc &to, float time, float inc) const;
+	bool ViolatesConstraint(const xyzLoc &from, const xyzLoc &to, float time, float inc) const;
 
-	std::vector<Constraint<xytLoc>> constraints;
-	std::vector<Constraint<TemporalVector>> vconstraints;
-	MapEnvironment *mapEnv;
+	std::vector<Constraint<xyztLoc>> constraints;
+	std::vector<Constraint<TemporalVector3D>> vconstraints;
+	Grid3DEnvironment *mapEnv;
 };
 typedef std::set<IntervalData> ConflictSet;
 
+
+#define HASH_INTERVAL 0.50
+#define HASH_INTERVAL_HUNDREDTHS 50
+
+template <typename state, typename action, typename environment>
+class TieBreaking3D {
+  public:
 // Check if an openlist node conflicts with a node from an existing path
-template<typename state>
 unsigned checkForConflict(state const*const parent, state const*const node, state const*const pathParent, state const*const pathNode){
   Constraint<state> v(*node);
   if(v.ConflictsWith(*pathNode)){return 1;}
@@ -116,13 +121,6 @@ unsigned checkForConflict(state const*const parent, state const*const node, stat
   return 0; 
 }
 
-
-#define HASH_INTERVAL 0.50
-#define HASH_INTERVAL_HUNDREDTHS 50
-
-template <typename state, typename action, typename environment>
-class TieBreaking {
-  public:
   bool operator()(const AStarOpenClosedData<state> &ci1, const AStarOpenClosedData<state> &ci2) const
   {
     if (fequal(ci1.g+ci1.h, ci2.g+ci2.h)) // F-cost equal
@@ -201,7 +199,7 @@ class TieBreaking {
     return (fgreater(ci1.g+ci1.h, ci2.g+ci2.h));
   }
     static OpenClosedInterface<state,AStarOpenClosedData<state>>* openList;
-    static Map2DConstrainedEnvironment* currentEnv;
+    static Grid3DConstrainedEnvironment* currentEnv;
     static uint8_t currentAgent;
     static bool randomalg;
     static bool useCAT;
@@ -209,16 +207,16 @@ class TieBreaking {
 };
 
 template <typename state, typename action, typename environment>
-OpenClosedInterface<state,AStarOpenClosedData<state>>* TieBreaking<state,action,environment>::openList=0;
+OpenClosedInterface<state,AStarOpenClosedData<state>>* TieBreaking3D<state,action,environment>::openList=0;
 template <typename state, typename action, typename environment>
-Map2DConstrainedEnvironment* TieBreaking<state,action,environment>::currentEnv=0;
+Grid3DConstrainedEnvironment* TieBreaking3D<state,action,environment>::currentEnv=0;
 template <typename state, typename action, typename environment>
-uint8_t TieBreaking<state,action,environment>::currentAgent=0;
+uint8_t TieBreaking3D<state,action,environment>::currentAgent=0;
 template <typename state, typename action, typename environment>
-bool TieBreaking<state,action,environment>::randomalg=false;
+bool TieBreaking3D<state,action,environment>::randomalg=false;
 template <typename state, typename action, typename environment>
-bool TieBreaking<state,action,environment>::useCAT=false;
+bool TieBreaking3D<state,action,environment>::useCAT=false;
 template <typename state, typename action, typename environment>
-NonUnitTimeCAT<state,environment,HASH_INTERVAL_HUNDREDTHS>* TieBreaking<state,action,environment>::CAT=0;
+NonUnitTimeCAT<state,environment,HASH_INTERVAL_HUNDREDTHS>* TieBreaking3D<state,action,environment>::CAT=0;
 
-#endif /* defined(__hog2_glut__Map2DConstrainedEnvironment__) */
+#endif /* defined(__hog2_glut__Grid3DConstrainedEnvironment__) */

@@ -1,11 +1,13 @@
-#ifndef UnitTests_h_
-#define UnitTests_h_
+#ifndef env_UnitTests_h_
+#define env_UnitTests_h_
 
 #include "Timer.h"
 #include <gtest/gtest.h>
 #include "Map2DEnvironment.h"
 #include "Map2DConstrainedEnvironment.h"
 #include "Grid3DEnvironment.h"
+#include "Grid3DConstrainedEnvironment.h"
+#include "Map3d.h"
 #include "TemplateAStar.h"
 
 TEST(Map2D, TwentyFourConnected_Successors){
@@ -67,6 +69,31 @@ TEST(Map2D, FortyEightConnectedWObstacle_Successors){
   ASSERT_EQ(27,successors.size());
   for(int i(0);i<successors.size(); ++i){
     ASSERT_TRUE(env.LineOfSight({3,3},successors[i]));
+    //std::cout << successors[i] << "\n";
+    for(int j(i+1);j<successors.size(); ++j){
+      ASSERT_NE(successors[i],successors[j]);
+    }
+  }
+}
+
+TEST(Map3D, LineOfSight){
+  Map3D map(8,8,8);
+  map.AddObstacle(4,4,4);
+  ASSERT_TRUE(map.LineOfSight(3,3,3,0,0,0));
+  ASSERT_FALSE(map.LineOfSight(5,5,5,0,0,0));
+  ASSERT_FALSE(map.LineOfSight(7,1,7,1,7,1));
+  ASSERT_FALSE(map.LineOfSight(4,0,4,4,7,4));
+  ASSERT_FALSE(map.LineOfSight(0,3,7,7,4,1));
+}
+
+TEST(Map3D, ZeroConnected){
+  Map3D map(8,8,8);
+  Grid3DEnvironment env(&map);
+  std::vector<xyzLoc> successors;
+  env.GetSuccessors({3,3,3},successors);
+  ASSERT_EQ(6,successors.size());
+  for(int i(0);i<successors.size(); ++i){
+    ASSERT_TRUE(env.LineOfSight({3,3,3},successors[i]));
     //std::cout << successors[i] << "\n";
     for(int j(i+1);j<successors.size(); ++j){
       ASSERT_NE(successors[i],successors[j]);

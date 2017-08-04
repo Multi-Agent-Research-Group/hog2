@@ -41,20 +41,26 @@ void Grid3DEnvironment::SetGraphHeuristic(GraphHeuristic *gh)
 void Grid3DEnvironment::GetSuccessors(const xyzLoc &loc, std::vector<xyzLoc> &neighbors) const
 {
   if(connectedness==0){
-    neighbors.resize(6);
-    neighbors[0]={loc.x,loc.y,loc.z+1};
-    neighbors[1]={loc.x,loc.y,loc.z-1};
-    neighbors[2]={loc.x,loc.y+1,loc.z};
-    neighbors[3]={loc.x,loc.y-1,loc.z};
-    neighbors[4]={loc.x+1,loc.y,loc.z};
-    neighbors[5]={loc.x-1,loc.y,loc.z};
+    if(map->IsTraversable(loc.x,loc.y,loc.z+1))
+      neighbors.emplace_back(loc.x,loc.y,loc.z+1);
+    if(map->IsTraversable(loc.x,loc.y,loc.z-1))
+      neighbors.emplace_back(loc.x,loc.y,loc.z-1);
+    if(map->IsTraversable(loc.x,loc.y+1,loc.z))
+      neighbors.emplace_back(loc.x,loc.y+1,loc.z);
+    if(map->IsTraversable(loc.x,loc.y-1,loc.z))
+      neighbors.emplace_back(loc.x,loc.y-1,loc.z);
+    if(map->IsTraversable(loc.x+1,loc.y,loc.z))
+      neighbors.emplace_back(loc.x+1,loc.y,loc.z);
+    if(map->IsTraversable(loc.x-1,loc.y,loc.z))
+      neighbors.emplace_back(loc.x-1,loc.y,loc.z);
     if(waitAllowed)neighbors.emplace_back(loc);
-  }
-  for(int i(-connectedness); i<=connectedness; ++i){
-    for(int j(-connectedness); j<=connectedness; ++j){
-      for(int k(-connectedness); k<=connectedness; ++k){
-        if(!waitAllowed && i==0 && j==0 && k==0)continue;
-        neighbors.emplace_back(loc.x+i,loc.y+j,loc.z+k);
+  }else{
+    for(int i(-connectedness); i<=connectedness; ++i){
+      for(int j(-connectedness); j<=connectedness; ++j){
+        for(int k(-connectedness); k<=connectedness; ++k){
+          if(!waitAllowed && i==0 && j==0 && k==0)continue;
+          neighbors.emplace_back(loc.x+i,loc.y+j,loc.z+k);
+        }
       }
     }
   }
@@ -405,11 +411,6 @@ void Grid3DEnvironment::DrawLine(const xyzLoc &a, const xyzLoc &b, double width)
 }
 
 
-
-void Grid3DEnvironment::GetNextState(const xyzLoc &currents, t3DDirection dir, xyzLoc &news) const
- {
-        assert(false && "Not implemented");
-}
 
 double Grid3DEnvironment::GetPathLength(std::vector<xyzLoc> &neighbors)
 {

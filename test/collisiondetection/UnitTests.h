@@ -6,10 +6,11 @@
 #include <gtest/gtest.h>
 #include <map>
 #include "Map2DConstrainedEnvironment.h"
+#include "Grid3DConstrainedEnvironment.h"
 #include "AnyAngleSipp.h"
 #include "ThetaStar.h"
-#include "EPEThetaStar.h"
-#include "PEThetaStar.h"
+//#include "EPEThetaStar.h"
+//#include "PEThetaStar.h"
 
 TEST(VelocityObstacle, IsInsidePass){
   Vector2D A(3,1);
@@ -779,6 +780,14 @@ class StraightLineHeuristic : public Heuristic<xytLoc> {
   }
 };
 
+// Heuristics
+class StraightLineHeuristic3D : public Heuristic<xyztLoc> {
+  public:
+  double HCost(const xyztLoc &a,const xyztLoc &b) const {
+        return sqrt((a.x-b.x)*(a.x-b.x)+(a.y-b.y)*(a.y-b.y)+(a.z-b.z)*(a.z-b.z));
+  }
+};
+
 TEST(Theta, GetPath){
   Map map(8,8);
   MapEnvironment menv(&map);
@@ -794,6 +803,7 @@ TEST(Theta, GetPath){
     std::cout << ss << "\n";
 }
 
+/*
 TEST(EPETheta, GetPath){
   Map map(8,8);
   MapEnvironment menv(&map);
@@ -809,7 +819,6 @@ TEST(EPETheta, GetPath){
     std::cout << ss << "\n";
 }
 
-/*
 TEST(PETheta, GetPath){
   Map map(8,8);
   MapEnvironment menv(&map);
@@ -1039,6 +1048,27 @@ TEST(Theta1, TestDodging){
   env.AddConstraint(Constraint<TemporalVector>({4,1,0},{1,1,6}));
   env.AddConstraint(Constraint<TemporalVector>({7,2,0},{1,2,6}));
   tstar.GetPath(&env,{1,1,0},{6,1,0},solution);
+  for(auto const& ss: solution){
+    std::cout << ss.x << "," << ss.y << "\n";
+  }
+  ASSERT_TRUE(solution.size()>1);
+  for(int i(1);i<solution.size(); ++i){
+    ASSERT_TRUE(env.LineOfSight(solution[i-1],solution[i]));
+  }
+  std::cout << std::endl;
+}
+
+TEST(Theta, Test3D){
+  Map3D map(8,8,8);
+  Grid3DEnvironment menv(&map);
+  Grid3DConstrainedEnvironment env(&menv);
+  ThetaStar<xyztLoc,t3DDirection,Grid3DConstrainedEnvironment> tstar;
+  tstar.SetHeuristic(new StraightLineHeuristic3D());
+  tstar.SetVerbose(true);
+  std::vector<xyztLoc> solution;
+  env.AddConstraint(Constraint<TemporalVector3D>({4,1,0,0},{1,1,0,6}));
+  env.AddConstraint(Constraint<TemporalVector3D>({7,2,0,0},{1,2,0,6}));
+  tstar.GetPath(&env,{1,1,0,0},{6,1,0,0},solution);
   for(auto const& ss: solution){
     std::cout << ss.x << "," << ss.y << "\n";
   }

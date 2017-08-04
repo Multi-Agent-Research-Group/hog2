@@ -30,49 +30,64 @@
 #include <unistd.h>
 #include <iostream>
 #include <stdint.h>
-
+#include <unordered_map>
 #include "GLUtil.h"
+#include "MapInterface.h"
 
 /**
  * A 3D grid-based representation of the world.
  */
 
-class Map3D {
-enum tDisplay {
-	kPolygons,
-	kLines,
-	kPoints
-};
-public:
-	Map3D(long width, long height, long depth);
-	Map3D(const char *filename);
-	Map3D(Map3D *);
-	Map3D(FILE *);
-	Map3D(std::istringstream &data);
-	void Load(const char *filename);
-	void Load(FILE *f);
-	void Save(std::stringstream &data);
-	void Save(const char *filename);
-	void Save(FILE *f);
-	Map3D *Clone() { return new Map3D(this); }
-	/** return the width of the map */
-	inline long GetMapWidth() const { return width; }
-	/** return the height of the map */
-	inline long GetMapHeight() const { return height; }
-	inline long GetMapDepth() const { return depth; }
-	
-        inline bool IsTraversable(long x, long y, long z)const{ return x>=0&&x<width&&y>=0&&y<height&&z>=0&&z<depth&&true;} // TODO: check obstacles
-	
-	void OpenGLDraw(tDisplay how = kPolygons) const;
-	bool GetOpenGLCoord(int _x, int _y, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const;
-	bool GetOpenGLCoord(float _x, float _y, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const;
-	void GetPointFromCoordinate(point3d loc, int &px, int &py) const;
-	double GetCoordinateScale();
-        bool LineOfSight(int x, int y, int z, int _x, int _y, int _z) const;
-	
-private:
-	int width, height, depth;
-        // TODO: Add scene tree
+class Map3D : public MapInterface{
+  enum tDisplay {
+    kPolygons,
+    kLines,
+    kPoints
+  };
+  public:
+  Map3D(long width, long height, long depth);
+  Map3D(const char *filename);
+  Map3D(Map3D *);
+  Map3D(FILE *);
+  Map3D(std::istringstream &data);
+  void Load(const char *filename);
+  void Load(FILE *f);
+  void Save(std::stringstream &data);
+  void Save(const char *filename);
+  void Save(FILE *f);
+  Map3D *Clone() { return new Map3D(this); }
+  /** return the width of the map */
+  inline long GetMapWidth() const { return width; }
+  /** return the height of the map */
+  inline long GetMapHeight() const { return height; }
+  inline long GetMapDepth() const { return depth; }
+
+  inline bool InMap(unsigned x, unsigned y, unsigned z)const{ return x<width&&y<height&&z<depth;} // Relies on unsigned params to check <0
+
+  void OpenGLDraw(tDisplay how = kPolygons) const;
+  bool GetOpenGLCoord(int _x, int _y, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const{assert(!"not implemented");}
+  bool GetOpenGLCoord(float _x, float _y, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const{assert(!"not implemented");}
+  bool GetOpenGLCoord(int _x, int _y, int _z, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const{return GetOpenGLCoord((float)_x,(float)_y,(float)_z,x,y,z,radius);}
+  bool GetOpenGLCoord(float _x, float _y, float _z, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const;
+  void GetPointFromCoordinate(point3d loc, int &px, int &py) const;
+  double GetCoordinateScale();
+  bool LineOfSight2D(int x, int y, int _x, int _y) const;
+  bool LineOfSight(int x, int y, int z, int _x, int _y, int _z) const;
+  void AddObstacle(int x, int y, int z){obstacles[toIndex(x,y,z)]=true;}
+  bool IsTraversable(unsigned x, unsigned y, unsigned z)const{return InMap(x,y,z)&&obstacles.find(toIndex(x,y,z))==obstacles.end();}
+  bool HasObstacle(unsigned x, unsigned y, unsigned z)const{return !IsTraversable(x,y,z);}
+
+  private:
+  uint64_t toIndex(int x, int y, int z)const{
+    return x*height*depth+ y*depth+ z;
+  }
+  void fromIndex(uint64_t index, int& x, int& y, int& z)const{
+    z=index%depth;
+    y=((index-z)/depth)%height;
+    x=((index-y*depth-z)/(height*depth))%width;
+  }
+  int width, height, depth;
+  std::unordered_map<uint64_t,bool> obstacles;
 };
 
 #endif

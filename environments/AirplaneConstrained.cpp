@@ -486,7 +486,7 @@ bool Constraint<airtimeState>::ConflictsWith(const Constraint<airtimeState> &x) 
 }
 
 
-void SoftConstraint<airtimeState>::OpenGLDraw(Map*) const 
+void SoftConstraint<airtimeState>::OpenGLDraw(MapInterface*) const 
 {
         static float halfWidth(DrawableConstraint::width/2.0);
         static float halfLength(DrawableConstraint::length/2.0);
@@ -509,7 +509,7 @@ void SoftConstraint<airtimeState>::OpenGLDraw(Map*) const
         glDisable(GL_BLEND);
 }
 
-void Constraint<airtimeState>::OpenGLDraw(Map*) const 
+void Constraint<airtimeState>::OpenGLDraw(MapInterface*) const 
 {
         static float halfWidth(DrawableConstraint::width/2.0);
         static float halfLength(DrawableConstraint::length/2.0);

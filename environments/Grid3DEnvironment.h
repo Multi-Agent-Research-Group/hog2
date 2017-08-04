@@ -27,20 +27,13 @@
 
 struct xyzLoc {
 public:
-	xyzLoc():x(-1),y(-1),z(-1){}
-	xyzLoc(uint16_t _x, uint16_t _y, uint16_t _z) :x(_x), y(_y) ,z(_z){}
-        bool operator<(xyzLoc const& other)const{return x==other.x?(y==other.y?z<other.z:y<other.y):x<other.x;}
+	xyzLoc():x(-1),y(-1),z(-1),v(-1){}
+	xyzLoc(uint16_t _x, uint16_t _y, uint16_t _z, uint16_t _v=0) :x(_x), y(_y) ,z(_z), v(_v){}
+        bool operator<(xyzLoc const& other)const{return x==other.x?(y==other.y?(z==other.z?v<other.v:z<other.z):y<other.y):x<other.x;}
 	uint16_t x;
 	uint16_t y;
 	uint16_t z;
-};
-
-struct xyzLocHash
-{
-	std::size_t operator()(const xyzLoc & x) const
-	{
-		return (x.x<<32)|(x.y<<16)|(x.z);
-	}
+	uint16_t v;
 };
 
 static std::ostream& operator <<(std::ostream & out, const xyzLoc &loc)
@@ -206,9 +199,6 @@ public:
 	void SetGraphHeuristic(GraphHeuristic *h);
 	GraphHeuristic *GetGraphHeuristic();
 	virtual void GetSuccessors(const xyzLoc &nodeID, std::vector<xyzLoc> &neighbors) const;
-	bool GetNextSuccessor(const xyzLoc &currOpenNode, const xyzLoc &goal, xyzLoc &next, double &currHCost, uint64_t &special, bool &validMove);
-	bool GetNext4Successor(const xyzLoc &currOpenNode, const xyzLoc &goal, xyzLoc &next, double &currHCost, uint64_t &special, bool &validMove);
-	bool GetNext8Successor(const xyzLoc &currOpenNode, const xyzLoc &goal, xyzLoc &next, double &currHCost, uint64_t &special, bool &validMove);
 	void GetActions(const xyzLoc &nodeID, std::vector<t3DDirection> &actions) const;
 	t3DDirection GetAction(const xyzLoc &s1, const xyzLoc &s2) const;
 	virtual void ApplyAction(xyzLoc &s, t3DDirection dir) const;
@@ -249,14 +239,14 @@ public:
 	//virtual void OpenGLDraw(const xyzLoc &l, GLfloat r, GLfloat g, GLfloat b) const;
 	Map3D* GetMap() const { return map; }
 
-	virtual void GetNextState(const xyzLoc &currents, t3DDirection dir, xyzLoc &news) const;
-
 	void StoreGoal(xyzLoc &) {} // stores the locations for the given goal state
 	void ClearGoal() {}
 	bool IsGoalStored() const {return false;}
+	void SetZeroConnected() { connectedness=0; }
 	void SetOneConnected() { connectedness=1; }
 	void SetTwoConnected() { connectedness=2; }
 	void SetThreeConnected() { connectedness=3; }
+        uint8_t GetConnectedness()const{return connectedness;}
 	//virtual xyzLoc GetNextState(xyzLoc &s, t3DDirection dir);
 	double GetPathLength(std::vector<xyzLoc> &neighbors);
         std::vector<std::vector<std::pair<xyzLoc,double>>> solution;

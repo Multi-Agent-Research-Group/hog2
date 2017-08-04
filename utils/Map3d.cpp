@@ -135,34 +135,83 @@ void Map3D::OpenGLDraw(tDisplay how) const
 }
 
 /**
-* Get the openGL coordinates of a given tile.
- *
- * Given a tile in (x, y) coordinates, it returns the OpenGL space coordinates of
- * that tile along with the radius of the tile square. The map is drawn in the
- * x<->z plane, with the y plane up.
- */
-bool Map3D::GetOpenGLCoord(int _x, int _y, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const
-{
-	return true;
-}
-
-/**
  * Get the openGL coordinates of a given tile.
  *
  * Given a tile in (x, y) coordinates, it returns the OpenGL space coordinates of
  * that tile along with the radius of the tile square. The map is drawn in the
  * x<->z plane, with the y plane up.
  */
-bool Map3D::GetOpenGLCoord(float _x, float _y, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const
+bool Map3D::GetOpenGLCoord(float _x, float _y, float _z, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const
 {
 	return true;
 }
 
-/**
- * Returns whether there is line of sight between two coordinates
- */
+bool Map3D::LineOfSight(int x1, int y1, int z1, int const x2, int const y2, int const z2) const{
+  int dx = x2 - x1;
+  int dy = y2 - y1;
+  int dz = z2 - z1;
+  int x_inc = (dx < 0) ? -1 : 1;
+  int l = abs(dx);
+  int y_inc = (dy < 0) ? -1 : 1;
+  int m = abs(dy);
+  int z_inc = (dz < 0) ? -1 : 1;
+  int n = abs(dz);
+  int dx2 = l << 1;
+  int dy2 = m << 1;
+  int dz2 = n << 1;
 
-bool Map3D::LineOfSight(int x, int y, int z, int x2, int y2, int z2) const{
+  if ((l >= m) && (l >= n)) {
+    int err_1 = dy2 - l;
+    int err_2 = dz2 - l;
+    for (int i = 0; i < l; i++) {
+      if(HasObstacle(x1, y1, z1)){return false;}
+      if (err_1 > 0) {
+        y1 += y_inc;
+        err_1 -= dx2;
+      }
+      if (err_2 > 0) {
+        z1 += z_inc;
+        err_2 -= dx2;
+      }
+      err_1 += dy2;
+      err_2 += dz2;
+      x1 += x_inc;
+    }
+  } else if ((m >= l) && (m >= n)) {
+    int err_1 = dx2 - m;
+    int err_2 = dz2 - m;
+    for (int i = 0; i < m; i++) {
+      if(HasObstacle(x1, y1, z1)){return false;}
+      if (err_1 > 0) {
+        x1 += x_inc;
+        err_1 -= dy2;
+      }
+      if (err_2 > 0) {
+        z1 += z_inc;
+        err_2 -= dy2;
+      }
+      err_1 += dx2;
+      err_2 += dz2;
+      y1 += y_inc;
+    }
+  } else {
+    int err_1 = dy2 - n;
+    int err_2 = dx2 - n;
+    for (int i = 0; i < n; i++) {
+      if(HasObstacle(x1, y1, z1)){return false;}
+      if (err_1 > 0) {
+        y1 += y_inc;
+        err_1 -= dz2;
+      }
+      if (err_2 > 0) {
+        x1 += x_inc;
+        err_2 -= dz2;
+      }
+      err_1 += dy2;
+      err_2 += dx2;
+      z1 += z_inc;
+    }
+  }
   return true;
 }
 

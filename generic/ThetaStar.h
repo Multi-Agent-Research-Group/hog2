@@ -358,7 +358,7 @@ bool ThetaStar<state,action,environment,openList>::DoSingleSearchStep(std::vecto
         break;
       case kNotFound:
         {
-          if(currOpenNode.x==succ[x].x&&currOpenNode.y==succ[x].y){
+          if(currOpenNode.sameLoc(succ[x])){
             // This is a wait action
             openClosedList.AddOpenNode(succ[x],
                 env->GetStateHash(succ[x]),
@@ -394,9 +394,9 @@ std::pair<uint64_t,double> ThetaStar<state,action,environment,openList>::Compute
   openClosedList.Lookup(env->GetStateHash(p.data),pid);
   AStarOpenClosedData<state>& pp(openClosedList.Lookup(p.parentID));
   // Special cases for waiting actions
-  if(pp.data.x==c.x&&pp.data.y==c.y)return{pid,newg}; // parent of parent is same as self
-  if(p.data.x==c.x&&p.data.y==c.y)return{pid,newg}; // parent is same as self
-  if(p.data.x==pp.data.x&&p.data.y==pp.data.y)return{pid,newg}; // parent is same as self
+  if(pp.data.sameLoc(c))return{pid,newg}; // parent of parent is same as self
+  if(p.data.sameLoc(c))return{pid,newg}; // parent is same as self
+  if(p.data.sameLoc(pp.data))return{pid,newg}; // parent is same as self
 
   if(env->LineOfSight(pp.data,c)){
     if(verbose)std::cout << "  LOS " << pp.data << "-->" << c << "\n";
