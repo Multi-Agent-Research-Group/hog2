@@ -37,6 +37,8 @@
 #include "VelocityObstacle.h"
 #include "TemplateAStar.h"
 
+bool verbose(false);
+
 template<typename T, typename C>
 class custom_priority_queue : public std::priority_queue<T, std::vector<T>, C>
 {
@@ -54,9 +56,10 @@ class custom_priority_queue : public std::priority_queue<T, std::vector<T>, C>
     }
     virtual T popTop(){
       T val(this->top());
+      this->pop();
       while(toDelete.find(val->key()) != toDelete.end()){
-        this->pop();
         val=this->top();
+        this->pop();
       }
       return val;
     }
@@ -245,7 +248,7 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& root
 // Perform conflict check by moving forward in time at increments of the smallest time step
 // Test the efficiency of VO vs. time-vector approach
 void GetMDD(xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& root, float depth){
-  //std::cout << "MDD up to depth: " << depth << "\n";
+  if(verbose)std::cout << "MDD up to depth: " << depth << "\n";
   LimitedDFS(start,end,dag,root,depth,depth);
 }
 
@@ -338,12 +341,12 @@ bool jointDFS(MultiEdge const& s, float d, float term, std::vector<std::set<Node
     //std::cout << "successor  of " << s << "gets("<<*a<< "): " << output << "\n";
     successors.push_back(output);
   }
-  //for(int agent(0); agent<successors.size(); ++agent){
-    //std::cout << "Agent: " << agent << "\n\t";
-    //for(int succ(0); succ<successors[agent].size(); ++succ)
-      //std::cout << *successors[agent][succ].second << ",";
-    //std::cout << std::endl;
-  //}
+  if(verbose)for(int agent(0); agent<successors.size(); ++agent){
+    std::cout << "Agent joint successors: " << agent << "\n\t";
+    for(int succ(0); succ<successors[agent].size(); ++succ)
+      std::cout << *successors[agent][succ].second << ",";
+    std::cout << std::endl;
+  }
   std::vector<MultiEdge> crossProduct;
   generatePermutations(successors,crossProduct,0,MultiEdge());
   bool value(false);
@@ -420,7 +423,7 @@ struct ICTSNode{
     count++;
     sizes[agent]=size;
     maxdepth=max(maxdepth,Node::env->HCost(instance.first[agent],instance.second[agent])+sizes[agent]);
-    //std::cout << "agent " << agent << " GetMDD("<<(Node::env->HCost(instance.first[agent],instance.second[agent])+sizes[agent])<<")\n";
+    if(verbose)std::cout << "agent " << agent << " GetMDD("<<(Node::env->HCost(instance.first[agent],instance.second[agent])+sizes[agent])<<")\n";
     dag[agent].clear();
     replanned.push_back(agent);
     GetMDD(instance.first[agent],instance.second[agent],dag[agent],root,Node::env->HCost(instance.first[agent],instance.second[agent])+sizes[agent]);
@@ -436,9 +439,9 @@ struct ICTSNode{
     for(int i(0); i<instance.first.size(); ++i){
       replanned[i]=i;
       maxdepth=max(maxdepth,Node::env->HCost(instance.first[i],instance.second[i])+sizes[i]);
-      //std::cout << "agent " << i << " GetMDD("<<(Node::env->HCost(instance.first[i],instance.second[i])+sizes[i])<<")\n";
+      if(verbose)std::cout << "agent " << i << " GetMDD("<<(Node::env->HCost(instance.first[i],instance.second[i])+sizes[i])<<")\n";
       GetMDD(instance.first[i],instance.second[i],dag[i],root,Node::env->HCost(instance.first[i],instance.second[i])+sizes[i]);
-      //std::cout << i << ":\n" << root[i] << "\n";
+      if(verbose)std::cout << i << ":\n" << root[i] << "\n";
     }
   }
 
@@ -694,7 +697,7 @@ int main(int argc, char ** argv){
   {
     //std::cout << "N="<<n<<"\n";
     int numAgents(n);
-    //for(int t(0); t<100; ++t){
+    //for(int t(0); t<100; ++t)
     //checked.clear();
     //std::cout << "Trial #"<<t<<"\n";
     if(s.empty()){
@@ -780,18 +783,18 @@ int main(int argc, char ** argv){
       }
       solution.push_back(timePath);
     }
-    /*
-       std::cout << std::endl;
-       std::cout << "Initial solution:\n";
-       int ii(0);
-       for(auto const& p:solution){
-       std::cout << ii++ << "\n";
-       for(auto const& t: p){
-    // Print solution
-    std::cout << t.first << "," << t.second << "\n";
+    if(verbose){
+      std::cout << std::endl;
+      std::cout << "Initial solution:\n";
+      int ii(0);
+      for(auto const& p:solution){
+        std::cout << ii++ << "\n";
+        for(auto const& t: p){
+          // Print solution
+          std::cout << t.first << "," << t.second << "\n";
+        }
+      }
     }
-    }
-    */
 
     //double elapsed(timeout);
     // Start timing
@@ -803,7 +806,7 @@ int main(int argc, char ** argv){
     while(!detectIndependence(solution,group,groups)){
       std::unordered_map<int,Instance> G;
       std::unordered_map<int,std::vector<int>> Gid;
-      //std::cout << "There are " << groups.size() << " groups" << std::endl;
+      if(verbose)std::cout << "There are " << groups.size() << " groups" << std::endl;
       // Create groups
       int g(0);
       for(auto const& grp:groups){
@@ -816,10 +819,10 @@ int main(int argc, char ** argv){
       }
       for(int j(0); j<G.size(); ++j){
         auto g(G[j]);
-        //std::cout << "Group " << j <<":\n";
-        //for(int i(0); i<g.first.size(); ++i){
-        //std::cout << Gid[j][i] << ":" << g.first[i] << "-->" << g.second[i] << "\n";
-        //}
+        if(verbose)std::cout << "Group " << j <<":\n";
+        if(verbose)for(int i(0); i<g.first.size(); ++i){
+          std::cout << Gid[j][i] << ":" << g.first[i] << "-->" << g.second[i] << "\n";
+        }
         if(g.first.size()>1){
           std::vector<float> sizes(g.first.size());
           custom_priority_queue<ICTSNode*,ICTSNodePtrComp> q;
@@ -831,13 +834,14 @@ int main(int argc, char ** argv){
           std::vector<ICTSNode*> toDelete;
           while(q.size()){
             ICTSNode* parent(q.popTop());
-            //std::cout << "pop ";
-            //for(auto const& a: parent->sizes){
-            //std::cout << a << " ";
-            //}
-            //std::cout << "\n";
-            //q.pop();
-            //std::cout << "SIC: " << parent->SIC() << "\n";
+            if(verbose){
+              std::cout << "pop ";
+              for(auto const& a: parent->sizes){
+                std::cout << a << " ";
+              }
+              std::cout << "\n";
+              std::cout << "SIC: " << parent->SIC() << "\n";
+            }
             std::pair<int,int> conflicting;
             if(parent->isValid(answer,conflicting)){
               int i(0);
