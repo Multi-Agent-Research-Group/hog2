@@ -38,6 +38,7 @@
 #include "TemplateAStar.h"
 
 bool verbose(false);
+bool validate(true);
 
 template<typename T, typename C>
 class custom_priority_queue : public std::priority_queue<T, std::vector<T>, C>
@@ -505,7 +506,7 @@ struct ICTSNode{
     // Do a depth-first search; if the search terminates at a goal, its valid.
     answer.resize(sizes.size());
     if(jointDFS(root,maxdepth,answer,toDelete,increment) && checkAnswer(answer)){
-      //assert(checkAnswer(answer));
+      if(validate)assert(checkAnswer(answer));
       //std::cout << "Answer:\n";
       //for(int agent(0); agent<answer.size(); ++agent){
         //std::cout << agent << ":\n";
