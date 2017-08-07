@@ -32,10 +32,15 @@ inline double distance(double x1, double y1, double z1, double x2, double y2, do
   return distance(y1-y2,x1-x2,z1-z2);
 }
 
-// Get the heading from a to b
+// Get the heading from a to b (clockwise from north)
 template<unsigned steps360>
 inline unsigned heading(double x1, double y1, double x2, double y2){
-  return unsigned(round((M_PI/2.0-atan2(y2-y1,x2-x1))*(steps360/2)+steps360))%steps360;
+  return unsigned(round((M_PI/2.0-atan2(y2-y1,x2-x1))*(steps360/2/M_PI)+steps360))%steps360;
+}
+
+template<unsigned steps360>
+inline signed angle(double x1, double y1, double x2, double y2){
+  return signed(round(atan2(y2-y1,x2-x1)*(steps360/2/M_PI)));
 }
 
 // Get the non-directional difference in angles

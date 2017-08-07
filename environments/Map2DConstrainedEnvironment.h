@@ -20,10 +20,13 @@
 #include "TemplateAStar.h"
 
 struct xytLoc : xyLoc {
-	xytLoc(xyLoc loc, float time):xyLoc(loc), t(time) ,nc(-1){}
-	xytLoc(uint16_t _x, uint16_t _y, float time):xyLoc(_x,_y), t(time) ,nc(-1){}
-	xytLoc():xyLoc(),t(0),nc(-1){}
+	xytLoc(xyLoc loc, float time):xyLoc(loc), h(0), t(time) ,nc(-1){}
+	xytLoc(xyLoc loc, uint16_t _h, float time):xyLoc(loc), h(_h), t(time) ,nc(-1){}
+	xytLoc(uint16_t _x, uint16_t _y, float time):xyLoc(_x,_y), h(0), t(time) ,nc(-1){}
+	xytLoc(uint16_t _x, uint16_t _y, uint16_t _h, float time):xyLoc(_x,_y), h(_h), t(time) ,nc(-1){}
+	xytLoc():xyLoc(),h(0),t(0),nc(-1){}
 	float t;
+        uint16_t h; // Heading quantized to epsilon=1/(2**16-1)... 0=north max=north-epsilon
         int16_t nc; // Number of conflicts, for conflict avoidance table
         operator Vector2D()const{return Vector2D(x,y);}
         bool sameLoc(xytLoc const& other)const{return x==other.x&&y==other.y;}
@@ -45,7 +48,7 @@ static std::ostream& operator <<(std::ostream & out, const TemporalVector &loc)
 	
 static std::ostream& operator <<(std::ostream & out, const xytLoc &loc)
 {
-	out << "(" << loc.x << ", " << loc.y << ": " << loc.t << ")";
+	out << "(" << loc.x << ", " << loc.y << ", " << loc.h << ": " << loc.t << ")";
 	return out;
 }
 	
@@ -94,6 +97,9 @@ public:
         virtual Map* GetMap()const{return mapEnv->GetMap();}
         bool LineOfSight(const xytLoc &x, const xytLoc &y)const{return mapEnv->LineOfSight(x,y) && !ViolatesConstraint(x,y);}
         void SetIgnoreTime(bool i){ignoreTime=i;}
+        inline void SetMaxTurn(float val){maxTurnAzimuth=val*HDG_RESOLUTON;}
+        uint16_t maxTurnAzimuth=0;
+        static const float HDG_RESOLUTON;
 private:
         bool ignoreTime;
 	bool ViolatesConstraint(const xyLoc &from, const xyLoc &to, float time, float inc) const;

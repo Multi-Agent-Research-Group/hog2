@@ -50,9 +50,11 @@ void Grid3DConstrainedEnvironment::GetSuccessors(const xyztLoc &nodeID, std::vec
   for (unsigned int x = 0; x < n.size(); x++)
   {
     float inc(mapEnv->GetConnectedness()>0?(Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y)):1.0);
-    if (!ViolatesConstraint(nodeID, n[x], nodeID.t, inc))
-    {
-      xyztLoc newLoc(n[x],nodeID.t+inc);
+    xyztLoc newLoc(n[x],
+        Util::heading<USHRT_MAX>(nodeID.x,nodeID.y,n[x].x,n[x].y), // hdg
+        Util::angle<SHRT_MAX>(0.0,0.0,Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y),double(n[x].z-nodeID.z)), // pitch
+        nodeID.t+inc);
+    if (!ViolatesConstraint(nodeID,newLoc)){
       neighbors.push_back(newLoc);
     }else{
       //std::cout << n[x] << " violates\n";
@@ -69,21 +71,19 @@ void Grid3DConstrainedEnvironment::GetAllSuccessors(const xyztLoc &nodeID, std::
   for (unsigned int x = 0; x < n.size(); x++)
   {
     float inc(mapEnv->GetConnectedness()>5?(Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y)):1.0);
-    xyztLoc newLoc(n[x],nodeID.t+inc);
+    xyztLoc newLoc(n[x],
+        Util::heading<USHRT_MAX>(nodeID.x,nodeID.y,n[x].x,n[x].y), // hdg
+        Util::heading<SHRT_MAX>(0.0,0.0,Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y),double(n[x].z-nodeID.z)), // pitch
+        nodeID.t+inc);
     neighbors.push_back(newLoc);
   }
 }
 
 bool Grid3DConstrainedEnvironment::ViolatesConstraint(const xyztLoc &from, const xyztLoc &to) const{
   
-  /*for(unsigned int x = 0; x < constraints.size(); x++)
-  {
-    if(from.x==constraints[x].start_state.x && from.y==constraints[x].start_state.y &&
-        to.x==constraints[x].end_state.x && to.y==constraints[x].end_state.y)
-      return true;
-  }
-  return false;
-  */
+  // Check motion constraints
+  if(maxTurnAzimuth&&maxTurnAzimuth<abs(from.h-to.h)) return true;
+  if(maxPitch&&maxPitch<abs(from.p-to.p)) return true;
 
   Vector3D A(from);
   Vector3D VA(to);
@@ -123,7 +123,8 @@ bool Grid3DConstrainedEnvironment::ViolatesConstraint(const xyztLoc &from, const
 
 bool Grid3DConstrainedEnvironment::ViolatesConstraint(const xyzLoc &from, const xyzLoc &to, float time, float inc) const
 {
-  return ViolatesConstraint(xyztLoc(from,time),xyztLoc(to,time+inc));
+  assert(!"Not implemented");
+  return false;//ViolatesConstraint(xyztLoc(from,time),xyztLoc(to,time+inc));
 }
 
 void Grid3DConstrainedEnvironment::GetActions(const xyztLoc &nodeID, std::vector<t3DDirection> &actions) const
@@ -183,7 +184,7 @@ double Grid3DConstrainedEnvironment::HCost(const xyztLoc &node1, const xyztLoc &
 
 bool Grid3DConstrainedEnvironment::GoalTest(const xyztLoc &node, const xyztLoc &goal) const
 {
-	return (node.x == goal.x && node.y == goal.y && node.t >= goal.t);
+	return (node.x == goal.x && node.y == goal.y && node.z == goal.z && node.t >= goal.t);
 }
 
 
@@ -198,8 +199,10 @@ uint64_t Grid3DConstrainedEnvironment::GetStateHash(const xyztLoc &node) const
   h1 <<= 16;
   h1 |= node.v;
   uint64_t h2(*(uint32_t*)&node.t);
-  h2 <<=32;
-  h2 |= h2;
+  h2 <<= 16;
+  h2 |= node.h;
+  h2 <<= 16;
+  h2 |= node.p;
   return (h1 * 16777619) ^ h2;
 }
 
@@ -408,3 +411,5 @@ void Constraint<TemporalVector3D>::OpenGLDraw(MapInterface* map) const
 	//DrawSphere(xx, yy, zz, rad/2.0); // zz-l.t*2*rad
 }
 
+const float xyztLoc::HDG_RESOLUTON=65535.0/360.0;
+const float xyztLoc::PITCH_RESOLUTON=32767.0/90.0;

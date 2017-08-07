@@ -378,7 +378,7 @@ bool ThetaStar<state,action,environment,openList>::DoSingleSearchStep(std::vecto
                   weight*theHeuristic->HCost(succ[x], goal),
                   update.first);
               //openClosedList.Print();
-            }else{if(verbose)std::cout << "  Discarded (already seen)\n";}
+            }else{if(verbose)std::cout << "  Discarded (already seen "<<std::hex<<env->GetStateHash(succ[x])<<std::dec<<")\n";}
           }
         }
     }

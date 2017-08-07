@@ -7,6 +7,7 @@
 //
 
 #include "Map2DConstrainedEnvironment.h"
+#include "PositionalUtils.h"
 
 bool operator==(const xytLoc &l1, const xytLoc &l2)
 {
@@ -56,9 +57,10 @@ void Map2DConstrainedEnvironment::GetSuccessors(const xytLoc &nodeID, std::vecto
   for (unsigned int x = 0; x < n.size(); x++)
   {
     float inc(mapEnv->GetConnectedness()>5?(Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y)):1.0);
-    if (!ViolatesConstraint(nodeID, n[x], nodeID.t, inc))
-    {
-      xytLoc newLoc(n[x],nodeID.t+inc);
+    xytLoc newLoc(n[x],
+        (uint16_t)Util::heading<USHRT_MAX>(nodeID.x,nodeID.y,n[x].x,n[x].y), // hdg
+        nodeID.t+inc);
+    if (!ViolatesConstraint(nodeID, newLoc)){
       neighbors.push_back(newLoc);
     }else{
       //std::cout << n[x] << " violates\n";
@@ -75,21 +77,17 @@ void Map2DConstrainedEnvironment::GetAllSuccessors(const xytLoc &nodeID, std::ve
   for (unsigned int x = 0; x < n.size(); x++)
   {
     float inc(mapEnv->GetConnectedness()>5?(Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y)):1.0);
-    xytLoc newLoc(n[x],nodeID.t+inc);
+    xytLoc newLoc(n[x],
+        (uint16_t)Util::heading<USHRT_MAX>(nodeID.x,nodeID.y,n[x].x,n[x].y), // hdg
+        nodeID.t+inc);
     neighbors.push_back(newLoc);
   }
 }
 
 bool Map2DConstrainedEnvironment::ViolatesConstraint(const xytLoc &from, const xytLoc &to) const{
   
-  /*for(unsigned int x = 0; x < constraints.size(); x++)
-  {
-    if(from.x==constraints[x].start_state.x && from.y==constraints[x].start_state.y &&
-        to.x==constraints[x].end_state.x && to.y==constraints[x].end_state.y)
-      return true;
-  }
-  return false;
-  */
+  // Check motion constraints first
+  if(maxTurnAzimuth&&fless(maxTurnAzimuth,fabs(from.h-to.h))) return false;
 
   Vector2D A(from);
   Vector2D VA(to);
@@ -129,7 +127,9 @@ bool Map2DConstrainedEnvironment::ViolatesConstraint(const xytLoc &from, const x
 
 bool Map2DConstrainedEnvironment::ViolatesConstraint(const xyLoc &from, const xyLoc &to, float time, float inc) const
 {
-  return ViolatesConstraint(xytLoc(from,time),xytLoc(to,time+inc));
+  assert(!"Not implemented");
+  //return ViolatesConstraint(xytLoc(from,time),xytLoc(to,time+inc));
+  return false;
 }
 
 void Map2DConstrainedEnvironment::GetActions(const xytLoc &nodeID, std::vector<tDirection> &actions) const
@@ -197,8 +197,10 @@ uint64_t Map2DConstrainedEnvironment::GetStateHash(const xytLoc &node) const
 {
   uint64_t hash;
   hash = node.x;
-  hash <<= 16;
+  hash <<= 11;
   hash |= node.y;
+  hash <<= 10;
+  hash |= node.h;
   if(!ignoreTime){
     hash <<= 32;
     hash |= *(uint32_t*)&node.t;
@@ -427,3 +429,4 @@ void Constraint<TemporalVector>::OpenGLDraw(MapInterface* map) const
 	//DrawSphere(xx, yy, zz, rad/2.0); // zz-l.t*2*rad
 }
 
+const float Map2DConstrainedEnvironment::HDG_RESOLUTON=1023.0/360.;

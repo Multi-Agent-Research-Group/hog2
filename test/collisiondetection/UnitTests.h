@@ -9,6 +9,7 @@
 #include "Grid3DConstrainedEnvironment.h"
 #include "AnyAngleSipp.h"
 #include "ThetaStar.h"
+#include "PositionalUtils.h"
 //#include "EPEThetaStar.h"
 //#include "PEThetaStar.h"
 
@@ -494,37 +495,6 @@ TEST(Quadratic, DetectCollisionWhenParallel){
   ASSERT_TRUE(collisionImminent(A,VA,aradius,1.0,8.0,B,VB*2.2,bradius,0.0,6.0));
 }
 
-TEST(Quadratic, WaitingCollision){
-  Vector2D A(5,0);
-  Vector2D VA(-1,1);
-  VA.Normalize();
-  double aradius(0.25);
-  Vector2D B(3,0);
-  Vector2D VB(3,1);
-  VB.Normalize();
-  double bradius(.25);
-
-  // SCENARIO A is "fatter" than B or vice versa
-  // radius of one is too fat to pass the other in parallel
-  //==========
-  //    A
-  //    |
-  //    v
-  //    ^
-  //    |
-  //    B
-  //==========
-
-  // No collision occurs here
-
-  // Suppose edges cross in the middle at some point.
-  ASSERT_TRUE(collisionImminent(A,VA,aradius,0.0,1.42,B,VB,bradius,0.0,3.16228));
-  VB={0,1};
-  ASSERT_TRUE(collisionImminent(A,VA,aradius,0.0,1.42,B,VB,bradius,0.0,3.16228));
-  VB={1,0};
-  ASSERT_TRUE(collisionImminent(A,VA,aradius,0.0,1.42,B,VB,bradius,0.0,3.16228));
-}
-
 TEST(Quadratic, DetectCollisionWhenHeadOn){
   Vector2D A(3,5);
   Vector2D VA(0,-1);
@@ -922,18 +892,6 @@ TEST(Theta1, TestAnomaly){
   for(int i(1);i<solution.size(); ++i){
     ASSERT_TRUE(env.LineOfSight(solution[i-1],solution[i]));
   }
-  std::cout << "with obstacle" << std::endl;
-  env.AddConstraint(Constraint<TemporalVector>({5.47308, 0.91218, 0.534187},{5.04052, 0.840086, 0.972719}));
-  env.AddConstraint(Constraint<TemporalVector>({5.75685,0.121576, 0.271853},{5.34873, 0.325637, 0.728147}));
-  env.AddConstraint(Constraint<TemporalVector>({3.97549, 0.325165, 1.02826},{4.19533, 0.398442, 1.25998}));
-  tstar.GetPath(&env,{5,0,0},{7,3,0},solution);
-  for(auto const& ss: solution){
-    std::cout << ss.x << "," << ss.y << "\n";
-  }
-  ASSERT_TRUE(solution.size()>1);
-  for(int i(1);i<solution.size(); ++i){
-    ASSERT_TRUE(env.LineOfSight(solution[i-1],solution[i]));
-  }
   std::cout << std::endl;
 }
 
@@ -1058,6 +1016,27 @@ TEST(Theta1, TestDodging){
   std::cout << std::endl;
 }
 
+TEST(Theta, TestMotionConstrained3D){
+  Map3D map(8,8,8);
+  Grid3DEnvironment menv(&map);
+  Grid3DConstrainedEnvironment env(&menv);
+  ThetaStar<xyztLoc,t3DDirection,Grid3DConstrainedEnvironment> tstar;
+  tstar.SetHeuristic(new StraightLineHeuristic3D());
+  tstar.SetVerbose(true);
+  std::vector<xyztLoc> solution;
+  env.SetMaxTurnAzimuth(45.0); //(only 45 deg turns allowed)
+  env.SetMaxPitch(30.0); //(only 30 deg pitch change allowed)
+  tstar.GetPath(&env,{4,4,0,90.0,0.0,0},{4,4,2,270.0,0.0,0},solution); // Turn around
+  for(auto const& ss: solution){
+    std::cout << ss.x << "," << ss.y << "," << ss.z << "\n";
+  }
+  ASSERT_TRUE(solution.size()>1);
+  for(int i(1);i<solution.size(); ++i){
+    ASSERT_TRUE(env.LineOfSight(solution[i-1],solution[i]));
+  }
+  std::cout << std::endl;
+}
+
 TEST(Theta, Test3D){
   Map3D map(8,8,8);
   Grid3DEnvironment menv(&map);
@@ -1070,12 +1049,14 @@ TEST(Theta, Test3D){
   env.AddConstraint(Constraint<TemporalVector3D>({7,2,0,0},{1,2,0,6}));
   tstar.GetPath(&env,{1,1,0,0},{6,1,0,0},solution);
   for(auto const& ss: solution){
-    std::cout << ss.x << "," << ss.y << "\n";
+    std::cout << ss.x << "," << ss.y << "," << ss.z << "\n";
   }
   ASSERT_TRUE(solution.size()>1);
   for(int i(1);i<solution.size(); ++i){
     ASSERT_TRUE(env.LineOfSight(solution[i-1],solution[i]));
   }
+  std::cout << Util::heading<360>(0,0,0,-1) << "\n";
+  std::cout << Util::angle<360>(0,0,0,-1) << "\n";
   std::cout << std::endl;
 }
 

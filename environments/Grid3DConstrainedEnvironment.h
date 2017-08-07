@@ -19,14 +19,21 @@
 #include "TemplateAStar.h"
 
 struct xyztLoc : xyzLoc {
-	xyztLoc(xyzLoc loc, float time):xyzLoc(loc), t(time) ,nc(-1){}
-	xyztLoc(uint16_t _x, uint16_t _y, uint16_t _z, float time):xyzLoc(_x,_y,_z), t(time) ,nc(-1){}
-	xyztLoc(uint16_t _x, uint16_t _y, uint16_t _z, uint16_t _v, float time):xyzLoc(_x,_y,_z,_v), t(time) ,nc(-1){}
-	xyztLoc():xyzLoc(),t(0),nc(-1){}
+	xyztLoc(xyzLoc loc, float time):xyzLoc(loc), h(0), p(0), t(time), nc(-1){}
+	xyztLoc(xyzLoc loc, uint16_t _h, int16_t _p, float time):xyzLoc(loc), h(_h), p(_p), t(time), nc(-1){}
+	xyztLoc(uint16_t _x, uint16_t _y, uint16_t _z, float time):xyzLoc(_x,_y,_z), h(0), p(0), t(time) ,nc(-1){}
+	xyztLoc(uint16_t _x, uint16_t _y, uint16_t _z, uint16_t _h, int16_t _p, float time):xyzLoc(_x,_y,_z), h(_h), p(_p), t(time) ,nc(-1){}
+	xyztLoc(uint16_t _x, uint16_t _y, uint16_t _z, double _h, double _p, float time):xyzLoc(_x,_y,_z), h(_h*xyztLoc::HDG_RESOLUTON), p(_p*xyztLoc::PITCH_RESOLUTON), t(time) ,nc(-1){}
+	xyztLoc(uint16_t _x, uint16_t _y, uint16_t _z, uint16_t _v, uint16_t _h, int16_t _p, float time):xyzLoc(_x,_y,_z,_v), h(_h), p(_p), t(time) ,nc(-1){}
+	xyztLoc():xyzLoc(),h(0),p(0),t(0),nc(-1){}
         int16_t nc; // Number of conflicts, for conflict avoidance table
+        uint16_t h; // Heading
+        int16_t p; // Pitch
 	float t;
         operator Vector3D()const{return Vector3D(x,y,z);}
         bool sameLoc(xyztLoc const& other)const{return x==other.x&&y==other.y&&z==other.z;}
+        static const float HDG_RESOLUTON;
+        static const float PITCH_RESOLUTON;
 };
 
 struct TemporalVector3D : Vector3D {
@@ -39,13 +46,13 @@ struct TemporalVector3D : Vector3D {
 
 static std::ostream& operator <<(std::ostream & out, const TemporalVector3D &loc)
 {
-	out << "(" << loc.x << ", " << loc.y << ": " << loc.t << ")";
+	out << "<" << loc.x << ", " << loc.y << ", " << loc.z << ": " << loc.t << ">";
 	return out;
 }
 	
 static std::ostream& operator <<(std::ostream & out, const xyztLoc &loc)
 {
-	out << "(" << loc.x << ", " << loc.y << ": " << loc.t << ")";
+	out << "(" << loc.x << "," << loc.y << "," << loc.z << "," << loc.h/xyztLoc::HDG_RESOLUTON << "," << loc.p/xyztLoc::PITCH_RESOLUTON << ": " << loc.t << ")";
 	return out;
 }
 	
@@ -93,6 +100,11 @@ public:
         virtual Map3D* GetMap()const{return mapEnv->GetMap();}
         bool LineOfSight(const xyztLoc &x, const xyztLoc &y)const{return mapEnv->LineOfSight(x,y) && !ViolatesConstraint(x,y);}
         void SetIgnoreTime(bool i){ignoreTime=i;}
+
+        void SetMaxTurnAzimuth(float val){maxTurnAzimuth=val*xyztLoc::HDG_RESOLUTON;}
+        void SetMaxPitch(float val){maxPitch=val*xyztLoc::PITCH_RESOLUTON;}
+        uint16_t maxTurnAzimuth=0; // 0 means "turn off"
+        int16_t maxPitch=0;
 private:
         bool ignoreTime;
 	bool ViolatesConstraint(const xyzLoc &from, const xyzLoc &to, float time, float inc) const;
