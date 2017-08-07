@@ -10,6 +10,7 @@
 
 #include <sstream>
 
+extern double agentRadius;
 bool greedyCT = false; // use greedy heuristic at the high-level
 bool ECBSheuristic = false; // use ECBS heuristic at low-level
 bool randomalg = false; // Randomize tiebreaking
@@ -130,6 +131,7 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-seed", "-seed <number>", "Seed for random number generator (defaults to clock)");
 	InstallCommandLineHandler(MyCLHandler, "-nobypass", "-nobypass", "Turn off bypass option");
 	InstallCommandLineHandler(MyCLHandler, "-record", "-record", "Record frames");
+	InstallCommandLineHandler(MyCLHandler, "-radius", "-radius", "agent radius (in grid units)");
 	InstallCommandLineHandler(MyCLHandler, "-cutoffs", "-cutoffs <n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>", "Number of conflicts to tolerate before switching to less constrained layer of environment. Environments are ordered as: CardinalGrid,OctileGrid,Cardinal3D,Octile3D,H4,H8,Simple,Cardinal,Octile,48Highway");
 	InstallCommandLineHandler(MyCLHandler, "-weights", "-weights <n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>", "Weight to apply to the low-level search for each environment entered as: CardinalGrid,OctileGrid,Cardinal3D,Octile3D,H4,H8,Simple,Cardinal,Octile,48Highway");
 	InstallCommandLineHandler(MyCLHandler, "-probfile", "-probfile", "Load MAPF instance from file");
@@ -194,6 +196,7 @@ void InitHeadless(){
   //if(verbose)std::cout << "Added " << w4->name() << " @" << cutoffs[0] << " conflicts\n";
   // Cardinal Grid w/ Waiting
   environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w5->name(),new Map2DConstrainedEnvironment(w5),sh,cutoffs[0],weights[0]));
+  
   if(verbose)std::cout << "Added " << w5->name() << " @" << cutoffs[0] << " conflicts\n";
   /*
   // Octile Grid
@@ -222,6 +225,7 @@ void InitHeadless(){
   //}
 
   ace=environs.rbegin()->environment;
+  //ace->SetAgentRadius(agentRadius);
 
   group = new CBSGroup<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS>,ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>>>>(environs,verbose); // Changed to 10,000 expansions from number of conflicts in the tree
   CBSGroup<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS>,ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>>>>::greedyCT=greedyCT;
@@ -423,6 +427,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 	{
 		verbose = true;
 		return 1;
+	}
+	if(strcmp(argument[0], "-radius") == 0)
+	{
+		agentRadius = atof(argument[1]);
+		return 2;
 	}
 	if(strcmp(argument[0], "-record") == 0)
 	{

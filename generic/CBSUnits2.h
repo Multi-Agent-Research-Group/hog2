@@ -37,6 +37,7 @@ struct CompareLowGCost;
 template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
 class CBSUnit;
 
+extern double agentRadius;
 
 template <class state>
 struct CompareLowGCost {
@@ -477,8 +478,6 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Exp
 
     // Pare down the collision area:
     if(true){
-      static double aradius(0.25);
-      static double bradius(0.25);
       Vector2D A(c1.c.start_state);
       Vector2D VA(c1.c.end_state);
       VA-=A; // Direction vector
@@ -488,7 +487,7 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Exp
       VB-=B; // Direction vector
       VB.Normalize();
       if(verbose)std::cout << "Collision Interval " << c1.unit1 << ": " << c1.c.start() << "-->" << c1.c.end() <<  " and unit " << c2.unit1 << ": "<< c2.c.start() << "-->" << c2.c.end() << std::endl;
-      auto ivl(getCollisionInterval(A,VA,aradius,c1.c.start_state.t,c1.c.end_state.t,B,VB,bradius,c2.c.start_state.t,c2.c.end_state.t));
+      auto ivl(getCollisionInterval(A,VA,agentRadius,c1.c.start_state.t,c1.c.end_state.t,B,VB,agentRadius,c2.c.start_state.t,c2.c.end_state.t));
       if(verbose)std::cout << "A interval " << c1.c.start_state.t << " -- " << c1.c.end_state.t << std::endl;
      if(verbose) std::cout << "B interval " << c2.c.start_state.t << " -- " << c2.c.end_state.t << std::endl;
      if(verbose) std::cout << "interval " << ivl.first << " -- " << ivl.second << std::endl;
@@ -730,8 +729,6 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::pro
       }
     }
     if(verify){
-      static double aradius(0.25);
-      static double bradius(0.25);
       bool valid(true);
       for(unsigned int y = x+1; y < tree[bestNode].paths.size(); y++){
         for(unsigned i(1); i<tree[bestNode].paths[x].size(); ++i){
@@ -745,7 +742,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::pro
             VB-=B; // Direction vector
             VB.Normalize();
 
-            if(collisionImminent(A,VA,aradius,tree[bestNode].paths[x][i-1].t,tree[bestNode].paths[x][i].t,B,VB,bradius,tree[bestNode].paths[y][j-1].t,tree[bestNode].paths[y][j].t)){
+            if(collisionImminent(A,VA,agentRadius,tree[bestNode].paths[x][i-1].t,tree[bestNode].paths[x][i].t,B,VB,agentRadius,tree[bestNode].paths[y][j-1].t,tree[bestNode].paths[y][j].t)){
               valid=false;
               std::cout << "ERROR: Solution invalid; collision at: " << tree[bestNode].paths[x][i-1] << "-->" << tree[bestNode].paths[x][i] << ", " << tree[bestNode].paths[y][j-1] << "-->" << tree[bestNode].paths[y][j] << std::endl;
             }

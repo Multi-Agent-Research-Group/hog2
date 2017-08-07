@@ -19,6 +19,8 @@
 #include "PositionalUtils.h"
 #include "TemplateAStar.h"
 
+extern double agentRadius;
+
 struct xytLoc : xyLoc {
 	xytLoc(xyLoc loc, float time):xyLoc(loc), h(0), t(time) ,nc(-1){}
 	xytLoc(xyLoc loc, uint16_t _h, float time):xyLoc(loc), h(_h), t(time) ,nc(-1){}

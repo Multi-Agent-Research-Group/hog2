@@ -9,6 +9,7 @@
 #include "Map2DConstrainedEnvironment.h"
 #include "PositionalUtils.h"
 
+double agentRadius(.5);
 bool operator==(const xytLoc &l1, const xytLoc &l2)
 {
 	return fequal(l1.t,l2.t) && (l1.x == l2.x) && (l1.y==l2.y);
@@ -93,8 +94,6 @@ bool Map2DConstrainedEnvironment::ViolatesConstraint(const xytLoc &from, const x
   Vector2D VA(to);
   VA-=A; // Direction vector
   VA.Normalize();
-  static double aradius(0.25);
-  static double bradius(0.25);
   // TODO: Put constraints into a kD tree so that we only need to compare vs relevant constraints
   for(unsigned int x = 0; x < constraints.size(); x++)
   {
@@ -102,7 +101,7 @@ bool Map2DConstrainedEnvironment::ViolatesConstraint(const xytLoc &from, const x
     Vector2D VB(constraints[x].end_state);
     VB-=B; // Direction vector
     VB.Normalize();
-    if(collisionImminent(A,VA,aradius,from.t,to.t,B,VB,bradius,constraints[x].start_state.t,constraints[x].end_state.t)){
+    if(collisionImminent(A,VA,agentRadius,from.t,to.t,B,VB,agentRadius,constraints[x].start_state.t,constraints[x].end_state.t)){
       //std::cout << from << " --> " << to << " collides with " << vconstraints[x].start_state << "-->" << vconstraints[x].end_state << "\n";
       return true;
     }else{
@@ -115,7 +114,7 @@ bool Map2DConstrainedEnvironment::ViolatesConstraint(const xytLoc &from, const x
     Vector2D VB(vconstraints[x].end_state);
     VB-=B; // Direction vector
     VB.Normalize();
-    if(collisionImminent(A,VA,aradius,from.t,to.t,B,VB,bradius,vconstraints[x].start_state.t,vconstraints[x].end_state.t)){
+    if(collisionImminent(A,VA,agentRadius,from.t,to.t,B,VB,agentRadius,vconstraints[x].start_state.t,vconstraints[x].end_state.t)){
       //std::cout << from << " --> " << to << " collides with " << vconstraints[x].start_state << "-->" << vconstraints[x].end_state << "\n";
       return true;
     }else{
@@ -294,13 +293,11 @@ bool Constraint<xytLoc>::ConflictsWith(const xytLoc &state) const
   Vector2D A(state);
   Vector2D VA(0,0);
   //VA.Normalize();
-  static double aradius(0.25);
-  static double bradius(0.25);
   Vector2D B(start_state);
   Vector2D VB(end_state);
   VB-=B; // Direction vector
   //VB.Normalize();
-  if(collisionImminent(A,VA,aradius,state.t,state.t+1.0,B,VB,bradius,start_state.t,end_state.t)){
+  if(collisionImminent(A,VA,agentRadius,state.t,state.t+1.0,B,VB,agentRadius,start_state.t,end_state.t)){
     return true;
   }*/
   return false; // There is really no such thing as a vertex conflict in continuous time domains.
@@ -314,13 +311,11 @@ bool Constraint<xytLoc>::ConflictsWith(const xytLoc &from, const xytLoc &to) con
   Vector2D VA(to);
   VA-=A; // Direction vector
   VA.Normalize();
-  static double aradius(0.25);
-  static double bradius(0.25);
   Vector2D B(start_state);
   Vector2D VB(end_state);
   VB-=B; // Direction vector
   VB.Normalize();
-  if(collisionImminent(A,VA,aradius,from.t,to.t,B,VB,bradius,start_state.t,end_state.t)){
+  if(collisionImminent(A,VA,agentRadius,from.t,to.t,B,VB,agentRadius,start_state.t,end_state.t)){
     return true;
   }
   return false;
@@ -354,13 +349,11 @@ bool Constraint<TemporalVector>::ConflictsWith(const TemporalVector &state) cons
   Vector2D A(state);
   Vector2D VA(0,0);
   //VA.Normalize();
-  static double aradius(0.25);
-  static double bradius(0.25);
   Vector2D B(start_state);
   Vector2D VB(end_state);
   VB-=B; // Direction vector
   //VB.Normalize();
-  if(collisionImminent(A,VA,aradius,state.t,state.t+1.0,B,VB,bradius,start_state.t,end_state.t)){
+  if(collisionImminent(A,VA,agentRadius,state.t,state.t+1.0,B,VB,agentRadius,start_state.t,end_state.t)){
     return true;
   }*/
   return false; // There is really no such thing as a vertex conflict in continuous time domains.
@@ -374,13 +367,11 @@ bool Constraint<TemporalVector>::ConflictsWith(const TemporalVector &from, const
   Vector2D VA(to);
   VA-=A; // Direction vector
   VA.Normalize();
-  static double aradius(0.25);
-  static double bradius(0.25);
   Vector2D B(start_state);
   Vector2D VB(end_state);
   VB-=B; // Direction vector
   VB.Normalize();
-  if(collisionImminent(A,VA,aradius,from.t,to.t,B,VB,bradius,start_state.t,end_state.t)){
+  if(collisionImminent(A,VA,agentRadius,from.t,to.t,B,VB,agentRadius,start_state.t,end_state.t)){
     return true;
   }
   return false;
