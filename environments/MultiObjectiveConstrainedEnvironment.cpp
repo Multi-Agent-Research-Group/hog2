@@ -1,0 +1,283 @@
+//
+//  MultiObjectiveConstrainedEnvironment.cpp
+//  hog2 glut
+//
+//  Created by Nathan Sturtevant on 8/3/12.
+//  Copyright (c) 2012 University of Denver. All rights reserved.
+//
+
+#include "MultiObjectiveConstrainedEnvironment.h"
+#include "PositionalUtils.h"
+
+MultiObjectiveConstrainedEnvironment::MultiObjectiveConstrainedEnvironment(Map *m):ignoreTime(false)
+{
+	mapEnv = new MultiObjectiveEnvironment(m);
+	mapEnv->SetFourConnected();
+}
+
+MultiObjectiveConstrainedEnvironment::MultiObjectiveConstrainedEnvironment(MultiObjectiveEnvironment *m):ignoreTime(false)
+{
+	mapEnv = m;
+}
+
+/*void MultiObjectiveConstrainedEnvironment::AddConstraint(xytLoc loc)
+{
+	AddConstraint(loc, kTeleport);
+}*/
+
+void MultiObjectiveConstrainedEnvironment::AddConstraint(xytLoc const& loc, tDirection dir)
+{
+        xytLoc tmp(loc);
+        ApplyAction(tmp,dir);
+	constraints.emplace_back(loc,tmp);
+}
+
+void MultiObjectiveConstrainedEnvironment::ClearConstraints()
+{
+	constraints.resize(0);
+	vconstraints.resize(0);
+}
+
+bool MultiObjectiveConstrainedEnvironment::GetNextSuccessor(const xytLoc &currOpenNode, const xytLoc &goal, xytLoc &next, double &currHCost, uint64_t &special, bool &validMove){
+  return mapEnv->GetNextSuccessor(currOpenNode,goal,next,currHCost,special,validMove);
+}
+  
+
+void MultiObjectiveConstrainedEnvironment::GetSuccessors(const xytLoc &nodeID, std::vector<xytLoc> &neighbors) const
+{
+  std::vector<xyLoc> n;
+  mapEnv->GetSuccessors(nodeID, n);
+
+  // TODO: remove illegal successors
+  for (unsigned int x = 0; x < n.size(); x++)
+  {
+    float inc(mapEnv->GetConnectedness()>5?(Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y)):1.0);
+    xytLoc newLoc(n[x],
+        (uint16_t)Util::heading<USHRT_MAX>(nodeID.x,nodeID.y,n[x].x,n[x].y), // hdg
+        nodeID.t+inc);
+    if (!ViolatesConstraint(nodeID, newLoc)){
+      neighbors.push_back(newLoc);
+    }else{
+      //std::cout << n[x] << " violates\n";
+    }
+  }
+}
+
+void MultiObjectiveConstrainedEnvironment::GetAllSuccessors(const xytLoc &nodeID, std::vector<xytLoc> &neighbors) const
+{
+  std::vector<xyLoc> n;
+  mapEnv->GetSuccessors(nodeID, n);
+
+  // TODO: remove illegal successors
+  for (unsigned int x = 0; x < n.size(); x++)
+  {
+    float inc(mapEnv->GetConnectedness()>5?(Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y)):1.0);
+    xytLoc newLoc(n[x],
+        (uint16_t)Util::heading<USHRT_MAX>(nodeID.x,nodeID.y,n[x].x,n[x].y), // hdg
+        nodeID.t+inc);
+    neighbors.push_back(newLoc);
+  }
+}
+
+bool MultiObjectiveConstrainedEnvironment::ViolatesConstraint(const xytLoc &from, const xytLoc &to) const{
+  
+  // Check motion constraints first
+  if(maxTurnAzimuth&&fless(maxTurnAzimuth,fabs(from.h-to.h))) return false;
+
+  Vector2D A(from);
+  Vector2D VA(to);
+  VA-=A; // Direction vector
+  VA.Normalize();
+  // TODO: Put constraints into a kD tree so that we only need to compare vs relevant constraints
+  for(unsigned int x = 0; x < constraints.size(); x++)
+  {
+    Vector2D B(constraints[x].start_state);
+    Vector2D VB(constraints[x].end_state);
+    VB-=B; // Direction vector
+    VB.Normalize();
+    if(collisionImminent(A,VA,agentRadius,from.t,to.t,B,VB,agentRadius,constraints[x].start_state.t,constraints[x].end_state.t)){
+      //std::cout << from << " --> " << to << " collides with " << vconstraints[x].start_state << "-->" << vconstraints[x].end_state << "\n";
+      return true;
+    }else{
+      //std::cout << from << " --> " << to << " does not collide with " << vconstraints[x].start_state << "-->" << vconstraints[x].end_state << "\n";
+    }
+  }
+  for(unsigned int x = 0; x < vconstraints.size(); x++)
+  {
+    Vector2D B(vconstraints[x].start_state);
+    Vector2D VB(vconstraints[x].end_state);
+    VB-=B; // Direction vector
+    VB.Normalize();
+    if(collisionImminent(A,VA,agentRadius,from.t,to.t,B,VB,agentRadius,vconstraints[x].start_state.t,vconstraints[x].end_state.t)){
+      //std::cout << from << " --> " << to << " collides with " << vconstraints[x].start_state << "-->" << vconstraints[x].end_state << "\n";
+      return true;
+    }else{
+      //std::cout << from << " --> " << to << " does not collide with " << vconstraints[x].start_state << "-->" << vconstraints[x].end_state << "\n";
+    }
+  }
+  return false;
+}
+
+bool MultiObjectiveConstrainedEnvironment::ViolatesConstraint(const xyLoc &from, const xyLoc &to, float time, float inc) const
+{
+  assert(!"Not implemented");
+  //return ViolatesConstraint(xytLoc(from,time),xytLoc(to,time+inc));
+  return false;
+}
+
+void MultiObjectiveConstrainedEnvironment::GetActions(const xytLoc &nodeID, std::vector<tDirection> &actions) const
+{
+	mapEnv->GetActions(nodeID, actions);
+
+	// TODO: remove illegal actions
+}
+
+tDirection MultiObjectiveConstrainedEnvironment::GetAction(const xytLoc &s1, const xytLoc &s2) const
+{
+	return mapEnv->GetAction(s1, s2);
+}
+
+void MultiObjectiveConstrainedEnvironment::ApplyAction(xytLoc &s, tDirection a) const
+{
+	mapEnv->ApplyAction(s, a);
+	s.t+=1;
+}
+
+void MultiObjectiveConstrainedEnvironment::UndoAction(xytLoc &s, tDirection a) const
+{
+	mapEnv->UndoAction(s, a);
+	s.t-=1;
+}
+
+void MultiObjectiveConstrainedEnvironment::AddConstraint(Constraint<xytLoc> const& c)
+{
+	constraints.push_back(c);
+}
+
+void MultiObjectiveConstrainedEnvironment::AddConstraint(Constraint<TemporalVector> const& c)
+{
+	vconstraints.push_back(c);
+}
+
+void MultiObjectiveConstrainedEnvironment::GetReverseActions(const xytLoc &nodeID, std::vector<tDirection> &actions) const
+{
+	// Get the action information from the hidden env
+	//this->mapEnv->GetReverseActions(nodeID, actions);
+}
+bool MultiObjectiveConstrainedEnvironment::InvertAction(tDirection &a) const
+{
+	return mapEnv->InvertAction(a);
+}
+
+
+/** Heuristic value between two arbitrary nodes. **/
+double MultiObjectiveConstrainedEnvironment::HCost(const xytLoc &node1, const xytLoc &node2) const
+{
+        return mapEnv->HCost(node1, node2);
+	double res1 = mapEnv->HCost(node1, node2);
+	double res2 = (node2.t>node1.t)?(node2.t-node1.t):0;
+	//std::cout << "h(" << node1 << ", " << node2 << ") = " << res1 << " " << res2 << std::endl;
+	return max(res1, res2);
+}
+
+bool MultiObjectiveConstrainedEnvironment::GoalTest(const xytLoc &node, const xytLoc &goal) const
+{
+	return (node.x == goal.x && node.y == goal.y && node.t >= goal.t);
+}
+
+
+uint64_t MultiObjectiveConstrainedEnvironment::GetStateHash(const xytLoc &node) const
+{
+  uint64_t hash;
+  hash = node.x;
+  hash <<= 11;
+  hash |= node.y;
+  hash <<= 10;
+  hash |= node.h;
+  if(!ignoreTime){
+    hash <<= 32;
+    hash |= *(uint32_t*)&node.t;
+    //std::cout << "time to hash" << (*(uint32_t*)&node.t) << "\n";
+  }
+  return hash;
+}
+
+void MultiObjectiveConstrainedEnvironment::GetStateFromHash(uint64_t hash, xytLoc &s) const
+{
+  if(!ignoreTime){
+    uint32_t tmp=(hash&(0x100000000-1));
+    //std::cout << "time from hash" << (hash&(0x100000000-1)) << "\n";
+    s.t=*(float*)&tmp;
+    s.y=(hash>>32)&(0x10000-1);
+    s.x=(hash>>48)&(0x10000-1);
+  }else{
+    s.y=(hash)&(0x10000-1);
+    s.x=(hash>>16)&(0x10000-1);
+  }
+}
+
+uint64_t MultiObjectiveConstrainedEnvironment::GetActionHash(tDirection act) const
+{
+	return act;
+}
+
+
+void MultiObjectiveConstrainedEnvironment::OpenGLDraw() const
+{
+	mapEnv->OpenGLDraw();
+}
+
+void MultiObjectiveConstrainedEnvironment::OpenGLDraw(const xytLoc& s, const xytLoc& e, float perc) const
+{
+  GLfloat r, g, b, t;
+  GetColor(r, g, b, t);
+  Map *map = mapEnv->GetMap();
+  GLdouble xx, yy, zz, rad;
+  map->GetOpenGLCoord((1-perc)*s.x+perc*e.x, (1-perc)*s.y+perc*e.y, xx, yy, zz, rad);
+  glColor4f(r, g, b, t);
+  DrawSphere(xx, yy, zz, rad/2.0); // zz-s.t*2*rad
+}
+
+void MultiObjectiveConstrainedEnvironment::OpenGLDraw(const xytLoc& l) const
+{
+  GLfloat r, g, b, t;
+  GetColor(r, g, b, t);
+  Map *map = mapEnv->GetMap();
+  GLdouble xx, yy, zz, rad;
+  map->GetOpenGLCoord(l.x, l.y, xx, yy, zz, rad);
+  glColor4f(r, g, b, t);
+  DrawSphere(xx, yy, zz-l.t*rad, rad/2.0); // zz-l.t*2*rad
+}
+
+void MultiObjectiveConstrainedEnvironment::OpenGLDraw(const xytLoc&, const tDirection&) const
+{
+       std::cout << "Draw move\n";
+}
+
+void MultiObjectiveConstrainedEnvironment::GLDrawLine(const xytLoc &x, const xytLoc &y) const
+{
+	GLdouble xx, yy, zz, rad;
+	Map *map = mapEnv->GetMap();
+	map->GetOpenGLCoord(x.x, x.y, xx, yy, zz, rad);
+	
+	GLfloat r, g, b, t;
+	GetColor(r, g, b, t);
+	glColor4f(r, g, b, t);
+	glBegin(GL_LINES);
+	glVertex3f(xx, yy, zz);
+	map->GetOpenGLCoord(y.x, y.y, xx, yy, zz, rad);
+	glVertex3f(xx, yy, zz);
+	glEnd();
+}
+
+void MultiObjectiveConstrainedEnvironment::GLDrawPath(const std::vector<xytLoc> &p, const std::vector<xytLoc> &waypoints) const
+{
+        if(p.size()<2) return;
+        int wpt(0);
+        //TODO Draw waypoints as cubes.
+        for(auto a(p.begin()+1); a!=p.end(); ++a){
+          GLDrawLine(*(a-1),*a);
+        }
+}
+
+const float MultiObjectiveConstrainedEnvironment::HDG_RESOLUTON=1023.0/360.;
