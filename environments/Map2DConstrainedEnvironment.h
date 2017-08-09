@@ -21,41 +21,6 @@
 
 extern double agentRadius;
 
-struct xytLoc : xyLoc {
-	xytLoc(xyLoc loc, float time):xyLoc(loc), h(0), t(time) ,nc(-1){}
-	xytLoc(xyLoc loc, uint16_t _h, float time):xyLoc(loc), h(_h), t(time) ,nc(-1){}
-	xytLoc(uint16_t _x, uint16_t _y, float time):xyLoc(_x,_y), h(0), t(time) ,nc(-1){}
-	xytLoc(uint16_t _x, uint16_t _y, uint16_t _h, float time):xyLoc(_x,_y), h(_h), t(time) ,nc(-1){}
-	xytLoc():xyLoc(),h(0),t(0),nc(-1){}
-	float t;
-        uint16_t h; // Heading quantized to epsilon=1/(2**16-1)... 0=north max=north-epsilon
-        int16_t nc; // Number of conflicts, for conflict avoidance table
-        operator Vector2D()const{return Vector2D(x,y);}
-        bool sameLoc(xytLoc const& other)const{return x==other.x&&y==other.y;}
-};
-
-struct TemporalVector : Vector2D {
-	TemporalVector(Vector2D const& loc, double time):Vector2D(loc), t(time){}
-	TemporalVector(xytLoc const& loc):Vector2D(loc), t(loc.t){}
-	TemporalVector(double _x, double _y, float time):Vector2D(_x,_y), t(time){}
-	TemporalVector():Vector2D(),t(0){}
-	double t;
-};
-
-static std::ostream& operator <<(std::ostream & out, const TemporalVector &loc)
-{
-	out << "(" << loc.x << ", " << loc.y << ": " << loc.t << ")";
-	return out;
-}
-	
-static std::ostream& operator <<(std::ostream & out, const xytLoc &loc)
-{
-	out << "(" << loc.x << ", " << loc.y << ", " << loc.h << ": " << loc.t << ")";
-	return out;
-}
-	
-bool operator==(const xytLoc &l1, const xytLoc &l2);
-
 class Map2DConstrainedEnvironment : public ConstrainedEnvironment<xytLoc, tDirection>
 {
 public:
