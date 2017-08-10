@@ -554,7 +554,10 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Exp
     }
 
     // Get the best node from the top of the open list, and remove it from the list
+    do{
     bestNode = openList.top().location;
+    if(!tree[bestNode].satisfiable)openList.pop();
+    }while(!tree[bestNode].satisfiable);
 
     // Set the visible paths for every unit in the node
     if(keeprunning)
