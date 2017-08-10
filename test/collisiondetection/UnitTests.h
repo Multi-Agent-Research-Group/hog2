@@ -691,8 +691,34 @@ TEST(RadialVisibility, ComputeVisibilityGrid){
   }
 }
   
+TEST(CollisionInterval, GetCollisionIntervalHalfSize){
+  Vector2D A(4,2);
+  Vector2D VA(1,3);
+  VA.Normalize();
+  double radius(.5);
+  Vector2D B(5,7);
+  Vector2D VB(2,-6);
+  VB.Normalize();
+
+  // SCENARIO
+  //==========
+  //    ^ ^
+  //    |/
+  //    X
+  //   /|
+  //  B |
+  //    A
+  //
+  //==========
+
+  auto intvl(getCollisionInterval(A,VA,radius,0.0,3.16228,B,VB,radius,0.0,6.32456));
+  auto intvl2(getCollisionInterval(A,VA,radius,0.0,6.,B,VB,radius,0.0,6.));
+  std::cout << "Collision interval is: " << intvl.first << "," << intvl.second << "\n";
+  ASSERT_TRUE(intvl.first>0);
+}
+
 TEST(CollisionInterval, GetCollisionIntervalWhenExists){
-  Vector2D A(3,1);
+  Vector2D A(4,1);
   Vector2D VA(0,1);
   VA.Normalize();
   double radius(.25);
@@ -713,6 +739,7 @@ TEST(CollisionInterval, GetCollisionIntervalWhenExists){
 
   auto intvl(getCollisionInterval(A,VA,radius,0.0,6.0,B,VB,radius,0.0,6.0));
   std::cout << "Collision interval is: " << intvl.first << "," << intvl.second << "\n";
+  ASSERT_TRUE(intvl.first>0);
 }
 
 TEST(AnyAngle, GetPath){

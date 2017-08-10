@@ -284,7 +284,9 @@ std::pair<double,double> getCollisionInterval(Vector2D A, Vector2D const& VA, do
   Vector2D rA(A+(VA*duration)); // Move A to the end of the edge
   Vector2D rB(B+(VB*duration)); // Move B to the end of the edge
   //std::cout << "rA:"<<rA<<"rB:"<<rB<<"\n";
-  double collisionEnd(startTimeA+duration-getCollisionTime(rA,-VA,radiusA,0,duration,rB,-VB,radiusB,0,duration));
+  double collisionEnd(getCollisionTime(rA,-VA,radiusA,0,duration,rB,-VB,radiusB,0,duration));
+  // If there is no end time (-1) then this is a split-second collision
+  collisionEnd=collisionEnd<0?0.001:startTimeA+duration-collisionEnd;
   //std::cout << "Collision End: " << collisionEnd << "\n";
   assert(collisionStart<=collisionEnd);
   return std::make_pair(collisionStart,collisionEnd);

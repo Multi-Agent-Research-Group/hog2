@@ -404,7 +404,7 @@ void Constraint<TemporalVector>::OpenGLDraw(MapInterface* map) const
 {
 	GLdouble xx, yy, zz, rad;
 	glColor3f(1, 0, 0);
-	map->GetOpenGLCoord(start_state.x, start_state.y, xx, yy, zz, rad);
+	map->GetOpenGLCoord((float)start_state.x, (float)start_state.y, xx, yy, zz, rad);
 	//DrawSphere(xx, yy, zz, rad/2.0); // zz-l.t*2*rad
 	
         glLineWidth(12.0);
@@ -412,7 +412,7 @@ void Constraint<TemporalVector>::OpenGLDraw(MapInterface* map) const
 	glBegin(GL_LINES);
 	glVertex3f(xx, yy, zz-.1);
         //std::cout << "Line from " << xx <<"("<<start_state.x << ")," << yy<<"("<<start_state.y << ")," << zz;
-	map->GetOpenGLCoord(end_state.x, end_state.y, xx, yy, zz, rad);
+	map->GetOpenGLCoord((float)end_state.x, (float)end_state.y, xx, yy, zz, rad);
 	glVertex3f(xx, yy, zz-.1);
         //std::cout << " to " << xx <<"("<<end_state.x << ")," << yy<<"("<<end_state.y << ")," << zz << "\n";
 	glEnd();
