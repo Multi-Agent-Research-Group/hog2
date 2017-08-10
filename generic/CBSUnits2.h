@@ -592,7 +592,10 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Exp
     }
 
     // Get the best node from the top of the open list, and remove it from the list
+    do{
     bestNode = openList.top().location;
+    if(!tree[bestNode].satisfiable)openList.pop();
+    }while(!tree[bestNode].satisfiable);
 
     // Set the visible paths for every unit in the node
     if(keeprunning)
@@ -976,6 +979,8 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>:
   ClearEnvironmentConstraints();
 
   // Add all of the constraints in the parents of the current node to the environment
+  //auto prev(tree[location].con.c);
+  bool first(true);
   while(location!=0){
     if(theUnit == tree[location].con.unit1)
     {
@@ -983,8 +988,13 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>:
       AddEnvironmentConstraint(tree[location].con.c);
       if(verbose)std::cout << "Adding constraint (in accumulation)" << tree[location].con.c.start_state << "-->" << tree[location].con.c.end_state << " for unit " << theUnit << "\n";
       //if(animate){
-        //tree[location].con.c.OpenGLDraw(currentEnvironment->environment->GetMap());
+      //tree[location].con.c.OpenGLDraw(currentEnvironment->environment->GetMap());
       //}
+      //if(!first && tree[location].con.c.start_state==prev.start_state && tree[location].con.c.end_state==prev.end_state){
+        //std::cout << "Possible deadlock between agent " << theUnit << " and " << tree[location].con.unit1 << std::endl;
+      //}
+      //first=false;
+      //prev = tree[location].con.c;
     }
     location = tree[location].parent;
   }// while (location != 0);
@@ -1180,7 +1190,7 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>:
   signed pwptB(-1);
   int pxTime(-1);
   int pyTime(-1);
-  for (int i = 0, j = 0; j < ymax && i < xmax;) // If we've reached the end of one of the paths, then time is up and 
+  for (int i = 0, j = 0; j < ymax-1 && i < xmax-1;) // If we've reached the end of one of the paths, then time is up and 
     // no more conflicts could occur
   {
     // I and J hold the current step in the path we are comparing. We need 

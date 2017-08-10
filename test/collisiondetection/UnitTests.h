@@ -243,6 +243,20 @@ TEST(VelocityObstacle, DetectCollisionWhenHeadOn){
   ASSERT_TRUE(detectCollision(A,VA,aradius,1.0,8.0,B,VB*2.2,bradius,0.0,6.0));
 }
 
+TEST(Quadratic, NoDuration){
+  Vector2D A(3,1);
+  Vector2D VA(0,1);
+  double radius(.25);
+  Vector2D B(1,2);
+  Vector2D VB(1,1);
+  VB.Normalize();
+
+  ASSERT_FALSE(collisionImminent(A,VA,radius,0,0,B,VB,radius,0,5));
+  ASSERT_FALSE(collisionImminent(A,VA,radius,0,5,B,VB,radius,5,10));
+  ASSERT_FALSE(collisionImminent(A,VA,radius,5,5,B,VB,radius,5,10));
+  ASSERT_TRUE(collisionImminent(A,VA,radius,5,10,B,VB,radius,5,10));
+}
+
 TEST(Quadratic, IsInsidePass){
   Vector2D A(3,1);
   Vector2D VA(0,1);
@@ -692,6 +706,21 @@ TEST(RadialVisibility, ComputeVisibilityGrid){
 }
   
 TEST(CollisionInterval, GetCollisionIntervalHalfSize){
+  Vector2D A(3,2);
+  Vector2D VA(1,2);
+  VA.Normalize();
+  double radius(.5);
+  Vector2D B(4,2);
+  Vector2D VB(1,3);
+  VB.Normalize();
+
+  auto intvl(getCollisionInterval(A,VA,radius,0.0,sqrt(5),B,VB,radius,0.0,sqrt(10)));
+  auto intvl2(getCollisionInterval(A,VA,radius,0.0,6.,B,VB,radius,0.0,6.));
+  std::cout << "Collision interval is: " << intvl.first << "," << intvl.second << "\n";
+  ASSERT_DOUBLE_EQ(intvl.first,intvl2.first);
+}
+  
+TEST(CollisionInterval, GetCollisionIntervalTouching){
   Vector2D A(4,2);
   Vector2D VA(1,3);
   VA.Normalize();
@@ -700,21 +729,11 @@ TEST(CollisionInterval, GetCollisionIntervalHalfSize){
   Vector2D VB(2,-6);
   VB.Normalize();
 
-  // SCENARIO
-  //==========
-  //    ^ ^
-  //    |/
-  //    X
-  //   /|
-  //  B |
-  //    A
-  //
-  //==========
-
   auto intvl(getCollisionInterval(A,VA,radius,0.0,3.16228,B,VB,radius,0.0,6.32456));
   auto intvl2(getCollisionInterval(A,VA,radius,0.0,6.,B,VB,radius,0.0,6.));
   std::cout << "Collision interval is: " << intvl.first << "," << intvl.second << "\n";
-  ASSERT_TRUE(intvl.first>0);
+  ASSERT_TRUE(fequal(intvl.first,intvl2.first));
+  ASSERT_TRUE(fequal(intvl.second,intvl2.second));
 }
 
 TEST(CollisionInterval, GetCollisionIntervalWhenExists){
@@ -979,14 +998,19 @@ TEST(Theta1, TestStepAside){
   }
   std::cout << "with obstacle" << std::endl;
   env.AddConstraint(Constraint<TemporalVector>({6,1,0},{1,1,6}));
+  agentRadius=.25;
   tstar.GetPath(&env,{1,1,0},{6,1,0},solution);
   for(auto const& ss: solution){
     std::cout << ss.x << "," << ss.y << "\n";
   }
   ASSERT_TRUE(solution.size()>1);
   for(int i(1);i<solution.size(); ++i){
+    if(!env.LineOfSight(solution[i-1],solution[i])){
+      std::cout << "No LOS: " << solution[i-1] << "-->" << solution[i] << "\n";
+    }
     ASSERT_TRUE(env.LineOfSight(solution[i-1],solution[i]));
   }
+  agentRadius=.5;
   std::cout << std::endl;
 }
 
