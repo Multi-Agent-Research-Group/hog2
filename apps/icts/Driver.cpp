@@ -40,6 +40,7 @@
 bool verbose(false);
 bool validate(true);
 bool suboptimal(false); // Sub-optimal variant
+uint64_t jointnodes(0);
 
 template<typename T, typename C>
 class custom_priority_queue : public std::priority_queue<T, std::vector<T>, C>
@@ -261,6 +262,7 @@ void generatePermutations(std::vector<MultiEdge>& positions, std::vector<MultiEd
     if(verbose)for(auto edge:current){
       std::cout << *edge.first << "-->" << *edge.second << "\n";
     }
+    jointnodes++;
     return;
   }
 
@@ -634,7 +636,7 @@ void printResults(){
   //std::cout << elapsed << " elapsed";
   //std::cout << std::endl;
   //total += elapsed;
-  std::cout << p2 << "," << int(Node::env->GetConnectedness()) << "," << ICTSNode::count << ","<< Node::count << "," << total << "," << length << "," << cost;
+  std::cout << p2 << "," << int(Node::env->GetConnectedness()) << "," << ICTSNode::count << "," << jointnodes << "," << Node::count << "," << total << "," << length << "," << cost;
   if(total >= timeout)std::cout << " failure";
   std::cout << std::endl;
   exit(1);
