@@ -35,11 +35,12 @@
 #include <iterator>
 #include "Map2DEnvironment.h"
 #include "VelocityObstacle.h"
+#include "PEAStar.h"
 #include "TemplateAStar.h"
+#include "Heuristic.h"
 
 bool verbose(false);
 bool validate(true);
-bool suboptimal(false); // Sub-optimal variant
 uint64_t jointnodes(0);
 
 template<typename T, typename C>
@@ -56,6 +57,7 @@ class custom_priority_queue : public std::priority_queue<T, std::vector<T>, C>
           toDelete.insert(value->key());
         }
       }
+      return true;
     }
     virtual T popTop(){
       T val(this->top());
@@ -69,7 +71,7 @@ class custom_priority_queue : public std::priority_queue<T, std::vector<T>, C>
     std::unordered_set<std::string> toDelete;
 };
 
-int renderScene(){}
+int renderScene(){return 1;}
 
 struct Group{
   Group(int i){agents.insert(i);}
@@ -154,6 +156,13 @@ std::ostream& operator << (std::ostream& ss, MultiState const& n){
   return ss;
 }
 
+std::ostream& operator << (std::ostream& ss, MultiEdge const& n){
+  int i(0);
+  for(auto const& a: n)
+    ss << " "<<++i<<"." << a.second->n << "@" << a.second->depth;
+  return ss;
+}
+
 std::ostream& operator << (std::ostream& ss, Node const& n){
   ss << n.n << "@" << n.depth;
   return ss;
@@ -170,7 +179,7 @@ std::ostream& operator << (std::ostream& ss, Node const* n){
 MapEnvironment* Node::env=nullptr;
 uint64_t Node::count(0);
 
-bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& root, float depth, float maxDepth){
+bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& root, float depth, float maxDepth, float& best){
   //std::cout << start << "-->" << end << " g:" << (maxDepth-depth) << " h:" << Node::env->HCost(start,end) << " f:" << ((maxDepth-depth)+Node::env->HCost(start,end)) << "\n";
   if(fless(depth,0) ||
       fgreater(maxDepth-depth+Node::env->HCost(start,end),maxDepth)){ // Note - this only works for a perfect heuristic.
@@ -199,6 +208,7 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& root
       //dag[chash].parents.insert(parent);
       parent=&dag[chash];
     }
+    best=std::min(best,maxDepth-depth);
     return true;
   }
 
@@ -210,7 +220,7 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& root
     //if(abs(node.x-start.x)>=1 && abs(node.y-start.y)>=1){
       //ddiff = M_SQRT2;
     //}
-    if(LimitedDFS(node,end,dag,root,depth-ddiff,maxDepth)){
+    if(LimitedDFS(node,end,dag,root,depth-ddiff,maxDepth,best)){
       Node n(start,maxDepth-depth);
       uint64_t hash(n.Hash());
       if(dag.find(hash)==dag.end()){
@@ -250,9 +260,9 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& root
 
 // Perform conflict check by moving forward in time at increments of the smallest time step
 // Test the efficiency of VO vs. time-vector approach
-void GetMDD(xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& root, float depth){
+void GetMDD(xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& root, float depth, float& best){
   if(verbose)std::cout << "MDD up to depth: " << depth << "\n";
-  LimitedDFS(start,end,dag,root,depth,depth);
+  LimitedDFS(start,end,dag,root,depth,depth,best);
 }
 
 void generatePermutations(std::vector<MultiEdge>& positions, std::vector<MultiEdge>& result, int agent, MultiEdge const& current) {
@@ -299,7 +309,7 @@ void generatePermutations(std::vector<MultiEdge>& positions, std::vector<MultiEd
 // In order for this to work, we cannot generate sets of positions, we must generate sets of actions, since at time 1.0 an action from parent A at time 0.0 may have finished, while another action from the same parent A may still be in progress. 
 
 // Return true if we get to the desired depth
-bool jointDFS(MultiEdge const& s, float d, float term, std::vector<std::set<Node*,NodePtrComp>>& answer,std::vector<Node*>& toDelete, float& best, double increment=1.0){
+bool jointDFS(MultiEdge const& s, float d, float term, std::vector<std::set<Node*,NodePtrComp>>& answer,std::vector<Node*>& toDelete, float& best, float bestSeen, double increment=1.0, bool suboptimal=false){
   //std::cout << d << std::string((int)d,' ');
   //for(int a(0); a<s.size(); ++a){
     //std::cout << " s " << *s[a].second << "\n";
@@ -361,7 +371,7 @@ bool jointDFS(MultiEdge const& s, float d, float term, std::vector<std::set<Node
   bool value(false);
   for(auto const& a: crossProduct){
     //std::cout << "eval " << a << "\n";
-    if(jointDFS(a,md,term,answer,toDelete,best,increment)){
+    if(jointDFS(a,md,term,answer,toDelete,best,bestSeen,increment,suboptimal)){
       value=true;
       for(int a(0); a<s.size(); ++a){
         //std::cout << "push " << *s[a] << "\n";
@@ -369,12 +379,129 @@ bool jointDFS(MultiEdge const& s, float d, float term, std::vector<std::set<Node
       }
       // Return first solution...
       if(suboptimal) return true;
+      // Return if solution is as good as any MDD
+      if(fequal(best,bestSeen))return true;
     }
   }
   return value;
 }
 
-bool jointDFS(MultiState const& s, float maxdepth, std::vector<std::set<Node*,NodePtrComp>>& answer, std::vector<Node*>& toDelete, double increment=1.0){
+class BaseOccupancyInterface : public OccupancyInterface<xyLoc,tDirection>
+{
+public:
+	BaseOccupancyInterface(Map* m){};
+	virtual ~BaseOccupancyInterface(){}
+	virtual void SetStateOccupied(const MultiEdge&, bool){}
+	virtual bool GetStateOccupied(const MultiEdge&){}
+	virtual bool CanMove(const MultiEdge&, const MultiEdge&){}
+	virtual void MoveUnitOccupancy(const MultiEdge &, const MultiEdge&){}
+
+private:
+	////BitVector *bitvec; /// For each map position, set if occupied
+	//std::vector<bool> bitvec;
+	//long mapWidth; /// Used to compute index into bitvector
+	//long mapHeight; /// used to compute index into bitvector
+
+	//long CalculateIndex(uint16_t x, uint16_t y);
+};
+
+class JointEnvironment : public Heuristic<MultiEdge>{
+public:
+
+  JointEnvironment(double i, double d, std::vector<float> const& b):increment(i),goalDepth(d),best(b){}
+
+  uint64_t GetMaxHash(){return INT_MAX;}
+  BaseOccupancyInterface *GetOccupancyInfo(){return nullptr;}
+  void GetSuccessors(MultiEdge const& s,std::vector<MultiEdge>& crossProduct)const{
+    //Get successors into a vector
+    std::vector<MultiEdge> successors;
+
+    // Find minimum depth of current edges
+    float sd(9999999.0);
+    for(auto const& a: s){
+      sd=min(sd,a.second->depth);
+    }
+    //std::cout << "min-depth: " << sd << "\n";
+
+    //float md(9999999.0);
+    //Add in successors for parents who are equal to the min
+    for(auto const& a: s){
+      MultiEdge output;
+      if(fleq(a.second->depth,sd)){
+        //std::cout << "Keep Successors of " << *a.second << "\n";
+        for(auto const& b: a.second->successors){
+          output.emplace_back(a.second,b);
+          //md=min(md,b->depth);
+        }
+      }else{
+        //std::cout << "Keep Just " << *a.second << "\n";
+        output.push_back(a);
+        //md=min(md,a.second->depth);
+      }
+      if(output.empty()){
+        // Stay at state...
+        output.emplace_back(a.second,new Node(a.second->n,a.second->depth+increment));
+        //toDelete.push_back(output.back().second);
+        //md=min(md,a.second->depth+increment); // Amount of time to wait
+      }
+      //std::cout << "successor  of " << s << "gets("<<*a<< "): " << output << "\n";
+      successors.push_back(output);
+    }
+    /*if(verbose)for(int agent(0); agent<successors.size(); ++agent){
+      std::cout << "Agent joint successors: " << agent << "\n\t";
+      for(int succ(0); succ<successors[agent].size(); ++succ)
+      std::cout << *successors[agent][succ].second << ",";
+      std::cout << std::endl;
+      }*/
+    generatePermutations(successors,crossProduct,0,MultiEdge());
+  }
+
+  bool GoalTest(MultiEdge const& n, MultiEdge const& g)const{
+    return fgreater(n[0].second->depth,goalDepth-increment);
+    /*for(int i(0); i<n.size(); ++i){
+      if(n[i].second->n != g[i].second->n){
+        return false;
+      }
+    }
+    return true;*/
+  }
+
+  double GCost(MultiEdge const& n, MultiEdge const& g)const{
+    double total(0);
+    for(int i(0); i<n.size(); ++i){
+      total+=Node::env->GCost(n[i].second->n,g[i].second->n);
+    }
+    return total;
+  }
+
+  double HCost(MultiEdge const& n, MultiEdge const& g)const{
+    double total(0);
+    for(int i(0); i<n.size(); ++i){
+      //total+=std::max((double)best[i],Node::env->HCost(n[i].second->n,g[i].second->n));
+      total+=Node::env->HCost(n[i].second->n,g[i].second->n);
+    }
+    return total;
+  }
+
+  uint64_t GetStateHash(MultiEdge const& node)const{
+    uint64_t h = 0;
+    for(auto const& s : node){
+      if(s.first)
+        h = (h * 16777619) ^ Node::env->GetStateHash(s.first->n); // xor
+      h = (h * 16777619) ^ Node::env->GetStateHash(s.second->n); // xor
+    }
+    return h;
+  }
+
+  void SetColor(float,float,float,float){}
+  void OpenGLDraw(MultiEdge const&){}
+  int GetAction(MultiEdge const&, MultiEdge const&)const{}
+  double increment;
+  double goalDepth;
+  std::vector<float> best;
+};
+
+bool jointDFS(MultiState const& s, float maxdepth, std::vector<std::set<Node*,NodePtrComp>>& answer, std::vector<Node*>& toDelete, float bestSeen, double increment=1.0, bool suboptimal=false){
   MultiEdge act;
   float sd(1.0);
   for(auto const& n:s){ // Add null parents for the initial movements
@@ -386,7 +513,45 @@ bool jointDFS(MultiState const& s, float maxdepth, std::vector<std::set<Node*,No
   }
   float best(9999999);
 
-  return jointDFS(act,0.0,maxdepth,answer,toDelete,best,increment);
+  return jointDFS(act,0.0,maxdepth,answer,toDelete,best,bestSeen,increment,suboptimal);
+}
+
+
+bool jointAStar(MultiState const& s, float maxdepth, std::vector<std::set<Node*,NodePtrComp>>& answer, std::vector<Node*>& toDelete, Instance const& inst, std::vector<float> const& best, double increment=1.0){
+  if(verbose){std::cout << "JointAStar\n";}
+  MultiEdge start;
+  for(auto const& n:s){ // Add null parents for the initial movements
+    start.emplace_back(nullptr,n);
+    /*for(auto const& m:n->successors){
+      sd=min(sd,m->depth);
+    }*/
+    //start.push_back(a);
+  }
+  MultiEdge goal;
+  for(auto const& g:inst.second){
+    goal.emplace_back(nullptr,new Node(g,0));
+  }
+  JointEnvironment env(increment,maxdepth,best);
+  TemplateAStar<MultiEdge,int,JointEnvironment> peastar;
+  //PEAStar<MultiEdge,int,JointEnvironment> peastar;
+  //peastar.SetVerbose(verbose);
+  std::vector<MultiEdge> solution;
+  peastar.GetPath(&env,start,goal,solution);
+  for(auto const& g:goal){
+    delete g.second;
+  }
+  if(solution.size()==0){return false;}
+  if(verbose)std::cout << "answer ---\n";
+  int agent(0);
+  for(auto const& node:solution){
+    if(verbose)std::cout << node << "\n";
+    std::set<Node*,NodePtrComp> tmp;
+    int i(0);
+    for(auto const& edge: node){
+      answer[i++].insert(edge.second);
+    }
+  }
+  return true;
 }
 
 // Not part of the algorithm... just for validating the answers
@@ -430,29 +595,33 @@ void join(std::stringstream& s, std::vector<float> const& x){
 }
 
 struct ICTSNode{
-  ICTSNode(ICTSNode* parent,int agent, int size):instance(parent->instance),dag(parent->dag),sizes(parent->sizes),root(parent->root),maxdepth(parent->maxdepth),increment(parent->increment){
+  ICTSNode(ICTSNode* parent,int agent, int size):instance(parent->instance),dag(parent->dag),best(parent->sizes.size()),bestSeen(0),sizes(parent->sizes),root(parent->root),maxdepth(parent->maxdepth),increment(parent->increment){
     count++;
     sizes[agent]=size;
+    best[agent]=9999999;
     maxdepth=max(maxdepth,Node::env->HCost(instance.first[agent],instance.second[agent])+sizes[agent]);
     if(verbose)std::cout << "replan agent " << agent << " GetMDD("<<(Node::env->HCost(instance.first[agent],instance.second[agent])+sizes[agent])<<")\n";
     dag[agent].clear();
     replanned.push_back(agent);
-    GetMDD(instance.first[agent],instance.second[agent],dag[agent],root,Node::env->HCost(instance.first[agent],instance.second[agent])+sizes[agent]);
+    GetMDD(instance.first[agent],instance.second[agent],dag[agent],root,Node::env->HCost(instance.first[agent],instance.second[agent])+sizes[agent],best[agent]);
+    bestSeen=std::max(bestSeen,best[agent]);
     // Replace new root node on top of old.
     std::swap(root[agent],root[root.size()-1]);
     root.resize(root.size()-1);
     if(verbose)std::cout << agent << ":\n" << root[agent] << "\n";
   }
 
-  ICTSNode(Instance const& inst, std::vector<float> const& s, double inc=1.0):instance(inst),dag(s.size()),sizes(s),maxdepth(-99999999),increment(inc){
+  ICTSNode(Instance const& inst, std::vector<float> const& s, double inc=1.0):instance(inst),dag(s.size()),best(s.size()),bestSeen(0),sizes(s),maxdepth(-99999999),increment(inc){
     count++;
     root.reserve(s.size());
     replanned.resize(s.size());
     for(int i(0); i<instance.first.size(); ++i){
+      best[i]=9999999;
       replanned[i]=i;
       maxdepth=max(maxdepth,Node::env->HCost(instance.first[i],instance.second[i])+sizes[i]);
       if(verbose)std::cout << "plan agent " << i << " GetMDD("<<(Node::env->HCost(instance.first[i],instance.second[i])+sizes[i])<<")\n";
-      GetMDD(instance.first[i],instance.second[i],dag[i],root,Node::env->HCost(instance.first[i],instance.second[i])+sizes[i]);
+      GetMDD(instance.first[i],instance.second[i],dag[i],root,Node::env->HCost(instance.first[i],instance.second[i])+sizes[i],best[i]);
+      bestSeen=std::max(bestSeen,best[i]);
       if(verbose)std::cout << i << ":\n" << root[i] << "\n";
     }
   }
@@ -469,6 +638,8 @@ struct ICTSNode{
   Instance instance;
   std::vector<DAG> dag;
   std::vector<float> sizes;
+  std::vector<float> best;
+  float bestSeen;
   MultiState root;
   float maxdepth;
   double increment;
@@ -477,6 +648,8 @@ struct ICTSNode{
   static uint64_t count;
   static bool pairwise;
   static bool forwardjump;
+  static bool suboptimal;
+  static bool astar;
   std::vector<int> replanned; // Set of nodes that was just re-planned
 
   bool isValid(std::vector<std::set<Node*,NodePtrComp>>& answer, std::pair<int,int>& conflicting){
@@ -492,7 +665,8 @@ struct ICTSNode{
             tmproot[1]=root[j];
             std::vector<std::set<Node*,NodePtrComp>> tmpanswer(sizes.size());
             std::vector<Node*> toDeleteTmp;
-            if(!jointDFS(tmproot,maxdepth,tmpanswer,toDeleteTmp,increment)){
+            // This is a satisficing search, thus we only need to a sub-optimal check
+            if(!jointDFS(tmproot,maxdepth,tmpanswer,toDeleteTmp,9999999,increment,true)){
               conflicting.first=i;
               conflicting.second=j;
               return false;
@@ -507,7 +681,8 @@ struct ICTSNode{
           tmproot[1]=root[replanned[0]];
           std::vector<std::set<Node*,NodePtrComp>> tmpanswer(sizes.size());
           std::vector<Node*> toDeleteTmp;
-          if(!jointDFS(tmproot,maxdepth,tmpanswer,toDeleteTmp,increment)){
+          // This is a satisficing search, thus we only need to a sub-optimal check
+          if(!jointDFS(tmproot,maxdepth,tmpanswer,toDeleteTmp,9999999,increment,true)){
             conflicting.first=i;
             conflicting.second=replanned[0];
             return false;
@@ -518,7 +693,8 @@ struct ICTSNode{
     // Do a depth-first search; if the search terminates at a goal, its valid.
     if(verbose)std::cout<<"Full check\n";
     answer.resize(sizes.size());
-    if(jointDFS(root,maxdepth,answer,toDelete,increment)){
+    if(astar&&jointAStar(root,maxdepth,answer,toDelete,instance,best,increment)||
+    !astar&&jointDFS(root,maxdepth,answer,toDelete,bestSeen,increment,suboptimal)){
       if(verbose){
         std::cout << "Answer:\n";
         for(int agent(0); agent<answer.size(); ++agent){
@@ -547,9 +723,11 @@ struct ICTSNode{
   }
 };
 
+bool ICTSNode::suboptimal(false); // Sub-optimal variant
 uint64_t ICTSNode::count(0);
 bool ICTSNode::pairwise(false);
 bool ICTSNode::forwardjump(false);
+bool ICTSNode::astar(false);
 
 struct ICTSNodePtrComp
 {
@@ -708,7 +886,7 @@ int main(int argc, char ** argv){
   }
   if(argc>3){ // Anything in the 3rd parameter indicates turn on pairwise
     if(argv[3][0]=='s'){
-      suboptimal=true;
+      ICTSNode::suboptimal=true;
       std::cout << "suboptimal\n";
     }
     if(argv[3][0]=='p'){
@@ -717,13 +895,18 @@ int main(int argc, char ** argv){
     }
     if(argv[3][0]=='b'){
       ICTSNode::pairwise=true;
-      suboptimal=true;
+      ICTSNode::suboptimal=true;
       std::cout << "pairwise,suboptimal\n";
     }
-    if(argv[3][0]=='f'){
-      std::cout << "forwardjump\n";
-      ICTSNode::forwardjump=true;
+    if(argv[3][0]=='a'){
+      ICTSNode::pairwise=true;
+      ICTSNode::astar=true;
+      std::cout << "pairwise,astar\n";
     }
+    //if(argv[3][0]=='f'){
+      //std::cout << "forwardjump\n";
+      //ICTSNode::forwardjump=true;
+    //}
   }
   Node::env=&env;
   {
@@ -788,7 +971,8 @@ int main(int argc, char ** argv){
       return 0;
     }
     
-    TemplateAStar<xyLoc,tDirection,MapEnvironment> astar;
+    //TemplateAStar<xyLoc,tDirection,MapEnvironment> astar;
+    PEAStar<xyLoc,tDirection,MapEnvironment> astar;
     //std::cout << "Init groups\n";
     std::vector<Group*> group(s.size()); // Agent#-->group#
     std::unordered_set<Group*> groups;
