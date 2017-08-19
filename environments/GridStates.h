@@ -13,6 +13,8 @@ public:
 	uint16_t x;
 	uint16_t y;
         bool landed; // Have we already arrived at the goal? (always leave this false if agent can block other agents)
+        operator Vector2D()const{return Vector2D(x,y);}
+        bool sameLoc(xyLoc const& other)const{return x==other.x&&y==other.y;}
 };
 
 struct xyLocHash
@@ -32,8 +34,6 @@ struct xytLoc : xyLoc {
 	float t;
         uint16_t h; // Heading quantized to epsilon=1/(2**16-1)... 0=north max=north-epsilon
         int16_t nc; // Number of conflicts, for conflict avoidance table
-        operator Vector2D()const{return Vector2D(x,y);}
-        bool sameLoc(xytLoc const& other)const{return x==other.x&&y==other.y;}
 };
 
 struct TemporalVector : Vector2D {
@@ -55,6 +55,7 @@ struct AANode : xyLoc {
 
 struct Hashable{
   virtual uint64_t Hash()const=0;
+  virtual float Depth()const=0;
 };
 
 std::ostream& operator <<(std::ostream & out, const TemporalVector &loc);

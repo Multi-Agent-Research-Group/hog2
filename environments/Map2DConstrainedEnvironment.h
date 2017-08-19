@@ -60,6 +60,8 @@ public:
 	virtual void OpenGLDraw(const xytLoc&) const;
 	virtual void OpenGLDraw(const xytLoc&, const tDirection&) const;
 	virtual void GLDrawLine(const xytLoc &x, const xytLoc &y) const;
+	virtual void GLLabelState(const xyLoc &s, const char *str) const{mapEnv->GLLabelState(s,str);}
+	virtual void GLLabelState(const xyLoc &s, const char *str, double scale) const{mapEnv->GLLabelState(s,str,scale);}
         void GLDrawPath(const std::vector<xytLoc> &p, const std::vector<xytLoc> &waypoints) const;
         virtual Map* GetMap()const{return mapEnv->GetMap();}
         bool LineOfSight(const xytLoc &x, const xytLoc &y)const{return mapEnv->LineOfSight(x,y) && !ViolatesConstraint(x,y);}
@@ -67,6 +69,8 @@ public:
         inline void SetMaxTurn(float val){maxTurnAzimuth=val*HDG_RESOLUTON;}
         uint16_t maxTurnAzimuth=0;
         static const float HDG_RESOLUTON;
+        MapEnvironment* GetEnv()const{return mapEnv;}
+
 private:
         bool ignoreTime;
 	bool ViolatesConstraint(const xyLoc &from, const xyLoc &to, float time, float inc) const;
@@ -89,9 +93,8 @@ unsigned checkForConflict(state const*const parent, state const*const node, stat
   return 0; 
 }
 
-
-#define HASH_INTERVAL 0.50
-#define HASH_INTERVAL_HUNDREDTHS 50
+#define HASH_INTERVAL 1.0
+#define HASH_INTERVAL_HUNDREDTHS 100
 
 template <typename state, typename action, typename environment>
 class TieBreaking {
@@ -100,7 +103,6 @@ class TieBreaking {
   {
     if (fequal(ci1.g+ci1.h, ci2.g+ci2.h)) // F-cost equal
     {
-
       if(useCAT && CAT){
         // Make them non-const :)
         AStarOpenClosedData<state>& i1(const_cast<AStarOpenClosedData<state>&>(ci1));

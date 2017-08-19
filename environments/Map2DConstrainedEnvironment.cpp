@@ -53,7 +53,7 @@ void Map2DConstrainedEnvironment::GetSuccessors(const xytLoc &nodeID, std::vecto
   {
     float inc(mapEnv->GetConnectedness()>5?(Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y)):1.0);
     xytLoc newLoc(n[x],
-        (uint16_t)Util::heading<USHRT_MAX>(nodeID.x,nodeID.y,n[x].x,n[x].y), // hdg
+        (uint16_t)Util::heading<1024>(nodeID.x,nodeID.y,n[x].x,n[x].y), // hdg
         nodeID.t+inc);
     if (!ViolatesConstraint(nodeID, newLoc)){
       neighbors.push_back(newLoc);
@@ -73,7 +73,7 @@ void Map2DConstrainedEnvironment::GetAllSuccessors(const xytLoc &nodeID, std::ve
   {
     float inc(mapEnv->GetConnectedness()>5?(Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y)):1.0);
     xytLoc newLoc(n[x],
-        (uint16_t)Util::heading<USHRT_MAX>(nodeID.x,nodeID.y,n[x].x,n[x].y), // hdg
+        (uint16_t)Util::heading<1024>(nodeID.x,nodeID.y,n[x].x,n[x].y), // hdg
         nodeID.t+inc);
     neighbors.push_back(newLoc);
   }
@@ -191,9 +191,9 @@ uint64_t Map2DConstrainedEnvironment::GetStateHash(const xytLoc &node) const
   uint64_t hash;
   hash = node.x;
   hash <<= 11;
-  hash |= node.y;
+  hash |= node.y&(2047);
   hash <<= 10;
-  hash |= node.h;
+  hash |= node.h&(1023);
   if(!ignoreTime){
     hash <<= 32;
     hash |= *(uint32_t*)&node.t;
@@ -235,7 +235,7 @@ void Map2DConstrainedEnvironment::OpenGLDraw(const xytLoc& s, const xytLoc& e, f
   GLdouble xx, yy, zz, rad;
   map->GetOpenGLCoord((1-perc)*s.x+perc*e.x, (1-perc)*s.y+perc*e.y, xx, yy, zz, rad);
   glColor4f(r, g, b, t);
-  DrawSphere(xx, yy, zz, rad/2.0); // zz-s.t*2*rad
+  DrawSphere(xx, yy, zz, rad*2.0*agentRadius); // zz-s.t*2*rad
 }
 
 void Map2DConstrainedEnvironment::OpenGLDraw(const xytLoc& l) const
@@ -246,7 +246,7 @@ void Map2DConstrainedEnvironment::OpenGLDraw(const xytLoc& l) const
   GLdouble xx, yy, zz, rad;
   map->GetOpenGLCoord(l.x, l.y, xx, yy, zz, rad);
   glColor4f(r, g, b, t);
-  DrawSphere(xx, yy, zz-l.t*rad, rad/2.0); // zz-l.t*2*rad
+  DrawSphere(xx, yy, zz-l.t*rad, rad*2.0*agentRadius); // zz-l.t*2*rad
 }
 
 void Map2DConstrainedEnvironment::OpenGLDraw(const xytLoc&, const tDirection&) const
