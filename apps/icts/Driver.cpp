@@ -79,10 +79,12 @@ struct Group{
   //~Group(){std::cout << "Destroy " << this << "\n";}
 };
 
+/*
 struct Hashable{
   virtual uint64_t Hash()const=0;
   virtual float Depth()const=0;
 };
+*/
 
 // Used for std::set
 struct NodePtrComp

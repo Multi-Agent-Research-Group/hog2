@@ -1,49 +1,49 @@
 //
-//  Map2DConstrainedEnvironment.cpp
+//  MultiObjectiveConstrainedEnvironment.cpp
 //  hog2 glut
 //
 //  Created by Nathan Sturtevant on 8/3/12.
 //  Copyright (c) 2012 University of Denver. All rights reserved.
 //
 
-#include "Map2DConstrainedEnvironment.h"
+#include "MultiObjectiveConstrainedEnvironment.h"
 #include "PositionalUtils.h"
 
-Map2DConstrainedEnvironment::Map2DConstrainedEnvironment(Map *m):ignoreTime(false)
+MultiObjectiveConstrainedEnvironment::MultiObjectiveConstrainedEnvironment(Map *m):ignoreTime(false)
 {
-	mapEnv = new MapEnvironment(m);
+	mapEnv = new MultiObjectiveEnvironment(m);
 	mapEnv->SetFourConnected();
 }
 
-Map2DConstrainedEnvironment::Map2DConstrainedEnvironment(MapEnvironment *m):ignoreTime(false)
+MultiObjectiveConstrainedEnvironment::MultiObjectiveConstrainedEnvironment(MultiObjectiveEnvironment *m):ignoreTime(false)
 {
 	mapEnv = m;
 }
 
-/*void Map2DConstrainedEnvironment::AddConstraint(xytLoc loc)
+/*void MultiObjectiveConstrainedEnvironment::AddConstraint(xytLoc loc)
 {
 	AddConstraint(loc, kTeleport);
 }*/
 
-void Map2DConstrainedEnvironment::AddConstraint(xytLoc const& loc, tDirection dir)
+void MultiObjectiveConstrainedEnvironment::AddConstraint(xytLoc const& loc, tDirection dir)
 {
         xytLoc tmp(loc);
         ApplyAction(tmp,dir);
 	constraints.emplace_back(loc,tmp);
 }
 
-void Map2DConstrainedEnvironment::ClearConstraints()
+void MultiObjectiveConstrainedEnvironment::ClearConstraints()
 {
 	constraints.resize(0);
 	vconstraints.resize(0);
 }
 
-bool Map2DConstrainedEnvironment::GetNextSuccessor(const xytLoc &currOpenNode, const xytLoc &goal, xytLoc &next, double &currHCost, uint64_t &special, bool &validMove){
+bool MultiObjectiveConstrainedEnvironment::GetNextSuccessor(const xytLoc &currOpenNode, const xytLoc &goal, xytLoc &next, double &currHCost, uint64_t &special, bool &validMove){
   return mapEnv->GetNextSuccessor(currOpenNode,goal,next,currHCost,special,validMove);
 }
   
 
-void Map2DConstrainedEnvironment::GetSuccessors(const xytLoc &nodeID, std::vector<xytLoc> &neighbors) const
+void MultiObjectiveConstrainedEnvironment::GetSuccessors(const xytLoc &nodeID, std::vector<xytLoc> &neighbors) const
 {
   std::vector<xyLoc> n;
   mapEnv->GetSuccessors(nodeID, n);
@@ -53,7 +53,7 @@ void Map2DConstrainedEnvironment::GetSuccessors(const xytLoc &nodeID, std::vecto
   {
     float inc(mapEnv->GetConnectedness()>5?(Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y)):1.0);
     xytLoc newLoc(n[x],
-        (uint16_t)Util::heading<1024>(nodeID.x,nodeID.y,n[x].x,n[x].y), // hdg
+        (uint16_t)Util::heading<USHRT_MAX>(nodeID.x,nodeID.y,n[x].x,n[x].y), // hdg
         nodeID.t+inc);
     if (!ViolatesConstraint(nodeID, newLoc)){
       neighbors.push_back(newLoc);
@@ -63,7 +63,7 @@ void Map2DConstrainedEnvironment::GetSuccessors(const xytLoc &nodeID, std::vecto
   }
 }
 
-void Map2DConstrainedEnvironment::GetAllSuccessors(const xytLoc &nodeID, std::vector<xytLoc> &neighbors) const
+void MultiObjectiveConstrainedEnvironment::GetAllSuccessors(const xytLoc &nodeID, std::vector<xytLoc> &neighbors) const
 {
   std::vector<xyLoc> n;
   mapEnv->GetSuccessors(nodeID, n);
@@ -73,13 +73,13 @@ void Map2DConstrainedEnvironment::GetAllSuccessors(const xytLoc &nodeID, std::ve
   {
     float inc(mapEnv->GetConnectedness()>5?(Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y)):1.0);
     xytLoc newLoc(n[x],
-        (uint16_t)Util::heading<1024>(nodeID.x,nodeID.y,n[x].x,n[x].y), // hdg
+        (uint16_t)Util::heading<USHRT_MAX>(nodeID.x,nodeID.y,n[x].x,n[x].y), // hdg
         nodeID.t+inc);
     neighbors.push_back(newLoc);
   }
 }
 
-bool Map2DConstrainedEnvironment::ViolatesConstraint(const xytLoc &from, const xytLoc &to) const{
+bool MultiObjectiveConstrainedEnvironment::ViolatesConstraint(const xytLoc &from, const xytLoc &to) const{
   
   // Check motion constraints first
   if(maxTurnAzimuth&&fless(maxTurnAzimuth,fabs(from.h-to.h))) return false;
@@ -118,60 +118,60 @@ bool Map2DConstrainedEnvironment::ViolatesConstraint(const xytLoc &from, const x
   return false;
 }
 
-bool Map2DConstrainedEnvironment::ViolatesConstraint(const xyLoc &from, const xyLoc &to, float time, float inc) const
+bool MultiObjectiveConstrainedEnvironment::ViolatesConstraint(const xyLoc &from, const xyLoc &to, float time, float inc) const
 {
   assert(!"Not implemented");
   //return ViolatesConstraint(xytLoc(from,time),xytLoc(to,time+inc));
   return false;
 }
 
-void Map2DConstrainedEnvironment::GetActions(const xytLoc &nodeID, std::vector<tDirection> &actions) const
+void MultiObjectiveConstrainedEnvironment::GetActions(const xytLoc &nodeID, std::vector<tDirection> &actions) const
 {
 	mapEnv->GetActions(nodeID, actions);
 
 	// TODO: remove illegal actions
 }
 
-tDirection Map2DConstrainedEnvironment::GetAction(const xytLoc &s1, const xytLoc &s2) const
+tDirection MultiObjectiveConstrainedEnvironment::GetAction(const xytLoc &s1, const xytLoc &s2) const
 {
 	return mapEnv->GetAction(s1, s2);
 }
 
-void Map2DConstrainedEnvironment::ApplyAction(xytLoc &s, tDirection a) const
+void MultiObjectiveConstrainedEnvironment::ApplyAction(xytLoc &s, tDirection a) const
 {
 	mapEnv->ApplyAction(s, a);
 	s.t+=1;
 }
 
-void Map2DConstrainedEnvironment::UndoAction(xytLoc &s, tDirection a) const
+void MultiObjectiveConstrainedEnvironment::UndoAction(xytLoc &s, tDirection a) const
 {
 	mapEnv->UndoAction(s, a);
 	s.t-=1;
 }
 
-void Map2DConstrainedEnvironment::AddConstraint(Constraint<xytLoc> const& c)
+void MultiObjectiveConstrainedEnvironment::AddConstraint(Constraint<xytLoc> const& c)
 {
 	constraints.push_back(c);
 }
 
-void Map2DConstrainedEnvironment::AddConstraint(Constraint<TemporalVector> const& c)
+void MultiObjectiveConstrainedEnvironment::AddConstraint(Constraint<TemporalVector> const& c)
 {
 	vconstraints.push_back(c);
 }
 
-void Map2DConstrainedEnvironment::GetReverseActions(const xytLoc &nodeID, std::vector<tDirection> &actions) const
+void MultiObjectiveConstrainedEnvironment::GetReverseActions(const xytLoc &nodeID, std::vector<tDirection> &actions) const
 {
 	// Get the action information from the hidden env
 	//this->mapEnv->GetReverseActions(nodeID, actions);
 }
-bool Map2DConstrainedEnvironment::InvertAction(tDirection &a) const
+bool MultiObjectiveConstrainedEnvironment::InvertAction(tDirection &a) const
 {
 	return mapEnv->InvertAction(a);
 }
 
 
 /** Heuristic value between two arbitrary nodes. **/
-double Map2DConstrainedEnvironment::HCost(const xytLoc &node1, const xytLoc &node2) const
+double MultiObjectiveConstrainedEnvironment::HCost(const xytLoc &node1, const xytLoc &node2) const
 {
         return mapEnv->HCost(node1, node2);
 	double res1 = mapEnv->HCost(node1, node2);
@@ -180,20 +180,20 @@ double Map2DConstrainedEnvironment::HCost(const xytLoc &node1, const xytLoc &nod
 	return max(res1, res2);
 }
 
-bool Map2DConstrainedEnvironment::GoalTest(const xytLoc &node, const xytLoc &goal) const
+bool MultiObjectiveConstrainedEnvironment::GoalTest(const xytLoc &node, const xytLoc &goal) const
 {
 	return (node.x == goal.x && node.y == goal.y && node.t >= goal.t);
 }
 
 
-uint64_t Map2DConstrainedEnvironment::GetStateHash(const xytLoc &node) const
+uint64_t MultiObjectiveConstrainedEnvironment::GetStateHash(const xytLoc &node) const
 {
   uint64_t hash;
   hash = node.x;
   hash <<= 11;
-  hash |= node.y&(2047);
+  hash |= node.y;
   hash <<= 10;
-  hash |= node.h&(1023);
+  hash |= node.h;
   if(!ignoreTime){
     hash <<= 32;
     hash |= *(uint32_t*)&node.t;
@@ -202,7 +202,7 @@ uint64_t Map2DConstrainedEnvironment::GetStateHash(const xytLoc &node) const
   return hash;
 }
 
-void Map2DConstrainedEnvironment::GetStateFromHash(uint64_t hash, xytLoc &s) const
+void MultiObjectiveConstrainedEnvironment::GetStateFromHash(uint64_t hash, xytLoc &s) const
 {
   if(!ignoreTime){
     uint32_t tmp=(hash&(0x100000000-1));
@@ -216,18 +216,18 @@ void Map2DConstrainedEnvironment::GetStateFromHash(uint64_t hash, xytLoc &s) con
   }
 }
 
-uint64_t Map2DConstrainedEnvironment::GetActionHash(tDirection act) const
+uint64_t MultiObjectiveConstrainedEnvironment::GetActionHash(tDirection act) const
 {
 	return act;
 }
 
 
-void Map2DConstrainedEnvironment::OpenGLDraw() const
+void MultiObjectiveConstrainedEnvironment::OpenGLDraw() const
 {
 	mapEnv->OpenGLDraw();
 }
 
-void Map2DConstrainedEnvironment::OpenGLDraw(const xytLoc& s, const xytLoc& e, float perc) const
+void MultiObjectiveConstrainedEnvironment::OpenGLDraw(const xytLoc& s, const xytLoc& e, float perc) const
 {
   GLfloat r, g, b, t;
   GetColor(r, g, b, t);
@@ -235,10 +235,10 @@ void Map2DConstrainedEnvironment::OpenGLDraw(const xytLoc& s, const xytLoc& e, f
   GLdouble xx, yy, zz, rad;
   map->GetOpenGLCoord((1-perc)*s.x+perc*e.x, (1-perc)*s.y+perc*e.y, xx, yy, zz, rad);
   glColor4f(r, g, b, t);
-  DrawSphere(xx, yy, zz, rad*2.0*agentRadius); // zz-s.t*2*rad
+  DrawSphere(xx, yy, zz, rad/2.0); // zz-s.t*2*rad
 }
 
-void Map2DConstrainedEnvironment::OpenGLDraw(const xytLoc& l) const
+void MultiObjectiveConstrainedEnvironment::OpenGLDraw(const xytLoc& l) const
 {
   GLfloat r, g, b, t;
   GetColor(r, g, b, t);
@@ -246,15 +246,15 @@ void Map2DConstrainedEnvironment::OpenGLDraw(const xytLoc& l) const
   GLdouble xx, yy, zz, rad;
   map->GetOpenGLCoord(l.x, l.y, xx, yy, zz, rad);
   glColor4f(r, g, b, t);
-  DrawSphere(xx, yy, zz-l.t*rad, rad*2.0*agentRadius); // zz-l.t*2*rad
+  DrawSphere(xx, yy, zz-l.t*rad, rad/2.0); // zz-l.t*2*rad
 }
 
-void Map2DConstrainedEnvironment::OpenGLDraw(const xytLoc&, const tDirection&) const
+void MultiObjectiveConstrainedEnvironment::OpenGLDraw(const xytLoc&, const tDirection&) const
 {
        std::cout << "Draw move\n";
 }
 
-void Map2DConstrainedEnvironment::GLDrawLine(const xytLoc &x, const xytLoc &y) const
+void MultiObjectiveConstrainedEnvironment::GLDrawLine(const xytLoc &x, const xytLoc &y) const
 {
 	GLdouble xx, yy, zz, rad;
 	Map *map = mapEnv->GetMap();
@@ -270,7 +270,7 @@ void Map2DConstrainedEnvironment::GLDrawLine(const xytLoc &x, const xytLoc &y) c
 	glEnd();
 }
 
-void Map2DConstrainedEnvironment::GLDrawPath(const std::vector<xytLoc> &p, const std::vector<xytLoc> &waypoints) const
+void MultiObjectiveConstrainedEnvironment::GLDrawPath(const std::vector<xytLoc> &p, const std::vector<xytLoc> &waypoints) const
 {
         if(p.size()<2) return;
         int wpt(0);
@@ -280,4 +280,4 @@ void Map2DConstrainedEnvironment::GLDrawPath(const std::vector<xytLoc> &p, const
         }
 }
 
-const float Map2DConstrainedEnvironment::HDG_RESOLUTON=1023.0/360.;
+const float MultiObjectiveConstrainedEnvironment::HDG_RESOLUTON=1023.0/360.;

@@ -985,7 +985,7 @@ TEST(Theta1, TestStepAside){
   menv.SetFiveConnected();
   ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment> tstar;
   tstar.SetHeuristic(new StraightLineHeuristic());
-  //tstar.SetVerbose(true);
+  tstar.SetVerbose(true);
   std::vector<xytLoc> solution;
   // No moving obstacle...
   tstar.GetPath(&env,{1,1,0},{6,1,0},solution);

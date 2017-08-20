@@ -1,12 +1,12 @@
 /*
- *  Map2DEnvironment.cpp
+ *  MultiObjectiveEnvironment.cpp
  *  hog2
  *
  *  Created by Nathan Sturtevant on 4/20/07.
  *  Copyright 2007 Nathan Sturtevant, University of Alberta. All rights reserved.
  *
  */
-#include "Map2DEnvironment.h"
+#include "MultiObjectiveEnvironment.h"
 #include "FPUtil.h"
 #include "SVGUtil.h"
 #include <cstring>
@@ -16,13 +16,13 @@
 
 using namespace Graphics2D;
 
-MapEnvironment::MapEnvironment(Map *_m, bool useOccupancy):start(nullptr),h(nullptr),map(_m),oi(useOccupancy?new BaseMapOccupancyInterface(map):nullptr),DIAGONAL_COST(sqrt(2)),connectedness(8){
+MultiObjectiveEnvironment::MultiObjectiveEnvironment(Map *_m, bool useOccupancy):start(nullptr),h(nullptr),map(_m),oi(useOccupancy?new BaseMapOccupancyInterface(map):nullptr),DIAGONAL_COST(sqrt(2)),connectedness(8){
   SQRT_5=sqrt(5.0);
   SQRT_10=sqrt(10.0);
   SQRT_13=sqrt(13);
 }
 
-MapEnvironment::MapEnvironment(MapEnvironment *me)
+MultiObjectiveEnvironment::MultiObjectiveEnvironment(MultiObjectiveEnvironment *me)
 {
 	map = me->map->Clone();
 	h = 0;
@@ -33,23 +33,23 @@ MapEnvironment::MapEnvironment(MapEnvironment *me)
 	connectedness = me->connectedness;
 }
 
-MapEnvironment::~MapEnvironment()
+MultiObjectiveEnvironment::~MultiObjectiveEnvironment()
 {
 //	delete map;
 	delete oi;
 }
 
-GraphHeuristic *MapEnvironment::GetGraphHeuristic()
+GraphHeuristic *MultiObjectiveEnvironment::GetGraphHeuristic()
 {
 	return h;
 }
 
-void MapEnvironment::SetGraphHeuristic(GraphHeuristic *gh)
+void MultiObjectiveEnvironment::SetGraphHeuristic(GraphHeuristic *gh)
 {
 	h = gh;
 }
 
-void MapEnvironment::GetSuccessors(const xyLoc &loc, std::vector<xyLoc> &neighbors) const
+void MultiObjectiveEnvironment::GetSuccessors(const xyLoc &loc, std::vector<xyLoc> &neighbors) const
 {
         // Implement any-angle branching
         if(connectedness>49){
@@ -274,7 +274,7 @@ void MapEnvironment::GetSuccessors(const xyLoc &loc, std::vector<xyLoc> &neighbo
         }
 }
 
-bool MapEnvironment::GetNextSuccessor(const xyLoc &currOpenNode, const xyLoc &goal,
+bool MultiObjectiveEnvironment::GetNextSuccessor(const xyLoc &currOpenNode, const xyLoc &goal,
 									  xyLoc &next, double &currHCost, uint64_t &special,
 									  bool &validMove)
 {
@@ -289,7 +289,7 @@ bool MapEnvironment::GetNextSuccessor(const xyLoc &currOpenNode, const xyLoc &go
 
 }
 
-bool MapEnvironment::GetNext5Successor(const xyLoc &currOpenNode, const xyLoc &goal,
+bool MultiObjectiveEnvironment::GetNext5Successor(const xyLoc &currOpenNode, const xyLoc &goal,
 									   xyLoc &next, double &currHCost, uint64_t &special,
 									  bool &validMove)
 {
@@ -303,7 +303,7 @@ bool MapEnvironment::GetNext5Successor(const xyLoc &currOpenNode, const xyLoc &g
 	return false;
 }
 
-bool MapEnvironment::GetNext4Successor(const xyLoc &currOpenNode, const xyLoc &goal,
+bool MultiObjectiveEnvironment::GetNext4Successor(const xyLoc &currOpenNode, const xyLoc &goal,
 									   xyLoc &next, double &currHCost, uint64_t &special,
 									  bool &validMove)
 {
@@ -441,7 +441,7 @@ bool MapEnvironment::GetNext4Successor(const xyLoc &currOpenNode, const xyLoc &g
 	return false;
 }
 
-bool MapEnvironment::GetNext8Successor(const xyLoc &currOpenNode, const xyLoc &goal,
+bool MultiObjectiveEnvironment::GetNext8Successor(const xyLoc &currOpenNode, const xyLoc &goal,
 									   xyLoc &next, double &currHCost, uint64_t &special,
 									   bool &validMove)
 {
@@ -577,7 +577,7 @@ bool MapEnvironment::GetNext8Successor(const xyLoc &currOpenNode, const xyLoc &g
 //	return false;
 }
 
-void MapEnvironment::GetActions(const xyLoc &loc, std::vector<tDirection> &actions) const
+void MultiObjectiveEnvironment::GetActions(const xyLoc &loc, std::vector<tDirection> &actions) const
 {
 	bool up=false, down=false;
 	if ((map->CanStep(loc.x, loc.y, loc.x, loc.y+1)))
@@ -617,7 +617,7 @@ void MapEnvironment::GetActions(const xyLoc &loc, std::vector<tDirection> &actio
 // TODO: add 24 and 48 cases.
 }
 
-tDirection MapEnvironment::GetAction(const xyLoc &s1, const xyLoc &s2) const
+tDirection MultiObjectiveEnvironment::GetAction(const xyLoc &s1, const xyLoc &s2) const
 {
 	int result = kStay;
 	switch (s1.x-s2.x)
@@ -640,7 +640,7 @@ tDirection MapEnvironment::GetAction(const xyLoc &s1, const xyLoc &s2) const
 	return (tDirection)result;
 }
 
-bool MapEnvironment::InvertAction(tDirection &a) const
+bool MultiObjectiveEnvironment::InvertAction(tDirection &a) const
 {
 	switch (a)
 	{
@@ -699,7 +699,7 @@ bool MapEnvironment::InvertAction(tDirection &a) const
 	return true;
 }
 
-void MapEnvironment::ApplyAction(xyLoc &s, tDirection dir) const
+void MultiObjectiveEnvironment::ApplyAction(xyLoc &s, tDirection dir) const
 {
 	//xyLoc old = s;
 	switch (dir)
@@ -765,15 +765,15 @@ void MapEnvironment::ApplyAction(xyLoc &s, tDirection dir) const
 //	s = old;
 }
 
-double MapEnvironment::_h4(unsigned dx, unsigned dy, double result)const{
+double MultiObjectiveEnvironment::_h4(unsigned dx, unsigned dy, double result)const{
   return dx+dy+result;
 }
 
-double MapEnvironment::h4(const xyLoc &l1, const xyLoc &l2)const{
+double MultiObjectiveEnvironment::h4(const xyLoc &l1, const xyLoc &l2)const{
   return _h4(abs(l1.x-l2.x),abs(l1.y-l2.y));
 }
 
-double MapEnvironment::_h8(unsigned dx,unsigned dy,double result)const{
+double MultiObjectiveEnvironment::_h8(unsigned dx,unsigned dy,double result)const{
   static double const SQRT_2(std::sqrt(2.0));
   if(dx>dy){ // Swap
     unsigned tmp(dx); dx=dy; dy=tmp;
@@ -786,11 +786,11 @@ double MapEnvironment::_h8(unsigned dx,unsigned dy,double result)const{
   return _h4(dy,dx,result);
 }
 
-double MapEnvironment::h8(const xyLoc &l1, const xyLoc &l2)const{
+double MultiObjectiveEnvironment::h8(const xyLoc &l1, const xyLoc &l2)const{
   return _h8(abs(l1.x-l2.x),abs(l1.y-l2.y));
 }
 
-double MapEnvironment::_h24(unsigned dx,unsigned dy,double result)const{
+double MultiObjectiveEnvironment::_h24(unsigned dx,unsigned dy,double result)const{
   static double const SQRT_5(sqrt(5));
   if(dx>dy){ // Swap
     unsigned tmp(dx); dx=dy; dy=tmp;
@@ -807,11 +807,11 @@ double MapEnvironment::_h24(unsigned dx,unsigned dy,double result)const{
   return _h8(dy,dx,result);
 }
 
-double MapEnvironment::h24(const xyLoc &l1, const xyLoc &l2)const{
+double MultiObjectiveEnvironment::h24(const xyLoc &l1, const xyLoc &l2)const{
   return _h24(abs(l1.x-l2.x),abs(l1.y-l2.y));
 }
 
-double MapEnvironment::_h48(unsigned dx,unsigned dy,double result)const{
+double MultiObjectiveEnvironment::_h48(unsigned dx,unsigned dy,double result)const{
   static double const SQRT_2(std::sqrt(2.0));
   static double const SQRT_10(sqrt(10));
   static double const SQRT_13(sqrt(13));
@@ -858,12 +858,12 @@ double MapEnvironment::_h48(unsigned dx,unsigned dy,double result)const{
   return _h24(dy,dx,result);
 }
 
-double MapEnvironment::h48(const xyLoc &l1, const xyLoc &l2)const{
+double MultiObjectiveEnvironment::h48(const xyLoc &l1, const xyLoc &l2)const{
   return _h48(abs(l1.x-l2.x),abs(l1.y-l2.y));
 }
 
 
-double MapEnvironment::HCost(const xyLoc &l1, const xyLoc &l2)const{
+double MultiObjectiveEnvironment::HCost(const xyLoc &l1, const xyLoc &l2)const{
   switch(connectedness){
   case 4:
   case 5:
@@ -881,7 +881,7 @@ double MapEnvironment::HCost(const xyLoc &l1, const xyLoc &l2)const{
   }
 }
 
-double MapEnvironment::GCost(const xyLoc &l, const tDirection &act) const
+double MultiObjectiveEnvironment::GCost(const xyLoc &l, const tDirection &act) const
 {
 	double multiplier = 1.0;
 //	if (map->GetTerrainType(l.x, l.y) == kSwamp)
@@ -945,7 +945,7 @@ double MapEnvironment::GCost(const xyLoc &l, const tDirection &act) const
 	return 0;
 }
 
-double MapEnvironment::GCost(const xyLoc &l1, const xyLoc &l2) const
+double MultiObjectiveEnvironment::GCost(const xyLoc &l1, const xyLoc &l2) const
 {
   double multiplier = 1.0;
   if(l1.x-l2.x==0&&l1.y-l2.y==0) return multiplier*(connectedness%2);
@@ -965,33 +965,33 @@ double MapEnvironment::GCost(const xyLoc &l1, const xyLoc &l2) const
   //	return h;
 }
 
-bool MapEnvironment::LineOfSight(const xyLoc &node, const xyLoc &goal) const{
+bool MultiObjectiveEnvironment::LineOfSight(const xyLoc &node, const xyLoc &goal) const{
   return map->LineOfSight(node.x,node.y,goal.x,goal.y);
 }
 
-bool MapEnvironment::GoalTest(const xyLoc &node, const xyLoc &goal) const
+bool MultiObjectiveEnvironment::GoalTest(const xyLoc &node, const xyLoc &goal) const
 {
 	return ((node.x == goal.x) && (node.y == goal.y));
 }
 
-uint64_t MapEnvironment::GetMaxHash() const
+uint64_t MultiObjectiveEnvironment::GetMaxHash() const
 {
 	return map->GetMapWidth()*map->GetMapHeight();
 }
 
-uint64_t MapEnvironment::GetStateHash(const xyLoc &node) const
+uint64_t MultiObjectiveEnvironment::GetStateHash(const xyLoc &node) const
 {
 	//return (((uint64_t)node.x)<<16)|node.y;
 	return node.y*map->GetMapWidth()+node.x;
 	//	return (node.x<<16)|node.y;
 }
 
-uint64_t MapEnvironment::GetActionHash(tDirection act) const
+uint64_t MultiObjectiveEnvironment::GetActionHash(tDirection act) const
 {
 	return (uint32_t) act;
 }
 
-void MapEnvironment::OpenGLDraw() const
+void MultiObjectiveEnvironment::OpenGLDraw() const
 {
 	//std::cout<<"drawing\n";
 	map->OpenGLDraw();
@@ -1012,7 +1012,7 @@ void MapEnvironment::OpenGLDraw() const
 	
 
 
-void MapEnvironment::OpenGLDraw(const xyLoc &l) const
+void MultiObjectiveEnvironment::OpenGLDraw(const xyLoc &l) const
 {
 	GLdouble xx, yy, zz, rad;
 	map->GetOpenGLCoord(l.x, l.y, xx, yy, zz, rad);
@@ -1023,7 +1023,7 @@ void MapEnvironment::OpenGLDraw(const xyLoc &l) const
 	DrawSphere(xx, yy, zz, rad);
 }
 
-void MapEnvironment::OpenGLDraw(const xyLoc &l1, const xyLoc &l2, float v) const
+void MultiObjectiveEnvironment::OpenGLDraw(const xyLoc &l1, const xyLoc &l2, float v) const
 {
 	GLdouble xx, yy, zz, rad;
 	GLdouble xx2, yy2, zz2;
@@ -1042,7 +1042,7 @@ void MapEnvironment::OpenGLDraw(const xyLoc &l1, const xyLoc &l2, float v) const
 	DrawSphere(xx, yy, zz, rad);
 }
 
-//void MapEnvironment::OpenGLDraw(const xyLoc &l, GLfloat r, GLfloat g, GLfloat b) const
+//void MultiObjectiveEnvironment::OpenGLDraw(const xyLoc &l, GLfloat r, GLfloat g, GLfloat b) const
 //{
 //	GLdouble xx, yy, zz, rad;
 //	map->GetOpenGLCoord(l.x, l.y, xx, yy, zz, rad);
@@ -1051,7 +1051,7 @@ void MapEnvironment::OpenGLDraw(const xyLoc &l1, const xyLoc &l2, float v) const
 //}
 
 
-void MapEnvironment::OpenGLDraw(const xyLoc& initial, const tDirection &dir) const
+void MultiObjectiveEnvironment::OpenGLDraw(const xyLoc& initial, const tDirection &dir) const
 {
 	
 	xyLoc s = initial;
@@ -1124,7 +1124,7 @@ void MapEnvironment::OpenGLDraw(const xyLoc& initial, const tDirection &dir) con
 	
 }
 
-void MapEnvironment::GLDrawLine(const xyLoc &a, const xyLoc &b) const
+void MultiObjectiveEnvironment::GLDrawLine(const xyLoc &a, const xyLoc &b) const
 {
 	GLdouble xx1, yy1, zz1, rad;
 	GLdouble xx2, yy2, zz2;
@@ -1167,7 +1167,7 @@ void MapEnvironment::GLDrawLine(const xyLoc &a, const xyLoc &b) const
 //	glEnd();
 }
 
-void MapEnvironment::GLLabelState(const xyLoc &s, const char *str, double scale) const
+void MultiObjectiveEnvironment::GLLabelState(const xyLoc &s, const char *str, double scale) const
 {
 	glPushMatrix();
 	
@@ -1190,7 +1190,7 @@ void MapEnvironment::GLLabelState(const xyLoc &s, const char *str, double scale)
 	glPopMatrix();
 }
 
-void MapEnvironment::GLLabelState(const xyLoc &s, const char *str) const
+void MultiObjectiveEnvironment::GLLabelState(const xyLoc &s, const char *str) const
 {
 	glPushMatrix();
 
@@ -1213,7 +1213,7 @@ void MapEnvironment::GLLabelState(const xyLoc &s, const char *str) const
 	glPopMatrix();
 }
 
-std::string MapEnvironment::SVGHeader()
+std::string MultiObjectiveEnvironment::SVGHeader()
 {
 	std::string s;
 	// 10% margin on all sides of image
@@ -1225,7 +1225,7 @@ std::string MapEnvironment::SVGHeader()
 	return s;
 }
 
-std::string MapEnvironment::SVGDraw()
+std::string MultiObjectiveEnvironment::SVGDraw()
 {
 	std::string s;
 	recColor black = {0.0, 0.0, 0.0};
@@ -1354,7 +1354,7 @@ std::string MapEnvironment::SVGDraw()
 	return s;
 }
 
-std::string MapEnvironment::SVGDraw(const xyLoc &l)
+std::string MultiObjectiveEnvironment::SVGDraw(const xyLoc &l)
 {
 	std::string s;
 	if (map->GetTerrainType(l.x, l.y) == kGround)
@@ -1368,7 +1368,7 @@ std::string MapEnvironment::SVGDraw(const xyLoc &l)
 	return s;
 }
 
-std::string MapEnvironment::SVGFrameRect(int left, int top, int right, int bottom, int width)
+std::string MultiObjectiveEnvironment::SVGFrameRect(int left, int top, int right, int bottom, int width)
 {
 	std::string s;
 
@@ -1380,7 +1380,7 @@ std::string MapEnvironment::SVGFrameRect(int left, int top, int right, int botto
 	return s;
 }
 
-std::string MapEnvironment::SVGLabelState(const xyLoc &l, const char *str, double scale) const
+std::string MultiObjectiveEnvironment::SVGLabelState(const xyLoc &l, const char *str, double scale) const
 {
 	std::string s;
 	recColor c;// = {0.5, 0.5, 0};
@@ -1395,7 +1395,7 @@ std::string MapEnvironment::SVGLabelState(const xyLoc &l, const char *str, doubl
 //	return s;
 }
 
-std::string MapEnvironment::SVGDrawLine(const xyLoc &p1, const xyLoc &p2, int width) const
+std::string MultiObjectiveEnvironment::SVGDrawLine(const xyLoc &p1, const xyLoc &p2, int width) const
 {
 	//<line x1="0" y1="0" x2="200" y2="200" style="stroke:rgb(255,255,255);stroke-width:1" />
 	//std::string s;
@@ -1413,7 +1413,7 @@ std::string MapEnvironment::SVGDrawLine(const xyLoc &p1, const xyLoc &p2, int wi
 }
 
 
-void MapEnvironment::Draw() const
+void MultiObjectiveEnvironment::Draw() const
 {
 	recColor black = {0.0, 0.0, 0.0};
 	
@@ -1549,7 +1549,7 @@ void MapEnvironment::Draw() const
 	}
 }
 
-void MapEnvironment::Draw(const xyLoc &l) const
+void MultiObjectiveEnvironment::Draw(const xyLoc &l) const
 {
 	GLdouble px, py, t, rad;
 	map->GetOpenGLCoord(l.x, l.y, px, py, t, rad);
@@ -1572,7 +1572,7 @@ void MapEnvironment::Draw(const xyLoc &l) const
 	}
 }
 
-void MapEnvironment::DrawLine(const xyLoc &a, const xyLoc &b, double width) const
+void MultiObjectiveEnvironment::DrawLine(const xyLoc &a, const xyLoc &b, double width) const
 {
 	GLdouble xx1, yy1, zz1, rad;
 	GLdouble xx2, yy2, zz2;
@@ -1587,7 +1587,7 @@ void MapEnvironment::DrawLine(const xyLoc &a, const xyLoc &b, double width) cons
 }
 
 
-//void MapEnvironment::OpenGLDraw(const xyLoc& initial, const tDirection &dir, GLfloat r, GLfloat g, GLfloat b) const
+//void MultiObjectiveEnvironment::OpenGLDraw(const xyLoc& initial, const tDirection &dir, GLfloat r, GLfloat g, GLfloat b) const
 //{
 //	xyLoc s = initial;
 //	GLdouble xx, yy, zz, rad;
@@ -1617,7 +1617,7 @@ void MapEnvironment::DrawLine(const xyLoc &a, const xyLoc &b, double width) cons
 //	glEnd();
 //}
 
-void MapEnvironment::GetNextState(const xyLoc &currents, tDirection dir, xyLoc &news) const
+void MultiObjectiveEnvironment::GetNextState(const xyLoc &currents, tDirection dir, xyLoc &news) const
  {
 	news = currents;
  	switch (dir)
@@ -1676,7 +1676,7 @@ void MapEnvironment::GetNextState(const xyLoc &currents, tDirection dir, xyLoc &
 	}	
 }
 
-double MapEnvironment::GetPathLength(std::vector<xyLoc> &neighbors)
+double MultiObjectiveEnvironment::GetPathLength(std::vector<xyLoc> &neighbors)
 {
 	double length = 0;
 	for (unsigned int x = 1; x < neighbors.size(); x++)
@@ -1688,16 +1688,15 @@ double MapEnvironment::GetPathLength(std::vector<xyLoc> &neighbors)
 
 /************************************************************/
 
-AbsMapEnvironment::AbsMapEnvironment(MapAbstraction *_ma)
-:MapEnvironment(_ma->GetMap())
+AbsMultiObjectiveEnvironment::AbsMultiObjectiveEnvironment(MapAbstraction *_ma)
+:MultiObjectiveEnvironment(_ma->GetMap())
 {
 	ma = _ma;
 	
 }
 
-AbsMapEnvironment::~AbsMapEnvironment()
+AbsMultiObjectiveEnvironment::~AbsMultiObjectiveEnvironment()
 {
 	map = 0;
 	//delete ma;
 }
-

@@ -52,8 +52,11 @@ SRC_CPP = \
 	environments/GraphRefinementEnvironment.cpp \
 	environments/Grid3DConstrainedEnvironment.cpp \
 	environments/Grid3DEnvironment.cpp \
+	environments/GridStates.cpp \
 	environments/Map2DEnvironment.cpp \
 	environments/Map2DConstrainedEnvironment.cpp \
+	environments/MultiObjectiveEnvironment.cpp \
+	environments/MultiObjectiveConstrainedEnvironment.cpp \
 	environments/PermutationPuzzleEnvironment.cpp \
 	environments/MNPuzzle.cpp \
 	environments/FlipSide.cpp \

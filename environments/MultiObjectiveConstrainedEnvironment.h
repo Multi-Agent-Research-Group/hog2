@@ -1,31 +1,32 @@
 //
-//  Map2DConstrainedEnvironment.h
+//  MultiObjectiveConstrainedEnvironment.h
 //  hog2 glut
 //
 //  Created by Nathan Sturtevant on 8/3/12.
 //  Copyright (c) 2012 University of Denver. All rights reserved.
 //
 
-#ifndef __hog2_glut__Map2DConstrainedEnvironment__
-#define __hog2_glut__Map2DConstrainedEnvironment__
+#ifndef __hog2_glut__MultiObjectiveConstrainedEnvironment__
+#define __hog2_glut__MultiObjectiveConstrainedEnvironment__
 
 #include <iostream>
 
-#include "Map2DEnvironment.h"
+#include "MultiObjectiveEnvironment.h"
 #include "Vector2D.h"
 #include "VelocityObstacle.h"
 #include "NonUnitTimeCAT.h"
 #include "ConstrainedEnvironment.h"
 #include "PositionalUtils.h"
 #include "TemplateAStar.h"
+#include "GridStates.h"
 
 extern double agentRadius;
 
-class Map2DConstrainedEnvironment : public ConstrainedEnvironment<xytLoc, tDirection>
+class MultiObjectiveConstrainedEnvironment : public ConstrainedEnvironment<xytLoc, tDirection>
 {
 public:
-	Map2DConstrainedEnvironment(Map *m);
-	Map2DConstrainedEnvironment(MapEnvironment *m);
+	MultiObjectiveConstrainedEnvironment(Map *m);
+	MultiObjectiveConstrainedEnvironment(MultiObjectiveEnvironment *m);
 	virtual void AddConstraint(Constraint<xytLoc> const& c);
 	virtual void AddConstraint(Constraint<TemporalVector> const& c);
 	//void AddConstraint(xytLoc const& loc);
@@ -60,8 +61,6 @@ public:
 	virtual void OpenGLDraw(const xytLoc&) const;
 	virtual void OpenGLDraw(const xytLoc&, const tDirection&) const;
 	virtual void GLDrawLine(const xytLoc &x, const xytLoc &y) const;
-	virtual void GLLabelState(const xyLoc &s, const char *str) const{mapEnv->GLLabelState(s,str);}
-	virtual void GLLabelState(const xyLoc &s, const char *str, double scale) const{mapEnv->GLLabelState(s,str,scale);}
         void GLDrawPath(const std::vector<xytLoc> &p, const std::vector<xytLoc> &waypoints) const;
         virtual Map* GetMap()const{return mapEnv->GetMap();}
         bool LineOfSight(const xytLoc &x, const xytLoc &y)const{return mapEnv->LineOfSight(x,y) && !ViolatesConstraint(x,y);}
@@ -69,15 +68,13 @@ public:
         inline void SetMaxTurn(float val){maxTurnAzimuth=val*HDG_RESOLUTON;}
         uint16_t maxTurnAzimuth=0;
         static const float HDG_RESOLUTON;
-        MapEnvironment* GetEnv()const{return mapEnv;}
-
 private:
         bool ignoreTime;
 	bool ViolatesConstraint(const xyLoc &from, const xyLoc &to, float time, float inc) const;
 
 	std::vector<Constraint<xytLoc>> constraints;
 	std::vector<Constraint<TemporalVector>> vconstraints;
-	MapEnvironment *mapEnv;
+	MultiObjectiveEnvironment *mapEnv;
 };
 typedef std::set<IntervalData> ConflictSet;
 
@@ -93,8 +90,9 @@ unsigned checkForConflict(state const*const parent, state const*const node, stat
   return 0; 
 }
 
-#define HASH_INTERVAL 1.0
-#define HASH_INTERVAL_HUNDREDTHS 100
+
+#define HASH_INTERVAL 0.50
+#define HASH_INTERVAL_HUNDREDTHS 50
 
 template <typename state, typename action, typename environment>
 class TieBreaking {
@@ -103,6 +101,7 @@ class TieBreaking {
   {
     if (fequal(ci1.g+ci1.h, ci2.g+ci2.h)) // F-cost equal
     {
+
       if(useCAT && CAT){
         // Make them non-const :)
         AStarOpenClosedData<state>& i1(const_cast<AStarOpenClosedData<state>&>(ci1));
@@ -176,7 +175,7 @@ class TieBreaking {
     return (fgreater(ci1.g+ci1.h, ci2.g+ci2.h));
   }
     static OpenClosedInterface<state,AStarOpenClosedData<state>>* openList;
-    static Map2DConstrainedEnvironment* currentEnv;
+    static MultiObjectiveConstrainedEnvironment* currentEnv;
     static uint8_t currentAgent;
     static bool randomalg;
     static bool useCAT;
@@ -186,7 +185,7 @@ class TieBreaking {
 template <typename state, typename action, typename environment>
 OpenClosedInterface<state,AStarOpenClosedData<state>>* TieBreaking<state,action,environment>::openList=0;
 template <typename state, typename action, typename environment>
-Map2DConstrainedEnvironment* TieBreaking<state,action,environment>::currentEnv=0;
+MultiObjectiveConstrainedEnvironment* TieBreaking<state,action,environment>::currentEnv=0;
 template <typename state, typename action, typename environment>
 uint8_t TieBreaking<state,action,environment>::currentAgent=0;
 template <typename state, typename action, typename environment>
@@ -196,4 +195,4 @@ bool TieBreaking<state,action,environment>::useCAT=false;
 template <typename state, typename action, typename environment>
 NonUnitTimeCAT<state,environment,HASH_INTERVAL_HUNDREDTHS>* TieBreaking<state,action,environment>::CAT=0;
 
-#endif /* defined(__hog2_glut__Map2DConstrainedEnvironment__) */
+#endif /* defined(__hog2_glut__MultiObjectiveConstrainedEnvironment__) */

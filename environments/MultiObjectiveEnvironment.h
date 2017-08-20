@@ -1,5 +1,5 @@
 /*
- *  Map2DEnvironment.h
+ *  MultiObjectiveEnvironment.h
  *  hog2
  *
  *  Created by Nathan Sturtevant on 4/20/07.
@@ -15,6 +15,7 @@
 #include <string>
 #include <iostream>
 #include <sstream>
+#include "Map.h"
 #include "MapAbstraction.h"
 #include "SearchEnvironment.h"
 #include "UnitSimulation.h"
@@ -25,27 +26,15 @@
 
 #include <cassert>
 
-
-const int numPrimitiveActions = 8;
-const int numActions = 10;
-const tDirection possibleDir[numActions] = { kN, kNE, kE, kSE, kS, kSW, kW, kNW, kStay, kTeleport };
-const int kStayIndex = 8; // index of kStay
-
-
-
-
-//typedef OccupancyInterface<xyLoc, tDirection> BaseMapOccupancyInterface;
-
-
-class MapEnvironment : public SearchEnvironment<xyLoc, tDirection>
+class MultiObjectiveEnvironment : public SearchEnvironment<xyLoc, tDirection>
 {
 public:
-	MapEnvironment(Map *m, bool useOccupancy = false);
-	MapEnvironment(MapEnvironment *);
-	virtual ~MapEnvironment();
+	MultiObjectiveEnvironment(Map *m, bool useOccupancy = false);
+	MultiObjectiveEnvironment(MultiObjectiveEnvironment *);
+	virtual ~MultiObjectiveEnvironment();
 	void SetGraphHeuristic(GraphHeuristic *h);
 	GraphHeuristic *GetGraphHeuristic();
-        virtual std::string name()const{std::stringstream ss; ss<<"Map2DEnvironment("<<(int)connectedness<<"-connected)"; return ss.str();}
+        virtual std::string name()const{std::stringstream ss; ss<<"MultiObjectiveEnvironment("<<(int)connectedness<<"-connected)"; return ss.str();}
 	virtual void GetSuccessors(const xyLoc &nodeID, std::vector<xyLoc> &neighbors) const;
 	virtual void GetReverseSuccessors(const xyLoc &nodeID, std::vector<xyLoc> &neighbors) const{GetSuccessors(nodeID,neighbors);}
 	bool GetNextSuccessor(const xyLoc &currOpenNode, const xyLoc &goal, xyLoc &next, double &currHCost, uint64_t &special, bool &validMove);
@@ -62,7 +51,7 @@ public:
 //	bool Contractable(const xyLoc &where);
 	
 	virtual double HCost(const xyLoc &) const {
-		fprintf(stderr, "ERROR: Single State HCost not implemented for MapEnvironment\n");
+		fprintf(stderr, "ERROR: Single State HCost not implemented for MultiObjectiveEnvironment\n");
 		exit(1); return -1.0;}
 	virtual double HCost(const xyLoc &node1, const xyLoc &node2) const;
 	virtual double GCost(const xyLoc &node1, const xyLoc &node2) const;
@@ -71,7 +60,7 @@ public:
 	bool GoalTest(const xyLoc &node, const xyLoc &goal) const;
 
 	bool GoalTest(const xyLoc &){
-		fprintf(stderr, "ERROR: Single State Goal Test not implemented for MapEnvironment\n");
+		fprintf(stderr, "ERROR: Single State Goal Test not implemented for MultiObjectiveEnvironment\n");
 		exit(1); return false;}
 
 	uint64_t GetMaxHash() const;
@@ -128,7 +117,7 @@ public:
 	void SetAnyAngleConnected() { connectedness=255; }
         void SetConnectedness(int c){ connectedness=c; }
         uint8_t GetConnectedness()const{ return connectedness; }
-	//virtual BaseMapOccupancyInterface* GetOccupancyInterface(){std::cout<<"Mapenv\n";return oi;}
+	//virtual BaseMOOccupancyInterface* GetOccupancyInterface(){std::cout<<"Mapenv\n";return oi;}
 	//virtual xyLoc GetNextState(xyLoc &s, tDirection dir);
 	double GetPathLength(std::vector<xyLoc> &neighbors);
         std::vector<std::vector<std::pair<xyLoc,double>>> solution;
@@ -154,28 +143,28 @@ protected:
         double h48(const xyLoc &l1, const xyLoc &l2)const;
 };
 
-class AbsMapEnvironment : public MapEnvironment
+class AbsMultiObjectiveEnvironment : public MultiObjectiveEnvironment
 {
 public:
-	AbsMapEnvironment(MapAbstraction *ma);
-	virtual ~AbsMapEnvironment();
+	AbsMultiObjectiveEnvironment(MapAbstraction *ma);
+	virtual ~AbsMultiObjectiveEnvironment();
 	MapAbstraction *GetMapAbstraction() { return ma; }
 	void OpenGLDraw() const { map->OpenGLDraw(); ma->OpenGLDraw(); }
-	void OpenGLDraw(const xyLoc &l) const { MapEnvironment::OpenGLDraw(l); }
-	void OpenGLDraw(const xyLoc& s, const tDirection &dir) const {MapEnvironment::OpenGLDraw(s,dir);}
-	void OpenGLDraw(const xyLoc &l1, const xyLoc &l2, float v) const { MapEnvironment::OpenGLDraw(l1, l2, v); }
+	void OpenGLDraw(const xyLoc &l) const { MultiObjectiveEnvironment::OpenGLDraw(l); }
+	void OpenGLDraw(const xyLoc& s, const tDirection &dir) const {MultiObjectiveEnvironment::OpenGLDraw(s,dir);}
+	void OpenGLDraw(const xyLoc &l1, const xyLoc &l2, float v) const { MultiObjectiveEnvironment::OpenGLDraw(l1, l2, v); }
 
 	//virtual BaseMapOccupancyInterface* GetOccupancyInterface(){std::cout<<"AbsMap\n";return oi;}
 protected:
 	MapAbstraction *ma;
 };
 
-typedef UnitSimulation<xyLoc, tDirection, MapEnvironment> UnitMapSimulation;
-typedef UnitSimulation<xyLoc, tDirection, AbsMapEnvironment> UnitAbsMapSimulation;
+typedef UnitSimulation<xyLoc, tDirection, MultiObjectiveEnvironment> UnitMOSimulation;
+typedef UnitSimulation<xyLoc, tDirection, AbsMultiObjectiveEnvironment> UnitAbsMOSimulation;
 
 
 //template<>
-//void UnitSimulation<xyLoc, tDirection, MapEnvironment>::OpenGLDraw()
+//void UnitSimulation<xyLoc, tDirection, MultiObjectiveEnvironment>::OpenGLDraw()
 //{
 //	env->OpenGLDraw();
 //	for (unsigned int x = 0; x < units.size(); x++)
@@ -185,7 +174,7 @@ typedef UnitSimulation<xyLoc, tDirection, AbsMapEnvironment> UnitAbsMapSimulatio
 //}
 //
 //template<>
-//void UnitSimulation<xyLoc, tDirection, AbsMapEnvironment>::OpenGLDraw()
+//void UnitSimulation<xyLoc, tDirection, AbsMultiObjectiveEnvironment>::OpenGLDraw()
 //{
 //	env->OpenGLDraw();
 //	for (unsigned int x = 0; x < units.size(); x++)
