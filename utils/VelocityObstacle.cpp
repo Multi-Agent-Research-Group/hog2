@@ -271,7 +271,7 @@ std::pair<double,double> getCollisionInterval(Vector3D A, Vector3D const& VA, do
   //std::cout << "rA:"<<rA<<"rB:"<<rB<<"\n";
   double collisionEnd(getCollisionTime(rA,-VA,radiusA,0,duration,rB,-VB,radiusB,0,duration));
   // If there is no end time (-1) then this is a split-second collision
-  collisionEnd=collisionEnd<0?collisionStart+TOLERANCE/2:startTimeA+duration-collisionEnd;
+  collisionEnd=collisionEnd<0?collisionStart+TOLERANCE*2:startTimeA+duration-collisionEnd;
   //std::cout << "Collision End: " << collisionEnd << "\n";
   assert(collisionStart<=collisionEnd);
   return std::make_pair(collisionStart,collisionEnd);
@@ -306,7 +306,7 @@ std::pair<double,double> getCollisionInterval(Vector2D A, Vector2D const& VA, do
   //std::cout << "rA:"<<rA<<"rB:"<<rB<<"\n";
   double collisionEnd(getCollisionTime(rA,-VA,radiusA,0,duration,rB,-VB,radiusB,0,duration));
   // If there is no end time (-1) then this is a split-second collision
-  collisionEnd=collisionEnd<0?collisionStart+TOLERANCE/2:startTimeA+duration-collisionEnd;
+  collisionEnd=collisionEnd<0?collisionStart+TOLERANCE*2:startTimeA+duration-collisionEnd;
   //std::cout << "Collision End: " << collisionEnd << "\n";
   assert(collisionStart<=collisionEnd);
   return std::make_pair(collisionStart,collisionEnd);
