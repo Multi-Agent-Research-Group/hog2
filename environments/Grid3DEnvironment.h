@@ -196,6 +196,7 @@ public:
 	Grid3DEnvironment(Map3D *m, bool=false);
 	Grid3DEnvironment(Grid3DEnvironment *);
 	virtual ~Grid3DEnvironment();
+        virtual std::string name()const{return std::string("Grid3DEnvironment");}
 	void SetGraphHeuristic(GraphHeuristic *h);
 	GraphHeuristic *GetGraphHeuristic();
 	virtual void GetSuccessors(const xyzLoc &nodeID, std::vector<xyzLoc> &neighbors) const;

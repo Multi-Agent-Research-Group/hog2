@@ -414,7 +414,7 @@ vals ThetaStar<state,action,environment,openList>::ComputeCost(AStarOpenClosedDa
     newg=pp.g+(env->*GCostFunc)(pp.data,c);
     if(fless(newg,oldg)){
       if(verbose)std::cout << "  Change parent of " << c << " to " << pp.data << " from " << p.data <<" " << newg << "\n";
-      newt = Util::distance(pp.data.x,pp.data.y,c.x,c.y);
+      newt = pp.data.t+Util::distance(pp.data.x,pp.data.y,c.x,c.y);
       return {p.parentID,newt,newg};
     }
   }else if(fless(newg,oldg)){

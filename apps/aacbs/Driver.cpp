@@ -324,6 +324,15 @@ void InitHeadless(){
     group->timer->StartTimeout(std::chrono::seconds(killtime),func);
   }
   //assert(false && "Exit early");
+  //std::cout << "All Initial paths:\n";
+  //int i(0);
+  //for(auto u : group->GetMembers()){
+    //std::cout << "Agent " << ++i << "\n";
+    //std::vector<xytLoc> p(((CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS>,ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>>>> const*)u)->GetPath());
+    //for(int j(0); j<p.size(); ++j){
+      //std::cout << p[j] << "\n";
+    //}
+  //}
 }
 
 void InitSim(){

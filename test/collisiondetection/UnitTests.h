@@ -654,6 +654,66 @@ TEST(Quadratic, Contrived5){
   }
 }
 
+TEST(Quadratic, Contrived6){
+  Vector2D A(7,6);
+  Vector2D VA(-2,4);
+  VA.Normalize();
+  double radius(.5);
+  Vector2D B(2,5);
+  Vector2D VB(4,-3);
+  VB.Normalize();
+
+  ASSERT_FALSE(collisionImminent(A,VA,radius,0.0,4.47214,B,VB,radius,2.23607,5));
+}
+
+TEST(Quadratic, Contrived7){
+  Vector2D A(3,7);
+  Vector2D VA(1,0);
+  VA.Normalize();
+  double radius(.5);
+  Vector2D B(3,7);
+  Vector2D VB(1,0);
+  VB.Normalize();
+
+  ASSERT_FALSE(collisionImminent(A,VA,radius,5,6,B,VB,radius,2.82843,5.82843));
+}
+
+TEST(Quadratic, Contrived8){
+  Vector2D A(3,7);
+  Vector2D VA(0,0);
+  VA.Normalize();
+  double radius(.5);
+  Vector2D B(3,7);
+  Vector2D VB(0,0);
+  VB.Normalize();
+
+  ASSERT_TRUE(collisionImminent(A,VA,radius,5,6,B,VB,radius,2.82843,5.82843));
+}
+
+TEST(Quadratic, Contrived9){
+  Vector2D A(3,7);
+  Vector2D VA(0,0);
+  VA.Normalize();
+  double radius(.5);
+  Vector2D B(3,7);
+  Vector2D VB(0,0);
+  VB.Normalize();
+
+  ASSERT_FALSE(collisionImminent(A,VA,radius,5,6,B,VB,radius,2.82843,4.82843));
+}
+
+TEST(Quadratic, Contrived10){
+  Vector2D A(3,7);
+  Vector2D VA(0,0);
+  VA.Normalize();
+  double radius(.5);
+  Vector2D B(3,7);
+  Vector2D VB(1,-1);
+  VB.Normalize();
+
+  ASSERT_FALSE(collisionImminent(A,VA,radius,5,6,B,VB,radius,2.82843,5.82843));
+}
+
 void drawcircle(int x0, int y0, int r, std::map<int,int>& coords){
     int x = r;
     int y = 0;
@@ -1136,7 +1196,7 @@ TEST(Theta1, TestDodging){
   std::cout << std::endl;
 }
 
-TEST(Theta, TestMotionConstrained3D){
+TEST(DISABLED_Theta, TestMotionConstrained3D){
   Map3D map(8,8,8);
   Grid3DEnvironment menv(&map);
   Grid3DConstrainedEnvironment env(&menv);
@@ -1157,7 +1217,7 @@ TEST(Theta, TestMotionConstrained3D){
   std::cout << std::endl;
 }
 
-TEST(Theta, Test3D){
+TEST(DISABLED_Theta, Test3D){
   Map3D map(8,8,8);
   Grid3DEnvironment menv(&map);
   Grid3DConstrainedEnvironment env(&menv);

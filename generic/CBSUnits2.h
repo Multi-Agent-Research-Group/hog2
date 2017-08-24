@@ -65,6 +65,7 @@ unsigned ReplanLeg(CBSUnit<state,action,environment,comparison,conflicttable,sea
   if(thePath.empty()){
     assert(false && "Expected a valid path for re-planning.");
   }
+  while(thePath.size()>wpts[g]+1 && thePath[wpts[g]].sameLoc(thePath[++wpts[g]])){deletes++;}
   //std::cout << "Agent: " << "re-planning path from " << s << " to " << g << " on a path of len:" << thePath.size() << "\n";
   state start(c->GetWaypoint(s));
   state goal(c->GetWaypoint(g));
@@ -80,6 +81,8 @@ unsigned ReplanLeg(CBSUnit<state,action,environment,comparison,conflicttable,sea
   tmr.StartTimer();
   astar.GetPath(env, start, goal, path, minTime);
   //std::cout << "Replan took: " << tmr.EndTimer() << std::endl;
+  //std::cout << "Old leg " << thePath.size() << "\n";
+  //for(auto &p: thePath){std::cout << p << "\n";}
   //std::cout << "New leg " << path.size() << "\n";
   //for(auto &p: path){std::cout << p << "\n";}
   if(path.empty()){
@@ -698,6 +701,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::pro
 
   double cost(0.0);
   unsigned total(0);
+  double maxTime(GetMaxTime(bestNode,9999999));
   // For every unit in the node
   for (unsigned int x = 0; x < tree[bestNode].paths.size(); x++)
   {
@@ -720,6 +724,12 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::pro
     }*/
 
     // Update the actual unit path
+    // Add an extra wait action for "visualization" purposes,
+    // This should not affect correctness...
+    if(tree[bestNode].paths[x].back().t<maxTime){
+      tree[bestNode].paths[x].push_back(tree[bestNode].paths[x].back());
+      tree[bestNode].paths[x].back().t=maxTime;
+    }
     unit->SetPath(tree[bestNode].paths[x]);
     if(true){
       std::cout << "Agent " << x << ": " << "\n";
@@ -1210,6 +1220,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Rep
     tree[location].satisfiable = false;
   }
 
+  StayAtGoal(location); // Do this every time a unit is updated so that proper collision detection is carried out
   // Add the path back to the tree (new constraint included)
   //tree[location].paths[theUnit].resize(0);
   if(comparison::useCAT)
@@ -1218,8 +1229,6 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Rep
   /*for(int i(0); i<thePath.size(); ++i) {
     tree[location].paths[theUnit].push_back(thePath[i]);
   }*/
-
-  // Issue tickets on the path
 }
 
 template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>

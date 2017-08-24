@@ -109,7 +109,7 @@ bool collisionImminent(Vector2D A, Vector2D const& VA, double radiusA, double st
   // check for time overlap
   if(fgreater(startTimeA-radiusA,endTimeB)||fgreater(startTimeB-radiusB,endTimeA)||fequal(startTimeA,endTimeA)||fequal(startTimeB,endTimeB)){return false;}
 
-  if(A==B&&VA==VB){
+  if(A==B&&VA==VB&&VA.x==0&&VA.y==0){
     if(fgreater(startTimeA,endTimeB)||fgreater(startTimeB,endTimeA)){return false;}
     else{return true;}
   }
@@ -149,7 +149,7 @@ bool collisionImminent(Vector3D A, Vector3D const& VA, double radiusA, double st
   // check for time overlap
   if(fgreater(startTimeA-radiusA,endTimeB)||fgreater(startTimeB-radiusB,endTimeA)||fequal(startTimeA,endTimeA)||fequal(startTimeB,endTimeB)){return false;}
 
-  if(A==B&&VA==VB){
+  if(A==B&&VA==VB&&VA.x==0&&VA.y==0){
     if(fgreater(startTimeA,endTimeB)||fgreater(startTimeB,endTimeA)){return false;}
     else{return true;}
   }
@@ -193,7 +193,7 @@ double getCollisionTime(Vector2D A, Vector2D const& VA, double radiusA, double s
   // check for time overlap
   if(fgreater(startTimeA-radiusA,endTimeB)||fgreater(startTimeB-radiusB,endTimeA)||fequal(startTimeA,endTimeA)||fequal(startTimeB,endTimeB)){return -1;}
 
-  if(A==B&&VA==VB){
+  if(A==B&&VA==VB&&VA.x==0&&VA.y==0){
     if(fgreater(startTimeA,endTimeB)||fgreater(startTimeB,endTimeA)){return -1;}
     else{return std::max(startTimeA,startTimeB);}
   }
@@ -230,7 +230,7 @@ double getCollisionTime(Vector3D A, Vector3D const& VA, double radiusA, double s
   // check for time overlap
   if(fgreater(startTimeA-radiusA,endTimeB)||fgreater(startTimeB-radiusB,endTimeA)||fequal(startTimeA,endTimeA)||fequal(startTimeB,endTimeB)){return -1;}
 
-  if(A==B&&VA==VB){
+  if(A==B&&VA==VB&&VA.x==0&&VA.y==0){
     if(fgreater(startTimeA,endTimeB)||fgreater(startTimeB,endTimeA)){return -1;}
     else{return std::max(startTimeA,startTimeB);}
   }
