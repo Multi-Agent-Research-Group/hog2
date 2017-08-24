@@ -13,7 +13,7 @@ for i in range(100):
   start=list(s)
   goal=list(g)
   
-  for size in range(2,22,2):
+  for size in range(1,21):
     if not os.path.exists("./%d"%size):
       try:
         os.makedirs("./%d"%size)
