@@ -189,7 +189,6 @@ public:
   { if (success) current = newLoc; else assert(!"CBS Unit: Movement failed"); }
 
   void GetLocation(state &l) { l = current; }
-  //void OpenGLDraw(const environment *, const SimulationInfo<state,action,environment> *,float soltime) const;
   void OpenGLDraw(const environment *, const SimulationInfo<state,action,environment> *) const;
   void GetGoal(state &s) { s = waypoints[goal]; }
   void GetStart(state &s) { s = waypoints[start]; }
@@ -425,7 +424,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Add
 /** constructor **/
 template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
 CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::CBSGroup(std::vector<EnvironmentContainer<state,action,environment> > const& environs,bool v)
-: time(0), bestNode(0), planFinished(false), verify(false), nobypass(false)
+: time(0), bestNode(0), planFinished(false), verify(false), nobypass(true)
     , ECBSheuristic(false), killex(INT_MAX), keeprunning(false), animate(0),
     seed(1234567), timer(0), verbose(v)
 {
@@ -726,12 +725,12 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::pro
     // Update the actual unit path
     // Add an extra wait action for "visualization" purposes,
     // This should not affect correctness...
-    if(tree[bestNode].paths[x].back().t<maxTime){
+    if(tree[bestNode].paths[x].size() && tree[bestNode].paths[x].back().t<maxTime){
       tree[bestNode].paths[x].push_back(tree[bestNode].paths[x].back());
       tree[bestNode].paths[x].back().t=maxTime;
     }
     unit->SetPath(tree[bestNode].paths[x]);
-    if(true){
+    if(tree[bestNode].paths[x].size()){
       std::cout << "Agent " << x << ": " << "\n";
       unsigned wpt(0);
       signed ix(0);
@@ -748,6 +747,8 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::pro
           std::cout << "  " << a << "\n";
         }
       }
+    }else{
+      std::cout << "Agent " << x << ": " << "NO Path Found.\n";
     }
     if(verify){
       bool valid(true);

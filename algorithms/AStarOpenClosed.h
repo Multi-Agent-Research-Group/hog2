@@ -52,6 +52,8 @@ public:
 	void SaveToFile(char const*const filename) const;
 	void LoadFromFile(char const*const filename);
 	void Reset(int val=0);
+	uint64_t AddOpenNode(dataStructure& val, uint64_t hash);
+	uint64_t AddClosedNode(dataStructure& val, uint64_t hash);
 	uint64_t AddOpenNode(const state &val, uint64_t hash, double g, double h, uint64_t parent=kTAStarNoNode);
 	uint64_t AddClosedNode(state &val, uint64_t hash, double g, double h, uint64_t parent=kTAStarNoNode);
 	void KeyChanged(uint64_t objKey);
@@ -149,7 +151,7 @@ void AStarOpenClosed<state, CmpKey, dataStructure>::Reset(int)
  * Add object into open list.
  */
 template<typename state, typename CmpKey, class dataStructure>
-uint64_t AStarOpenClosed<state, CmpKey, dataStructure>::AddOpenNode(const state &val, uint64_t hash, double g, double h, uint64_t parent)
+uint64_t AStarOpenClosed<state, CmpKey, dataStructure>::AddOpenNode(dataStructure& val, uint64_t hash)
 {
 	// should do lookup here...
 	if (table.find(hash) != table.end())
@@ -157,8 +159,10 @@ uint64_t AStarOpenClosed<state, CmpKey, dataStructure>::AddOpenNode(const state 
 		//return -1; // TODO: find correct id and return
 		assert(false &&  "Found the hash in the table already!");
 	}
-	elements.push_back(dataStructure(val, g, h, parent, theHeap.size(), kOpenList));
-	if (parent == kTAStarNoNode)
+        val.openLocation=theHeap.size();
+        val.where=kOpenList;
+	elements.push_back(val);
+	if (val.parentID == kTAStarNoNode)
 		elements.back().parentID = elements.size()-1;
 	table[hash] = elements.size()-1; // hashing to element list location
 	theHeap.push_back(elements.size()-1); // adding element id to back of heap
@@ -170,15 +174,39 @@ uint64_t AStarOpenClosed<state, CmpKey, dataStructure>::AddOpenNode(const state 
  * Add object into closed list.
  */
 template<typename state, typename CmpKey, class dataStructure>
-uint64_t AStarOpenClosed<state, CmpKey, dataStructure>::AddClosedNode(state &val, uint64_t hash, double g, double h, uint64_t parent)
+uint64_t AStarOpenClosed<state, CmpKey, dataStructure>::AddClosedNode(dataStructure& val, uint64_t hash)
 {
 	// should do lookup here...
 	assert(table.find(hash) == table.end());
-	elements.push_back(dataStructure(val, g, h, parent, 0, kClosedList));
-	if (parent == kTAStarNoNode)
+
+        val.openLocation=0;
+        val.where=kClosedList;
+
+	elements.push_back(val);
+	if (val.parentID == kTAStarNoNode)
 		elements.back().parentID = elements.size()-1;
 	table[hash] = elements.size()-1; // hashing to element list location
 	return elements.size()-1;
+}
+
+/**
+ * Add object into open list.
+ */
+template<typename state, typename CmpKey, class dataStructure>
+uint64_t AStarOpenClosed<state, CmpKey, dataStructure>::AddOpenNode(const state &val, uint64_t hash, double g, double h, uint64_t parent)
+{
+  dataStructure data(val, g, h, parent, theHeap.size(), kOpenList);
+  return AddOpenNode(data,hash);
+}
+
+/**
+ * Add object into closed list.
+ */
+template<typename state, typename CmpKey, class dataStructure>
+uint64_t AStarOpenClosed<state, CmpKey, dataStructure>::AddClosedNode(state &val, uint64_t hash, double g, double h, uint64_t parent)
+{
+ dataStructure data(val, g, h, parent, 0, kClosedList);
+  return AddClosedNode(data,hash);
 }
 
 /**
