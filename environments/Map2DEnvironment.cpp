@@ -17,9 +17,6 @@
 using namespace Graphics2D;
 
 MapEnvironment::MapEnvironment(Map *_m, bool useOccupancy):start(nullptr),h(nullptr),map(_m),oi(useOccupancy?new BaseMapOccupancyInterface(map):nullptr),DIAGONAL_COST(sqrt(2)),connectedness(8){
-  SQRT_5=sqrt(5.0);
-  SQRT_10=sqrt(10.0);
-  SQRT_13=sqrt(13);
 }
 
 MapEnvironment::MapEnvironment(MapEnvironment *me)
@@ -765,15 +762,15 @@ void MapEnvironment::ApplyAction(xyLoc &s, tDirection dir) const
 //	s = old;
 }
 
-double MapEnvironment::_h4(unsigned dx, unsigned dy, double result)const{
+double MapEnvironment::_h4(unsigned dx, unsigned dy, double result){
   return dx+dy+result;
 }
 
-double MapEnvironment::h4(const xyLoc &l1, const xyLoc &l2)const{
+double MapEnvironment::h4(const xyLoc &l1, const xyLoc &l2){
   return _h4(abs(l1.x-l2.x),abs(l1.y-l2.y));
 }
 
-double MapEnvironment::_h8(unsigned dx,unsigned dy,double result)const{
+double MapEnvironment::_h8(unsigned dx,unsigned dy,double result){
   static double const SQRT_2(std::sqrt(2.0));
   if(dx>dy){ // Swap
     unsigned tmp(dx); dx=dy; dy=tmp;
@@ -786,11 +783,11 @@ double MapEnvironment::_h8(unsigned dx,unsigned dy,double result)const{
   return _h4(dy,dx,result);
 }
 
-double MapEnvironment::h8(const xyLoc &l1, const xyLoc &l2)const{
+double MapEnvironment::h8(const xyLoc &l1, const xyLoc &l2){
   return _h8(abs(l1.x-l2.x),abs(l1.y-l2.y));
 }
 
-double MapEnvironment::_h24(unsigned dx,unsigned dy,double result)const{
+double MapEnvironment::_h24(unsigned dx,unsigned dy,double result){
   static double const SQRT_5(sqrt(5));
   if(dx>dy){ // Swap
     unsigned tmp(dx); dx=dy; dy=tmp;
@@ -807,12 +804,13 @@ double MapEnvironment::_h24(unsigned dx,unsigned dy,double result)const{
   return _h8(dy,dx,result);
 }
 
-double MapEnvironment::h24(const xyLoc &l1, const xyLoc &l2)const{
+double MapEnvironment::h24(const xyLoc &l1, const xyLoc &l2){
   return _h24(abs(l1.x-l2.x),abs(l1.y-l2.y));
 }
 
-double MapEnvironment::_h48(unsigned dx,unsigned dy,double result)const{
+double MapEnvironment::_h48(unsigned dx,unsigned dy,double result){
   static double const SQRT_2(std::sqrt(2.0));
+  static double const SQRT_5(std::sqrt(5.0));
   static double const SQRT_10(sqrt(10));
   static double const SQRT_13(sqrt(13));
   if(dx==dy) return dx*SQRT_2;
@@ -858,12 +856,13 @@ double MapEnvironment::_h48(unsigned dx,unsigned dy,double result)const{
   return _h24(dy,dx,result);
 }
 
-double MapEnvironment::h48(const xyLoc &l1, const xyLoc &l2)const{
+double MapEnvironment::h48(const xyLoc &l1, const xyLoc &l2){
   return _h48(abs(l1.x-l2.x),abs(l1.y-l2.y));
 }
 
 
 double MapEnvironment::HCost(const xyLoc &l1, const xyLoc &l2)const{
+  //if(l1.sameLoc(l2))return 1.0;
   switch(connectedness){
   case 4:
   case 5:
@@ -883,72 +882,76 @@ double MapEnvironment::HCost(const xyLoc &l1, const xyLoc &l2)const{
 
 double MapEnvironment::GCost(const xyLoc &l, const tDirection &act) const
 {
-	double multiplier = 1.0;
-//	if (map->GetTerrainType(l.x, l.y) == kSwamp)
-//	{
-//		multiplier = 3.0;
-//	}
-	switch (act)
-	{
-		case kN: return 1.0*multiplier;
-		case kS: return 1.0*multiplier;
-		case kE: return 1.0*multiplier;
-		case kW: return 1.0*multiplier;
-		case kNW: return DIAGONAL_COST*multiplier;
-		case kSW: return DIAGONAL_COST*multiplier;
-		case kNE: return DIAGONAL_COST*multiplier;
-		case kSE: return DIAGONAL_COST*multiplier;
+  static double const SQRT_5(std::sqrt(5.0));
+  static double const SQRT_10(sqrt(10));
+  static double const SQRT_13(sqrt(13));
+  double multiplier = 1.0;
+  //	if (map->GetTerrainType(l.x, l.y) == kSwamp)
+  //	{
+  //		multiplier = 3.0;
+  //	}
+  switch (act)
+  {
+    case kN: return 1.0*multiplier;
+    case kS: return 1.0*multiplier;
+    case kE: return 1.0*multiplier;
+    case kW: return 1.0*multiplier;
+    case kNW: return DIAGONAL_COST*multiplier;
+    case kSW: return DIAGONAL_COST*multiplier;
+    case kNE: return DIAGONAL_COST*multiplier;
+    case kSE: return DIAGONAL_COST*multiplier;
 
-		case kNN: return 2.0*multiplier;
-		case kNNE: return SQRT_5*multiplier;
-		case kNEE: return SQRT_5*multiplier;
-		case kNNEE: return 2.0*DIAGONAL_COST*multiplier;
-		case kEE: return 2.0*multiplier;
-		case kSSE: return SQRT_5*multiplier;
-		case kSEE: return SQRT_5*multiplier;
-		case kSSEE: return 2.0*DIAGONAL_COST*multiplier;
-		case kSS: return 2.0*multiplier;
-		case kSSW: return SQRT_5*multiplier;
-		case kSWW: return SQRT_5*multiplier;
-		case kSSWW: return 2.0*DIAGONAL_COST*multiplier;
-		case kWW: return 2.0*multiplier;
-		case kNNW: return SQRT_5*multiplier;
-		case kNWW: return SQRT_5*multiplier;
-		case kNNWW: return 2.0*DIAGONAL_COST*multiplier;
+    case kNN: return 2.0*multiplier;
+    case kNNE: return SQRT_5*multiplier;
+    case kNEE: return SQRT_5*multiplier;
+    case kNNEE: return 2.0*DIAGONAL_COST*multiplier;
+    case kEE: return 2.0*multiplier;
+    case kSSE: return SQRT_5*multiplier;
+    case kSEE: return SQRT_5*multiplier;
+    case kSSEE: return 2.0*DIAGONAL_COST*multiplier;
+    case kSS: return 2.0*multiplier;
+    case kSSW: return SQRT_5*multiplier;
+    case kSWW: return SQRT_5*multiplier;
+    case kSSWW: return 2.0*DIAGONAL_COST*multiplier;
+    case kWW: return 2.0*multiplier;
+    case kNNW: return SQRT_5*multiplier;
+    case kNWW: return SQRT_5*multiplier;
+    case kNNWW: return 2.0*DIAGONAL_COST*multiplier;
 
-		case kNNN: return 3.0*multiplier;
-		case kNNNE: return SQRT_10*multiplier;
-		case kNEEE: return SQRT_10*multiplier;
-		case kNNNEE: return SQRT_13*multiplier;
-		case kNNEEE: return SQRT_13*multiplier;
-		case kNNNEEE: return 3.0*DIAGONAL_COST*multiplier;
-		case kEEE: return 3.0*multiplier;
-		case kSSSE: return SQRT_10*multiplier;
-		case kSEEE: return SQRT_10*multiplier;
-		case kSSEEE: return SQRT_13*multiplier;
-		case kSSSEE: return SQRT_13*multiplier;
-		case kSSSEEE: return 3.0*DIAGONAL_COST*multiplier;
-		case kSSS: return 3.0*multiplier;
-		case kSSSW: return SQRT_10*multiplier;
-		case kSWWW: return SQRT_10*multiplier;
-		case kSSWWW: return SQRT_13*multiplier;
-		case kSSSWW: return SQRT_13*multiplier;
-		case kSSSWWW: return 3.0*DIAGONAL_COST*multiplier;
-		case kWWW: return 3.0*multiplier;
-		case kNNNW: return SQRT_10*multiplier;
-		case kNWWW: return SQRT_10*multiplier;
-		case kNNNWW: return SQRT_13*multiplier;
-		case kNNWWW: return SQRT_13*multiplier;
-		case kNNNWWW: return 3.0*DIAGONAL_COST*multiplier;
-		default: return multiplier;
-	}
-	return 0;
+    case kNNN: return 3.0*multiplier;
+    case kNNNE: return SQRT_10*multiplier;
+    case kNEEE: return SQRT_10*multiplier;
+    case kNNNEE: return SQRT_13*multiplier;
+    case kNNEEE: return SQRT_13*multiplier;
+    case kNNNEEE: return 3.0*DIAGONAL_COST*multiplier;
+    case kEEE: return 3.0*multiplier;
+    case kSSSE: return SQRT_10*multiplier;
+    case kSEEE: return SQRT_10*multiplier;
+    case kSSEEE: return SQRT_13*multiplier;
+    case kSSSEE: return SQRT_13*multiplier;
+    case kSSSEEE: return 3.0*DIAGONAL_COST*multiplier;
+    case kSSS: return 3.0*multiplier;
+    case kSSSW: return SQRT_10*multiplier;
+    case kSWWW: return SQRT_10*multiplier;
+    case kSSWWW: return SQRT_13*multiplier;
+    case kSSSWW: return SQRT_13*multiplier;
+    case kSSSWWW: return 3.0*DIAGONAL_COST*multiplier;
+    case kWWW: return 3.0*multiplier;
+    case kNNNW: return SQRT_10*multiplier;
+    case kNWWW: return SQRT_10*multiplier;
+    case kNNNWW: return SQRT_13*multiplier;
+    case kNNWWW: return SQRT_13*multiplier;
+    case kNNNWWW: return 3.0*DIAGONAL_COST*multiplier;
+    default: return multiplier;
+  }
+  return 0;
 }
 
 double MapEnvironment::GCost(const xyLoc &l1, const xyLoc &l2) const
 {
-  double multiplier = 1.0;
-  if(l1.x-l2.x==0&&l1.y-l2.y==0) return multiplier*(connectedness%2);
+  static double multiplier = 1.0;
+  static double waitcost(1.0);
+  if(l1.sameLoc(l2)) return multiplier*waitcost;
   //	if (map->GetTerrainType(l1.x, l1.y) == kSwamp)
   //	{
   //		multiplier = 3.0;
@@ -1681,7 +1684,7 @@ double MapEnvironment::GetPathLength(std::vector<xyLoc> &neighbors)
 	double length = 0;
 	for (unsigned int x = 1; x < neighbors.size(); x++)
 	{
-		length += HCost(neighbors[x-1], neighbors[x]);
+		length += GCost(neighbors[x-1], neighbors[x]);
 	}
 	return length;
 }

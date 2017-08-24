@@ -42,6 +42,7 @@
 bool verbose(false);
 bool validate(true);
 uint64_t jointnodes(0);
+double step(1.0);
 
 template<typename T, typename C>
 class custom_priority_queue : public std::priority_queue<T, std::vector<T>, C>
@@ -200,7 +201,7 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& root
     }
     Node* parent(&dag[hash]);
     float d(maxDepth-depth);
-    while(fleq(++d,maxDepth)){
+    while(fleq(++d,maxDepth)){ // Increment depth by 1 for wait actions
       // Wait at goal
       Node current(start,d);
       uint64_t chash(current.Hash());
@@ -355,9 +356,9 @@ bool jointDFS(MultiEdge const& s, float d, float term, std::vector<std::set<Node
     }
     if(output.empty()){
       // Stay at state...
-      output.emplace_back(a.second,new Node(a.second->n,a.second->depth+increment));
+      output.emplace_back(a.second,new Node(a.second->n,a.second->depth+1.0/*increment*/));
       toDelete.push_back(output.back().second);
-      md=min(md,a.second->depth+increment); // Amount of time to wait
+      md=min(md,a.second->depth+1.0/*increment*/); // Amount of time to wait
     }
     //std::cout << "successor  of " << s << "gets("<<*a<< "): " << output << "\n";
     successors.push_back(output);
@@ -891,16 +892,16 @@ int main(int argc, char ** argv){
       ICTSNode::suboptimal=true;
       std::cout << "suboptimal\n";
     }
-    if(argv[3][0]=='p'){
+    else if(argv[3][0]=='p'){
       ICTSNode::pairwise=true;
       std::cout << "pairwise\n";
     }
-    if(argv[3][0]=='b'){
+    else if(argv[3][0]=='b'){
       ICTSNode::pairwise=true;
       ICTSNode::suboptimal=true;
       std::cout << "pairwise,suboptimal\n";
     }
-    if(argv[3][0]=='a'){
+    else if(argv[3][0]=='a'){
       ICTSNode::pairwise=true;
       ICTSNode::astar=true;
       std::cout << "pairwise,astar\n";
@@ -909,6 +910,13 @@ int main(int argc, char ** argv){
       //std::cout << "forwardjump\n";
       //ICTSNode::forwardjump=true;
     //}
+  }
+  if(argc>4){
+    step=atof(argv[4]);
+    std::cout << "Step " << step << "\n";
+  }
+  if(argc>5){
+    verbose=true;
   }
   Node::env=&env;
   {
@@ -947,11 +955,11 @@ int main(int argc, char ** argv){
       std::pair<int,int> conflicting;
       {
       std::vector<std::set<Node*,NodePtrComp>> answer;
-      ICTSNode test(g,{0,0});
+      ICTSNode test(g,{0,0},step);
       std::cout << (test.isValid(answer,conflicting)?"solved\n":"failed\n");
       }
       std::vector<std::set<Node*,NodePtrComp>> answer;
-      ICTSNode test(g,{1,0});
+      ICTSNode test(g,{1,0},step);
       std::cout << (test.isValid(answer,conflicting)?"solved\n":"failed\n");
       for(auto const& b:answer){
         TimePath p;
@@ -1046,7 +1054,7 @@ int main(int argc, char ** argv){
           custom_priority_queue<ICTSNode*,ICTSNodePtrComp> q;
           std::unordered_set<std::string> deconf;
 
-          q.push(new ICTSNode(g,sizes));
+          q.push(new ICTSNode(g,sizes,step));
 
           std::vector<std::set<Node*,NodePtrComp>> answer;
           std::vector<ICTSNode*> toDelete;
@@ -1100,7 +1108,7 @@ int main(int argc, char ** argv){
             }else{
               for(int i(0); i<parent->sizes.size(); ++i){
                 std::vector<float> sz(parent->sizes);
-                sz[i]++;
+                sz[i]+=step;
                 std::stringstream sv;
                 join(sv,sz);
                 if(deconf.find(sv.str())==deconf.end()){

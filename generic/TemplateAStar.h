@@ -72,8 +72,8 @@ class TemplateAStar : public GenericSearchAlgorithm<state,action,environment> {
 public:
 	TemplateAStar():env(0),totalExternalNodesExpanded(nullptr),externalExpansionLimit(INT_MAX),useBPMX(0),radius(4.0),stopAfterGoal(true),doPartialExpansion(false),verbose(false),weight(1),useRadius(false),useOccupancyInfo(false),radEnv(0),reopenNodes(false),theHeuristic(0),directed(false),noncritical(false),SuccessorFunc(&environment::GetSuccessors),ActionFunc(&environment::GetAction),GCostFunc(&environment::GCost){ResetNodeCount();}
 	virtual ~TemplateAStar() {}
-	void GetPath(environment *env, const state& from, const state& to, std::vector<state> &thePath);
-	void GetPath(environment *, const state& , const state& , std::vector<action> & );
+	void GetPath(environment *env, const state& from, const state& to, std::vector<state> &thePath, double minTime=0.0);
+	void GetPath(environment *, const state& , const state& , std::vector<action> &);
         inline openList* GetOpenList(){return &openClosedList;}
 	
 	openList openClosedList;
@@ -82,8 +82,8 @@ public:
 	state goal, start;
         bool noncritical;
 	
-	bool InitializeSearch(environment *env, const state& from, const state& to, std::vector<state> &thePath);
-	bool DoSingleSearchStep(std::vector<state> &thePath);
+	bool InitializeSearch(environment *env, const state& from, const state& to, std::vector<state> &thePath, double minTime=0.0);
+	bool DoSingleSearchStep(std::vector<state> &thePath, double minTime=0.0);
 	void AddAdditionalStartState(state& newState);
 	void AddAdditionalStartState(state& newState, double cost);
 	
@@ -220,14 +220,14 @@ const char *TemplateAStar<state,action,environment,openList>::GetName()
  * between from and to when the function returns, if one exists. 
  */
 template <class state, class action, class environment, class openList>
-void TemplateAStar<state,action,environment,openList>::GetPath(environment *_env, const state& from, const state& to, std::vector<state> &thePath)
+void TemplateAStar<state,action,environment,openList>::GetPath(environment *_env, const state& from, const state& to, std::vector<state> &thePath, double minTime)
 {
 	//discardcount=0;
-  	if (!InitializeSearch(_env, from, to, thePath))
+  	if (!InitializeSearch(_env, from, to, thePath,minTime))
   	{	
   		return;
   	}
-  	while (!DoSingleSearchStep(thePath))
+  	while (!DoSingleSearchStep(thePath,minTime))
 	{
 //		if (0 == nodesExpanded%10000)
 //			printf("%llu nodes expanded\n", nodesExpanded);
@@ -264,7 +264,7 @@ void TemplateAStar<state,action,environment,openList>::GetPath(environment *_env
  * @return TRUE if initialization was successful, FALSE otherwise
  */
 template <class state, class action, class environment, class openList>
-bool TemplateAStar<state,action,environment,openList>::InitializeSearch(environment *_env, const state& from, const state& to, std::vector<state> &thePath)
+bool TemplateAStar<state,action,environment,openList>::InitializeSearch(environment *_env, const state& from, const state& to, std::vector<state> &thePath, double minTime)
 {
 	//lastF = 0;
 	
@@ -328,7 +328,7 @@ void TemplateAStar<state,action,environment,openList>::AddAdditionalStartState(s
  * otherwise
  */
 template <class state, class action, class environment, class openList>
-bool TemplateAStar<state,action,environment,openList>::DoSingleSearchStep(std::vector<state> &thePath)
+bool TemplateAStar<state,action,environment,openList>::DoSingleSearchStep(std::vector<state> &thePath, double minTime)
 {
 // Special hack... Don't consider paths that take too many expansions
 if(this->nodesExpanded>1000 && this->noncritical){

@@ -14,7 +14,7 @@
 #include <vector>
 //#include "ReservationProvider.h"
 #include <assert.h>
-#include "Heuristic.h"
+#include "ObjectiveEnvironment.h"
 #include "OccupancyInterface.h"
 #include "GLUtil.h"
 
@@ -26,7 +26,7 @@ struct Hash64 {
 
 
 template <class state, class action>
-class SearchEnvironment : public Heuristic<state> {
+class SearchEnvironment : public ObjectiveEnvironment<state> {
 public:
 	virtual ~SearchEnvironment() {}
 	virtual void GetSuccessors(const state &nodeID, std::vector<state> &neighbors) const = 0;

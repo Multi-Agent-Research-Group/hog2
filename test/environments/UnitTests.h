@@ -9,6 +9,22 @@
 #include "Grid3DConstrainedEnvironment.h"
 #include "Map3d.h"
 #include "TemplateAStar.h"
+#include "RadialSafety2DObjectiveEnvironment.h"
+#include "dtedreader.h"
+
+TEST(util, dtedreader){
+  float** array;
+  array = new float*[10];
+  for(int i = 0; i <10; i++)
+    array[i] = new float[10];
+  ASSERT_TRUE(readdted1("w110n38.dt1",array,10,10,0,0,5.0));
+  for(int x(0); x<10; ++x){
+    for(int y(0); y<10; ++y){
+      std::cout << array[x][y] << " ";
+    }
+    std::cout << std::endl;
+  }
+}
 
 TEST(Map2D, TwentyFourConnected_Successors){
   Map map(8,8);
@@ -258,6 +274,8 @@ TEST(Map2D, FortyEightConnected_GCost){
   //ASSERT_DOUBLE_EQ(sqrt(5)+6.*sqrt(10),env.HCost({12,38},{51,41}));
 }
 
+/*
+// This is no longer reversible
 TEST(Map2D, HashUnhash){
   Map map(100,100);
   MapEnvironment env(&map);
@@ -270,5 +288,105 @@ TEST(Map2D, HashUnhash){
     ASSERT_EQ(s,x);
   }
 }
+*/
+
+TEST(RadiusEnv, EdgeDistance){
+  Vector2D A(0,0);
+  Vector2D B(4,0);
+  Vector2D C(4,3);
+  ASSERT_DOUBLE_EQ(3.7359388247516234,Util::meanDistanceOfPointToLine(A,B,C));
+}
+
+TEST(RadiusEnv, GCostTest){
+  Vector2D A(5,1);
+  Vector2D B(4,1);
+  Vector2D C(1,1);
+  ASSERT_DOUBLE_EQ(3.5,Util::meanDistanceOfPointToLine(A,B,C));
+
+  xytLoc a(5,1,0);
+  xytLoc b(4,1,0);
+  RadialSafety2DObjectiveEnvironment renv({{1,1,0},{3,3,0}},{2.,2.},8,8);
+  ASSERT_DOUBLE_EQ(0.0,renv.GCost(a,b));
+
+  renv=RadialSafety2DObjectiveEnvironment({{4,3,0}},{4.},8,8);
+  a.x=7;a.y=0;
+  b.x=6;b.y=1;
+  std::cout << "GCOST " << renv.GCost(a,b) << "\n";
+  ASSERT_TRUE(0.0<renv.GCost(a,b));
+
+  a.x=6;a.y=7;
+  b.x=6;b.y=6;
+  std::cout << "GCOST1 " << renv.GCost(a,b) << "\n";
+  ASSERT_TRUE(0.0<renv.GCost(a,b));
+}
+
+TEST(RadiusEnv, HCostTest){
+  xytLoc a(7,1,0);
+  xytLoc b(6,1,0);
+  RadialSafety2DObjectiveEnvironment renv({{1,1,0}},{4.},8,8);
+  std::cout << "GCOST " << renv.GCost(a,b) << "\n";
+  std::cout << "HCOST " << renv.HCost(a,b) << "\n";
+  ASSERT_DOUBLE_EQ(renv.HCost(a,b),renv.GCost(a,b));
+
+  a.x=5;
+  b.x=3;
+  std::cout << "GCOST " << renv.GCost(a,b) << "\n";
+  std::cout << "HCOST " << renv.HCost(a,b) << "\n";
+  ASSERT_DOUBLE_EQ(renv.HCost(a,b),renv.GCost(a,b));
+}
+
+TEST(SecantLine, intersection){
+  Vector2D c(4,3);
+  double r(4.0);
+  Vector2D a(0,6);
+  Vector2D b(7,6);
+  auto d(Util::secantLine(a,b,c,r));
+  std::cout << "Secant="<<d.first<<","<<d.second<<"\n";
+  ASSERT_DOUBLE_EQ(6.0,d.first.y);
+  ASSERT_DOUBLE_EQ(6.0,d.second.y);
+  ASSERT_TRUE(d.first.x>1 && d.first.x<2);
+  ASSERT_TRUE(d.second.x>6 && d.second.x<7);
+}
+
+TEST(SecantLine, OneIntersection){
+  Vector2D c(4,3);
+  double r(4.0);
+  Vector2D a(2,5);
+  Vector2D b(7,6);
+  auto d(Util::secantLine(a,b,c,r));
+  std::cout << "Secant="<<d.first<<","<<d.second<<"\n";
+  ASSERT_DOUBLE_EQ(2.0,d.first.x);
+  ASSERT_DOUBLE_EQ(5.0,d.first.y);
+  ASSERT_TRUE(d.second.y>5 && d.second.y<6);
+}
+
+TEST(SecantLine, NoIntersectionOutside){
+  Vector2D c(4,3);
+  double r(4.0);
+  Vector2D a(0,7);
+  Vector2D b(7,7);
+  // This has a tangent line, but no secant line
+  auto d(Util::secantLine(a,b,c,r));
+  std::cout << "Secant="<<d.first<<","<<d.second<<"\n";
+  ASSERT_DOUBLE_EQ(0.0,d.first.x);
+  ASSERT_DOUBLE_EQ(0.0,d.first.y);
+  ASSERT_DOUBLE_EQ(0.0,d.second.x);
+  ASSERT_DOUBLE_EQ(0.0,d.second.y);
+}
+
+TEST(SecantLine, NoIntersectionInside){
+  Vector2D c(4,3);
+  double r(4.0);
+  Vector2D a(2,5);
+  Vector2D b(5,6);
+  // This has a tangent line, but no secant line
+  auto d(Util::secantLine(a,b,c,r));
+  std::cout << "Secant="<<d.first<<","<<d.second<<"\n";
+  ASSERT_DOUBLE_EQ(2.0,d.first.x);
+  ASSERT_DOUBLE_EQ(5.0,d.first.y);
+  ASSERT_DOUBLE_EQ(5.0,d.second.x);
+  ASSERT_DOUBLE_EQ(6.0,d.second.y);
+}
+
 
 #endif

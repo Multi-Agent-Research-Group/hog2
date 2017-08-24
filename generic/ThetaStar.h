@@ -59,6 +59,12 @@ struct ThetaStarCompare {
 	}
 };
 
+struct vals{
+  uint64_t p;
+  double t;
+  double g;
+};
+
 /**
  * A templated version of A*, based on HOG genericAStar
  */
@@ -67,7 +73,7 @@ class ThetaStar : public GenericSearchAlgorithm<state,action,environment> {
 public:
 	ThetaStar():totalExternalNodesExpanded(nullptr),externalExpansionLimit(INT_MAX),verbose(false),noncritical(false),theHeuristic(nullptr),env(nullptr),stopAfterGoal(true),weight(1),reopenNodes(false),SuccessorFunc(&environment::GetSuccessors),ActionFunc(&environment::GetAction),GCostFunc(&environment::GCost){ResetNodeCount();}
 	virtual ~ThetaStar() {}
-	void GetPath(environment *env, const state& from, const state& to, std::vector<state> &thePath);
+	void GetPath(environment *env, const state& from, const state& to, std::vector<state> &thePath, double minTime=0);
 	
 	void GetPath(environment *, const state& , const state& , std::vector<action> & ) { assert(false); };
 	
@@ -76,8 +82,8 @@ public:
 	//BucketOpenClosed<state, ThetaStarCompare<state>, AStarOpenClosedData<state> > openClosedList;
 	state goal, start;
 	
-	bool InitializeSearch(environment *env, const state& from, const state& to, std::vector<state> &thePath);
-	bool DoSingleSearchStep(std::vector<state> &thePath);
+	bool InitializeSearch(environment *env, const state& from, const state& to, std::vector<state> &thePath, double minTime=0);
+	bool DoSingleSearchStep(std::vector<state> &thePath, double minTime);
 	void AddAdditionalStartState(state& newState);
 	void AddAdditionalStartState(state& newState, double cost);
 	
@@ -133,7 +139,7 @@ private:
         uint externalExpansionLimit;
         bool verbose;
 	std::vector<state> succ;
-        std::pair<uint64_t,double> ComputeCost(AStarOpenClosedData<state> const& p, state& c, double newg, double oldg);
+        vals ComputeCost(AStarOpenClosedData<state> const& p, state& c, double newg, double oldg);
 	uint64_t nodesTouched, nodesExpanded;
 	environment *env;
 	bool stopAfterGoal;
@@ -179,14 +185,14 @@ const char *ThetaStar<state,action,environment,openList>::GetName()
  * between from and to when the function returns, if one exists. 
  */
 template <class state, class action, class environment, class openList>
-void ThetaStar<state,action,environment,openList>::GetPath(environment *_env, const state& from, const state& to, std::vector<state> &thePath)
+void ThetaStar<state,action,environment,openList>::GetPath(environment *_env, const state& from, const state& to, std::vector<state> &thePath, double minTime)
 {
 	//discardcount=0;
   	if (!InitializeSearch(_env, from, to, thePath))
   	{	
   		return;
   	}
-  	while (!DoSingleSearchStep(thePath)) {}
+  	while (!DoSingleSearchStep(thePath,minTime)) {}
 }
 
 /**
@@ -200,7 +206,7 @@ void ThetaStar<state,action,environment,openList>::GetPath(environment *_env, co
  * @return TRUE if initialization was successful, FALSE otherwise
  */
 template <class state, class action, class environment, class openList>
-bool ThetaStar<state,action,environment,openList>::InitializeSearch(environment *_env, const state& from, const state& to, std::vector<state> &thePath)
+bool ThetaStar<state,action,environment,openList>::InitializeSearch(environment *_env, const state& from, const state& to, std::vector<state> &thePath, double minTime)
 {
 	if(theHeuristic==nullptr)theHeuristic = _env;
 	thePath.resize(0);
@@ -217,7 +223,7 @@ bool ThetaStar<state,action,environment,openList>::InitializeSearch(environment 
 	start = from;
 	goal = to;
 	
-	if (env->GoalTest(from, to) && (stopAfterGoal)) //assumes that from and to are valid states
+	if (env->GoalTest(from, to) && (stopAfterGoal) && to.t > minTime) //assumes that from and to are valid states
 	{
                 thePath.push_back(from);
                 thePath.push_back(to);
@@ -268,7 +274,7 @@ void ThetaStar<state,action,environment,openList>::AddAdditionalStartState(state
  * otherwise
  */
 template <class state, class action, class environment, class openList>
-bool ThetaStar<state,action,environment,openList>::DoSingleSearchStep(std::vector<state> &thePath){
+bool ThetaStar<state,action,environment,openList>::DoSingleSearchStep(std::vector<state> &thePath, double minTime){
   if (openClosedList.OpenSize() == 0)
   {
     thePath.resize(0); // no path found!
@@ -277,7 +283,6 @@ bool ThetaStar<state,action,environment,openList>::DoSingleSearchStep(std::vecto
   }
   uint64_t nodeid = openClosedList.Close();
   AStarOpenClosedData<state> openNode(openClosedList.Lookup(nodeid));
-  const state currOpenNode(openNode.data);
 
   if (!openNode.reopened)
     uniqueNodesExpanded++;
@@ -290,25 +295,27 @@ bool ThetaStar<state,action,environment,openList>::DoSingleSearchStep(std::vecto
     }
   }
 
-  if ((stopAfterGoal) && (env->GoalTest(currOpenNode, goal)))
+  if ((stopAfterGoal) && (env->GoalTest(openClosedList.Lookup(nodeid).data, goal)) && openClosedList.Lookup(nodeid).data.t > minTime)
   {
     ExtractPathToStartFromID(nodeid, thePath);
     // Path is backwards - reverse
     reverse(thePath.begin(), thePath.end()); 
     if(thePath.size() == 0&&verbose)std::cout<<"No answer\n";
-    float total(-1.0);
+    float total(0.0);
     state* p(&thePath[0]);
+    bool first=true;
     for(auto& n:thePath){
-      total+=(env->*GCostFunc)(*p,n);
-      if(!((n.t >= total - .001) && (n.t <= total+.001)))std::cout << "Time is bad: ("<<total<<")" << *p << "-->" << n << "\n";
+      total+=n.t-p->t;
+      if(!first&&!((n.t >= total - .001) && (n.t <= total+.001)))std::cout << "Time is bad: ("<<total<<")" << *p << "-->" << n << "\n";
       p=&n;
+      first=false;
     }
     return true;
   }
 
   if(verbose)std::cout << "Expanding: " << openClosedList.Lookup(nodeid).data<<std::hex<<"("<<env->GetStateHash(openClosedList.Lookup(nodeid).data)<<")"<<std::dec << "(parent)"<<openClosedList.Lookup(openNode.parentID).data <<" with f:" << openClosedList.Lookup(nodeid).g+openClosedList.Lookup(nodeid).h << std::endl;
   succ.resize(0);
-  (env->*SuccessorFunc)(currOpenNode, succ);
+  (env->*SuccessorFunc)(openClosedList.Lookup(nodeid).data, succ);
   //double fCost = openNode.h+openNode.g;
 
   nodesTouched++;
@@ -316,7 +323,7 @@ bool ThetaStar<state,action,environment,openList>::DoSingleSearchStep(std::vecto
 
   for (unsigned int x = 0; x < succ.size(); x++)
   {
-    double edgeCost((env->*GCostFunc)(currOpenNode, succ[x]));
+    double edgeCost((env->*GCostFunc)(openClosedList.Lookup(nodeid).data, succ[x]));
 
     if(verbose)std::cout << "  Lookup successor (" <<std::hex<<env->GetStateHash(succ[x])<<std::dec<<") in open " << succ[x]<<"\n";
     switch (openClosedList.Lookup(env->GetStateHash(succ[x]), theID))
@@ -332,25 +339,26 @@ bool ThetaStar<state,action,environment,openList>::DoSingleSearchStep(std::vecto
           //edgeCost = (env->*GCostFunc)(openNode.data, neighbors[x]);
           auto update(ComputeCost(openNode,succ[x],openNode.g+edgeCost,openClosedList.Lookup(theID).g));
           //if (fless(openNode.g+edgeCost, openClosedList.Lookup(theID).g))
-          if(update.second>=0){
+          if(update.g>=0){
             auto newNode(succ[x]);
-            newNode.t=update.second;
+            newNode.t=update.t;
+            //newNode.h=Util::heading<1024>(openNode.data.x,openNode.data.y,succ[x].x,succ[x].y);
             if(verbose)std::cout << "  Update " << succ[x] << " to ";
             uint64_t newid;
             if(openClosedList.Lookup(env->GetStateHash(newNode), newid)==kNotFound){
               // This may happen if re-parented
-              if(verbose)std::cout << newNode << " p=" << openClosedList.Lookup(update.first).data << " " << update.second << "\n";
+              if(verbose)std::cout << newNode << " p=" << openClosedList.Lookup(update.p).data << " " << update.g << "\n";
               openClosedList.AddOpenNode(newNode,
                   env->GetStateHash(newNode),
-                  update.second,
+                  update.g,
                   weight*theHeuristic->HCost(newNode, goal),
-                  update.first);
+                  update.p);
             }else{if(verbose)std::cout << "  Discarded (new open update already seen)\n";}
-            //}else if(update.first!=openClosedList.Lookup(theID).parentID){
+            //}else if(update.p!=openClosedList.Lookup(theID).parentID){
               // This might not ever happen since a new parent necessarily means a reduction in g-cost
             //assert(!"This shouldn't happen since a new parent necessarily means a reduction in g-cost");
-            //openClosedList.Lookup(theID).parentID = update.first;
-            //openClosedList.Lookup(theID).g = update.second;
+            //openClosedList.Lookup(theID).parentID = update.p;
+            //openClosedList.Lookup(theID).g = update.g;
               //openClosedList.KeyChanged(theID);
             //}
           }
@@ -358,8 +366,9 @@ bool ThetaStar<state,action,environment,openList>::DoSingleSearchStep(std::vecto
         break;
       case kNotFound:
         {
-          if(currOpenNode.sameLoc(succ[x])){
+          if(openClosedList.Lookup(nodeid).data.sameLoc(succ[x])){
             // This is a wait action
+              if(verbose)std::cout << "  Add wait action ("<<std::hex<<env->GetStateHash(succ[x])<<std::dec<<") to open " << succ[x] << openNode.g+edgeCost << "+" << (weight*theHeuristic->HCost(succ[x], goal)) << "=" << (openNode.g+edgeCost+weight*theHeuristic->HCost(succ[x], goal)) << "\n";
             openClosedList.AddOpenNode(succ[x],
                 env->GetStateHash(succ[x]),
                 openNode.g+edgeCost,
@@ -367,16 +376,17 @@ bool ThetaStar<state,action,environment,openList>::DoSingleSearchStep(std::vecto
                 nodeid);
           }else{
             auto update(ComputeCost(openNode,succ[x],openNode.g+edgeCost,9999999));
-            succ[x].t=update.second;
+            succ[x].t=update.t;
+            //succ[x].h=Util::heading<1024>(openNode.data.x,openNode.data.y,succ[x].x,succ[x].y);
             // If time was updated, check if it is still not in open
             if(openClosedList.Lookup(env->GetStateHash(succ[x]), theID)==kNotFound){
-              //if(verbose)std::cout << "Create " << succ[x] << " with p=" << openClosedList.Lookup(update.first).data << " " << update.second << "\n";
-              if(verbose)std::cout << "  Add node ("<<std::hex<<env->GetStateHash(succ[x])<<std::dec<<") to open " << succ[x] << update.second << "+" << (weight*theHeuristic->HCost(succ[x], goal)) << "=" << (update.second+weight*theHeuristic->HCost(succ[x], goal)) << "\n";
+              //if(verbose)std::cout << "Create " << succ[x] << " with p=" << openClosedList.Lookup(update.p).data << " " << update.g << "\n";
+              if(verbose)std::cout << "  Add node ("<<std::hex<<env->GetStateHash(succ[x])<<std::dec<<") to open " << succ[x] << update.g << "+" << (weight*theHeuristic->HCost(succ[x], goal)) << "=" << (update.g+weight*theHeuristic->HCost(succ[x], goal)) << "\n";
               openClosedList.AddOpenNode(succ[x],
                   env->GetStateHash(succ[x]),
-                  update.second,
+                  update.g,
                   weight*theHeuristic->HCost(succ[x], goal),
-                  update.first);
+                  update.p);
               //openClosedList.Print();
             }else{if(verbose)std::cout << "  Discarded (already seen "<<std::hex<<env->GetStateHash(succ[x])<<std::dec<<")\n";}
           }
@@ -389,30 +399,32 @@ bool ThetaStar<state,action,environment,openList>::DoSingleSearchStep(std::vecto
 }
 
 template <class state, class action, class environment, class openList>
-std::pair<uint64_t,double> ThetaStar<state,action,environment,openList>::ComputeCost(AStarOpenClosedData<state> const& p, state& c, double newg, double oldg){
+vals ThetaStar<state,action,environment,openList>::ComputeCost(AStarOpenClosedData<state> const& p, state& c, double newg, double oldg){
   uint64_t pid;
   openClosedList.Lookup(env->GetStateHash(p.data),pid);
   AStarOpenClosedData<state>& pp(openClosedList.Lookup(p.parentID));
   // Special cases for waiting actions
-  if(pp.data.sameLoc(c))return{pid,newg}; // parent of parent is same as self
-  if(p.data.sameLoc(c))return{pid,newg}; // parent is same as self
-  if(p.data.sameLoc(pp.data))return{pid,newg}; // parent is same as self
+  double newt(c.t);
+  if(pp.data.sameLoc(c))return{pid,newt,newg}; // parent of parent is same as self
+  if(p.data.sameLoc(c))return{pid,newt,newg}; // parent is same as self
+  if(p.data.sameLoc(pp.data))return{pid,newt,newg}; // parent is same as self
 
   if(env->LineOfSight(pp.data,c)){
     if(verbose)std::cout << "  LOS " << pp.data << "-->" << c << "\n";
     newg=pp.g+(env->*GCostFunc)(pp.data,c);
     if(fless(newg,oldg)){
       if(verbose)std::cout << "  Change parent of " << c << " to " << pp.data << " from " << p.data <<" " << newg << "\n";
-      return {p.parentID,newg};
+      newt = Util::distance(pp.data.x,pp.data.y,c.x,c.y);
+      return {p.parentID,newt,newg};
     }
   }else if(fless(newg,oldg)){
     if(verbose)std::cout << "  NO LOS " << pp.data << "-->" << c << "\n";
     if(verbose)std::cout << "  Change gcost of " << c << " with parent " << p.data<<"("<<p.openLocation<<")" <<" to " << newg << "\n";
-    return {pid,newg};
+    return {pid,newt,newg};
   }
   if(verbose)std::cout << "  NO LOS " << pp.data << "-->" << c << "\n";
   if(verbose)std::cout << "  Leave parent of " << c << " as " << p.data <<" " << newg << "\n";
-  return {0,-1.0};
+  return {0,0.0,-1.0};
 }
 
 /**

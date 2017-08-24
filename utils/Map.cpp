@@ -1850,8 +1850,8 @@ bool Map::GetOpenGLCoord(float _x, float _y, GLdouble &x, GLdouble &y, GLdouble 
 		assert(false);
 		return false;
 	}
-	int iX = std::max(0,(int)floor(_x));
-	int iY = std::max(0,(int)floor(_y));
+	int iX = std::min(width-1,std::max(0,(int)floor(_x)));
+	int iY = std::min(height-1,std::max(0,(int)floor(_y)));
 	double _scale;
 	if (height > width)
 		_scale = 1/(double)height;

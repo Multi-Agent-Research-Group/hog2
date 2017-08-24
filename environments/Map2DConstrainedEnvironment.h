@@ -66,6 +66,7 @@ public:
         virtual Map* GetMap()const{return mapEnv->GetMap();}
         bool LineOfSight(const xytLoc &x, const xytLoc &y)const{return mapEnv->LineOfSight(x,y) && !ViolatesConstraint(x,y);}
         void SetIgnoreTime(bool i){ignoreTime=i;}
+        void SetIgnoreHeading(bool i){ignoreHeading=i;}
         inline void SetMaxTurn(float val){maxTurnAzimuth=val*HDG_RESOLUTON;}
         uint16_t maxTurnAzimuth=0;
         static const float HDG_RESOLUTON;
@@ -73,6 +74,7 @@ public:
 
 private:
         bool ignoreTime;
+        bool ignoreHeading;
 	bool ViolatesConstraint(const xyLoc &from, const xyLoc &to, float time, float inc) const;
 
 	std::vector<Constraint<xytLoc>> constraints;

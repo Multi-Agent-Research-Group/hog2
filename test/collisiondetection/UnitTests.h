@@ -615,6 +615,45 @@ TEST(Quadratic, Contrived3){
   //ASSERT_TRUE(collisionImminent(B,VB,radius,0.0,1.0,A,VA,radius,0.0,sqrt(5.)));
 }
 
+TEST(Quadratic, Contrived4){
+  Vector2D A(1,2);
+  Vector2D VA(1,1);
+  VA.Normalize();
+  double radius(.5);
+  Vector2D B(1,2);
+  Vector2D VB(1,0);
+  VB.Normalize();
+
+  ASSERT_FALSE(collisionImminent(A,VA,radius,0.0,1.41421,B,VB,radius,1.41421,7.41421));
+  //ASSERT_TRUE(collisionImminent(B,VB,radius,0.0,1.0,A,VA,radius,0.0,sqrt(5.)));
+}
+
+TEST(Quadratic, Contrived5){
+  {
+    Vector2D A(2,4);
+    Vector2D VA(0,0);
+    VA.Normalize();
+    double radius(.5);
+    Vector2D B(2,4);
+    Vector2D VB(-2,-4);
+    VB.Normalize();
+
+    ASSERT_TRUE(collisionImminent(A,VA,radius,6.38516,11.6569,B,VB,radius,6.12311,10.5952));
+  }
+  {
+    Vector2D A(2,4);
+    Vector2D VA(0,0);
+    VA.Normalize();
+    double radius(.5);
+    Vector2D B(1.8828, 3.76561);
+    Vector2D VB(1.55279, 3.10557);
+    VB-=B;
+    VB.Normalize();
+
+    ASSERT_TRUE(collisionImminent(A,VA,radius,6.38516,7.1231,B,VB,radius,6.38516,7.1231));
+  }
+}
+
 void drawcircle(int x0, int y0, int r, std::map<int,int>& coords){
     int x = r;
     int y = 0;
@@ -667,7 +706,7 @@ float rfloat(float low=-5, float high=5){
 TEST(VelocityObstacle, PerfTest){
   //Timer t;
   //t.StartTimer();
-  for(int i(0); i<1000; ++i){
+  for(int i(0); i<10; ++i){
     detectCollision(Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),.25,rfloat(0,10),rfloat(0,10),Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),.25,rfloat(0,10),rfloat(0,10));
   }
   //std::cout << "Total time (VelocityObstacle)" << t.EndTimer() << "\n";
@@ -676,7 +715,7 @@ TEST(VelocityObstacle, PerfTest){
 TEST(Quadratic, PerfTest){
   //Timer t;
   //t.StartTimer();
-  for(int i(0); i<1000; ++i){
+  for(int i(0); i<10; ++i){
     collisionImminent(Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),.25,rfloat(0,10),rfloat(0,10),Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),.25,rfloat(0,10),rfloat(0,10));
   }
   //std::cout << "Total time (Quadratic)" << t.EndTimer() << "\n";
@@ -716,7 +755,6 @@ TEST(CollisionInterval, GetCollisionIntervalHalfSize){
 
   auto intvl(getCollisionInterval(A,VA,radius,0.0,sqrt(5),B,VB,radius,0.0,sqrt(10)));
   auto intvl2(getCollisionInterval(A,VA,radius,0.0,6.,B,VB,radius,0.0,6.));
-  std::cout << "Collision interval is: " << intvl.first << "," << intvl.second << "\n";
   ASSERT_DOUBLE_EQ(intvl.first,intvl2.first);
 }
   
@@ -731,9 +769,40 @@ TEST(CollisionInterval, GetCollisionIntervalTouching){
 
   auto intvl(getCollisionInterval(A,VA,radius,0.0,3.16228,B,VB,radius,0.0,6.32456));
   auto intvl2(getCollisionInterval(A,VA,radius,0.0,6.,B,VB,radius,0.0,6.));
-  std::cout << "Collision interval is: " << intvl.first << "," << intvl.second << "\n";
   ASSERT_TRUE(fequal(intvl.first,intvl2.first));
   ASSERT_TRUE(fequal(intvl.second,intvl2.second));
+}
+
+TEST(CollisionInterval, GetCollisionSameStartDifferentTime){
+  Vector2D A(4,4);
+  Vector2D VA(-1,-1);
+  VA.Normalize();
+  double radius(.5);
+  Vector2D B(4,4);
+  Vector2D VB(-1,0);
+  VB.Normalize();
+
+  auto intvl(getCollisionInterval(A,VA,radius,3.23607,8.89292,B,VB,radius,4.05028,6.05028));
+  auto intvl2(getCollisionInterval(B,VB,radius,4.05028,6.05028,A,VA,radius,3.23607,8.89292));
+  ASSERT_TRUE(fequal(intvl.first,intvl2.first));
+  ASSERT_TRUE(fequal(intvl.second,intvl2.second));
+  ASSERT_DOUBLE_EQ(4.05028,intvl2.first);
+}
+
+TEST(CollisionInterval, GetCollisionSameLocationNotMovingDifferentTime){
+  Vector2D A(7,2);
+  Vector2D VA(0,0);
+  VA.Normalize();
+  double radius(.5);
+  Vector2D B(7,2);
+  Vector2D VB(0,0);
+  VB.Normalize();
+
+  auto collision(collisionImminent(A,VA,radius,9,10,B,VB,radius,7.5231056213378906,8.5231056213378906));
+  ASSERT_FALSE(collision);
+  auto intvl(getCollisionInterval(A,VA,radius,9,10,B,VB,radius,7.5231056213378906,8.5231056213378906));
+  ASSERT_DOUBLE_EQ(-1,intvl.first);
+  ASSERT_DOUBLE_EQ(-1,intvl.second);
 }
 
 TEST(CollisionInterval, GetCollisionIntervalWhenExists){

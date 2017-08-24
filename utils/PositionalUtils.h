@@ -10,6 +10,9 @@
 
 #include <cmath>
 #include <stdlib.h>
+#include "Vector2D.h"
+#include "Vector3D.h"
+#include <limits.h>
 
 namespace Util {
 // Get the straight line distance from a to b
@@ -30,6 +33,10 @@ inline double distance(double dx, double dy, double dz){ // x, y and z differenc
 // Get the straight line distance from a to b
 inline double distance(double x1, double y1, double z1, double x2, double y2, double z2){
   return distance(y1-y2,x1-x2,z1-z2);
+}
+
+inline double distance(Vector2D const& A, Vector2D const& B){
+  return distance(A.x,A.y,B.x,B.y);
 }
 
 // Get the heading from a to b (clockwise from north)
@@ -67,6 +74,88 @@ inline unsigned headingDiff(double x1, double y1, double x2, double y2, double h
 template<unsigned steps360>
 inline signed relativeHeadingDiff(double x1, double y1, double x2, double y2, double hdg){
   return relativeAngleDiff<steps360>(heading<steps360>(x1, y1, x2, y2), hdg);
+}
+
+template<unsigned steps360>
+inline double steps2Rad(signed steps){return steps/double(steps360)*360.*M_PI/180.;}
+
+template<unsigned steps360>
+inline double steps2deg(signed steps){return steps/double(steps360)*360.;}
+
+inline double distanceOfPointToLine(Vector2D const& a, Vector2D const& b, Vector2D const& x){
+  double dy(a.y-b.y);
+  double dx(a.x-b.x);
+  return fabs(dy*x.x-dx-x.y+a.x*b.y-a.y*b.x)/sqrt(dy*dy+dx*dx);
+}
+
+// Get the coordinates of a secant line cut by a circle at center c with radius r
+inline std::pair<Vector2D,Vector2D> secantLine(Vector2D a, Vector2D b, Vector2D const& c, double r){
+  // Translate a and b as if c were (0,0)
+  a-=c;
+  b-=c;
+  double dy(a.y-b.y);
+  double dx(a.x-b.x);
+  double dr(sqrt(dx*dx+dy*dy));
+  double drsq(dr*dr);
+  double det(b.x*a.y-a.x*b.y);
+  double signOfY(dy<0?-1:1);
+  double rsq(r*r);
+  double dscr(rsq*drsq-det*det);
+  if(fgreater(dscr,0.0)){
+    double sqrtdscr(sqrt(dscr));
+    double w1(det*dy);
+    double w2(signOfY*dx*sqrtdscr);
+    double z1(-det*dx);
+    double z2(abs(dy)*sqrtdscr);
+    double x1((w1+w2)/drsq);
+    double x2((w1-w2)/drsq);
+    if(fless(x2,x1)){double tmp(x1);x1=x2;x2=tmp;} // Swap
+    double y1((z1+z2)/drsq);
+    double y2((z1-z2)/drsq);
+    if(fless(y2,y1)){double tmp(y1);y1=y2;y2=tmp;} // Swap
+    Vector2D p1(fless(a.x,b.x)?x1:x2,fless(a.y,b.y)?y1:y2);
+    Vector2D p2(fless(a.x,b.x)?x2:x1,fless(a.y,b.y)?y2:y1);
+    
+    bool aIn(false);
+    bool bIn(false);
+    if(fleq(a.x*a.x+a.y*a.y,rsq)){
+      p1=a;
+      aIn=true;
+    }
+    if(fleq(b.x*b.x+b.y*b.y,rsq)){
+      p2=b;
+      bIn=true;
+    }
+      // Check whether the line segment actually goes across the circle or not
+    if(!aIn && !bIn && fgreater(distance(p1,p2),distance(a,b))) return std::make_pair(Vector2D(0,0),Vector2D(0,0));
+    return std::make_pair(p1+c,p2+c);
+  }
+  return std::make_pair(Vector2D(0,0),Vector2D(0,0)); // Indicates no secant line, or tangent point only...
+}
+
+inline double meanDistanceOfPointToLine(Vector2D const& a, Vector2D const& b, Vector2D const& x){
+  // From wolfram alpha: Integrate[Sqrt[(x - a)^2 + b^2], x] =>
+  // ((-a + x)*(a^2 + b^2 - 2*a*x + x^2) - b^2*Sqrt[a^2 + b^2 - 2*a*x + x^2]* Log[2*(a + Sqrt[b^2 + (a - x)^2] - x)])/ (2*Sqrt[a^2 + b^2 - 2*a*x + x^2]) 
+  //double asq(a.sq());
+  //double bsq(b.sq());
+  //double xsq(x.sq());
+  //double dax(a - x);
+  //return (dax*(asq + bsq - 2*a*x + xsq) - bsq*sqrt(asq + bsq - 2*a*x + xsq)* log(2*(a + sqrt(bsq + dax.sq()) - x)))/ (2*sqrt(asq + bsq - 2*a*x + xsq)) 
+  // Need to detect perfect alignment...
+  //
+  // X       A--B
+  //
+  // This case will cause div/0 error
+  if(fequal(0,headingDiff<USHRT_MAX>(x.x,x.y,b.x,b.y,heading<USHRT_MAX>(x.x,x.y,a.x,a.y))))
+    return distance(x,(a+b)/2.);
+  Vector2D dax(a-x);
+  Vector2D dba(b-a);
+  double K1(dax.sq());
+  double K2(2*(dba*dax));
+  double K3(dba.sq());
+  double L1(sqrt(K3*(K1+K2+K3)));
+  double L2(sqrt(K3*K1));
+  return (4.*K3*L1 + 2.*K2*(L1-L2) + (K2*K2-4.*K1*K3)*log((K2+2.*L2)/(2.*K3+K2+2.*L1)))/(8.*pow(K3,1.5));
 }
 
 };

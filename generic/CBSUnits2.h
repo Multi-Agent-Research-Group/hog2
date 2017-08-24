@@ -56,8 +56,7 @@ struct CompareLowGCost {
 
 // Plan path between waypoints
 template <typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
-unsigned ReplanLeg(CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>* c, searchalgo& astar, environment* env, std::vector<state>& thePath, std::vector<int>& wpts, unsigned s, unsigned g)
-{
+unsigned ReplanLeg(CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>* c, searchalgo& astar, environment* env, std::vector<state>& thePath, std::vector<int>& wpts, unsigned s, unsigned g, double minTime){
   env->setSoftConstraintEffectiveness(1.0);
   int insertPoint(wpts[s]); // Starting index of this leg
   float origTime(thePath[wpts[g]].t); // Original ending time of leg
@@ -79,7 +78,7 @@ unsigned ReplanLeg(CBSUnit<state,action,environment,comparison,conflicttable,sea
   env->setGoal(goal);
   Timer tmr;
   tmr.StartTimer();
-  astar.GetPath(env, start, goal, path);
+  astar.GetPath(env, start, goal, path, minTime);
   //std::cout << "Replan took: " << tmr.EndTimer() << std::endl;
   //std::cout << "New leg " << path.size() << "\n";
   //for(auto &p: path){std::cout << p << "\n";}
@@ -269,6 +268,8 @@ class CBSGroup : public UnitGroup<state, action, environment>
     void AddUnit(Unit<state, action, environment> *u);
     void UpdateUnitGoal(Unit<state, action, environment> *u, state newGoal);
     void UpdateSingleUnitPath(Unit<state, action, environment> *u, state newGoal);
+    double GetMaxTime(int location, int agent);
+    void StayAtGoal(int location);
 
     void OpenGLDraw(const environment *, const SimulationInfo<state,action,environment> *)  const;
     double getTime() {return time;}
@@ -340,6 +341,7 @@ public:
     Timer* timer;
     static bool greedyCT;
     bool verbose=false;
+    bool disappearAtGoal=true;
 };
 
 template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
@@ -489,8 +491,8 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Exp
       if(verbose)std::cout << "Collision Interval " << c1.unit1 << ": " << c1.c.start() << "-->" << c1.c.end() <<  " and unit " << c2.unit1 << ": "<< c2.c.start() << "-->" << c2.c.end() << std::endl;
       auto ivl(getCollisionInterval(A,VA,agentRadius,c1.c.start_state.t,c1.c.end_state.t,B,VB,agentRadius,c2.c.start_state.t,c2.c.end_state.t));
       if(verbose)std::cout << "A interval " << c1.c.start_state.t << " -- " << c1.c.end_state.t << std::endl;
-     if(verbose) std::cout << "B interval " << c2.c.start_state.t << " -- " << c2.c.end_state.t << std::endl;
-     if(verbose) std::cout << "interval " << ivl.first << " -- " << ivl.second << std::endl;
+      if(verbose) std::cout << "B interval " << c2.c.start_state.t << " -- " << c2.c.end_state.t << std::endl;
+      if(verbose) std::cout << "interval " << ivl.first << " -- " << ivl.second << std::endl;
       Vector2D A1=A+VA*(ivl.first-c1.c.start_state.t);
       Vector2D A2=A+VA*(ivl.second-c1.c.start_state.t);
       Vector2D B1=B+VB*(ivl.first-c2.c.start_state.t);
@@ -507,12 +509,16 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Exp
       c2.c.end_state.x=B2.x;
       c2.c.end_state.y=B2.y;
       c2.c.end_state.t=ivl.second;
+      if(c1.c.start_state.x<0 || c1.c.start_state.x>currentEnvironment->environment->GetMap()->GetMapWidth() || c1.c.end_state.x<0 || c1.c.end_state.x>currentEnvironment->environment->GetMap()->GetMapWidth() ||
+      c2.c.start_state.x<0 || c2.c.start_state.x>currentEnvironment->environment->GetMap()->GetMapWidth() || c2.c.end_state.x<0 || c2.c.end_state.x>currentEnvironment->environment->GetMap()->GetMapWidth()){
+        int x = 2;
+      }
       if(verbose)std::cout << "fixed conflicts unit " << c1.unit1 << ": " << c1.c.start() << "-->" << c1.c.end() <<  " and unit " << c2.unit1 << ": "<< c2.c.start() << "-->" << c2.c.end() << std::endl; 
     }
     if(animate){
       c1.c.OpenGLDraw(currentEnvironment->environment->GetMap());
       c2.c.OpenGLDraw(currentEnvironment->environment->GetMap());
-      usleep(animate*1000);
+      usleep(animate*100);
     }
     if(verbose){
       std::cout << c1.unit1 << ":\n";
@@ -592,9 +598,11 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Exp
     }
 
     // Get the best node from the top of the open list, and remove it from the list
+    int count(0);
     do{
     bestNode = openList.top().location;
     if(!tree[bestNode].satisfiable)openList.pop();
+    if(++count > tree.size()) assert(!"No solution!?!");
     }while(!tree[bestNode].satisfiable);
 
     // Set the visible paths for every unit in the node
@@ -864,6 +872,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Add
   if(comparison::useCAT){
     tree[0].cat.insert(tree[0].paths.back(),currentEnvironment->environment,tree[0].paths.size()-1);
   }
+  StayAtGoal(0); // Do this every time a unit is added because these updates are taken into consideration by the CAT
 
   // Set the plan finished to false, as there's new updates
   planFinished = false;
@@ -961,6 +970,43 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Upd
   planFinished = false;
 }
 
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
+double CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::GetMaxTime(int location,int agent){
+
+  float maxDuration(0.0);
+  if(disappearAtGoal)return 0.0;
+
+  int i(0);
+  // Find max duration of all paths
+  for(auto const& n:tree[location].paths){
+    if(i++!=agent)
+      maxDuration=std::max(maxDuration,n.back().t);
+  }
+  return maxDuration;
+}
+
+
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
+void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::StayAtGoal(int location){
+
+  if(disappearAtGoal)return;
+  float maxDuration(0.0);
+
+  // Find max duration of all paths
+  for(auto const& n:tree[location].paths){
+    maxDuration=std::max(maxDuration,n.back().t);
+  }
+ 
+  // Add wait actions (of 1 second) to goal states less than max
+  for(auto& n:tree[location].paths){
+    while(n.back().t<maxDuration-1.){
+      state x(n.back());
+      x.t+=1.0;
+      n.push_back(x);
+    }
+  }
+}
+
 /** Update Unit Path */
 template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
 void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::UpdateSingleUnitPath(Unit<state, action, environment> *u, state newGoal)
@@ -1031,7 +1077,7 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Byp
   bool orig(comparison::useCAT);
   comparison::useCAT=false;
   // TODO fix this to replan in reverse
-  ReplanLeg<state,action,environment,comparison,conflicttable,searchalgo>(c, astar, currentEnvironment->environment, newPath, newWpts, c1.prevWpt, c1.prevWpt+1);
+  ReplanLeg<state,action,environment,comparison,conflicttable,searchalgo>(c, astar, currentEnvironment->environment, newPath, newWpts, c1.prevWpt, c1.prevWpt+1,0.0);
     if(killex != INT_MAX && TOTAL_EXPANSIONS>killex)
       processSolution(-timer->EndTimer());
   comparison::useCAT=orig;
@@ -1139,8 +1185,13 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Rep
     comparison::CAT->remove(tree[location].paths[theUnit],currentEnvironment->environment,theUnit);
   }
 
+  double minTime(0.0);
+  // If this is the last waypoint, the plan needs to extend so that the agent sits at the final goal
+  if(tree[location].con.prevWpt+1==tree[location].wpts[theUnit].size()-1){
+    minTime=GetMaxTime(location,theUnit)-1.0; // Take off a 1-second wait action, otherwise paths will grow over and over.
+  }
   //std::cout << "Replan agent " << theUnit << "\n";
-  ReplanLeg<state,action,environment,comparison,conflicttable,searchalgo>(c, astar, currentEnvironment->environment, tree[location].paths[theUnit], tree[location].wpts[theUnit], tree[location].con.prevWpt, tree[location].con.prevWpt+1);
+  ReplanLeg<state,action,environment,comparison,conflicttable,searchalgo>(c, astar, currentEnvironment->environment, tree[location].paths[theUnit], tree[location].wpts[theUnit], tree[location].con.prevWpt, tree[location].con.prevWpt+1,minTime);
   if(verbose){
     std::cout << "Replanned agent "<<theUnit << "\n";
     for(auto const& i:tree[location].paths[theUnit])

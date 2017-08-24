@@ -29,6 +29,22 @@ bool operator==(const xytLoc &l1, const xytLoc &l2) {
   return fequal(l1.t,l2.t) && (l1.x == l2.x) && (l1.y==l2.y);
 }
 
+// Utility function
+void GLDrawCircle(GLfloat x, GLfloat y, GLfloat radius){
+  static const int lineAmount(20); //# of segments
+
+  static const GLfloat twicePi(2.0f * PI);
+
+  glBegin(GL_LINE_LOOP);
+  for(int i(0); i <= lineAmount;i++) { 
+    glVertex3f(
+        x + (radius * cos(i *  twicePi / lineAmount)), 
+        y + (radius* sin(i * twicePi / lineAmount)),
+        -.1);
+  }
+  glEnd();
+}
+
 template<>
 bool Constraint<xytLoc>::ConflictsWith(const xytLoc &state) const
 {
@@ -126,25 +142,13 @@ bool Constraint<TemporalVector>::ConflictsWith(const Constraint<TemporalVector> 
   return ConflictsWith(x.start_state, x.end_state);
 }
 
-void glDrawCircle(GLfloat x, GLfloat y, GLfloat radius){
-  static const int lineAmount(20); //# of segments
-
-  static const GLfloat twicePi(2.0f * PI);
-
-  glBegin(GL_LINE_LOOP);
-  for(int i(0); i <= lineAmount;i++) { 
-    glVertex3f(
-        x + (radius * cos(i *  twicePi / lineAmount)), 
-        y + (radius* sin(i * twicePi / lineAmount)),
-        -.1);
-  }
-  glEnd();
-}
-
 
 template<>
 void Constraint<TemporalVector>::OpenGLDraw(MapInterface* map) const 
 {
+        if(start_state.x<0 || start_state.x>map->GetMapWidth() || end_state.x<0 || end_state.x>map->GetMapWidth()){
+          int x = 2;
+        }
 	GLdouble xx, yy, zz, rad;
 	glColor3f(1, 0, 0);
 	map->GetOpenGLCoord((float)start_state.x, (float)start_state.y, xx, yy, zz, rad);

@@ -5,6 +5,9 @@
 #include "VelocityObstacle.h"
 #include "ConstrainedEnvironment.h"
 
+// Utility function
+void GLDrawCircle(GLfloat x, GLfloat y, GLfloat radius);
+
 struct xyLoc {
 public:
 	xyLoc():x(-1),y(-1),landed(false){}

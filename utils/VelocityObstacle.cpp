@@ -109,6 +109,11 @@ bool collisionImminent(Vector2D A, Vector2D const& VA, double radiusA, double st
   // check for time overlap
   if(fgreater(startTimeA-radiusA,endTimeB)||fgreater(startTimeB-radiusB,endTimeA)||fequal(startTimeA,endTimeA)||fequal(startTimeB,endTimeB)){return false;}
 
+  if(A==B&&VA==VB){
+    if(fgreater(startTimeA,endTimeB)||fgreater(startTimeB,endTimeA)){return false;}
+    else{return true;}
+  }
+
   if(fgreater(startTimeB,startTimeA)){
     // Move A to the same time instant as B
     A+=VA*(startTimeB-startTimeA);
@@ -143,6 +148,11 @@ bool collisionImminent(Vector2D A, Vector2D const& VA, double radiusA, double st
 bool collisionImminent(Vector3D A, Vector3D const& VA, double radiusA, double startTimeA, double endTimeA, Vector3D B, Vector3D const& VB, double radiusB, double startTimeB, double endTimeB){
   // check for time overlap
   if(fgreater(startTimeA-radiusA,endTimeB)||fgreater(startTimeB-radiusB,endTimeA)||fequal(startTimeA,endTimeA)||fequal(startTimeB,endTimeB)){return false;}
+
+  if(A==B&&VA==VB){
+    if(fgreater(startTimeA,endTimeB)||fgreater(startTimeB,endTimeA)){return false;}
+    else{return true;}
+  }
 
   if(fgreater(startTimeB,startTimeA)){
     // Move A to the same time instant as B
@@ -183,6 +193,11 @@ double getCollisionTime(Vector2D A, Vector2D const& VA, double radiusA, double s
   // check for time overlap
   if(fgreater(startTimeA-radiusA,endTimeB)||fgreater(startTimeB-radiusB,endTimeA)||fequal(startTimeA,endTimeA)||fequal(startTimeB,endTimeB)){return -1;}
 
+  if(A==B&&VA==VB){
+    if(fgreater(startTimeA,endTimeB)||fgreater(startTimeB,endTimeA)){return -1;}
+    else{return std::max(startTimeA,startTimeB);}
+  }
+
   if(fgreater(startTimeB,startTimeA)){
     // Move A forward to the same time instant as B
     A+=VA*(startTimeB-startTimeA);
@@ -198,7 +213,7 @@ double getCollisionTime(Vector2D A, Vector2D const& VA, double radiusA, double s
   double r(radiusA+radiusB-2*TOLERANCE); // Combined radius
   Vector2D w(B-A);
   double c(w.sq()-r*r);
-  if(fless(c,0)){return 0.0;} // Agents are currently colliding
+  if(fless(c,0)){return startTimeA;} // Agents are currently colliding
 
   // Use the quadratic formula to detect nearest collision (if any)
   Vector2D v(VA-VB);
@@ -214,6 +229,11 @@ double getCollisionTime(Vector2D A, Vector2D const& VA, double radiusA, double s
 double getCollisionTime(Vector3D A, Vector3D const& VA, double radiusA, double startTimeA, double endTimeA, Vector3D B, Vector3D const& VB, double radiusB, double startTimeB, double endTimeB){
   // check for time overlap
   if(fgreater(startTimeA-radiusA,endTimeB)||fgreater(startTimeB-radiusB,endTimeA)||fequal(startTimeA,endTimeA)||fequal(startTimeB,endTimeB)){return -1;}
+
+  if(A==B&&VA==VB){
+    if(fgreater(startTimeA,endTimeB)||fgreater(startTimeB,endTimeA)){return -1;}
+    else{return std::max(startTimeA,startTimeB);}
+  }
 
   if(fgreater(startTimeB,startTimeA)){
     // Move A forward to the same time instant as B

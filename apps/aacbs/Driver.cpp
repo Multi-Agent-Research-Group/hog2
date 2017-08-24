@@ -19,6 +19,7 @@ bool verify = false;
 bool mouseTracking;
 unsigned killtime(3600); // Kill after some number of seconds
 unsigned killex(INT_MAX); // Kill after some number of expansions
+bool disappearAtGoal(false);
 int px1, py1, px2, py2;
 int absType = 0;
 int mapSize = 128;
@@ -130,6 +131,7 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-nsubgoals", "-nsubgoals <number>,<number>", "Select the min,max number of subgoals per agent.");
 	InstallCommandLineHandler(MyCLHandler, "-seed", "-seed <number>", "Seed for random number generator (defaults to clock)");
 	InstallCommandLineHandler(MyCLHandler, "-nobypass", "-nobypass", "Turn off bypass option");
+	InstallCommandLineHandler(MyCLHandler, "-disappear", "-disappear", "Disappear at goal");
 	InstallCommandLineHandler(MyCLHandler, "-record", "-record", "Record frames");
 	InstallCommandLineHandler(MyCLHandler, "-radius", "-radius", "agent radius (in grid units)");
 	InstallCommandLineHandler(MyCLHandler, "-cutoffs", "-cutoffs <n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>", "Number of conflicts to tolerate before switching to less constrained layer of environment. Environments are ordered as: CardinalGrid,OctileGrid,Cardinal3D,Octile3D,H4,H8,Simple,Cardinal,Octile,48Highway");
@@ -223,12 +225,17 @@ void InitHeadless(){
   //for(auto& e:environs){
     //e.environment->SetIgnoreTime(true);
   //}
+  // Needed for ThetaStar
+  for(auto& e:environs){
+    e.environment->SetIgnoreHeading(true);
+  }
 
   ace=environs.rbegin()->environment;
   //ace->SetAgentRadius(agentRadius);
 
   group = new CBSGroup<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS>,ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>>>>(environs,verbose); // Changed to 10,000 expansions from number of conflicts in the tree
   CBSGroup<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS>,ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>>>>::greedyCT=greedyCT;
+  group->disappearAtGoal=disappearAtGoal;
   group->timer=new Timer();
   group->seed=seed;
   group->keeprunning=gui;
@@ -436,6 +443,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 	if(strcmp(argument[0], "-record") == 0)
 	{
 		recording = true;
+		return 1;
+	}
+	if(strcmp(argument[0], "-disappear") == 0)
+	{
+		disappearAtGoal = true;
 		return 1;
 	}
 	if(strcmp(argument[0], "-nobypass") == 0)
