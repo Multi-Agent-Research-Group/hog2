@@ -40,7 +40,7 @@
 #include "Heuristic.h"
 
 bool verbose(false);
-bool validate(true);
+bool validate(false);
 uint64_t jointnodes(0);
 float step(1.0);
 
@@ -141,6 +141,13 @@ typedef std::vector<TimePath> Solution;
 typedef std::vector<Node*> MultiState; // rank=agent num
 typedef std::vector<std::pair<Node*,Node*>> MultiEdge; // rank=agent num
 typedef std::unordered_map<uint64_t,Node> DAG;
+
+/*class MultiEdge: public Multiedge{
+  public:
+  MultiEdge():Multiedge(){}
+  MultiEdge(MultiEdge* parent):Multiedge(),p(parent){}
+  std::vector<MultiEdge> successors;
+};*/
 
 std::ostream& operator << (std::ostream& ss, Group const* n){
   std::string sep("{");
@@ -320,7 +327,7 @@ bool jointDFS(MultiEdge const& s, float d, float term, std::vector<std::set<Node
   //for(int a(0); a<s.size(); ++a){
     //std::cout << " s " << *s[a].second << "\n";
   //}
-  if(fgreater(d,term-increment)){
+  if(fgreater(d,term-std::min(1.0f,increment))){
     if(fless(d,best)){
       best=d;
       if(verbose)std::cout << "BEST="<<best<<std::endl;
@@ -330,7 +337,7 @@ bool jointDFS(MultiEdge const& s, float d, float term, std::vector<std::set<Node
         if(verbose)std::cout << "Found solution: "<<a<<":" << *s[a].second << "\n";
         answer[a].clear();
         //std::cout << "push " << *s[a].second << " " << s.size() << "\n";
-        //answer[a].insert(s[a].second);
+        answer[a].insert(s[a].second);
       }
     }
     return true;
@@ -387,13 +394,17 @@ bool jointDFS(MultiEdge const& s, float d, float term, std::vector<std::set<Node
         // Check whether this joint-state is congruent with
         // previous answer
         for(int a(0); a<s.size(); ++a){
+          answer[a].insert(s[a].second);
+        }
+        if(false)for(int a(0); a<s.size(); ++a){
           // Check wait action explicitly
           if(answer[a].empty()){
+            if(verbose)std::cout << "push "<<a<<"("<<d<<")"<<":" << *s[a].second << "\n";
             answer[a].insert(s[a].second);
           }else if((*answer[a].begin())->n.sameLoc(s[a].second->n)){
             if(fequal((*answer[a].begin())->Depth(),s[a].second->Depth()+1)){
               //std::cout << "Move from " << *s[a].second << " to " << *(*answer[a].begin()) << " is legal\n";
-              //if(verbose)std::cout << "push "<<a<<"("<<d<<")"<<":" << *s[a].second << "\n";
+              if(verbose)std::cout << "push "<<a<<"("<<d<<")"<<":" << *s[a].second << "\n";
               answer[a].insert(s[a].second);
             }else{
                 //std::cout << "Move from " << *s[a].second << " to " << *(*answer[a].begin()) << " is not legal\n";
@@ -404,7 +415,7 @@ bool jointDFS(MultiEdge const& s, float d, float term, std::vector<std::set<Node
             for(auto n:successors){
               if(n==(*answer[a].begin())->n && fequal((*answer[a].begin())->Depth(),s[a].second->Depth()+Node::env->GCost(s[a].second->n,n))){
                 //std::cout << "Move from " << *s[a].second << " to " << *(*answer[a].begin()) << " is legal\n";
-                //if(verbose)std::cout << "push "<<a<<"("<<d<<")"<<":" << *s[a].second << "\n";
+                if(verbose)std::cout << "push "<<a<<"("<<d<<")"<<":" << *s[a].second << "\n";
                 answer[a].insert(s[a].second);
                 break;
               }else{
@@ -750,8 +761,7 @@ struct ICTSNode{
         }
         std::cout << std::endl;
       }
-      // The answer contains "all" correct answers 'interleaved', this should be fixed
-      //if(validate)assert(checkAnswer(answer));
+      if(validate)assert(checkAnswer(answer));
       return true;
     }
     
@@ -761,7 +771,7 @@ struct ICTSNode{
 
   float SIC()const{
     float total(0);
-    for(auto const& s:sizes){
+    for(auto const& s:best){
       total += s;
     }
     return total;
