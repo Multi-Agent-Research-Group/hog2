@@ -123,6 +123,7 @@ struct Node : public Hashable{
           for(auto const& m: successors)
             m->Print(ss,d+1);
         }
+        bool operator==(Node const& other)const{return n.sameLoc(other.n)&&fequal(depth,other.depth);}
 };
 
 //std::unordered_set<uint64_t> checked;
@@ -139,15 +140,25 @@ typedef std::vector<std::pair<xyLoc,float>> TimePath;
 typedef std::vector<TimePath> Solution;
 
 typedef std::vector<Node*> MultiState; // rank=agent num
-typedef std::vector<std::pair<Node*,Node*>> MultiEdge; // rank=agent num
+typedef std::vector<std::pair<Node*,Node*>> Multiedge; // rank=agent num
 typedef std::unordered_map<uint64_t,Node> DAG;
 
-/*class MultiEdge: public Multiedge{
+class MultiEdge: public Multiedge{
   public:
-  MultiEdge():Multiedge(){}
-  MultiEdge(MultiEdge* parent):Multiedge(),p(parent){}
+  MultiEdge():Multiedge(),parent(nullptr){}
+  MultiEdge(Multiedge const& other):Multiedge(other),parent(nullptr){} // Do not copy successors!
   std::vector<MultiEdge> successors;
-};*/
+  MultiEdge* parent;
+  void Print(std::ostream& ss, int d=0) const {
+    ss << std::string(d,' ');
+    int i(0);
+    for(auto const& a: *this)
+      ss << " "<<++i<<"." << a.second->n << "@" << a.second->depth;
+    ss << std::endl;
+    for(auto const& m: successors)
+      m.Print(ss,d+1);
+  }
+};
 
 std::ostream& operator << (std::ostream& ss, Group const* n){
   std::string sep("{");
@@ -167,9 +178,14 @@ std::ostream& operator << (std::ostream& ss, MultiState const& n){
 }
 
 std::ostream& operator << (std::ostream& ss, MultiEdge const& n){
-  int i(0);
+  /*int i(0);
   for(auto const& a: n)
     ss << " "<<++i<<"." << a.second->n << "@" << a.second->depth;
+  ss << std::endl;
+  for(auto const& m:n.successors)
+    ss << "----"<<m;
+  */
+  n.Print(ss,0);
   return ss;
 }
 
@@ -322,7 +338,8 @@ void generatePermutations(std::vector<MultiEdge>& positions, std::vector<MultiEd
 // In order for this to work, we cannot generate sets of positions, we must generate sets of actions, since at time 1.0 an action from parent A at time 0.0 may have finished, while another action from the same parent A may still be in progress. 
 
 // Return true if we get to the desired depth
-bool jointDFS(MultiEdge const& s, float d, float term, std::vector<std::set<Node*,NodePtrComp>>& answer,std::vector<Node*>& toDelete, float& best, float bestSeen, float increment=1.0, bool suboptimal=false){
+bool jointDFS(MultiEdge & s, float d, float term, std::vector<std::set<Node*,NodePtrComp>>& answer,std::vector<Node*>& toDelete, float& best, float bestSeen, float increment=1.0, bool suboptimal=false){
+  //std::cout << "saw " << s << "\n";
   //std::cout << d << std::string((int)d,' ');
   //for(int a(0); a<s.size(); ++a){
     //std::cout << " s " << *s[a].second << "\n";
@@ -386,9 +403,43 @@ bool jointDFS(MultiEdge const& s, float d, float term, std::vector<std::set<Node
   generatePermutations(successors,crossProduct,0,MultiEdge(),sd);
   bool value(false);
   bool recorded(false);
-  for(auto const& a: crossProduct){
-    //std::cout << "eval " << a << "\n";
+  for(auto& a: crossProduct){
+    a.parent=&s;
+    //std::cout << "EVAL " << s << "-->" << a << "\n";
     if(jointDFS(a,md,term,answer,toDelete,best,bestSeen,increment,suboptimal)){
+    //std::cout << "found " << s << "-->" << a << "\n";
+      auto*p=&s;
+      while(true){
+        bool valid(true);
+        for(int i(0); i<p->size(); ++i){
+          bool found(false);
+          for(auto const& suc:(*p)[i].second->successors){
+            if(*a[i].second==*suc){
+              found=true;
+              break;
+            }
+          }
+          // Finally, check wait action
+          if(!found && (!a[i].second->n.sameLoc((*p)[i].second->n) || !fequal(a[i].second->Depth(),(*p)[i].second->Depth()+1.0))){
+            valid=false;
+            break;
+          }
+        }
+        if(valid){
+          //std::cout << a << " is a successor of " << *p << "\n";
+          a.parent=p;
+          p->successors.push_back(a);
+          break;
+        }else{
+          //std::cout << a << " is NOT a successor of " << *p << "\n";
+          if(!p->parent){
+            //std::cout << "ERROR! no valid parent found in progression!\n";
+            break;
+          }
+          //std::cout << "Go from "<< *p << " to parent " << *p->parent << "\n";
+          p=p->parent;
+        }
+      }
       // Note: this assumes we're only interested in a single optimal answer
       if(!recorded){
         // Check whether this joint-state is congruent with
@@ -566,9 +617,27 @@ bool jointDFS(MultiState const& s, float maxdepth, std::vector<std::set<Node*,No
   }
   float best(9999999);
 
-  return jointDFS(act,0.0,maxdepth,answer,toDelete,best,bestSeen,increment,suboptimal);
+
+  bool ans = jointDFS(act,0.0,maxdepth,answer,toDelete,best,bestSeen,increment,suboptimal);
+  std::vector<std::vector<std::vector<Node*>>> solutions;
+
+  if(ans)std::cout << "ANSWER " << act << "\n";
+  else std::cout << "FAILED\n";
+  return ans;
 }
 
+void parseSolution(MultiEdge& root, MultiEdge& dag){
+  // Copy contents of root to dag node
+  std::copy(root.begin(),root.end(),dag.begin());
+  // Copy any successors of root that are valid to successors of dag
+  for(auto& a:root.successors){
+    a.parent=&root;
+    for(int s(0); s<a.size(); ++s){
+      //for
+      //if(a[s].second
+    }
+  }
+}
 
 bool jointAStar(MultiState const& s, float maxdepth, std::vector<std::set<Node*,NodePtrComp>>& answer, std::vector<Node*>& toDelete, Instance const& inst, std::vector<float> const& best, float increment=1.0){
   if(verbose){std::cout << "JointAStar\n";}
