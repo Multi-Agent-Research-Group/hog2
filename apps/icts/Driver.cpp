@@ -338,7 +338,8 @@ void generatePermutations(std::vector<MultiEdge>& positions, std::vector<MultiEd
 // In order for this to work, we cannot generate sets of positions, we must generate sets of actions, since at time 1.0 an action from parent A at time 0.0 may have finished, while another action from the same parent A may still be in progress. 
 
 // Return true if we get to the desired depth
-bool jointDFS(MultiEdge & s, float d, float term, std::vector<std::set<Node*,NodePtrComp>>& answer,std::vector<Node*>& toDelete, float& best, float bestSeen, float increment=1.0, bool suboptimal=false){
+//bool jointDFS(MultiEdge & s, float d, float term, std::vector<std::set<Node*,NodePtrComp>>& answer,std::vector<Node*>& toDelete, float& best, float bestSeen, float increment=1.0, bool suboptimal=false){
+bool jointDFS(MultiEdge & s, float d, float term, std::vector<Node*>& toDelete, float& best, float bestSeen, float increment=1.0, bool suboptimal=false){
   //std::cout << "saw " << s << "\n";
   //std::cout << d << std::string((int)d,' ');
   //for(int a(0); a<s.size(); ++a){
@@ -350,12 +351,12 @@ bool jointDFS(MultiEdge & s, float d, float term, std::vector<std::set<Node*,Nod
       if(verbose)std::cout << "BEST="<<best<<std::endl;
       if(verbose)std::cout << "TERM="<<term<<std::endl;
       if(verbose)std::cout << "BS="<<bestSeen<<std::endl;
-      for(int a(0); a<s.size(); ++a){
+      /*for(int a(0); a<s.size(); ++a){
         if(verbose)std::cout << "Found solution: "<<a<<":" << *s[a].second << "\n";
         answer[a].clear();
         //std::cout << "push " << *s[a].second << " " << s.size() << "\n";
         answer[a].insert(s[a].second);
-      }
+      }*/
     }
     return true;
   }
@@ -406,7 +407,7 @@ bool jointDFS(MultiEdge & s, float d, float term, std::vector<std::set<Node*,Nod
   for(auto& a: crossProduct){
     a.parent=&s;
     //std::cout << "EVAL " << s << "-->" << a << "\n";
-    if(jointDFS(a,md,term,answer,toDelete,best,bestSeen,increment,suboptimal)){
+    if(jointDFS(a,md,term,toDelete,best,bestSeen,increment,suboptimal)){
     //std::cout << "found " << s << "-->" << a << "\n";
       auto*p=&s;
       while(true){
@@ -441,7 +442,7 @@ bool jointDFS(MultiEdge & s, float d, float term, std::vector<std::set<Node*,Nod
         }
       }
       // Note: this assumes we're only interested in a single optimal answer
-      if(!recorded){
+      /*if(!recorded){
         // Check whether this joint-state is congruent with
         // previous answer
         for(int a(0); a<s.size(); ++a){
@@ -479,7 +480,7 @@ bool jointDFS(MultiEdge & s, float d, float term, std::vector<std::set<Node*,Nod
           }
         }
         recorded=true;
-      }
+      }*/
       // Return first solution...
       if(suboptimal) return true;
       // Return if solution is as good as any MDD
@@ -605,7 +606,7 @@ public:
   std::vector<float> best;
 };
 
-bool jointDFS(MultiState const& s, float maxdepth, std::vector<std::set<Node*,NodePtrComp>>& answer, std::vector<Node*>& toDelete, float bestSeen, float increment=1.0, bool suboptimal=false){
+bool jointDFS(MultiState const& s, float maxdepth, std::vector<Node*>& toDelete, float bestSeen, float increment=1.0, bool suboptimal=false){
   MultiEdge act;
   float sd(1.0);
   for(auto const& n:s){ // Add null parents for the initial movements
@@ -618,7 +619,7 @@ bool jointDFS(MultiState const& s, float maxdepth, std::vector<std::set<Node*,No
   float best(9999999);
 
 
-  bool ans = jointDFS(act,0.0,maxdepth,answer,toDelete,best,bestSeen,increment,suboptimal);
+  bool ans = jointDFS(act,0.0,maxdepth,toDelete,best,bestSeen,increment,suboptimal);
   std::vector<std::vector<std::vector<Node*>>> solutions;
 
   if(ans)std::cout << "ANSWER " << act << "\n";
@@ -639,7 +640,7 @@ void parseSolution(MultiEdge& root, MultiEdge& dag){
   }
 }
 
-bool jointAStar(MultiState const& s, float maxdepth, std::vector<std::set<Node*,NodePtrComp>>& answer, std::vector<Node*>& toDelete, Instance const& inst, std::vector<float> const& best, float increment=1.0){
+bool jointAStar(MultiState const& s, float maxdepth, std::vector<Node*>& toDelete, Instance const& inst, std::vector<float> const& best, float increment=1.0){
   if(verbose){std::cout << "JointAStar\n";}
   MultiEdge start;
   for(auto const& n:s){ // Add null parents for the initial movements
@@ -664,20 +665,17 @@ bool jointAStar(MultiState const& s, float maxdepth, std::vector<std::set<Node*,
   }
   if(solution.size()==0){return false;}
   if(verbose)std::cout << "answer ---\n";
-  int agent(0);
-  for(auto const& node:solution){
-    if(verbose)std::cout << node << "\n";
-    std::set<Node*,NodePtrComp> tmp;
-    int i(0);
-    for(auto const& edge: node){
-      answer[i++].insert(edge.second);
-    }
+  auto* parent(&s);
+  for(auto const& node(solution.begin()+1); node!=solution.end(); ++node){
+    parent.successors.push_back(*node);
+    parent.successors.back().parent=parent;
+    parent=&parent.successors.back();
   }
   return true;
 }
 
 // Not part of the algorithm... just for validating the answers
-bool checkAnswer(std::vector<std::set<Node*,NodePtrComp>> const& answer){
+bool checkAnswer(Solution const& answer){
   for(int i(0);i<answer.size();++i){
     for(int j(i+1);j<answer.size();++j){
       auto ap(answer[i].begin());
@@ -686,20 +684,20 @@ bool checkAnswer(std::vector<std::set<Node*,NodePtrComp>> const& answer){
       auto b(answer[j].begin());
       a++;b++;
       while(a!=answer[i].end() && b!=answer[j].end()){
-        Vector2D A((*ap)->n.x,(*ap)->n.y);
-        Vector2D B((*bp)->n.x,(*bp)->n.y);
-        Vector2D VA((*a)->n.x-(*ap)->n.x,(*a)->n.y-(*ap)->n.y);
+        Vector2D A(ap.first.x,ap.first.y);
+        Vector2D B(bp.first.x,bp.first.y);
+        Vector2D VA(a.first.x-ap.first.x,(*a)->n.y-(*ap)->n.y);
         VA.Normalize();
-        Vector2D VB((*b)->n.x-(*bp)->n.x,(*b)->n.y-(*bp)->n.y);
+        Vector2D VB(b.first.x-bp.first.x,(*b)->n.y-(*bp)->n.y);
         VB.Normalize();
-        if(collisionImminent(A,VA,.25,(*ap)->depth,(*a)->depth,B,VB,.25,(*bp)->depth,(*b)->depth)){
+        if(collisionImminent(A,VA,.25,ap.second,a.second,B,VB,.25,bp.second,b.second)){
           std::cout << "Collision: " << i << ":" << **ap << "-->" << **a << "," << j << ":" << **bp << "-->" << **b << "\n";
           return false;
         }
-        if(fless((*a)->depth,(*b)->depth)){
+        if(fless(a.second,b.second)){
           ++a;
           ++ap;
-        }else if(fgreater((*a)->depth,(*b)->depth)){
+        }else if(fgreater(a.second,b.second)){
           ++b;
           ++bp;
         }else{
@@ -774,8 +772,7 @@ struct ICTSNode{
   static bool astar;
   std::vector<int> replanned; // Set of nodes that was just re-planned
 
-  bool isValid(std::vector<std::set<Node*,NodePtrComp>>& answer, std::pair<int,int>& conflicting){
-    conflicting.first=conflicting.second=-1;
+  MultiState* isValid(){
     if(root.size()>2 && pairwise){
       // Perform pairwise check
       if(verbose)std::cout<<"Pairwise checks\n";
@@ -789,10 +786,8 @@ struct ICTSNode{
             std::vector<Node*> toDeleteTmp;
             // This is a satisficing search, thus we only need to a sub-optimal check
             if(!jointDFS(tmproot,maxdepth,tmpanswer,toDeleteTmp,9999999,increment,true)){
-              conflicting.first=i;
-              conflicting.second=j;
               if(verbose)std::cout << "Pairwise failed\n";
-              return false;
+              return nullptr;
             }
           }
         }
@@ -806,10 +801,8 @@ struct ICTSNode{
           std::vector<Node*> toDeleteTmp;
           // This is a satisficing search, thus we only need to a sub-optimal check
           if(!jointDFS(tmproot,maxdepth,tmpanswer,toDeleteTmp,9999999,increment,true)){
-            conflicting.first=i;
-            conflicting.second=replanned[0];
             if(verbose)std::cout << "Pairwise failed\n";
-            return false;
+            return nullptr;
           }
         }
       }
@@ -831,11 +824,11 @@ struct ICTSNode{
         std::cout << std::endl;
       }
       if(validate)assert(checkAnswer(answer));
-      return true;
+      return root;
     }
     
     if(verbose)std::cout << "Full check failed\n";
-    return false;
+    return nullptr;
   }
 
   float SIC()const{
@@ -949,6 +942,43 @@ void printResults(){
   if(total >= timeout)std::cout << " failure";
   std::cout << std::endl;
   exit(1);
+}
+
+bool extractSolutions(MultiEdge const* ans, Solution tmp, std::vector<Solution>& s){
+  for(int i(0); i<tmp.size(); ++i){
+    tmp[i].emplace_back(ans[i].second->n,ans[i].second->depth);
+  }
+  if(ans->successors.empty()){
+    s.push_back(tmp);
+  }else{
+    for(auto const& ans->successors){
+      extractSolution(ans,tmp,s);
+    }
+  }
+}
+bool extractSolution(MultiEdge const* ans, Solution& s, std::unordered_map<int,std::vector<int>> Gid, int theGroup){
+  // Fill in solutions
+  std::vector<Solution> result;
+  extractSolution(ans,Solution(ans->size()),tmp);
+
+  std::vector<int> outsiders;
+  k=0;
+  while(k<s.size()){
+    bool found(false);
+    for(int i(0); i<ans->size(); ++i){
+      if(k==Gid[theGroup][i]){
+        found=true;
+        break;
+      }
+    }
+    if(!found)
+      outsiders.push_back(k);
+  }
+  // TODO: perform check of all outsiders paths with answer DAG.
+  // If a chain from root to leaf can be attained without conflict, we're good
+  for(int i:outsiders){
+    
+  }
 }
 
 int main(int argc, char ** argv){
@@ -1074,41 +1104,6 @@ int main(int argc, char ** argv){
       }
     }
 
-    if(false){
-      Instance g;
-      g.first.emplace_back(1,1);
-      g.first.emplace_back(3,0);
-      g.second.emplace_back(5,5);
-      g.second.emplace_back(3,5);
-      std::pair<int,int> conflicting;
-      {
-      std::vector<std::set<Node*,NodePtrComp>> answer;
-      ICTSNode test(g,{0,0},step);
-      std::cout << (test.isValid(answer,conflicting)?"solved\n":"failed\n");
-      }
-      std::vector<std::set<Node*,NodePtrComp>> answer;
-      ICTSNode test(g,{1,0},step);
-      std::cout << (test.isValid(answer,conflicting)?"solved\n":"failed\n");
-      for(auto const& b:answer){
-        TimePath p;
-        for(auto const& a:b){
-          p.emplace_back(a->n,a->depth);
-        }
-        solution.push_back(p);
-      }
-      std::cout << "Solution:\n";
-      int ii=0;
-      for(auto const& p:solution){
-        std::cout << ii++ << "\n";
-        for(auto const& t: p){
-          // Print solution
-          std::cout << t.first << "," << t.second << "\n";
-        }
-      }
-      std::cout << std::endl;
-      return 0;
-    }
-    
     //TemplateAStar<xyLoc,tDirection,MapEnvironment> astar;
     PEAStar<xyLoc,tDirection,MapEnvironment> astar;
     //std::cout << "Init groups\n";
@@ -1196,8 +1191,8 @@ int main(int argc, char ** argv){
               std::cout << "\n";
               std::cout << "SIC: " << parent->SIC() << std::endl;
             }
-            std::pair<int,int> conflicting;
-            if(parent->isValid(answer,conflicting)){
+            MultiEdge* root;
+            if(root=parent->isValid()){
               int i(0);
               for(auto const& b:answer){
                 TimePath p;
@@ -1209,48 +1204,17 @@ int main(int argc, char ** argv){
               }
               break;
             }
-            // Was a conflict found in the pairwise check?
-            if(ICTSNode::forwardjump&&conflicting.first!=-1){
-              {
-                std::vector<float> sz(parent->sizes);
-                sz[conflicting.first]++;
-                std::stringstream sv;
-                join(sv,sz);
-                q.removeAll(conflicting.first,sz[conflicting.first]);
-                if(deconf.find(sv.str())==deconf.end()){
-                  q.push(new ICTSNode(parent,conflicting.first,sz[conflicting.first]));
-                  deconf.insert(sv.str());
-                }else{std::cout << "Already seen "<<sv.str()<<"\n";}
-              }
-              {
-                std::vector<float> sz(parent->sizes);
-                sz[conflicting.second]++;
-                std::stringstream sv;
-                join(sv,sz);
-                q.removeAll(conflicting.second,sz[conflicting.second]);
-                if(deconf.find(sv.str())==deconf.end()){
-                  q.push(new ICTSNode(parent,conflicting.second,sz[conflicting.second]));
-                  deconf.insert(sv.str());
-                }else{std::cout << "Already seen "<<sv.str()<<"\n";}
-              }
-            }else{
-              for(int i(0); i<parent->sizes.size(); ++i){
-                std::vector<float> sz(parent->sizes);
-                sz[i]+=step;
-                std::stringstream sv;
-                join(sv,sz);
-                if(deconf.find(sv.str())==deconf.end()){
-                  q.push(new ICTSNode(parent,i,sz[i]));
-                  deconf.insert(sv.str());
-                }
+
+            for(int i(0); i<parent->sizes.size(); ++i){
+              std::vector<float> sz(parent->sizes);
+              sz[i]+=step;
+              std::stringstream sv;
+              join(sv,sz);
+              if(deconf.find(sv.str())==deconf.end()){
+                q.push(new ICTSNode(parent,i,sz[i]));
+                deconf.insert(sv.str());
               }
             }
-            /*if(tmr.TimeCut() > timeout){
-              //elapsed = timeout;
-              while(q.size()) q.pop();
-              failed++;
-              //std::cout << "failed" << std::endl;
-            }*/
             toDelete.push_back(parent);
           }
           for(auto z:toDelete){
