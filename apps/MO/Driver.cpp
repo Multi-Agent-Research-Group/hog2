@@ -3,9 +3,12 @@
 #include "UnitSimulation.h"
 #include "ScenarioLoader.h"
 #include "MultiObjectiveConstrainedEnvironment.h"
-#include "CBSUnits2.h"
+#include "Map2DConstrainedEnvironment.h"
+#include "MOCBSUnits.h"
 #include "NonUnitTimeCAT.h"
 #include "NAMOAStar.h"
+#include "RadialSafety2DObjectiveEnvironment.h"
+#include "Terrain2DObjectiveEnvironment.h"
 
 #include <sstream>
 
@@ -16,8 +19,9 @@ bool randomalg = false; // Randomize tiebreaking
 bool useCAT = false; // Use conflict avoidance table
 bool verify = false;
 bool mouseTracking;
-unsigned killtime(3600); // Kill after some number of seconds
+unsigned killtime(300); // Kill after some number of seconds
 unsigned killex(INT_MAX); // Kill after some number of expansions
+bool disappearAtGoal(false);
 int px1, py1, px2, py2;
 int absType = 0;
 int mapSize = 128;
@@ -35,19 +39,75 @@ std::vector<std::vector<xytLoc> > waypoints;
 
 int cutoffs[10] = {0,9999,9999,9999,9999,9999,9999,9999,9999,9999}; // for each env
 double weights[10] = {1,1,1,1,1,1,1,1,1,1}; // for each env
-std::vector<EnvironmentContainer<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment> > environs;
+std::vector<EnvironmentContainer<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>>> environs;
 int seed = clock();
 int num_agents = 5;
 int minsubgoals(1);
 int maxsubgoals(1);
 bool use_wait = false;
-bool nobypass = false;
+bool nobypass = true; // Bypass doesn't make sense for AnyAngle paths (probably)
+bool fullSet(false);
+bool blind(false);
+bool ignoreHeading(false);
 
 bool paused = false;
+#define NUM_OBJECTIVES 3
+typedef LexicographicTieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,NUM_OBJECTIVES> LexiComparator;
+typedef LexicographicGoalTieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,NUM_OBJECTIVES> LexiGoalComparator;
+typedef DominanceTieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,NUM_OBJECTIVES> DominanceComparator;
 
-MultiObjectiveConstrainedEnvironment *ace = 0;
-UnitSimulation<xytLoc, tDirection, MultiObjectiveConstrainedEnvironment> *sim = 0;
-CBSGroup<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment,TieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,MultiObjectiveConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS>,NAMOAStar<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment>>>>* group = 0;
+// Lexicographic comparators
+typedef CBSUnit<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,LexicographicTieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>, NUM_OBJECTIVES>,NonUnitTimeCAT<xytLoc,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,HASH_INTERVAL_HUNDREDTHS>,NUM_OBJECTIVES,NAMOAStar<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,NUM_OBJECTIVES>> LexObjectiveUnit;
+typedef CBSGroup<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,LexicographicTieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>, NUM_OBJECTIVES>,NonUnitTimeCAT<xytLoc,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,HASH_INTERVAL_HUNDREDTHS>,NUM_OBJECTIVES,NAMOAStar<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,NUM_OBJECTIVES>> LexObjectiveGroup;
+
+// Goal-based lexicographic comparators
+typedef CBSUnit<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,LexicographicGoalTieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>, NUM_OBJECTIVES>,NonUnitTimeCAT<xytLoc,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,HASH_INTERVAL_HUNDREDTHS>,NUM_OBJECTIVES,NAMOAStar<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,NUM_OBJECTIVES>> LexGoalObjectiveUnit;
+typedef CBSGroup<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,LexicographicGoalTieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>, NUM_OBJECTIVES>,NonUnitTimeCAT<xytLoc,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,HASH_INTERVAL_HUNDREDTHS>,NUM_OBJECTIVES,NAMOAStar<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,NUM_OBJECTIVES>> LexGoalObjectiveGroup;
+
+// Dominance comparators
+typedef CBSUnit<xytLoc,
+  tDirection,
+  MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,
+  DominanceTieBreaking<
+    xytLoc,
+    tDirection,
+    MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,
+    NUM_OBJECTIVES
+  >,
+  NonUnitTimeCAT<
+    xytLoc,
+    MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,
+    HASH_INTERVAL_HUNDREDTHS
+  >,
+  NUM_OBJECTIVES,
+  NAMOAStar<
+    xytLoc,
+    tDirection,
+    MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,
+    NUM_OBJECTIVES,
+    AStarOpenClosed<
+      xytLoc,
+      DominanceTieBreaking<
+        xytLoc,
+        tDirection,
+        MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,
+        NUM_OBJECTIVES>,
+      NAMOAOpenClosedData<
+        xytLoc,
+        MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,
+        NUM_OBJECTIVES>
+    >
+  >
+> DominanceObjectiveUnit;
+typedef CBSGroup<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,DominanceTieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>, NUM_OBJECTIVES>,NonUnitTimeCAT<xytLoc,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,HASH_INTERVAL_HUNDREDTHS>,NUM_OBJECTIVES,NAMOAStar<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,NUM_OBJECTIVES,AStarOpenClosed<xytLoc,DominanceTieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,NUM_OBJECTIVES>,NAMOAOpenClosedData<xytLoc,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,NUM_OBJECTIVES>>>> DominanceObjectiveGroup;
+
+MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection> *ace = 0;
+UnitSimulation<xytLoc, tDirection, MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>> *sim = 0;
+RadialSafety2DObjectiveEnvironment* safetyEnv = 0;
+Terrain2DObjectiveEnvironment* terrainEnv = 0;
+LexObjectiveGroup* lgroup = 0;
+LexGoalObjectiveGroup* ggroup = 0;
+DominanceObjectiveGroup* dgroup = 0;
 
 bool gui=true;
 int animate(0);
@@ -71,14 +131,37 @@ int main(int argc, char* argv[])
   else
   {
     InitHeadless();
-    while (true)
-    {
-      group->ExpandOneCBSNode();
+    if(lgroup){
+      while (true)
+      {
+        lgroup->ExpandOneCBSNode();
+      }
+      /*if(verbose)*/for(int i(0);i<lgroup->GetNumMembers();++i){
+        std::cout << "final path for agent " << i << ":\n";
+        for(auto const& n: lgroup->tree.back().paths[i])
+          std::cout << n << "\n";
+      }
+    } else if(ggroup){
+      while (true)
+      {
+        ggroup->ExpandOneCBSNode();
+      }
+      /*if(verbose)*/for(int i(0);i<ggroup->GetNumMembers();++i){
+        std::cout << "final path for agent " << i << ":\n";
+        for(auto const& n: ggroup->tree.back().paths[i])
+          std::cout << n << "\n";
+      }
     }
-    /*if(verbose)*/for(int i(0);i<group->GetNumMembers();++i){
-      std::cout << "final path for agent " << i << ":\n";
-      for(auto const& n: group->tree.back().paths[i])
-        std::cout << n << "\n";
+    if(dgroup){
+      while (true)
+      {
+        dgroup->ExpandOneCBSNode();
+      }
+      /*if(verbose)*/for(int i(0);i<dgroup->GetNumMembers();++i){
+        std::cout << "final path for agent " << i << ":\n";
+        for(auto const& n: dgroup->tree.back().paths[i])
+          std::cout << n << "\n";
+      }
     }
   }
 }
@@ -128,12 +211,21 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-nagents", "-nagents <number>", "Select the number of agents.");
 	InstallCommandLineHandler(MyCLHandler, "-nsubgoals", "-nsubgoals <number>,<number>", "Select the min,max number of subgoals per agent.");
 	InstallCommandLineHandler(MyCLHandler, "-seed", "-seed <number>", "Seed for random number generator (defaults to clock)");
+	InstallCommandLineHandler(MyCLHandler, "-type", "-type <number>", "Objective type: l=LEXICOGRAPHIC, lg=GOAL_LEXICOGRAPHIC, w=WEIGHTED_SUM, wg=GOAL_WEIGHTED_SUM, p=PURE, pg=GOAL_PURE");
 	InstallCommandLineHandler(MyCLHandler, "-nobypass", "-nobypass", "Turn off bypass option");
+	InstallCommandLineHandler(MyCLHandler, "-fullSet", "-fullSet", "Return full pareto-optimal set of paths");
+	InstallCommandLineHandler(MyCLHandler, "-blind", "-blind", "Blind search option");
+	InstallCommandLineHandler(MyCLHandler, "-ignoreHeading", "-ignoreHeading", "Ignore heading dimension");
+        InstallCommandLineHandler(MyCLHandler, "-disappear", "-disappear", "Disappear at goal");
 	InstallCommandLineHandler(MyCLHandler, "-record", "-record", "Record frames");
 	InstallCommandLineHandler(MyCLHandler, "-radius", "-radius", "agent radius (in grid units)");
 	InstallCommandLineHandler(MyCLHandler, "-cutoffs", "-cutoffs <n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>", "Number of conflicts to tolerate before switching to less constrained layer of environment. Environments are ordered as: CardinalGrid,OctileGrid,Cardinal3D,Octile3D,H4,H8,Simple,Cardinal,Octile,48Highway");
 	InstallCommandLineHandler(MyCLHandler, "-weights", "-weights <n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>", "Weight to apply to the low-level search for each environment entered as: CardinalGrid,OctileGrid,Cardinal3D,Octile3D,H4,H8,Simple,Cardinal,Octile,48Highway");
 	InstallCommandLineHandler(MyCLHandler, "-probfile", "-probfile", "Load MAPF instance from file");
+	InstallCommandLineHandler(MyCLHandler, "-dangerfile", "-dangerfile", "Load danger information from file");
+	InstallCommandLineHandler(MyCLHandler, "-terrainfile", "-terrainfile", "Load terrain information from file");
+	InstallCommandLineHandler(MyCLHandler, "-goals", "-goals", "Goals for Goal-Based pathfinding");
+	InstallCommandLineHandler(MyCLHandler, "-coeffs", "-coeffs", "Weights/Coefficients for dominance factor scaling");
 	InstallCommandLineHandler(MyCLHandler, "-constraints", "-constraints", "Load constraints from file");
 	InstallCommandLineHandler(MyCLHandler, "-killtime", "-killtime", "Kill after this many seconds");
 	InstallCommandLineHandler(MyCLHandler, "-killex", "-killex", "Kill after this many expansions");
@@ -181,42 +273,87 @@ void InitHeadless(){
   srand(seed);
   srandom(seed);
   Map* map(new Map(width,length));
-  StraightLineHeuristic* sh(new StraightLineHeuristic());
-  MultiObjectiveEnvironment* w4 = new MultiObjectiveEnvironment(map); w4->SetFourConnected();
-  MultiObjectiveEnvironment* w5 = new MultiObjectiveEnvironment(map); w5->SetFiveConnected();
-  MultiObjectiveEnvironment* w8 = new MultiObjectiveEnvironment(map); w8->SetEightConnected();
-  MultiObjectiveEnvironment* w9 = new MultiObjectiveEnvironment(map); w9->SetNineConnected();
-  MultiObjectiveEnvironment* w24 = new MultiObjectiveEnvironment(map); w24->SetTwentyFourConnected();
-  MultiObjectiveEnvironment* w25 = new MultiObjectiveEnvironment(map); w25->SetTwentyFiveConnected();
-  MultiObjectiveEnvironment* w48 = new MultiObjectiveEnvironment(map); w48->SetFortyEightConnected();
-  MultiObjectiveEnvironment* w49 = new MultiObjectiveEnvironment(map); w49->SetFortyNineConnected();
+  //StraightLineHeuristic* sh(new StraightLineHeuristic());
+  Map2DConstrainedEnvironment* w4 = new Map2DConstrainedEnvironment(new MapEnvironment(map)); w4->GetEnv()->SetFourConnected();
+  Map2DConstrainedEnvironment* w5 = new Map2DConstrainedEnvironment(new MapEnvironment(map)); w5->GetEnv()->SetFiveConnected();
+  Map2DConstrainedEnvironment* w8 = new Map2DConstrainedEnvironment(new MapEnvironment(map)); w8->GetEnv()->SetEightConnected();
+  Map2DConstrainedEnvironment* w9 = new Map2DConstrainedEnvironment(new MapEnvironment(map)); w9->GetEnv()->SetNineConnected();
+  Map2DConstrainedEnvironment* w24 = new Map2DConstrainedEnvironment(new MapEnvironment(map)); w24->GetEnv()->SetTwentyFourConnected();
+  Map2DConstrainedEnvironment* w25 = new Map2DConstrainedEnvironment(new MapEnvironment(map)); w25->GetEnv()->SetTwentyFiveConnected();
+  Map2DConstrainedEnvironment* w48 = new Map2DConstrainedEnvironment(new MapEnvironment(map)); w48->GetEnv()->SetFortyEightConnected();
+  Map2DConstrainedEnvironment* w49 = new Map2DConstrainedEnvironment(new MapEnvironment(map)); w49->GetEnv()->SetFortyNineConnected();
+
+  // Necessary for lexicographic mode
+  if(cost<NUM_OBJECTIVES>::compareType==cost<NUM_OBJECTIVES>::LEXICOGRAPHIC||cost<NUM_OBJECTIVES>::compareType==cost<NUM_OBJECTIVES>::GOAL_LEXICOGRAPHIC){
+    w4->SetIgnoreTime(true);
+    w5->SetIgnoreTime(true);
+    w8->SetIgnoreTime(true);
+    w9->SetIgnoreTime(true);
+    w24->SetIgnoreTime(true);
+    w25->SetIgnoreTime(true);
+    w48->SetIgnoreTime(true);
+    w49->SetIgnoreTime(true);
+  }
+
+  if(ignoreHeading){
+    w4->SetIgnoreHeading(true);
+    w5->SetIgnoreHeading(true);
+    w8->SetIgnoreHeading(true);
+    w9->SetIgnoreHeading(true);
+    w24->SetIgnoreHeading(true);
+    w25->SetIgnoreHeading(true);
+    w48->SetIgnoreHeading(true);
+    w49->SetIgnoreHeading(true);
+  }
+
+  std::vector<ObjectiveEnvironment<xytLoc>*> objectives5; // In priority order...
+  objectives5.push_back(safetyEnv);
+  objectives5.push_back(terrainEnv);
+  objectives5.push_back(w5);
+  MultiObjectiveEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>* mo4 = new MultiObjectiveEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>(objectives5,w4);
+  MultiObjectiveEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>* mo5 = new MultiObjectiveEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>(objectives5,w5);
+  std::vector<ObjectiveEnvironment<xytLoc>*> objectives9; // In priority order...
+  objectives9.push_back(safetyEnv);
+  objectives9.push_back(terrainEnv);
+  objectives9.push_back(w9);
+  MultiObjectiveEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>* mo8 = new MultiObjectiveEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>(objectives9,w8);
+  MultiObjectiveEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>* mo9 = new MultiObjectiveEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>(objectives9,w9);
+  std::vector<ObjectiveEnvironment<xytLoc>*> objectives25; // In priority order...
+  objectives25.push_back(safetyEnv);
+  objectives25.push_back(terrainEnv);
+  objectives25.push_back(w25);
+  MultiObjectiveEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>* mo24 = new MultiObjectiveEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>(objectives25,w24);
+  MultiObjectiveEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>* mo25 = new MultiObjectiveEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>(objectives25,w25);
+  std::vector<ObjectiveEnvironment<xytLoc>*> objectives49; // In priority order...
+  objectives49.push_back(safetyEnv);
+  objectives49.push_back(terrainEnv);
+  objectives49.push_back(w49);
+  MultiObjectiveEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>* mo48 = new MultiObjectiveEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>(objectives49,w48);
+  MultiObjectiveEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>* mo49 = new MultiObjectiveEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>(objectives49,w49);
   // Cardinal Grid
-  //environs.push_back(EnvironmentContainer<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment>(w4->name(),new MultiObjectiveConstrainedEnvironment(w4),sh,cutoffs[0],weights[0]));
-  //if(verbose)std::cout << "Added " << w4->name() << " @" << cutoffs[0] << " conflicts\n";
+  environs.push_back(EnvironmentContainer<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>>(mo4->name(),new MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>(mo4),0,cutoffs[0],weights[0]));
+  if(verbose)std::cout << "Added " << mo4->name() << " @" << cutoffs[0] << " conflicts\n";
   // Cardinal Grid w/ Waiting
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment>(w5->name(),new MultiObjectiveConstrainedEnvironment(w5),sh,cutoffs[0],weights[0]));
-  
-  if(verbose)std::cout << "Added " << w5->name() << " @" << cutoffs[0] << " conflicts\n";
-  /*
+  environs.push_back(EnvironmentContainer<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>>(mo5->name(),new MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>(mo5),0,cutoffs[1],weights[1]));
+  if(verbose)std::cout << "Added " << mo5->name() << " @" << cutoffs[1] << " conflicts\n";
   // Octile Grid
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment>(w8->name(),new MultiObjectiveConstrainedEnvironment(w8),sh,cutoffs[2],weights[2]));
-  if(verbose)std::cout << "Added " << w8->name() << " @" << cutoffs[2] << " conflicts\n";
+  environs.push_back(EnvironmentContainer<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>>(mo8->name(),new MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>(mo8),0,cutoffs[2],weights[2]));
+  if(verbose)std::cout << "Added " << mo8->name() << " @" << cutoffs[2] << " conflicts\n";
   // Octile Grid w/ Waiting
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment>(w9->name(),new MultiObjectiveConstrainedEnvironment(w9),sh,cutoffs[3],weights[3]));
-  if(verbose)std::cout << "Added " << w9->name() << " @" << cutoffs[3] << " conflicts\n";
+  environs.push_back(EnvironmentContainer<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>>(mo9->name(),new MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>(mo9),0,cutoffs[3],weights[3]));
+  if(verbose)std::cout << "Added " << mo9->name() << " @" << cutoffs[3] << " conflicts\n";
   // 24-connected Grid
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment>(w24->name(),new MultiObjectiveConstrainedEnvironment(w24),sh,cutoffs[4],weights[4]));
-  if(verbose)std::cout << "Added " << w24->name() << " @" << cutoffs[4] << " conflicts\n";
+  environs.push_back(EnvironmentContainer<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>>(mo24->name(),new MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>(mo24),0,cutoffs[4],weights[4]));
+  if(verbose)std::cout << "Added " << mo24->name() << " @" << cutoffs[4] << " conflicts\n";
   // 24-connected Grid w/ Waiting
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment>(w25->name(),new MultiObjectiveConstrainedEnvironment(w25),sh,cutoffs[5],weights[5]));
-  if(verbose)std::cout << "Added " << w25->name() << " @" << cutoffs[5] << " conflicts\n";
+  environs.push_back(EnvironmentContainer<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>>(mo25->name(),new MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>(mo25),0,cutoffs[5],weights[5]));
+  if(verbose)std::cout << "Added " << mo25->name() << " @" << cutoffs[5] << " conflicts\n";
   // 48-connected Grid
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment>(w48->name(),new MultiObjectiveConstrainedEnvironment(w48),sh,cutoffs[6],weights[6]));
-  if(verbose)std::cout << "Added " << w48->name() << " @" << cutoffs[6] << " conflicts\n";
+  environs.push_back(EnvironmentContainer<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>>(mo48->name(),new MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>(mo48),0,cutoffs[6],weights[6]));
+  if(verbose)std::cout << "Added " << mo48->name() << " @" << cutoffs[6] << " conflicts\n";
   // 48-connected Grid w/ Waiting
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment>(w49->name(),new MultiObjectiveConstrainedEnvironment(w49),sh,cutoffs[7],weights[7]));
-  if(verbose)std::cout << "Added " << w49->name() << " @" << cutoffs[7] << " conflicts\n";
-  */
+  environs.push_back(EnvironmentContainer<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>>(mo49->name(),new MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>(mo49),0,cutoffs[7],weights[7]));
+  if(verbose)std::cout << "Added " << mo49->name() << " @" << cutoffs[7] << " conflicts\n";
 
   //For use with NAMOAStar only...
   //for(auto& e:environs){
@@ -224,31 +361,101 @@ void InitHeadless(){
   //}
 
   ace=environs.rbegin()->environment;
+  for(int i(0); i<10; ++i){
+    if(cutoffs[i]==0)terrainEnv->SetConnectedness(environs[i].environment->GetEnv()->GetPhysicalEnv()->GetEnv()->GetConnectedness());
+  }
   //ace->SetAgentRadius(agentRadius);
 
-  group = new CBSGroup<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment,TieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,MultiObjectiveConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS>,NAMOAStar<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment>>>>(environs,verbose); // Changed to 10,000 expansions from number of conflicts in the tree
-  CBSGroup<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment,TieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,MultiObjectiveConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS>,NAMOAStar<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment>>>>::greedyCT=greedyCT;
-  group->timer=new Timer();
-  group->seed=seed;
-  group->keeprunning=gui;
-  group->animate=animate;
-  group->killex=killex;
-  group->ECBSheuristic=ECBSheuristic;
-  group->nobypass=nobypass;
-  group->verify=verify;
-  //group->astar.SetSuccessorFunc(&MultiObjectiveConstrainedEnvironment::GetAllSuccessors);
-  //group->astar2.SetSuccessorFunc(&MultiObjectiveConstrainedEnvironment::GetAllSuccessors);
-  TieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment>::randomalg=randomalg;
-  TieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment>::useCAT=useCAT;
-  if(gui){
-    sim = new UnitSimulation<xytLoc, tDirection, MultiObjectiveConstrainedEnvironment>(ace);
-    sim->SetStepType(kLockStep);
+  LexObjectiveGroup::greedyCT=greedyCT;
+  LexGoalObjectiveGroup::greedyCT=greedyCT;
+  DominanceObjectiveGroup::greedyCT=greedyCT;
+  LexiComparator::randomalg=LexiGoalComparator::randomalg=DominanceComparator::randomalg=randomalg;
+  LexiComparator::useCAT=LexiGoalComparator::useCAT=DominanceComparator::useCAT=useCAT;
+  LexiGoalComparator::randomalg=LexiGoalComparator::randomalg=DominanceComparator::randomalg=randomalg;
+  LexiGoalComparator::useCAT=LexiGoalComparator::useCAT=DominanceComparator::useCAT=useCAT;
+  DominanceComparator::randomalg=LexiGoalComparator::randomalg=DominanceComparator::randomalg=randomalg;
+  DominanceComparator::useCAT=LexiGoalComparator::useCAT=DominanceComparator::useCAT=useCAT;
+  if(cost<NUM_OBJECTIVES>::compareType==cost<NUM_OBJECTIVES>::LEXICOGRAPHIC){
+    lgroup = new LexObjectiveGroup(environs, verbose);
+    lgroup->disappearAtGoal=disappearAtGoal;
+    lgroup->timer=new Timer();
+    lgroup->seed=seed;
+    lgroup->keeprunning=gui;
+    lgroup->animate=animate;
+    lgroup->killex=killex;
+    lgroup->ECBSheuristic=ECBSheuristic;
+    lgroup->nobypass=nobypass;
+    lgroup->verify=verify;
+    lgroup->astar.SetFullSet(fullSet);
 
-    sim->AddUnitGroup(group);
+    if(blind)
+      lgroup->astar.SetHCostFunc(&MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>::NullVector);
+    //lgroup->astar.SetSuccessorFunc(&MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>::GetAllSuccessors);
+    //lgroup->astar2.SetSuccessorFunc(&MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>::GetAllSuccessors);
+    if(gui){
+      sim = new UnitSimulation<xytLoc, tDirection, MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>>(ace);
+      sim->SetStepType(kLockStep);
+
+      sim->AddUnitGroup(lgroup);
+    }
+  }else if(cost<NUM_OBJECTIVES>::compareType==cost<NUM_OBJECTIVES>::GOAL_LEXICOGRAPHIC){
+    ggroup = new LexGoalObjectiveGroup(environs, verbose);
+    ggroup->disappearAtGoal=disappearAtGoal;
+    ggroup->timer=new Timer();
+    ggroup->seed=seed;
+    ggroup->keeprunning=gui;
+    ggroup->animate=animate;
+    ggroup->killex=killex;
+    ggroup->ECBSheuristic=ECBSheuristic;
+    ggroup->nobypass=nobypass;
+    ggroup->verify=verify;
+    ggroup->astar.SetFullSet(fullSet);
+
+    if(blind)
+      ggroup->astar.SetHCostFunc(&MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>::NullVector);
+    //ggroup->astar.SetSuccessorFunc(&MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>::GetAllSuccessors);
+    //ggroup->astar2.SetSuccessorFunc(&MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>::GetAllSuccessors);
+    if(gui){
+      sim = new UnitSimulation<xytLoc, tDirection, MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>>(ace);
+      sim->SetStepType(kLockStep);
+
+      sim->AddUnitGroup(ggroup);
+    }
+  }else{
+    dgroup = new DominanceObjectiveGroup(environs, verbose);
+    dgroup->disappearAtGoal=disappearAtGoal;
+    dgroup->timer=new Timer();
+    dgroup->seed=seed;
+    dgroup->keeprunning=gui;
+    dgroup->animate=animate;
+    dgroup->killex=killex;
+    dgroup->ECBSheuristic=ECBSheuristic;
+    dgroup->nobypass=nobypass;
+    dgroup->verify=verify;
+    dgroup->astar.SetFullSet(fullSet);
+
+    if(blind)
+      dgroup->astar.SetHCostFunc(&MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>::NullVector);
+    //dgroup->astar.SetSuccessorFunc(&MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>::GetAllSuccessors);
+    //dgroup->astar2.SetSuccessorFunc(&MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>::GetAllSuccessors);
+    if(gui){
+      sim = new UnitSimulation<xytLoc, tDirection, MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>>(ace);
+      sim->SetStepType(kLockStep);
+
+      sim->AddUnitGroup(dgroup);
+    }
   }
 
 
   if(verbose)std::cout << "Adding " << num_agents << "agents." << std::endl;
+  if(!gui){
+    Timer::Timeout func1(std::bind(&LexObjectiveGroup::processSolution, lgroup, std::placeholders::_1));
+    if(lgroup)lgroup->timer->StartTimeout(std::chrono::seconds(killtime),func1);
+    Timer::Timeout func2(std::bind(&LexGoalObjectiveGroup::processSolution, ggroup, std::placeholders::_1));
+    if(ggroup)ggroup->timer->StartTimeout(std::chrono::seconds(killtime),func2);
+    Timer::Timeout func3(std::bind(&DominanceObjectiveGroup::processSolution, dgroup, std::placeholders::_1));
+    if(dgroup)dgroup->timer->StartTimeout(std::chrono::seconds(killtime),func3);
+  }
 
   for (int i = 0; i < num_agents; i++) {
     if(waypoints.size()<num_agents){
@@ -265,7 +472,7 @@ void InitHeadless(){
         bool conflict(true);
         while(conflict){
           conflict=false;
-          xyLoc rs1(rand() % 8, rand() % 8);
+          xyLoc rs1(rand() % width, rand() % length);
           if(!ace->GetMap()->IsTraversable(rs1.x,rs1.y)){conflict=true;continue;}
           xytLoc start(rs1, 0);
           for (int j = 0; j < waypoints.size(); j++)
@@ -303,17 +510,16 @@ void InitHeadless(){
       std::cout << std::endl;
     }
     float softEff(.9);
-    CBSUnit<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment,TieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,MultiObjectiveConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS>,NAMOAStar<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment>>>>* unit = new CBSUnit<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment,TieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,MultiObjectiveConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS>,NAMOAStar<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment>>>>(waypoints[i],softEff);
+    LexObjectiveUnit* unit = new LexObjectiveUnit(waypoints[i],softEff);
     unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
-    group->AddUnit(unit); // Add to the group
+    if(lgroup) lgroup->AddUnit(unit); // Add to the group
+    else if(ggroup) ggroup->AddUnit(unit); // Add to the group
+    else if(dgroup) dgroup->AddUnit(unit); // Add to the group
     if(verbose)std::cout << "initial path for agent " << i << ":\n";
-    if(verbose)for(auto const& n: group->tree[0].paths[i])
-      std::cout << n << "\n";
+    if(lgroup)if(verbose)for(auto const& n: lgroup->tree[0].paths[i]) std::cout << n << "\n";
+    else if(ggroup)if(verbose)for(auto const& n: ggroup->tree[0].paths[i]) std::cout << n << "\n";
+    else if(dgroup)if(verbose)for(auto const& n: dgroup->tree[0].paths[i]) std::cout << n << "\n";
     if(gui){sim->AddUnit(unit);} // Add to the group
-  }
-  if(!gui){
-    Timer::Timeout func(std::bind(&CBSGroup<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment,TieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,MultiObjectiveConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS>,NAMOAStar<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment>>>>::processSolution, group, std::placeholders::_1));
-    group->timer->StartTimeout(std::chrono::seconds(killtime),func);
   }
   //assert(false && "Exit early");
 }
@@ -334,14 +540,30 @@ void MyComputationHandler()
 void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 {
   if (ace){
-    for(auto u : group->GetMembers()){
-      if(group->donePlanning()){currStepRate=stepsPerFrame;}
+    if(lgroup)for(auto u : lgroup->GetMembers()){
+      if(lgroup->donePlanning()){currStepRate=stepsPerFrame;}
       glLineWidth(4.0);
       GLfloat r, g, b;
       u->GetColor(r, g, b);
       ace->SetColor(r,g,b);
       
-      ace->GLDrawPath(((CBSUnit<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment,TieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,MultiObjectiveConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS>,NAMOAStar<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment>>>> const*)u)->GetPath(),((CBSUnit<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment,TieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,MultiObjectiveConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS>,NAMOAStar<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment>>>> const*)u)->GetWaypoints());
+      ace->GLDrawPath(((LexObjectiveUnit const*)u)->GetPath(),((LexObjectiveUnit const*)u)->GetWaypoints());
+    }else if(ggroup)for(auto u : ggroup->GetMembers()){
+      if(ggroup->donePlanning()){currStepRate=stepsPerFrame;}
+      glLineWidth(4.0);
+      GLfloat r, g, b;
+      u->GetColor(r, g, b);
+      ace->SetColor(r,g,b);
+      
+      ace->GLDrawPath(((LexObjectiveUnit const*)u)->GetPath(),((LexObjectiveUnit const*)u)->GetWaypoints());
+    }else if(dgroup)for(auto u : dgroup->GetMembers()){
+      if(dgroup->donePlanning()){currStepRate=stepsPerFrame;}
+      glLineWidth(4.0);
+      GLfloat r, g, b;
+      u->GetColor(r, g, b);
+      ace->SetColor(r,g,b);
+      
+      ace->GLDrawPath(((LexObjectiveUnit const*)u)->GetPath(),((LexObjectiveUnit const*)u)->GetWaypoints());
     }
   }
 
@@ -354,7 +576,7 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 
     /*std::cout << "Printing locations at time: " << sim->GetSimulationTime() << std::endl;
       for (int x = 0; x < group->GetNumMembers(); x ++) {
-      CBSUnit<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment,TieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,MultiObjectiveConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS>,NAMOAStar<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment>>>> *c = (CBSUnit<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment,TieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,MultiObjectiveConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS>,NAMOAStar<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment>>>>*)group->GetMember(x);
+      LexObjectiveUnit *c = (LexObjectiveUnit*)group->GetMember(x);
       xytLoc cur;
       c->GetLocation(cur);
     //if(!fequal(ptime[x],sim->GetSimulationTime())
@@ -437,9 +659,31 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 		recording = true;
 		return 1;
 	}
+	if(strcmp(argument[0], "-disappear") == 0)
+	{
+		disappearAtGoal = true;
+		return 1;
+	}
 	if(strcmp(argument[0], "-nobypass") == 0)
 	{
 		nobypass = true;
+		return 1;
+	}
+	if(strcmp(argument[0], "-fullSet") == 0)
+	{
+		fullSet = true;
+		return 1;
+	}
+	if(strcmp(argument[0], "-ignoreHeading") == 0)
+	{
+                std::cout << "Blind Search\n";
+		ignoreHeading = true;
+		return 1;
+	}
+	if(strcmp(argument[0], "-blind") == 0)
+	{
+                std::cout << "Blind Search\n";
+		blind = true;
 		return 1;
 	}
 	if(strcmp(argument[0], "-uwait") == 0)
@@ -472,6 +716,37 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 			waypoints.push_back(wpts);
 			num_agents++;
 		}
+		return 2;
+	}
+	if(strcmp(argument[0], "-dangerfile") == 0){
+		std::cout << "Reading danger costs from file: \""<<argument[1]<<"\"\n";
+		std::ifstream ss(argument[1]);
+                std::vector<xytLoc> centers;
+                std::vector<double> radii;
+		int x,y;
+                double r(1.0);
+		std::string line;
+		while(std::getline(ss, line)){
+			std::istringstream is(line);
+			std::string field;
+			while(is >> field){
+                                size_t n(std::count(field.begin(), field.end(), ','));
+                                if(n==2){
+				  sscanf(field.c_str(),"%d,%d,%lf", &x,&y,&r);
+                                }else{
+                                  assert(!"Invalid value inside problem file");
+                                }
+                                std::cout << "Danger zone: " << x<<","<<y<<" r="<<r<<"\n";
+				centers.emplace_back(x,y,0);
+                                radii.push_back(r);
+			}
+		}
+                safetyEnv=new RadialSafety2DObjectiveEnvironment(centers,radii,width,length);
+		return 2;
+	}
+	if(strcmp(argument[0], "-terrainfile") == 0){
+		std::cout << "Reading elevation data from file: \""<<argument[1]<<"\"\n";
+                terrainEnv=new Terrain2DObjectiveEnvironment(width,length,argument[1],100.0); // Scale between 0 and 10 for elevation
 		return 2;
 	}
 	if(strcmp(argument[0], "-constraints") == 0){
@@ -531,6 +806,19 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 		seed = atoi(argument[1]);	
 		return 2;
 	}
+	if(strcmp(argument[0], "-type") == 0)
+	{
+                if(!strncasecmp(argument[1],"l",1)) cost<NUM_OBJECTIVES>::compareType=cost<NUM_OBJECTIVES>::LEXICOGRAPHIC;
+                else if(!strncasecmp(argument[1],"lg",2)) cost<NUM_OBJECTIVES>::compareType=cost<NUM_OBJECTIVES>::GOAL_LEXICOGRAPHIC;
+                else if(!strncasecmp(argument[1],"w",1)) cost<NUM_OBJECTIVES>::compareType=cost<NUM_OBJECTIVES>::WEIGHTED_SUM;
+                else if(!strncasecmp(argument[1],"wg",2)) cost<NUM_OBJECTIVES>::compareType=cost<NUM_OBJECTIVES>::GOAL_WEIGHTED_SUM;
+                else if(!strncasecmp(argument[1],"p",1)) cost<NUM_OBJECTIVES>::compareType=cost<NUM_OBJECTIVES>::PURE;
+                else if(!strncasecmp(argument[1],"pg",2)) cost<NUM_OBJECTIVES>::compareType=cost<NUM_OBJECTIVES>::GOAL_PURE;
+                else if(!strncasecmp(argument[1],"g",1)) cost<NUM_OBJECTIVES>::compareType=cost<NUM_OBJECTIVES>::GOAL_PURE;
+                else cost<NUM_OBJECTIVES>::compareType=cost<NUM_OBJECTIVES>::PURE;
+                std::cout << "ctype " << cost<NUM_OBJECTIVES>::compareType <<"\n";
+		return 2;
+	}
 	if(strcmp(argument[0], "-nsubgoals") == 0)
         {
           std::string str = argument[1];
@@ -544,6 +832,40 @@ int MyCLHandler(char *argument[], int maxNumArgs)
             ss.ignore();
           ss >> i;
           maxsubgoals = i;
+          return 2;
+        }
+	if(strcmp(argument[0], "-coeffs") == 0)
+        {
+          std::string str(argument[1]);
+          std::stringstream ss(str);
+
+          double i;
+          int index(0);
+
+          while (ss >> i && index<NUM_OBJECTIVES)
+          {
+            cost<NUM_OBJECTIVES>::weights[index++] = i;
+
+            if (ss.peek() == ',')
+              ss.ignore();
+          }
+          return 2;
+        }
+	if(strcmp(argument[0], "-goals") == 0)
+        {
+          std::string str(argument[1]);
+          std::stringstream ss(str);
+
+          double i;
+          int index(0);
+
+          while (ss >> i && index<NUM_OBJECTIVES)
+          {
+            cost<NUM_OBJECTIVES>::goals[index++] = i;
+
+            if (ss.peek() == ',')
+              ss.ignore();
+          }
           return 2;
         }
 	if(strcmp(argument[0], "-dimensions") == 0)

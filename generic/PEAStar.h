@@ -253,13 +253,12 @@ bool PEAStar<state,action,environment>::DoSingleSearchStep(std::vector<state> &t
 		return true;
 	}
 	uint64_t nodeid = openClosedList.Peek();
-	const state &currOpenNode = openClosedList.Lookup(nodeid).data;
 
 	if (!openClosedList.Lookup(nodeid).reopened)
 		uniqueNodesExpanded++;
 	nodesExpanded++;
 
-	if ((stopAfterGoal) && (env->GoalTest(currOpenNode, goal)))
+	if ((stopAfterGoal) && (env->GoalTest(openClosedList.Lookup(nodeid).data, goal)))
 	{
 		ExtractPathToStartFromID(nodeid, thePath);
 		// Path is backwards - reverse
@@ -267,7 +266,7 @@ bool PEAStar<state,action,environment>::DoSingleSearchStep(std::vector<state> &t
 		return true;
 	}
 	
-	env->GetSuccessors(currOpenNode, succ);
+	env->GetSuccessors(openClosedList.Lookup(nodeid).data, succ);
 	double fCost = openClosedList.Lookup(nodeid).h+openClosedList.Lookup(nodeid).g;
 	bool keep = false;
 	
@@ -277,7 +276,7 @@ bool PEAStar<state,action,environment>::DoSingleSearchStep(std::vector<state> &t
 	uint64_t theID;
 	for (unsigned int x = 0; x < succ.size(); x++)
 	{
-		double edgeCost = env->GCost(currOpenNode, succ[x]);
+		double edgeCost = env->GCost(openClosedList.Lookup(nodeid).data, succ[x]);
 		double newFCost = openClosedList.Lookup(nodeid).g+edgeCost+weight*theHeuristic->HCost(succ[x], goal);	
 		dataLocation loc = openClosedList.Lookup(env->GetStateHash(succ[x]), theID);
 		if ((loc == kClosedList) ||
@@ -307,7 +306,7 @@ bool PEAStar<state,action,environment>::DoSingleSearchStep(std::vector<state> &t
 	
 	for (unsigned int x = 0; x < succ.size(); x++)
 	{
-		double edgeCost = env->GCost(currOpenNode, succ[x]);
+		double edgeCost = env->GCost(openClosedList.Lookup(nodeid).data, succ[x]);
 		double newFCost = openClosedList.Lookup(nodeid).g+edgeCost+weight*theHeuristic->HCost(succ[x], goal);	
 		if (!fequal(fCost, newFCost))
 			continue;

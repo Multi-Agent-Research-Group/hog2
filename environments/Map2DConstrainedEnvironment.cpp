@@ -265,11 +265,15 @@ void Map2DConstrainedEnvironment::GLDrawLine(const xytLoc &x, const xytLoc &y) c
 	GLfloat r, g, b, t;
 	GetColor(r, g, b, t);
 	glColor4f(r, g, b, t);
-	glBegin(GL_LINES);
-	glVertex3f(xx, yy, zz);
-	map->GetOpenGLCoord(y.x, y.y, xx, yy, zz, rad);
-	glVertex3f(xx, yy, zz);
-	glEnd();
+        if(x.sameLoc(y)){
+          GLDrawCircle(x.x,x.y,rad/2.0);
+        }else{
+          glBegin(GL_LINES);
+          glVertex3f(xx, yy, zz);
+          map->GetOpenGLCoord(y.x, y.y, xx, yy, zz, rad);
+          glVertex3f(xx, yy, zz);
+          glEnd();
+        }
 }
 
 void Map2DConstrainedEnvironment::GLDrawPath(const std::vector<xytLoc> &p, const std::vector<xytLoc> &waypoints) const

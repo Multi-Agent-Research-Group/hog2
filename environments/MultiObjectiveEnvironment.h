@@ -7,8 +7,8 @@
  *
  */
 
-#ifndef MAP2DENVIRONMENT_H
-#define MAP2DENVIRONMENT_H
+#ifndef MultiObjectiveEnvironment_H
+#define MultiObjectiveEnvironment_H
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -22,165 +22,176 @@
 #include "ReservationProvider.h"
 #include "BitVector.h"
 #include "GraphEnvironment.h"
+#include "ObjectiveEnvironment.h"
 #include "GridStates.h"
 
 #include <cassert>
 
-class MultiObjectiveEnvironment : public SearchEnvironment<xyLoc, tDirection>
+template <typename PhysicalEnv, typename state, typename action>
+class MultiObjectiveEnvironment : public SearchEnvironment<state, action>
 {
 public:
-	MultiObjectiveEnvironment(Map *m, bool useOccupancy = false);
-	MultiObjectiveEnvironment(MultiObjectiveEnvironment *);
-	virtual ~MultiObjectiveEnvironment();
-	void SetGraphHeuristic(GraphHeuristic *h);
-	GraphHeuristic *GetGraphHeuristic();
-        virtual std::string name()const{std::stringstream ss; ss<<"MultiObjectiveEnvironment("<<(int)connectedness<<"-connected)"; return ss.str();}
-	virtual void GetSuccessors(const xyLoc &nodeID, std::vector<xyLoc> &neighbors) const;
-	virtual void GetReverseSuccessors(const xyLoc &nodeID, std::vector<xyLoc> &neighbors) const{GetSuccessors(nodeID,neighbors);}
-	bool GetNextSuccessor(const xyLoc &currOpenNode, const xyLoc &goal, xyLoc &next, double &currHCost, uint64_t &special, bool &validMove);
-	bool GetNext4Successor(const xyLoc &currOpenNode, const xyLoc &goal, xyLoc &next, double &currHCost, uint64_t &special, bool &validMove);
-	bool GetNext5Successor(const xyLoc &currOpenNode, const xyLoc &goal, xyLoc &next, double &currHCost, uint64_t &special, bool &validMove);
-	bool GetNext8Successor(const xyLoc &currOpenNode, const xyLoc &goal, xyLoc &next, double &currHCost, uint64_t &special, bool &validMove);
-	void GetActions(const xyLoc &nodeID, std::vector<tDirection> &actions) const;
-	tDirection GetAction(const xyLoc &s1, const xyLoc &s2) const;
-	virtual void ApplyAction(xyLoc &s, tDirection dir) const;
-	virtual BaseMapOccupancyInterface *GetOccupancyInfo() { return oi; }
+	MultiObjectiveEnvironment(std::vector<ObjectiveEnvironment<state>*> const& envs, PhysicalEnv* phys):environments(envs),physicalEnvironment(phys){}
+	virtual ~MultiObjectiveEnvironment(); // Delete envs in here
+        virtual std::string name()const{std::stringstream ss; ss<<"MultiObjectiveEnvironment"; return ss.str();}
+	virtual void GetSuccessors(const state &nodeID, std::vector<state> &neighbors) const{physicalEnvironment->GetSuccessors(nodeID,neighbors);}
+	virtual void GetReverseSuccessors(const state &nodeID, std::vector<state> &neighbors) const{GetSuccessors(nodeID,neighbors);}
+	void GetActions(const state &nodeID, std::vector<action> &actions) const{GetActions(nodeID,actions);}
+	action GetAction(const state &s1, const state &s2) const{return physicalEnvironment->GetAction(s1,s2);}
+	virtual void ApplyAction(state &s, action dir) const{physicalEnvironment->ApplyAction(s,dir);}
+	//virtual BaseMapOccupancyInterface *GetOccupancyInfo() { return nullptr; }
 
-	virtual bool InvertAction(tDirection &a) const;
+	virtual bool InvertAction(action &a) const{return physicalEnvironment->InvertAction(a);}
 
-//	bool Contractable(const xyLoc &where);
+//	bool Contractable(const state &where);
 	
-	virtual double HCost(const xyLoc &) const {
-		fprintf(stderr, "ERROR: Single State HCost not implemented for MultiObjectiveEnvironment\n");
-		exit(1); return -1.0;}
-	virtual double HCost(const xyLoc &node1, const xyLoc &node2) const;
-	virtual double GCost(const xyLoc &node1, const xyLoc &node2) const;
-	virtual double GCost(const xyLoc &node1, const tDirection &act) const;
-        bool LineOfSight(const xyLoc &node, const xyLoc &goal) const;
-	bool GoalTest(const xyLoc &node, const xyLoc &goal) const;
+        virtual double HCost(const state &node) const{return 0;}
+        virtual double HCost(const state &node1, const state &node2) const{return 0;}
+        virtual double GCost(const state &node1, const state &node2) const;
+        virtual double GCost(const state &node, const action &act) const{return 0;}
+	virtual std::vector<float> HCostVector(const state &node1, const state &node2) const;
+	virtual std::vector<float> GCostVector(const state &node1, const state &node2) const;
+        virtual std::vector<float> NullVector(const state &node1, const state &node2) const{return std::vector<float>(environments.size());}
+	//virtual std::vector<float> GCost(const state &node1, const action &act) const;
+        bool LineOfSight(const state &node, const state &goal) const{return physicalEnvironment->LineOfSight(node,goal);}
+	bool GoalTest(const state &node, const state &goal) const;
 
-	bool GoalTest(const xyLoc &){
-		fprintf(stderr, "ERROR: Single State Goal Test not implemented for MultiObjectiveEnvironment\n");
-		exit(1); return false;}
-
-	uint64_t GetMaxHash() const;
-	uint64_t GetStateHash(const xyLoc &node) const;
-	uint64_t GetActionHash(tDirection act) const;
+	uint64_t GetStateHash(const state &node) const{return physicalEnvironment->GetStateHash(node);}
+	uint64_t GetActionHash(action act) const{return physicalEnvironment->GetActionHash(act);}
 	virtual void OpenGLDraw() const;
-	virtual void OpenGLDraw(const xyLoc &l) const;
-	virtual void OpenGLDraw(const xyLoc &l1, const xyLoc &l2, float v) const;
-	virtual void OpenGLDraw(const xyLoc &, const tDirection &) const;
-	virtual void GLLabelState(const xyLoc &, const char *) const;
-	virtual void GLLabelState(const xyLoc &s, const char *str, double scale) const;
-	virtual void GLDrawLine(const xyLoc &x, const xyLoc &y) const;
+	virtual void OpenGLDraw(const state &l) const{physicalEnvironment->OpenGLDraw(l);}
+	virtual void OpenGLDraw(const state &l1, const state &l2, float v) const{physicalEnvironment->OpenGLDraw(l1,l2,v);}
+	virtual void OpenGLDraw(const state &l, const action &d) const{physicalEnvironment->OpenGLDraw(l,d);}
+	//virtual void GLLabelState(const state &s, const char *str) const{physicalEnvironment->OpenGLDraw(s,str);}
+	//virtual void GLLabelState(const state &s, const char *str, double scale) const{physicalEnvironment->OpenGLDraw(s,str,scale);}
+	virtual void GLDrawLine(const state &x, const state &y) const{physicalEnvironment->GLDrawLine(x,y);}
+	virtual void SetColor(GLfloat rr, GLfloat g, GLfloat b, GLfloat t = 1.0) const { physicalEnvironment->SetColor(rr,g,b,t);}
+	virtual void GetColor(GLfloat& rr, GLfloat& g, GLfloat& b, GLfloat &t) const { physicalEnvironment->GetColor(rr,g,b,t);}
 	
-	std::string SVGHeader();
-	std::string SVGDraw();
-	std::string SVGDraw(const xyLoc &);
-	std::string SVGLabelState(const xyLoc &, const char *, double scale) const;
-	std::string SVGDrawLine(const xyLoc &x, const xyLoc &y, int width=1) const;
-	std::string SVGFrameRect(int left, int top, int right, int bottom, int width = 1);
+	Map* GetMap() const { return physicalEnvironment->GetMap(); }
 
-	virtual void Draw() const;
-	virtual void Draw(const xyLoc &l) const;
-	virtual void DrawLine(const xyLoc &x, const xyLoc &y, double width = 1.0) const;
-
-	
-	//virtual void OpenGLDraw(const xyLoc &, const tDirection &, GLfloat r, GLfloat g, GLfloat b) const;
-	//virtual void OpenGLDraw(const xyLoc &l, GLfloat r, GLfloat g, GLfloat b) const;
-	Map* GetMap() const { return map; }
-
-	virtual void GetNextState(const xyLoc &currents, tDirection dir, xyLoc &news) const;
-
-	void StoreGoal(xyLoc &) {} // stores the locations for the given goal state
-	void ClearGoal() {}
-	bool IsGoalStored() const {return false;}
-	void SetDiagonalCost(double val) { DIAGONAL_COST = val; }
-	double GetDiagonalCost() { return DIAGONAL_COST; }
-	bool FourConnected() { return connectedness==4; }
-	bool FiveConnected() { return connectedness==5; }
-	bool EightConnected() { return connectedness==8; }
-	bool NineConnected() { return connectedness==9; }
-	bool TwentyFourConnected() { return connectedness==24; }
-	bool TwentyFiveConnected() { return connectedness==25; }
-	bool FortyEightConnected() { return connectedness==48; }
-	bool FortyNineConnected() { return connectedness==49; }
-	bool AnyAngleConnected() { return connectedness>49; }
-	void SetFourConnected() { connectedness=4; }
-	void SetFiveConnected() { connectedness=5; }
-	void SetEightConnected() { connectedness=8; }
-	void SetNineConnected() { connectedness=9; }
-	void SetTwentyFourConnected() { connectedness=24; }
-	void SetTwentyFiveConnected() { connectedness=25; }
-	void SetFortyEightConnected() { connectedness=48; }
-	void SetFortyNineConnected() { connectedness=49; }
-	void SetAnyAngleConnected() { connectedness=255; }
-        void SetConnectedness(int c){ connectedness=c; }
-        uint8_t GetConnectedness()const{ return connectedness; }
-	//virtual BaseMOOccupancyInterface* GetOccupancyInterface(){std::cout<<"Mapenv\n";return oi;}
-	//virtual xyLoc GetNextState(xyLoc &s, tDirection dir);
-	double GetPathLength(std::vector<xyLoc> &neighbors);
-        std::vector<std::vector<std::pair<xyLoc,double>>> solution;
-        void findIntervals(xyLoc curNode, std::vector<std::pair<double,double>>& intervals, std::vector<double>& EAT, int w) const;
-        void SetStart(xyLoc const* s){start=s;}
+	void StoreGoal(state &l) {physicalEnvironment->StoreGoal(l);} // stores the locations for the given goal state
+	void ClearGoal() {physicalEnvironment->ClearGoal();}
+	bool IsGoalStored() const {return physicalEnvironment->IsGoalStored();}
+	std::vector<float> GetPathLength(std::vector<state> &neighbors)const;
+        std::vector<std::vector<std::pair<state,double>>> solution;
+        void SetStart(state const* s){physicalEnvironment->SetStart(s);}
+        PhysicalEnv* GetPhysicalEnv()const{return physicalEnvironment;}
 protected:
-	GraphHeuristic *h;
-        xyLoc const* start;
-	Map *map;
-	BaseMapOccupancyInterface *oi;
-	double DIAGONAL_COST;
-	double SQRT_5;
-	double SQRT_10;
-	double SQRT_13;
-	uint8_t connectedness;
-        double _h4(unsigned dx, unsigned dy, double result=0.0)const;
-        double h4(const xyLoc &l1, const xyLoc &l2)const;
-        double _h8(unsigned dx,unsigned dy,double result=0)const;
-        double h8(const xyLoc &l1, const xyLoc &l2)const;
-        double _h24(unsigned dx,unsigned dy,double result=0)const;
-        double h24(const xyLoc &l1, const xyLoc &l2)const;
-        double _h48(unsigned dx,unsigned dy,double result=0)const;
-        double h48(const xyLoc &l1, const xyLoc &l2)const;
+        std::vector<ObjectiveEnvironment<state>*> environments;
+        PhysicalEnv* physicalEnvironment; // For some special functions like line of sight
 };
 
-class AbsMultiObjectiveEnvironment : public MultiObjectiveEnvironment
+template <typename PhysicalEnv, typename state, typename action>
+class AbsMultiObjectiveEnvironment : public MultiObjectiveEnvironment<PhysicalEnv, state, action>
 {
 public:
 	AbsMultiObjectiveEnvironment(MapAbstraction *ma);
 	virtual ~AbsMultiObjectiveEnvironment();
 	MapAbstraction *GetMapAbstraction() { return ma; }
-	void OpenGLDraw() const { map->OpenGLDraw(); ma->OpenGLDraw(); }
-	void OpenGLDraw(const xyLoc &l) const { MultiObjectiveEnvironment::OpenGLDraw(l); }
-	void OpenGLDraw(const xyLoc& s, const tDirection &dir) const {MultiObjectiveEnvironment::OpenGLDraw(s,dir);}
-	void OpenGLDraw(const xyLoc &l1, const xyLoc &l2, float v) const { MultiObjectiveEnvironment::OpenGLDraw(l1, l2, v); }
+	void OpenGLDraw() const { /*map->OpenGLDraw();*/ ma->OpenGLDraw(); }
+	void OpenGLDraw(const state &l) const { MultiObjectiveEnvironment<PhysicalEnv, state, action>::OpenGLDraw(l); }
+	void OpenGLDraw(const state& s, const action &dir) const {MultiObjectiveEnvironment<PhysicalEnv, state, action>::OpenGLDraw(s,dir);}
+	void OpenGLDraw(const state &l1, const state &l2, float v) const { MultiObjectiveEnvironment<PhysicalEnv, state, action>::OpenGLDraw(l1, l2, v); }
 
 	//virtual BaseMapOccupancyInterface* GetOccupancyInterface(){std::cout<<"AbsMap\n";return oi;}
 protected:
 	MapAbstraction *ma;
 };
 
-typedef UnitSimulation<xyLoc, tDirection, MultiObjectiveEnvironment> UnitMOSimulation;
-typedef UnitSimulation<xyLoc, tDirection, AbsMultiObjectiveEnvironment> UnitAbsMOSimulation;
+template<typename PhysicalEnv, typename state, typename action>
+MultiObjectiveEnvironment<PhysicalEnv,state,action>::~MultiObjectiveEnvironment()
+{
+  for(auto env:environments){
+    delete env;
+  }
+}
 
+template<typename PhysicalEnv, typename state, typename action>
+std::vector<float> MultiObjectiveEnvironment<PhysicalEnv,state,action>::HCostVector(const state &l1, const state &l2)const{
+  std::vector<float> result;
+  for(auto env:environments){
+    result.push_back(env->HCost(l1,l2));
+  }
+  return result;
+}
 
-//template<>
-//void UnitSimulation<xyLoc, tDirection, MultiObjectiveEnvironment>::OpenGLDraw()
-//{
-//	env->OpenGLDraw();
-//	for (unsigned int x = 0; x < units.size(); x++)
-//	{
-//		units[x]->agent->OpenGLDraw(env);
-//	}
-//}
-//
-//template<>
-//void UnitSimulation<xyLoc, tDirection, AbsMultiObjectiveEnvironment>::OpenGLDraw()
-//{
-//	env->OpenGLDraw();
-//	for (unsigned int x = 0; x < units.size(); x++)
-//	{
-//		units[x]->agent->OpenGLDraw(env);
-//	}
-//}
+/*template<typename PhysicalEnv, typename state, typename action>
+std::vector<float> MultiObjectiveEnvironment<PhysicalEnv,state,action>::GCost(const state &l, const action &act) const
+{
+  assert(!"Not implemented");
+  return std::vector<float>(0);
+}*/
+
+template<typename PhysicalEnv, typename state, typename action>
+double MultiObjectiveEnvironment<PhysicalEnv,state,action>::GCost(const state &l1, const state &l2) const
+{
+  double result(0.0);
+  for(auto env:environments){
+    result += env->GCost(l1,l2);
+  }
+  return result;
+}
+
+template<typename PhysicalEnv, typename state, typename action>
+std::vector<float> MultiObjectiveEnvironment<PhysicalEnv,state,action>::GCostVector(const state &l1, const state &l2) const
+{
+  std::vector<float> result;
+  for(auto env:environments){
+    result.push_back(env->GCost(l1,l2));
+  }
+  return result;
+}
+
+template<typename PhysicalEnv, typename state, typename action>
+bool MultiObjectiveEnvironment<PhysicalEnv,state,action>::GoalTest(const state &node, const state &goal) const
+{
+  // This could have many criteria, but for now...
+  return physicalEnvironment->GoalTest(node,goal);
+}
+
+template<typename PhysicalEnv, typename state, typename action>
+AbsMultiObjectiveEnvironment<PhysicalEnv,state,action>::AbsMultiObjectiveEnvironment(MapAbstraction *_ma)
+:MultiObjectiveEnvironment<PhysicalEnv,state,action>()
+{
+	ma = _ma;
+	
+}
+
+template<typename PhysicalEnv, typename state, typename action>
+AbsMultiObjectiveEnvironment<PhysicalEnv,state,action>::~AbsMultiObjectiveEnvironment()
+{
+	//map = 0;
+	//delete ma;
+}
+
+template<typename PhysicalEnv, typename state, typename action>
+std::vector<float> MultiObjectiveEnvironment<PhysicalEnv,state,action>::GetPathLength(std::vector<state> &neighbors)const{
+  if(neighbors.size()>1){
+    std::vector<float> result(GCostVector(neighbors[0],neighbors[1]));
+    for(auto s(neighbors.begin()+2);s!=neighbors.end();++s){
+      std::vector<float> cst(GCostVector(*(s-1),*s));
+      for(int i(0); i<cst.size(); ++i){
+        result[i]+=cst[i];
+      }
+    }
+    return result;
+  }else if(neighbors.size()==1){
+    return GCostVector(neighbors[0],neighbors[0]);
+  }
+  return std::vector<float>(0);
+}
+
+template<typename PhysicalEnv, typename state, typename action>
+void MultiObjectiveEnvironment<PhysicalEnv,state,action>::OpenGLDraw()const{
+  physicalEnvironment->OpenGLDraw();
+  for(auto env:environments){
+    if(env != physicalEnvironment){
+      env->OpenGLDraw(physicalEnvironment->GetMap());
+    }
+  }
+}
+//typedef UnitSimulation<state, action, MultiObjectiveEnvironment<PhysicalEnv>> UnitMOSimulation;
+//typedef UnitSimulation<state, action, AbsMultiObjectiveEnvironment<PhysicalEnv>> UnitAbsMOSimulation;
 
 #endif

@@ -8,6 +8,7 @@
 
 #include <sstream>
 
+extern double agentRadius;
 bool greedyCT = false; // use greedy heuristic at the high-level
 bool ECBSheuristic = false; // use ECBS heuristic at low-level
 bool randomalg = false; // Randomize tiebreaking
@@ -16,6 +17,7 @@ bool verify = false;
 bool mouseTracking;
 unsigned killtime(3600); // Kill after some number of seconds
 unsigned killex(INT_MAX); // Kill after some number of expansions
+bool disappearAtGoal(false);
 int px1, py1, px2, py2;
 int absType = 0;
 int mapSize = 128;
@@ -133,6 +135,8 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-constraints", "-constraints", "Load constraints from file");
 	InstallCommandLineHandler(MyCLHandler, "-killtime", "-killtime", "Kill after this many seconds");
 	InstallCommandLineHandler(MyCLHandler, "-killex", "-killex", "Kill after this many expansions");
+	InstallCommandLineHandler(MyCLHandler, "-radius", "-radius", "Radius in units of agent");
+	InstallCommandLineHandler(MyCLHandler, "-disappear", "-disappear", "Agents disappear at goal");
 	InstallCommandLineHandler(MyCLHandler, "-nogui", "-nogui", "Turn off gui");
 	InstallCommandLineHandler(MyCLHandler, "-verbose", "-verbose", "Turn on verbose output");
 	InstallCommandLineHandler(MyCLHandler, "-cat", "-cat", "Use Conflict Avoidance Table (CAT)");
@@ -213,6 +217,7 @@ void InitHeadless(){
 
   group = new CBSGroup<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >(environs,verbose); // Changed to 10,000 expansions from number of conflicts in the tree
   CBSGroup<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >::greedyCT=greedyCT;
+  group->disappearAtGoal=disappearAtGoal;
   group->timer=new Timer();
   group->seed=seed;
   group->keeprunning=gui;
@@ -408,6 +413,16 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 	{
 		verbose = true;
 		return 1;
+	}
+	if(strcmp(argument[0], "-disappear") == 0)
+	{
+		disappearAtGoal = true;
+		return 1;
+	}
+	if(strcmp(argument[0], "-radius") == 0)
+	{
+		agentRadius=atof(argument[1]);
+		return 2;
 	}
 	if(strcmp(argument[0], "-nobypass") == 0)
 	{
