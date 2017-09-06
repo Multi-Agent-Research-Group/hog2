@@ -45,8 +45,9 @@
 #include "UnitSimulation.h"
 
 extern double agentRadius;
+bool nogoodprune(true);
 bool verbose(false);
-bool verify(true);
+bool verify(false);
 bool mouseTracking;
 unsigned agentType(5);
 unsigned killtime(300);
@@ -151,6 +152,7 @@ void InstallHandlers()
   InstallCommandLineHandler(MyCLHandler, "-killtime", "-killtime [value]", "Kill after this many seconds");
   InstallCommandLineHandler(MyCLHandler, "-radius", "-radius [value]", "Radius in units of agent");
   InstallCommandLineHandler(MyCLHandler, "-nogui", "-nogui", "Turn off gui");
+  InstallCommandLineHandler(MyCLHandler, "-nogoodoff", "-nogoodoff", "Nogood pruning enhancement");
   InstallCommandLineHandler(MyCLHandler, "-verbose", "-verbose", "Turn on verbose output");
   InstallCommandLineHandler(MyCLHandler, "-verify", "-verify", "Verify results");
   InstallCommandLineHandler(MyCLHandler, "-mode", "-mode s,b,p,a", "s=sub-optimal,p=pairwise,b=pairwise,sub-optimal,a=astar");
@@ -197,10 +199,11 @@ struct Node : public Hashable{
 	static MapEnvironment* env;
         static uint64_t count;
 	Node(){count++;}
-	Node(xyLoc a, float d):n(a),depth(d),optimal(false){count++;}
+	Node(xyLoc a, float d):n(a),depth(d),optimal(false),nogood(false){count++;}
 	xyLoc n;
 	float depth;
         bool optimal;
+        bool nogood;
         //bool connected()const{return parents.size()+successors.size();}
 	//std::unordered_set<Node*> parents;
 	std::unordered_set<Node*> successors;
@@ -231,6 +234,7 @@ typedef std::vector<Node*> MultiState; // rank=agent num
 typedef std::vector<std::pair<Node*,Node*>> Multiedge; // rank=agent num
 typedef std::unordered_map<uint64_t,Node> DAG;
 std::unordered_map<uint64_t,Node*> mddcache;
+std::vector<Node*> nogoods;
 
 class MultiEdge: public Multiedge{
   public:
@@ -449,6 +453,13 @@ void generatePermutations(std::vector<MultiEdge>& positions, std::vector<MultiEd
       if(collisionImminent(A,VA,agentRadius,positions[agent][i].first->depth,positions[agent][i].second->depth,B,VB,agentRadius,current[j].first->depth,current[j].second->depth)){
         if(verbose)std::cout << "Collision averted: " << *positions[agent][i].first << "-->" << *positions[agent][i].second << " " << *current[j].first << "-->" << *current[j].second << "\n";
         found=true;
+        /*if(nogoodprune){
+          positions[agent][i].second->nogood=true;
+          current[j].second->nogood=true;
+          nogoods.push_back(positions[agent][i].second);
+          nogoods.push_back(current[j].second);
+          //std::cout<<"Nogoods: " << nogoods.size() << "\n";
+        }*/
         //checked.insert(hash);
         break;
       }else if(verbose){std::cout << "generating: " << *positions[agent][i].first << "-->" << *positions[agent][i].second << " " << *current[j].first << "-->" << *current[j].second << "\n";
@@ -527,8 +538,9 @@ bool jointDFS(MultiEdge const& s, float d, float term, Solution solution, std::v
     if(fleq(a.second->depth,sd)){
       //std::cout << "Keep Successors of " << *a.second << "\n";
       for(auto const& b: a.second->successors){
-        output.emplace_back(a.second,b);
-        md=min(md,b->depth);
+        //if(a.second->nogood){/*std::cout << "Skipped no good\n";*/continue;}
+          output.emplace_back(a.second,b);
+          md=min(md,b->depth);
       }
     }else{
       //std::cout << "Keep Just " << *a.second << "\n";
@@ -734,7 +746,7 @@ bool checkPair(Path const& p1, Path const& p2){
     Vector2D VB((*b)->n.x-(*bp)->n.x,(*b)->n.y-(*bp)->n.y);
     VB.Normalize();
     if(collisionImminent(A,VA,agentRadius,(*ap)->depth,(*a)->depth,B,VB,agentRadius,(*bp)->depth,(*b)->depth)){
-      //std::cout << "Collision: " << **ap << "-->" << **a << "," << **bp << "-->" << **b << "\n";
+      if(verify)std::cout << "Collision: " << **ap << "-->" << **a << "," << **bp << "-->" << **b << "\n";
       return false;
     }
     if(fless((*a)->depth,(*b)->depth)){
@@ -766,6 +778,10 @@ void join(std::stringstream& s, std::vector<float> const& x){
   copy(x.begin(),x.end(), std::ostream_iterator<float>(s,","));
 }
 
+void clearNoGoods(){
+  //for(auto b:nogoods)b->nogood=false;
+  //nogoods.clear();
+}
 struct ICTSNode{
   ICTSNode(ICTSNode* parent,int agent, float size):instance(parent->instance),dag(parent->dag),best(parent->best),bestSeen(parent->bestSeen),sizes(parent->sizes),root(parent->root),maxdepth(parent->maxdepth),increment(parent->increment){
     count++;
@@ -837,6 +853,7 @@ struct ICTSNode{
             // This is a satisficing search, thus we only need to a sub-optimal check
             if(!jointDFS(tmproot,maxdepth,answers,toDeleteTmp,INF,increment,true,true)){
               if(verbose)std::cout << "Pairwise failed\n";
+              clearNoGoods();
               return false;
             }
           }
@@ -851,6 +868,7 @@ struct ICTSNode{
           // This is a satisficing search, thus we only need to a sub-optimal check
           if(!jointDFS(tmproot,maxdepth,answers,toDeleteTmp,INF,increment,true,true)){
             if(verbose)std::cout << "Pairwise failed\n";
+            clearNoGoods();
             return false;
           }
         }
@@ -875,10 +893,12 @@ struct ICTSNode{
           //if(verify)assert(checkAnswer(answers[num]));
         }
       }
+      clearNoGoods();
       return true;
     }
     
     if(verbose)std::cout << "Full check failed\n";
+    clearNoGoods();
     return false;
   }
 
@@ -1296,6 +1316,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
   {
     killtime = atoi(argument[1]);
     return 2;
+  }
+  if(strcmp(argument[0], "-nogoodoff") == 0)
+  {
+    nogoodprune = false;
+    return 1;
   }
   if(strcmp(argument[0], "-nogui") == 0)
   {
