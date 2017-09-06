@@ -204,7 +204,7 @@ struct Node : public Hashable{
         //bool connected()const{return parents.size()+successors.size();}
 	//std::unordered_set<Node*> parents;
 	std::unordered_set<Node*> successors;
-	virtual uint64_t Hash()const{return (env->GetStateHash(n)<<32) | ((uint32_t)floor(depth*1000.));}
+	virtual uint64_t Hash()const{return (env->GetStateHash(n)<<32) | ((uint32_t)(depth*1000.));}
 	virtual float Depth()const{return depth; }
         virtual void Print(std::ostream& ss, int d=0) const {
           ss << std::string(d,' ')<<n << "_" << depth << std::endl;
@@ -230,6 +230,7 @@ typedef std::vector<std::vector<Node*>> Solution;
 typedef std::vector<Node*> MultiState; // rank=agent num
 typedef std::vector<std::pair<Node*,Node*>> Multiedge; // rank=agent num
 typedef std::unordered_map<uint64_t,Node> DAG;
+std::unordered_map<uint64_t,Node*> mddcache;
 
 class MultiEdge: public Multiedge{
   public:
@@ -315,8 +316,9 @@ float computeSolutionCost(Solution const& solution, bool ignoreWaitAtGoal=false)
 
 MapEnvironment* Node::env=nullptr;
 uint64_t Node::count(0);
+std::unordered_map<int,std::set<uint64_t>> costt;
 
-bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& root, float depth, float maxDepth, float& best){
+bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, float depth, float maxDepth, float& best){
   //std::cout << start << "-->" << end << " g:" << (maxDepth-depth) << " h:" << Node::env->HCost(start,end) << " f:" << ((maxDepth-depth)+Node::env->HCost(start,end)) << "\n";
   if(fless(depth,0) ||
       fgreater(maxDepth-depth+Node::env->HCost(start,end),maxDepth)){ // Note - this only works for a perfect heuristic.
@@ -330,7 +332,7 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& root
     dag[hash]=n;
     // This may happen if the agent starts at the goal
     if(fleq(maxDepth-depth,0)){
-      root.push_back(&dag[hash]);
+      root=&dag[hash];
       //std::cout << "root_ " << &dag[hash];
     }
     Node* parent(&dag[hash]);
@@ -345,6 +347,8 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& root
       //dag[chash].parents.insert(parent);
       parent=&dag[chash];
     }
+    //std::cout << "found d\n";
+    costt[(int)maxDepth].insert(d*1000);
     best=std::min(best,d);
     if(verbose)std::cout << "ABEST "<<best<<"\n";
     return true;
@@ -365,7 +369,8 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& root
         dag[hash]=n;
         // This is the root if depth=0
         if(fleq(maxDepth-depth,0)){
-          root.push_back(&dag[hash]);
+          root=&dag[hash];
+          if(verbose)std::cout << "Set root to: " << (uint64_t)root << "\n";
           //std::cout << "_root " << &dag[hash];
         }
         //if(fequal(maxDepth-depth,0.0))root.push_back(&dag[hash]);
@@ -377,7 +382,8 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& root
 
       //std::cout << "found " << start << "\n";
       uint64_t chash(Node(node,maxDepth-depth+ddiff).Hash());
-      if(dag.find(chash)==dag.end()){
+      if(dag.find(chash)==dag.end()&&dag.find(chash+1)==dag.end()&&dag.find(chash-1)==dag.end()){
+        std::cout << "Expected " << Node(node,maxDepth-depth+ddiff) << " " << chash << " to be in the dag\n";
         assert(!"Uh oh, node not already in the DAG!");
         //std::cout << "Add new.\n";
         Node c(node,maxDepth-depth+ddiff);
@@ -387,7 +393,7 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& root
       current->optimal = result = true;
       //std::cout << *parent << " parent of " << *current << "\n";
       //dag[current->Hash()].parents.insert(parent);
-      //std::cout << *current << " child of " << *parent << "\n";
+      //std::cout << *current << " child of " << *parent << " " << parent->Hash() << "\n";
       //std::cout << "inserting " << dag[chash] << " " << &dag[chash] << "under " << *parent << "\n";
       dag[parent->Hash()].successors.insert(&dag[current->Hash()]);
       //std::cout << "at" << &dag[parent->Hash()] << "\n";
@@ -398,9 +404,17 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& root
 
 // Perform conflict check by moving forward in time at increments of the smallest time step
 // Test the efficiency of VO vs. time-vector approach
-void GetMDD(xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& root, float depth, float& best){
-  if(verbose)std::cout << "MDD up to depth: " << depth << "\n";
-  LimitedDFS(start,end,dag,root,depth,depth,best);
+void GetMDD(unsigned agent,xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& root, float depth, float& best){
+  if(verbose)std::cout << "MDD up to depth: " << depth << start << "-->" << end << "\n";
+  uint64_t hash(((uint32_t) depth*1000)<<8|agent);
+  bool found(mddcache.find(hash)!=mddcache.end());
+  if(verbose)std::cout << "lookup "<< (found?"found":"missed") << "\n";
+  if(!found){
+    LimitedDFS(start,end,dag,root[agent],depth,depth,best);
+    mddcache[hash]=root[agent];
+  }
+  else root[agent]=mddcache[hash];
+  if(verbose)std::cout << "Finally set root to: " << (uint64_t)root[agent] << "\n";
 }
 
 void generatePermutations(std::vector<MultiEdge>& positions, std::vector<MultiEdge>& result, int agent, MultiEdge const& current, float lastTime) {
@@ -761,15 +775,15 @@ struct ICTSNode{
     if(verbose)std::cout << "replan agent " << agent << " GetMDD("<<(Node::env->HCost(instance.first[agent],instance.second[agent])+sizes[agent])<<")\n";
     dag[agent].clear();
     replanned.push_back(agent);
-    GetMDD(instance.first[agent],instance.second[agent],dag[agent],root,Node::env->HCost(instance.first[agent],instance.second[agent])+sizes[agent],best[agent]);
+    GetMDD(agent,instance.first[agent],instance.second[agent],dag[agent],root,Node::env->HCost(instance.first[agent],instance.second[agent])+sizes[agent],best[agent]);
     bestSeen=std::max(bestSeen,best[agent]);
     // Replace new root node on top of old.
-    std::swap(root[agent],root[root.size()-1]);
-    root.resize(root.size()-1);
+    //std::swap(root[agent],root[root.size()-1]);
+    //root.resize(root.size()-1);
     if(verbose)std::cout << agent << ":\n" << root[agent] << "\n";
   }
 
-  ICTSNode(Instance const& inst, std::vector<float> const& s, float inc=1.0):instance(inst),dag(s.size()),best(s.size()),bestSeen(0),sizes(s),maxdepth(-INF),increment(inc){
+  ICTSNode(Instance const& inst, std::vector<float> const& s, float inc=1.0):instance(inst),dag(s.size()),best(s.size()),bestSeen(0),sizes(s),root(s.size()),maxdepth(-INF),increment(inc){
     count++;
     root.reserve(s.size());
     replanned.resize(s.size());
@@ -778,7 +792,7 @@ struct ICTSNode{
       replanned[i]=i;
       maxdepth=max(maxdepth,Node::env->HCost(instance.first[i],instance.second[i])+sizes[i]);
       if(verbose)std::cout << "plan agent " << i << " GetMDD("<<(Node::env->HCost(instance.first[i],instance.second[i])+sizes[i])<<")\n";
-      GetMDD(instance.first[i],instance.second[i],dag[i],root,Node::env->HCost(instance.first[i],instance.second[i])+sizes[i],best[i]);
+      GetMDD(i,instance.first[i],instance.second[i],dag[i],root,Node::env->HCost(instance.first[i],instance.second[i])+sizes[i],best[i]);
       bestSeen=std::max(bestSeen,best[i]);
       if(verbose)std::cout << i << ":\n" << root[i] << "\n";
     }
@@ -1060,6 +1074,7 @@ float mergeSolution(std::vector<Solution> const& answers, Solution& s, std::vect
 }
 
 int main(int argc, char ** argv){
+  
   InstallHandlers();
   ProcessCommandLineArgs(argc, argv);
   MapEnvironment env(new Map(width,length));
@@ -1093,6 +1108,23 @@ int main(int argc, char ** argv){
 
   Node::env=&env;
 
+  if(false){
+    xyLoc f(0,0);
+    xyLoc w(length-1,width-1);
+    DAG dg;
+    MultiState rt(1);
+    for(int i(0);i<21;++i){
+      float bst(9999999);
+      int hc(Node::env->HCost(f,w));
+      GetMDD(0,f,w,dg,rt,hc+i,bst);
+      std::cout << i << ":" << costt[hc+i].size()<<"\n";
+      for(auto const& a:costt[hc+i]){
+        std::cout << a << " ";
+      }
+      std::cout << std::endl;
+    }
+    exit(0);
+  }
   //TemplateAStar<xyLoc,tDirection,MapEnvironment> astar;
   PEAStar<xyLoc,tDirection,MapEnvironment> astar;
   //astar.SetVerbose(true);
@@ -1231,6 +1263,7 @@ int main(int argc, char ** argv){
         for(auto z:toDelete){
           delete z;
         }
+        mddcache.clear();
         while(!q.empty()){
           delete q.top();
           q.pop();
