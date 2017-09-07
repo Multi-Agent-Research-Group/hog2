@@ -45,6 +45,7 @@
 #include "UnitSimulation.h"
 
 extern double agentRadius;
+bool bestonly(false);
 bool disappear(false);
 bool nogoodprune(true);
 bool verbose(false);
@@ -237,6 +238,7 @@ typedef std::vector<Node*> MultiState; // rank=agent num
 typedef std::vector<std::pair<Node*,Node*>> Multiedge; // rank=agent num
 typedef std::unordered_map<uint64_t,Node> DAG;
 std::unordered_map<uint64_t,Node*> mddcache;
+std::unordered_map<uint64_t,float> lbcache;
 std::vector<Node*> nogoods;
 
 class MultiEdge: public Multiedge{
@@ -419,6 +421,7 @@ void GetMDD(unsigned agent,xyLoc const& start, xyLoc const& end, DAG& dag, Multi
   if(!found){
     LimitedDFS(start,end,dag,root[agent],depth,depth,best);
     mddcache[hash]=root[agent];
+    lbcache[hash]=best;
   }
   else root[agent]=mddcache[hash];
   if(verbose)std::cout << "Finally set root to: " << (uint64_t)root[agent] << "\n";
@@ -569,7 +572,7 @@ bool jointDFS(MultiEdge const& s, float d, float term, Solution solution, std::v
       // Return first solution...
       if(suboptimal) return true;
       // Return if solution is as good as any MDD
-      //if(fequal(best,bestSeen))return true;
+      if(bestonly&&fequal(best,bestSeen))return true;
     }
   }
   return value;
@@ -839,6 +842,7 @@ struct ICTSNode{
   static uint64_t count;
   static bool pairwise;
   static bool suboptimal;
+  static bool epsilon;
   static bool astar;
   std::vector<int> replanned; // Set of nodes that was just re-planned
 
@@ -931,9 +935,10 @@ struct ICTSNode{
   }
 };
 
+bool ICTSNode::epsilon(false);
 bool ICTSNode::suboptimal(false); // Sub-optimal variant
 uint64_t ICTSNode::count(0);
-bool ICTSNode::pairwise(false);
+bool ICTSNode::pairwise(true);
 bool ICTSNode::astar(false);
 
 struct ICTSNodePtrComp
@@ -1275,11 +1280,40 @@ int main(int argc, char ** argv){
         std::vector<ICTSNode*> toDelete;
         float lastPlateau(q.top()->SIC());
         float bestCost(INF);
+        float delta(0.0);
+        bool findOptimal(false);
         while(q.size()){
+          // Now that we've searched the "best" plateau, search up to k deltas into the future
+          if(findOptimal){
+            std::cout << "searching for opt " << std::accumulate(q.top()->sizes.begin(),q.top()->sizes.end(),0) << "/" << (delta+q.top()->sizes.size()) << "\n";
+            if(std::accumulate(q.top()->sizes.begin(),q.top()->sizes.end(),0)>delta+q.top()->sizes.size()) break; // we've searched k steps into the future
+            float sum(0.0);
+            for(int i(0); i<q.top()->sizes.size(); ++i){
+              uint64_t hash(((uint32_t) q.top()->sizes[i]*1000)<<8|i);
+              // We're only interested if all MDDs for this node are pre-generated
+              // and the lb sum is better than the best cost found so far
+              if(fgeq(sum,bestCost),lbcache.find(hash)==lbcache.end()){
+                sum=0;
+                break;
+              }else{
+                sum += lbcache[hash];
+              }
+            }
+            if(!sum||fgeq(sum,bestCost)){
+              q.pop();
+              continue;
+            }
+          }
           ICTSNode* parent(q.popTop());
           // If we've reached a new plateau and a solution was found on the previous plateau, we're done
-          if(bestCost<INF && !fequal(lastPlateau,parent->SIC())){ break; }
-          if(verbose){
+          if(!findOptimal && bestCost<INF && !fequal(lastPlateau,parent->SIC())){
+            if(ICTSNode::suboptimal||ICTSNode::epsilon){
+              break;
+            }
+            findOptimal=true;
+            delta = std::accumulate(parent->sizes.begin(),parent->sizes.end(),0);
+          }
+          if(!verbose){
             std::cout << "pop ";
             for(auto const& a: parent->sizes){
               std::cout << a << " ";
@@ -1301,7 +1335,9 @@ int main(int argc, char ** argv){
             float cost(mergeSolution(answers,solution,Gid[j],bestCost)); // Returns the cost of the merged solution if < best cost; 0 otherwise
             if(cost){
               bestCost=cost;
-              if(ICTSNode::suboptimal||fleq(cost,parent->SIC()))break; //Done searching for solution
+              if((ICTSNode::suboptimal||ICTSNode::epsilon)&&fleq(cost,parent->SIC())){
+                break; //Done searching for solution
+              }
             }
           }
           lastPlateau=parent->SIC();
@@ -1336,6 +1372,7 @@ int main(int argc, char ** argv){
           delete z;
         }
         mddcache.clear();
+        lbcache.clear();
         while(!q.empty()){
           delete q.top();
           q.pop();
@@ -1418,6 +1455,16 @@ int MyCLHandler(char *argument[], int maxNumArgs)
       ICTSNode::pairwise=true;
       ICTSNode::suboptimal=true;
       std::cout << "pairwise,suboptimal\n";
+    }
+    else if(argument[0][0]=='f'){
+      ICTSNode::pairwise=true;
+      bestonly=true;
+      std::cout << "pairwise,bestonly\n";
+    }
+    else if(argument[0][0]=='e'){
+      ICTSNode::pairwise=true;
+      ICTSNode::epsilon=true;
+      std::cout << "pairwise,epsilon\n";
     }
     else if(argument[0][0]=='a'){
       ICTSNode::pairwise=true;
