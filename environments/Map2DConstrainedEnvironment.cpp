@@ -42,6 +42,20 @@ bool Map2DConstrainedEnvironment::GetNextSuccessor(const xytLoc &currOpenNode, c
   return mapEnv->GetNextSuccessor(currOpenNode,goal,next,currHCost,special,validMove);
 }
   
+double Map2DConstrainedEnvironment::GetPathLength(std::vector<xytLoc> &neighbors)
+{
+  // There is no cost for waiting at the goal
+  double cost(0);
+  for(int j(neighbors.size()-1); j>0; --j){
+    if(!neighbors[j-1].sameLoc(neighbors[j])){
+      cost += neighbors[j].t;
+      break;
+    }else if(j==1){
+      cost += neighbors[0].t;
+    }
+  }
+  return cost;
+}
 
 void Map2DConstrainedEnvironment::GetSuccessors(const xytLoc &nodeID, std::vector<xytLoc> &neighbors) const
 {
@@ -84,35 +98,33 @@ bool Map2DConstrainedEnvironment::ViolatesConstraint(const xytLoc &from, const x
   // Check motion constraints first
   if(maxTurnAzimuth&&fless(maxTurnAzimuth,fabs(from.h-to.h))) return false;
 
-  Vector2D A(from);
-  Vector2D VA(to);
-  VA-=A; // Direction vector
-  VA.Normalize();
   // TODO: Put constraints into a kD tree so that we only need to compare vs relevant constraints
   for(unsigned int x = 0; x < constraints.size(); x++)
   {
-    Vector2D B(constraints[x].start_state);
-    Vector2D VB(constraints[x].end_state);
-    VB-=B; // Direction vector
-    VB.Normalize();
-    if(collisionImminent(A,VA,agentRadius,from.t,to.t,B,VB,agentRadius,constraints[x].start_state.t,constraints[x].end_state.t)){
+    if(constraints[x].ConflictsWith(from,to)){
       //std::cout << from << " --> " << to << " collides with " << vconstraints[x].start_state << "-->" << vconstraints[x].end_state << "\n";
       return true;
     }else{
       //std::cout << from << " --> " << to << " does not collide with " << vconstraints[x].start_state << "-->" << vconstraints[x].end_state << "\n";
     }
   }
-  for(unsigned int x = 0; x < vconstraints.size(); x++)
-  {
-    Vector2D B(vconstraints[x].start_state);
-    Vector2D VB(vconstraints[x].end_state);
-    VB-=B; // Direction vector
-    VB.Normalize();
-    if(collisionImminent(A,VA,agentRadius,from.t,to.t,B,VB,agentRadius,vconstraints[x].start_state.t,vconstraints[x].end_state.t)){
-      //std::cout << from << " --> " << to << " collides with " << vconstraints[x].start_state << "-->" << vconstraints[x].end_state << "\n";
-      return true;
-    }else{
-      //std::cout << from << " --> " << to << " does not collide with " << vconstraints[x].start_state << "-->" << vconstraints[x].end_state << "\n";
+  if(vconstraints.size()){
+    Vector2D A(from);
+    Vector2D VA(to);
+    VA-=A; // Direction vector
+    VA.Normalize();
+    for(unsigned int x = 0; x < vconstraints.size(); x++)
+    {
+      Vector2D B(vconstraints[x].start_state);
+      Vector2D VB(vconstraints[x].end_state);
+      VB-=B; // Direction vector
+      VB.Normalize();
+      if(collisionImminent(A,VA,agentRadius,from.t,to.t,B,VB,agentRadius,vconstraints[x].start_state.t,vconstraints[x].end_state.t)){
+        //std::cout << from << " --> " << to << " collides with " << vconstraints[x].start_state << "-->" << vconstraints[x].end_state << "\n";
+        return true;
+      }else{
+        //std::cout << from << " --> " << to << " does not collide with " << vconstraints[x].start_state << "-->" << vconstraints[x].end_state << "\n";
+      }
     }
   }
   return false;

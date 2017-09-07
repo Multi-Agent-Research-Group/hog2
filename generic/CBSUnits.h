@@ -26,7 +26,8 @@
 #include "ConstrainedEnvironment.h"
 #include "VelocityObstacle.h"
 //#include "TemplateIntervalTree.h"
-#include "TemplateAStar.h"
+#include "GridStates.h"
+#include "TemporalAStar.h"
 #include "Heuristic.h"
 #include "Timer.h"
 #include <string.h>
@@ -116,6 +117,10 @@ unsigned ReplanLeg(CBSUnit<state,action,environment,comparison,conflicttable,sea
           newEnd->t+=(newTime-origTime);
       }
   }
+
+  while(wpts[g]>wpts[s]+1 && thePath[wpts[g]].sameLoc(thePath[wpts[g]-1])){
+    wpts[g]--;
+  }
   //std::cout << "Replanned path\n";
   //for(auto &p: thePath){std::cout << p << "\n";}
   //std::cout << "exp replan " << astar.GetNodesExpanded() << "\n";
@@ -167,12 +172,16 @@ unsigned GetFullPath(CBSUnit<state,action,environment,comparison,conflicttable,s
     thePath.insert(thePath.end(),path.begin()+offset,path.end());
     
     offset=1;
-    wpts[i+1]=thePath.size()-1;
+    int ix(thePath.size()-1);
+    wpts[i+1]=ix;
+    while(ix>0&&thePath[ix].sameLoc(thePath[ix-1])){
+      wpts[i+1]=--ix;
+    }
   }
   return expansions;
 }
 
-template<typename state, typename action, typename environment, typename comparison, typename conflicttable,class searchalgo=TemplateAStar<state, action, environment, AStarOpenClosed<state, comparison>>>
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable,class searchalgo=TemporalAStar<state, action, environment, AStarOpenClosed<state, comparison>>>
 class CBSUnit : public Unit<state, action, environment> {
 public:
   CBSUnit(std::vector<state> const &gs, float viz=0)
@@ -256,7 +265,7 @@ struct EnvironmentContainer {
 };
 
 
-template<typename state, typename action, typename environment, typename comparison, typename conflicttable,class searchalgo=TemplateAStar<state, action, environment, AStarOpenClosed<state, comparison>>>
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable,class searchalgo=TemporalAStar<state, action, environment, AStarOpenClosed<state, comparison>>>
 class CBSGroup : public UnitGroup<state, action, environment>
 {
   public:
@@ -318,9 +327,9 @@ class CBSGroup : public UnitGroup<state, action, environment>
     struct OpenListNodeCompare {
       bool operator() (const OpenListNode& left, const OpenListNode& right) {
         if(greedyCT)
-          return (left.nc==right.nc)?(left.cost > right.cost):(left.nc>right.nc);
+          return (left.nc==right.nc)?(fgreater(left.cost,right.cost)):(left.nc>right.nc);
         else
-          return (left.cost==right.cost)?(left.nc > right.nc):(left.cost>right.cost);
+          return fequal(left.cost,right.cost)?(left.nc > right.nc):(fgreater(left.cost,right.cost));
       }
     };
 
@@ -471,8 +480,8 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Exp
   {
     // Swap units
     unsigned tmp(c1.unit1);
-      c1.unit1=c2.unit1;
-      c2.unit1=tmp;
+    c1.unit1=c2.unit1;
+    c2.unit1=tmp;
     // Notify the user of the conflict
     if(verbose){
       std::cout << "TREE " << bestNode <<"("<<tree[bestNode].parent << ") Conflict found between unit " << c1.unit1 << " and unit " << c2.unit1 << " @:" << c2.c.start() << "-->" << c2.c.end() <<  " and " << c1.c.start() << "-->" << c1.c.end() << " NC " << numConflicts << " prev-W " << c1.prevWpt << " " << c2.prevWpt << "\n";
@@ -529,6 +538,7 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Exp
           for(auto const& ff:tree[last].paths[y]){
             std::cout << ff << "\n";
           }
+          std::cout << "cost: " << currentEnvironment->environment->GetPathLength(tree[last].paths[y]) << "\n";
         }
         cost += currentEnvironment->environment->GetPathLength(tree[last].paths[y]);
       }
@@ -547,6 +557,7 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Exp
           for(auto const& ff:tree[last+1].paths[y]){
             std::cout << ff << "\n";
           }
+          std::cout << "cost: " << currentEnvironment->environment->GetPathLength(tree[last].paths[y]) << "\n";
         }
         cost += currentEnvironment->environment->GetPathLength(tree[last+1].paths[y]);
       }
@@ -660,15 +671,18 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::pro
   unsigned total(0);
   double maxTime(GetMaxTime(bestNode,9999999));
   // For every unit in the node
+  bool valid(true);
   for (unsigned int x = 0; x < tree[bestNode].paths.size(); x++)
   {
     for(int j(tree[bestNode].paths[x].size()-1); j>0; --j){
       if(!tree[bestNode].paths[x][j-1].sameLoc(tree[bestNode].paths[x][j])){
         cost += tree[bestNode].paths[x][j].t;
         total += j;
+        std::cout << "Adding " << tree[bestNode].paths[x][j].t << "\n";
         break;
       }else if(j==1){
         cost += tree[bestNode].paths[x][0].t;
+        std::cout << "Adding_" << tree[bestNode].paths[x][0].t << "\n";
         total += 1;
       }
     }
@@ -719,7 +733,6 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::pro
       std::cout << "Agent " << x << ": " << "NO Path Found.\n";
     }
     if(verify){
-      bool valid(true);
       for(unsigned int y = x+1; y < tree[bestNode].paths.size(); y++){
         for(unsigned i(1); i<tree[bestNode].paths[x].size(); ++i){
           Vector2D A(tree[bestNode].paths[x][i-1]);
@@ -739,10 +752,10 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::pro
           }
         }
       }
-      if(valid)std::cout << "VALID"<<std::endl;
     }
   }
   fflush(stdout);
+  if(verify&&valid)std::cout << "VALID"<<std::endl;
   if(elapsed<0){
     std::cout << seed<<":FAILED\n";
     std::cout << seed<<":Time elapsed: " << elapsed*(-1.0) << "\n";
@@ -1279,8 +1292,8 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>:
     if(verbose)std::cout << "Looking at positions " << xTime <<":"<<a[xTime].t << "," << j<<":"<<b[yTime].t << std::endl;
 
     // Check the point constraints
-    Constraint<state> x_c(a[xTime]);
-    state y_c =b[yTime];
+    //Constraint<state> x_c(a[xTime]);
+    //state y_c =b[yTime];
 
 
     // Deal with landing conflicts, we don't conflict if one of the planes stays landed at
@@ -1295,8 +1308,8 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>:
 
 
       // Check the vertex conflict
-      if (x_c.ConflictsWith(y_c) && ++numConflicts && update)
-      {
+      /*if (x_c.ConflictsWith(y_c) && ++numConflicts && update)
+        {
         c1.c = x_c;
         c2.c = y_c;
 
@@ -1308,14 +1321,22 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>:
 
         update = false;
         return 1;
-      }
+        }*/
 
-      // Check the edge conflicts
-      Constraint<state> x_e_c(a[xTime], a[min(xmax-1, xTime+1)]);
-      Constraint<state> y_e_c(b[yTime], b[min(ymax-1, yTime+1)]);
+      // Check for edge conflicts
+      Vector2D A(a[xTime]);
+      Vector2D VA(a[min(xmax-1, xTime+1)]);
+      VA-=A; // Direction vector
+      VA.Normalize();
+      Vector2D B(b[yTime]);
+      Vector2D VB(b[min(ymax-1, yTime+1)]);
+      VB-=B; // Direction vector
+      VB.Normalize();
 
-      if (x_e_c.ConflictsWith(y_e_c) && ++numConflicts && update)
-      {
+      if(collisionImminent(A,VA,agentRadius,a[xTime].t,a[min(xmax-1, xTime+1)].t,B,VB,agentRadius,b[yTime].t,b[min(ymax-1, yTime+1)].t) && ++numConflicts && update){
+        Constraint<state> x_e_c(a[xTime], a[min(xmax-1, xTime+1)]);
+        Constraint<state> y_e_c(b[yTime], b[min(ymax-1, yTime+1)]);
+
         c1.c = x_e_c;
         c2.c = y_e_c;
 

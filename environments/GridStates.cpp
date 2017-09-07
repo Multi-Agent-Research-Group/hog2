@@ -66,7 +66,9 @@ bool Constraint<xytLoc>::ConflictsWith(const xytLoc &state) const
 template<>
 bool Constraint<xytLoc>::ConflictsWith(const xytLoc &from, const xytLoc &to) const
 {
-  Vector2D A(from);
+  return from.sameLoc(start_state)&&to.sameLoc(end_state)&&fequal(from.t,start_state.t)&&fequal(to.t,end_state.t);
+  //return from.sameLoc(to)&&fequal(from.t,to.t);
+  /*Vector2D A(from);
   Vector2D VA(to);
   VA-=A; // Direction vector
   VA.Normalize();
@@ -77,7 +79,7 @@ bool Constraint<xytLoc>::ConflictsWith(const xytLoc &from, const xytLoc &to) con
   if(collisionImminent(A,VA,agentRadius,from.t,to.t,B,VB,agentRadius,start_state.t,end_state.t)){
     return true;
   }
-  return false;
+  return false;*/
 }
 
 template<>

@@ -42,12 +42,13 @@ public:
 	virtual void GetReverseActions(const xytLoc &nodeID, std::vector<tDirection> &actions) const;
 	bool ViolatesConstraint(const xytLoc &from, const xytLoc &to) const;
         void setSoftConstraintEffectiveness(double){}
+	double GetPathLength(std::vector<xytLoc> &neighbors);
 	
 	virtual bool InvertAction(tDirection &a) const;
 	
 	/** Heuristic value between two arbitrary nodes. **/
 	virtual double HCost(const xytLoc &node1, const xytLoc &node2) const;
-	virtual double GCost(const xytLoc &node1, const xytLoc &node2) const { return mapEnv->GCost(node1,node2); }
+	virtual double GCost(const xytLoc &node1, const xytLoc &node2) const { return node2.t-node1.t; }
 	virtual double GCost(const xytLoc &node, const tDirection &act) const { return  mapEnv->GCost(node,act); }
 	virtual bool GoalTest(const xytLoc &node, const xytLoc &goal) const;
 	

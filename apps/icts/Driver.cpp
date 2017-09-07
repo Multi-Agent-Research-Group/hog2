@@ -45,6 +45,7 @@
 #include "UnitSimulation.h"
 
 extern double agentRadius;
+bool disappear(false);
 bool nogoodprune(true);
 bool verbose(false);
 bool verify(false);
@@ -154,6 +155,7 @@ void InstallHandlers()
   InstallCommandLineHandler(MyCLHandler, "-nogui", "-nogui", "Turn off gui");
   InstallCommandLineHandler(MyCLHandler, "-nogoodoff", "-nogoodoff", "Nogood pruning enhancement");
   InstallCommandLineHandler(MyCLHandler, "-verbose", "-verbose", "Turn on verbose output");
+  InstallCommandLineHandler(MyCLHandler, "-disappear", "-disappear", "Agents disappear at goal");
   InstallCommandLineHandler(MyCLHandler, "-verify", "-verify", "Verify results");
   InstallCommandLineHandler(MyCLHandler, "-mode", "-mode s,b,p,a", "s=sub-optimal,p=pairwise,b=pairwise,sub-optimal,a=astar");
   InstallCommandLineHandler(MyCLHandler, "-increment", "-increment [value]", "High-level increment");
@@ -164,11 +166,12 @@ void InstallHandlers()
 
 //int renderScene(){return 1;}
 
-struct Group{
+typedef std::unordered_set<int> Group;
+/*struct Group{
   Group(int i){agents.insert(i);}
   std::unordered_set<int> agents;
-  //~Group(){std::cout << "Destroy " << this << "\n";}
-};
+  ~Group(){std::cout << "Destroy " << this << "\n";}
+};*/
 
 /*
 struct Hashable{
@@ -255,7 +258,7 @@ class MultiEdge: public Multiedge{
 
 std::ostream& operator << (std::ostream& ss, Group const* n){
   std::string sep("{");
-  for(auto const& a: n->agents){
+  for(auto const& a: *n){
     ss << sep << a;
     sep=",";
   }
@@ -938,9 +941,22 @@ struct ICTSNodePtrComp
   bool operator()(const ICTSNode* lhs, const ICTSNode* rhs) const  { return *lhs<*rhs; }
 };
 
-bool detectIndependence(Solution const& solution, std::vector<Group*>& group, std::unordered_set<Group*>& groups){
+bool detectIndependence(Solution& solution, std::vector<Group*>& group, std::unordered_set<Group*>& groups){
   bool independent(true);
   // Check all pairs for collision
+  float minTime(-1);
+  std::vector<int> delix;
+  if(!disappear){
+    for(int i(0); i<solution.size(); ++i){
+      minTime=std::max(minTime,solution[i].back()->depth);
+    }
+    for(int i(0); i<solution.size(); ++i){
+      if(fless(solution[i].back()->depth,minTime)){
+        solution[i].push_back(new Node(solution[i].back()->n,minTime));
+        delix.push_back(i);
+      }
+    }
+  }
   for(int i(0); i<solution.size(); ++i){
     for(int j(i+1); j<solution.size(); ++j){
       if(group[i]==group[j]) continue; // This can happen if both collide with a common agent
@@ -963,14 +979,14 @@ bool detectIndependence(Solution const& solution, std::vector<Group*>& group, st
             
             Group* toDelete(group[j]);
             groups.erase(group[j]);
-            for(auto a:group[j]->agents){
+            for(auto a:*group[j]){
               if(verbose){
                 std::cout << "Inserting agent " << a << " into group for agent " << i << "\n";
               }
-              group[i]->agents.insert(a);
+              group[i]->insert(a);
               group[a]=group[i];
             }
-            delete toDelete;
+            //delete toDelete;
             
             independent=false;
             break;
@@ -982,6 +998,13 @@ bool detectIndependence(Solution const& solution, std::vector<Group*>& group, st
           }else{++b;}
         }
       }
+    }
+  }
+  // Delete the temporary wait actions
+  if(!disappear){
+    for(auto const& d: delix){
+      //delete solution[d].back();
+      //solution[d].resize(solution[d].size()-1);
     }
   }
   return independent;
@@ -1019,7 +1042,10 @@ void printResults(){
     }
   }
   std::cout << std::endl;
-  if(verify && !checkAnswer(solution)) std::cout << "INVALID!\n";
+  if(verify){
+    if(!checkAnswer(solution)) std::cout << "INVALID!\n";
+    else std::cout << "VALID\n";
+  }
   total=tmr.EndTimer();
   //std::cout << elapsed << " elapsed";
   //std::cout << std::endl;
@@ -1034,11 +1060,15 @@ void printResults(){
 // the main solution. Return the added cost amount. Returns zero if no solutions
 // could be merged, or the cost of the valid solution is higher than the maximum
 // allowable cost.
-float mergeSolution(std::vector<Solution> const& answers, Solution& s, std::vector<int> const& insiders, float maxCost){
+float mergeSolution(std::vector<Solution>& answers, Solution& s, std::vector<int> const& insiders, float maxCost){
   // Compute agents not in the answer group
   std::vector<int> outsiders;
+  float minTime(-1);
   for(int k(0); k<s.size(); ++k){
     bool found(false);
+    if(!disappear){
+      minTime=std::max(minTime,s[k].back()->depth);
+    }
     for(int i(0); i<answers[0].size(); ++i){
       if(k==insiders[i]){
         found=true;
@@ -1054,8 +1084,28 @@ float mergeSolution(std::vector<Solution> const& answers, Solution& s, std::vect
   bool allSame(true);
   costs[0]=computeSolutionCost(answers[0],true);
   for(int i(1); i<answers.size(); ++i){
+    if(!disappear){
+      for(int k(0); k<answers[i].size(); ++k){
+        minTime=std::max(minTime,answers[i][k].back()->depth);
+      }
+    }
     costs[i]=computeSolutionCost(answers[i],true);
     if(allSame&&!fequal(costs[0],costs[i])){allSame=false;}
+  }
+  if(!disappear){
+    // Add wait actions if necessary
+    for(int i(1); i<answers.size(); ++i){
+      for(int k(0); k<answers[i].size(); ++k){
+        if(fless(answers[i][k].back()->depth,minTime)){
+          answers[i][k].push_back(new Node(answers[i][k].back()->n,minTime));
+        }
+      }
+      for(int k(0); k<s.size(); ++k){
+        if(fless(s[k].back()->depth,minTime)){
+          s[k].push_back(new Node(s[k].back()->n,minTime));
+        }
+      }
+    }
   }
   if(!allSame){
     // Sort the cost indices
@@ -1145,15 +1195,17 @@ int main(int argc, char ** argv){
     }
     exit(0);
   }
-  //TemplateAStar<xyLoc,tDirection,MapEnvironment> astar;
-  PEAStar<xyLoc,tDirection,MapEnvironment> astar;
+  TemplateAStar<xyLoc,tDirection,MapEnvironment> astar;
+  //PEAStar<xyLoc,tDirection,MapEnvironment> astar;
   //astar.SetVerbose(true);
   //std::cout << "Init groups\n";
   std::vector<Group*> group(n);
   std::unordered_set<Group*> groups;
   // Add a singleton group for all groups
   for(int i(0); i<n; ++i){
-    group[i]=new Group(i); // Initially in its own group
+    //group[i]=new Group(i); // Initially in its own group
+    group[i]=new Group();
+    group[i]->insert(i);
     groups.insert(group[i]);
   }
 
@@ -1199,7 +1251,7 @@ int main(int argc, char ** argv){
     // Create groups
     int g(0);
     for(auto const& grp:groups){
-      for(auto a:grp->agents){
+      for(auto a:*grp){
         G[g].first.push_back(waypoints[a][0]);
         G[g].second.push_back(waypoints[a][1]);
         Gid[g].push_back(a);
@@ -1292,7 +1344,7 @@ int main(int argc, char ** argv){
     }
 
     for(auto y:groups){
-      delete y;
+      //delete y;
     }
 
   }
@@ -1325,6 +1377,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
   if(strcmp(argument[0], "-nogui") == 0)
   {
     gui = false;
+    return 1;
+  }
+  if(strcmp(argument[0], "-disappear") == 0)
+  {
+    disappear = true;
     return 1;
   }
   if(strcmp(argument[0], "-verbose") == 0)

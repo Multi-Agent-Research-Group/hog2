@@ -285,10 +285,11 @@ bool TemplateAStar<state,action,environment,openList>::InitializeSearch(environm
 	start = from;
 	goal = to;
 	
-	if (env->GoalTest(from, to) && (stopAfterGoal)) //assumes that from and to are valid states
+	/*if (env->GoalTest(from, to) && (stopAfterGoal)) //assumes that from and to are valid states
 	{
+                thePath.push_back(start);
 		return false;
-	}
+	}*/
 	
 	openClosedList.AddOpenNode(start, env->GetStateHash(start), 0, weight*theHeuristic->HCost(start, goal));
 	
