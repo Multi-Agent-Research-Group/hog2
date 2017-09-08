@@ -910,8 +910,8 @@ struct ICTSNode{
   }
 
   bool operator<(ICTSNode const& other)const{
-    float sic1(SIC());
-    float sic2(other.SIC());
+    float sic1(lb());
+    float sic2(other.lb());
     if(fequal(sic1,sic2)){
       float t1(0);
       for(auto const& s:sizes){
@@ -926,7 +926,14 @@ struct ICTSNode{
       return fgreater(sic1,sic2);
     }
   }
-  float SIC()const{
+  float ub()const{
+    float total(0);
+    for(auto const& s:sizes){
+      total += s;
+    }
+    return total;
+  }
+  float lb()const{
     float total(0);
     for(auto const& s:best){
       total += s;
@@ -1065,7 +1072,9 @@ void printResults(){
 // the main solution. Return the added cost amount. Returns zero if no solutions
 // could be merged, or the cost of the valid solution is higher than the maximum
 // allowable cost.
-float mergeSolution(std::vector<Solution>& answers, Solution& s, std::vector<int> const& insiders, float maxCost){
+// returns the merged cost or zero if unable to merge and teh best cost
+// (the best solution is merged in either case).
+std::pair<float,float> mergeSolution(std::vector<Solution>& answers, Solution& s, std::vector<int> const& insiders, float maxMergedCost){
   // Compute agents not in the answer group
   std::vector<int> outsiders;
   float minTime(-1);
@@ -1118,7 +1127,9 @@ float mergeSolution(std::vector<Solution>& answers, Solution& s, std::vector<int
   }
   // Check all answers against current paths in solution outside of the group
   for(auto index:sorted){
-    if(fgeq(costs[index],maxCost)) return 0.0f; // No solution is under the cost limit
+    if(fgeq(costs[index],maxMergedCost)){
+      break; // Nothing else will be good to merge (because of sorting)
+    }
     auto const& ans(answers[index]);
     bool allValid(true);
     for(int i(0); i<ans.size(); ++i){
@@ -1141,11 +1152,23 @@ float mergeSolution(std::vector<Solution>& answers, Solution& s, std::vector<int
           s[insiders[i]].push_back(new Node(*a));
         }
       }
-      return costs[index];
+      // We have found a feasible global solution
+      return {costs[index],costs[sorted[0]]};
     }
   }
-  // No merge took place
-  return 0.0f;
+  if(fequal(maxMergedCost,INF)){
+    // No merge took place, just merge the first/best answer
+    for(int i(0); i<answers[0].size(); ++i){
+      for(auto& a:s[insiders[i]]){
+        delete a;
+      }
+      s[insiders[i]].resize(0);
+      for(auto& a:answers[0][i]){
+        s[insiders[i]].push_back(new Node(*a));
+      }
+    }
+  }
+  return {0.0f,costs[sorted[0]]};
 }
 
 int main(int argc, char ** argv){
@@ -1278,42 +1301,22 @@ int main(int argc, char ** argv){
 
         std::vector<std::set<Node*,NodePtrComp>> answer;
         std::vector<ICTSNode*> toDelete;
-        float lastPlateau(q.top()->SIC());
+        float lastPlateau(q.top()->lb());
         float bestCost(INF);
+        float bestMergedCost(INF);
         float delta(0.0);
         bool findOptimal(false);
         while(q.size()){
-          // Now that we've searched the "best" plateau, search up to k deltas into the future
-          if(findOptimal){
-            std::cout << "searching for opt " << std::accumulate(q.top()->sizes.begin(),q.top()->sizes.end(),0) << "/" << (delta+q.top()->sizes.size()) << "\n";
-            if(std::accumulate(q.top()->sizes.begin(),q.top()->sizes.end(),0)>delta+q.top()->sizes.size()) break; // we've searched k steps into the future
-            float sum(0.0);
-            for(int i(0); i<q.top()->sizes.size(); ++i){
-              uint64_t hash(((uint32_t) q.top()->sizes[i]*1000)<<8|i);
-              // We're only interested if all MDDs for this node are pre-generated
-              // and the lb sum is better than the best cost found so far
-              if(fgeq(sum,bestCost),lbcache.find(hash)==lbcache.end()){
-                sum=0;
-                break;
-              }else{
-                sum += lbcache[hash];
-              }
-            }
-            if(!sum||fgeq(sum,bestCost)){
-              q.pop();
-              continue;
-            }
+          // Keep searching until we've found a candidate with greater cost than 'best'
+          // To keep going on all plateaus <= the best is how we ensure optimality
+          // It is impossible for a better solution to be further down in the tree - 
+          // no node of cost>=best can possibly produce a child with better cost
+          if(fgeq(q.top()->lb(),bestCost)){
+            break;
           }
+          // This node could contain a solution since its lb is <=
           ICTSNode* parent(q.popTop());
-          // If we've reached a new plateau and a solution was found on the previous plateau, we're done
-          if(!findOptimal && bestCost<INF && !fequal(lastPlateau,parent->SIC())){
-            if(ICTSNode::suboptimal||ICTSNode::epsilon){
-              break;
-            }
-            findOptimal=true;
-            delta = std::accumulate(parent->sizes.begin(),parent->sizes.end(),0);
-          }
-          if(!verbose){
+          if(verbose){
             std::cout << "pop ";
             for(auto const& a: parent->sizes){
               std::cout << a << " ";
@@ -1324,7 +1327,7 @@ int main(int argc, char ** argv){
             std::cout << "best: ";
             for(auto b:parent->best)std::cout << b << " ";
             std::cout << "\n";
-            std::cout << "SIC: " << parent->SIC() << std::endl;
+            std::cout << "SIC: " << parent->lb() << std::endl;
           }
           std::vector<Solution> answers;
           // If we found an answer set and any of the answers are not in conflict
@@ -1332,15 +1335,16 @@ int main(int argc, char ** argv){
           // equal to that of the best SIC in the current plateau. Otherwise, we will
           // continue the ICT search until the next plateau
           if(parent->isValid(answers)){
-            float cost(mergeSolution(answers,solution,Gid[j],bestCost)); // Returns the cost of the merged solution if < best cost; 0 otherwise
-            if(cost){
-              bestCost=cost;
-              if((ICTSNode::suboptimal||ICTSNode::epsilon)&&fleq(cost,parent->SIC())){
-                break; //Done searching for solution
+            auto cost(mergeSolution(answers,solution,Gid[j],bestMergedCost)); // Returns the cost of the merged solution if < best cost; 0 otherwise
+            bestCost=std::min(bestCost,cost.second);
+            if(cost.first){
+              bestMergedCost=cost.first;
+              // Just exit since we found a feasible solution
+              if(ICTSNode::suboptimal||ICTSNode::epsilon||fequal(bestMergedCost,parent->lb())){
+                break;
               }
             }
           }
-          lastPlateau=parent->SIC();
 
           for(int i(0); i<parent->sizes.size(); ++i){
             std::vector<float> sz(parent->sizes);
@@ -1360,7 +1364,7 @@ int main(int argc, char ** argv){
                 std::cout << "  best: ";
                 for(auto b:tmp->best)std::cout << b << " ";
                 std::cout << "\n";
-                std::cout << "  SIC: " << tmp->SIC() << std::endl;
+                std::cout << "  SIC: " << tmp->lb() << std::endl;
               }
               q.push(tmp);
               deconf.insert(sv.str());
