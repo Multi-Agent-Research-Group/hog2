@@ -46,7 +46,6 @@
 
 extern double agentRadius;
 bool bestonly(false);
-bool disappear(false);
 bool nogoodprune(true);
 bool verbose(false);
 bool verify(false);
@@ -65,6 +64,8 @@ bool gui=true;
 uint64_t jointnodes(0);
 float step(1.0);
 int n;
+
+#define MAXTIME 100
 std::string filepath;
 std::vector<std::vector<xytLoc> > waypoints;
 
@@ -156,7 +157,6 @@ void InstallHandlers()
   InstallCommandLineHandler(MyCLHandler, "-nogui", "-nogui", "Turn off gui");
   InstallCommandLineHandler(MyCLHandler, "-nogoodoff", "-nogoodoff", "Nogood pruning enhancement");
   InstallCommandLineHandler(MyCLHandler, "-verbose", "-verbose", "Turn on verbose output");
-  InstallCommandLineHandler(MyCLHandler, "-disappear", "-disappear", "Agents disappear at goal");
   InstallCommandLineHandler(MyCLHandler, "-verify", "-verify", "Verify results");
   InstallCommandLineHandler(MyCLHandler, "-mode", "-mode s,b,p,a", "s=sub-optimal,p=pairwise,b=pairwise,sub-optimal,a=astar");
   InstallCommandLineHandler(MyCLHandler, "-increment", "-increment [value]", "High-level increment");
@@ -301,7 +301,7 @@ std::ostream& operator << (std::ostream& ss, Node const* n){
 }
 
 // Compute path cost, ignoring actions that wait at the goal
-float computeSolutionCost(Solution const& solution, bool ignoreWaitAtGoal=false){
+float computeSolutionCost(Solution const& solution, bool ignoreWaitAtGoal=true){
   float cost(0);
   if(ignoreWaitAtGoal){
     for(auto const& path:solution){
@@ -351,14 +351,14 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, flo
       Node current(start,++d);
       uint64_t chash(current.Hash());
       dag[chash]=current;
-      //std::cout << "inserting " << dag[chash] << " " << &dag[chash] << "under " << *parent << "\n";
+      if(verbose)std::cout << "inserting " << dag[chash] << " " << &dag[chash] << "under " << *parent << "\n";
       parent->successors.insert(&dag[chash]);
       //dag[chash].parents.insert(parent);
       parent=&dag[chash];
     }
+    best=std::min(best,parent->depth);
     //std::cout << "found d\n";
     costt[(int)maxDepth].insert(d*1000);
-    best=std::min(best,d);
     if(verbose)std::cout << "ABEST "<<best<<"\n";
     return true;
   }
@@ -422,8 +422,10 @@ void GetMDD(unsigned agent,xyLoc const& start, xyLoc const& end, DAG& dag, Multi
     LimitedDFS(start,end,dag,root[agent],depth,depth,best);
     mddcache[hash]=root[agent];
     lbcache[hash]=best;
+  }else{
+    root[agent]=mddcache[hash];
+    best=lbcache[hash];
   }
-  else root[agent]=mddcache[hash];
   if(verbose)std::cout << "Finally set root to: " << (uint64_t)root[agent] << "\n";
 }
 
@@ -444,7 +446,7 @@ void generatePermutations(std::vector<MultiEdge>& positions, std::vector<MultiEd
     bool found(false);
     for(int j(0); j<current.size(); ++j){
       // Make sure we don't do any checks that were already done
-      if(positions[agent][i].first->depth!=lastTime&&current[j].first->depth!=lastTime)continue;
+      //if(fequal(positions[agent][i].first->depth,lastTime)&&fequal(current[j].first->depth,lastTime))continue;
       //uint64_t hash(EdgePairHash(positions[agent][i],current[j]));
       //if(checked.find(hash)!=checked.end())
       //{std::cout << "SKIPPED " << *positions[agent][i].second << " " << *current[j].second << "\n"; continue; /*No collision check necessary; checked already*/}
@@ -468,8 +470,8 @@ void generatePermutations(std::vector<MultiEdge>& positions, std::vector<MultiEd
         }*/
         //checked.insert(hash);
         break;
-      }else if(verbose){std::cout << "generating: " << *positions[agent][i].first << "-->" << *positions[agent][i].second << " " << *current[j].first << "-->" << *current[j].second << "\n";
       }
+      if(verbose)std::cout << "generating: " << *positions[agent][i].first << "-->" << *positions[agent][i].second << " " << *current[j].first << "-->" << *current[j].second << "\n";
     }
     if(found) continue;
     copy.push_back(positions[agent][i]);
@@ -480,8 +482,8 @@ void generatePermutations(std::vector<MultiEdge>& positions, std::vector<MultiEd
 // In order for this to work, we cannot generate sets of positions, we must generate sets of actions, since at time 1.0 an action from parent A at time 0.0 may have finished, while another action from the same parent A may still be in progress. 
 
 // Return true if we get to the desired depth
-bool jointDFS(MultiEdge const& s, float d, float term, Solution solution, std::vector<Solution>& solutions, std::vector<Node*>& toDelete, float& best, float bestSeen, float increment=1.0, bool suboptimal=false, bool checkOnly=false){
-  //std::cout << "saw " << s << "\n";
+bool jointDFS(MultiEdge const& s, float d, Solution solution, std::vector<Solution>& solutions, std::vector<Node*>& toDelete, float& best, float bestSeen, bool suboptimal=false, bool checkOnly=false){
+  if(verbose)std::cout << "saw " << s << "\n";
   //std::cout << d << std::string((int)d,' ');
 
   if(!checkOnly&&d>0){
@@ -497,14 +499,13 @@ bool jointDFS(MultiEdge const& s, float d, float term, Solution solution, std::v
           break;
         }
       }
-      if(found || (s[i].second->n.sameLoc(p.back()->n) && fequal(s[i].second->depth,p.back()->depth+1.0))){
+      if(found || (s[i].second->n.sameLoc(p.back()->n) && fgreater(s[i].second->depth,p.back()->depth))){
         solution[i].push_back(s[i].second);
       }
     }
   }
   
   bool done(true);
-  float cost(computeSolutionCost(solution,true));
   for(auto const& g:s){
     if(g.second->successors.size()){
       done=false;
@@ -513,17 +514,24 @@ bool jointDFS(MultiEdge const& s, float d, float term, Solution solution, std::v
     //maxCost=std::max(maxCost,g.second->depth);
   }
   if(done){
-  //if(fgreater(cost,term-std::min(1.0f,increment))){
+    float cost(computeSolutionCost(solution));
     if(fless(cost,best)){
       best=cost;
       if(verbose)std::cout << "BEST="<<best<<std::endl;
-      if(verbose)std::cout << "TERM="<<term<<std::endl;
       if(verbose)std::cout << "BS="<<bestSeen<<std::endl;
 
       // This is a leaf node
       // Copy the solution into the answer set
-      if(!checkOnly)
+      if(!checkOnly){
+        // Shore up with wait actions
+        for(int i(0); i<solution.size(); ++i){
+          if(fless(solution[i].back()->depth,MAXTIME)){
+            solution[i].emplace_back(new Node(solution[i].back()->n,MAXTIME));
+            toDelete.push_back(solution[i].back());
+          }
+        }
         solutions.push_back(solution);
+      }
     }
     return true;
   }
@@ -537,7 +545,7 @@ bool jointDFS(MultiEdge const& s, float d, float term, Solution solution, std::v
   }
   //std::cout << "min-depth: " << sd << "\n";
 
-  float md(INF);
+  float md(INF); // Min depth of successors
   //Add in successors for parents who are equal to the min
   for(auto const& a: s){
     MultiEdge output;
@@ -555,9 +563,10 @@ bool jointDFS(MultiEdge const& s, float d, float term, Solution solution, std::v
     }
     if(output.empty()){
       // Stay at state...
-      output.emplace_back(a.second,new Node(a.second->n,a.second->depth+1.0/*increment*/));
+      output.emplace_back(a.second,new Node(a.second->n,MAXTIME));
+      //if(verbose)std::cout << "Wait " << *output.back().second << "\n";
       toDelete.push_back(output.back().second);
-      md=min(md,a.second->depth+1.0/*increment*/); // Amount of time to wait
+      //md=min(md,a.second->depth+1.0); // Amount of time to wait
     }
     //std::cout << "successor  of " << s << "gets("<<*a<< "): " << output << "\n";
     successors.push_back(output);
@@ -566,8 +575,8 @@ bool jointDFS(MultiEdge const& s, float d, float term, Solution solution, std::v
   generatePermutations(successors,crossProduct,0,MultiEdge(),sd);
   bool value(false);
   for(auto& a: crossProduct){
-    //std::cout << "EVAL " << s << "-->" << a << "\n";
-    if(jointDFS(a,md,term,solution,solutions,toDelete,best,bestSeen,increment,suboptimal,checkOnly)){
+    if(verbose)std::cout << "EVAL " << s << "-->" << a << "\n";
+    if(jointDFS(a,md,solution,solutions,toDelete,best,bestSeen,suboptimal,checkOnly)){
       value=true;
       // Return first solution...
       if(suboptimal) return true;
@@ -578,7 +587,7 @@ bool jointDFS(MultiEdge const& s, float d, float term, Solution solution, std::v
   return value;
 }
 
-bool jointDFS(MultiState const& s, float maxdepth, std::vector<Solution>& solutions, std::vector<Node*>& toDelete, float bestSeen, float increment=1.0, bool suboptimal=false, bool checkOnly=false){
+bool jointDFS(MultiState const& s, std::vector<Solution>& solutions, std::vector<Node*>& toDelete, float bestSeen, bool suboptimal=false, bool checkOnly=false){
   MultiEdge act;
   Solution solution;
   std::unordered_set<std::string> ttable;
@@ -592,7 +601,7 @@ bool jointDFS(MultiState const& s, float maxdepth, std::vector<Solution>& soluti
   }
   float best(INF);
 
-  return jointDFS(act,0.0,maxdepth,solution,solutions,toDelete,best,bestSeen,increment,suboptimal,checkOnly);
+  return jointDFS(act,0.0,solution,solutions,toDelete,best,bestSeen,suboptimal,checkOnly);
 }
 
 class BaseOccupancyInterface : public OccupancyInterface<xyLoc,tDirection>
@@ -739,7 +748,7 @@ public:
 }*/
 
 // Check that two paths have no collisions
-bool checkPair(Path const& p1, Path const& p2){
+bool checkPair(Path const& p1, Path const& p2,bool loud=false){
   auto ap(p1.begin());
   auto a(ap+1);
   auto bp(p2.begin());
@@ -752,7 +761,7 @@ bool checkPair(Path const& p1, Path const& p2){
     Vector2D VB((*b)->n.x-(*bp)->n.x,(*b)->n.y-(*bp)->n.y);
     VB.Normalize();
     if(collisionImminent(A,VA,agentRadius,(*ap)->depth,(*a)->depth,B,VB,agentRadius,(*bp)->depth,(*b)->depth)){
-      if(verify)std::cout << "Collision: " << **ap << "-->" << **a << "," << **bp << "-->" << **b << "\n";
+      if(loud)std::cout << "Collision: " << **ap << "-->" << **a << "," << **bp << "-->" << **b;
       return false;
     }
     if(fless((*a)->depth,(*b)->depth)){
@@ -773,8 +782,10 @@ bool checkPair(Path const& p1, Path const& p2){
 bool checkAnswer(Solution const& answer){
   for(int i(0);i<answer.size();++i){
     for(int j(i+1);j<answer.size();++j){
-      if(!checkPair(answer[i],answer[j]))
+      if(!checkPair(answer[i],answer[j],verify)){
+        if(verify)std::cout<< "for agents: " << i << " and " << j << "\n";
         return false;
+      }
     }
   }
   return true;
@@ -789,33 +800,31 @@ void clearNoGoods(){
   //nogoods.clear();
 }
 struct ICTSNode{
-  ICTSNode(ICTSNode* parent,int agent, float size):instance(parent->instance),dag(parent->dag),best(parent->best),bestSeen(parent->bestSeen),sizes(parent->sizes),root(parent->root),maxdepth(parent->maxdepth),increment(parent->increment){
+  ICTSNode(ICTSNode* parent,int agent, float size):instance(parent->instance),dag(parent->dag),best(parent->best),bestSeen(0),sizes(parent->sizes),root(parent->root){
     count++;
     sizes[agent]=size;
     best[agent]=INF;
-    maxdepth=max(maxdepth,Node::env->HCost(instance.first[agent],instance.second[agent])+sizes[agent]);
     if(verbose)std::cout << "replan agent " << agent << " GetMDD("<<(Node::env->HCost(instance.first[agent],instance.second[agent])+sizes[agent])<<")\n";
     dag[agent].clear();
     replanned.push_back(agent);
     GetMDD(agent,instance.first[agent],instance.second[agent],dag[agent],root,Node::env->HCost(instance.first[agent],instance.second[agent])+sizes[agent],best[agent]);
-    bestSeen=std::max(bestSeen,best[agent]);
+    bestSeen=std::accumulate(best.begin(),best.end(),0.0f);
     // Replace new root node on top of old.
     //std::swap(root[agent],root[root.size()-1]);
     //root.resize(root.size()-1);
     if(verbose)std::cout << agent << ":\n" << root[agent] << "\n";
   }
 
-  ICTSNode(Instance const& inst, std::vector<float> const& s, float inc=1.0):instance(inst),dag(s.size()),best(s.size()),bestSeen(0),sizes(s),root(s.size()),maxdepth(-INF),increment(inc){
+  ICTSNode(Instance const& inst, std::vector<float> const& s):instance(inst),dag(s.size()),best(s.size()),bestSeen(0),sizes(s),root(s.size()){
     count++;
     root.reserve(s.size());
     replanned.resize(s.size());
     for(int i(0); i<instance.first.size(); ++i){
       best[i]=INF;
       replanned[i]=i;
-      maxdepth=max(maxdepth,Node::env->HCost(instance.first[i],instance.second[i])+sizes[i]);
       if(verbose)std::cout << "plan agent " << i << " GetMDD("<<(Node::env->HCost(instance.first[i],instance.second[i])+sizes[i])<<")\n";
       GetMDD(i,instance.first[i],instance.second[i],dag[i],root,Node::env->HCost(instance.first[i],instance.second[i])+sizes[i],best[i]);
-      bestSeen=std::max(bestSeen,best[i]);
+      bestSeen=std::accumulate(best.begin(),best.end(),0.0f);
       if(verbose)std::cout << i << ":\n" << root[i] << "\n";
     }
   }
@@ -835,8 +844,6 @@ struct ICTSNode{
   std::vector<float> best;
   float bestSeen;
   MultiState root;
-  float maxdepth;
-  float increment;
   Instance points;
   std::vector<Node*> toDelete;
   static uint64_t count;
@@ -857,8 +864,8 @@ struct ICTSNode{
             tmproot[0]=root[i];
             tmproot[1]=root[j];
             std::vector<Node*> toDeleteTmp;
-            // This is a satisficing search, thus we only need to a sub-optimal check
-            if(!jointDFS(tmproot,maxdepth,answers,toDeleteTmp,INF,increment,true,true)){
+            // This is a satisficing search, thus we only need do a sub-optimal check
+            if(!jointDFS(tmproot,answers,toDeleteTmp,INF,true,true)){
               if(verbose)std::cout << "Pairwise failed\n";
               clearNoGoods();
               return false;
@@ -872,8 +879,8 @@ struct ICTSNode{
           tmproot[0]=root[i];
           tmproot[1]=root[replanned[0]];
           std::vector<Node*> toDeleteTmp;
-          // This is a satisficing search, thus we only need to a sub-optimal check
-          if(!jointDFS(tmproot,maxdepth,answers,toDeleteTmp,INF,increment,true,true)){
+          // This is a satisficing search, thus we only need do a sub-optimal check
+          if(!jointDFS(tmproot,answers,toDeleteTmp,INF,true,true)){
             if(verbose)std::cout << "Pairwise failed\n";
             clearNoGoods();
             return false;
@@ -883,8 +890,8 @@ struct ICTSNode{
     }
     // Do a depth-first search; if the search terminates at a goal, its valid.
     if(verbose)std::cout<<"Full check\n";
-    if(/*astar&&jointAStar(root,maxdepth,answers,toDelete,instance,best,increment)||
-         !astar&&*/jointDFS(root,maxdepth,answers,toDelete,bestSeen,increment,suboptimal)){
+    if(/*astar&&jointAStar(root,answers,toDelete,instance,best)||
+         !astar&&*/jointDFS(root,answers,toDelete,lb(),suboptimal)){
       if(verbose){
         std::cout << "Answer:\n";
         for(int num(0); num<answers.size(); ++num){
@@ -896,8 +903,8 @@ struct ICTSNode{
             }
             std::cout << "\n";
           }
-          std::cout << std::endl;
-          //if(verify)assert(checkAnswer(answers[num]));
+          std::cout << "Cost: " << computeSolutionCost(answers[num]) << std::endl;
+          if(verify&&!checkAnswer(answers[num]))std::cout<< "Failed in ICT node\n";
         }
       }
       clearNoGoods();
@@ -933,13 +940,7 @@ struct ICTSNode{
     }
     return total;
   }
-  float lb()const{
-    float total(0);
-    for(auto const& s:best){
-      total += s;
-    }
-    return total;
-  }
+  float lb()const{ return bestSeen; }
 };
 
 bool ICTSNode::epsilon(false);
@@ -957,18 +958,6 @@ bool detectIndependence(Solution& solution, std::vector<Group*>& group, std::uno
   bool independent(true);
   // Check all pairs for collision
   float minTime(-1);
-  std::vector<int> delix;
-  if(!disappear){
-    for(int i(0); i<solution.size(); ++i){
-      minTime=std::max(minTime,solution[i].back()->depth);
-    }
-    for(int i(0); i<solution.size(); ++i){
-      if(fless(solution[i].back()->depth,minTime)){
-        solution[i].push_back(new Node(solution[i].back()->n,minTime));
-        delix.push_back(i);
-      }
-    }
-  }
   for(int i(0); i<solution.size(); ++i){
     for(int j(i+1); j<solution.size(); ++j){
       if(group[i]==group[j]) continue; // This can happen if both collide with a common agent
@@ -992,13 +981,11 @@ bool detectIndependence(Solution& solution, std::vector<Group*>& group, std::uno
             Group* toDelete(group[j]);
             groups.erase(group[j]);
             for(auto a:*group[j]){
-              if(verbose){
-                std::cout << "Inserting agent " << a << " into group for agent " << i << "\n";
-              }
+              if(verbose)std::cout << "Inserting agent " << a << " into group for agent " << i << "\n";
               group[i]->insert(a);
               group[a]=group[i];
             }
-            //delete toDelete;
+            delete toDelete;
             
             independent=false;
             break;
@@ -1010,13 +997,6 @@ bool detectIndependence(Solution& solution, std::vector<Group*>& group, std::uno
           }else{++b;}
         }
       }
-    }
-  }
-  // Delete the temporary wait actions
-  if(!disappear){
-    for(auto const& d: delix){
-      //delete solution[d].back();
-      //solution[d].resize(solution[d].size()-1);
     }
   }
   return independent;
@@ -1044,21 +1024,21 @@ void printResults(){
       if(path[j-1]->n!=path[j]->n){
         cost += path[j]->depth;
         nacts += j;
-       if(true)std::cout << "Adding " << path[j]->n<<","<<path[j]->depth<<"\n";
+       if(verbose)std::cout << "Adding " << path[j]->n<<","<<path[j]->depth<<"\n";
         break;
       }else if(j==1){
         cost += path[0]->depth;
         nacts += 1;
-       if(true)std::cout << "Adding_" << path[0]->n<<","<<path[0]->depth<<"\n";
+       if(verbose)std::cout << "Adding_" << path[0]->n<<","<<path[0]->depth<<"\n";
       }
     }
   }
   std::cout << std::endl;
-  if(verify){
+  total=tmr.EndTimer();
+  if(total<killtime&&verify){
     if(!checkAnswer(solution)) std::cout << "INVALID!\n";
     else std::cout << "VALID\n";
   }
-  total=tmr.EndTimer();
   //std::cout << elapsed << " elapsed";
   //std::cout << std::endl;
   //total += elapsed;
@@ -1077,12 +1057,8 @@ void printResults(){
 std::pair<float,float> mergeSolution(std::vector<Solution>& answers, Solution& s, std::vector<int> const& insiders, float maxMergedCost){
   // Compute agents not in the answer group
   std::vector<int> outsiders;
-  float minTime(-1);
   for(int k(0); k<s.size(); ++k){
     bool found(false);
-    if(!disappear){
-      minTime=std::max(minTime,s[k].back()->depth);
-    }
     for(int i(0); i<answers[0].size(); ++i){
       if(k==insiders[i]){
         found=true;
@@ -1096,30 +1072,10 @@ std::pair<float,float> mergeSolution(std::vector<Solution>& answers, Solution& s
   std::iota(sorted.begin(),sorted.end(),0); // Fill with 0,1,2,3...
   std::vector<float> costs(answers.size());
   bool allSame(true);
-  costs[0]=computeSolutionCost(answers[0],true);
+  costs[0]=computeSolutionCost(answers[0]);
   for(int i(1); i<answers.size(); ++i){
-    if(!disappear){
-      for(int k(0); k<answers[i].size(); ++k){
-        minTime=std::max(minTime,answers[i][k].back()->depth);
-      }
-    }
-    costs[i]=computeSolutionCost(answers[i],true);
+    costs[i]=computeSolutionCost(answers[i]);
     if(allSame&&!fequal(costs[0],costs[i])){allSame=false;}
-  }
-  if(!disappear){
-    // Add wait actions if necessary
-    for(int i(1); i<answers.size(); ++i){
-      for(int k(0); k<answers[i].size(); ++k){
-        if(fless(answers[i][k].back()->depth,minTime)){
-          answers[i][k].push_back(new Node(answers[i][k].back()->n,minTime));
-        }
-      }
-      for(int k(0); k<s.size(); ++k){
-        if(fless(s[k].back()->depth,minTime)){
-          s[k].push_back(new Node(s[k].back()->n,minTime));
-        }
-      }
-    }
   }
   if(!allSame){
     // Sort the cost indices
@@ -1153,9 +1109,11 @@ std::pair<float,float> mergeSolution(std::vector<Solution>& answers, Solution& s
         }
       }
       // We have found a feasible global solution
+      if(verbose)std::cout<<"Feasible solution merged\n";
       return {costs[index],costs[sorted[0]]};
     }
   }
+  if(verbose)std::cout << "Solution merged but not conflict-free\n";
   if(fequal(maxMergedCost,INF)){
     // No merge took place, just merge the first/best answer
     for(int i(0); i<answers[0].size(); ++i){
@@ -1240,7 +1198,7 @@ int main(int argc, char ** argv){
   // Initial individual paths.
   for(int i(0); i<n; ++i){
     Points path;
-    if(waypoints[i][0]==waypoints[i][1]){
+    if(waypoints[i][0]==waypoints[i][1]){ // Already at goal
       path.push_back(waypoints[i][0]);
     }else{
       astar.GetPath(&env,waypoints[i][0],waypoints[i][1],path);
@@ -1252,6 +1210,7 @@ int main(int argc, char ** argv){
     for(int i(1); i<path.size(); ++i){
       timePath.push_back(new Node(path[i],timePath.back()->depth+Util::distance(path[i-1].x,path[i-1].y,path[i].x,path[i].y)));
     }
+    timePath.push_back(new Node(timePath.back()->n,MAXTIME)); // Add a final wait action that goes way out...
     solution.push_back(timePath);
   }
   if(verbose){
@@ -1297,7 +1256,7 @@ int main(int argc, char ** argv){
         custom_priority_queue<ICTSNode*,ICTSNodePtrComp> q;
         std::unordered_set<std::string> deconf;
 
-        q.push(new ICTSNode(g,sizes,step));
+        q.push(new ICTSNode(g,sizes));
 
         std::vector<std::set<Node*,NodePtrComp>> answer;
         std::vector<ICTSNode*> toDelete;
@@ -1311,6 +1270,7 @@ int main(int argc, char ** argv){
           // To keep going on all plateaus <= the best is how we ensure optimality
           // It is impossible for a better solution to be further down in the tree - 
           // no node of cost>=best can possibly produce a child with better cost
+          if(verbose)std::cout << "TOP: " << q.top()->lb() << " BEST: " << bestCost << "\n";
           if(fgeq(q.top()->lb(),bestCost)){
             break;
           }
@@ -1420,11 +1380,6 @@ int MyCLHandler(char *argument[], int maxNumArgs)
     gui = false;
     return 1;
   }
-  if(strcmp(argument[0], "-disappear") == 0)
-  {
-    disappear = true;
-    return 1;
-  }
   if(strcmp(argument[0], "-verbose") == 0)
   {
     verbose = true;
@@ -1447,30 +1402,30 @@ int MyCLHandler(char *argument[], int maxNumArgs)
   }
   if(strcmp(argument[0], "-mode") == 0)
   {
-    if(argument[0][0]=='s'){
+    if(argument[1][0]=='s'){
       ICTSNode::suboptimal=true;
       std::cout << "suboptimal\n";
     }
-    else if(argument[0][0]=='p'){
+    else if(argument[1][0]=='p'){
       ICTSNode::pairwise=true;
       std::cout << "pairwise\n";
     }
-    else if(argument[0][0]=='b'){
+    else if(argument[1][0]=='b'){
       ICTSNode::pairwise=true;
       ICTSNode::suboptimal=true;
       std::cout << "pairwise,suboptimal\n";
     }
-    else if(argument[0][0]=='f'){
+    else if(argument[1][0]=='f'){
       ICTSNode::pairwise=true;
       bestonly=true;
       std::cout << "pairwise,bestonly\n";
     }
-    else if(argument[0][0]=='e'){
+    else if(argument[1][0]=='e'){
       ICTSNode::pairwise=true;
       ICTSNode::epsilon=true;
       std::cout << "pairwise,epsilon\n";
     }
-    else if(argument[0][0]=='a'){
+    else if(argument[1][0]=='a'){
       ICTSNode::pairwise=true;
       ICTSNode::astar=true;
       std::cout << "pairwise,astar\n";
