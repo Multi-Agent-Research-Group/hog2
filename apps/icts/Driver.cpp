@@ -48,6 +48,7 @@ extern double agentRadius;
 bool bestonly(false);
 bool nogoodprune(true);
 bool verbose(false);
+bool quiet(false);
 bool verify(false);
 bool mouseTracking;
 unsigned agentType(5);
@@ -65,7 +66,10 @@ uint64_t jointnodes(0);
 float step(1.0);
 int n;
 
-#define MAXTIME 100
+// for agents to stay at goal
+#define MAXTIME 1000
+// for inflation of floats to avoid rounding errors
+#define INFLATION 1000.0
 std::string filepath;
 std::vector<std::vector<xytLoc> > waypoints;
 
@@ -156,6 +160,7 @@ void InstallHandlers()
   InstallCommandLineHandler(MyCLHandler, "-radius", "-radius [value]", "Radius in units of agent");
   InstallCommandLineHandler(MyCLHandler, "-nogui", "-nogui", "Turn off gui");
   InstallCommandLineHandler(MyCLHandler, "-nogoodoff", "-nogoodoff", "Nogood pruning enhancement");
+  InstallCommandLineHandler(MyCLHandler, "-quiet", "-quiet", "Turn off trace output");
   InstallCommandLineHandler(MyCLHandler, "-verbose", "-verbose", "Turn on verbose output");
   InstallCommandLineHandler(MyCLHandler, "-verify", "-verify", "Verify results");
   InstallCommandLineHandler(MyCLHandler, "-mode", "-mode s,b,p,a", "s=sub-optimal,p=pairwise,b=pairwise,sub-optimal,a=astar");
@@ -211,7 +216,7 @@ struct Node : public Hashable{
         //bool connected()const{return parents.size()+successors.size();}
 	//std::unordered_set<Node*> parents;
 	std::unordered_set<Node*> successors;
-	virtual uint64_t Hash()const{return (env->GetStateHash(n)<<32) | ((uint32_t)(depth*1000.));}
+	virtual uint64_t Hash()const{return (env->GetStateHash(n)<<32) | ((uint32_t)(depth*INFLATION));}
 	virtual float Depth()const{return depth; }
         virtual void Print(std::ostream& ss, int d=0) const {
           ss << std::string(d,' ')<<n << "_" << depth << std::endl;
@@ -235,13 +240,13 @@ typedef std::vector<Node*> Path;
 typedef std::vector<std::vector<Node*>> Solution;
 
 typedef std::vector<Node*> MultiState; // rank=agent num
-typedef std::vector<std::pair<Node*,Node*>> Multiedge; // rank=agent num
+typedef std::vector<std::pair<Node*,Node*>> MultiEdge; // rank=agent num
 typedef std::unordered_map<uint64_t,Node> DAG;
 std::unordered_map<uint64_t,Node*> mddcache;
 std::unordered_map<uint64_t,float> lbcache;
 std::vector<Node*> nogoods;
 
-class MultiEdge: public Multiedge{
+/*class MultiEdge: public Multiedge{
   public:
   MultiEdge():Multiedge(),parent(nullptr){}
   MultiEdge(Multiedge const& other):Multiedge(other),parent(nullptr){} // Do not copy successors!
@@ -256,7 +261,7 @@ class MultiEdge: public Multiedge{
     for(auto const& m: successors)
       m.Print(ss,d+1);
   }
-};
+};*/
 
 std::ostream& operator << (std::ostream& ss, Group const* n){
   std::string sep("{");
@@ -276,14 +281,15 @@ std::ostream& operator << (std::ostream& ss, MultiState const& n){
 }
 
 std::ostream& operator << (std::ostream& ss, MultiEdge const& n){
-  /*int i(0);
+  int i(0);
   for(auto const& a: n)
     ss << " "<<++i<<"." << a.second->n << "@" << a.second->depth;
   ss << std::endl;
+  /*
   for(auto const& m:n.successors)
     ss << "----"<<m;
   */
-  n.Print(ss,0);
+  //n.Print(ss,0);
   return ss;
 }
 
@@ -327,28 +333,30 @@ MapEnvironment* Node::env=nullptr;
 uint64_t Node::count(0);
 std::unordered_map<int,std::set<uint64_t>> costt;
 
-bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, float depth, float maxDepth, float& best){
-  //std::cout << start << "-->" << end << " g:" << (maxDepth-depth) << " h:" << Node::env->HCost(start,end) << " f:" << ((maxDepth-depth)+Node::env->HCost(start,end)) << "\n";
-  if(fless(depth,0) ||
-      fgreater(maxDepth-depth+Node::env->HCost(start,end),maxDepth)){ // Note - this only works for a perfect heuristic.
-    //std::cout << "pruned\n";
+
+bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, int depth, int maxDepth, float& best){
+  //std::cout << std::string((int)(maxDepth-depth)/INFLATION,' ') << start << "g:" << (maxDepth-depth) << " h:" << Node::env->HCost(start,end) << " f:" << ((maxDepth-depth)+Node::env->HCost(start,end));
+  if(depth<0 || maxDepth-depth+(int)(Node::env->HCost(start,end)*INFLATION)>maxDepth){ // Note - this only works for a perfect heuristic.
+    //std::cout << " pruned " << depth <<" "<< (maxDepth-depth+(int)(Node::env->HCost(start,end)*INFLATION))<<">"<<maxDepth<<"\n";
     return false;
   }
+  //std::cout << "\n";
 
   if(Node::env->GoalTest(end,start)){
-    Node n(start,maxDepth-depth);
+    Node n(start,(maxDepth-depth)/INFLATION);
     uint64_t hash(n.Hash());
     dag[hash]=n;
     // This may happen if the agent starts at the goal
-    if(fleq(maxDepth-depth,0)){
+    if(maxDepth-depth<=0){
       root=&dag[hash];
       //std::cout << "root_ " << &dag[hash];
     }
     Node* parent(&dag[hash]);
-    float d(maxDepth-depth);
-    while(fleq(d+1,maxDepth)){ // Increment depth by 1 for wait actions
+    int d(maxDepth-depth);
+    //if(d+INFLATION<=maxDepth){ // Insert one long wait action at goal
+    while(d+INFLATION<=maxDepth){ // Increment depth by 1 for wait actions
       // Wait at goal
-      Node current(start,++d);
+      Node current(start,(d+=INFLATION)/INFLATION);
       uint64_t chash(current.Hash());
       dag[chash]=current;
       if(verbose)std::cout << "inserting " << dag[chash] << " " << &dag[chash] << "under " << *parent << "\n";
@@ -358,7 +366,7 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, flo
     }
     best=std::min(best,parent->depth);
     //std::cout << "found d\n";
-    costt[(int)maxDepth].insert(d*1000);
+    //costt[(int)maxDepth].insert(d);
     if(verbose)std::cout << "ABEST "<<best<<"\n";
     return true;
   }
@@ -367,17 +375,18 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, flo
   Node::env->GetSuccessors(start,successors);
   bool result(false);
   for(auto const& node: successors){
-    float ddiff(std::max(Util::distance(node.x,node.y,start.x,start.y),1.0));
+    int ddiff(std::max(Util::distance(node.x,node.y,start.x,start.y),1.0)*INFLATION);
+    //std::cout << std::string(std::max(0,(maxDepth-(depth-ddiff)))/INFLATION,' ') << "MDDEVAL " << start << "-->" << node << "\n";
     //if(abs(node.x-start.x)>=1 && abs(node.y-start.y)>=1){
       //ddiff = M_SQRT2;
     //}
     if(LimitedDFS(node,end,dag,root,depth-ddiff,maxDepth,best)){
-      Node n(start,maxDepth-depth);
+      Node n(start,(maxDepth-depth)/INFLATION);
       uint64_t hash(n.Hash());
       if(dag.find(hash)==dag.end()){
         dag[hash]=n;
         // This is the root if depth=0
-        if(fleq(maxDepth-depth,0)){
+        if(maxDepth-depth<=0){
           root=&dag[hash];
           if(verbose)std::cout << "Set root to: " << (uint64_t)root << "\n";
           //std::cout << "_root " << &dag[hash];
@@ -390,12 +399,12 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, flo
       Node* parent(&dag[hash]);
 
       //std::cout << "found " << start << "\n";
-      uint64_t chash(Node(node,maxDepth-depth+ddiff).Hash());
+      uint64_t chash(Node(node,(maxDepth-depth+ddiff)/INFLATION).Hash());
       if(dag.find(chash)==dag.end()&&dag.find(chash+1)==dag.end()&&dag.find(chash-1)==dag.end()){
         std::cout << "Expected " << Node(node,maxDepth-depth+ddiff) << " " << chash << " to be in the dag\n";
         assert(!"Uh oh, node not already in the DAG!");
         //std::cout << "Add new.\n";
-        Node c(node,maxDepth-depth+ddiff);
+        Node c(node,(maxDepth-depth+ddiff)/INFLATION);
         dag[chash]=c;
       }
       Node* current(&dag[chash]);
@@ -413,9 +422,9 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, flo
 
 // Perform conflict check by moving forward in time at increments of the smallest time step
 // Test the efficiency of VO vs. time-vector approach
-void GetMDD(unsigned agent,xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& root, float depth, float& best){
+void GetMDD(unsigned agent,xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& root, int depth, float& best){
   if(verbose)std::cout << "MDD up to depth: " << depth << start << "-->" << end << "\n";
-  uint64_t hash(((uint32_t) depth*1000)<<8|agent);
+  uint64_t hash(((uint32_t) depth)<<8|agent);
   bool found(mddcache.find(hash)!=mddcache.end());
   if(verbose)std::cout << "lookup "<< (found?"found":"missed") << "\n";
   if(!found){
@@ -507,7 +516,7 @@ bool jointDFS(MultiEdge const& s, float d, Solution solution, std::vector<Soluti
   
   bool done(true);
   for(auto const& g:s){
-    if(g.second->successors.size()){
+    if(!fequal(g.second->depth,MAXTIME)){
       done=false;
       break;
     }
@@ -571,8 +580,18 @@ bool jointDFS(MultiEdge const& s, float d, Solution solution, std::vector<Soluti
     //std::cout << "successor  of " << s << "gets("<<*a<< "): " << output << "\n";
     successors.push_back(output);
   }
+  if(verbose){
+    std::cout << "Move set\n";
+    for(int a(0);a<successors.size(); ++a){
+      std::cout << "agent: " << a << "\n";
+      for(auto const& m:successors[a]){
+        std::cout << "  " << *m.first << "-->" << *m.second << "\n";
+      }
+    }
+  }
   std::vector<MultiEdge> crossProduct;
-  generatePermutations(successors,crossProduct,0,MultiEdge(),sd);
+  MultiEdge tmp;
+  generatePermutations(successors,crossProduct,0,tmp,sd);
   bool value(false);
   for(auto& a: crossProduct){
     if(verbose)std::cout << "EVAL " << s << "-->" << a << "\n";
@@ -807,12 +826,12 @@ struct ICTSNode{
     if(verbose)std::cout << "replan agent " << agent << " GetMDD("<<(Node::env->HCost(instance.first[agent],instance.second[agent])+sizes[agent])<<")\n";
     dag[agent].clear();
     replanned.push_back(agent);
-    GetMDD(agent,instance.first[agent],instance.second[agent],dag[agent],root,Node::env->HCost(instance.first[agent],instance.second[agent])+sizes[agent],best[agent]);
+    GetMDD(agent,instance.first[agent],instance.second[agent],dag[agent],root,(int)(Node::env->HCost(instance.first[agent],instance.second[agent])*INFLATION)+(int)(sizes[agent]*INFLATION),best[agent]);
     bestSeen=std::accumulate(best.begin(),best.end(),0.0f);
     // Replace new root node on top of old.
     //std::swap(root[agent],root[root.size()-1]);
     //root.resize(root.size()-1);
-    if(verbose)std::cout << agent << ":\n" << root[agent] << "\n";
+    //if(verbose)std::cout << agent << ":\n" << root[agent] << "\n";
   }
 
   ICTSNode(Instance const& inst, std::vector<float> const& s):instance(inst),dag(s.size()),best(s.size()),bestSeen(0),sizes(s),root(s.size()){
@@ -823,9 +842,12 @@ struct ICTSNode{
       best[i]=INF;
       replanned[i]=i;
       if(verbose)std::cout << "plan agent " << i << " GetMDD("<<(Node::env->HCost(instance.first[i],instance.second[i])+sizes[i])<<")\n";
-      GetMDD(i,instance.first[i],instance.second[i],dag[i],root,Node::env->HCost(instance.first[i],instance.second[i])+sizes[i],best[i]);
+      std::cout.precision(17);
+      //std::cout.precision(6);
+
+      GetMDD(i,instance.first[i],instance.second[i],dag[i],root,(int)(Node::env->HCost(instance.first[i],instance.second[i])*INFLATION)+(int)(sizes[i]*INFLATION),best[i]);
       bestSeen=std::accumulate(best.begin(),best.end(),0.0f);
-      if(verbose)std::cout << i << ":\n" << root[i] << "\n";
+      //if(verbose)std::cout << i << ":\n" << root[i] << "\n";
     }
   }
 
@@ -867,7 +889,7 @@ struct ICTSNode{
             // This is a satisficing search, thus we only need do a sub-optimal check
             if(!jointDFS(tmproot,answers,toDeleteTmp,INF,true,true)){
               if(verbose)std::cout << "Pairwise failed\n";
-              clearNoGoods();
+              //clearNoGoods();
               return false;
             }
           }
@@ -882,7 +904,7 @@ struct ICTSNode{
           // This is a satisficing search, thus we only need do a sub-optimal check
           if(!jointDFS(tmproot,answers,toDeleteTmp,INF,true,true)){
             if(verbose)std::cout << "Pairwise failed\n";
-            clearNoGoods();
+            //clearNoGoods();
             return false;
           }
         }
@@ -907,12 +929,13 @@ struct ICTSNode{
           if(verify&&!checkAnswer(answers[num]))std::cout<< "Failed in ICT node\n";
         }
       }
-      clearNoGoods();
+      //clearNoGoods();
+      if(verbose)std::cout << "Full check passed\n";
       return true;
     }
     
     if(verbose)std::cout << "Full check failed\n";
-    clearNoGoods();
+    //clearNoGoods();
     return false;
   }
 
@@ -1010,13 +1033,15 @@ float cost(0);
 Timer tmr;
 
 void printResults(){
-  std::cout << "Solution:\n";
-  int ii=0;
-  for(auto const& p:solution){
-    std::cout << ii++ << "\n";
-    for(auto const& t: p){
-      // Print solution
-      std::cout << t->n << "," << t->depth << "\n";
+  if(!quiet){
+    std::cout << "Solution:\n";
+    int ii=0;
+    for(auto const& p:solution){
+      std::cout << ii++ << "\n";
+      for(auto const& t: p){
+        // Print solution
+        std::cout << t->n << "," << t->depth << "\n";
+      }
     }
   }
   for(auto const& path:solution){
@@ -1024,20 +1049,20 @@ void printResults(){
       if(path[j-1]->n!=path[j]->n){
         cost += path[j]->depth;
         nacts += j;
-       if(verbose)std::cout << "Adding " << path[j]->n<<","<<path[j]->depth<<"\n";
+        if(verbose)std::cout << "Adding " << path[j]->n<<","<<path[j]->depth<<"\n";
         break;
       }else if(j==1){
         cost += path[0]->depth;
         nacts += 1;
-       if(verbose)std::cout << "Adding_" << path[0]->n<<","<<path[0]->depth<<"\n";
+        if(verbose)std::cout << "Adding_" << path[0]->n<<","<<path[0]->depth<<"\n";
       }
     }
   }
-  std::cout << std::endl;
+  if(!quiet)std::cout << std::endl;
   total=tmr.EndTimer();
   if(total<killtime&&verify){
     if(!checkAnswer(solution)) std::cout << "INVALID!\n";
-    else std::cout << "VALID\n";
+    else if(!quiet) std::cout << "VALID\n";
   }
   //std::cout << elapsed << " elapsed";
   //std::cout << std::endl;
@@ -1276,7 +1301,7 @@ int main(int argc, char ** argv){
           }
           // This node could contain a solution since its lb is <=
           ICTSNode* parent(q.popTop());
-          if(verbose){
+          if(!quiet){
             std::cout << "pop ";
             for(auto const& a: parent->sizes){
               std::cout << a << " ";
@@ -1297,6 +1322,7 @@ int main(int argc, char ** argv){
           if(parent->isValid(answers)){
             auto cost(mergeSolution(answers,solution,Gid[j],bestMergedCost)); // Returns the cost of the merged solution if < best cost; 0 otherwise
             bestCost=std::min(bestCost,cost.second);
+            if(fequal(bestCost,parent->lb())&&(q.empty()||fgreater(q.top()->lb(),bestCost))){break;}
             if(cost.first){
               bestMergedCost=cost.first;
               // Just exit since we found a feasible solution
@@ -1380,9 +1406,15 @@ int MyCLHandler(char *argument[], int maxNumArgs)
     gui = false;
     return 1;
   }
+  if(strcmp(argument[0], "-quiet") == 0)
+  {
+    quiet = true;
+    return 1;
+  }
   if(strcmp(argument[0], "-verbose") == 0)
   {
     verbose = true;
+    quiet=false;
     return 1;
   }
   if(strcmp(argument[0], "-radius") == 0)
@@ -1408,32 +1440,32 @@ int MyCLHandler(char *argument[], int maxNumArgs)
     }
     else if(argument[1][0]=='p'){
       ICTSNode::pairwise=true;
-      std::cout << "pairwise\n";
+      if(!quiet)std::cout << "pairwise\n";
     }
     else if(argument[1][0]=='b'){
       ICTSNode::pairwise=true;
       ICTSNode::suboptimal=true;
-      std::cout << "pairwise,suboptimal\n";
+      if(!quiet)std::cout << "pairwise,suboptimal\n";
     }
     else if(argument[1][0]=='f'){
       ICTSNode::pairwise=true;
       bestonly=true;
-      std::cout << "pairwise,bestonly\n";
+      if(!quiet)std::cout << "pairwise,bestonly\n";
     }
     else if(argument[1][0]=='e'){
       ICTSNode::pairwise=true;
       ICTSNode::epsilon=true;
-      std::cout << "pairwise,epsilon\n";
+      if(!quiet)std::cout << "pairwise,epsilon\n";
     }
     else if(argument[1][0]=='a'){
       ICTSNode::pairwise=true;
       ICTSNode::astar=true;
-      std::cout << "pairwise,astar\n";
+      if(!quiet)std::cout << "pairwise,astar\n";
     }
     return 2;
   }
   if(strcmp(argument[0], "-probfile") == 0){
-    std::cout << "Reading instance from file: \""<<argument[1]<<"\"\n";
+    if(!quiet)std::cout << "Reading instance from file: \""<<argument[1]<<"\"\n";
     filepath=argument[1];
     std::ifstream ss(argument[1]);
     int x,y;

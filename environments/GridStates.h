@@ -31,6 +31,7 @@ struct xyLocHash
 struct xytLoc : xyLoc {
 	xytLoc(xyLoc loc, float time):xyLoc(loc), h(0), t(time) ,nc(-1){}
 	xytLoc(xyLoc loc, uint16_t _h, float time):xyLoc(loc), h(_h), t(time) ,nc(-1){}
+	xytLoc(uint16_t _x, uint16_t _y):xyLoc(_x,_y), h(0), t(0) ,nc(-1){}
 	xytLoc(uint16_t _x, uint16_t _y, float time):xyLoc(_x,_y), h(0), t(time) ,nc(-1){}
 	xytLoc(uint16_t _x, uint16_t _y, uint16_t _h, float time):xyLoc(_x,_y), h(_h), t(time) ,nc(-1){}
 	xytLoc():xyLoc(),h(0),t(0),nc(-1){}

@@ -1,42 +1,15 @@
 /**
  * @file TemporalAStar.h
  * @package hog2
- * @brief A templated version of the original HOG's genericAstar.h
- * @author Nathan Sturtevant
- * SearchEnvironment
- * @date 3/22/06, modified 06/13/2007
+ * @brief Returns a path of minimum time length - requires states to have a field "t" for time
+ * (for agents who stay at their goal and may need to move back out)
+ * @author Thayne Walker
+ * @date 9/11/2017
  *
- * This file is part of HOG2.
- * HOG : http://www.cs.ualberta.ca/~nathanst/hog.html
- * HOG2: http://code.google.com/p/hog2/
- *
- * HOG2 is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- * 
- * HOG2 is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public License
- * along with HOG2; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
 #ifndef TemporalAStar_H
 #define TemporalAStar_H
-
-#define __STDC_CONSTANT_MACROS
-#include <stdint.h>
-// this is defined in stdint.h, but it doesn't always get defined correctly
-// even when __STDC_CONSTANT_MACROS is defined before including stdint.h
-// because stdint might be included elsewhere first...
-#ifndef UINT32_MAX
-#define UINT32_MAX        4294967295U
-#endif
-
 
 #include <iostream>
 #include <limits.h> 
@@ -52,16 +25,29 @@
 #include "GenericSearchAlgorithm.h"
 //static double lastF = 0;
 
+template <class state>
+struct TemporalAStarCompare {
+	bool operator()(const AStarOpenClosedData<state> &i1, const AStarOpenClosedData<state> &i2) const
+	{
+		if (fequal(i1.g+i1.h, i2.g+i2.h))
+		{
+			return (fless(i1.g, i2.g));
+		}
+		return (fgreater(i1.g+i1.h, i2.g+i2.h));
+	}
+};
+
 /**
  * A templated version of A*, based on HOG genericAStar
  * This version makes sure that the goal state has at least time >= minTime
  */
-template <class state, class action, class environment, class openList>
+template <class state, class action, class environment, class openList=AStarOpenClosed<state, TemporalAStarCompare<state>>>
 class TemporalAStar : public GenericSearchAlgorithm<state,action,environment> {
 public:
 	TemporalAStar():env(0),totalExternalNodesExpanded(nullptr),externalExpansionLimit(INT_MAX),useBPMX(0),radius(4.0),stopAfterGoal(true),doPartialExpansion(false),verbose(false),weight(1),useRadius(false),useOccupancyInfo(false),radEnv(0),reopenNodes(false),theHeuristic(0),directed(false),noncritical(false),SuccessorFunc(&environment::GetSuccessors),ActionFunc(&environment::GetAction),GCostFunc(&environment::GCost){ResetNodeCount();}
 	virtual ~TemporalAStar() {}
 	void GetPath(environment *env, const state& from, const state& to, std::vector<state> &thePath, double minTime=0.0);
+	double GetNextPath(std::vector<state> &thePath, double minTime=0.0);
 	void GetPath(environment *, const state& , const state& , std::vector<action> &);
         inline openList* GetOpenList(){return &openClosedList;}
 	
@@ -199,28 +185,36 @@ const char *TemporalAStar<state,action,environment,openList>::GetName()
 
 /**
  * Perform an A* search between two states.  
- * @author Nathan Sturtevant
- * @date 03/22/06
- *
- * @param _env The search environment
- * @param from The start state
- * @param to The goal state
- * @param thePath A vector of states which will contain an optimal path 
- * between from and to when the function returns, if one exists. 
  */
 template <class state, class action, class environment, class openList>
 void TemporalAStar<state,action,environment,openList>::GetPath(environment *_env, const state& from, const state& to, std::vector<state> &thePath, double minTime)
 {
-	//discardcount=0;
   	if (!InitializeSearch(_env, from, to, thePath,minTime))
   	{	
   		return;
   	}
   	while (!DoSingleSearchStep(thePath,minTime))
 	{
-//		if (0 == nodesExpanded%10000)
-//			printf("%llu nodes expanded\n", nodesExpanded);
 	}
+}
+
+/**
+ * Retrieve the next path found in the OPEN list
+ */
+template <class state, class action, class environment, class openList>
+double TemporalAStar<state,action,environment,openList>::GetNextPath(std::vector<state> &thePath, double minTime)
+{
+  if(openClosedList.OpenSize() == 0){
+    assert(!"GetNextPath called but GetPath was not called first");
+  }else{
+    thePath.resize(0);
+    double f(0.0);
+    do{
+      uint64_t key(openClosedList.Peek());
+      f=openClosedList.Lookup(key).g+openClosedList.Lookup(key).h;
+    }while(!DoSingleSearchStep(thePath,minTime));
+    return f;
+  }
 }
 
 template <class state, class action, class environment, class openList>
@@ -244,13 +238,6 @@ void TemporalAStar<state,action,environment,openList>::GetPath(environment *_env
 
 /**
  * Initialize the A* search
- * @author Nathan Sturtevant	
- * @date 03/22/06
- * 
- * @param _env The search environment
- * @param from The start state
- * @param to The goal state
- * @return TRUE if initialization was successful, FALSE otherwise
  */
 template <class state, class action, class environment, class openList>
 bool TemporalAStar<state,action,environment,openList>::InitializeSearch(environment *_env, const state& from, const state& to, std::vector<state> &thePath, double minTime)

@@ -9,6 +9,7 @@
 #include "Grid3DConstrainedEnvironment.h"
 #include "Map3d.h"
 #include "TemplateAStar.h"
+#include "TemporalAStar.h"
 #include "RadialSafety2DObjectiveEnvironment.h"
 #include "dtedreader.h"
 
@@ -274,6 +275,35 @@ TEST(Map2D, FortyEightConnected_GCost){
   //ASSERT_DOUBLE_EQ(sqrt(5)+6.*sqrt(10),env.HCost({12,38},{51,41}));
 }
 
+TEST(TemporalAStar, TestGetNextPath){
+  TemporalAStar<xytLoc,tDirection,Map2DConstrainedEnvironment> astar;
+  Map map(100,100);
+  MapEnvironment env1(&map);
+  env1.SetNineConnected();
+  Map2DConstrainedEnvironment env(&env1);
+  std::vector<xytLoc> path;
+  xytLoc s(0,1);
+  xytLoc g(99,99);
+  //std::cout << s << " " << g << "\n";
+
+  int n(0);
+  astar.GetPath(&env,s,g,path,142);
+  double t(0);
+  //std::cout << path.size() << "----------------\n" << path[0] << "\n";
+  std::cout << "path number: " << ++n << "\n";
+  std::cout << path[0] << "\n";
+  for(int j(1); j<path.size(); ++j){
+    t += env.GCost(path[j-1],path[j]);
+    std::cout << path[j] << "\n";
+  }
+
+  while(fleq(astar.GetNextPath(path,42),t)){ // Fetch all paths of equal cost
+    std::cout << "path number: " << ++n << "\n";
+    for(int j(0); j<path.size(); ++j){
+      std::cout << path[j] << "\n";
+    }
+  }
+}
 /*
 // This is no longer reversible
 TEST(Map2D, HashUnhash){
