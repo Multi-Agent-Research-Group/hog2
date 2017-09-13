@@ -287,7 +287,7 @@ TEST(TemporalAStar, TestGetNextPath){
   //std::cout << s << " " << g << "\n";
 
   int n(0);
-  astar.GetPath(&env,s,g,path,142);
+  astar.GetNextPath(&env,s,g,path,142);
   double t(0);
   //std::cout << path.size() << "----------------\n" << path[0] << "\n";
   std::cout << "path number: " << ++n << "\n";
@@ -297,7 +297,7 @@ TEST(TemporalAStar, TestGetNextPath){
     std::cout << path[j] << "\n";
   }
 
-  while(fleq(astar.GetNextPath(path,42),t)){ // Fetch all paths of equal cost
+  while(fleq(astar.GetNextPath(&env,s,g,path,142),t)){ // Fetch all paths of equal cost
     std::cout << "path number: " << ++n << "\n";
     for(int j(0); j<path.size(); ++j){
       std::cout << path[j] << "\n";

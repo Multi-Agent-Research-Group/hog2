@@ -32,8 +32,17 @@
 #include "Timer.h"
 #include <string.h>
 
+#define NO_CONFLICT    0
+#define NON_CARDINAL   1
+#define LEFT_CARDINAL  2
+#define RIGHT_CARDINAL 4
+#define BOTH_CARDINAL  (LEFT_CARDINAL|RIGHT_CARDINAL)
+
 template <class state>
 struct CompareLowGCost;
+
+template<typename state>
+using Solution = std::vector<std::vector<state>>;
 
 template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
 class CBSUnit;
@@ -54,6 +63,50 @@ struct CompareLowGCost {
 };
 
 // Helper functions
+
+// Merge path between waypoints
+template <typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
+void MergeLeg(std::vector<state> const& path, std::vector<state>& thePath, std::vector<int>& wpts, const unsigned s, unsigned g, double minTime){
+  int insertPoint(wpts[s]); // Starting index of this leg
+  float origTime(thePath[wpts[g]].t); // Original ending time of leg
+  unsigned deletes(wpts[g]-wpts[s]+1); // Number of path points in this leg.
+  // Remove points from the original path (if they exist)
+  if(thePath.empty()){
+    assert(!"Path being merged into is empty");
+  }
+  if(path.empty()){
+    assert(!"Path to merge is empty");
+  }
+  while(thePath.size()>wpts[g]+1 && thePath[wpts[g]].sameLoc(thePath[++wpts[g]])){deletes++;}
+  float newTime(path.rbegin()->t); // Save the track end time of the new leg
+
+  // Insert new path in front of the insert point
+  thePath.insert(thePath.begin()+insertPoint,path.begin(),path.end());
+  insertPoint += path.size();
+
+  //Erase the original subpath including the start node
+  thePath.erase(thePath.begin()+insertPoint,thePath.begin()+insertPoint+deletes);
+
+  // Update waypoint indices
+  int legLenDiff(path.size()-deletes);
+  if(legLenDiff){
+    for(int i(g); i<wpts.size(); ++i){
+      wpts[i]+=legLenDiff;
+    }
+  }
+
+  if(thePath.size()-1!=wpts[g] && !fequal(newTime,origTime)){
+      // Increase times through the end of the track
+      auto newEnd(thePath.begin()+insertPoint);
+      while(newEnd++ != thePath.end()){
+          newEnd->t+=(newTime-origTime);
+      }
+  }
+
+  while(wpts[g]>wpts[s]+1 && thePath[wpts[g]].sameLoc(thePath[wpts[g]-1])){
+    wpts[g]--;
+  }
+}
 
 // Plan path between waypoints
 template <typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
@@ -125,7 +178,6 @@ unsigned ReplanLeg(CBSUnit<state,action,environment,comparison,conflicttable,sea
   //for(auto &p: thePath){std::cout << p << "\n";}
   //std::cout << "exp replan " << astar.GetNodesExpanded() << "\n";
   return astar.GetNodesExpanded();
-
 }
 
 // Plan path between waypoints
@@ -230,15 +282,15 @@ private:
 template<typename state>
 struct Conflict {
 	Constraint<state> c;
-	int unit1;
-        int prevWpt;
+	unsigned unit1;
+        unsigned prevWpt;
 };
 
 template<typename state, typename conflicttable, class searchalgo>
 struct CBSTreeNode {
 	CBSTreeNode():parent(0),satisfiable(true),cat(){}
 	std::vector< std::vector<int> > wpts;
-	std::vector< std::vector<state> > paths;
+	Solution<state> paths;
 	Conflict<state> con;
 	unsigned int parent;
 	bool satisfiable;
@@ -292,9 +344,10 @@ class CBSGroup : public UnitGroup<state, action, environment>
   private:    
 
     unsigned LoadConstraintsForNode(int location);
-    bool Bypass(int best, unsigned numConflicts, Conflict<state> const& c1);
+    bool Bypass(int best, std::pair<unsigned,unsigned> const& numConflicts, Conflict<state> const& c1, unsigned otherunit, double minTime);
     void Replan(int location);
-    unsigned HasConflict(std::vector<state> const& a, std::vector<int> const& wa, std::vector<state> const& b, std::vector<int> const& wb, int x, int y, Conflict<state> &c1, Conflict<state> &c2, bool update, bool verbose=false);
+    void HasConflict(std::vector<state> const& a, std::vector<int> const& wa, std::vector<state> const& b, std::vector<int> const& wb, int x, int y, Conflict<state> &c1, Conflict<state> &c2, std::pair<unsigned,unsigned>& conflict, bool verbose=false);
+    std::pair<unsigned,unsigned> FindHiPriConflict(CBSTreeNode<state,conflicttable,searchalgo>  const& location, Conflict<state> &c1, Conflict<state> &c2);
     unsigned FindFirstConflict(CBSTreeNode<state,conflicttable,searchalgo>  const& location, Conflict<state> &c1, Conflict<state> &c2);
 
     bool planFinished;
@@ -468,23 +521,23 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Exp
   Conflict<state> c1, c2;
   unsigned long last = tree.size();
 
-  unsigned numConflicts(FindFirstConflict(tree[bestNode], c1, c2));
-  // If not conflicts are found in this node, then the path is done
-  if (numConflicts==0)
+  auto numConflicts(FindHiPriConflict(tree[bestNode], c1, c2));
+  // If no conflicts are found in this node, then the path is done
+  if (numConflicts.first==0)
   {
     processSolution(timer->EndTimer());
-  } 
+  }else{
+    // If the conflict is NON_CARDINAL, try the bypass
+    // if semi-cardinal, try bypass on one and create a child from the other
+    // if both children are cardinal, create children for both
 
-  // Otherwise, we need to deal with the conflicts
-  else
-  {
     // Swap units
     unsigned tmp(c1.unit1);
     c1.unit1=c2.unit1;
     c2.unit1=tmp;
     // Notify the user of the conflict
     if(verbose){
-      std::cout << "TREE " << bestNode <<"("<<tree[bestNode].parent << ") Conflict found between unit " << c1.unit1 << " and unit " << c2.unit1 << " @:" << c2.c.start() << "-->" << c2.c.end() <<  " and " << c1.c.start() << "-->" << c1.c.end() << " NC " << numConflicts << " prev-W " << c1.prevWpt << " " << c2.prevWpt << "\n";
+      std::cout << "TREE " << bestNode <<"("<<tree[bestNode].parent << ") Conflict found between unit " << c1.unit1 << " and unit " << c2.unit1 << " @:" << c2.c.start() << "-->" << c2.c.end() <<  " and " << c1.c.start() << "-->" << c1.c.end() << " NC " << numConflicts.first << " prev-W " << c1.prevWpt << " " << c2.prevWpt << "\n";
       std::cout << c1.unit1 << ":\n";
       for(auto const& a:tree[bestNode].paths[c1.unit1]){
         std::cout << a << "\n";
@@ -500,37 +553,21 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Exp
       usleep(animate*1000);
     }
 
-    // Don't create new nodes if either bypass was successful
-    // Note, these calls will add nodes to the openList
-    if(!Bypass(bestNode,numConflicts,c1) && !Bypass(bestNode,numConflicts,c2))
-      //Bypass(bestNode,numConflicts,c1,keeprunning);
-      //Bypass(bestNode,numConflicts,c2,keeprunning);
-    {
+    double minTime(0.0);
+    // If this is the last waypoint, the plan needs to extend so that the agent sits at the final goal
+    if(!(numConflicts.second&LEFT_CARDINAL)){
+      if(tree[bestNode].con.prevWpt+1==tree[bestNode].wpts[c1.unit1].size()-1){
+        minTime=GetMaxTime(bestNode,c1.unit1)-1.0; // Take off a 1-second wait action, otherwise paths will grow over and over.
+      }
+      if(!Bypass(bestNode,numConflicts,c1,c2.unit1,minTime)){
       last = tree.size();
-
-      // Add two nodes to the tree for each of the children
-      tree.resize(last+2);
-      //std::cout << "Tree has " << tree.size() << "\n";
-      // The first node contains the conflict c1
+      tree.resize(last+1);
       tree[last] = tree[bestNode];
       tree[last].con = c1;
       tree[last].parent = bestNode;
       tree[last].satisfiable = true;
-
-      // The second node constains the conflict c2
-      tree[last+1] = tree[bestNode];
-      tree[last+1].con = c2;
-      tree[last+1].parent = bestNode;
-      tree[last+1].satisfiable = true;
-
-      // We now replan in the tree for both of the child nodes
       Replan(last);
-      unsigned nc1(numConflicts);
-      //unsigned nc1(FindFirstConflict(tree[last], c1, c2));
-      //unsigned nc2(FindFirstConflict(tree[last+1], c1, c2));
-
-
-      // Add the new nodes to the open list
+      unsigned nc1(numConflicts.first);
       double cost = 0;
       for (int y = 0; y < tree[last].paths.size(); y++){
         if(verbose){
@@ -547,25 +584,38 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Exp
         std::cout << "New CT NODE: " << last << " replanned: " << c1.unit1 << " cost: " << cost << " " << nc1 << "\n";
       }
       openList.push(l1);
-
-      Replan(last+1);
-      unsigned nc2(numConflicts);
-      cost = 0;
-      for (int y = 0; y < tree[last+1].paths.size(); y++){
-        if(verbose){
-          std::cout << "Agent " << y <<":\n";
-          for(auto const& ff:tree[last+1].paths[y]){
-            std::cout << ff << "\n";
+      }
+    }
+    if(!(numConflicts.second&RIGHT_CARDINAL)){
+      if(tree[bestNode].con.prevWpt+1==tree[bestNode].wpts[c2.unit1].size()-1){
+        minTime=GetMaxTime(bestNode,c2.unit1)-1.0; // Take off a 1-second wait action, otherwise paths will grow over and over.
+      }
+      if(!Bypass(bestNode,numConflicts,c2,c1.unit1,minTime)){
+        last = tree.size();
+        tree.resize(last+1);
+        tree[last] = tree[bestNode];
+        tree[last].con = c2;
+        tree[last].parent = bestNode;
+        tree[last].satisfiable = true;
+        Replan(last);
+        unsigned nc1(numConflicts.first);
+        double cost = 0;
+        for (int y = 0; y < tree[last].paths.size(); y++){
+          if(verbose){
+            std::cout << "Agent " << y <<":\n";
+            for(auto const& ff:tree[last].paths[y]){
+              std::cout << ff << "\n";
+            }
+            std::cout << "cost: " << currentEnvironment->environment->GetPathLength(tree[last].paths[y]) << "\n";
           }
-          std::cout << "cost: " << currentEnvironment->environment->GetPathLength(tree[last].paths[y]) << "\n";
+          cost += currentEnvironment->environment->GetPathLength(tree[last].paths[y]);
         }
-        cost += currentEnvironment->environment->GetPathLength(tree[last+1].paths[y]);
+        OpenListNode l1(last, cost, nc1);
+        if(verbose){
+          std::cout << "New CT NODE: " << last << " replanned: " << c1.unit1 << " cost: " << cost << " " << nc1 << "\n";
+        }
+        openList.push(l1);
       }
-      OpenListNode l2(last+1, cost, nc2);
-      if(verbose){
-        std::cout << "New CT NODE: " << last+1 << " replanned: " << c2.unit1 << " cost: " << cost << " " << nc2 << "\n";
-      }
-      openList.push(l2);
     }
 
     // Get the best node from the top of the open list, and remove it from the list
@@ -1080,7 +1130,7 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>:
 // Attempts a bypass around the conflict using an alternate optimal path
 // Returns whether the bypass was effective
 template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
-bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Bypass(int best, unsigned numConflicts, Conflict<state> const& c1)
+bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Bypass(int best, std::pair<unsigned,unsigned> const& numConflicts, Conflict<state> const& c1, unsigned otherunit, double minTime)
 {
   if(nobypass)return false;
   LoadConstraintsForNode(best);
@@ -1093,20 +1143,43 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Byp
   std::vector<int> newWpts(tree[best].wpts[c1.unit1]);
   // Re-perform the search with the same constraints (since the start and goal are the same)
   CBSUnit<state,action,environment,comparison,conflicttable,searchalgo> *c = (CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>*)this->GetMember(c1.unit1);
-  //currentEnvironment->environment->setGoal(*tree[best].paths[c1.unit1].rbegin());
-  //astar2.SetStopAfterAllOpt(true);
-  astar2.noncritical=true; // Because it's bypass, we can kill early if the search prolongs. this var is reset internally by the routine.
-  astar2.SetWeight(currentEnvironment->astar_weight);
-  //astar2.GetPath(currentEnvironment->environment, *tree[best].paths[c1.unit1].begin(), *tree[best].paths[c1.unit1].rbegin(), newPath);
-  //TOTAL_EXPANSIONS += astar2.GetNodesExpanded();
 
   // Never use conflict avoidance tree for bypass
   bool orig(comparison::useCAT);
   comparison::useCAT=false;
-  // TODO fix this to replan in reverse
-  ReplanLeg<state,action,environment,comparison,conflicttable,searchalgo>(c, astar, currentEnvironment->environment, newPath, newWpts, c1.prevWpt, c1.prevWpt+1,0.0);
-    if(killex != INT_MAX && TOTAL_EXPANSIONS>killex)
-      processSolution(-timer->EndTimer());
+
+  state start(c->GetWaypoint(c1.prevWpt));
+  state goal(c->GetWaypoint(c1.prevWpt+1));
+  // Preserve proper start time
+  start.t = newPath[newWpts[c1.prevWpt]].t;
+  // Cost of the previous path
+  double cost(currentEnvironment->environment->GetPathLength(newPath));
+  currentEnvironment->environment->setGoal(goal);
+  std::vector<state> path;
+  
+  CBSTreeNode<state,conflicttable,searchalgo> newNode(tree[best]);
+  Conflict<state> t1,t2; // Temp variables
+  std::pair<unsigned,unsigned> pconf({9999999,0});
+  // Perform search for the leg
+  while(fleq(astar.GetNextPath(currentEnvironment->environment,start,goal,path,minTime),cost)){
+    if(path.size()==0)continue;
+    TOTAL_EXPANSIONS+=astar.GetNodesExpanded();
+    MergeLeg<state,action,environment,comparison,conflicttable,searchalgo>(path,newPath,newWpts,c1.prevWpt, c1.prevWpt+1,minTime);
+    newNode.paths[c1.unit1] = newPath;
+    newNode.wpts[c1.unit1] = newWpts;
+    // TODO do full conflict count here
+    HasConflict(newNode.paths[c1.unit1],newNode.wpts[c1.unit1],newNode.paths[otherunit],newNode.wpts[otherunit],c1.unit1,otherunit,t1,t2,pconf);
+    if(openList.top().nc>pconf.first){ // Is this bypass helpful?
+      tree[best].paths[c1.unit1]=newPath;
+      tree[best].wpts[c1.unit1]=newWpts;
+    }
+    if(pconf.first==0){
+      break;
+    }
+  }
+
+  if(killex != INT_MAX && TOTAL_EXPANSIONS>killex)
+    processSolution(-timer->EndTimer());
   comparison::useCAT=orig;
 
   // Make sure that the current location is satisfiable
@@ -1114,62 +1187,6 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Byp
   {
     return false;
   }
-
-  CBSTreeNode<state,conflicttable,searchalgo> newNode(tree[best]);
-  newNode.paths[c1.unit1] = newPath;
-  newNode.wpts[c1.unit1] = newWpts;
-  unsigned bypassConflicts(FindFirstConflict(newNode, c3, c4));
-  if(bypassConflicts < numConflicts)// && newPath.size() <= tree[best].paths[c1.unit1].size())
-  {
-    success = true;
-    //std::cout << "Found a bypass! expansions:" << astar2.GetNodesExpanded() << " len" <<newPath.size()<<" == "<<tree[best].paths[c1.unit1].size() << "\n\n\n";
-    if(bypassConflicts==0)
-    {
-      tree[best].paths[c1.unit1]=newPath;
-      processSolution(timer->EndTimer());
-      return true;
-    }
-    else
-    {
-      // Add two nodes to the tree for each of the children
-      unsigned long last(tree.size());
-
-      tree.resize(last+2);
-      tree[last]=newNode;
-      tree[last].con = c3;
-      // Note: parent does not change
-      tree[last].satisfiable = true;
-
-      tree[last+1] = newNode;
-      tree[last+1].con = c4;
-      // Note: parent does not change
-      tree[last+1].satisfiable = true;
-
-      // Issue tickets on the path
-      //Replan(last); //Replan not necessary since we already have the path...
-      //Replan(last+1);
-      unsigned nc1(numConflicts);
-      unsigned nc2(numConflicts);
-      //unsigned nc1(FindFirstConflict(tree[last], c3, c4));
-      //unsigned nc2(FindFirstConflict(tree[last+1], c3, c4));
-
-      // Add the new nodes to the open list
-      double cost = 0;
-      for (int y = 0; y < tree[last].paths.size(); y++)
-        cost += currentEnvironment->environment->GetPathLength(tree[last].paths[y]);
-      OpenListNode l1(last, cost, nc1);
-      //std::cout << "New CT NODE: " << last << " " << cost << " " << nc1 << "\n";
-      openList.push(l1);
-
-      cost = 0;
-      for (int y = 0; y < tree[last+1].paths.size(); y++)
-        cost += currentEnvironment->environment->GetPathLength(tree[last+1].paths[y]);
-      OpenListNode l2(last+1, cost, nc2);
-      //std::cout << "New CT NODE: " << last+1 << " " << cost << " " << nc2 << "\n";
-      openList.push(l2);
-    }
-  }
-
 
   return success;
 }
@@ -1248,16 +1265,27 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Rep
   // Issue tickets on the path
 }
 
+// Returns a pair containing:
+// Number of Conflicts (NC)
+// and
+// an enum:
+// 0=no-conflict    0x0000
+// 1=non-cardinal   0x0001
+// 2=left-cardinal  0x0010
+// 4=right-cardinal 0x0100
+// 6=both-cardinal  0x0110
 template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
-unsigned CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::HasConflict(std::vector<state> const& a, std::vector<int> const& wa, std::vector<state> const& b, std::vector<int> const& wb, int x, int y, Conflict<state> &c1, Conflict<state> &c2, bool update, bool verbose)
+void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::HasConflict(std::vector<state> const& a, std::vector<int> const& wa, std::vector<state> const& b, std::vector<int> const& wb, int x, int y, Conflict<state> &c1, Conflict<state> &c2, std::pair<unsigned,unsigned>& conflict, bool verbose)
 {
-  unsigned numConflicts(0);
+  // The conflict parameter contains the conflict count so far (conflict.first)
+  // and the type of conflict found so far (conflict.second=BOTH_CARDINAL being the highest)
+
   // To check for conflicts, we loop through the timed actions, and check 
   // each bit to see if a constraint is violated
   int xmax(a.size());
   int ymax(b.size());
 
-  if(verbose)std::cout << "Checking for conflicts between: "<<x << " and "<<y<<" ranging from:" << xmax <<"," << ymax << " update: " << update << "\n";
+  if(verbose)std::cout << "Checking for conflicts between: "<<x << " and "<<y<<" ranging from:" << xmax <<"," << ymax << "\n";
 
   //CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>* A = (CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>*) this->GetMember(x);
   //CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>* B = (CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>*) this->GetMember(y);
@@ -1272,22 +1300,22 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>:
   {
     // I and J hold the current step in the path we are comparing. We need 
     // to check if the current I and J have a conflict, and if they do, then
-    // we have to deal with it, if not, then we don't.
+    // we have to deal with it.
 
     // Figure out which indices we're comparing
     int xTime(max(0, min(i, xmax-1)));
     int yTime(max(0, min(j, ymax-1)));
+    int xNextTime(min(xmax-1, xTime+1));
+    int yNextTime(min(ymax-1, yTime+1));
 
     // Check if we're looking directly at a waypoint.
     // Increment so that we know we've passed it.
-    if(update){
-        //std::cout << "if(xTime != pxTime && A->GetWaypoint(pwptA+1)==a[xTime]){++pwptA; pxTime=xTime;}\n";
-        //std::cout << " " << xTime << " " << pxTime << " " << pwptA;std::cout << " " << A->GetWaypoint(pwptA+1) << " " << a[xTime] << "==?" << (A->GetWaypoint(pwptA+1)==a[xTime]) <<  "\n";
-        //std::cout << "if(yTime != pyTime && B->GetWaypoint(pwptB+1)==b[yTime]){++pwptB; pyTime=yTime;}\n";
-        //std::cout << " " << yTime << " " << pyTime << " " << pwptB;std::cout << " " << B->GetWaypoint(pwptB+1) << " " << b[yTime] << "==?" << (B->GetWaypoint(pwptB+1)==b[yTime]) <<  "\n";
-        if(xTime != pxTime && pwptA+2<wa.size() && xTime == wa[pwptA+1]){++pwptA; pxTime=xTime;}
-        if(yTime != pyTime && pwptB+2<wb.size() && yTime == wb[pwptB+1]){++pwptB; pyTime=yTime;}
-    }
+    //std::cout << "if(xTime != pxTime && A->GetWaypoint(pwptA+1)==a[xTime]){++pwptA; pxTime=xTime;}\n";
+    //std::cout << " " << xTime << " " << pxTime << " " << pwptA;std::cout << " " << A->GetWaypoint(pwptA+1) << " " << a[xTime] << "==?" << (A->GetWaypoint(pwptA+1)==a[xTime]) <<  "\n";
+    //std::cout << "if(yTime != pyTime && B->GetWaypoint(pwptB+1)==b[yTime]){++pwptB; pyTime=yTime;}\n";
+    //std::cout << " " << yTime << " " << pyTime << " " << pwptB;std::cout << " " << B->GetWaypoint(pwptB+1) << " " << b[yTime] << "==?" << (B->GetWaypoint(pwptB+1)==b[yTime]) <<  "\n";
+    if(xTime != pxTime && pwptA+2<wa.size() && xTime == wa[pwptA+1]){++pwptA; pxTime=xTime;}
+    if(yTime != pyTime && pwptB+2<wb.size() && yTime == wb[pwptB+1]){++pwptB; pyTime=yTime;}
 
     if(verbose)std::cout << "Looking at positions " << xTime <<":"<<a[xTime].t << "," << j<<":"<<b[yTime].t << std::endl;
 
@@ -1298,56 +1326,72 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>:
 
     // Deal with landing conflicts, we don't conflict if one of the planes stays landed at
     // the entire time
-    if (!(a[xTime].landed && a[min(xTime + 1, xmax-1)].landed || 
-          b[yTime].landed && b[min(yTime + 1, xmax-1)].landed)) 
+    if (!(a[xTime].landed && a[xNextTime].landed || 
+          b[yTime].landed && b[yNextTime].landed)) 
     {
+      state const& aGoal(a[wa[pwptA+1]]);
+      state const& bGoal(b[wb[pwptB+1]]);
       // There are 4 states landed->landed landed->not_landed not_landed->landed and not_landed->not_landed. we
       // need to check edge conflicts on all except the landed->landed states, which we do above. If one plane
       // stays landed the whole time, then there's no edge-conflict -> but if they don't stay landed the whole time
       // then there's obviously a conflict, because they both have to be doing something fishy.
 
-
-      // Check the vertex conflict
-      /*if (x_c.ConflictsWith(y_c) && ++numConflicts && update)
-        {
-        c1.c = x_c;
-        c2.c = y_c;
-
-        c1.unit1 = y;
-        c2.unit1 = x;
-
-        c1.prevWpt = pwptB;
-        c2.prevWpt = pwptA;
-
-        update = false;
-        return 1;
-        }*/
-
       // Check for edge conflicts
       Vector2D A(a[xTime]);
-      Vector2D VA(a[min(xmax-1, xTime+1)]);
+      Vector2D VA(a[xNextTime]);
       VA-=A; // Direction vector
       VA.Normalize();
       Vector2D B(b[yTime]);
-      Vector2D VB(b[min(ymax-1, yTime+1)]);
+      Vector2D VB(b[yNextTime]);
       VB-=B; // Direction vector
       VB.Normalize();
 
-      if(collisionImminent(A,VA,agentRadius,a[xTime].t,a[min(xmax-1, xTime+1)].t,B,VB,agentRadius,b[yTime].t,b[min(ymax-1, yTime+1)].t) && ++numConflicts && update){
-        Constraint<state> x_e_c(a[xTime], a[min(xmax-1, xTime+1)]);
-        Constraint<state> y_e_c(b[yTime], b[min(ymax-1, yTime+1)]);
+      if(collisionImminent(A,VA,agentRadius,a[xTime].t,a[xNextTime].t,B,VB,agentRadius,b[yTime].t,b[yNextTime].t)){
+        ++conflict.first;
+        if(BOTH_CARDINAL!=(conflict.second&BOTH_CARDINAL)){ // Keep searching until we find a both-cardinal conflict
+          // Determine conflict type
+          // If there are other legal successors with succ.f()=child.f(), this is non-cardinal
+          unsigned conf(NO_CONFLICT); // Left is cardinal?
+          {
+            double childf(currentEnvironment->environment->GCost(a[xTime],a[xNextTime])+currentEnvironment->environment->HCost(a[xNextTime],aGoal));
+            std::vector<state> succ;
+            currentEnvironment->environment->GetSuccessors(a[xTime],succ);
+            bool found(false);
+            for(auto const& s:succ){ // Is there at least one successor with same g+h as child?
+              if(s.sameLoc(a[xNextTime])){continue;}
+              if(fleq(currentEnvironment->environment->GCost(a[xTime],s)+currentEnvironment->environment->HCost(s,aGoal),childf)){found=true;break;}
+            }
+            if(!found){conf|=LEFT_CARDINAL;}
+          }
+          // Right is cardinal
+          {
+            double childf(currentEnvironment->environment->GCost(b[yTime],b[yNextTime])+currentEnvironment->environment->HCost(b[yNextTime],bGoal));
+            std::vector<state> succ;
+            currentEnvironment->environment->GetSuccessors(b[yTime],succ);
+            bool found(false);
+            for(auto const& s:succ){ // Is there at least one successor with same g+h as child?
+              if(s.sameLoc(b[yNextTime])){continue;}
+              if(fleq(currentEnvironment->environment->GCost(b[yTime],s)+currentEnvironment->environment->HCost(s,bGoal),childf)){found=true;break;}
+            }
+            if(!found){conf|=RIGHT_CARDINAL;}
+          }
+          // Have we increased form non-cardinal to semi-cardinal or both-cardinal?
+          if(NO_CONFLICT==conflict.second || ((conflict.second<=NON_CARDINAL)&&conf) || BOTH_CARDINAL==conf){
+            conflict.second=conf+1;
 
-        c1.c = x_e_c;
-        c2.c = y_e_c;
+            Constraint<state> x_e_c(a[xTime], a[xNextTime]);
+            Constraint<state> y_e_c(b[yTime], b[yNextTime]);
 
-        c1.unit1 = y;
-        c2.unit1 = x;
+            c1.c = x_e_c;
+            c2.c = y_e_c;
 
-        c1.prevWpt = pwptB;
-        c2.prevWpt = pwptA;
+            c1.unit1 = y;
+            c2.unit1 = x;
 
-        update = false;
-        return 1;
+            c1.prevWpt = pwptB;
+            c2.prevWpt = pwptA;
+          }
+        }
       }
     }
 
@@ -1368,20 +1412,45 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>:
 
     // Otherwise, we figure out which ends soonest, and
     // we increment that counter.
-    if (a[min(xmax-1, xTime+1)].t < b[min(ymax-1, yTime+1)].t)
-    {
+    if(fless(a[xNextTime].t,b[yNextTime].t)){
       // If the end-time of the x unit segment is before the end-time of the y unit segment
       // we have in increase the x unit but leave the y unit time the same
-      i ++;
-    } 
-    else 
-    {
+      i++;
+    } else if(fequal(a[xNextTime].t,b[yNextTime].t)){
+      i++;
+      j++;
+    } else {
       // Otherwise, the y unit time has to be incremented
-      j ++;
+      j++;
     }
 
   } // End time loop
-  return numConflicts;
+}
+
+/** Find the highest priority conflict **/
+template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
+std::pair<unsigned,unsigned> CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::FindHiPriConflict(CBSTreeNode<state,conflicttable,searchalgo> const& location, Conflict<state> &c1, Conflict<state> &c2)
+{
+
+  // prefer cardinal conflicts
+  std::pair<std::pair<unsigned,unsigned>,std::pair<Conflict<state>,Conflict<state>>> best;
+  std::pair<Conflict<state>,Conflict<state>> result;
+
+  // For each pair of units in the group
+  for (int x = 0; x < this->GetNumMembers(); x++)
+  {
+    for (int y = x+1; y < this->GetNumMembers(); y++)
+    {
+      // This call will update "best" with the number of conflicts and
+      // with the *most* cardinal conflicts
+      HasConflict(location.paths[x],location.wpts[x],location.paths[y],location.wpts[y],x,y,best.second.first,best.second.second,best.first);
+      //if((best.first.second&BOTH_CARDINAL)==BOTH_CARDINAL)break;
+    }
+    //if((best.first.second&BOTH_CARDINAL)==BOTH_CARDINAL)break;
+  }
+  c1=result.first;
+  c2=result.second;
+  return best.first;
 }
 
 /** Find the first place that there is a conflict in the tree */
@@ -1397,7 +1466,7 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>:
     for (int y = x+1; y < this->GetNumMembers(); y++)
     {
 
-      numConflicts += HasConflict(location.paths[x],location.wpts[x],location.paths[y],location.wpts[y],x,y,c1,c2,numConflicts==0);
+      //numConflicts += HasConflict(location.paths[x],location.wpts[x],location.paths[y],location.wpts[y],x,y,c1,c2,numConflicts==0);
       if(!greedyCT&&numConflicts) return numConflicts;
     }
   }

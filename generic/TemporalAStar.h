@@ -47,7 +47,7 @@ public:
 	TemporalAStar():env(0),totalExternalNodesExpanded(nullptr),externalExpansionLimit(INT_MAX),useBPMX(0),radius(4.0),stopAfterGoal(true),doPartialExpansion(false),verbose(false),weight(1),useRadius(false),useOccupancyInfo(false),radEnv(0),reopenNodes(false),theHeuristic(0),directed(false),noncritical(false),SuccessorFunc(&environment::GetSuccessors),ActionFunc(&environment::GetAction),GCostFunc(&environment::GCost){ResetNodeCount();}
 	virtual ~TemporalAStar() {}
 	void GetPath(environment *env, const state& from, const state& to, std::vector<state> &thePath, double minTime=0.0);
-	double GetNextPath(std::vector<state> &thePath, double minTime=0.0);
+	double GetNextPath(environment *env, const state& from, const state& to, std::vector<state> &thePath, double minTime=0.0);
 	void GetPath(environment *, const state& , const state& , std::vector<action> &);
         inline openList* GetOpenList(){return &openClosedList;}
 	
@@ -202,10 +202,13 @@ void TemporalAStar<state,action,environment,openList>::GetPath(environment *_env
  * Retrieve the next path found in the OPEN list
  */
 template <class state, class action, class environment, class openList>
-double TemporalAStar<state,action,environment,openList>::GetNextPath(std::vector<state> &thePath, double minTime)
+double TemporalAStar<state,action,environment,openList>::GetNextPath(environment *env, const state& from, const state& to, std::vector<state> &thePath, double minTime)
 {
   if(openClosedList.OpenSize() == 0){
-    assert(!"GetNextPath called but GetPath was not called first");
+    GetPath(env,from,to,thePath,minTime);
+    double val(0.0);
+    GetClosedListGCost(thePath.back(),val);
+    return val;
   }else{
     thePath.resize(0);
     double f(0.0);
