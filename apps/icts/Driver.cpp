@@ -44,6 +44,11 @@
 #include "Heuristic.h"
 #include "UnitSimulation.h"
 
+float jointTime(0);
+float pairwiseTime(0);
+float mddTime(0);
+float nogoodTime(0);
+
 extern double agentRadius;
 bool bestonly(false);
 bool nogoodprune(true);
@@ -65,6 +70,7 @@ bool gui=true;
 uint64_t jointnodes(0);
 float step(1.0);
 int n;
+std::unordered_map<std::string,bool> transTable;
 
 // for agents to stay at goal
 #define MAXTIME 1000
@@ -207,11 +213,13 @@ namespace std
 struct Node : public Hashable{
 	static MapEnvironment* env;
         static uint64_t count;
+
 	Node(){count++;}
-	Node(xyLoc a, float d):n(a),depth(d),optimal(false),nogood(false){count++;}
+	Node(xyLoc a, float d):n(a),depth(d),optimal(false),unified(false),nogood(false){count++;}
 	xyLoc n;
 	float depth;
         bool optimal;
+        uint64_t unified;
         bool nogood;
         //bool connected()const{return parents.size()+successors.size();}
 	//std::unordered_set<Node*> parents;
@@ -244,7 +252,6 @@ typedef std::vector<std::pair<Node*,Node*>> MultiEdge; // rank=agent num
 typedef std::unordered_map<uint64_t,Node> DAG;
 std::unordered_map<uint64_t,Node*> mddcache;
 std::unordered_map<uint64_t,float> lbcache;
-std::vector<Node*> nogoods;
 
 /*class MultiEdge: public Multiedge{
   public:
@@ -470,13 +477,6 @@ void generatePermutations(std::vector<MultiEdge>& positions, std::vector<MultiEd
       if(collisionImminent(A,VA,agentRadius,positions[agent][i].first->depth,positions[agent][i].second->depth,B,VB,agentRadius,current[j].first->depth,current[j].second->depth)){
         if(verbose)std::cout << "Collision averted: " << *positions[agent][i].first << "-->" << *positions[agent][i].second << " " << *current[j].first << "-->" << *current[j].second << "\n";
         found=true;
-        /*if(nogoodprune){
-          positions[agent][i].second->nogood=true;
-          current[j].second->nogood=true;
-          nogoods.push_back(positions[agent][i].second);
-          nogoods.push_back(current[j].second);
-          //std::cout<<"Nogoods: " << nogoods.size() << "\n";
-        }*/
         //checked.insert(hash);
         break;
       }
@@ -492,8 +492,28 @@ void generatePermutations(std::vector<MultiEdge>& positions, std::vector<MultiEd
 
 // Return true if we get to the desired depth
 bool jointDFS(MultiEdge const& s, float d, Solution solution, std::vector<Solution>& solutions, std::vector<Node*>& toDelete, float& best, float bestSeen, bool suboptimal=false, bool checkOnly=false){
-  if(verbose)std::cout << "saw " << s << "\n";
-  //std::cout << d << std::string((int)d,' ');
+  // Compute hash for transposition table
+  std::string hash(s.size()*sizeof(uint64_t),1);
+  int i(0);
+  for(auto v:s){
+    uint64_t h1(v.second->Hash());
+    uint8_t c[sizeof(uint64_t)];
+    memcpy(c,&h1,sizeof(uint64_t));
+    for(unsigned j(0); j<sizeof(uint64_t); ++j){
+      hash[i*sizeof(uint64_t)+j]=((int)c[j])?c[j]:1; // Replace null-terminators in the middle of the string
+    }
+    ++i;
+  }
+  if(verbose)std::cout << "saw " << s << " hash ";
+  if(verbose)for(unsigned int i(0); i<hash.size(); ++i){
+    std::cout << (unsigned)hash[i]<<" ";
+  }
+  if(verbose)std::cout <<"\n";
+  if(transTable.find(hash)!=transTable.end()){
+    //std::cout << "AGAIN!\n";
+    return transTable[hash];
+    //if(!transTable[hash]){return false;}
+  }
 
   if(!checkOnly&&d>0){
     // Copy solution so far, but only copy components if they are
@@ -539,6 +559,7 @@ bool jointDFS(MultiEdge const& s, float d, Solution solution, std::vector<Soluti
             toDelete.push_back(solution[i].back());
           }
         }
+        solutions.clear();
         solutions.push_back(solution);
       }
     }
@@ -557,11 +578,19 @@ bool jointDFS(MultiEdge const& s, float d, Solution solution, std::vector<Soluti
   float md(INF); // Min depth of successors
   //Add in successors for parents who are equal to the min
   for(auto const& a: s){
+    if(nogoodprune){
+      if(a.second->nogood){
+        if(verbose)std::cout << *a.second << " is no good.\n";
+        return false; // If any  of these are "no good" just exit now
+      }else{
+        // The fact that we are evaluating this node means that all components were unified with something
+        if(checkOnly)a.second->unified=true;
+      }
+    }
     MultiEdge output;
     if(fleq(a.second->depth,sd)){
       //std::cout << "Keep Successors of " << *a.second << "\n";
       for(auto const& b: a.second->successors){
-        //if(a.second->nogood){/*std::cout << "Skipped no good\n";*/continue;}
           output.emplace_back(a.second,b);
           md=min(md,b->depth);
       }
@@ -597,16 +626,19 @@ bool jointDFS(MultiEdge const& s, float d, Solution solution, std::vector<Soluti
     if(verbose)std::cout << "EVAL " << s << "-->" << a << "\n";
     if(jointDFS(a,md,solution,solutions,toDelete,best,bestSeen,suboptimal,checkOnly)){
       value=true;
-      // Return first solution...
-      if(suboptimal) return true;
+      transTable[hash]=value;
+      // Return first solution... (unless this is a pairwise check with pruning)
+      if(suboptimal&&!(nogoodprune&&checkOnly)) return true;
       // Return if solution is as good as any MDD
-      if(bestonly&&fequal(best,bestSeen))return true;
+      if(!(nogoodprune&&checkOnly)&&fequal(best,bestSeen))return true;
     }
   }
+  transTable[hash]=value;
   return value;
 }
 
 bool jointDFS(MultiState const& s, std::vector<Solution>& solutions, std::vector<Node*>& toDelete, float bestSeen, bool suboptimal=false, bool checkOnly=false){
+  if(verbose)std::cout << "JointDFS\n";
   MultiEdge act;
   Solution solution;
   std::unordered_set<std::string> ttable;
@@ -620,6 +652,7 @@ bool jointDFS(MultiState const& s, std::vector<Solution>& solutions, std::vector
   }
   float best(INF);
 
+  transTable.clear();
   return jointDFS(act,0.0,solution,solutions,toDelete,best,bestSeen,suboptimal,checkOnly);
 }
 
@@ -814,10 +847,6 @@ void join(std::stringstream& s, std::vector<float> const& x){
   copy(x.begin(),x.end(), std::ostream_iterator<float>(s,","));
 }
 
-void clearNoGoods(){
-  //for(auto b:nogoods)b->nogood=false;
-  //nogoods.clear();
-}
 struct ICTSNode{
   ICTSNode(ICTSNode* parent,int agent, float size):instance(parent->instance),dag(parent->dag),best(parent->best),bestSeen(0),sizes(parent->sizes),root(parent->root){
     count++;
@@ -826,7 +855,10 @@ struct ICTSNode{
     if(verbose)std::cout << "replan agent " << agent << " GetMDD("<<(Node::env->HCost(instance.first[agent],instance.second[agent])+sizes[agent])<<")\n";
     dag[agent].clear();
     replanned.push_back(agent);
+    Timer timer;
+    timer.StartTimer();
     GetMDD(agent,instance.first[agent],instance.second[agent],dag[agent],root,(int)(Node::env->HCost(instance.first[agent],instance.second[agent])*INFLATION)+(int)(sizes[agent]*INFLATION),best[agent]);
+    mddTime+=timer.EndTimer();
     bestSeen=std::accumulate(best.begin(),best.end(),0.0f);
     // Replace new root node on top of old.
     //std::swap(root[agent],root[root.size()-1]);
@@ -842,10 +874,13 @@ struct ICTSNode{
       best[i]=INF;
       replanned[i]=i;
       if(verbose)std::cout << "plan agent " << i << " GetMDD("<<(Node::env->HCost(instance.first[i],instance.second[i])+sizes[i])<<")\n";
-      std::cout.precision(17);
-      //std::cout.precision(6);
+      //std::cout.precision(17);
+      std::cout.precision(6);
 
+      Timer timer;
+      timer.StartTimer();
       GetMDD(i,instance.first[i],instance.second[i],dag[i],root,(int)(Node::env->HCost(instance.first[i],instance.second[i])*INFLATION)+(int)(sizes[i]*INFLATION),best[i]);
+      mddTime+=timer.EndTimer();
       bestSeen=std::accumulate(best.begin(),best.end(),0.0f);
       //if(verbose)std::cout << i << ":\n" << root[i] << "\n";
     }
@@ -875,8 +910,37 @@ struct ICTSNode{
   static bool astar;
   std::vector<int> replanned; // Set of nodes that was just re-planned
 
+  // Set all nodes that were never unified as "no good"
+  void resetNoGoods(Node* root){
+    if(!nogoodprune)return;
+    root->nogood=false;
+    root->unified=false;
+    for(auto& a:root->successors)
+      resetNoGoods(a);
+  }
+  void resetUnified(Node* root){
+    root->unified=false;
+    for(auto& a:root->successors)
+      resetUnified(a);
+  }
+  void setNoGoods(Node* root){
+    if(root->nogood)return;
+    root->nogood=!root->unified;
+    for(auto& a:root->successors)
+      setNoGoods(a);
+  }
+  void updateNoGoods(Node* root){
+    if(!nogoodprune)return;
+    Timer timer;
+    timer.StartTimer();
+    setNoGoods(root); // Set them all first
+    resetUnified(root); // Reset the unified flag
+    nogoodTime+=timer.EndTimer();
+  }
   bool isValid(std::vector<Solution>& answers){
     if(root.size()>2 && pairwise){
+      Timer timer;
+      timer.StartTimer();
       // Perform pairwise check
       if(verbose)std::cout<<"Pairwise checks\n";
       if(replanned.size()>1){
@@ -887,11 +951,23 @@ struct ICTSNode{
             tmproot[1]=root[j];
             std::vector<Node*> toDeleteTmp;
             // This is a satisficing search, thus we only need do a sub-optimal check
+            if(verbose)std::cout<<"pairwise for " << i << ","<<j<<"\n";
             if(!jointDFS(tmproot,answers,toDeleteTmp,INF,true,true)){
               if(verbose)std::cout << "Pairwise failed\n";
               //clearNoGoods();
+              // Reset the MDDs
+              if(nogoodprune){
+                Timer timer;
+                timer.StartTimer();
+                for(int i(0); i<root.size(); ++i){
+                  resetNoGoods(root[i]);
+                }
+                nogoodTime+=timer.EndTimer();
+              }
               return false;
             }
+            updateNoGoods(root[i]);
+            updateNoGoods(root[j]);
           }
         }
       }else{
@@ -902,18 +978,35 @@ struct ICTSNode{
           tmproot[1]=root[replanned[0]];
           std::vector<Node*> toDeleteTmp;
           // This is a satisficing search, thus we only need do a sub-optimal check
+          if(verbose)std::cout<<"pairwise for " << i << ","<<replanned[0]<<"\n";
           if(!jointDFS(tmproot,answers,toDeleteTmp,INF,true,true)){
             if(verbose)std::cout << "Pairwise failed\n";
             //clearNoGoods();
+              // Reset the MDDs
+            if(nogoodprune){
+              Timer timer;
+              timer.StartTimer();
+              for(int i(0); i<root.size(); ++i){
+                resetNoGoods(root[i]);
+              }
+              nogoodTime+=timer.EndTimer();
+            }
             return false;
           }
+          updateNoGoods(root[i]);
+          updateNoGoods(root[replanned[0]]);
         }
       }
+      pairwiseTime+=timer.EndTimer();
     }
     // Do a depth-first search; if the search terminates at a goal, its valid.
-    if(verbose)std::cout<<"Full check\n";
+    if(verbose)std::cout<<"Pairwise passed\nFull check\n";
+    Timer timer;
+    timer.StartTimer();
     if(/*astar&&jointAStar(root,answers,toDelete,instance,best)||
          !astar&&*/jointDFS(root,answers,toDelete,lb(),suboptimal)){
+      jointTime+=timer.EndTimer();
+      std::cout << "JT: " << jointTime << "\n";
       if(verbose){
         std::cout << "Answer:\n";
         for(int num(0); num<answers.size(); ++num){
@@ -932,6 +1025,15 @@ struct ICTSNode{
       //clearNoGoods();
       if(verbose)std::cout << "Full check passed\n";
       return true;
+    }
+    // Reset the MDDs
+    if(nogoodprune){
+      Timer timer;
+      timer.StartTimer();
+      for(int i(0); i<root.size(); ++i){
+        resetNoGoods(root[i]);
+      }
+      nogoodTime=timer.EndTimer();
     }
     
     if(verbose)std::cout << "Full check failed\n";
@@ -1067,7 +1169,7 @@ void printResults(){
   //std::cout << elapsed << " elapsed";
   //std::cout << std::endl;
   //total += elapsed;
-  std::cout << filepath << "," << int(Node::env->GetConnectedness()) << "," << ICTSNode::count << "," << jointnodes << "," << Node::count << "," << total << "," << nacts << "," << cost;
+  std::cout << filepath << "," << int(Node::env->GetConnectedness()) << "," << ICTSNode::count << "," << jointnodes << "," << Node::count << "," << total << "," << mddTime << "," << pairwiseTime << "," << jointTime << "," << nogoodTime << "," << nacts << "," << cost;
   if(total >= killtime)std::cout << " failure";
   std::cout << std::endl;
   if(total>=killtime)exit(1);
@@ -1290,6 +1392,7 @@ int main(int argc, char ** argv){
         float bestMergedCost(INF);
         float delta(0.0);
         bool findOptimal(false);
+        //clearNoGoods();
         while(q.size()){
           // Keep searching until we've found a candidate with greater cost than 'best'
           // To keep going on all plateaus <= the best is how we ensure optimality
