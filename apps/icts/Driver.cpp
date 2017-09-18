@@ -51,7 +51,7 @@ float nogoodTime(0);
 
 extern double agentRadius;
 bool bestonly(false);
-bool nogoodprune(true);
+bool epp(false);
 bool verbose(false);
 bool quiet(false);
 bool verify(false);
@@ -165,7 +165,7 @@ void InstallHandlers()
   InstallCommandLineHandler(MyCLHandler, "-killtime", "-killtime [value]", "Kill after this many seconds");
   InstallCommandLineHandler(MyCLHandler, "-radius", "-radius [value]", "Radius in units of agent");
   InstallCommandLineHandler(MyCLHandler, "-nogui", "-nogui", "Turn off gui");
-  InstallCommandLineHandler(MyCLHandler, "-nogoodoff", "-nogoodoff", "Nogood pruning enhancement");
+  InstallCommandLineHandler(MyCLHandler, "-epp", "-epp", "Nogood pruning enhancement");
   InstallCommandLineHandler(MyCLHandler, "-quiet", "-quiet", "Turn off trace output");
   InstallCommandLineHandler(MyCLHandler, "-verbose", "-verbose", "Turn on verbose output");
   InstallCommandLineHandler(MyCLHandler, "-verify", "-verify", "Verify results");
@@ -578,7 +578,7 @@ bool jointDFS(MultiEdge const& s, float d, Solution solution, std::vector<Soluti
   float md(INF); // Min depth of successors
   //Add in successors for parents who are equal to the min
   for(auto const& a: s){
-    if(nogoodprune){
+    if(epp){
       if(a.second->nogood){
         if(verbose)std::cout << *a.second << " is no good.\n";
         return false; // If any  of these are "no good" just exit now
@@ -628,9 +628,9 @@ bool jointDFS(MultiEdge const& s, float d, Solution solution, std::vector<Soluti
       value=true;
       transTable[hash]=value;
       // Return first solution... (unless this is a pairwise check with pruning)
-      if(suboptimal&&!(nogoodprune&&checkOnly)) return true;
+      if(suboptimal&&!(epp&&checkOnly)) return true;
       // Return if solution is as good as any MDD
-      if(!(nogoodprune&&checkOnly)&&fequal(best,bestSeen))return true;
+      if(!(epp&&checkOnly)&&fequal(best,bestSeen))return true;
     }
   }
   transTable[hash]=value;
@@ -912,7 +912,7 @@ struct ICTSNode{
 
   // Set all nodes that were never unified as "no good"
   void resetNoGoods(Node* root){
-    if(!nogoodprune)return;
+    if(!epp)return;
     root->nogood=false;
     root->unified=false;
     for(auto& a:root->successors)
@@ -930,7 +930,7 @@ struct ICTSNode{
       setNoGoods(a);
   }
   void updateNoGoods(Node* root){
-    if(!nogoodprune)return;
+    if(!epp)return;
     Timer timer;
     timer.StartTimer();
     setNoGoods(root); // Set them all first
@@ -956,7 +956,7 @@ struct ICTSNode{
               if(verbose)std::cout << "Pairwise failed\n";
               //clearNoGoods();
               // Reset the MDDs
-              if(nogoodprune){
+              if(epp){
                 Timer timer;
                 timer.StartTimer();
                 for(int i(0); i<root.size(); ++i){
@@ -983,7 +983,7 @@ struct ICTSNode{
             if(verbose)std::cout << "Pairwise failed\n";
             //clearNoGoods();
               // Reset the MDDs
-            if(nogoodprune){
+            if(epp){
               Timer timer;
               timer.StartTimer();
               for(int i(0); i<root.size(); ++i){
@@ -1006,7 +1006,6 @@ struct ICTSNode{
     if(/*astar&&jointAStar(root,answers,toDelete,instance,best)||
          !astar&&*/jointDFS(root,answers,toDelete,lb(),suboptimal)){
       jointTime+=timer.EndTimer();
-      std::cout << "JT: " << jointTime << "\n";
       if(verbose){
         std::cout << "Answer:\n";
         for(int num(0); num<answers.size(); ++num){
@@ -1027,7 +1026,7 @@ struct ICTSNode{
       return true;
     }
     // Reset the MDDs
-    if(nogoodprune){
+    if(epp){
       Timer timer;
       timer.StartTimer();
       for(int i(0); i<root.size(); ++i){
@@ -1499,9 +1498,9 @@ int MyCLHandler(char *argument[], int maxNumArgs)
     killtime = atoi(argument[1]);
     return 2;
   }
-  if(strcmp(argument[0], "-nogoodoff") == 0)
+  if(strcmp(argument[0], "-epp") == 0)
   {
-    nogoodprune = false;
+    epp = true;
     return 1;
   }
   if(strcmp(argument[0], "-nogui") == 0)
