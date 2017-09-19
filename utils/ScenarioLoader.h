@@ -59,6 +59,7 @@ public:
 	void Save(const char *);
 	int GetNumExperiments(){return experiments.size();}
 	const char *GetScenarioName() { return scenName; }
+	Experiment GetRandomExperiment(){return experiments[rand()%experiments.size()];}
 	Experiment GetNthExperiment(int which)
 	{return experiments[which];}
 	void AddExperiment(Experiment which);

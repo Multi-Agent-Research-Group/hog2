@@ -51,6 +51,7 @@ PROJECTS = \
   apps/roads \
   apps/canonicalGrids \
   apps/delta \
+  apps/MACBS \
   apps/MAPF \
   apps/aacbs \
   apps/MO \

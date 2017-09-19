@@ -5,7 +5,6 @@
 #include "Map2DConstrainedEnvironment.h"
 #include "CBSUnits.h"
 #include "NonUnitTimeCAT.h"
-#include "Map2DDiffHeuristic.h"
 
 #include <sstream>
 
@@ -34,28 +33,6 @@ std::string mapfile;
 unsigned mergeThreshold(5);
 std::vector<std::vector<xytLoc> > waypoints;
 //std::vector<SoftConstraint<xytLoc> > sconstraints;
-#define NUMBER_CANONICAL_STATES 10
-Heuristic<xytLoc>* h4(0);
-Heuristic<xytLoc>* h8(0);
-Heuristic<xytLoc>* h24(0);
-Heuristic<xytLoc>* h48(0);
-Map* map(0);
-MapEnvironment* w4(0);
-MapEnvironment* w5(0);
-MapEnvironment* w8(0);
-MapEnvironment* w9(0);
-MapEnvironment* w24(0);
-MapEnvironment* w25(0);
-MapEnvironment* w48(0);
-MapEnvironment* w49(0);
-Map2DConstrainedEnvironment* e4(0);
-Map2DConstrainedEnvironment* e5(0);
-Map2DConstrainedEnvironment* e8(0);
-Map2DConstrainedEnvironment* e9(0);
-Map2DConstrainedEnvironment* e24(0);
-Map2DConstrainedEnvironment* e25(0);
-Map2DConstrainedEnvironment* e48(0);
-Map2DConstrainedEnvironment* e49(0);
 
   int cutoffs[10] = {0,9999,9999,9999,9999,9999,9999,9999,9999,9999}; // for each env
   double weights[10] = {1,1,1,1,1,1,1,1,1,1}; // for each env
@@ -195,29 +172,40 @@ void MyWindowHandler(unsigned long windowID, tWindowEventType eType)
 void InitHeadless(){
   //std::cout << "Setting seed " << seed << "\n";
   // Use a map file if provided
+  Map* map;
+  if(mapfile.size())map=new Map(mapfile.c_str());
+  else map = new Map(width,length);
+  MapEnvironment* w4 = new MapEnvironment(map); w4->SetFourConnected();
+  MapEnvironment* w5 = new MapEnvironment(map); w5->SetFiveConnected();
+  MapEnvironment* w8 = new MapEnvironment(map); w8->SetEightConnected();
+  MapEnvironment* w9 = new MapEnvironment(map); w9->SetNineConnected();
+  MapEnvironment* w24 = new MapEnvironment(map); w24->SetTwentyFourConnected();
+  MapEnvironment* w25 = new MapEnvironment(map); w25->SetTwentyFiveConnected();
+  MapEnvironment* w48 = new MapEnvironment(map); w48->SetFortyEightConnected();
+  MapEnvironment* w49 = new MapEnvironment(map); w49->SetFortyNineConnected();
   // Cardinal Grid
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w4->name(),e4,h4,cutoffs[0],weights[0]));
+  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w4->name(),new Map2DConstrainedEnvironment(w4),0,cutoffs[0],weights[0]));
   if(verbose)std::cout << "Added " << w4->name() << " @" << cutoffs[0] << " conflicts\n";
   // Cardinal Grid w/ Waiting
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w5->name(),e5,h4,cutoffs[1],weights[1]));
+  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w5->name(),new Map2DConstrainedEnvironment(w5),0,cutoffs[1],weights[1]));
   if(verbose)std::cout << "Added " << w5->name() << " @" << cutoffs[1] << " conflicts\n";
   // Octile Grid
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w8->name(),e8,h8,cutoffs[2],weights[2]));
+  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w8->name(),new Map2DConstrainedEnvironment(w8),0,cutoffs[2],weights[2]));
   if(verbose)std::cout << "Added " << w8->name() << " @" << cutoffs[2] << " conflicts\n";
   // Octile Grid w/ Waiting
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w9->name(),e9,h8,cutoffs[3],weights[3]));
+  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w9->name(),new Map2DConstrainedEnvironment(w9),0,cutoffs[3],weights[3]));
   if(verbose)std::cout << "Added " << w9->name() << " @" << cutoffs[3] << " conflicts\n";
   // 24-connected Grid
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w24->name(),e24,h24,cutoffs[4],weights[4]));
+  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w24->name(),new Map2DConstrainedEnvironment(w24),0,cutoffs[4],weights[4]));
   if(verbose)std::cout << "Added " << w24->name() << " @" << cutoffs[4] << " conflicts\n";
   // 24-connected Grid w/ Waiting
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w25->name(),e25,h24,cutoffs[5],weights[5]));
+  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w25->name(),new Map2DConstrainedEnvironment(w25),0,cutoffs[5],weights[5]));
   if(verbose)std::cout << "Added " << w25->name() << " @" << cutoffs[5] << " conflicts\n";
   // 48-connected Grid
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w48->name(),e48,h48,cutoffs[6],weights[6]));
+  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w48->name(),new Map2DConstrainedEnvironment(w48),0,cutoffs[6],weights[6]));
   if(verbose)std::cout << "Added " << w48->name() << " @" << cutoffs[6] << " conflicts\n";
   // 48-connected Grid w/ Waiting
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w49->name(),e49,h48,cutoffs[7],weights[7]));
+  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w49->name(),new Map2DConstrainedEnvironment(w49),0,cutoffs[7],weights[7]));
   if(verbose)std::cout << "Added " << w49->name() << " @" << cutoffs[7] << " conflicts\n";
 
   /*for(auto& e:environs){
@@ -418,24 +406,6 @@ int MyCLHandler(char *argument[], int maxNumArgs)
           }
           mapfile=sl.GetNthExperiment(0).GetMapName();
           mapfile.insert(0,pathprefix); // Add prefix
-          map=new Map(mapfile.c_str());
-          w4 = new MapEnvironment(map); w4->SetFourConnected();
-          w5 = new MapEnvironment(map); w5->SetFiveConnected();
-          w8 = new MapEnvironment(map); w8->SetEightConnected();
-          w9 = new MapEnvironment(map); w9->SetNineConnected();
-          w24 = new MapEnvironment(map); w24->SetTwentyFourConnected();
-          w25 = new MapEnvironment(map); w25->SetTwentyFiveConnected();
-          w48 = new MapEnvironment(map); w48->SetFortyEightConnected();
-          w49 = new MapEnvironment(map); w49->SetFortyNineConnected();
-          e4 = new Map2DConstrainedEnvironment(w4);
-          e5 = new Map2DConstrainedEnvironment(w5);
-          e8 = new Map2DConstrainedEnvironment(w8);
-          e9 = new Map2DConstrainedEnvironment(w9);
-          e24 = new Map2DConstrainedEnvironment(w24);
-          e25 = new Map2DConstrainedEnvironment(w25);
-          e48 = new Map2DConstrainedEnvironment(w48);
-          e49 = new Map2DConstrainedEnvironment(w49);
-        
           for(int i(0); i<num_agents; ++i){
             std::vector<xytLoc> wpts;
             Experiment e(sl.GetRandomExperiment());
@@ -443,37 +413,14 @@ int MyCLHandler(char *argument[], int maxNumArgs)
             wpts.emplace_back(e.GetGoalX(),e.GetGoalY());
             waypoints.push_back(wpts);
           }
-          h4=new Map2DDiffHeuristic(map,e4,NUMBER_CANONICAL_STATES);
-          h8=new Map2DDiffHeuristic(map,e8,NUMBER_CANONICAL_STATES);
-          h24=new Map2DDiffHeuristic(map,e24,NUMBER_CANONICAL_STATES);
-          h48=new Map2DDiffHeuristic(map,e48,NUMBER_CANONICAL_STATES);
           
           return 2;
         }
 	if(strcmp(argument[0], "-mapfile") == 0)
         {
-          mapfile=argument[1];
-          std::string pathprefix("../../"); // Because I always run from the build directory...
-          mapfile.insert(0,pathprefix); // Add prefix
-          map=new Map(mapfile.c_str());
-          w4 = new MapEnvironment(map); w4->SetFourConnected();
-          w5 = new MapEnvironment(map); w5->SetFiveConnected();
-          w8 = new MapEnvironment(map); w8->SetEightConnected();
-          w9 = new MapEnvironment(map); w9->SetNineConnected();
-          w24 = new MapEnvironment(map); w24->SetTwentyFourConnected();
-          e4 = new Map2DConstrainedEnvironment(w4);
-          e5 = new Map2DConstrainedEnvironment(w5);
-          e8 = new Map2DConstrainedEnvironment(w8);
-          e9 = new Map2DConstrainedEnvironment(w9);
-          e24 = new Map2DConstrainedEnvironment(w24);
-          e25 = new Map2DConstrainedEnvironment(w25);
-          e48 = new Map2DConstrainedEnvironment(w48);
-          e49 = new Map2DConstrainedEnvironment(w49);
-          w25 = new MapEnvironment(map); w25->SetTwentyFiveConnected();
-          w48 = new MapEnvironment(map); w48->SetFortyEightConnected();
-          w49 = new MapEnvironment(map); w49->SetFortyNineConnected();
-          return 2;
-        }
+                mapfile=argument[1];
+		return 2;
+	}
 	if(strcmp(argument[0], "-mergeThreshold") == 0)
         {
                 mergeThreshold = atoi(argument[1]);
@@ -647,23 +594,6 @@ int MyCLHandler(char *argument[], int maxNumArgs)
             ss.ignore();
           ss >> i;
           height = i;
-          map = new Map(width,length);
-          w4 = new MapEnvironment(map); w4->SetFourConnected();
-          w5 = new MapEnvironment(map); w5->SetFiveConnected();
-          w8 = new MapEnvironment(map); w8->SetEightConnected();
-          w9 = new MapEnvironment(map); w9->SetNineConnected();
-          w24 = new MapEnvironment(map); w24->SetTwentyFourConnected();
-          w25 = new MapEnvironment(map); w25->SetTwentyFiveConnected();
-          w48 = new MapEnvironment(map); w48->SetFortyEightConnected();
-          w49 = new MapEnvironment(map); w49->SetFortyNineConnected();
-          e4 = new Map2DConstrainedEnvironment(w4);
-          e5 = new Map2DConstrainedEnvironment(w5);
-          e8 = new Map2DConstrainedEnvironment(w8);
-          e9 = new Map2DConstrainedEnvironment(w9);
-          e24 = new Map2DConstrainedEnvironment(w24);
-          e25 = new Map2DConstrainedEnvironment(w25);
-          e48 = new Map2DConstrainedEnvironment(w48);
-          e49 = new Map2DConstrainedEnvironment(w49);
           return 2;
         }
 	if(strcmp(argument[0], "-nagents") == 0)

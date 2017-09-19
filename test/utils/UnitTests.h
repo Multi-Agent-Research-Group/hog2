@@ -4,6 +4,9 @@
 #include <gtest/gtest.h>
 #include "dtedreader.h"
 #include "BucketHash.h"
+#include "TemporalAStar.h"
+#include "Map2DEnvironment.h"
+#include "Map2DConstrainedEnvironment.h"
 
 TEST(util, dtedreader){
   float** array;
@@ -92,5 +95,27 @@ TEST(util, 3DBucketHash){
   result.clear();
   hash.get({{2.0,2.5,.5},{2.6,3.0,1.5}},result);
   ASSERT_EQ(0,result.size());
+}
+
+
+TEST(generic, GetFurthestPoint){
+  TemporalAStar<xytLoc,tDirection,Map2DConstrainedEnvironment> astar;
+  astar.SetHeuristic(new ZeroHeuristic<xytLoc>);
+  Map map("../../maps/dao/den520d.map"); // Must be run from builds/gmake dir.
+  MapEnvironment env1(&map);
+  env1.SetNineConnected();
+  Map2DConstrainedEnvironment env(&env1);
+  env.SetIgnoreTime(true); // Otherwise the search would never terminate
+  env.SetIgnoreHeading(true);  // Don't care about alternate paths to this state
+  std::vector<xytLoc> path;
+  xytLoc s(0,1);
+  xytLoc g(99,99);
+  //std::cout << s << " " << g << "\n";
+
+  astar.SetStopAfterGoal(false); // Search the entire space
+  astar.GetPath(&env,s,g,path,0);
+  std::cout << "furthest point " << path.back() << "\n";
+  std::cout << "depth " << env.GetPathLength(path) << "\n";
+  
 }
 #endif

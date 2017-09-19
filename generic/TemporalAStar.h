@@ -316,9 +316,9 @@ if(this->nodesExpanded>1000 && this->noncritical){
   noncritical=false;
   return true;
 }
-	if (openClosedList.OpenSize() == 0)
+	if(openClosedList.OpenSize() == 0)
 	{
-		thePath.resize(0); // no path found!
+		//thePath.resize(0); // no path found!
 		//closedList.clear();
 		return true;
 	}
@@ -545,6 +545,12 @@ if(this->nodesExpanded>1000 && this->noncritical){
 		}
 	}
 		
+	if(!stopAfterGoal && openClosedList.OpenSize() == 0)
+	{
+          // We have reached the end of the search.
+          // Return the last state
+          thePath.push_back(openClosedList.Lookup(nodeid).data);
+        }
 	return false;
 }
 

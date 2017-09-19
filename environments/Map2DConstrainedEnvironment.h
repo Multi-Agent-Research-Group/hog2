@@ -72,6 +72,8 @@ public:
         uint16_t maxTurnAzimuth=0;
         static const float HDG_RESOLUTON;
         MapEnvironment* GetEnv()const{return mapEnv;}
+        void SetConnectedness(int c){ mapEnv->SetConnectedness(c); }
+        uint8_t GetConnectedness()const{ return mapEnv->GetConnectedness(); }
 
 private:
         bool ignoreTime;
