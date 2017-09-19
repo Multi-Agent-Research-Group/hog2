@@ -59,6 +59,7 @@ PROJECTS = \
   demos/astar \
   demos/idastar \
   test/airplane \
+  test/utils \
   test/collisiondetection \
   test/environments \
 #  apps/multiagent \
