@@ -80,15 +80,14 @@ Map2DConstrainedEnvironment* e49(0);
   int main(int argc, char* argv[])
   {
   InstallHandlers();
-  
+  ProcessCommandLineArgs(argc, argv);
   
   if(gui)
   {
-    RunHOGGUI(argc, argv);
+    RunHOGGUI(0, 0);
   }
   else
   {
-    ProcessCommandLineArgs(argc, argv);
     InitHeadless();
     while (true)
     {
@@ -348,20 +347,21 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 
   //static double ptime[500];
   //memset(ptime,0,500*sizeof(double));
-	if (sim)
-		sim->OpenGLDraw();
-	if (!paused) {
-		sim->StepTime(stepsPerFrame);
-		
-		/*std::cout << "Printing locations at time: " << sim->GetSimulationTime() << std::endl;
-		for (int x = 0; x < group->GetNumMembers(); x ++) {
-			CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> > *c = (CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >*)group->GetMember(x);
-			xytLoc cur;
-			c->GetLocation(cur);
-                        //if(!fequal(ptime[x],sim->GetSimulationTime())
-			std::cout << "\t" << x << ":" << cur << std::endl;
-		}*/
-	}
+        if (sim){
+          sim->OpenGLDraw();
+          if (!paused) {
+            sim->StepTime(stepsPerFrame);
+
+            /*std::cout << "Printing locations at time: " << sim->GetSimulationTime() << std::endl;
+              for (int x = 0; x < group->GetNumMembers(); x ++) {
+              CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> > *c = (CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >*)group->GetMember(x);
+              xytLoc cur;
+              c->GetLocation(cur);
+            //if(!fequal(ptime[x],sim->GetSimulationTime())
+            std::cout << "\t" << x << ":" << cur << std::endl;
+            }*/
+          }
+        }
 
 
 	if (recording)
@@ -530,7 +530,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 		return 1;
 	}
 	if(strcmp(argument[0], "-probfile") == 0){
-		std::cout << "Reading instance from file: \""<<argument[1]<<"\"\n";
+		//std::cout << "Reading instance from file: \""<<argument[1]<<"\"\n";
 		std::ifstream ss(argument[1]);
 		int x,y;
                 float t(0.0);

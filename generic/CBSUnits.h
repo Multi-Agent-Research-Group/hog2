@@ -38,6 +38,10 @@
 #define RIGHT_CARDINAL 4
 #define BOTH_CARDINAL  (LEFT_CARDINAL|RIGHT_CARDINAL)
 
+float collisionTime(0);
+float planTime(0);
+float replanTime(0);
+float bypassplanTime(0);
 template <class state>
 struct CompareLowGCost;
 
@@ -134,6 +138,7 @@ unsigned ReplanLeg(CBSUnit<state,action,environment,comparison,conflicttable,sea
   Timer tmr;
   tmr.StartTimer();
   astar.GetPath(env, start, goal, path, minTime);
+  replanTime+=tmr.EndTimer();
   //std::cout << "Replan took: " << tmr.EndTimer() << std::endl;
   //std::cout << "New leg " << path.size() << "\n";
   //for(auto &p: path){std::cout << p << "\n";}
@@ -214,6 +219,7 @@ unsigned GetFullPath(CBSUnit<state,action,environment,comparison,conflicttable,s
     Timer tmr;
     tmr.StartTimer();
     astar.GetPath(env, start, goal, path);
+    planTime+=tmr.EndTimer();
     //std::cout << start <<"-->"<<goal<<" took: " << tmr.EndTimer() << std::endl;
 
     expansions += astar.GetNodesExpanded();
@@ -724,11 +730,11 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::pro
       if(!tree[bestNode].paths[x][j-1].sameLoc(tree[bestNode].paths[x][j])){
         cost += tree[bestNode].paths[x][j].t;
         total += j;
-        std::cout << "Adding " << tree[bestNode].paths[x][j].t << "\n";
+        if(verbose)std::cout << "Adding " << tree[bestNode].paths[x][j].t << "\n";
         break;
       }else if(j==1){
         cost += tree[bestNode].paths[x][0].t;
-        std::cout << "Adding_" << tree[bestNode].paths[x][0].t << "\n";
+        if(verbose)std::cout << "Adding_" << tree[bestNode].paths[x][0].t << "\n";
         total += 1;
       }
     }
@@ -759,7 +765,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::pro
     }
     unit->SetPath(tree[bestNode].paths[x]);
     if(tree[bestNode].paths[x].size()){
-      std::cout << "Agent " << x << ": " << "\n";
+      if(verbose)std::cout << "Agent " << x << ": " << "\n";
       unsigned wpt(0);
       signed ix(0);
       for(auto &a: tree[bestNode].paths[x])
@@ -767,16 +773,16 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::pro
         //std::cout << a << " " << wpt << " " << unit->GetWaypoint(wpt) << "\n";
         if(ix++==tree[bestNode].wpts[x][wpt])
         {
-          std::cout << " *" << a << "\n";
+          if(verbose)std::cout << " *" << a << "\n";
           wpt++;
         }
         else
         {
-          std::cout << "  " << a << "\n";
+          if(verbose)std::cout << "  " << a << "\n";
         }
       }
     }else{
-      std::cout << "Agent " << x << ": " << "NO Path Found.\n";
+      if(verbose)std::cout << "Agent " << x << ": " << "NO Path Found.\n";
     }
     if(verify){
       for(unsigned int y = x+1; y < tree[bestNode].paths.size(); y++){
@@ -801,30 +807,24 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::pro
     }
   }
   fflush(stdout);
+  std::cout<<"elapsed,planTime,replanTime,bypassplanTime,collisionTime,expansions,collisions,cost,actions\n";
   if(verify&&valid)std::cout << "VALID"<<std::endl;
   if(elapsed<0){
-    std::cout << seed<<":FAILED\n";
-    std::cout << seed<<":Time elapsed: " << elapsed*(-1.0) << "\n";
+    //std::cout << seed<<":FAILED\n";
+    std::cout << seed<<":" << elapsed*(-1.0) << ",";
   }else{
-    std::cout << seed<<":Time elapsed: " << elapsed << "\n";
+    std::cout << seed<<":" << elapsed << ",";
   }
-  std::cout << seed<<":expansions: " << TOTAL_EXPANSIONS << " expansions.\n";
-  /*for(auto e:environments)
-  {
-    unsigned total=0;
-    for(auto a: agentEnvs)
-      if(e.environment==a)
-        total++;
-    std::string tmp;
-    if(e.astar_weight > 1)
-      tmp = "Weighted";
-    std::cout << seed<<":%Environment used: " << tmp<<e.environment->name() <<": "<< total/double(agentEnvs.size())<<"\n";
-  }*/
-  std::cout << seed<<":Total conflicts: " << tree.size() << std::endl;
+  std::cout << planTime << ",";
+  std::cout << replanTime << ",";
+  std::cout << bypassplanTime << ",";
+  std::cout << collisionTime << ",";
+  std::cout << TOTAL_EXPANSIONS << ",";
+  std::cout << tree.size() << ",";
+  std::cout << cost << ","; 
+  std::cout << total << std::endl;
   TOTAL_EXPANSIONS = 0;
   planFinished = true;
-  std::cout << seed<<":Solution cost: " << cost << "\n"; 
-  std::cout << seed<<":solution length: " << total << std::endl;
   if(!keeprunning)exit(0);
 }
 
@@ -887,7 +887,10 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Add
   agentEnvs[c->getUnitNumber()]=currentEnvironment->environment;
   comparison::CAT = &(tree[0].cat);
   comparison::CAT->set(&tree[0].paths);
+  Timer tmr;
+  tmr.StartTimer();
   GetFullPath<state,action,environment,comparison,conflicttable,searchalgo>(c, astar, currentEnvironment->environment, tree[0].paths.back(),tree[0].wpts.back(),this->GetNumMembers()-1);
+  planTime+=tmr.EndTimer();
   if(killex != INT_MAX && TOTAL_EXPANSIONS>killex)
       processSolution(-timer->EndTimer());
   //std::cout << "AddUnit agent: " << (this->GetNumMembers()-1) << " expansions: " << astar.GetNodesExpanded() << "\n";
@@ -1164,7 +1167,10 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Byp
   unsigned pnum(0);
   unsigned nc1(openList.top().nc);
   // Initialize A*, etc.
+  Timer tmr;
+  tmr.StartTimer();
   astar.GetPath(currentEnvironment->environment,start,goal,path,minTime); // Get the path with the new constraint
+  bypassplanTime+=tmr.EndTimer();
   MergeLeg<state,action,environment,comparison,conflicttable,searchalgo>(path,newPath,newWpts,c1.prevWpt, c1.prevWpt+1,minTime);
   if(fleq(currentEnvironment->environment->GetPathLength(newPath),cost)){
     do{
@@ -1479,9 +1485,11 @@ std::pair<unsigned,unsigned> CBSGroup<state,action,environment,comparison,confli
   std::pair<std::pair<unsigned,unsigned>,std::pair<Conflict<state>,Conflict<state>>> best;
 
   // For each pair of units in the group
-  for (int x = 0; x < this->GetNumMembers(); x++)
+  Timer tmr;
+  tmr.StartTimer();
+  for(int x = 0; x < this->GetNumMembers(); x++)
   {
-    for (int y = x+1; y < this->GetNumMembers(); y++)
+    for(int y = x+1; y < this->GetNumMembers(); y++)
     {
       // This call will update "best" with the number of conflicts and
       // with the *most* cardinal conflicts
@@ -1490,6 +1498,7 @@ std::pair<unsigned,unsigned> CBSGroup<state,action,environment,comparison,confli
     }
     //if((best.first.second&BOTH_CARDINAL)==BOTH_CARDINAL)break;
   }
+  collisionTime+=tmr.EndTimer();
   c1=best.second.first;
   c2=best.second.second;
   return best.first;
