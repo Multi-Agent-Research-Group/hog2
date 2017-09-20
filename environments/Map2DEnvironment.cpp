@@ -16,7 +16,7 @@
 
 using namespace Graphics2D;
 
-MapEnvironment::MapEnvironment(Map *_m, bool useOccupancy):start(nullptr),h(nullptr),map(_m),oi(useOccupancy?new BaseMapOccupancyInterface(map):nullptr),DIAGONAL_COST(sqrt(2)),connectedness(8){
+MapEnvironment::MapEnvironment(Map *_m, bool useOccupancy):start(nullptr),h(nullptr),map(_m),oi(useOccupancy?new BaseMapOccupancyInterface(map):nullptr),DIAGONAL_COST(sqrt(2)),connectedness(8),fullBranching(false){
 }
 
 MapEnvironment::MapEnvironment(MapEnvironment *me)
@@ -28,6 +28,7 @@ MapEnvironment::MapEnvironment(MapEnvironment *me)
 	else oi = 0;
 	DIAGONAL_COST = me->DIAGONAL_COST;
 	connectedness = me->connectedness;
+	fullBranching = me->fullBranching;
 }
 
 MapEnvironment::~MapEnvironment()
@@ -48,11 +49,6 @@ void MapEnvironment::SetGraphHeuristic(GraphHeuristic *gh)
 
 void MapEnvironment::GetSuccessors(const xyLoc &loc, std::vector<xyLoc> &neighbors) const
 {
-        // Implement any-angle branching
-        if(connectedness>49){
-          if(solution.size()==0){
-          }
-        }
 	neighbors.resize(0);
 	bool u=false, d=false, /*l=false, r=false,*/ u2=false, d2=false, l2=false, r2=false, /*ur=false, ul=false, dr=false, dl=false,*/ u2l=false, d2l=false, u2r=false, d2r=false, ul2=false, ur2=false, dl2=false, dr2=false, u2r2=false, u2l2=false, d2r2=false, d2l2=false;
 	// 
@@ -62,7 +58,7 @@ void MapEnvironment::GetSuccessors(const xyLoc &loc, std::vector<xyLoc> &neighbo
 		neighbors.push_back(xyLoc(loc.x, loc.y+1));
                 if(connectedness>9 && map->IsTraversable(loc.x, loc.y+2)){
                   d2=true;
-                  neighbors.push_back(xyLoc(loc.x, loc.y+2));
+                  if(fullBranching)neighbors.push_back(xyLoc(loc.x, loc.y+2));
                 }
 	}
 	if ((map->CanStep(loc.x, loc.y, loc.x, loc.y-1)))
@@ -71,7 +67,7 @@ void MapEnvironment::GetSuccessors(const xyLoc &loc, std::vector<xyLoc> &neighbo
 		neighbors.push_back(xyLoc(loc.x, loc.y-1));
                 if(connectedness>9 && map->IsTraversable(loc.x, loc.y-2)){
                   u2=true;
-                  neighbors.push_back(xyLoc(loc.x, loc.y-2));
+                  if(fullBranching)neighbors.push_back(xyLoc(loc.x, loc.y-2));
                 }
 	}
 	if ((map->CanStep(loc.x, loc.y, loc.x-1, loc.y)))
@@ -82,7 +78,7 @@ void MapEnvironment::GetSuccessors(const xyLoc &loc, std::vector<xyLoc> &neighbo
             // Left is open ...
             if(connectedness>9 && map->IsTraversable(loc.x-2, loc.y)){ // left 2
               l2=true;
-              neighbors.push_back(xyLoc(loc.x-2, loc.y));
+              if(fullBranching)neighbors.push_back(xyLoc(loc.x-2, loc.y));
             }
             if(u && (map->CanStep(loc.x, loc.y, loc.x-1, loc.y-1))){
               //ul=true;
@@ -100,7 +96,7 @@ void MapEnvironment::GetSuccessors(const xyLoc &loc, std::vector<xyLoc> &neighbo
                 }
                 if(ul2 && u2l && map->IsTraversable(loc.x-2, loc.y-2)){
                   u2l2=true;
-                  neighbors.push_back(xyLoc(loc.x-2, loc.y-2));
+                  if(fullBranching)neighbors.push_back(xyLoc(loc.x-2, loc.y-2));
                 }
               }
             }
@@ -121,7 +117,7 @@ void MapEnvironment::GetSuccessors(const xyLoc &loc, std::vector<xyLoc> &neighbo
                 }
                 if(dl2 && d2l && map->IsTraversable(loc.x-2, loc.y+2)){
                   d2l2=true;
-                  neighbors.push_back(xyLoc(loc.x-2, loc.y+2));
+                  if(fullBranching)neighbors.push_back(xyLoc(loc.x-2, loc.y+2));
                 }
               }
             } // down && downleft
@@ -136,7 +132,7 @@ void MapEnvironment::GetSuccessors(const xyLoc &loc, std::vector<xyLoc> &neighbo
             // Right is open ...
             if(connectedness>9 && map->IsTraversable(loc.x+2, loc.y)){ // right 2
               r2=true;
-              neighbors.push_back(xyLoc(loc.x+2, loc.y));
+              if(fullBranching)neighbors.push_back(xyLoc(loc.x+2, loc.y));
             }
             if(u && (map->CanStep(loc.x, loc.y, loc.x+1, loc.y-1))){
               //ur=true;
@@ -154,7 +150,7 @@ void MapEnvironment::GetSuccessors(const xyLoc &loc, std::vector<xyLoc> &neighbo
                 }
                 if(ur2 && u2r && map->IsTraversable(loc.x+2, loc.y-2)){
                   u2r2=true;
-                  neighbors.push_back(xyLoc(loc.x+2, loc.y-2));
+                  if(fullBranching)neighbors.push_back(xyLoc(loc.x+2, loc.y-2));
                 }
               }
             }
@@ -175,7 +171,7 @@ void MapEnvironment::GetSuccessors(const xyLoc &loc, std::vector<xyLoc> &neighbo
                 }
                 if(dr2 && d2r && map->IsTraversable(loc.x+2, loc.y+2)){
                   d2r2=true;
-                  neighbors.push_back(xyLoc(loc.x+2, loc.y+2));
+                  if(fullBranching)neighbors.push_back(xyLoc(loc.x+2, loc.y+2));
                 }
               }
             } // down && downright
@@ -183,14 +179,16 @@ void MapEnvironment::GetSuccessors(const xyLoc &loc, std::vector<xyLoc> &neighbo
         } // right
 
         if(connectedness>25){
-          if(d2 && map->IsTraversable(loc.x, loc.y+3))
-            neighbors.push_back(xyLoc(loc.x, loc.y+3));
-          if(u2 && map->IsTraversable(loc.x, loc.y-3))
-            neighbors.push_back(xyLoc(loc.x, loc.y-3));
-          if(r2 && map->IsTraversable(loc.x+3, loc.y))
-            neighbors.push_back(xyLoc(loc.x+3, loc.y));
-          if(l2 && map->IsTraversable(loc.x-3, loc.y))
-            neighbors.push_back(xyLoc(loc.x-3, loc.y));
+          if(fullBranching){
+            if(d2 && map->IsTraversable(loc.x, loc.y+3))
+              neighbors.push_back(xyLoc(loc.x, loc.y+3));
+            if(u2 && map->IsTraversable(loc.x, loc.y-3))
+              neighbors.push_back(xyLoc(loc.x, loc.y-3));
+            if(r2 && map->IsTraversable(loc.x+3, loc.y))
+              neighbors.push_back(xyLoc(loc.x+3, loc.y));
+            if(l2 && map->IsTraversable(loc.x-3, loc.y))
+              neighbors.push_back(xyLoc(loc.x-3, loc.y));
+          }
 
           // ul3
           //if(l2 && map->IsTraversable(loc.x-2, loc.y-1) && map->IsTraversable(loc.x-3, loc.y-1))
@@ -252,18 +250,20 @@ void MapEnvironment::GetSuccessors(const xyLoc &loc, std::vector<xyLoc> &neighbo
           if(d2r2 && map->IsTraversable(loc.x+1,loc.y+3) && map->IsTraversable(loc.x+2, loc.y+3))
             neighbors.push_back(xyLoc(loc.x+2, loc.y+3));
             
-          // u3l3
-          if(u2l2 && map->IsTraversable(loc.x-2,loc.y-3) && map->IsTraversable(loc.x-3,loc.y-2) && map->IsTraversable(loc.x-3, loc.y-3))
-            neighbors.push_back(xyLoc(loc.x-3, loc.y-3));
-          // d3l3
-          if(d2l2 && map->IsTraversable(loc.x-2,loc.y+3) && map->IsTraversable(loc.x-3,loc.y+2) && map->IsTraversable(loc.x-3, loc.y+3))
-            neighbors.push_back(xyLoc(loc.x-3, loc.y+3));
-          // u3r3
-          if(u2r2 && map->IsTraversable(loc.x+2,loc.y-3) && map->IsTraversable(loc.x+3,loc.y-2) && map->IsTraversable(loc.x+3, loc.y-3))
-            neighbors.push_back(xyLoc(loc.x+3, loc.y-3));
-          // d3r3
-          if(d2r2 && map->IsTraversable(loc.x+2,loc.y+3) && map->IsTraversable(loc.x+3,loc.y+2) && map->IsTraversable(loc.x+3, loc.y+3))
-            neighbors.push_back(xyLoc(loc.x+3, loc.y+3));
+          if(fullBranching){
+            // u3l3
+            if(u2l2 && map->IsTraversable(loc.x-2,loc.y-3) && map->IsTraversable(loc.x-3,loc.y-2) && map->IsTraversable(loc.x-3, loc.y-3))
+              neighbors.push_back(xyLoc(loc.x-3, loc.y-3));
+            // d3l3
+            if(d2l2 && map->IsTraversable(loc.x-2,loc.y+3) && map->IsTraversable(loc.x-3,loc.y+2) && map->IsTraversable(loc.x-3, loc.y+3))
+              neighbors.push_back(xyLoc(loc.x-3, loc.y+3));
+            // u3r3
+            if(u2r2 && map->IsTraversable(loc.x+2,loc.y-3) && map->IsTraversable(loc.x+3,loc.y-2) && map->IsTraversable(loc.x+3, loc.y-3))
+              neighbors.push_back(xyLoc(loc.x+3, loc.y-3));
+            // d3r3
+            if(d2r2 && map->IsTraversable(loc.x+2,loc.y+3) && map->IsTraversable(loc.x+3,loc.y+2) && map->IsTraversable(loc.x+3, loc.y+3))
+              neighbors.push_back(xyLoc(loc.x+3, loc.y+3));
+          }
         }
         if(connectedness%2) // Is waiting allowed?
         {

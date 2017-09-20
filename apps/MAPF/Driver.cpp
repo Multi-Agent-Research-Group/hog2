@@ -27,6 +27,7 @@ int length = 64;
 int height = 0;
 bool recording = false; // Record frames
 bool verbose(false);
+bool quiet(false);
 double simTime = 0;
 double stepsPerFrame = 1.0/100.0;
 double frameIncrement = 1.0/10000.0;
@@ -161,6 +162,7 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-disappear", "-disappear", "Agents disappear at goal");
 	InstallCommandLineHandler(MyCLHandler, "-nogui", "-nogui", "Turn off gui");
 	InstallCommandLineHandler(MyCLHandler, "-verbose", "-verbose", "Turn on verbose output");
+	InstallCommandLineHandler(MyCLHandler, "-quiet", "-quiet", "Extreme minimal output");
 	InstallCommandLineHandler(MyCLHandler, "-cat", "-cat", "Use Conflict Avoidance Table (CAT)");
 	InstallCommandLineHandler(MyCLHandler, "-animate", "-animate", "Animate CBS search");
 	InstallCommandLineHandler(MyCLHandler, "-verify", "-verify", "Verify results");
@@ -497,6 +499,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 	if(strcmp(argument[0], "-nogui") == 0)
 	{
 		gui = false;
+		return 1;
+	}
+	if(strcmp(argument[0], "-quiet") == 0)
+	{
+		quiet = true;
 		return 1;
 	}
 	if(strcmp(argument[0], "-verbose") == 0)

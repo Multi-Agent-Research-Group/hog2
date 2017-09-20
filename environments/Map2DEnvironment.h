@@ -128,6 +128,7 @@ public:
 	void SetAnyAngleConnected() { connectedness=255; }
         void SetConnectedness(int c){ connectedness=c; }
         uint8_t GetConnectedness()const{ return connectedness; }
+        void SetFullBranching(bool v){fullBranching=v;}
 	//virtual BaseMapOccupancyInterface* GetOccupancyInterface(){std::cout<<"Mapenv\n";return oi;}
 	//virtual xyLoc GetNextState(xyLoc &s, tDirection dir);
 	double GetPathLength(std::vector<xyLoc> &neighbors);
@@ -149,6 +150,7 @@ protected:
 	BaseMapOccupancyInterface *oi;
 	double DIAGONAL_COST;
 	uint8_t connectedness;
+        bool fullBranching;
 };
 
 class AbsMapEnvironment : public MapEnvironment
