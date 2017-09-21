@@ -299,7 +299,7 @@ void InitHeadless(){
         ++w;
     }
 
-    if(verbose){
+    if(!quiet){
       std::cout << "Set unit " << i << " subgoals: ";
       for(auto &a: waypoints[i])
         std::cout << a << " ";

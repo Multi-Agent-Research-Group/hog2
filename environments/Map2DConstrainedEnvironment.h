@@ -67,7 +67,9 @@ public:
         virtual Map* GetMap()const{return mapEnv->GetMap();}
         bool LineOfSight(const xytLoc &x, const xytLoc &y)const{return mapEnv->LineOfSight(x,y) && !ViolatesConstraint(x,y);}
         void SetIgnoreTime(bool i){ignoreTime=i;}
+        bool GetIgnoreTime()const{return ignoreTime;}
         void SetIgnoreHeading(bool i){ignoreHeading=i;}
+        bool GetIgnoreHeading()const{return ignoreHeading;}
         inline void SetMaxTurn(float val){maxTurnAzimuth=val*HDG_RESOLUTON;}
         uint16_t maxTurnAzimuth=0;
         static const float HDG_RESOLUTON;
