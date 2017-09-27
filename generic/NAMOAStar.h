@@ -62,7 +62,7 @@ static std::ostream& operator<<(std::ostream& ss, cost<dim> const& v){
   return ss;
 }
 
-template<typename state, typename environ, unsigned dim>
+template<typename state, unsigned dim>
 class NAMOAOpenClosedData {
 public:
         NAMOAOpenClosedData() {}
@@ -84,9 +84,9 @@ public:
 };
 
 
-template <class state, typename environ, unsigned dim>
+template <class state, unsigned dim>
 struct NAMOAStarCompare {
-  bool operator()(const NAMOAOpenClosedData<state,environ,dim> &i1, const NAMOAOpenClosedData<state,environ,dim> &i2) const
+  bool operator()(const NAMOAOpenClosedData<state,dim> &i1, const NAMOAOpenClosedData<state,dim> &i2) const
   {
     // Lexicographical comparison...
     for(int i(0); i<dim; ++i){
@@ -115,7 +115,7 @@ struct NAMOAStarCompare {
 /**
  * A templated version of A*, based on HOG genericAStar
  */
-template <class state, class action, class environment, unsigned dim, class openList = AStarOpenClosed<state, NAMOAStarCompare<state,environment,dim>, NAMOAOpenClosedData<state,environment,dim>>>
+template <class state, class action, class environment, unsigned dim, class openList = AStarOpenClosed<state, NAMOAStarCompare<state,dim>, NAMOAOpenClosedData<state,dim>>>
 class NAMOAStar : public GenericSearchAlgorithm<state,action,environment> {
 public:
 	NAMOAStar():totalExternalNodesExpanded(nullptr),externalExpansionLimit(INT_MAX),verbose(false),noncritical(false),env(nullptr),stopAfterGoal(true),weight(1),reopenNodes(false),SuccessorFunc(&environment::GetSuccessors),ActionFunc(&environment::GetAction),GCostFunc(&environment::GCostVector),HCostFunc(&environment::HCostVector){ResetNodeCount();}
@@ -154,9 +154,9 @@ public:
 	//bool GetClosedListGCost(state &val, double &gCost) const;
 	//bool GetClosedListGCost(const state &val, double &gCost) const;
 	unsigned int GetNumOpenItems() { return openClosedList.OpenSize(); }
-	inline const NAMOAOpenClosedData<state,environment,dim> &GetOpenItem(unsigned int which) { return openClosedList.Lookat(openClosedList.GetOpenItem(which)); }
+	inline const NAMOAOpenClosedData<state,dim> &GetOpenItem(unsigned int which) { return openClosedList.Lookat(openClosedList.GetOpenItem(which)); }
 	inline const int GetNumItems() { return openClosedList.size(); }
-	inline const NAMOAOpenClosedData<state,environment,dim> &GetItem(unsigned int which) { return openClosedList.Lookat(which); }
+	inline const NAMOAOpenClosedData<state,dim> &GetItem(unsigned int which) { return openClosedList.Lookat(which); }
 	bool HaveExpandedState(const state &val)
 	{ uint64_t key; return openClosedList.Lookup(env->GetStateHash(val), key) != kNotFound; }
 	
@@ -194,7 +194,7 @@ private:
         uint externalExpansionLimit;
         bool verbose;
 	std::vector<state> succ;
-        //std::pair<uint64_t,double> ComputeCost(NAMOAOpenClosedData<state,environment,dim> const& p, state& c, double newg, double oldg);
+        //std::pair<uint64_t,double> ComputeCost(NAMOAOpenClosedData<state,dim> const& p, state& c, double newg, double oldg);
 	uint64_t nodesTouched, nodesExpanded;
 	environment *env;
 	bool stopAfterGoal;
@@ -309,7 +309,7 @@ bool NAMOAStar<state,action,environment,dim,openList>::InitializeSearch(environm
 		return false;
 	}
 	
-        NAMOAOpenClosedData<state,environment,dim> data(start,cost<dim>(),(env->*HCostFunc)(start, goal),kTAStarNoNode,0,kOpenList);
+        NAMOAOpenClosedData<state,dim> data(start,cost<dim>(),(env->*HCostFunc)(start, goal),kTAStarNoNode,0,kOpenList);
 	openClosedList.AddOpenNode(data, env->GetStateHash(start));
 
         // Set the start state to be its own parent
@@ -330,7 +330,7 @@ bool NAMOAStar<state,action,environment,dim,openList>::InitializeSearch(environm
   start = from;
   goal = to;
 
-  NAMOAOpenClosedData<state,environment,dim> data(start,cost<dim>(),(env->*HCostFunc)(start, goal),kTAStarNoNode,0,kOpenList);
+  NAMOAOpenClosedData<state,dim> data(start,cost<dim>(),(env->*HCostFunc)(start, goal),kTAStarNoNode,0,kOpenList);
   uint64_t id(openClosedList.AddOpenNode(data, env->GetStateHash(start)));
   data.open[data.g].insert(id);
 
@@ -352,7 +352,7 @@ bool NAMOAStar<state,action,environment,dim,openList>::InitializeSearch(environm
 template <class state, class action, class environment, unsigned dim, class openList>
 void NAMOAStar<state,action,environment,dim,openList>::AddAdditionalStartState(state const& newState)
 {
-        NAMOAOpenClosedData<state,environment,dim> data(newState,cost<dim>(),(env->*HCostFunc)(newState, goal),kTAStarNoNode,0,kOpenList);
+        NAMOAOpenClosedData<state,dim> data(newState,cost<dim>(),(env->*HCostFunc)(newState, goal),kTAStarNoNode,0,kOpenList);
 	openClosedList.AddOpenNode(data, env->GetStateHash(newState));
 }
 
@@ -364,7 +364,7 @@ void NAMOAStar<state,action,environment,dim,openList>::AddAdditionalStartState(s
 template <class state, class action, class environment, unsigned dim, class openList>
 void NAMOAStar<state,action,environment,dim,openList>::AddAdditionalStartState(state const& newState, cost<dim> const& gcost)
 {
-        NAMOAOpenClosedData<state,environment,dim> data(newState,gcost,(env->*HCostFunc)(newState, goal),kTAStarNoNode,0,kOpenList);
+        NAMOAOpenClosedData<state,dim> data(newState,gcost,(env->*HCostFunc)(newState, goal),kTAStarNoNode,0,kOpenList);
 	openClosedList.AddOpenNode(newState, env->GetStateHash(newState));
 }
 
@@ -522,7 +522,7 @@ bool NAMOAStar<state,action,environment,dim,openList>::DoSingleSearchStep(std::v
             << ") to open " << succ[x]
               << newg << "+" << hcost
               << "=" << (newg+hcost) << "\n";
-          NAMOAOpenClosedData<state,environment,dim> data(succ[x],
+          NAMOAOpenClosedData<state,dim> data(succ[x],
               newg,hcost,nodeid,0,kOpenList);
           if(fullSet)
             data.open[newg].insert(nodeid);
@@ -537,10 +537,10 @@ bool NAMOAStar<state,action,environment,dim,openList>::DoSingleSearchStep(std::v
 }
 
 /*template <class state, class action, class environment, unsigned dim, class openList>
-std::pair<uint64_t,double> NAMOAStar<state,action,environment,dim,openList>::ComputeCost(NAMOAOpenClosedData<state,environment,dim> const& p, state& c, double newg, double oldg){
+std::pair<uint64_t,double> NAMOAStar<state,action,environment,dim,openList>::ComputeCost(NAMOAOpenClosedData<state,dim> const& p, state& c, double newg, double oldg){
   uint64_t pid;
   openClosedList.Lookup(env->GetStateHash(p.data),pid);
-  NAMOAOpenClosedData<state,environment,dim>& pp(openClosedList.Lookup(p.parentID));
+  NAMOAOpenClosedData<state,dim>& pp(openClosedList.Lookup(p.parentID));
   // Special cases for waiting actions
   if(pp.data.sameLoc(c))return{pid,newg}; // parent of parent is same as self
   if(p.data.sameLoc(c))return{pid,newg}; // parent is same as self
@@ -666,7 +666,7 @@ void NAMOAStar<state,action,environment,dim,openList>::OpenGLDraw() const
 		top = openClosedList.Peek();
 	for (unsigned int x = 0; x < openClosedList.size(); x++)
 	{
-		const NAMOAOpenClosedData<state,environment,dim> &data = openClosedList.Lookat(x);
+		const NAMOAOpenClosedData<state,dim> &data = openClosedList.Lookat(x);
 		if (x == top)
 		{
 			env->SetColor(1.0, 1.0, 0.0, transparency);

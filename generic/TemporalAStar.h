@@ -59,8 +59,8 @@ public:
 	
 	bool InitializeSearch(environment *env, const state& from, const state& to, std::vector<state> &thePath, double minTime=0.0);
 	bool DoSingleSearchStep(std::vector<state> &thePath, double minTime=0.0);
-	void AddAdditionalStartState(state& newState);
-	void AddAdditionalStartState(state& newState, double cost);
+	void AddAdditionalStartState(state const& newState);
+	void AddAdditionalStartState(state const& newState, double cost);
 	
 	state CheckNextNode();
 	void ExtractPathToStart(state &node, std::vector<state> &thePath)
@@ -106,6 +106,7 @@ public:
 	double GetRadius() { return radius; }
 	
 	void SetRadiusEnvironment(environment *e) {radEnv = e;}
+	void SetEnvironment(environment *e) {env = e;}
 	
 	void SetStopAfterGoal(bool val) { stopAfterGoal = val; }
 	bool GetStopAfterGoal() { return stopAfterGoal; }
@@ -281,7 +282,7 @@ bool TemporalAStar<state,action,environment,openList>::InitializeSearch(environm
  * @date 01/06/08
  */
 template <class state, class action, class environment, class openList>
-void TemporalAStar<state,action,environment,openList>::AddAdditionalStartState(state& newState)
+void TemporalAStar<state,action,environment,openList>::AddAdditionalStartState(state const& newState)
 {
 	openClosedList.AddOpenNode(newState, env->GetStateHash(newState), 0, weight*theHeuristic->HCost(start, goal));
 }
@@ -292,7 +293,7 @@ void TemporalAStar<state,action,environment,openList>::AddAdditionalStartState(s
  * @date 09/25/10
  */
 template <class state, class action, class environment, class openList>
-void TemporalAStar<state,action,environment,openList>::AddAdditionalStartState(state& newState, double cost)
+void TemporalAStar<state,action,environment,openList>::AddAdditionalStartState(state const& newState, double cost)
 {
 	openClosedList.AddOpenNode(newState, env->GetStateHash(newState), cost, weight*theHeuristic->HCost(start, goal));
 }

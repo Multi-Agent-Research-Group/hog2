@@ -72,7 +72,7 @@ Map2DConstrainedEnvironment* e49(0);
 
   Map2DConstrainedEnvironment *ace = 0;
   UnitSimulation<xytLoc, tDirection, Map2DConstrainedEnvironment> *sim = 0;
-  CBSGroup<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >* group = 0;
+  CBSGroup<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection>,NonUnitTimeCAT<xytLoc,tDirection,HASH_INTERVAL_HUNDREDTHS> >* group = 0;
 
   bool gui=true;
   int animate(0);
@@ -229,8 +229,8 @@ void InitHeadless(){
 
   ace=environs.rbegin()->environment;
 
-  group = new CBSGroup<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >(environs,verbose); // Changed to 10,000 expansions from number of conflicts in the tree
-  CBSGroup<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >::greedyCT=greedyCT;
+  group = new CBSGroup<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection>,NonUnitTimeCAT<xytLoc,tDirection,HASH_INTERVAL_HUNDREDTHS> >(environs,verbose); // Changed to 10,000 expansions from number of conflicts in the tree
+  CBSGroup<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection>,NonUnitTimeCAT<xytLoc,tDirection,HASH_INTERVAL_HUNDREDTHS> >::greedyCT=greedyCT;
   group->disappearAtGoal=disappearAtGoal;
   group->timer=new Timer();
   group->seed=seed;
@@ -241,8 +241,9 @@ void InitHeadless(){
   group->ECBSheuristic=ECBSheuristic;
   group->nobypass=nobypass;
   group->verify=verify;
-  TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>::randomalg=randomalg;
-  TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>::useCAT=useCAT;
+  group->quiet=quiet;
+  TieBreaking<xytLoc,tDirection>::randomalg=randomalg;
+  TieBreaking<xytLoc,tDirection>::useCAT=useCAT;
   if(gui){
     sim = new UnitSimulation<xytLoc, tDirection, Map2DConstrainedEnvironment>(ace);
     sim->SetStepType(kLockStep);
@@ -306,7 +307,7 @@ void InitHeadless(){
       std::cout << std::endl;
     }
     float softEff(.9);
-    CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >* unit = new CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >(waypoints[i],softEff);
+    CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection>,NonUnitTimeCAT<xytLoc,tDirection,HASH_INTERVAL_HUNDREDTHS> >* unit = new CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection>,NonUnitTimeCAT<xytLoc,tDirection,HASH_INTERVAL_HUNDREDTHS> >(waypoints[i],softEff);
     unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
     group->AddUnit(unit); // Add to the group
     if(verbose)std::cout << "initial path for agent " << i << ":\n";
@@ -315,7 +316,7 @@ void InitHeadless(){
     if(gui){sim->AddUnit(unit);} // Add to the group
   }
   if(!gui){
-    Timer::Timeout func(std::bind(&CBSGroup<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >::processSolution, group, std::placeholders::_1));
+    Timer::Timeout func(std::bind(&CBSGroup<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection>,NonUnitTimeCAT<xytLoc,tDirection,HASH_INTERVAL_HUNDREDTHS> >::processSolution, group, std::placeholders::_1));
     group->timer->StartTimeout(std::chrono::seconds(killtime),func);
   }
   //assert(false && "Exit early");
@@ -343,7 +344,7 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
             GLfloat r, g, b;
             u->GetColor(r, g, b);
             ace->SetColor(r,g,b);
-            ace->GLDrawPath(((CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> > const*)u)->GetPath(),((CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> > const*)u)->GetWaypoints());
+            ace->GLDrawPath(((CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection>,NonUnitTimeCAT<xytLoc,tDirection,HASH_INTERVAL_HUNDREDTHS> > const*)u)->GetPath(),((CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection>,NonUnitTimeCAT<xytLoc,tDirection,HASH_INTERVAL_HUNDREDTHS> > const*)u)->GetWaypoints());
         }
     }
 
@@ -356,7 +357,7 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 
             /*std::cout << "Printing locations at time: " << sim->GetSimulationTime() << std::endl;
               for (int x = 0; x < group->GetNumMembers(); x ++) {
-              CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> > *c = (CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >*)group->GetMember(x);
+              CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection>,NonUnitTimeCAT<xytLoc,tDirection,HASH_INTERVAL_HUNDREDTHS> > *c = (CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection>,NonUnitTimeCAT<xytLoc,tDirection,HASH_INTERVAL_HUNDREDTHS> >*)group->GetMember(x);
               xytLoc cur;
               c->GetLocation(cur);
             //if(!fequal(ptime[x],sim->GetSimulationTime())
@@ -440,7 +441,19 @@ int MyCLHandler(char *argument[], int maxNumArgs)
         
           for(int i(0); i<num_agents; ++i){
             std::vector<xytLoc> wpts;
+            // Make sure that we have non-conflicting start/goal locations
             Experiment e(sl.GetRandomExperiment());
+            while(true){
+              bool bad(false);
+              for(auto const& w:waypoints){
+                if((e.GetStartX()==w[0].x && e.GetStartY()==w[0].y) || (e.GetGoalX()==w[1].x && e.GetGoalY()==w[1].y)){
+                  bad=true;
+                  break;
+                }
+              }
+              if(!bad)break;
+              e=sl.GetRandomExperiment();
+            }
             wpts.emplace_back(e.GetStartX(),e.GetStartY());
             wpts.emplace_back(e.GetGoalX(),e.GetGoalY());
             waypoints.push_back(wpts);

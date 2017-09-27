@@ -14,13 +14,13 @@ struct IntervalData{
   bool operator<(IntervalData const& other)const{return other.hash1==hash1?(other.hash2==hash2?(other.agent==agent?false:agent<other.agent):hash2<other.hash2):hash1<other.hash1;}
 };
 
-template <typename state, typename environment, unsigned hashIntervalHundredths>
-class NonUnitTimeCAT : public ConflictAvoidanceTable<state,environment>{
+template <typename state, typename action, unsigned hashIntervalHundredths>
+class NonUnitTimeCAT : public ConflictAvoidanceTable<state,action>{
 public:
   typedef std::set<IntervalData> ConflictSet;
 
-  NonUnitTimeCAT():ConflictAvoidanceTable<state,environment>(){}
-  virtual void remove(std::vector<state> const& thePath, environment const* env, unsigned agent){
+  NonUnitTimeCAT():ConflictAvoidanceTable<state,action>(){}
+  virtual void remove(std::vector<state> const& thePath, SearchEnvironment<state,action> const* env, unsigned agent){
     for(int i(0); i<thePath.size(); ++i) {
       // Populate the interval tree
       if(i) //!=0
@@ -30,7 +30,7 @@ public:
         cat.remove(thePath[i].t, thePath[i].t+.001, IntervalData(0, env->GetStateHash(thePath[i]), agent));
     }
   }
-  virtual void insert(std::vector<state> const& thePath, environment const* env, unsigned agent){
+  virtual void insert(std::vector<state> const& thePath, SearchEnvironment<state,action> const* env, unsigned agent){
     for(int i(0); i<thePath.size(); ++i) {
     // Populate the interval tree
       if(i) //!=0

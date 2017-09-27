@@ -103,7 +103,7 @@ unsigned checkForConflict(state const*const parent, state const*const node, stat
 #define HASH_INTERVAL 1.0
 #define HASH_INTERVAL_HUNDREDTHS 100
 
-template <typename state, typename action, typename environment>
+template <typename state, typename action>
 class TieBreaking {
   public:
   bool operator()(const AStarOpenClosedData<state> &ci1, const AStarOpenClosedData<state> &ci2) const
@@ -183,24 +183,24 @@ class TieBreaking {
     return (fgreater(ci1.g+ci1.h, ci2.g+ci2.h));
   }
     static OpenClosedInterface<state,AStarOpenClosedData<state>>* openList;
-    static Map2DConstrainedEnvironment* currentEnv;
+    static ConstrainedEnvironment<state,action>* currentEnv;
     static uint8_t currentAgent;
     static bool randomalg;
     static bool useCAT;
-    static NonUnitTimeCAT<state,environment,HASH_INTERVAL_HUNDREDTHS>* CAT; // Conflict Avoidance Table
+    static NonUnitTimeCAT<state,action,HASH_INTERVAL_HUNDREDTHS>* CAT; // Conflict Avoidance Table
 };
 
-template <typename state, typename action, typename environment>
-OpenClosedInterface<state,AStarOpenClosedData<state>>* TieBreaking<state,action,environment>::openList=0;
-template <typename state, typename action, typename environment>
-Map2DConstrainedEnvironment* TieBreaking<state,action,environment>::currentEnv=0;
-template <typename state, typename action, typename environment>
-uint8_t TieBreaking<state,action,environment>::currentAgent=0;
-template <typename state, typename action, typename environment>
-bool TieBreaking<state,action,environment>::randomalg=false;
-template <typename state, typename action, typename environment>
-bool TieBreaking<state,action,environment>::useCAT=false;
-template <typename state, typename action, typename environment>
-NonUnitTimeCAT<state,environment,HASH_INTERVAL_HUNDREDTHS>* TieBreaking<state,action,environment>::CAT=0;
+template <typename state, typename action>
+OpenClosedInterface<state,AStarOpenClosedData<state>>* TieBreaking<state,action>::openList=0;
+template <typename state, typename action>
+ConstrainedEnvironment<state,action>* TieBreaking<state,action>::currentEnv=0;
+template <typename state, typename action>
+uint8_t TieBreaking<state,action>::currentAgent=0;
+template <typename state, typename action>
+bool TieBreaking<state,action>::randomalg=false;
+template <typename state, typename action>
+bool TieBreaking<state,action>::useCAT=false;
+template <typename state, typename action>
+NonUnitTimeCAT<state,action,HASH_INTERVAL_HUNDREDTHS>* TieBreaking<state,action>::CAT=0;
 
 #endif /* defined(__hog2_glut__Map2DConstrainedEnvironment__) */

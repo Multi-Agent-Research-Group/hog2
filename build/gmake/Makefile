@@ -60,6 +60,7 @@ PROJECTS = \
   demos/astar \
   demos/idastar \
   test/airplane \
+  test/mapf \
   test/utils \
   test/collisiondetection \
   test/environments \

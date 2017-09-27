@@ -17,6 +17,7 @@
 #include "ObjectiveEnvironment.h"
 #include "OccupancyInterface.h"
 #include "GLUtil.h"
+#include "MapInterface.h"
 
 
 struct Hash64 {
@@ -49,6 +50,7 @@ public:
         virtual void setGoal(state const& s){}; // Do nothing
 
 	virtual bool InvertAction(action &a) const = 0;
+        virtual MapInterface* GetMap()const{return 0;}
 
 	/** Stores the goal for use by single-state HCost. **/
 	virtual void StoreGoal(state &s)

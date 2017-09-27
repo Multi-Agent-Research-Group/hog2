@@ -26,7 +26,7 @@ bool operator!=(const xyLoc &l1, const xyLoc &l2) {
 }
 
 bool operator==(const xytLoc &l1, const xytLoc &l2) {
-  return fequal(l1.t,l2.t) && (l1.x == l2.x) && (l1.y==l2.y);
+  return int(l1.t*SEC2MSEC)==int(l2.t*SEC2MSEC) && l1.sameLoc(l2);
 }
 
 // Utility function
@@ -66,7 +66,7 @@ bool Constraint<xytLoc>::ConflictsWith(const xytLoc &state) const
 template<>
 bool Constraint<xytLoc>::ConflictsWith(const xytLoc &from, const xytLoc &to) const
 {
-  return from.sameLoc(start_state)&&to.sameLoc(end_state)&&fequal(from.t,start_state.t)&&fequal(to.t,end_state.t);
+  return from.sameLoc(start_state)&&to.sameLoc(end_state)&&int(from.t*SEC2MSEC)==int(start_state.t*SEC2MSEC)&&int(to.t*SEC2MSEC)==int(end_state.t*SEC2MSEC);
   //return from.sameLoc(to)&&fequal(from.t,to.t);
   /*Vector2D A(from);
   Vector2D VA(to);

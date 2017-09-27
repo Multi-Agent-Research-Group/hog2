@@ -5,6 +5,8 @@
 #include "VelocityObstacle.h"
 #include "ConstrainedEnvironment.h"
 
+#define SEC2MSEC 1000
+
 // Utility function
 void GLDrawCircle(GLfloat x, GLfloat y, GLfloat radius);
 

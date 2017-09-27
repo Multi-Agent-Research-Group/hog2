@@ -3,8 +3,10 @@
 #include "UnitSimulation.h"
 #include "ScenarioLoader.h"
 #include "Map2DConstrainedEnvironment.h"
-#include "CBSUnits.h"
+#include "MACBSUnits.h"
 #include "NonUnitTimeCAT.h"
+#include "Map2DDiffHeuristic.h"
+#include "ICTSAlgorithm.h"
 
 #include <sstream>
 
@@ -26,6 +28,7 @@ int length = 64;
 int height = 0;
 bool recording = false; // Record frames
 bool verbose(false);
+bool quiet(false);
 double simTime = 0;
 double stepsPerFrame = 1.0/100.0;
 double frameIncrement = 1.0/10000.0;
@@ -33,10 +36,32 @@ std::string mapfile;
 unsigned mergeThreshold(5);
 std::vector<std::vector<xytLoc> > waypoints;
 //std::vector<SoftConstraint<xytLoc> > sconstraints;
+#define NUMBER_CANONICAL_STATES 10
+Heuristic<xytLoc>* h4(0);
+Heuristic<xytLoc>* h8(0);
+Heuristic<xytLoc>* h24(0);
+Heuristic<xytLoc>* h48(0);
+Map* map(0);
+MapEnvironment* w4(0);
+MapEnvironment* w5(0);
+MapEnvironment* w8(0);
+MapEnvironment* w9(0);
+MapEnvironment* w24(0);
+MapEnvironment* w25(0);
+MapEnvironment* w48(0);
+MapEnvironment* w49(0);
+Map2DConstrainedEnvironment* e4(0);
+Map2DConstrainedEnvironment* e5(0);
+Map2DConstrainedEnvironment* e8(0);
+Map2DConstrainedEnvironment* e9(0);
+Map2DConstrainedEnvironment* e24(0);
+Map2DConstrainedEnvironment* e25(0);
+Map2DConstrainedEnvironment* e48(0);
+Map2DConstrainedEnvironment* e49(0);
 
-  int cutoffs[10] = {0,9999,9999,9999,9999,9999,9999,9999,9999,9999}; // for each env
+int cutoffs[10] = {0,9999,9999,9999,9999,9999,9999,9999,9999,9999}; // for each env
   double weights[10] = {1,1,1,1,1,1,1,1,1,1}; // for each env
-  std::vector<EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment> > environs;
+  std::vector<std::vector<EnvironmentContainer<xytLoc,tDirection>>> environs;
   int seed = clock();
   int num_agents = 0;
   int minsubgoals(1);
@@ -46,9 +71,12 @@ std::vector<std::vector<xytLoc> > waypoints;
 
   bool paused = false;
 
-  Map2DConstrainedEnvironment *ace = 0;
-  UnitSimulation<xytLoc, tDirection, Map2DConstrainedEnvironment> *sim = 0;
-  CBSGroup<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >* group = 0;
+  ConstrainedEnvironment<xytLoc,tDirection> *ace = 0;
+  UnitSimulation<xytLoc, tDirection, ConstrainedEnvironment<xytLoc, tDirection>> *sim = 0;
+  typedef CBSGroup<xytLoc,tDirection,TieBreaking<xytLoc,tDirection>,NonUnitTimeCAT<xytLoc,tDirection,HASH_INTERVAL_HUNDREDTHS>,ICTSAlgorithm<xytLoc,tDirection>> MACBSGroup;
+  typedef CBSUnit<xytLoc,tDirection,TieBreaking<xytLoc,tDirection>,NonUnitTimeCAT<xytLoc,tDirection,HASH_INTERVAL_HUNDREDTHS>> MACBSUnit;
+
+  MACBSGroup* group = 0;
 
   bool gui=true;
   int animate(0);
@@ -57,15 +85,14 @@ std::vector<std::vector<xytLoc> > waypoints;
   int main(int argc, char* argv[])
   {
   InstallHandlers();
-  
+  ProcessCommandLineArgs(argc, argv);
   
   if(gui)
   {
-    RunHOGGUI(argc, argv);
+    RunHOGGUI(0, 0);
   }
   else
   {
-    ProcessCommandLineArgs(argc, argv);
     InitHeadless();
     while (true)
     {
@@ -139,6 +166,7 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-disappear", "-disappear", "Agents disappear at goal");
 	InstallCommandLineHandler(MyCLHandler, "-nogui", "-nogui", "Turn off gui");
 	InstallCommandLineHandler(MyCLHandler, "-verbose", "-verbose", "Turn on verbose output");
+	InstallCommandLineHandler(MyCLHandler, "-quiet", "-quiet", "Extreme minimal output");
 	InstallCommandLineHandler(MyCLHandler, "-cat", "-cat", "Use Conflict Avoidance Table (CAT)");
 	InstallCommandLineHandler(MyCLHandler, "-animate", "-animate", "Animate CBS search");
 	InstallCommandLineHandler(MyCLHandler, "-verify", "-verify", "Verify results");
@@ -172,41 +200,34 @@ void MyWindowHandler(unsigned long windowID, tWindowEventType eType)
 void InitHeadless(){
   //std::cout << "Setting seed " << seed << "\n";
   // Use a map file if provided
-  Map* map;
-  if(mapfile.size())map=new Map(mapfile.c_str());
-  else map = new Map(width,length);
-  MapEnvironment* w4 = new MapEnvironment(map); w4->SetFourConnected();
-  MapEnvironment* w5 = new MapEnvironment(map); w5->SetFiveConnected();
-  MapEnvironment* w8 = new MapEnvironment(map); w8->SetEightConnected();
-  MapEnvironment* w9 = new MapEnvironment(map); w9->SetNineConnected();
-  MapEnvironment* w24 = new MapEnvironment(map); w24->SetTwentyFourConnected();
-  MapEnvironment* w25 = new MapEnvironment(map); w25->SetTwentyFiveConnected();
-  MapEnvironment* w48 = new MapEnvironment(map); w48->SetFortyEightConnected();
-  MapEnvironment* w49 = new MapEnvironment(map); w49->SetFortyNineConnected();
   // Cardinal Grid
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w4->name(),new Map2DConstrainedEnvironment(w4),0,cutoffs[0],weights[0]));
-  if(verbose)std::cout << "Added " << w4->name() << " @" << cutoffs[0] << " conflicts\n";
-  // Cardinal Grid w/ Waiting
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w5->name(),new Map2DConstrainedEnvironment(w5),0,cutoffs[1],weights[1]));
-  if(verbose)std::cout << "Added " << w5->name() << " @" << cutoffs[1] << " conflicts\n";
-  // Octile Grid
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w8->name(),new Map2DConstrainedEnvironment(w8),0,cutoffs[2],weights[2]));
-  if(verbose)std::cout << "Added " << w8->name() << " @" << cutoffs[2] << " conflicts\n";
-  // Octile Grid w/ Waiting
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w9->name(),new Map2DConstrainedEnvironment(w9),0,cutoffs[3],weights[3]));
-  if(verbose)std::cout << "Added " << w9->name() << " @" << cutoffs[3] << " conflicts\n";
-  // 24-connected Grid
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w24->name(),new Map2DConstrainedEnvironment(w24),0,cutoffs[4],weights[4]));
-  if(verbose)std::cout << "Added " << w24->name() << " @" << cutoffs[4] << " conflicts\n";
-  // 24-connected Grid w/ Waiting
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w25->name(),new Map2DConstrainedEnvironment(w25),0,cutoffs[5],weights[5]));
-  if(verbose)std::cout << "Added " << w25->name() << " @" << cutoffs[5] << " conflicts\n";
-  // 48-connected Grid
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w48->name(),new Map2DConstrainedEnvironment(w48),0,cutoffs[6],weights[6]));
-  if(verbose)std::cout << "Added " << w48->name() << " @" << cutoffs[6] << " conflicts\n";
-  // 48-connected Grid w/ Waiting
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w49->name(),new Map2DConstrainedEnvironment(w49),0,cutoffs[7],weights[7]));
-  if(verbose)std::cout << "Added " << w49->name() << " @" << cutoffs[7] << " conflicts\n";
+  for(int i(0);i<num_agents;++i){
+    std::vector<EnvironmentContainer<xytLoc,tDirection>> envs;
+    envs.push_back(EnvironmentContainer<xytLoc,tDirection>(w4->name(),e4,h4,cutoffs[0],weights[0]));
+    if(verbose)std::cout << "Added " << w4->name() << " @" << cutoffs[0] << " conflicts\n";
+    // Cardinal Grid w/ Waiting
+    envs.push_back(EnvironmentContainer<xytLoc,tDirection>(w5->name(),e5,h4,cutoffs[1],weights[1]));
+    if(verbose)std::cout << "Added " << w5->name() << " @" << cutoffs[1] << " conflicts\n";
+    // Octile Grid
+    envs.push_back(EnvironmentContainer<xytLoc,tDirection>(w8->name(),e8,h8,cutoffs[2],weights[2]));
+    if(verbose)std::cout << "Added " << w8->name() << " @" << cutoffs[2] << " conflicts\n";
+    // Octile Grid w/ Waiting
+    envs.push_back(EnvironmentContainer<xytLoc,tDirection>(w9->name(),e9,h8,cutoffs[3],weights[3]));
+    if(verbose)std::cout << "Added " << w9->name() << " @" << cutoffs[3] << " conflicts\n";
+    // 24-connected Grid
+    envs.push_back(EnvironmentContainer<xytLoc,tDirection>(w24->name(),e24,h24,cutoffs[4],weights[4]));
+    if(verbose)std::cout << "Added " << w24->name() << " @" << cutoffs[4] << " conflicts\n";
+    // 24-connected Grid w/ Waiting
+    envs.push_back(EnvironmentContainer<xytLoc,tDirection>(w25->name(),e25,h24,cutoffs[5],weights[5]));
+    if(verbose)std::cout << "Added " << w25->name() << " @" << cutoffs[5] << " conflicts\n";
+    // 48-connected Grid
+    envs.push_back(EnvironmentContainer<xytLoc,tDirection>(w48->name(),e48,h48,cutoffs[6],weights[6]));
+    if(verbose)std::cout << "Added " << w48->name() << " @" << cutoffs[6] << " conflicts\n";
+    // 48-connected Grid w/ Waiting
+    envs.push_back(EnvironmentContainer<xytLoc,tDirection>(w49->name(),e49,h48,cutoffs[7],weights[7]));
+    if(verbose)std::cout << "Added " << w49->name() << " @" << cutoffs[7] << " conflicts\n";
+    environs.push_back(envs);
+  }
 
   /*for(auto& e:environs){
     for(auto& s:sconstraints){
@@ -214,24 +235,24 @@ void InitHeadless(){
     }
   }*/
 
-  ace=environs.rbegin()->environment;
+  ace=environs.rbegin()->rbegin()->environment;
 
-  group = new CBSGroup<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >(environs,verbose); // Changed to 10,000 expansions from number of conflicts in the tree
-  CBSGroup<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >::greedyCT=greedyCT;
+  group = new MACBSGroup(environs,verbose); // Changed to 10,000 expansions from number of conflicts in the tree
+  MACBSGroup::greedyCT=greedyCT;
   group->disappearAtGoal=disappearAtGoal;
   group->timer=new Timer();
   group->seed=seed;
   group->keeprunning=gui;
   group->animate=animate;
   group->killex=killex;
-  //group->mergeThreshold=mergeThreshold;
+  group->mergeThreshold=mergeThreshold;
   group->ECBSheuristic=ECBSheuristic;
   group->nobypass=nobypass;
   group->verify=verify;
-  TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>::randomalg=randomalg;
-  TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>::useCAT=useCAT;
+  TieBreaking<xytLoc,tDirection>::randomalg=randomalg;
+  TieBreaking<xytLoc,tDirection>::useCAT=useCAT;
   if(gui){
-    sim = new UnitSimulation<xytLoc, tDirection, Map2DConstrainedEnvironment>(ace);
+    sim = new UnitSimulation<xytLoc, tDirection, ConstrainedEnvironment<xytLoc, tDirection>>(ace);
     sim->SetStepType(kLockStep);
 
     sim->AddUnitGroup(group);
@@ -286,14 +307,14 @@ void InitHeadless(){
         ++w;
     }
 
-    if(verbose){
+    if(!quiet){
       std::cout << "Set unit " << i << " subgoals: ";
       for(auto &a: waypoints[i])
         std::cout << a << " ";
       std::cout << std::endl;
     }
     float softEff(.9);
-    CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >* unit = new CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >(waypoints[i],softEff);
+    MACBSUnit* unit = new MACBSUnit(waypoints[i],softEff);
     unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
     group->AddUnit(unit); // Add to the group
     if(verbose)std::cout << "initial path for agent " << i << ":\n";
@@ -302,7 +323,7 @@ void InitHeadless(){
     if(gui){sim->AddUnit(unit);} // Add to the group
   }
   if(!gui){
-    Timer::Timeout func(std::bind(&CBSGroup<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >::processSolution, group, std::placeholders::_1));
+    Timer::Timeout func(std::bind(&MACBSGroup::processSolution, group, std::placeholders::_1));
     group->timer->StartTimeout(std::chrono::seconds(killtime),func);
   }
   //assert(false && "Exit early");
@@ -330,26 +351,27 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
             GLfloat r, g, b;
             u->GetColor(r, g, b);
             ace->SetColor(r,g,b);
-            ace->GLDrawPath(((CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> > const*)u)->GetPath(),((CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> > const*)u)->GetWaypoints());
+            ace->GLDrawPath(((MACBSUnit const*)u)->GetPath(),((MACBSUnit const*)u)->GetWaypoints());
         }
     }
 
   //static double ptime[500];
   //memset(ptime,0,500*sizeof(double));
-	if (sim)
-		sim->OpenGLDraw();
-	if (!paused) {
-		sim->StepTime(stepsPerFrame);
-		
-		/*std::cout << "Printing locations at time: " << sim->GetSimulationTime() << std::endl;
-		for (int x = 0; x < group->GetNumMembers(); x ++) {
-			CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> > *c = (CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection,Map2DConstrainedEnvironment>,NonUnitTimeCAT<xytLoc,Map2DConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >*)group->GetMember(x);
-			xytLoc cur;
-			c->GetLocation(cur);
-                        //if(!fequal(ptime[x],sim->GetSimulationTime())
-			std::cout << "\t" << x << ":" << cur << std::endl;
-		}*/
-	}
+        if (sim){
+          sim->OpenGLDraw();
+          if (!paused) {
+            sim->StepTime(stepsPerFrame);
+
+            /*std::cout << "Printing locations at time: " << sim->GetSimulationTime() << std::endl;
+              for (int x = 0; x < group->GetNumMembers(); x ++) {
+              MACBSUnit* c = (MACBSUnit*)group->GetMember(x);
+              xytLoc cur;
+              c->GetLocation(cur);
+            //if(!fequal(ptime[x],sim->GetSimulationTime())
+            std::cout << "\t" << x << ":" << cur << std::endl;
+            }*/
+          }
+        }
 
 
 	if (recording)
@@ -406,6 +428,24 @@ int MyCLHandler(char *argument[], int maxNumArgs)
           }
           mapfile=sl.GetNthExperiment(0).GetMapName();
           mapfile.insert(0,pathprefix); // Add prefix
+          map=new Map(mapfile.c_str());
+          w4 = new MapEnvironment(map); w4->SetFourConnected();
+          w5 = new MapEnvironment(map); w5->SetFiveConnected();
+          w8 = new MapEnvironment(map); w8->SetEightConnected();
+          w9 = new MapEnvironment(map); w9->SetNineConnected();
+          w24 = new MapEnvironment(map); w24->SetTwentyFourConnected();
+          w25 = new MapEnvironment(map); w25->SetTwentyFiveConnected();
+          w48 = new MapEnvironment(map); w48->SetFortyEightConnected();
+          w49 = new MapEnvironment(map); w49->SetFortyNineConnected();
+          e4 = new Map2DConstrainedEnvironment(w4);
+          e5 = new Map2DConstrainedEnvironment(w5);
+          e8 = new Map2DConstrainedEnvironment(w8);
+          e9 = new Map2DConstrainedEnvironment(w9);
+          e24 = new Map2DConstrainedEnvironment(w24);
+          e25 = new Map2DConstrainedEnvironment(w25);
+          e48 = new Map2DConstrainedEnvironment(w48);
+          e49 = new Map2DConstrainedEnvironment(w49);
+        
           for(int i(0); i<num_agents; ++i){
             std::vector<xytLoc> wpts;
             Experiment e(sl.GetRandomExperiment());
@@ -413,14 +453,37 @@ int MyCLHandler(char *argument[], int maxNumArgs)
             wpts.emplace_back(e.GetGoalX(),e.GetGoalY());
             waypoints.push_back(wpts);
           }
+          h4=new Map2DDiffHeuristic(map,e4,NUMBER_CANONICAL_STATES);
+          h8=new Map2DDiffHeuristic(map,e8,NUMBER_CANONICAL_STATES);
+          h24=new Map2DDiffHeuristic(map,e24,NUMBER_CANONICAL_STATES);
+          h48=new Map2DDiffHeuristic(map,e48,NUMBER_CANONICAL_STATES);
           
           return 2;
         }
 	if(strcmp(argument[0], "-mapfile") == 0)
         {
-                mapfile=argument[1];
-		return 2;
-	}
+          mapfile=argument[1];
+          std::string pathprefix("../../"); // Because I always run from the build directory...
+          mapfile.insert(0,pathprefix); // Add prefix
+          map=new Map(mapfile.c_str());
+          w4 = new MapEnvironment(map); w4->SetFourConnected();
+          w5 = new MapEnvironment(map); w5->SetFiveConnected();
+          w8 = new MapEnvironment(map); w8->SetEightConnected();
+          w9 = new MapEnvironment(map); w9->SetNineConnected();
+          w24 = new MapEnvironment(map); w24->SetTwentyFourConnected();
+          e4 = new Map2DConstrainedEnvironment(w4);
+          e5 = new Map2DConstrainedEnvironment(w5);
+          e8 = new Map2DConstrainedEnvironment(w8);
+          e9 = new Map2DConstrainedEnvironment(w9);
+          e24 = new Map2DConstrainedEnvironment(w24);
+          e25 = new Map2DConstrainedEnvironment(w25);
+          e48 = new Map2DConstrainedEnvironment(w48);
+          e49 = new Map2DConstrainedEnvironment(w49);
+          w25 = new MapEnvironment(map); w25->SetTwentyFiveConnected();
+          w48 = new MapEnvironment(map); w48->SetFortyEightConnected();
+          w49 = new MapEnvironment(map); w49->SetFortyNineConnected();
+          return 2;
+        }
 	if(strcmp(argument[0], "-mergeThreshold") == 0)
         {
                 mergeThreshold = atoi(argument[1]);
@@ -444,6 +507,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 	if(strcmp(argument[0], "-nogui") == 0)
 	{
 		gui = false;
+		return 1;
+	}
+	if(strcmp(argument[0], "-quiet") == 0)
+	{
+		quiet = true;
 		return 1;
 	}
 	if(strcmp(argument[0], "-verbose") == 0)
@@ -477,7 +545,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 		return 1;
 	}
 	if(strcmp(argument[0], "-probfile") == 0){
-		std::cout << "Reading instance from file: \""<<argument[1]<<"\"\n";
+		//std::cout << "Reading instance from file: \""<<argument[1]<<"\"\n";
 		std::ifstream ss(argument[1]);
 		int x,y;
                 float t(0.0);
@@ -594,6 +662,23 @@ int MyCLHandler(char *argument[], int maxNumArgs)
             ss.ignore();
           ss >> i;
           height = i;
+          map = new Map(width,length);
+          w4 = new MapEnvironment(map); w4->SetFourConnected();
+          w5 = new MapEnvironment(map); w5->SetFiveConnected();
+          w8 = new MapEnvironment(map); w8->SetEightConnected();
+          w9 = new MapEnvironment(map); w9->SetNineConnected();
+          w24 = new MapEnvironment(map); w24->SetTwentyFourConnected();
+          w25 = new MapEnvironment(map); w25->SetTwentyFiveConnected();
+          w48 = new MapEnvironment(map); w48->SetFortyEightConnected();
+          w49 = new MapEnvironment(map); w49->SetFortyNineConnected();
+          e4 = new Map2DConstrainedEnvironment(w4);
+          e5 = new Map2DConstrainedEnvironment(w5);
+          e8 = new Map2DConstrainedEnvironment(w8);
+          e9 = new Map2DConstrainedEnvironment(w9);
+          e24 = new Map2DConstrainedEnvironment(w24);
+          e25 = new Map2DConstrainedEnvironment(w25);
+          e48 = new Map2DConstrainedEnvironment(w48);
+          e49 = new Map2DConstrainedEnvironment(w49);
           return 2;
         }
 	if(strcmp(argument[0], "-nagents") == 0)

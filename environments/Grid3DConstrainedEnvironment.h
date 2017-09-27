@@ -119,7 +119,7 @@ typedef std::set<IntervalData> ConflictSet;
 #define HASH_INTERVAL 0.50
 #define HASH_INTERVAL_HUNDREDTHS 50
 
-template <typename state, typename action, typename environment>
+template <typename state, typename action>
 class TieBreaking3D {
   public:
 // Check if an openlist node conflicts with a node from an existing path
@@ -215,20 +215,20 @@ unsigned checkForConflict(state const*const parent, state const*const node, stat
     static uint8_t currentAgent;
     static bool randomalg;
     static bool useCAT;
-    static NonUnitTimeCAT<state,environment,HASH_INTERVAL_HUNDREDTHS>* CAT; // Conflict Avoidance Table
+    static NonUnitTimeCAT<state,action,HASH_INTERVAL_HUNDREDTHS>* CAT; // Conflict Avoidance Table
 };
 
-template <typename state, typename action, typename environment>
-OpenClosedInterface<state,AStarOpenClosedData<state>>* TieBreaking3D<state,action,environment>::openList=0;
-template <typename state, typename action, typename environment>
-Grid3DConstrainedEnvironment* TieBreaking3D<state,action,environment>::currentEnv=0;
-template <typename state, typename action, typename environment>
-uint8_t TieBreaking3D<state,action,environment>::currentAgent=0;
-template <typename state, typename action, typename environment>
-bool TieBreaking3D<state,action,environment>::randomalg=false;
-template <typename state, typename action, typename environment>
-bool TieBreaking3D<state,action,environment>::useCAT=false;
-template <typename state, typename action, typename environment>
-NonUnitTimeCAT<state,environment,HASH_INTERVAL_HUNDREDTHS>* TieBreaking3D<state,action,environment>::CAT=0;
+template <typename state, typename action>
+OpenClosedInterface<state,AStarOpenClosedData<state>>* TieBreaking3D<state,action>::openList=0;
+template <typename state, typename action>
+Grid3DConstrainedEnvironment* TieBreaking3D<state,action>::currentEnv=0;
+template <typename state, typename action>
+uint8_t TieBreaking3D<state,action>::currentAgent=0;
+template <typename state, typename action>
+bool TieBreaking3D<state,action>::randomalg=false;
+template <typename state, typename action>
+bool TieBreaking3D<state,action>::useCAT=false;
+template <typename state, typename action>
+NonUnitTimeCAT<state,action,HASH_INTERVAL_HUNDREDTHS>* TieBreaking3D<state,action>::CAT=0;
 
 #endif /* defined(__hog2_glut__Grid3DConstrainedEnvironment__) */

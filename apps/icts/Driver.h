@@ -50,7 +50,6 @@ bool MyClickHandler(unsigned long windowID, int x, int y, point3d loc, tButtonTy
 void InstallHandlers();
 void InitSim();
 
-
 #define INF 9999999.0f
 
 template<typename T, typename C>

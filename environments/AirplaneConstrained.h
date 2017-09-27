@@ -175,7 +175,7 @@ unsigned checkForConflict(state const*const parent, state const*const node, stat
   return 0; 
 }
 
-template <typename state, typename action, typename environment>
+template <typename state, typename action>
 class UnitTieBreaking {
   public:
   bool operator()(const AStarOpenClosedData<state> &ci1, const AStarOpenClosedData<state> &ci2) const
@@ -266,13 +266,13 @@ class UnitTieBreaking {
     static uint8_t currentAgent;
     static bool randomalg;
     static bool useCAT;
-    static UnitTimeCAT<state,environment>* CAT; // Conflict Avoidance Table
+    static UnitTimeCAT<state,action>* CAT; // Conflict Avoidance Table
 };
 
 #define HASH_INTERVAL 0.09
 #define HASH_INTERVAL_HUNDREDTHS 9
 
-template <typename state, typename action, typename environment>
+template <typename state, typename action>
 class RandomTieBreaking {
   public:
   bool operator()(const AStarOpenClosedData<state> &ci1, const AStarOpenClosedData<state> &ci2) const
@@ -373,20 +373,20 @@ class RandomTieBreaking {
     static uint8_t currentAgent;
     static bool randomalg;
     static bool useCAT;
-    static NonUnitTimeCAT<state,environment,HASH_INTERVAL_HUNDREDTHS>* CAT; // Conflict Avoidance Table
+    static NonUnitTimeCAT<state,action,HASH_INTERVAL_HUNDREDTHS>* CAT; // Conflict Avoidance Table
 };
 
-template <typename state, typename action, typename environment>
-OpenClosedInterface<state,AStarOpenClosedData<state>>* RandomTieBreaking<state,action,environment>::openList=0;
-template <typename state, typename action, typename environment>
-AirplaneConstrainedEnvironment* RandomTieBreaking<state,action,environment>::currentEnv=0;
-template <typename state, typename action, typename environment>
-uint8_t RandomTieBreaking<state,action,environment>::currentAgent=0;
-template <typename state, typename action, typename environment>
-bool RandomTieBreaking<state,action,environment>::randomalg=false;
-template <typename state, typename action, typename environment>
-bool RandomTieBreaking<state,action,environment>::useCAT=false;
-template <typename state, typename action, typename environment>
-NonUnitTimeCAT<state,environment,HASH_INTERVAL_HUNDREDTHS>* RandomTieBreaking<state,action,environment>::CAT=0;
+template <typename state, typename action>
+OpenClosedInterface<state,AStarOpenClosedData<state>>* RandomTieBreaking<state,action>::openList=0;
+template <typename state, typename action>
+AirplaneConstrainedEnvironment* RandomTieBreaking<state,action>::currentEnv=0;
+template <typename state, typename action>
+uint8_t RandomTieBreaking<state,action>::currentAgent=0;
+template <typename state, typename action>
+bool RandomTieBreaking<state,action>::randomalg=false;
+template <typename state, typename action>
+bool RandomTieBreaking<state,action>::useCAT=false;
+template <typename state, typename action>
+NonUnitTimeCAT<state,action,HASH_INTERVAL_HUNDREDTHS>* RandomTieBreaking<state,action>::CAT=0;
 
 #endif /* defined(__hog2_glut__AirplaneConstrainedEnvironment__) */

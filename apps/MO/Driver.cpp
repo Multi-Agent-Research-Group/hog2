@@ -52,54 +52,26 @@ bool ignoreHeading(false);
 
 bool paused = false;
 #define NUM_OBJECTIVES 3
-typedef LexicographicTieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,NUM_OBJECTIVES> LexiComparator;
-typedef LexicographicGoalTieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,NUM_OBJECTIVES> LexiGoalComparator;
-typedef DominanceTieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,NUM_OBJECTIVES> DominanceComparator;
+typedef LexicographicTieBreaking<xytLoc,tDirection,NUM_OBJECTIVES> LexiComparator;
+typedef LexicographicGoalTieBreaking<xytLoc,tDirection,NUM_OBJECTIVES> LexiGoalComparator;
+typedef DominanceTieBreaking<xytLoc,tDirection,NUM_OBJECTIVES> DominanceComparator;
 
 // Lexicographic comparators
-typedef CBSUnit<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,LexicographicTieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>, NUM_OBJECTIVES>,NonUnitTimeCAT<xytLoc,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,HASH_INTERVAL_HUNDREDTHS>,NUM_OBJECTIVES,NAMOAStar<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,NUM_OBJECTIVES>> LexObjectiveUnit;
-typedef CBSGroup<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,LexicographicTieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>, NUM_OBJECTIVES>,NonUnitTimeCAT<xytLoc,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,HASH_INTERVAL_HUNDREDTHS>,NUM_OBJECTIVES,NAMOAStar<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,NUM_OBJECTIVES>> LexObjectiveGroup;
+typedef CBSUnit<xytLoc,tDirection,
+MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,
+LexicographicTieBreaking<xytLoc,tDirection,NUM_OBJECTIVES>,
+NonUnitTimeCAT<xytLoc,tDirection,HASH_INTERVAL_HUNDREDTHS>,
+NUM_OBJECTIVES,
+NAMOAStar<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,NUM_OBJECTIVES>> LexObjectiveUnit;
+typedef CBSGroup<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,LexicographicTieBreaking<xytLoc,tDirection,NUM_OBJECTIVES>,NonUnitTimeCAT<xytLoc,tDirection,HASH_INTERVAL_HUNDREDTHS>,NUM_OBJECTIVES,NAMOAStar<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,NUM_OBJECTIVES>> LexObjectiveGroup;
 
 // Goal-based lexicographic comparators
-typedef CBSUnit<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,LexicographicGoalTieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>, NUM_OBJECTIVES>,NonUnitTimeCAT<xytLoc,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,HASH_INTERVAL_HUNDREDTHS>,NUM_OBJECTIVES,NAMOAStar<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,NUM_OBJECTIVES>> LexGoalObjectiveUnit;
-typedef CBSGroup<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,LexicographicGoalTieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>, NUM_OBJECTIVES>,NonUnitTimeCAT<xytLoc,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,HASH_INTERVAL_HUNDREDTHS>,NUM_OBJECTIVES,NAMOAStar<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,NUM_OBJECTIVES>> LexGoalObjectiveGroup;
+typedef CBSUnit<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,LexicographicGoalTieBreaking<xytLoc,tDirection,NUM_OBJECTIVES>,NonUnitTimeCAT<xytLoc,tDirection,HASH_INTERVAL_HUNDREDTHS>,NUM_OBJECTIVES,NAMOAStar<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,NUM_OBJECTIVES>> LexGoalObjectiveUnit;
+typedef CBSGroup<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,LexicographicGoalTieBreaking<xytLoc,tDirection,NUM_OBJECTIVES>,NonUnitTimeCAT<xytLoc,tDirection,HASH_INTERVAL_HUNDREDTHS>,NUM_OBJECTIVES,NAMOAStar<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,NUM_OBJECTIVES>> LexGoalObjectiveGroup;
 
 // Dominance comparators
-typedef CBSUnit<xytLoc,
-  tDirection,
-  MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,
-  DominanceTieBreaking<
-    xytLoc,
-    tDirection,
-    MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,
-    NUM_OBJECTIVES
-  >,
-  NonUnitTimeCAT<
-    xytLoc,
-    MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,
-    HASH_INTERVAL_HUNDREDTHS
-  >,
-  NUM_OBJECTIVES,
-  NAMOAStar<
-    xytLoc,
-    tDirection,
-    MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,
-    NUM_OBJECTIVES,
-    AStarOpenClosed<
-      xytLoc,
-      DominanceTieBreaking<
-        xytLoc,
-        tDirection,
-        MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,
-        NUM_OBJECTIVES>,
-      NAMOAOpenClosedData<
-        xytLoc,
-        MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,
-        NUM_OBJECTIVES>
-    >
-  >
-> DominanceObjectiveUnit;
-typedef CBSGroup<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,DominanceTieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>, NUM_OBJECTIVES>,NonUnitTimeCAT<xytLoc,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,HASH_INTERVAL_HUNDREDTHS>,NUM_OBJECTIVES,NAMOAStar<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,NUM_OBJECTIVES,AStarOpenClosed<xytLoc,DominanceTieBreaking<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,NUM_OBJECTIVES>,NAMOAOpenClosedData<xytLoc,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,NUM_OBJECTIVES>>>> DominanceObjectiveGroup;
+typedef CBSUnit<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,DominanceTieBreaking<xytLoc,tDirection,NUM_OBJECTIVES>,NonUnitTimeCAT<xytLoc,tDirection,HASH_INTERVAL_HUNDREDTHS>,NUM_OBJECTIVES,NAMOAStar<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,NUM_OBJECTIVES,AStarOpenClosed<xytLoc,DominanceTieBreaking<xytLoc,tDirection,NUM_OBJECTIVES>,NAMOAOpenClosedData<xytLoc,NUM_OBJECTIVES>>>> DominanceObjectiveUnit;
+typedef CBSGroup<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,DominanceTieBreaking<xytLoc,tDirection,NUM_OBJECTIVES>,NonUnitTimeCAT<xytLoc,tDirection,HASH_INTERVAL_HUNDREDTHS>,NUM_OBJECTIVES,NAMOAStar<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>,NUM_OBJECTIVES,AStarOpenClosed<xytLoc,DominanceTieBreaking<xytLoc,tDirection,NUM_OBJECTIVES>,NAMOAOpenClosedData<xytLoc,NUM_OBJECTIVES>>>> DominanceObjectiveGroup;
 
 MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection> *ace = 0;
 UnitSimulation<xytLoc, tDirection, MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>> *sim = 0;

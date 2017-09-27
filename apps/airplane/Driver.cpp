@@ -54,7 +54,7 @@ std::vector<SoftConstraint<airtimeState> > sconstraints;
 
   AirplaneConstrainedEnvironment *ace = 0;
   UnitSimulation<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *sim = 0;
-  CBSGroup<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>,NonUnitTimeCAT<airtimeState,AirplaneConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >* group = 0;
+  CBSGroup<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction>,NonUnitTimeCAT<airtimeState,airplaneAction,HASH_INTERVAL_HUNDREDTHS> >* group = 0;
 
   bool gui=true;
   void InitHeadless();
@@ -223,16 +223,16 @@ void InitHeadless(){
 
   ace=environs.rbegin()->environment;
 
-  group = new CBSGroup<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>,NonUnitTimeCAT<airtimeState,AirplaneConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >(environs,verbose); // Changed to 10,000 expansions from number of conflicts in the tree
-  CBSGroup<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>,NonUnitTimeCAT<airtimeState,AirplaneConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >::greedyCT=greedyCT;
+  group = new CBSGroup<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction>,NonUnitTimeCAT<airtimeState,airplaneAction,HASH_INTERVAL_HUNDREDTHS> >(environs,verbose); // Changed to 10,000 expansions from number of conflicts in the tree
+  CBSGroup<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction>,NonUnitTimeCAT<airtimeState,airplaneAction,HASH_INTERVAL_HUNDREDTHS> >::greedyCT=greedyCT;
   group->timer=new Timer();
   group->seed=seed;
   group->keeprunning=gui;
   group->killex=killex;
   group->ECBSheuristic=ECBSheuristic;
   group->nobypass=nobypass;
-  RandomTieBreaking<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>::randomalg=randomalg;
-  RandomTieBreaking<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>::useCAT=useCAT;
+  RandomTieBreaking<airtimeState,airplaneAction>::randomalg=randomalg;
+  RandomTieBreaking<airtimeState,airplaneAction>::useCAT=useCAT;
   if(gui){
     sim = new UnitSimulation<airtimeState, airplaneAction, AirplaneConstrainedEnvironment>(ace);
     sim->SetStepType(kLockStep);
@@ -294,7 +294,7 @@ void InitHeadless(){
       std::cout << a << " ";
     std::cout << std::endl;
     float softEff(.9);
-    CBSUnit<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>,NonUnitTimeCAT<airtimeState,AirplaneConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >* unit = new CBSUnit<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>,NonUnitTimeCAT<airtimeState,AirplaneConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >(waypoints[i],softEff);
+    CBSUnit<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction>,NonUnitTimeCAT<airtimeState,airplaneAction,HASH_INTERVAL_HUNDREDTHS> >* unit = new CBSUnit<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction>,NonUnitTimeCAT<airtimeState,airplaneAction,HASH_INTERVAL_HUNDREDTHS> >(waypoints[i],softEff);
     unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
     group->AddUnit(unit); // Add to the group
     std::cout << "initial path for agent " << i << ":\n";
@@ -303,7 +303,7 @@ void InitHeadless(){
     if(gui){sim->AddUnit(unit);} // Add to the group
   }
   if(!gui){
-    Timer::Timeout func(std::bind(&CBSGroup<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>,NonUnitTimeCAT<airtimeState,AirplaneConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >::processSolution, group, std::placeholders::_1));
+    Timer::Timeout func(std::bind(&CBSGroup<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction>,NonUnitTimeCAT<airtimeState,airplaneAction,HASH_INTERVAL_HUNDREDTHS> >::processSolution, group, std::placeholders::_1));
     group->timer->StartTimeout(std::chrono::seconds(killtime),func);
   }
   //assert(false && "Exit early");
@@ -328,7 +328,7 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 	if (ace){
         for(auto u : group->GetMembers()){
             glLineWidth(2.0);
-            ace->GLDrawPath(((CBSUnit<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>,NonUnitTimeCAT<airtimeState,AirplaneConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> > const*)u)->GetPath(),((CBSUnit<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>,NonUnitTimeCAT<airtimeState,AirplaneConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> > const*)u)->GetWaypoints());
+            ace->GLDrawPath(((CBSUnit<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction>,NonUnitTimeCAT<airtimeState,airplaneAction,HASH_INTERVAL_HUNDREDTHS> > const*)u)->GetPath(),((CBSUnit<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction>,NonUnitTimeCAT<airtimeState,airplaneAction,HASH_INTERVAL_HUNDREDTHS> > const*)u)->GetWaypoints());
         }
     }
 
@@ -341,7 +341,7 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 		
 		/*std::cout << "Printing locations at time: " << sim->GetSimulationTime() << std::endl;
 		for (int x = 0; x < group->GetNumMembers(); x ++) {
-			CBSUnit<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>,NonUnitTimeCAT<airtimeState,AirplaneConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> > *c = (CBSUnit<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>,NonUnitTimeCAT<airtimeState,AirplaneConstrainedEnvironment,HASH_INTERVAL_HUNDREDTHS> >*)group->GetMember(x);
+			CBSUnit<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction>,NonUnitTimeCAT<airtimeState,airplaneAction,HASH_INTERVAL_HUNDREDTHS> > *c = (CBSUnit<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction>,NonUnitTimeCAT<airtimeState,airplaneAction,HASH_INTERVAL_HUNDREDTHS> >*)group->GetMember(x);
 			airtimeState cur;
 			c->GetLocation(cur);
                         //if(!fequal(ptime[x],sim->GetSimulationTime())

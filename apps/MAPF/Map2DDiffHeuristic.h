@@ -28,25 +28,35 @@ class Map2DDiffHeuristic: public Heuristic<xytLoc> {
         if((fp=fopen(fname.str().c_str(), "rb"))==NULL) {
           std::cout << "Cannot open file: " << fname.str() << "... Generating from scratch.\n";
           TemporalAStar<xytLoc,tDirection,Map2DConstrainedEnvironment> astar;
-          //astar.SetVerbose(true);
+          astar.SetVerbose(true);
           astar.SetHeuristic(new ZeroHeuristic<xytLoc>);
           astar.SetStopAfterGoal(false); // Search the entire space
           xytLoc s;
           xytLoc g(99,99); // Goal doesn't really matter - ignored
-          while(points.size()==i){
+          std::vector<xytLoc> path;
+          if(points.size()==0){
             do{
               s={rand()%m->GetMapWidth(),rand()%m->GetMapHeight()};
             }while(!m->IsTraversable(s.x,s.y));
-            // Get the furthest point away
-            std::vector<xytLoc> path;
-            astar.GetPath(e,s,g,path,0);
-            points.insert(path.back());
-            s=path.back();
+            astar.InitializeSearch(e,s,g,path,0);
+          }else{
+            s=*points.begin();
+            astar.InitializeSearch(e,s,g,path,0);
+            auto a(points.cbegin());
+            ++a;
+            for(; a!=points.end(); ++a){
+              astar.AddAdditionalStartState(*a);
+            }
           }
-          // Now perform a search
+          // Get the furthest point away
+          while(!astar.DoSingleSearchStep(path,0)){}
+          points.insert(path.back());
+          s=path.back();
+
+          // Now perform a search to get all costs
           // NOTE: This should be a reverse-search, but our agents are holonomic
-          // so the costs forward as the costs backward
-          std::vector<xytLoc> path;
+          // so the costs forward are the same as the costs backward
+          path.clear();
           astar.GetPath(e,s,g,path,0);
           astar.GetOpenList()->SaveToFile(fname.str().c_str());
           for(int w(0); w<m->GetMapWidth(); ++w){

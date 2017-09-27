@@ -93,14 +93,21 @@ class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
     virtual void GetSuccessors(const State &nodeID, std::vector<State> &neighbors) const = 0;
     /** Checks to see if any constraint is violated */
     virtual bool ViolatesConstraint(const State &from, const State &to) const = 0;
+    virtual void GLDrawLine(const State &x, const State &y) const{}
+    virtual void GLDrawPath(const std::vector<State> &p, const std::vector<State> &waypoints) const{
+      if(p.size()<2) return;
+      //TODO Draw waypoints as cubes.
+      for(auto a(p.begin()+1); a!=p.end(); ++a){ GLDrawLine(*(a-1),*a); }
+    }
+
 };
 
 // We initialize these here, but they can be changed at run-time
 // These are only necessary for displaying constraints in OpenGL
 /*template<typename State>
-int Constraint<State>::width=80;
-template<typename State>
-int Constraint<State>::length=80;
+  int Constraint<State>::width=80;
+  template<typename State>
+  int Constraint<State>::length=80;
 template<typename State>
 int Constraint<State>::height=20;
 */

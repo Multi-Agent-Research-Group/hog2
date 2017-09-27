@@ -127,10 +127,10 @@ typedef std::set<IntervalData> ConflictSet;
 #define HASH_INTERVAL 1.0
 #define HASH_INTERVAL_HUNDREDTHS 100
 
-template <typename state, typename action, typename environment, unsigned dim>
+template <typename state, typename action, unsigned dim>
 class LexicographicTieBreaking {
   public:
-  bool operator()(const NAMOAOpenClosedData<state,environment,dim> &ci1, const NAMOAOpenClosedData<state,environment,dim> &ci2) const
+  bool operator()(const NAMOAOpenClosedData<state,dim> &ci1, const NAMOAOpenClosedData<state,dim> &ci2) const
   {
     // Check f-costs first
     for(int i(0); i<dim; ++i){
@@ -143,8 +143,8 @@ class LexicographicTieBreaking {
       // Update the conflict avoidance table
       if(useCAT && CAT){
         // Make them non-const :)
-        NAMOAOpenClosedData<state,environment,dim>& i1(const_cast<NAMOAOpenClosedData<state,environment,dim>&>(ci1));
-        NAMOAOpenClosedData<state,environment,dim>& i2(const_cast<NAMOAOpenClosedData<state,environment,dim>&>(ci2));
+        NAMOAOpenClosedData<state,dim>& i1(const_cast<NAMOAOpenClosedData<state,dim>&>(ci1));
+        NAMOAOpenClosedData<state,dim>& i2(const_cast<NAMOAOpenClosedData<state,dim>&>(ci2));
         // Compute cumulative conflicts (if not already done)
         ConflictSet matches;
         if(i1.data.nc ==-1){
@@ -212,31 +212,31 @@ class LexicographicTieBreaking {
     }
     return randomalg?rand()%2:true;
   }
-    static OpenClosedInterface<state,NAMOAOpenClosedData<state,environment,dim>>* openList;
-    static environment* currentEnv;
+    static OpenClosedInterface<state,NAMOAOpenClosedData<state,dim>>* openList;
+    static SearchEnvironment<state,action>* currentEnv;
     static uint8_t currentAgent;
     static bool randomalg;
     static bool useCAT;
-    static NonUnitTimeCAT<state,environment,HASH_INTERVAL_HUNDREDTHS>* CAT; // Conflict Avoidance Table
+    static NonUnitTimeCAT<state,action,HASH_INTERVAL_HUNDREDTHS>* CAT; // Conflict Avoidance Table
 };
 
-template <typename state, typename action, typename environment, unsigned dim>
-OpenClosedInterface<state,NAMOAOpenClosedData<state,environment,dim>>* LexicographicTieBreaking<state,action,environment,dim>::openList=0;
-template <typename state, typename action, typename environment, unsigned dim>
-environment* LexicographicTieBreaking<state,action,environment,dim>::currentEnv=0;
-template <typename state, typename action, typename environment, unsigned dim>
-uint8_t LexicographicTieBreaking<state,action,environment,dim>::currentAgent=0;
-template <typename state, typename action, typename environment, unsigned dim>
-bool LexicographicTieBreaking<state,action,environment,dim>::randomalg=false;
-template <typename state, typename action, typename environment, unsigned dim>
-bool LexicographicTieBreaking<state,action,environment,dim>::useCAT=false;
-template <typename state, typename action, typename environment, unsigned dim>
-NonUnitTimeCAT<state,environment,HASH_INTERVAL_HUNDREDTHS>* LexicographicTieBreaking<state,action,environment,dim>::CAT=0;
+template <typename state, typename action, unsigned dim>
+OpenClosedInterface<state,NAMOAOpenClosedData<state,dim>>* LexicographicTieBreaking<state,action,dim>::openList=0;
+template <typename state, typename action, unsigned dim>
+SearchEnvironment<state,action>* LexicographicTieBreaking<state,action,dim>::currentEnv=0;
+template <typename state, typename action, unsigned dim>
+uint8_t LexicographicTieBreaking<state,action,dim>::currentAgent=0;
+template <typename state, typename action, unsigned dim>
+bool LexicographicTieBreaking<state,action,dim>::randomalg=false;
+template <typename state, typename action, unsigned dim>
+bool LexicographicTieBreaking<state,action,dim>::useCAT=false;
+template <typename state, typename action, unsigned dim>
+NonUnitTimeCAT<state,action,HASH_INTERVAL_HUNDREDTHS>* LexicographicTieBreaking<state,action,dim>::CAT=0;
 
-template <typename state, typename action, typename environment, unsigned dim>
+template <typename state, typename action, unsigned dim>
 class LexicographicGoalTieBreaking {
   public:
-  bool operator()(const NAMOAOpenClosedData<state,environment,dim> &ci1, const NAMOAOpenClosedData<state,environment,dim> &ci2) const
+  bool operator()(const NAMOAOpenClosedData<state,dim> &ci1, const NAMOAOpenClosedData<state,dim> &ci2) const
   {
     // Check f-costs first
     for(int i(0); i<dim; ++i){
@@ -252,8 +252,8 @@ class LexicographicGoalTieBreaking {
       // Update the conflict avoidance table
       if(useCAT && CAT){
         // Make them non-const :)
-        NAMOAOpenClosedData<state,environment,dim>& i1(const_cast<NAMOAOpenClosedData<state,environment,dim>&>(ci1));
-        NAMOAOpenClosedData<state,environment,dim>& i2(const_cast<NAMOAOpenClosedData<state,environment,dim>&>(ci2));
+        NAMOAOpenClosedData<state,dim>& i1(const_cast<NAMOAOpenClosedData<state,dim>&>(ci1));
+        NAMOAOpenClosedData<state,dim>& i2(const_cast<NAMOAOpenClosedData<state,dim>&>(ci2));
         // Compute cumulative conflicts (if not already done)
         ConflictSet matches;
         if(i1.data.nc ==-1){
@@ -327,31 +327,31 @@ class LexicographicGoalTieBreaking {
     }
     return randomalg?rand()%2:true;
   }
-    static OpenClosedInterface<state,NAMOAOpenClosedData<state,environment,dim>>* openList;
-    static environment* currentEnv;
+    static OpenClosedInterface<state,NAMOAOpenClosedData<state,dim>>* openList;
+    static SearchEnvironment<state,action>* currentEnv;
     static uint8_t currentAgent;
     static bool randomalg;
     static bool useCAT;
-    static NonUnitTimeCAT<state,environment,HASH_INTERVAL_HUNDREDTHS>* CAT; // Conflict Avoidance Table
+    static NonUnitTimeCAT<state,action,HASH_INTERVAL_HUNDREDTHS>* CAT; // Conflict Avoidance Table
 };
 
-template <typename state, typename action, typename environment, unsigned dim>
-OpenClosedInterface<state,NAMOAOpenClosedData<state,environment,dim>>* LexicographicGoalTieBreaking<state,action,environment,dim>::openList=0;
-template <typename state, typename action, typename environment, unsigned dim>
-environment* LexicographicGoalTieBreaking<state,action,environment,dim>::currentEnv=0;
-template <typename state, typename action, typename environment, unsigned dim>
-uint8_t LexicographicGoalTieBreaking<state,action,environment,dim>::currentAgent=0;
-template <typename state, typename action, typename environment, unsigned dim>
-bool LexicographicGoalTieBreaking<state,action,environment,dim>::randomalg=false;
-template <typename state, typename action, typename environment, unsigned dim>
-bool LexicographicGoalTieBreaking<state,action,environment,dim>::useCAT=false;
-template <typename state, typename action, typename environment, unsigned dim>
-NonUnitTimeCAT<state,environment,HASH_INTERVAL_HUNDREDTHS>* LexicographicGoalTieBreaking<state,action,environment,dim>::CAT=0;
+template <typename state, typename action, unsigned dim>
+OpenClosedInterface<state,NAMOAOpenClosedData<state,dim>>* LexicographicGoalTieBreaking<state,action,dim>::openList=0;
+template <typename state, typename action, unsigned dim>
+SearchEnvironment<state,action>* LexicographicGoalTieBreaking<state,action,dim>::currentEnv=0;
+template <typename state, typename action, unsigned dim>
+uint8_t LexicographicGoalTieBreaking<state,action,dim>::currentAgent=0;
+template <typename state, typename action, unsigned dim>
+bool LexicographicGoalTieBreaking<state,action,dim>::randomalg=false;
+template <typename state, typename action, unsigned dim>
+bool LexicographicGoalTieBreaking<state,action,dim>::useCAT=false;
+template <typename state, typename action, unsigned dim>
+NonUnitTimeCAT<state,action,HASH_INTERVAL_HUNDREDTHS>* LexicographicGoalTieBreaking<state,action,dim>::CAT=0;
 
-template <typename state, typename action, typename environment, unsigned dim>
+template <typename state, typename action, unsigned dim>
 class DominanceTieBreaking {
   public:
-  bool operator()(const NAMOAOpenClosedData<state,environment,dim> &ci1, const NAMOAOpenClosedData<state,environment,dim> &ci2) const
+  bool operator()(const NAMOAOpenClosedData<state,dim> &ci1, const NAMOAOpenClosedData<state,dim> &ci2) const
   {
     // Check f-costs first
     cost<dim> a(ci1.g+ci1.h);
@@ -365,8 +365,8 @@ class DominanceTieBreaking {
     // Update the conflict avoidance table
     if(useCAT && CAT){
       // Make them non-const :)
-      NAMOAOpenClosedData<state,environment,dim>& i1(const_cast<NAMOAOpenClosedData<state,environment,dim>&>(ci1));
-      NAMOAOpenClosedData<state,environment,dim>& i2(const_cast<NAMOAOpenClosedData<state,environment,dim>&>(ci2));
+      NAMOAOpenClosedData<state,dim>& i1(const_cast<NAMOAOpenClosedData<state,dim>&>(ci1));
+      NAMOAOpenClosedData<state,dim>& i2(const_cast<NAMOAOpenClosedData<state,dim>&>(ci2));
       // Compute cumulative conflicts (if not already done)
       ConflictSet matches;
       if(i1.data.nc ==-1){
@@ -431,24 +431,24 @@ class DominanceTieBreaking {
     }
     return randomalg?rand()%2:true;
   }
-    static OpenClosedInterface<state,NAMOAOpenClosedData<state,environment,dim>>* openList;
-    static environment* currentEnv;
+    static OpenClosedInterface<state,NAMOAOpenClosedData<state,dim>>* openList;
+    static SearchEnvironment<state,action>* currentEnv;
     static uint8_t currentAgent;
     static bool randomalg;
     static bool useCAT;
-    static NonUnitTimeCAT<state,environment,HASH_INTERVAL_HUNDREDTHS>* CAT; // Conflict Avoidance Table
+    static NonUnitTimeCAT<state,action,HASH_INTERVAL_HUNDREDTHS>* CAT; // Conflict Avoidance Table
 };
 
-template <typename state, typename action, typename environment, unsigned dim>
-OpenClosedInterface<state,NAMOAOpenClosedData<state,environment,dim>>* DominanceTieBreaking<state,action,environment,dim>::openList=0;
-template <typename state, typename action, typename environment, unsigned dim>
-environment* DominanceTieBreaking<state,action,environment,dim>::currentEnv=0;
-template <typename state, typename action, typename environment, unsigned dim>
-uint8_t DominanceTieBreaking<state,action,environment,dim>::currentAgent=0;
-template <typename state, typename action, typename environment, unsigned dim>
-bool DominanceTieBreaking<state,action,environment,dim>::randomalg=false;
-template <typename state, typename action, typename environment, unsigned dim>
-bool DominanceTieBreaking<state,action,environment,dim>::useCAT=false;
-template <typename state, typename action, typename environment, unsigned dim>
-NonUnitTimeCAT<state,environment,HASH_INTERVAL_HUNDREDTHS>* DominanceTieBreaking<state,action,environment,dim>::CAT=0;
+template <typename state, typename action, unsigned dim>
+OpenClosedInterface<state,NAMOAOpenClosedData<state,dim>>* DominanceTieBreaking<state,action,dim>::openList=0;
+template <typename state, typename action, unsigned dim>
+SearchEnvironment<state,action>* DominanceTieBreaking<state,action,dim>::currentEnv=0;
+template <typename state, typename action, unsigned dim>
+uint8_t DominanceTieBreaking<state,action,dim>::currentAgent=0;
+template <typename state, typename action, unsigned dim>
+bool DominanceTieBreaking<state,action,dim>::randomalg=false;
+template <typename state, typename action, unsigned dim>
+bool DominanceTieBreaking<state,action,dim>::useCAT=false;
+template <typename state, typename action, unsigned dim>
+NonUnitTimeCAT<state,action,HASH_INTERVAL_HUNDREDTHS>* DominanceTieBreaking<state,action,dim>::CAT=0;
 #endif /* defined(__hog2_glut__MultiObjectiveConstrainedEnvironment__) */

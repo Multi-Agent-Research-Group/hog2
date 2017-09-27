@@ -409,6 +409,7 @@ public:
     int animate; // Add pauses for animation
     static bool greedyCT;
     bool verbose=false;
+    bool quiet=false;
     bool disappearAtGoal=true;
 };
 
@@ -492,7 +493,7 @@ template<typename state, typename action, typename environment, typename compari
 CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::CBSGroup(std::vector<EnvironmentContainer<state,action,environment> > const& environs,bool v)
 : time(0), bestNode(0), planFinished(false), verify(false), nobypass(false)
     , ECBSheuristic(false), killex(INT_MAX), keeprunning(false),animate(0),
-    seed(1234567), timer(0), verbose(v)
+    seed(1234567), timer(0), verbose(v), quiet(true)
 {
   //std::cout << "THRESHOLD " << threshold << "\n";
 
@@ -542,8 +543,8 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Exp
     //c1.unit1=c2.unit1;
     //c2.unit1=tmp;
     // Notify the user of the conflict
+    if(!quiet)std::cout << "TREE " << bestNode <<"("<<tree[bestNode].parent << ") " <<(numConflicts.second==7?"CARDINAL":(numConflicts.second==3?"LEFT-CARDINAL":(numConflicts.second==5?"RIGHT-CARDINAL":"NON-CARDIANL")))<< " conflict found between unit " << c1.unit1 << " and unit " << c2.unit1 << " @:" << c2.c.start() << "-->" << c2.c.end() <<  " and " << c1.c.start() << "-->" << c1.c.end() << " NC " << numConflicts.first << " prev-W " << c1.prevWpt << " " << c2.prevWpt << "\n";
     if(verbose){
-      std::cout << "TREE " << bestNode <<"("<<tree[bestNode].parent << ") " <<(numConflicts.second==7?"CARDINAL":(numConflicts.second==3?"LEFT-CARDINAL":(numConflicts.second==5?"RIGHT-CARDINAL":"NON-CARDIANL")))<< " conflict found between unit " << c1.unit1 << " and unit " << c2.unit1 << " @:" << c2.c.start() << "-->" << c2.c.end() <<  " and " << c1.c.start() << "-->" << c1.c.end() << " NC " << numConflicts.first << " prev-W " << c1.prevWpt << " " << c2.prevWpt << "\n";
       std::cout << c1.unit1 << ":\n";
       for(auto const& a:tree[bestNode].paths[c1.unit1]){
         std::cout << a << "\n";
@@ -784,7 +785,8 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::pro
     }else{
       if(verbose)std::cout << "Agent " << x << ": " << "NO Path Found.\n";
     }
-    if(verify){
+    // Only verify the solution if the run didn't time out
+    if(verify&&elapsed>0){
       for(unsigned int y = x+1; y < tree[bestNode].paths.size(); y++){
         for(unsigned i(1); i<tree[bestNode].paths[x].size(); ++i){
           Vector2D A(tree[bestNode].paths[x][i-1]);

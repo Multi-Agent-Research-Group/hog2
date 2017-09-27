@@ -349,7 +349,7 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, int
   }
   //std::cout << "\n";
 
-  if(Node::env->GoalTest(end,start)){
+  if(Node::env->GoalTest(start,end)){
     Node n(start,(maxDepth-depth)/INFLATION);
     uint64_t hash(n.Hash());
     dag[hash]=n;
