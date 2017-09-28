@@ -249,11 +249,13 @@ void InitHeadless(){
   group->ECBSheuristic=ECBSheuristic;
   group->nobypass=nobypass;
   group->verify=verify;
+  group->quiet=quiet;
   TieBreaking<xytLoc,tDirection>::randomalg=randomalg;
   TieBreaking<xytLoc,tDirection>::useCAT=useCAT;
   if(gui){
     sim = new UnitSimulation<xytLoc, tDirection, ConstrainedEnvironment<xytLoc, tDirection>>(ace);
     sim->SetStepType(kLockStep);
+    sim->SetLogStats(false);
 
     sim->AddUnitGroup(group);
   }

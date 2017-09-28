@@ -714,6 +714,18 @@ TEST(Quadratic, Contrived10){
   ASSERT_FALSE(collisionImminent(A,VA,radius,5,6,B,VB,radius,2.82843,5.82843));
 }
 
+TEST(Quadratic, Contrived11){
+  Vector2D A(4,6);
+  Vector2D VA(1,0);
+  VA.Normalize();
+  double radius(.25);
+  Vector2D B(5,6);
+  Vector2D VB(0,1);
+  VB.Normalize();
+
+  ASSERT_TRUE(collisionImminent(A,VA,radius,1,2,B,VB,radius,1.41421,2.41421));
+}
+
 void drawcircle(int x0, int y0, int r, std::map<int,int>& coords){
     int x = r;
     int y = 0;

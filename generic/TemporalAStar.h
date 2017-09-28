@@ -351,6 +351,7 @@ if(this->nodesExpanded>1000 && this->noncritical){
 	neighborID.resize(0);
 	neighborLoc.resize(0);
 
+ 	(env->*SuccessorFunc)(openClosedList.Lookup(nodeid).data, neighbors);
         if((stopAfterGoal) && (env->GoalTest(openClosedList.Lookup(nodeid).data, goal))){
           if(fgeq(openClosedList.Lookup(nodeid).data.t,minTime))
           {
@@ -370,7 +371,6 @@ if(this->nodesExpanded>1000 && this->noncritical){
 	
 	if(verbose)std::cout << "Expanding: " << openClosedList.Lookup(nodeid).data << " with f:" << openClosedList.Lookup(nodeid).g+openClosedList.Lookup(nodeid).h << std::endl;
 	
- 	(env->*SuccessorFunc)(openClosedList.Lookup(nodeid).data, neighbors);
         //std::cout << openClosedList.Lookup(nodeid).data << "("<<G<<"+"<<H<<")="<<(G+H)<<", "<<neighbors.size()<<" succ.\n";
 	double bestH = 0;
 	double lowHC = DBL_MAX;

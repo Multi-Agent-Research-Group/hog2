@@ -562,7 +562,7 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Exp
 
     double minTime(0.0);
     // If this is the last waypoint, the plan needs to extend so that the agent sits at the final goal
-    if(tree[bestNode].con.prevWpt+1==tree[bestNode].wpts[c1.unit1].size()-1){
+    if(bestNode==0 || tree[bestNode].con.prevWpt+1==tree[bestNode].wpts[c1.unit1].size()-1){
       minTime=GetMaxTime(bestNode,c1.unit1)-1.0; // Take off a 1-second wait action, otherwise paths will grow over and over.
     }
     if((numConflicts.second&LEFT_CARDINAL) || !Bypass(bestNode,numConflicts,c1,c2.unit1,minTime)){
@@ -591,7 +591,7 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Exp
       }
       openList.push(l1);
     }
-    if(tree[bestNode].con.prevWpt+1==tree[bestNode].wpts[c2.unit1].size()-1){
+    if(bestNode==0 || tree[bestNode].con.prevWpt+1==tree[bestNode].wpts[c2.unit1].size()-1){
       minTime=GetMaxTime(bestNode,c2.unit1)-1.0; // Take off a 1-second wait action, otherwise paths will grow over and over.
     }
     if((numConflicts.second&RIGHT_CARDINAL) || !Bypass(bestNode,numConflicts,c2,c1.unit1,minTime)){
@@ -774,16 +774,16 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::pro
         //std::cout << a << " " << wpt << " " << unit->GetWaypoint(wpt) << "\n";
         if(ix++==tree[bestNode].wpts[x][wpt])
         {
-          if(verbose)std::cout << " *" << a << "\n";
-          wpt++;
+          if(!quiet)std::cout << " *" << a << "\n";
+          if(wpt<tree[bestNode].wpts[x].size()-1)wpt++;
         }
         else
         {
-          if(verbose)std::cout << "  " << a << "\n";
+          if(!quiet)std::cout << "  " << a << "\n";
         }
       }
     }else{
-      if(verbose)std::cout << "Agent " << x << ": " << "NO Path Found.\n";
+      if(!quiet)std::cout << "Agent " << x << ": " << "NO Path Found.\n";
     }
     // Only verify the solution if the run didn't time out
     if(verify&&elapsed>0){
@@ -1281,7 +1281,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Rep
 
   double minTime(0.0);
   // If this is the last waypoint, the plan needs to extend so that the agent sits at the final goal
-  if(tree[location].con.prevWpt+1==tree[location].wpts[theUnit].size()-1){
+  if(location==0 || tree[location].con.prevWpt+1==tree[location].wpts[theUnit].size()-1){
     minTime=GetMaxTime(location,theUnit)-1.0; // Take off a 1-second wait action, otherwise paths will grow over and over.
   }
 
