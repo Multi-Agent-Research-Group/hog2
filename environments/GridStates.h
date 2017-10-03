@@ -10,6 +10,20 @@
 // Utility function
 void GLDrawCircle(GLfloat x, GLfloat y, GLfloat radius);
 
+struct timecoord {
+  timecoord():x(0),y(0),z(0),t(0){}
+  timecoord(uint16_t _x,uint16_t _y,uint16_t _z,uint16_t _t):x(0),y(0),z(0),t(0){}
+
+  operator Vector2D()const{return Vector2D(x,y);}
+  operator Vector3D()const{return Vector3D(x,y,z);}
+
+  bool operator<(timecoord const& other)const{return x==other.x?(y==other.y?(z==other.z?t<other.t:z<other.z):y<other.y):x<other.x;}
+  uint64_t hash(){return (uint64_t(x)<<48)|(uint64_t(y)<<32)|(uint64_t(z)<<16)|t;}
+  
+  uint16_t x,y,z;
+  uint32_t t; // Note: t=millisec
+};
+
 struct xyLoc {
 public:
 	xyLoc():x(-1),y(-1),landed(false){}
@@ -49,6 +63,40 @@ struct TemporalVector : Vector2D {
 	TemporalVector():Vector2D(),t(0){}
 	double t;
 };
+
+struct xyzLoc : public xyLoc {
+public:
+	xyzLoc():xyLoc(-1,-1),z(-1){}
+	xyzLoc(uint16_t _x, uint16_t _y, uint16_t _z, uint16_t _v=0):xyLoc(_x,_y),z(_z){}
+        bool operator<(xyzLoc const& other)const{return x==other.x?(y==other.y?z<other.z:y<other.y):x<other.x;}
+	uint16_t z;
+};
+
+struct xyztLoc : xyzLoc {
+	xyztLoc(xyzLoc loc, float time):xyzLoc(loc), h(0), p(0), t(time), nc(-1){}
+	xyztLoc(xyzLoc loc, uint16_t _h, int16_t _p, float time):xyzLoc(loc), h(_h), p(_p), t(time), nc(-1){}
+	xyztLoc(uint16_t _x, uint16_t _y, uint16_t _z, float time):xyzLoc(_x,_y,_z), h(0), p(0), t(time) ,nc(-1){}
+	xyztLoc(uint16_t _x, uint16_t _y, uint16_t _z, uint16_t _h, int16_t _p, float time):xyzLoc(_x,_y,_z), h(_h), p(_p), t(time) ,nc(-1){}
+	xyztLoc(uint16_t _x, uint16_t _y, uint16_t _z, double _h, double _p, float time):xyzLoc(_x,_y,_z), h(_h*xyztLoc::HDG_RESOLUTON), p(_p*xyztLoc::PITCH_RESOLUTON), t(time) ,nc(-1){}
+	xyztLoc():xyzLoc(),h(0),p(0),t(0),nc(-1){}
+        int16_t nc; // Number of conflicts, for conflict avoidance table
+        uint16_t h; // Heading
+        int16_t p; // Pitch
+	float t;
+        operator Vector3D()const{return Vector3D(x,y,z);}
+        bool sameLoc(xyztLoc const& other)const{return x==other.x&&y==other.y&&z==other.z;}
+        static const float HDG_RESOLUTON;
+        static const float PITCH_RESOLUTON;
+};
+
+struct TemporalVector3D : Vector3D {
+	TemporalVector3D(Vector3D const& loc, double time):Vector3D(loc), t(time){}
+	TemporalVector3D(xyztLoc const& loc):Vector3D(loc), t(loc.t){}
+	TemporalVector3D(double _x, double _y, double _z, float time):Vector3D(_x,_y,_z), t(time){}
+	TemporalVector3D():Vector3D(),t(0){}
+	double t;
+};
+
 
 struct AANode : xyLoc {
   AANode(uint16_t _x, uint16_t _y):xyLoc(_x,_y),F(0),g(0),Parent(nullptr){}

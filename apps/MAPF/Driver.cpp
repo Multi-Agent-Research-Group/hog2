@@ -5,8 +5,10 @@
 #include "Map2DConstrainedEnvironment.h"
 #include "CBSUnits.h"
 #include "NonUnitTimeCAT.h"
-#include "Map2DDiffHeuristic.h"
-
+#include "MapPerfectHeuristic.h"
+#include "AirplaneConstrained.h"
+#include "Grid3DConstrainedEnvironment.h"
+#include "Utilities.h"
 #include <sstream>
 
 extern double agentRadius;
@@ -36,31 +38,11 @@ unsigned mergeThreshold(5);
 std::vector<std::vector<xytLoc> > waypoints;
 //std::vector<SoftConstraint<xytLoc> > sconstraints;
 #define NUMBER_CANONICAL_STATES 10
-Heuristic<xytLoc>* h4(0);
-Heuristic<xytLoc>* h8(0);
-Heuristic<xytLoc>* h24(0);
-Heuristic<xytLoc>* h48(0);
-Map* map(0);
-MapEnvironment* w4(0);
-MapEnvironment* w5(0);
-MapEnvironment* w8(0);
-MapEnvironment* w9(0);
-MapEnvironment* w24(0);
-MapEnvironment* w25(0);
-MapEnvironment* w48(0);
-MapEnvironment* w49(0);
-Map2DConstrainedEnvironment* e4(0);
-Map2DConstrainedEnvironment* e5(0);
-Map2DConstrainedEnvironment* e8(0);
-Map2DConstrainedEnvironment* e9(0);
-Map2DConstrainedEnvironment* e24(0);
-Map2DConstrainedEnvironment* e25(0);
-Map2DConstrainedEnvironment* e48(0);
-Map2DConstrainedEnvironment* e49(0);
 
   int cutoffs[10] = {0,9999,9999,9999,9999,9999,9999,9999,9999,9999}; // for each env
   double weights[10] = {1,1,1,1,1,1,1,1,1,1}; // for each env
-  std::vector<EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment> > environs;
+  std::vector<std::vector<EnvironmentContainer<xytLoc,tDirection>>> environs;
+  std::vector<std::vector<EnvData>> envdata;
   int seed = clock();
   int num_agents = 0;
   int minsubgoals(1);
@@ -70,9 +52,11 @@ Map2DConstrainedEnvironment* e49(0);
 
   bool paused = false;
 
-  Map2DConstrainedEnvironment *ace = 0;
-  UnitSimulation<xytLoc, tDirection, Map2DConstrainedEnvironment> *sim = 0;
-  CBSGroup<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection>,NonUnitTimeCAT<xytLoc,tDirection,HASH_INTERVAL_HUNDREDTHS> >* group = 0;
+  ConstrainedEnvironment<xytLoc,tDirection> *ace = 0;
+  UnitSimulation<xytLoc, tDirection, ConstrainedEnvironment<xytLoc,tDirection>> *sim = 0;
+  typedef CBSUnit<xytLoc,tDirection,TieBreaking<xytLoc,tDirection>,NonUnitTimeCAT<xytLoc,tDirection,HASH_INTERVAL_HUNDREDTHS>> AUnit;
+  typedef CBSGroup<xytLoc,tDirection,TieBreaking<xytLoc,tDirection>,NonUnitTimeCAT<xytLoc,tDirection,HASH_INTERVAL_HUNDREDTHS>> Group;
+  Group* group(nullptr);
 
   bool gui=true;
   int animate(0);
@@ -152,6 +136,7 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-cutoffs", "-cutoffs <n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>", "Number of conflicts to tolerate before switching to less constrained layer of environment. Environments are ordered as: CardinalGrid,OctileGrid,Cardinal3D,Octile3D,H4,H8,Simple,Cardinal,Octile,48Highway");
 	InstallCommandLineHandler(MyCLHandler, "-weights", "-weights <n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>", "Weight to apply to the low-level search for each environment entered as: CardinalGrid,OctileGrid,Cardinal3D,Octile3D,H4,H8,Simple,Cardinal,Octile,48Highway");
 	InstallCommandLineHandler(MyCLHandler, "-probfile", "-probfile", "Load MAPF instance from file");
+	InstallCommandLineHandler(MyCLHandler, "-envfile", "-envfile", "Load environment settings per agent");
 	InstallCommandLineHandler(MyCLHandler, "-constraints", "-constraints", "Load constraints from file");
 	InstallCommandLineHandler(MyCLHandler, "-killtime", "-killtime", "Kill after this many seconds");
 	InstallCommandLineHandler(MyCLHandler, "-killex", "-killex", "Kill after this many expansions");
@@ -194,43 +179,10 @@ void MyWindowHandler(unsigned long windowID, tWindowEventType eType)
 
 
 void InitHeadless(){
-  //std::cout << "Setting seed " << seed << "\n";
-  // Use a map file if provided
-  // Cardinal Grid
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w4->name(),e4,h4,cutoffs[0],weights[0]));
-  if(verbose)std::cout << "Added " << w4->name() << " @" << cutoffs[0] << " conflicts\n";
-  // Cardinal Grid w/ Waiting
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w5->name(),e5,h4,cutoffs[1],weights[1]));
-  if(verbose)std::cout << "Added " << w5->name() << " @" << cutoffs[1] << " conflicts\n";
-  // Octile Grid
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w8->name(),e8,h8,cutoffs[2],weights[2]));
-  if(verbose)std::cout << "Added " << w8->name() << " @" << cutoffs[2] << " conflicts\n";
-  // Octile Grid w/ Waiting
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w9->name(),e9,h8,cutoffs[3],weights[3]));
-  if(verbose)std::cout << "Added " << w9->name() << " @" << cutoffs[3] << " conflicts\n";
-  // 24-connected Grid
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w24->name(),e24,h24,cutoffs[4],weights[4]));
-  if(verbose)std::cout << "Added " << w24->name() << " @" << cutoffs[4] << " conflicts\n";
-  // 24-connected Grid w/ Waiting
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w25->name(),e25,h24,cutoffs[5],weights[5]));
-  if(verbose)std::cout << "Added " << w25->name() << " @" << cutoffs[5] << " conflicts\n";
-  // 48-connected Grid
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w48->name(),e48,h48,cutoffs[6],weights[6]));
-  if(verbose)std::cout << "Added " << w48->name() << " @" << cutoffs[6] << " conflicts\n";
-  // 48-connected Grid w/ Waiting
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w49->name(),e49,h48,cutoffs[7],weights[7]));
-  if(verbose)std::cout << "Added " << w49->name() << " @" << cutoffs[7] << " conflicts\n";
+  ace=environs[0].rbegin()->environment;
 
-  /*for(auto& e:environs){
-    for(auto& s:sconstraints){
-      e.environment->AddSoftConstraint(s);
-    }
-  }*/
-
-  ace=environs.rbegin()->environment;
-
-  group = new CBSGroup<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection>,NonUnitTimeCAT<xytLoc,tDirection,HASH_INTERVAL_HUNDREDTHS> >(environs,verbose); // Changed to 10,000 expansions from number of conflicts in the tree
-  CBSGroup<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection>,NonUnitTimeCAT<xytLoc,tDirection,HASH_INTERVAL_HUNDREDTHS> >::greedyCT=greedyCT;
+  group = new Group(environs,verbose); // Changed to 10,000 expansions from number of conflicts in the tree
+  Group::greedyCT=greedyCT;
   group->disappearAtGoal=disappearAtGoal;
   group->timer=new Timer();
   group->seed=seed;
@@ -245,7 +197,7 @@ void InitHeadless(){
   TieBreaking<xytLoc,tDirection>::randomalg=randomalg;
   TieBreaking<xytLoc,tDirection>::useCAT=useCAT;
   if(gui){
-    sim = new UnitSimulation<xytLoc, tDirection, Map2DConstrainedEnvironment>(ace);
+    sim = new UnitSimulation<xytLoc, tDirection, ConstrainedEnvironment<xytLoc, tDirection>>(ace);
     sim->SetStepType(kLockStep);
 
     sim->AddUnitGroup(group);
@@ -307,7 +259,7 @@ void InitHeadless(){
       std::cout << std::endl;
     }
     float softEff(.9);
-    CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection>,NonUnitTimeCAT<xytLoc,tDirection,HASH_INTERVAL_HUNDREDTHS> >* unit = new CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection>,NonUnitTimeCAT<xytLoc,tDirection,HASH_INTERVAL_HUNDREDTHS> >(waypoints[i],softEff);
+    AUnit* unit = new AUnit(waypoints[i],softEff);
     unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
     group->AddUnit(unit); // Add to the group
     if(verbose)std::cout << "initial path for agent " << i << ":\n";
@@ -316,7 +268,7 @@ void InitHeadless(){
     if(gui){sim->AddUnit(unit);} // Add to the group
   }
   if(!gui){
-    Timer::Timeout func(std::bind(&CBSGroup<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection>,NonUnitTimeCAT<xytLoc,tDirection,HASH_INTERVAL_HUNDREDTHS> >::processSolution, group, std::placeholders::_1));
+    Timer::Timeout func(std::bind(&Group::processSolution, group, std::placeholders::_1));
     group->timer->StartTimeout(std::chrono::seconds(killtime),func);
   }
   //assert(false && "Exit early");
@@ -344,7 +296,7 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
             GLfloat r, g, b;
             u->GetColor(r, g, b);
             ace->SetColor(r,g,b);
-            ace->GLDrawPath(((CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection>,NonUnitTimeCAT<xytLoc,tDirection,HASH_INTERVAL_HUNDREDTHS> > const*)u)->GetPath(),((CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection>,NonUnitTimeCAT<xytLoc,tDirection,HASH_INTERVAL_HUNDREDTHS> > const*)u)->GetWaypoints());
+            ace->GLDrawPath(((AUnit const*)u)->GetPath(),((AUnit const*)u)->GetWaypoints());
         }
     }
 
@@ -357,7 +309,7 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 
             /*std::cout << "Printing locations at time: " << sim->GetSimulationTime() << std::endl;
               for (int x = 0; x < group->GetNumMembers(); x ++) {
-              CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection>,NonUnitTimeCAT<xytLoc,tDirection,HASH_INTERVAL_HUNDREDTHS> > *c = (CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection>,NonUnitTimeCAT<xytLoc,tDirection,HASH_INTERVAL_HUNDREDTHS> >*)group->GetMember(x);
+              AUnit *c = (AUnit*)group->GetMember(x);
               xytLoc cur;
               c->GetLocation(cur);
             //if(!fequal(ptime[x],sim->GetSimulationTime())
@@ -421,27 +373,10 @@ int MyCLHandler(char *argument[], int maxNumArgs)
           }
           mapfile=sl.GetNthExperiment(0).GetMapName();
           mapfile.insert(0,pathprefix); // Add prefix
-          map=new Map(mapfile.c_str());
-          w4 = new MapEnvironment(map); w4->SetFourConnected();
-          w5 = new MapEnvironment(map); w5->SetFiveConnected();
-          w8 = new MapEnvironment(map); w8->SetEightConnected();
-          w9 = new MapEnvironment(map); w9->SetNineConnected();
-          w24 = new MapEnvironment(map); w24->SetTwentyFourConnected();
-          w25 = new MapEnvironment(map); w25->SetTwentyFiveConnected();
-          w48 = new MapEnvironment(map); w48->SetFortyEightConnected();
-          w49 = new MapEnvironment(map); w49->SetFortyNineConnected();
-          e4 = new Map2DConstrainedEnvironment(w4);
-          e5 = new Map2DConstrainedEnvironment(w5);
-          e8 = new Map2DConstrainedEnvironment(w8);
-          e9 = new Map2DConstrainedEnvironment(w9);
-          e24 = new Map2DConstrainedEnvironment(w24);
-          e25 = new Map2DConstrainedEnvironment(w25);
-          e48 = new Map2DConstrainedEnvironment(w48);
-          e49 = new Map2DConstrainedEnvironment(w49);
-        
-          for(int i(0); i<num_agents; ++i){
+
+          for(auto a: envdata){
+            // Add start/goal location
             std::vector<xytLoc> wpts;
-            // Make sure that we have non-conflicting start/goal locations
             Experiment e(sl.GetRandomExperiment());
             while(true){
               bool bad(false);
@@ -457,36 +392,127 @@ int MyCLHandler(char *argument[], int maxNumArgs)
             wpts.emplace_back(e.GetStartX(),e.GetStartY());
             wpts.emplace_back(e.GetGoalX(),e.GetGoalY());
             waypoints.push_back(wpts);
+
+            // Add environments
+            std::vector<EnvironmentContainer<xytLoc,tDirection>> ev;
+            for(auto e: a){
+              ConstrainedEnvironment<xytLoc,tDirection>* newEnv(nullptr);
+              if(e.name=="fourconnected"){
+                MapInterface* map=new Map(mapfile.c_str());
+                MapEnvironment* w4 = new MapEnvironment((Map*)map); w4->SetFourConnected();
+                newEnv = new Map2DConstrainedEnvironment(w4);
+                ev.emplace_back(e.name,newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),e.threshold,e.weight);
+              }else if(e.name=="fiveconnected"){
+                MapInterface* map=new Map(mapfile.c_str());
+                MapEnvironment* w5 = new MapEnvironment((Map*)map); w5->SetFiveConnected();
+                newEnv = new Map2DConstrainedEnvironment(w5);
+                ev.emplace_back(e.name,newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),e.threshold,e.weight);
+              }else if(e.name=="eightconnected"){
+                MapInterface* map=new Map(mapfile.c_str());
+                MapEnvironment* w8 = new MapEnvironment((Map*)map); w8->SetEightConnected();
+                newEnv = new Map2DConstrainedEnvironment(w8);
+                ev.emplace_back(e.name,newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),e.threshold,e.weight);
+              }else if(e.name=="nineconnected"){
+                MapInterface* map=new Map(mapfile.c_str());
+                MapEnvironment* w9 = new MapEnvironment((Map*)map); w9->SetNineConnected();
+                newEnv = new Map2DConstrainedEnvironment(w9);
+                ev.emplace_back(e.name,newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),e.threshold,e.weight);
+              }else if(e.name=="twentyfourconnected"){
+                MapInterface* map=new Map(mapfile.c_str());
+                MapEnvironment* w24 = new MapEnvironment((Map*)map); w24->SetTwentyFourConnected();
+                newEnv = new Map2DConstrainedEnvironment(w24);
+                ev.emplace_back(e.name,newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),e.threshold,e.weight);
+              }else if(e.name=="twentyfiveconnected"){
+                MapInterface* map=new Map(mapfile.c_str());
+                MapEnvironment* w25 = new MapEnvironment((Map*)map); w25->SetTwentyFiveConnected();
+                newEnv = new Map2DConstrainedEnvironment(w25);
+                ev.emplace_back(e.name,newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),e.threshold,e.weight);
+              }else if(e.name=="fortyeightconnected"){
+                MapInterface* map=new Map(mapfile.c_str());
+                MapEnvironment* w48 = new MapEnvironment((Map*)map); w48->SetFortyEightConnected();
+                newEnv = new Map2DConstrainedEnvironment(w48);
+                ev.emplace_back(e.name,newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),e.threshold,e.weight);
+              }else if(e.name=="fortynineconnected"){
+                MapInterface* map=new Map(mapfile.c_str());
+                MapEnvironment* w49 = new MapEnvironment((Map*)map); w49->SetFortyNineConnected();
+                newEnv = new Map2DConstrainedEnvironment(w49);
+                ev.emplace_back(e.name,newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),e.threshold,e.weight);
+              }else if(e.name=="3dcardinal"){
+                MapInterface* map=new Map3D(mapfile.c_str());
+                Grid3DEnvironment* me = new Grid3DEnvironment((Map3D*)map); me->SetZeroConnected();
+                ConstrainedEnvironment<xyztLoc,t3DDirection>* newE = new Grid3DConstrainedEnvironment(me);
+                //ev.emplace_back(e.name,newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newE),e.threshold,e.weight);
+              }else if(e.name=="3done"){
+                MapInterface* map=new Map3D(mapfile.c_str());
+                Grid3DEnvironment* me = new Grid3DEnvironment((Map3D*)map); me->SetOneConnected();
+                ConstrainedEnvironment<xyztLoc,t3DDirection>* newE = new Grid3DConstrainedEnvironment(me);
+                //ev.emplace_back(e.name,newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newE),e.threshold,e.weight);
+              }else if(e.name=="3dtwo"){
+                MapInterface* map=new Map3D(mapfile.c_str());
+                Grid3DEnvironment* me = new Grid3DEnvironment((Map3D*)map); me->SetTwoConnected();
+                ConstrainedEnvironment<xyztLoc,t3DDirection>* newE = new Grid3DConstrainedEnvironment(me);
+                //ev.emplace_back(e.name,newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newE),e.threshold,e.weight);
+              }else if(e.name=="airplane"){
+                MapInterface* map=new Map3D(mapfile.c_str());
+                //TODO: Have airplane env accept a map
+                AirplaneEnvironment* me(new AirplaneEnvironment(map->GetMapWidth(),map->GetMapHeight(),map->GetMapDepth()));//map));
+                ConstrainedEnvironment<airtimeState,airplaneAction>* newE = new AirplaneConstrainedEnvironment(me);
+                //ev.emplace_back(e.name,newE,nullptr,e.threshold,e.weight);
+              }else{
+                std::cout << "Unknown environment " << e.name << "\n";
+                assert(!"Unknown environment encountered");
+              }
+            }
+            environs.push_back(ev);
           }
-          h4=new Map2DDiffHeuristic(map,e4,NUMBER_CANONICAL_STATES);
-          h8=new Map2DDiffHeuristic(map,e8,NUMBER_CANONICAL_STATES);
-          h24=new Map2DDiffHeuristic(map,e24,NUMBER_CANONICAL_STATES);
-          h48=new Map2DDiffHeuristic(map,e48,NUMBER_CANONICAL_STATES);
-          
+            
           return 2;
         }
 	if(strcmp(argument[0], "-mapfile") == 0)
         {
+          // If this flag is used, assume there is no scenfile flag
           mapfile=argument[1];
           std::string pathprefix("../../"); // Because I always run from the build directory...
           mapfile.insert(0,pathprefix); // Add prefix
-          map=new Map(mapfile.c_str());
-          w4 = new MapEnvironment(map); w4->SetFourConnected();
-          w5 = new MapEnvironment(map); w5->SetFiveConnected();
-          w8 = new MapEnvironment(map); w8->SetEightConnected();
-          w9 = new MapEnvironment(map); w9->SetNineConnected();
-          w24 = new MapEnvironment(map); w24->SetTwentyFourConnected();
-          e4 = new Map2DConstrainedEnvironment(w4);
-          e5 = new Map2DConstrainedEnvironment(w5);
-          e8 = new Map2DConstrainedEnvironment(w8);
-          e9 = new Map2DConstrainedEnvironment(w9);
-          e24 = new Map2DConstrainedEnvironment(w24);
-          e25 = new Map2DConstrainedEnvironment(w25);
-          e48 = new Map2DConstrainedEnvironment(w48);
-          e49 = new Map2DConstrainedEnvironment(w49);
-          w25 = new MapEnvironment(map); w25->SetTwentyFiveConnected();
-          w48 = new MapEnvironment(map); w48->SetFortyEightConnected();
-          w49 = new MapEnvironment(map); w49->SetFortyNineConnected();
+          Map* map=new Map(mapfile.c_str());
+          // All agents have the same environments based on the cutoffs parameter
+          for(int i(0); i<num_agents; ++i){
+            std::vector<EnvironmentContainer<xytLoc,tDirection>> ev;
+
+            MapEnvironment* w4 = new MapEnvironment(map); w4->SetFourConnected();
+            ConstrainedEnvironment<xytLoc,tDirection>* newEnv = new Map2DConstrainedEnvironment(w4);
+            ev.emplace_back("fourconnected",newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),cutoffs[0],weights[0]);
+
+            MapEnvironment* w5 = new MapEnvironment(map); w5->SetFiveConnected();
+            newEnv = new Map2DConstrainedEnvironment(w5);
+            ev.emplace_back("fiveconnected",newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),cutoffs[1],weights[1]);
+
+            MapEnvironment* w8 = new MapEnvironment(map); w8->SetEightConnected();
+            newEnv = new Map2DConstrainedEnvironment(w8);
+            ev.emplace_back("eightconnected",newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),cutoffs[2],weights[2]);
+
+            MapEnvironment* w9 = new MapEnvironment(map); w9->SetNineConnected();
+            newEnv = new Map2DConstrainedEnvironment(w9);
+            ev.emplace_back("nineconnected",newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),cutoffs[3],weights[3]);
+
+            MapEnvironment* w24 = new MapEnvironment(map); w24->SetTwentyFourConnected();
+            newEnv = new Map2DConstrainedEnvironment(w24);
+            ev.emplace_back("twentyfourconnected",newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),cutoffs[4],weights[4]);
+
+            MapEnvironment* w25 = new MapEnvironment(map); w25->SetTwentyFiveConnected();
+            newEnv = new Map2DConstrainedEnvironment(w25);
+            ev.emplace_back("twentyfiveconnected",newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),cutoffs[5],weights[5]);
+
+            MapEnvironment* w48 = new MapEnvironment(map); w48->SetFortyEightConnected();
+            newEnv = new Map2DConstrainedEnvironment(w48);
+            ev.emplace_back("fortyeightconnected",newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),cutoffs[6],weights[6]);
+
+            MapEnvironment* w49 = new MapEnvironment(map); w49->SetFortyNineConnected();
+            newEnv = new Map2DConstrainedEnvironment(w49);
+            ev.emplace_back("fortynineconnected",newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),cutoffs[7],weights[7]);
+
+            environs.push_back(ev);
+          }
           return 2;
         }
 	if(strcmp(argument[0], "-mergeThreshold") == 0)
@@ -549,6 +575,38 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 		use_wait = true;
 		return 1;
 	}
+        if(strcmp(argument[0], "-envfile") == 0){
+          // Format:
+          //   agent# envName1:threshold1:weight1,envName2:threshold2:weight2,...
+
+          // Ex:
+          //   0 fourconnected:0:1,eightconnected:10:1
+          //   4 multiobjective:0:1.2
+          //
+          // Note: Non-inclusive agent ids inherit previous
+          //   The above example has agents 0-3 with the same env.
+          std::ifstream ss(argument[1]);
+          int agentNumber(0);
+
+          std::string line;
+          while(std::getline(ss, line)){
+            auto ln(Util::split(line,' '));
+            int agent(atoi(ln[0].c_str()));
+            while(agent<agentNumber){
+              envdata.push_back(envdata.back()); // make copies
+              agentNumber++;
+            }
+            auto envs(Util::split(ln[1],','));
+            std::vector<EnvData> envinfo;
+            for(auto e:envs){
+              auto info(Util::split(e,':'));
+              envinfo.emplace_back(info[0],atoi(info[1].c_str()),atof(info[2].c_str()));
+            }
+            envdata.push_back(envinfo);
+          }
+          while(envdata.size()<num_agents){envdata.push_back(envdata.back());} // make copies
+          return 2;
+        }
 	if(strcmp(argument[0], "-probfile") == 0){
 		//std::cout << "Reading instance from file: \""<<argument[1]<<"\"\n";
 		std::ifstream ss(argument[1]);
@@ -653,7 +711,6 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 	if(strcmp(argument[0], "-dimensions") == 0)
         {
           std::string str = argument[1];
-
           std::stringstream ss(str);
 
           int i;
@@ -667,23 +724,50 @@ int MyCLHandler(char *argument[], int maxNumArgs)
             ss.ignore();
           ss >> i;
           height = i;
-          map = new Map(width,length);
-          w4 = new MapEnvironment(map); w4->SetFourConnected();
-          w5 = new MapEnvironment(map); w5->SetFiveConnected();
-          w8 = new MapEnvironment(map); w8->SetEightConnected();
-          w9 = new MapEnvironment(map); w9->SetNineConnected();
-          w24 = new MapEnvironment(map); w24->SetTwentyFourConnected();
-          w25 = new MapEnvironment(map); w25->SetTwentyFiveConnected();
-          w48 = new MapEnvironment(map); w48->SetFortyEightConnected();
-          w49 = new MapEnvironment(map); w49->SetFortyNineConnected();
-          e4 = new Map2DConstrainedEnvironment(w4);
-          e5 = new Map2DConstrainedEnvironment(w5);
-          e8 = new Map2DConstrainedEnvironment(w8);
-          e9 = new Map2DConstrainedEnvironment(w9);
-          e24 = new Map2DConstrainedEnvironment(w24);
-          e25 = new Map2DConstrainedEnvironment(w25);
-          e48 = new Map2DConstrainedEnvironment(w48);
-          e49 = new Map2DConstrainedEnvironment(w49);
+
+          MapInterface* map(nullptr);
+          if(height){
+            map = new Map3D(width,length,height);
+          }else{
+            map = new Map(width,length);
+          }
+          for(int i(0); i<num_agents; ++i){
+            std::vector<EnvironmentContainer<xytLoc,tDirection>> ev;
+
+            MapEnvironment* w4 = new MapEnvironment((Map*)map); w4->SetFourConnected();
+            ConstrainedEnvironment<xytLoc,tDirection>* newEnv = new Map2DConstrainedEnvironment(w4);
+            ev.emplace_back("fourconnected",newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),cutoffs[0],weights[0]);
+
+            MapEnvironment* w5 = new MapEnvironment((Map*)map); w5->SetFiveConnected();
+            newEnv = new Map2DConstrainedEnvironment(w5);
+            ev.emplace_back("fiveconnected",newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),cutoffs[1],weights[1]);
+
+            MapEnvironment* w8 = new MapEnvironment((Map*)map); w8->SetEightConnected();
+            newEnv = new Map2DConstrainedEnvironment(w8);
+            ev.emplace_back("eightconnected",newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),cutoffs[2],weights[2]);
+
+            MapEnvironment* w9 = new MapEnvironment((Map*)map); w9->SetNineConnected();
+            newEnv = new Map2DConstrainedEnvironment(w9);
+            ev.emplace_back("nineconnected",newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),cutoffs[3],weights[3]);
+
+            MapEnvironment* w24 = new MapEnvironment((Map*)map); w24->SetTwentyFourConnected();
+            newEnv = new Map2DConstrainedEnvironment(w24);
+            ev.emplace_back("twentyfourconnected",newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),cutoffs[4],weights[4]);
+
+            MapEnvironment* w25 = new MapEnvironment((Map*)map); w25->SetTwentyFiveConnected();
+            newEnv = new Map2DConstrainedEnvironment(w25);
+            ev.emplace_back("twentyfiveconnected",newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),cutoffs[5],weights[5]);
+
+            MapEnvironment* w48 = new MapEnvironment((Map*)map); w48->SetFortyEightConnected();
+            newEnv = new Map2DConstrainedEnvironment(w48);
+            ev.emplace_back("fortyeightconnected",newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),cutoffs[6],weights[6]);
+
+            MapEnvironment* w49 = new MapEnvironment((Map*)map); w49->SetFortyNineConnected();
+            newEnv = new Map2DConstrainedEnvironment(w49);
+            ev.emplace_back("fortynineconnected",newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),cutoffs[7],weights[7]);
+
+            environs.push_back(ev);
+          }
           return 2;
         }
 	if(strcmp(argument[0], "-nagents") == 0)

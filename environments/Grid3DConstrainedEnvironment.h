@@ -13,36 +13,10 @@
 #include "Grid3DEnvironment.h"
 #include "Vector3D.h"
 #include "VelocityObstacle.h"
-#include "NonUnitTimeCAT.h"
 #include "ConstrainedEnvironment.h"
 #include "PositionalUtils.h"
 #include "TemplateAStar.h"
-
-struct xyztLoc : xyzLoc {
-	xyztLoc(xyzLoc loc, float time):xyzLoc(loc), h(0), p(0), t(time), nc(-1){}
-	xyztLoc(xyzLoc loc, uint16_t _h, int16_t _p, float time):xyzLoc(loc), h(_h), p(_p), t(time), nc(-1){}
-	xyztLoc(uint16_t _x, uint16_t _y, uint16_t _z, float time):xyzLoc(_x,_y,_z), h(0), p(0), t(time) ,nc(-1){}
-	xyztLoc(uint16_t _x, uint16_t _y, uint16_t _z, uint16_t _h, int16_t _p, float time):xyzLoc(_x,_y,_z), h(_h), p(_p), t(time) ,nc(-1){}
-	xyztLoc(uint16_t _x, uint16_t _y, uint16_t _z, double _h, double _p, float time):xyzLoc(_x,_y,_z), h(_h*xyztLoc::HDG_RESOLUTON), p(_p*xyztLoc::PITCH_RESOLUTON), t(time) ,nc(-1){}
-	xyztLoc(uint16_t _x, uint16_t _y, uint16_t _z, uint16_t _v, uint16_t _h, int16_t _p, float time):xyzLoc(_x,_y,_z,_v), h(_h), p(_p), t(time) ,nc(-1){}
-	xyztLoc():xyzLoc(),h(0),p(0),t(0),nc(-1){}
-        int16_t nc; // Number of conflicts, for conflict avoidance table
-        uint16_t h; // Heading
-        int16_t p; // Pitch
-	float t;
-        operator Vector3D()const{return Vector3D(x,y,z);}
-        bool sameLoc(xyztLoc const& other)const{return x==other.x&&y==other.y&&z==other.z;}
-        static const float HDG_RESOLUTON;
-        static const float PITCH_RESOLUTON;
-};
-
-struct TemporalVector3D : Vector3D {
-	TemporalVector3D(Vector3D const& loc, double time):Vector3D(loc), t(time){}
-	TemporalVector3D(xyztLoc const& loc):Vector3D(loc), t(loc.t){}
-	TemporalVector3D(double _x, double _y, double _z, float time):Vector3D(_x,_y,_z), t(time){}
-	TemporalVector3D():Vector3D(),t(0){}
-	double t;
-};
+#include "MultiAgentStructures.h"
 
 static std::ostream& operator <<(std::ostream & out, const TemporalVector3D &loc)
 {
@@ -100,6 +74,9 @@ public:
         virtual Map3D* GetMap()const{return mapEnv->GetMap();}
         bool LineOfSight(const xyztLoc &x, const xyztLoc &y)const{return mapEnv->LineOfSight(x,y) && !ViolatesConstraint(x,y);}
         void SetIgnoreTime(bool i){ignoreTime=i;}
+        bool GetIgnoreTime()const{return ignoreTime;}
+        void SetIgnoreHeading(bool i){ignoreHeading=i;}
+        bool GetIgnoreHeading()const{return ignoreHeading;}
 
         void SetMaxTurnAzimuth(float val){maxTurnAzimuth=val*xyztLoc::HDG_RESOLUTON;}
         void SetMaxPitch(float val){maxPitch=val*xyztLoc::PITCH_RESOLUTON;}
@@ -107,31 +84,21 @@ public:
         int16_t maxPitch=0;
 private:
         bool ignoreTime;
+        bool ignoreHeading;
 	bool ViolatesConstraint(const xyzLoc &from, const xyzLoc &to, float time, float inc) const;
 
 	std::vector<Constraint<xyztLoc>> constraints;
 	std::vector<Constraint<TemporalVector3D>> vconstraints;
 	Grid3DEnvironment *mapEnv;
 };
-typedef std::set<IntervalData> ConflictSet;
 
 
-#define HASH_INTERVAL 0.50
-#define HASH_INTERVAL_HUNDREDTHS 50
+#define GRID3D_HASH_INTERVAL 1.0
+#define GRID3D_HASH_INTERVAL_HUNDREDTHS 100
 
 template <typename state, typename action>
 class TieBreaking3D {
   public:
-// Check if an openlist node conflicts with a node from an existing path
-unsigned checkForConflict(state const*const parent, state const*const node, state const*const pathParent, state const*const pathNode){
-  Constraint<state> v(*node);
-  if(v.ConflictsWith(*pathNode)){return 1;}
-  if(parent && pathParent){
-    Constraint<state> e1(*parent,*node);
-    if(e1.ConflictsWith(*pathParent,*pathNode)){return 1;}
-  }
-  return 0; 
-}
 
   bool operator()(const AStarOpenClosedData<state> &ci1, const AStarOpenClosedData<state> &ci2) const
   {
@@ -146,7 +113,7 @@ unsigned checkForConflict(state const*const parent, state const*const node, stat
         ConflictSet matches;
         if(i1.data.nc ==-1){
           //std::cout << "Getting NC for " << i1.data << ":\n";
-          CAT->get(i1.data.t,i1.data.t+HASH_INTERVAL,matches);
+          CAT->get(i1.data.t,i1.data.t+GRID3D_HASH_INTERVAL,matches);
 
           // Get number of conflicts in the parent
           state const*const parent1(i1.parentID?&(openList->Lookat(i1.parentID).data):nullptr);
@@ -171,7 +138,7 @@ unsigned checkForConflict(state const*const parent, state const*const node, stat
         }
         if(i2.data.nc ==-1){
           //std::cout << "Getting NC for " << i2.data << ":\n";
-          CAT->get(i2.data.t,i2.data.t+HASH_INTERVAL,matches);
+          CAT->get(i2.data.t,i2.data.t+GRID3D_HASH_INTERVAL,matches);
 
           // Get number of conflicts in the parent
           state const*const parent2(i2.parentID?&(openList->Lookat(i2.parentID).data):nullptr);
@@ -211,17 +178,17 @@ unsigned checkForConflict(state const*const parent, state const*const node, stat
     return (fgreater(ci1.g+ci1.h, ci2.g+ci2.h));
   }
     static OpenClosedInterface<state,AStarOpenClosedData<state>>* openList;
-    static Grid3DConstrainedEnvironment* currentEnv;
+    static ConstrainedEnvironment<state,action>* currentEnv;
     static uint8_t currentAgent;
     static bool randomalg;
     static bool useCAT;
-    static NonUnitTimeCAT<state,action,HASH_INTERVAL_HUNDREDTHS>* CAT; // Conflict Avoidance Table
+    static NonUnitTimeCAT<state,action,GRID3D_HASH_INTERVAL_HUNDREDTHS>* CAT; // Conflict Avoidance Table
 };
 
 template <typename state, typename action>
 OpenClosedInterface<state,AStarOpenClosedData<state>>* TieBreaking3D<state,action>::openList=0;
 template <typename state, typename action>
-Grid3DConstrainedEnvironment* TieBreaking3D<state,action>::currentEnv=0;
+ConstrainedEnvironment<state,action>* TieBreaking3D<state,action>::currentEnv=0;
 template <typename state, typename action>
 uint8_t TieBreaking3D<state,action>::currentAgent=0;
 template <typename state, typename action>
@@ -229,6 +196,6 @@ bool TieBreaking3D<state,action>::randomalg=false;
 template <typename state, typename action>
 bool TieBreaking3D<state,action>::useCAT=false;
 template <typename state, typename action>
-NonUnitTimeCAT<state,action,HASH_INTERVAL_HUNDREDTHS>* TieBreaking3D<state,action>::CAT=0;
+NonUnitTimeCAT<state,action,GRID3D_HASH_INTERVAL_HUNDREDTHS>* TieBreaking3D<state,action>::CAT=0;
 
 #endif /* defined(__hog2_glut__Grid3DConstrainedEnvironment__) */

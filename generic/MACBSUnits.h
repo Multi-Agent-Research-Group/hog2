@@ -356,7 +356,7 @@ class CBSGroup : public UnitGroup<state, action, ConstrainedEnvironment<state,ac
     std::vector<EnvironmentContainer<state,action>*> currentEnvironment;
 
     void SetEnvironment(unsigned conflicts,unsigned agent);
-    void ClearEnvironmentConstraints(unsigned metaagent);
+    void ClearEnvironmentConstraints(unsigned agent);
     void AddEnvironmentConstraint(Constraint<state> const& c, unsigned agent);
 
     double time;
@@ -471,12 +471,10 @@ void CBSUnit<state,action,comparison,conflicttable,searchalgo>::OpenGLDraw(const
 
 
 template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class searchalgo>
-void CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::ClearEnvironmentConstraints(unsigned metaagent){
-  for(unsigned agent : activeMetaAgents[metaagent].units){
+void CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::ClearEnvironmentConstraints(unsigned agent){
     for (EnvironmentContainer<state,action> env : this->environments[agent]) {
       env.environment->ClearConstraints();
     }
-  }
 }
 
 

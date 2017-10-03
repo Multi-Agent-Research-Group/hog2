@@ -37,7 +37,7 @@ std::vector<std::vector<xytLoc> > waypoints;
 
 int cutoffs[10] = {0,9999,9999,9999,9999,9999,9999,9999,9999,9999}; // for each env
 double weights[10] = {1,1,1,1,1,1,1,1,1,1}; // for each env
-std::vector<EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment> > environs;
+std::vector<EnvironmentContainer2<xytLoc,tDirection,Map2DConstrainedEnvironment> > environs;
 int seed = clock();
 int num_agents = 5;
 int minsubgoals(1);
@@ -196,30 +196,30 @@ void InitHeadless(){
   MapEnvironment* w48 = new MapEnvironment(map); w48->SetFortyEightConnected();
   MapEnvironment* w49 = new MapEnvironment(map); w49->SetFortyNineConnected();
   // Cardinal Grid
-  //environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w4->name(),new Map2DConstrainedEnvironment(w4),sh,cutoffs[0],weights[0]));
+  //environs.push_back(EnvironmentContainer2<xytLoc,tDirection,Map2DConstrainedEnvironment>(w4->name(),new Map2DConstrainedEnvironment(w4),sh,cutoffs[0],weights[0]));
   //if(verbose)std::cout << "Added " << w4->name() << " @" << cutoffs[0] << " conflicts\n";
   // Cardinal Grid w/ Waiting
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w5->name(),new Map2DConstrainedEnvironment(w5),sh,cutoffs[0],weights[0]));
+  environs.push_back(EnvironmentContainer2<xytLoc,tDirection,Map2DConstrainedEnvironment>(w5->name(),new Map2DConstrainedEnvironment(w5),sh,cutoffs[0],weights[0]));
   
   if(verbose)std::cout << "Added " << w5->name() << " @" << cutoffs[0] << " conflicts\n";
   /*
   // Octile Grid
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w8->name(),new Map2DConstrainedEnvironment(w8),sh,cutoffs[2],weights[2]));
+  environs.push_back(EnvironmentContainer2<xytLoc,tDirection,Map2DConstrainedEnvironment>(w8->name(),new Map2DConstrainedEnvironment(w8),sh,cutoffs[2],weights[2]));
   if(verbose)std::cout << "Added " << w8->name() << " @" << cutoffs[2] << " conflicts\n";
   // Octile Grid w/ Waiting
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w9->name(),new Map2DConstrainedEnvironment(w9),sh,cutoffs[3],weights[3]));
+  environs.push_back(EnvironmentContainer2<xytLoc,tDirection,Map2DConstrainedEnvironment>(w9->name(),new Map2DConstrainedEnvironment(w9),sh,cutoffs[3],weights[3]));
   if(verbose)std::cout << "Added " << w9->name() << " @" << cutoffs[3] << " conflicts\n";
   // 24-connected Grid
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w24->name(),new Map2DConstrainedEnvironment(w24),sh,cutoffs[4],weights[4]));
+  environs.push_back(EnvironmentContainer2<xytLoc,tDirection,Map2DConstrainedEnvironment>(w24->name(),new Map2DConstrainedEnvironment(w24),sh,cutoffs[4],weights[4]));
   if(verbose)std::cout << "Added " << w24->name() << " @" << cutoffs[4] << " conflicts\n";
   // 24-connected Grid w/ Waiting
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w25->name(),new Map2DConstrainedEnvironment(w25),sh,cutoffs[5],weights[5]));
+  environs.push_back(EnvironmentContainer2<xytLoc,tDirection,Map2DConstrainedEnvironment>(w25->name(),new Map2DConstrainedEnvironment(w25),sh,cutoffs[5],weights[5]));
   if(verbose)std::cout << "Added " << w25->name() << " @" << cutoffs[5] << " conflicts\n";
   // 48-connected Grid
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w48->name(),new Map2DConstrainedEnvironment(w48),sh,cutoffs[6],weights[6]));
+  environs.push_back(EnvironmentContainer2<xytLoc,tDirection,Map2DConstrainedEnvironment>(w48->name(),new Map2DConstrainedEnvironment(w48),sh,cutoffs[6],weights[6]));
   if(verbose)std::cout << "Added " << w48->name() << " @" << cutoffs[6] << " conflicts\n";
   // 48-connected Grid w/ Waiting
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,Map2DConstrainedEnvironment>(w49->name(),new Map2DConstrainedEnvironment(w49),sh,cutoffs[7],weights[7]));
+  environs.push_back(EnvironmentContainer2<xytLoc,tDirection,Map2DConstrainedEnvironment>(w49->name(),new Map2DConstrainedEnvironment(w49),sh,cutoffs[7],weights[7]));
   if(verbose)std::cout << "Added " << w49->name() << " @" << cutoffs[7] << " conflicts\n";
   */
 

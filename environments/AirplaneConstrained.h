@@ -12,9 +12,9 @@
 #include "Map.h"
 #include "Airplane.h"
 #include "ConstrainedEnvironment.h"
-#include "NonUnitTimeCAT.h"
 #include "UnitTimeCAT.h"
 #include "PositionalUtils.h"
+#include "MultiAgentStructures.h"
 
 #include <cmath>
 #include <memory>
@@ -139,7 +139,7 @@ public:
 	std::vector<Constraint<airtimeState>> constraints;
 	std::vector<SoftConstraint<airtimeState>> sconstraints;
 
-        virtual airtimeState getGoal()const{return airtimeState(ae->getGoal(),0);}
+        virtual airtimeState const& getGoal()const{return airtimeState(ae->getGoal(),0);}
         void setGoal(airplaneState const& g){ae->setGoal(g);}
 	AirplaneEnvironment *ae;
 	void setSoftConstraintEffectiveness(float v){softConstraintEffectiveness=v;}
@@ -160,20 +160,6 @@ private:
 
 	/** Airplane Environment holder */
 };
-
-typedef std::set<IntervalData> ConflictSet;
-
-// Check if an openlist node conflicts with a node from an existing path
-template<typename state>
-unsigned checkForConflict(state const*const parent, state const*const node, state const*const pathParent, state const*const pathNode){
-  Constraint<state> v(*node);
-  if(v.ConflictsWith(*pathNode)){return 1;}
-  if(parent && pathParent){
-    Constraint<state> e1(*parent,*node);
-    if(e1.ConflictsWith(*pathParent,*pathNode)){return 1;}
-  }
-  return 0; 
-}
 
 template <typename state, typename action>
 class UnitTieBreaking {
@@ -262,15 +248,15 @@ class UnitTieBreaking {
     return (fgreater(ci1.g+ci1.h, ci2.g+ci2.h));
   }
     static OpenClosedInterface<state,AStarOpenClosedData<state>>* openList;
-    static AirplaneConstrainedEnvironment* currentEnv;
+    static ConstrainedEnvironment<state,action>* currentEnv;
     static uint8_t currentAgent;
     static bool randomalg;
     static bool useCAT;
     static UnitTimeCAT<state,action>* CAT; // Conflict Avoidance Table
 };
 
-#define HASH_INTERVAL 0.09
-#define HASH_INTERVAL_HUNDREDTHS 9
+#define AIR_HASH_INTERVAL 0.09
+#define AIR_HASH_INTERVAL_HUNDREDTHS 9
 
 template <typename state, typename action>
 class RandomTieBreaking {
@@ -288,7 +274,7 @@ class RandomTieBreaking {
         ConflictSet matches;
         if(i1.data.nc ==-1){
           //std::cout << "Getting NC for " << i1.data << ":\n";
-          CAT->get(i1.data.t,i1.data.t+HASH_INTERVAL,matches);
+          CAT->get(i1.data.t,i1.data.t+AIR_HASH_INTERVAL,matches);
 
           // Get number of conflicts in the parent
           state const*const parent1(i1.parentID?&(openList->Lookat(i1.parentID).data):nullptr);
@@ -313,7 +299,7 @@ class RandomTieBreaking {
         }
         if(i2.data.nc ==-1){
           //std::cout << "Getting NC for " << i2.data << ":\n";
-          CAT->get(i2.data.t,i2.data.t+HASH_INTERVAL,matches);
+          CAT->get(i2.data.t,i2.data.t+AIR_HASH_INTERVAL,matches);
 
           // Get number of conflicts in the parent
           state const*const parent2(i2.parentID?&(openList->Lookat(i2.parentID).data):nullptr);
@@ -369,17 +355,17 @@ class RandomTieBreaking {
     return (fgreater(ci1.g+ci1.h, ci2.g+ci2.h));
   }
     static OpenClosedInterface<state,AStarOpenClosedData<state>>* openList;
-    static AirplaneConstrainedEnvironment* currentEnv;
+    static ConstrainedEnvironment<state,action>* currentEnv;
     static uint8_t currentAgent;
     static bool randomalg;
     static bool useCAT;
-    static NonUnitTimeCAT<state,action,HASH_INTERVAL_HUNDREDTHS>* CAT; // Conflict Avoidance Table
+    static NonUnitTimeCAT<state,action,AIR_HASH_INTERVAL_HUNDREDTHS>* CAT; // Conflict Avoidance Table
 };
 
 template <typename state, typename action>
 OpenClosedInterface<state,AStarOpenClosedData<state>>* RandomTieBreaking<state,action>::openList=0;
 template <typename state, typename action>
-AirplaneConstrainedEnvironment* RandomTieBreaking<state,action>::currentEnv=0;
+ConstrainedEnvironment<state,action>* RandomTieBreaking<state,action>::currentEnv=0;
 template <typename state, typename action>
 uint8_t RandomTieBreaking<state,action>::currentAgent=0;
 template <typename state, typename action>
@@ -387,6 +373,6 @@ bool RandomTieBreaking<state,action>::randomalg=false;
 template <typename state, typename action>
 bool RandomTieBreaking<state,action>::useCAT=false;
 template <typename state, typename action>
-NonUnitTimeCAT<state,action,HASH_INTERVAL_HUNDREDTHS>* RandomTieBreaking<state,action>::CAT=0;
+NonUnitTimeCAT<state,action,AIR_HASH_INTERVAL_HUNDREDTHS>* RandomTieBreaking<state,action>::CAT=0;
 
 #endif /* defined(__hog2_glut__AirplaneConstrainedEnvironment__) */

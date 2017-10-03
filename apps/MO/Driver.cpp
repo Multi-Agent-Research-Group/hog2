@@ -39,7 +39,7 @@ std::vector<std::vector<xytLoc> > waypoints;
 
 int cutoffs[10] = {0,9999,9999,9999,9999,9999,9999,9999,9999,9999}; // for each env
 double weights[10] = {1,1,1,1,1,1,1,1,1,1}; // for each env
-std::vector<EnvironmentContainer<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>>> environs;
+std::vector<MOEnvironmentContainer<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>>> environs;
 int seed = clock();
 int num_agents = 5;
 int minsubgoals(1);
@@ -303,28 +303,28 @@ void InitHeadless(){
   MultiObjectiveEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>* mo48 = new MultiObjectiveEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>(objectives49,w48);
   MultiObjectiveEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>* mo49 = new MultiObjectiveEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>(objectives49,w49);
   // Cardinal Grid
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>>(mo4->name(),new MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>(mo4),0,cutoffs[0],weights[0]));
+  environs.push_back(MOEnvironmentContainer<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>>(mo4->name(),new MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>(mo4),0,cutoffs[0],weights[0]));
   if(verbose)std::cout << "Added " << mo4->name() << " @" << cutoffs[0] << " conflicts\n";
   // Cardinal Grid w/ Waiting
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>>(mo5->name(),new MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>(mo5),0,cutoffs[1],weights[1]));
+  environs.push_back(MOEnvironmentContainer<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>>(mo5->name(),new MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>(mo5),0,cutoffs[1],weights[1]));
   if(verbose)std::cout << "Added " << mo5->name() << " @" << cutoffs[1] << " conflicts\n";
   // Octile Grid
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>>(mo8->name(),new MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>(mo8),0,cutoffs[2],weights[2]));
+  environs.push_back(MOEnvironmentContainer<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>>(mo8->name(),new MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>(mo8),0,cutoffs[2],weights[2]));
   if(verbose)std::cout << "Added " << mo8->name() << " @" << cutoffs[2] << " conflicts\n";
   // Octile Grid w/ Waiting
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>>(mo9->name(),new MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>(mo9),0,cutoffs[3],weights[3]));
+  environs.push_back(MOEnvironmentContainer<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>>(mo9->name(),new MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>(mo9),0,cutoffs[3],weights[3]));
   if(verbose)std::cout << "Added " << mo9->name() << " @" << cutoffs[3] << " conflicts\n";
   // 24-connected Grid
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>>(mo24->name(),new MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>(mo24),0,cutoffs[4],weights[4]));
+  environs.push_back(MOEnvironmentContainer<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>>(mo24->name(),new MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>(mo24),0,cutoffs[4],weights[4]));
   if(verbose)std::cout << "Added " << mo24->name() << " @" << cutoffs[4] << " conflicts\n";
   // 24-connected Grid w/ Waiting
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>>(mo25->name(),new MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>(mo25),0,cutoffs[5],weights[5]));
+  environs.push_back(MOEnvironmentContainer<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>>(mo25->name(),new MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>(mo25),0,cutoffs[5],weights[5]));
   if(verbose)std::cout << "Added " << mo25->name() << " @" << cutoffs[5] << " conflicts\n";
   // 48-connected Grid
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>>(mo48->name(),new MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>(mo48),0,cutoffs[6],weights[6]));
+  environs.push_back(MOEnvironmentContainer<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>>(mo48->name(),new MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>(mo48),0,cutoffs[6],weights[6]));
   if(verbose)std::cout << "Added " << mo48->name() << " @" << cutoffs[6] << " conflicts\n";
   // 48-connected Grid w/ Waiting
-  environs.push_back(EnvironmentContainer<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>>(mo49->name(),new MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>(mo49),0,cutoffs[7],weights[7]));
+  environs.push_back(MOEnvironmentContainer<xytLoc,tDirection,MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>>(mo49->name(),new MultiObjectiveConstrainedEnvironment<Map2DConstrainedEnvironment,xytLoc,tDirection>(mo49),0,cutoffs[7],weights[7]));
   if(verbose)std::cout << "Added " << mo49->name() << " @" << cutoffs[7] << " conflicts\n";
 
   //For use with NAMOAStar only...

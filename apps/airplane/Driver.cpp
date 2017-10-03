@@ -41,7 +41,7 @@ std::vector<SoftConstraint<airtimeState> > sconstraints;
 
   int cutoffs[10] = {0,9999,9999,9999,9999,9999,9999,9999,9999,9999}; // for each env
   double weights[10] = {1,1,1,1,1,1,1,1,1,1}; // for each env
-  std::vector<EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment> > environs;
+  std::vector<std::vector<EnvironmentContainer<airtimeState,airplaneAction>>> environs;
   int seed = clock();
   int num_airplanes = 5;
   int minsubgoals(1);
@@ -52,9 +52,11 @@ std::vector<SoftConstraint<airtimeState> > sconstraints;
 
   bool paused = false;
 
-  AirplaneConstrainedEnvironment *ace = 0;
-  UnitSimulation<airtimeState, airplaneAction, AirplaneConstrainedEnvironment> *sim = 0;
-  CBSGroup<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction>,NonUnitTimeCAT<airtimeState,airplaneAction,HASH_INTERVAL_HUNDREDTHS> >* group = 0;
+  ConstrainedEnvironment<airtimeState,airplaneAction> *ace = 0;
+  UnitSimulation<airtimeState, airplaneAction, ConstrainedEnvironment<airtimeState,airplaneAction>> *sim = 0;
+  typedef CBSGroup<airtimeState,airplaneAction,RandomTieBreaking<airtimeState,airplaneAction>,NonUnitTimeCAT<airtimeState,airplaneAction,AIR_HASH_INTERVAL_HUNDREDTHS>> AirplaneGroup;
+  typedef CBSUnit<airtimeState,airplaneAction,RandomTieBreaking<airtimeState,airplaneAction>,NonUnitTimeCAT<airtimeState,airplaneAction,AIR_HASH_INTERVAL_HUNDREDTHS>> AirplaneUnit;
+  AirplaneGroup* group = 0;
 
   bool gui=true;
   void InitHeadless();
@@ -194,37 +196,41 @@ void InitHeadless(){
   ah4c->loadPerimeterDB();
   AirplaneEnvironment* ac = new AirplaneCardinalEnvironment(width,length,height);
   ac->loadPerimeterDB();
-  // Cardinal Grid
-  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(agce->name(),new AirplaneConstrainedEnvironment(agce,width,length,height),0,cutoffs[0],weights[0]));
-  // Octile Grid
-  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(agoe->name(),new AirplaneConstrainedEnvironment(agoe,width,length,height),0,cutoffs[1],weights[1]));
-  // Cardinal 3D Grid
-  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(a3ce->name(),new AirplaneConstrainedEnvironment(a3ce,width,length,height),0,cutoffs[2],weights[2]));
-  // Octile 3D Grid
-  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(a3oe->name(),new AirplaneConstrainedEnvironment(a3oe,width,length,height),0,cutoffs[3],weights[3]));
-  // Highway 4 Airplane
-  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(ah4c->name(),new AirplaneConstrainedEnvironment(ah4c,width,length,height),0,cutoffs[4],weights[4]));
-  // Highway 8 Airplane
-  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(ahe->name(),new AirplaneConstrainedEnvironment(ahe,width,length,height),0,cutoffs[5],weights[5]));
-  // Simple Airplane
-  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(ase->name(),new AirplaneConstrainedEnvironment(ase,width,length,height),0,cutoffs[6],weights[6]));
-  // Cardinal Airplane
-  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(ac->name(),new AirplaneConstrainedEnvironment(ac,width,length,height),0,cutoffs[7],weights[7]));
-  // Octile Airplane
-  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(ae->name(),new AirplaneConstrainedEnvironment(ae,width,length,height),0,cutoffs[8],weights[8]));
-  // Highway 4/8 Airplane
-  environs.push_back(EnvironmentContainer<airtimeState,airplaneAction,AirplaneConstrainedEnvironment>(ah4e->name(),new AirplaneConstrainedEnvironment(ah4e,width,length,height),0,cutoffs[9],weights[9]));
+  for(int i(0); i<num_airplanes; ++i){
+    std::vector<EnvironmentContainer<airtimeState,airplaneAction>> ev;
+    // Cardinal Grid
+    ev.push_back(EnvironmentContainer<airtimeState,airplaneAction>(agce->name(),new AirplaneConstrainedEnvironment(agce,width,length,height),0,cutoffs[0],weights[0]));
+    // Octile Grid
+    ev.push_back(EnvironmentContainer<airtimeState,airplaneAction>(agoe->name(),new AirplaneConstrainedEnvironment(agoe,width,length,height),0,cutoffs[1],weights[1]));
+    // Cardinal 3D Grid
+    ev.push_back(EnvironmentContainer<airtimeState,airplaneAction>(a3ce->name(),new AirplaneConstrainedEnvironment(a3ce,width,length,height),0,cutoffs[2],weights[2]));
+    // Octile 3D Grid
+    ev.push_back(EnvironmentContainer<airtimeState,airplaneAction>(a3oe->name(),new AirplaneConstrainedEnvironment(a3oe,width,length,height),0,cutoffs[3],weights[3]));
+    // Highway 4 Airplane
+    ev.push_back(EnvironmentContainer<airtimeState,airplaneAction>(ah4c->name(),new AirplaneConstrainedEnvironment(ah4c,width,length,height),0,cutoffs[4],weights[4]));
+    // Highway 8 Airplane
+    ev.push_back(EnvironmentContainer<airtimeState,airplaneAction>(ahe->name(),new AirplaneConstrainedEnvironment(ahe,width,length,height),0,cutoffs[5],weights[5]));
+    // Simple Airplane
+    ev.push_back(EnvironmentContainer<airtimeState,airplaneAction>(ase->name(),new AirplaneConstrainedEnvironment(ase,width,length,height),0,cutoffs[6],weights[6]));
+    // Cardinal Airplane
+    ev.push_back(EnvironmentContainer<airtimeState,airplaneAction>(ac->name(),new AirplaneConstrainedEnvironment(ac,width,length,height),0,cutoffs[7],weights[7]));
+    // Octile Airplane
+    ev.push_back(EnvironmentContainer<airtimeState,airplaneAction>(ae->name(),new AirplaneConstrainedEnvironment(ae,width,length,height),0,cutoffs[8],weights[8]));
+    // Highway 4/8 Airplane
+    ev.push_back(EnvironmentContainer<airtimeState,airplaneAction>(ah4e->name(),new AirplaneConstrainedEnvironment(ah4e,width,length,height),0,cutoffs[9],weights[9]));
 
-  for(auto& e:environs){
-    for(auto& s:sconstraints){
-      e.environment->AddSoftConstraint(s);
+    for(auto& e:ev){
+      for(auto& s:sconstraints){
+        ((AirplaneConstrainedEnvironment*)e.environment)->AddSoftConstraint(s);
+      }
     }
+    environs.push_back(ev);
   }
 
-  ace=environs.rbegin()->environment;
+  ace=environs[0].rbegin()->environment;
 
-  group = new CBSGroup<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction>,NonUnitTimeCAT<airtimeState,airplaneAction,HASH_INTERVAL_HUNDREDTHS> >(environs,verbose); // Changed to 10,000 expansions from number of conflicts in the tree
-  CBSGroup<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction>,NonUnitTimeCAT<airtimeState,airplaneAction,HASH_INTERVAL_HUNDREDTHS> >::greedyCT=greedyCT;
+  group = new AirplaneGroup(environs,verbose); // Changed to 10,000 expansions from number of conflicts in the tree
+  AirplaneGroup::greedyCT=greedyCT;
   group->timer=new Timer();
   group->seed=seed;
   group->keeprunning=gui;
@@ -234,7 +240,7 @@ void InitHeadless(){
   RandomTieBreaking<airtimeState,airplaneAction>::randomalg=randomalg;
   RandomTieBreaking<airtimeState,airplaneAction>::useCAT=useCAT;
   if(gui){
-    sim = new UnitSimulation<airtimeState, airplaneAction, AirplaneConstrainedEnvironment>(ace);
+    sim = new UnitSimulation<airtimeState, airplaneAction, ConstrainedEnvironment<airtimeState,airplaneAction>>(ace);
     sim->SetStepType(kLockStep);
 
     sim->AddUnitGroup(group);
@@ -294,7 +300,7 @@ void InitHeadless(){
       std::cout << a << " ";
     std::cout << std::endl;
     float softEff(.9);
-    CBSUnit<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction>,NonUnitTimeCAT<airtimeState,airplaneAction,HASH_INTERVAL_HUNDREDTHS> >* unit = new CBSUnit<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction>,NonUnitTimeCAT<airtimeState,airplaneAction,HASH_INTERVAL_HUNDREDTHS> >(waypoints[i],softEff);
+    AirplaneUnit* unit = new AirplaneUnit(waypoints[i],softEff);
     unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
     group->AddUnit(unit); // Add to the group
     std::cout << "initial path for agent " << i << ":\n";
@@ -303,7 +309,7 @@ void InitHeadless(){
     if(gui){sim->AddUnit(unit);} // Add to the group
   }
   if(!gui){
-    Timer::Timeout func(std::bind(&CBSGroup<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction>,NonUnitTimeCAT<airtimeState,airplaneAction,HASH_INTERVAL_HUNDREDTHS> >::processSolution, group, std::placeholders::_1));
+    Timer::Timeout func(std::bind(&AirplaneGroup::processSolution, group, std::placeholders::_1));
     group->timer->StartTimeout(std::chrono::seconds(killtime),func);
   }
   //assert(false && "Exit early");
@@ -328,7 +334,7 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 	if (ace){
         for(auto u : group->GetMembers()){
             glLineWidth(2.0);
-            ace->GLDrawPath(((CBSUnit<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction>,NonUnitTimeCAT<airtimeState,airplaneAction,HASH_INTERVAL_HUNDREDTHS> > const*)u)->GetPath(),((CBSUnit<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction>,NonUnitTimeCAT<airtimeState,airplaneAction,HASH_INTERVAL_HUNDREDTHS> > const*)u)->GetWaypoints());
+            ace->GLDrawPath(((AirplaneUnit const*)u)->GetPath(),((AirplaneUnit const*)u)->GetWaypoints());
         }
     }
 
@@ -341,7 +347,7 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 		
 		/*std::cout << "Printing locations at time: " << sim->GetSimulationTime() << std::endl;
 		for (int x = 0; x < group->GetNumMembers(); x ++) {
-			CBSUnit<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction>,NonUnitTimeCAT<airtimeState,airplaneAction,HASH_INTERVAL_HUNDREDTHS> > *c = (CBSUnit<airtimeState,airplaneAction,AirplaneConstrainedEnvironment,RandomTieBreaking<airtimeState,airplaneAction>,NonUnitTimeCAT<airtimeState,airplaneAction,HASH_INTERVAL_HUNDREDTHS> >*)group->GetMember(x);
+			AirplaneUnit *c = (AirplaneUnit*)group->GetMember(x);
 			airtimeState cur;
 			c->GetLocation(cur);
                         //if(!fequal(ptime[x],sim->GetSimulationTime())

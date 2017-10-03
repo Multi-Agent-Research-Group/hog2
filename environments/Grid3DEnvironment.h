@@ -21,20 +21,10 @@
 #include "ReservationProvider.h"
 #include "BitVector.h"
 #include "GraphEnvironment.h"
+#include "GridStates.h"
 
 #include <cassert>
 
-
-struct xyzLoc {
-public:
-	xyzLoc():x(-1),y(-1),z(-1),v(-1){}
-	xyzLoc(uint16_t _x, uint16_t _y, uint16_t _z, uint16_t _v=0) :x(_x), y(_y) ,z(_z), v(_v){}
-        bool operator<(xyzLoc const& other)const{return x==other.x?(y==other.y?(z==other.z?v<other.v:z<other.z):y<other.y):x<other.x;}
-	uint16_t x;
-	uint16_t y;
-	uint16_t z;
-	uint16_t v;
-};
 
 static std::ostream& operator <<(std::ostream & out, const xyzLoc &loc)
 {

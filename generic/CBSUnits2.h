@@ -247,9 +247,9 @@ static std::ostream& operator <<(std::ostream & out, const CBSTreeNode<state,con
 }
 
 template<typename state, typename action, typename environ>
-struct EnvironmentContainer {
-	EnvironmentContainer() : name("NULL ENV"), environment(0), heuristic(0), conflict_cutoff(0), astar_weight(0.0f) {}
-	EnvironmentContainer(std::string n, environ * e, Heuristic<state>* h, uint32_t conf, float a) : name(n), environment(e), heuristic(h), conflict_cutoff(conf), astar_weight(a) {}
+struct EnvironmentContainer2 {
+	EnvironmentContainer2() : name("NULL ENV"), environment(0), heuristic(0), conflict_cutoff(0), astar_weight(0.0f) {}
+	EnvironmentContainer2(std::string n, environ * e, Heuristic<state>* h, uint32_t conf, float a) : name(n), environment(e), heuristic(h), conflict_cutoff(conf), astar_weight(a) {}
 	environ * environment;
 	Heuristic<state>* heuristic;
 	uint64_t conflict_cutoff;
@@ -262,7 +262,7 @@ template<typename state, typename action, typename environment, typename compari
 class CBSGroup : public UnitGroup<state, action, environment>
 {
   public:
-    CBSGroup(std::vector<EnvironmentContainer<state,action,environment> > const&, bool v=false);
+    CBSGroup(std::vector<EnvironmentContainer2<state,action,environment> > const&, bool v=false);
     bool MakeMove(Unit<state, action, environment> *u, environment *e, 
         SimulationInfo<state,action,environment> *si, action& a);
     void UpdateLocation(Unit<state, action, environment> *u, environment *e, 
@@ -293,8 +293,8 @@ class CBSGroup : public UnitGroup<state, action, environment>
     bool planFinished;
 
     /* Code for dealing with multiple environments */
-    std::vector<EnvironmentContainer<state,action,environment> > environments;
-    EnvironmentContainer<state,action,environment>* currentEnvironment;
+    std::vector<EnvironmentContainer2<state,action,environment> > environments;
+    EnvironmentContainer2<state,action,environment>* currentEnvironment;
 
     void SetEnvironment(unsigned);
     void ClearEnvironmentConstraints();
@@ -407,7 +407,7 @@ void CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>::Open
 
 template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
 void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::ClearEnvironmentConstraints(){
-  for (EnvironmentContainer<state,action,environment> env : this->environments) {
+  for (EnvironmentContainer2<state,action,environment> env : this->environments) {
     env.environment->ClearConstraints();
   }
 }
@@ -416,14 +416,14 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Cle
 template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
 void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::AddEnvironmentConstraint(Constraint<TemporalVector>  c){
   //if(verbose)std::cout << "Add constraint " << c.start_state << "-->" << c.end_state << "\n";
-  for (EnvironmentContainer<state,action,environment> env : this->environments) {
+  for (EnvironmentContainer2<state,action,environment> env : this->environments) {
     env.environment->AddConstraint(c);
   }
 }
 
 /** constructor **/
 template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
-CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::CBSGroup(std::vector<EnvironmentContainer<state,action,environment> > const& environs,bool v)
+CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::CBSGroup(std::vector<EnvironmentContainer2<state,action,environment> > const& environs,bool v)
 : time(0), bestNode(0), planFinished(false), verify(false), nobypass(true)
     , ECBSheuristic(false), killex(INT_MAX), keeprunning(false), animate(0),
     seed(1234567), timer(0), verbose(v)
@@ -436,7 +436,7 @@ CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::CBSGroup
 
   // Sort the environment container by the number of conflicts
   std::sort(this->environments.begin(), this->environments.end(), 
-      [](const EnvironmentContainer<state,action,environment>& a, const EnvironmentContainer<state,action,environment>& b) -> bool 
+      [](const EnvironmentContainer2<state,action,environment>& a, const EnvironmentContainer2<state,action,environment>& b) -> bool 
       {
       return a.conflict_cutoff < b.conflict_cutoff;
       }

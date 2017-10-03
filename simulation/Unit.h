@@ -34,6 +34,25 @@
 template<class state, class action, class environment>
 class SimulationInfo;
 
+template <class state>
+class GenericGroup;
+
+template <class state>
+class GenericUnit {
+public:
+	//	Unit(state s, Unit<state, action, env> *target);
+	GenericUnit(){}
+	virtual void GetLocation(state &) = 0;
+	virtual void GetGoal(state &s) = 0;
+	virtual bool Done() { return true;} 
+
+	virtual unsigned int GetNum() { return unitid; }
+	virtual void SetNum( unsigned int num ) { unitid = num; return; }
+	virtual void StartNewTrial(StatCollection *) {}
+private:
+	unsigned int unitid;
+};
+
 template <class state, class action, class environment>
 class Unit {
 public:

@@ -14,10 +14,10 @@
 #include "Map2DEnvironment.h"
 #include "Vector2D.h"
 #include "VelocityObstacle.h"
-#include "NonUnitTimeCAT.h"
 #include "ConstrainedEnvironment.h"
 #include "PositionalUtils.h"
 #include "TemplateAStar.h"
+#include "MultiAgentStructures.h"
 
 extern double agentRadius;
 
@@ -86,20 +86,6 @@ private:
 	std::vector<Constraint<TemporalVector>> vconstraints;
 	MapEnvironment *mapEnv;
 };
-typedef std::set<IntervalData> ConflictSet;
-
-// Check if an openlist node conflicts with a node from an existing path
-template<typename state>
-unsigned checkForConflict(state const*const parent, state const*const node, state const*const pathParent, state const*const pathNode){
-  Constraint<state> v(*node);
-  if(v.ConflictsWith(*pathNode)){return 1;}
-  if(parent && pathParent){
-    Constraint<state> e1(*parent,*node);
-    if(e1.ConflictsWith(*pathParent,*pathNode)){return 1;}
-  }
-  return 0; 
-}
-
 #define HASH_INTERVAL 1.0
 #define HASH_INTERVAL_HUNDREDTHS 100
 

@@ -3,12 +3,16 @@
 
 #include "GenericSearchAlgorithm.h"
 #include "VelocityObstacle.h"
+#include "NonUnitTimeCAT.h"
+#include <set>
 
 template<typename state>
 using MultiAgentState = std::vector<state>;
 
 template<typename state>
 using Solution = std::vector<std::vector<state>>;
+
+typedef std::set<IntervalData> ConflictSet;
 
 template<typename state, typename action>
 struct EnvironmentContainer {
@@ -19,9 +23,18 @@ struct EnvironmentContainer {
   void SetupSearch(GenericSearchAlgorithm<state,action,ConstrainedEnvironment<state,action>>& srch){if(heuristic)srch.SetHeuristic(heuristic); srch.SetWeight(astar_weight);}
   std::string name;
   ConstrainedEnvironment<state,action>* environment;
-  Heuristic<state>* heuristic;
+  Heuristic<state>* heuristic; // This could be an array if we are planning for multiple legs
   unsigned threshold;
   float astar_weight;
+};
+
+// Struct for parsing config files
+struct EnvData{
+  EnvData():name(),threshold(0),weight(1.0){}
+  EnvData(std::string const& n, unsigned t, double w):name(n),threshold(t),weight(w){}
+  std::string name;
+  unsigned threshold;
+  double weight;
 };
 
 template<typename state, typename action>
@@ -76,4 +89,17 @@ bool validateSolution(Solution<state> const& sol, bool bruteForce=true){
   }
   return true;
 }
+
+// Check if an openlist node conflicts with a node from an existing path
+template<typename state>
+unsigned checkForConflict(state const*const parent, state const*const node, state const*const pathParent, state const*const pathNode){
+  Constraint<state> v(*node);
+  if(v.ConflictsWith(*pathNode)){return 1;}
+  if(parent && pathParent){
+    Constraint<state> e1(*parent,*node);
+    if(e1.ConflictsWith(*pathParent,*pathNode)){return 1;}
+  }
+  return 0; 
+}
+
 #endif
