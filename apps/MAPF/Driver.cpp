@@ -39,7 +39,7 @@ std::vector<std::vector<xytLoc> > waypoints;
 //std::vector<SoftConstraint<xytLoc> > sconstraints;
 #define NUMBER_CANONICAL_STATES 10
 
-  char * envnames[8] = {"fourconnected","fiveconnected","eightconnected","nineconnected","twentyfourconnected","twentyfiveconnected","fortyeightconnected","fortynineconnected"};
+  char const* envnames[8] = {"fourconnected","fiveconnected","eightconnected","nineconnected","twentyfourconnected","twentyfiveconnected","fortyeightconnected","fortynineconnected"};
   int cutoffs[10] = {0,9999,9999,9999,9999,9999,9999,9999,9999,9999}; // for each env
   double weights[10] = {1,1,1,1,1,1,1,1,1,1}; // for each env
   std::vector<std::vector<EnvironmentContainer<xytLoc,tDirection>>> environs;
@@ -200,6 +200,7 @@ void InitHeadless(){
   if(gui){
     sim = new UnitSimulation<xytLoc, tDirection, ConstrainedEnvironment<xytLoc, tDirection>>(ace);
     sim->SetStepType(kLockStep);
+    sim->SetLogStats(false);
 
     sim->AddUnitGroup(group);
   }
@@ -476,7 +477,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
             }
             environs.push_back(ev);
           }
-            
+          
           return 2;
         }
 	if(strcmp(argument[0], "-mapfile") == 0)
