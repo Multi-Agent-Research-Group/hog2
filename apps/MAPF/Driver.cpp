@@ -39,6 +39,7 @@ std::vector<std::vector<xytLoc> > waypoints;
 //std::vector<SoftConstraint<xytLoc> > sconstraints;
 #define NUMBER_CANONICAL_STATES 10
 
+  char * envnames[8] = {"fourconnected","fiveconnected","eightconnected","nineconnected","twentyfourconnected","twentyfiveconnected","fortyeightconnected","fortynineconnected"};
   int cutoffs[10] = {0,9999,9999,9999,9999,9999,9999,9999,9999,9999}; // for each env
   double weights[10] = {1,1,1,1,1,1,1,1,1,1}; // for each env
   std::vector<std::vector<EnvironmentContainer<xytLoc,tDirection>>> environs;
@@ -373,6 +374,16 @@ int MyCLHandler(char *argument[], int maxNumArgs)
           }
           mapfile=sl.GetNthExperiment(0).GetMapName();
           mapfile.insert(0,pathprefix); // Add prefix
+          if(!envdata.size()){
+            for(int i(0); i<num_agents; ++i){
+              std::vector<EnvData> ev;
+              for(int j(0); j<sizeof(cutoffs)/sizeof(cutoffs[0]); ++j){
+                if(cutoffs[j]<9999)
+                  ev.emplace_back(envnames[j],cutoffs[j],weights[j]);
+              }
+              envdata.push_back(ev);
+            }
+          }
 
           for(auto a: envdata){
             // Add start/goal location

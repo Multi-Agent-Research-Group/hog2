@@ -24,7 +24,7 @@ class MapPerfectHeuristic: public Heuristic<state> {
         e->SetIgnoreTime(true); // Otherwise the search would never terminate
         e->SetIgnoreHeading(true);  // Don't care about alternate paths to this state
         TemplateAStar<state,action,ConstrainedEnvironment<state,action>> astar;
-std::cout << "Loading heuristic\n";
+        //std::cout << "Loading heuristic\n";
         astar.SetVerbose(false);
         astar.SetHeuristic(new ZeroHeuristic<state>);
         astar.SetStopAfterGoal(false); // Search the entire space
