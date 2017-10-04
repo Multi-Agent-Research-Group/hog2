@@ -33,7 +33,7 @@ TEST(Map2D, TwentyFourConnected_Successors){
   env.SetTwentyFourConnected();
   std::vector<xyLoc> successors;
   env.GetSuccessors({3,3},successors);
-  ASSERT_EQ(24,successors.size());
+  ASSERT_EQ(16,successors.size());
   for(int i(0);i<successors.size(); ++i){
     ASSERT_TRUE(env.LineOfSight({3,3},successors[i]));
     //std::cout << successors[i] << "\n";
@@ -50,7 +50,7 @@ TEST(Map2D, TwentyFourConnectedWObstacle_Successors){
   env.SetTwentyFourConnected();
   std::vector<xyLoc> successors;
   env.GetSuccessors({3,3},successors);
-  ASSERT_EQ(14,successors.size());
+  ASSERT_EQ(9,successors.size());
   for(int i(0);i<successors.size(); ++i){
     ASSERT_TRUE(env.LineOfSight({3,3},successors[i]));
     //std::cout << successors[i] << "\n";
@@ -66,7 +66,7 @@ TEST(Map2D, FortyEightConnected_Successors){
   env.SetFortyEightConnected();
   std::vector<xyLoc> successors;
   env.GetSuccessors({3,3},successors);
-  ASSERT_EQ(48,successors.size());
+  ASSERT_EQ(32,successors.size());
   for(int i(0);i<successors.size(); ++i){
     ASSERT_TRUE(env.LineOfSight({3,3},successors[i]));
     //std::cout << successors[i] << "\n";
@@ -83,7 +83,7 @@ TEST(Map2D, FortyEightConnectedWObstacle_Successors){
   env.SetFortyEightConnected();
   std::vector<xyLoc> successors;
   env.GetSuccessors({3,3},successors);
-  ASSERT_EQ(27,successors.size());
+  ASSERT_EQ(17,successors.size());
   for(int i(0);i<successors.size(); ++i){
     ASSERT_TRUE(env.LineOfSight({3,3},successors[i]));
     //std::cout << successors[i] << "\n";
@@ -172,23 +172,6 @@ TEST(Map3D, SingleConnected){
   ASSERT_EQ(6,successors.size());
   for(int i(0);i<successors.size(); ++i){
     ASSERT_TRUE(env.LineOfSight({3,3,3},successors[i]));
-    //std::cout << successors[i] << "\n";
-    for(int j(i+1);j<successors.size(); ++j){
-      ASSERT_NE(successors[i],successors[j]);
-    }
-  }
-}
-
-TEST(Map2D, SingleConnectedWObstacle){
-  Map map(8,8);
-  MapEnvironment env(&map);
-  map.SetTerrainType(4,3,kOutOfBounds);
-  env.SetFortyEightConnected();
-  std::vector<xyLoc> successors;
-  env.GetSuccessors({3,3},successors);
-  ASSERT_EQ(27,successors.size());
-  for(int i(0);i<successors.size(); ++i){
-    ASSERT_TRUE(env.LineOfSight({3,3},successors[i]));
     //std::cout << successors[i] << "\n";
     for(int j(i+1);j<successors.size(); ++j){
       ASSERT_NE(successors[i],successors[j]);
@@ -302,6 +285,41 @@ TEST(TemporalAStar, TestGetNextPath){
     for(int j(0); j<path.size(); ++j){
       std::cout << path[j] << "\n";
     }
+  }
+}
+
+TEST(TemporalAStar, TestGetPaths){
+  TemporalAStar<xytLoc,tDirection,Map2DConstrainedEnvironment> astar;
+  Map map(100,100);
+  MapEnvironment env1(&map);
+  env1.SetNineConnected();
+  Map2DConstrainedEnvironment env(&env1);
+  std::vector<std::vector<xytLoc>> paths;
+  xytLoc s(0,1);
+  xytLoc g(99,99);
+  //std::cout << s << " " << g << "\n";
+
+  astar.GetPaths(&env,s,g,paths,0);
+  for(auto const& path:paths){
+    ASSERT_DOUBLE_EQ(paths[0].back().t,path.back().t);
+  }
+  double opt(paths[0].back().t);
+
+  paths.clear();
+  astar.GetPaths(&env,s,g,paths,0);
+  ASSERT_TRUE(paths.empty());
+
+  paths.clear();
+  astar.GetPaths(&env,s,g,paths,1);
+  for(auto const& path:paths){
+    std::cout << opt << " " << path.back().t << "\n";
+    ASSERT_TRUE(fgeq(opt+1.0,path.back().t));
+  }
+
+  paths.clear();
+  astar.GetPaths(&env,s,g,paths,1);
+  for(auto const& path:paths){
+    ASSERT_TRUE(fgeq(opt+2.0,path.back().t));
   }
 }
 /*

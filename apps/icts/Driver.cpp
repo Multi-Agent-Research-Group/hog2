@@ -43,6 +43,13 @@
 #include "TemplateAStar.h"
 #include "Heuristic.h"
 #include "UnitSimulation.h"
+#include "ScenarioLoader.h"
+#include "MapPerfectHeuristic.h"
+
+MapEnvironment* env;
+SearchEnvironment<xyLoc,tDirection>* senv;
+std::vector<Heuristic<xyLoc>*> heuristics;
+std::string mapfile;
 
 float jointTime(0);
 float pairwiseTime(0);
@@ -69,15 +76,16 @@ bool paused = false;
 bool gui=true;
 uint64_t jointnodes(0);
 float step(1.0);
-int n;
+int n(0);
 std::unordered_map<std::string,bool> transTable;
+unsigned seed(clock());
 
 // for agents to stay at goal
 #define MAXTIME 1000
 // for inflation of floats to avoid rounding errors
 #define INFLATION 1000.0
 std::string filepath;
-std::vector<std::vector<xytLoc> > waypoints;
+std::vector<std::vector<xyLoc> > waypoints;
 
 UnitSimulation<xyLoc, tDirection, MapEnvironment> *sim = 0;
 
@@ -160,6 +168,7 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 void InstallHandlers()
 {
   InstallCommandLineHandler(MyCLHandler, "-dimensions", "-dimensions width,length,height", "Set the length,width and height of the environment (max 65K,65K,1024).");
+  InstallCommandLineHandler(MyCLHandler, "-scenfile", "-scenfile", "Scenario file to use");
   InstallCommandLineHandler(MyCLHandler, "-agentType", "-agentType [5,9,25,49]","Set the agent movement model");
   InstallCommandLineHandler(MyCLHandler, "-probfile", "-probfile", "Load MAPF instance from file");
   InstallCommandLineHandler(MyCLHandler, "-killtime", "-killtime [value]", "Kill after this many seconds");
@@ -171,6 +180,8 @@ void InstallHandlers()
   InstallCommandLineHandler(MyCLHandler, "-verify", "-verify", "Verify results");
   InstallCommandLineHandler(MyCLHandler, "-mode", "-mode s,b,p,a", "s=sub-optimal,p=pairwise,b=pairwise,sub-optimal,a=astar");
   InstallCommandLineHandler(MyCLHandler, "-increment", "-increment [value]", "High-level increment");
+  InstallCommandLineHandler(MyCLHandler, "-seed", "-seed <number>", "Seed for random number generator (defaults to clock)");
+  InstallCommandLineHandler(MyCLHandler, "-nagents", "-nagents <number>", "Select the number of agents.");
 
   InstallWindowHandler(MyWindowHandler);
   InstallMouseClickHandler(MyClickHandler);
@@ -211,7 +222,6 @@ namespace std
 }
 
 struct Node : public Hashable{
-	static MapEnvironment* env;
         static uint64_t count;
 
 	Node(){count++;}
@@ -336,20 +346,18 @@ float computeSolutionCost(Solution const& solution, bool ignoreWaitAtGoal=true){
 }
 
 
-MapEnvironment* Node::env=nullptr;
 uint64_t Node::count(0);
 std::unordered_map<int,std::set<uint64_t>> costt;
 
-
-bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, int depth, int maxDepth, float& best){
+bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, int depth, int maxDepth, float& best, unsigned agent){
   //std::cout << std::string((int)(maxDepth-depth)/INFLATION,' ') << start << "g:" << (maxDepth-depth) << " h:" << Node::env->HCost(start,end) << " f:" << ((maxDepth-depth)+Node::env->HCost(start,end));
-  if(depth<0 || maxDepth-depth+(int)(Node::env->HCost(start,end)*INFLATION)>maxDepth){ // Note - this only works for a perfect heuristic.
+  if(depth<0 || maxDepth-depth+(int)(heuristics[agent]->HCost(start,end)*INFLATION)>maxDepth){ // Note - this only works for a perfect heuristic.
     //std::cout << " pruned " << depth <<" "<< (maxDepth-depth+(int)(Node::env->HCost(start,end)*INFLATION))<<">"<<maxDepth<<"\n";
     return false;
   }
   //std::cout << "\n";
 
-  if(Node::env->GoalTest(start,end)){
+  if(env->GoalTest(start,end)){
     Node n(start,(maxDepth-depth)/INFLATION);
     uint64_t hash(n.Hash());
     dag[hash]=n;
@@ -379,7 +387,7 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, int
   }
 
   Points successors;
-  Node::env->GetSuccessors(start,successors);
+  env->GetSuccessors(start,successors);
   bool result(false);
   for(auto const& node: successors){
     int ddiff(std::max(Util::distance(node.x,node.y,start.x,start.y),1.0)*INFLATION);
@@ -387,7 +395,7 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, int
     //if(abs(node.x-start.x)>=1 && abs(node.y-start.y)>=1){
       //ddiff = M_SQRT2;
     //}
-    if(LimitedDFS(node,end,dag,root,depth-ddiff,maxDepth,best)){
+    if(LimitedDFS(node,end,dag,root,depth-ddiff,maxDepth,best,agent)){
       Node n(start,(maxDepth-depth)/INFLATION);
       uint64_t hash(n.Hash());
       if(dag.find(hash)==dag.end()){
@@ -435,7 +443,7 @@ void GetMDD(unsigned agent,xyLoc const& start, xyLoc const& end, DAG& dag, Multi
   bool found(mddcache.find(hash)!=mddcache.end());
   if(verbose)std::cout << "lookup "<< (found?"found":"missed") << "\n";
   if(!found){
-    LimitedDFS(start,end,dag,root[agent],depth,depth,best);
+    LimitedDFS(start,end,dag,root[agent],depth,depth,best,agent);
     mddcache[hash]=root[agent];
     lbcache[hash]=best;
   }else{
@@ -656,149 +664,6 @@ bool jointDFS(MultiState const& s, std::vector<Solution>& solutions, std::vector
   return jointDFS(act,0.0,solution,solutions,toDelete,best,bestSeen,suboptimal,checkOnly);
 }
 
-class BaseOccupancyInterface : public OccupancyInterface<xyLoc,tDirection>
-{
-public:
-	BaseOccupancyInterface(Map* m){};
-	virtual ~BaseOccupancyInterface(){}
-	virtual void SetStateOccupied(const MultiEdge&, bool){}
-	virtual bool GetStateOccupied(const MultiEdge&){return false;}
-	virtual bool CanMove(const MultiEdge&, const MultiEdge&){return false;}
-	virtual void MoveUnitOccupancy(const MultiEdge &, const MultiEdge&){}
-
-private:
-};
-
-class JointEnvironment : public Heuristic<MultiEdge>{
-public:
-
-  JointEnvironment(float i, float d, std::vector<float> const& b):increment(i),goalDepth(d),best(b){}
-
-  uint64_t GetMaxHash(){return INT_MAX;}
-  BaseOccupancyInterface *GetOccupancyInfo(){return nullptr;}
-  void GetSuccessors(MultiEdge const& s,std::vector<MultiEdge>& crossProduct)const{
-    //Get successors into a vector
-    std::vector<MultiEdge> successors;
-
-    // Find minimum depth of current edges
-    float sd(INF);
-    for(auto const& a: s){
-      sd=min(sd,a.second->depth);
-    }
-    //std::cout << "min-depth: " << sd << "\n";
-
-    //float md(INF);
-    //Add in successors for parents who are equal to the min
-    for(auto const& a: s){
-      MultiEdge output;
-      if(fleq(a.second->depth,sd)){
-        //std::cout << "Keep Successors of " << *a.second << "\n";
-        for(auto const& b: a.second->successors){
-          output.emplace_back(a.second,b);
-          //md=min(md,b->depth);
-        }
-      }else{
-        //std::cout << "Keep Just " << *a.second << "\n";
-        output.push_back(a);
-        //md=min(md,a.second->depth);
-      }
-      if(output.empty()){
-        // Stay at state...
-        output.emplace_back(a.second,new Node(a.second->n,a.second->depth+increment));
-        //toDelete.push_back(output.back().second);
-        //md=min(md,a.second->depth+increment); // Amount of time to wait
-      }
-      //std::cout << "successor  of " << s << "gets("<<*a<< "): " << output << "\n";
-      successors.push_back(output);
-    }
-    /*if(verbose)for(int agent(0); agent<successors.size(); ++agent){
-      std::cout << "Agent joint successors: " << agent << "\n\t";
-      for(int succ(0); succ<successors[agent].size(); ++succ)
-      std::cout << *successors[agent][succ].second << ",";
-      std::cout << std::endl;
-      }*/
-    generatePermutations(successors,crossProduct,0,MultiEdge(),sd);
-  }
-
-  bool GoalTest(MultiEdge const& n, MultiEdge const& g)const{
-    return fgreater(n[0].second->depth,goalDepth-increment);
-    /*for(int i(0); i<n.size(); ++i){
-      if(n[i].second->n != g[i].second->n){
-        return false;
-      }
-    }
-    return true;*/
-  }
-
-  double GCost(MultiEdge const& n, MultiEdge const& g)const{
-    double total(0);
-    for(int i(0); i<n.size(); ++i){
-      total+=Node::env->GCost(n[i].second->n,g[i].second->n);
-    }
-    return total;
-  }
-
-  double HCost(MultiEdge const& n, MultiEdge const& g)const{
-    double total(0);
-    for(int i(0); i<n.size(); ++i){
-      //total+=std::max((float)best[i],Node::env->HCost(n[i].second->n,g[i].second->n));
-      total+=Node::env->HCost(n[i].second->n,g[i].second->n);
-    }
-    return total;
-  }
-
-  uint64_t GetStateHash(MultiEdge const& node)const{
-    uint64_t h = 0;
-    for(auto const& s : node){
-      if(s.first)
-        h = (h * 16777619) ^ Node::env->GetStateHash(s.first->n); // xor
-      h = (h * 16777619) ^ Node::env->GetStateHash(s.second->n); // xor
-    }
-    return h;
-  }
-
-  void SetColor(float,float,float,float){}
-  void OpenGLDraw(MultiEdge const&){}
-  int GetAction(MultiEdge const&, MultiEdge const&)const{return 0;}
-  float increment;
-  float goalDepth;
-  std::vector<float> best;
-};
-
-/*bool jointAStar(MultiState& s, float maxdepth, std::vector<Node*>& toDelete, Instance const& inst, std::vector<float> const& best, float increment=1.0){
-  if(verbose){std::cout << "JointAStar\n";}
-  MultiEdge start;
-  for(auto const& n:s){ // Add null parents for the initial movements
-    start.emplace_back(nullptr,n);
-    //for(auto const& m:n->successors){
-      //sd=min(sd,m->depth);
-    //}
-    //start.push_back(a);
-  }
-  MultiEdge goal;
-  for(auto const& g:inst.second){
-    goal.emplace_back(nullptr,new Node(g,0));
-  }
-  JointEnvironment env(increment,maxdepth,best);
-  TemplateAStar<MultiEdge,int,JointEnvironment> peastar;
-  //PEAStar<MultiEdge,int,JointEnvironment> peastar;
-  //peastar.SetVerbose(verbose);
-  std::vector<MultiEdge> solution;
-  peastar.GetPath(&env,start,goal,solution);
-  for(auto const& g:goal){
-    delete g.second;
-  }
-  if(solution.size()==0){return false;}
-  if(verbose)std::cout << "answer ---\n";
-  auto* parent(&s);
-  for(auto node(solution.cbegin()+1); node!=solution.cend(); ++node){
-    parent->successors.push_back(*node);
-    parent->successors.back().parent=parent;
-    parent=&parent->successors.back();
-  }
-  return true;
-}*/
-
 // Check that two paths have no collisions
 bool checkPair(Path const& p1, Path const& p2,bool loud=false){
   auto ap(p1.begin());
@@ -852,12 +717,12 @@ struct ICTSNode{
     count++;
     sizes[agent]=size;
     best[agent]=INF;
-    if(verbose)std::cout << "replan agent " << agent << " GetMDD("<<(Node::env->HCost(instance.first[agent],instance.second[agent])+sizes[agent])<<")\n";
+    if(verbose)std::cout << "replan agent " << agent << " GetMDD("<<(heuristics[agent]->HCost(instance.first[agent],instance.second[agent])+sizes[agent])<<")\n";
     dag[agent].clear();
     replanned.push_back(agent);
     Timer timer;
     timer.StartTimer();
-    GetMDD(agent,instance.first[agent],instance.second[agent],dag[agent],root,(int)(Node::env->HCost(instance.first[agent],instance.second[agent])*INFLATION)+(int)(sizes[agent]*INFLATION),best[agent]);
+    GetMDD(agent,instance.first[agent],instance.second[agent],dag[agent],root,(int)(heuristics[agent]->HCost(instance.first[agent],instance.second[agent])*INFLATION)+(int)(sizes[agent]*INFLATION),best[agent]);
     mddTime+=timer.EndTimer();
     bestSeen=std::accumulate(best.begin(),best.end(),0.0f);
     // Replace new root node on top of old.
@@ -873,13 +738,13 @@ struct ICTSNode{
     for(int i(0); i<instance.first.size(); ++i){
       best[i]=INF;
       replanned[i]=i;
-      if(verbose)std::cout << "plan agent " << i << " GetMDD("<<(Node::env->HCost(instance.first[i],instance.second[i])+sizes[i])<<")\n";
+      if(verbose)std::cout << "plan agent " << i << " GetMDD("<<(heuristics[i]->HCost(instance.first[i],instance.second[i])+sizes[i])<<")\n";
       //std::cout.precision(17);
       std::cout.precision(6);
 
       Timer timer;
       timer.StartTimer();
-      GetMDD(i,instance.first[i],instance.second[i],dag[i],root,(int)(Node::env->HCost(instance.first[i],instance.second[i])*INFLATION)+(int)(sizes[i]*INFLATION),best[i]);
+      GetMDD(i,instance.first[i],instance.second[i],dag[i],root,(int)(heuristics[i]->HCost(instance.first[i],instance.second[i])*INFLATION)+(int)(sizes[i]*INFLATION),best[i]);
       mddTime+=timer.EndTimer();
       bestSeen=std::accumulate(best.begin(),best.end(),0.0f);
       //if(verbose)std::cout << i << ":\n" << root[i] << "\n";
@@ -907,7 +772,6 @@ struct ICTSNode{
   static bool pairwise;
   static bool suboptimal;
   static bool epsilon;
-  static bool astar;
   std::vector<int> replanned; // Set of nodes that was just re-planned
 
   // Set all nodes that were never unified as "no good"
@@ -1003,8 +867,7 @@ struct ICTSNode{
     if(verbose)std::cout<<"Pairwise passed\nFull check\n";
     Timer timer;
     timer.StartTimer();
-    if(/*astar&&jointAStar(root,answers,toDelete,instance,best)||
-         !astar&&*/jointDFS(root,answers,toDelete,lb(),suboptimal)){
+    if(jointDFS(root,answers,toDelete,lb(),suboptimal)){
       jointTime+=timer.EndTimer();
       if(verbose){
         std::cout << "Answer:\n";
@@ -1071,7 +934,6 @@ bool ICTSNode::epsilon(false);
 bool ICTSNode::suboptimal(false); // Sub-optimal variant
 uint64_t ICTSNode::count(0);
 bool ICTSNode::pairwise(true);
-bool ICTSNode::astar(false);
 
 struct ICTSNodePtrComp
 {
@@ -1168,7 +1030,7 @@ void printResults(){
   //std::cout << elapsed << " elapsed";
   //std::cout << std::endl;
   //total += elapsed;
-  std::cout << filepath << "," << int(Node::env->GetConnectedness()) << "," << ICTSNode::count << "," << jointnodes << "," << Node::count << "," << total << "," << mddTime << "," << pairwiseTime << "," << jointTime << "," << nogoodTime << "," << nacts << "," << cost;
+  std::cout << seed << ":" << filepath << "," << int(env->GetConnectedness()) << "," << ICTSNode::count << "," << jointnodes << "," << Node::count << "," << total << "," << mddTime << "," << pairwiseTime << "," << jointTime << "," << nogoodTime << "," << nacts << "," << cost;
   if(total >= killtime)std::cout << " failure";
   std::cout << std::endl;
   if(total>=killtime)exit(1);
@@ -1259,55 +1121,55 @@ int main(int argc, char ** argv){
   
   InstallHandlers();
   ProcessCommandLineArgs(argc, argv);
-  MapEnvironment env(new Map(width,length));
+  MapInterface* smap(nullptr);
+  Map* map(nullptr);
+  if(mapfile.empty()){
+    smap = map = new Map(width,length);
+  }else{
+    smap = map = new Map(mapfile.c_str());
+  }
+  senv = env = new MapEnvironment(map);
+  
   switch(agentType){
     case 4:
-      env.SetFourConnected();
+      env->SetFourConnected();
       break;
     case 8:
-      env.SetEightConnected();
+      env->SetEightConnected();
       break;
     case 9:
-      env.SetNineConnected();
+      env->SetNineConnected();
       break;
     case 24:
-      env.SetTwentyFourConnected();
+      env->SetTwentyFourConnected();
       break;
     case 25:
-      env.SetTwentyFiveConnected();
+      env->SetTwentyFiveConnected();
       break;
     case 48:
-      env.SetFortyEightConnected();
+      env->SetFortyEightConnected();
       break;
     case 49:
-      env.SetFortyNineConnected();
+      env->SetFortyNineConnected();
       break;
     case 5:
     default:
-      env.SetFiveConnected();
+      env->SetFiveConnected();
       break;
   }
 
-  Node::env=&env;
-
-  if(false){
-    xyLoc f(0,0);
-    xyLoc w(length-1,width-1);
-    DAG dg;
-    MultiState rt(1);
-    for(int i(0);i<21;++i){
-      float bst(9999999);
-      int hc(Node::env->HCost(f,w));
-      GetMDD(0,f,w,dg,rt,hc+i,bst);
-      std::cout << i << ":" << costt[hc+i].size()<<"\n";
-      for(auto const& a:costt[hc+i]){
-        std::cout << a << " ";
-      }
-      std::cout << std::endl;
+  heuristics.resize(waypoints.size());
+  if(mapfile.empty()){
+    for(int i(0); i<heuristics.size(); ++i){
+      heuristics[i]=env;
     }
-    exit(0);
+  }else{
+    for(int i(0); i<heuristics.size(); ++i){
+      heuristics[i] = new MapPerfectHeuristic<xyLoc,tDirection>(smap,env);
+    }
   }
-  TemplateAStar<xyLoc,tDirection,MapEnvironment> astar;
+
+  TemplateAStar<xyLoc,tDirection,SearchEnvironment<xyLoc,tDirection>> astar;
   //PEAStar<xyLoc,tDirection,MapEnvironment> astar;
   //astar.SetVerbose(true);
   //std::cout << "Init groups\n";
@@ -1327,7 +1189,8 @@ int main(int argc, char ** argv){
     if(waypoints[i][0]==waypoints[i][1]){ // Already at goal
       path.push_back(waypoints[i][0]);
     }else{
-      astar.GetPath(&env,waypoints[i][0],waypoints[i][1],path);
+      astar.SetHeuristic(heuristics[i]);
+      astar.GetPath(env,waypoints[i][0],waypoints[i][1],path);
     }
     Path timePath;
     //std::cout << s[i] << "-->" << e[i] << std::endl;
@@ -1488,6 +1351,18 @@ int MyCLHandler(char *argument[], int maxNumArgs)
     verify = true;
     return 1;
   }
+  if(strcmp(argument[0], "-seed") == 0)
+  {
+    seed = atoi(argument[1]);
+    srand(seed);
+    srandom(seed);
+    return 2;
+  }
+  if(strcmp(argument[0], "-nagents") == 0)
+  {
+    n = atoi(argument[1]);
+    return 2;
+  }
   if(strcmp(argument[0], "-agentType") == 0)
   {
     agentType = atoi(argument[1]);
@@ -1561,7 +1436,6 @@ int MyCLHandler(char *argument[], int maxNumArgs)
     }
     else if(argument[1][0]=='a'){
       ICTSNode::pairwise=true;
-      ICTSNode::astar=true;
       if(!quiet)std::cout << "pairwise,astar\n";
     }
     return 2;
@@ -1575,7 +1449,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
     std::string line;
     n=0;
     while(std::getline(ss, line)){
-      std::vector<xytLoc> wpts;
+      std::vector<xyLoc> wpts;
       std::istringstream is(line);
       std::string field;
       while(is >> field){
@@ -1611,6 +1485,56 @@ int MyCLHandler(char *argument[], int maxNumArgs)
       ss.ignore();
     ss >> i;
     height = i;
+    return 2;
+  }
+  if(strcmp(argument[0], "-scenfile") == 0)
+  {
+    if(n==0){
+      std::cout<<"-nagents must be specified before -scenfile\n";
+      exit(1);
+    }
+    ScenarioLoader sl(argument[1]);
+    if(sl.GetNumExperiments()==0)
+    {
+      std::cout<<"No experiments in this scenario file or invalid file.\n";
+      exit(1);
+    }
+    std::string pathprefix("../../"); // Because I always run from the build directory...
+    mapfile=sl.GetNthExperiment(0).GetMapName();
+    mapfile.insert(0,pathprefix); // Add prefix
+
+    for(int i(0); i<n; ++i){
+      // Add start/goal location
+      std::vector<xyLoc> wpts;
+      Experiment e(sl.GetRandomExperiment());
+      while(true){
+        bool bad(false);
+        for(auto const& w:waypoints){
+          if((e.GetStartX()==w[0].x && e.GetStartY()==w[0].y) || (e.GetGoalX()==w[1].x && e.GetGoalY()==w[1].y)){
+            bad=true;
+            break;
+          }
+        }
+        if(!bad)break;
+        e=sl.GetRandomExperiment();
+      }
+      wpts.emplace_back(e.GetStartX(),e.GetStartY());
+      wpts.emplace_back(e.GetGoalX(),e.GetGoalY());
+      waypoints.push_back(wpts);
+    }
+
+    return 2;
+  }
+  if(strcmp(argument[0], "-mapfile") == 0)
+  {
+    // If this flag is used, assume there is no scenfile flag
+    mapfile=argument[1];
+    std::string pathprefix("../../"); // Because I always run from the build directory...
+    mapfile.insert(0,pathprefix); // Add prefix
+    if(n==0){
+      std::cout<<"-nagents must be specified before -mapfile\n";
+      exit(1);
+    }
     return 2;
   }
   return 1;

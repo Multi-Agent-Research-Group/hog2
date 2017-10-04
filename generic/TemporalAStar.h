@@ -47,6 +47,7 @@ public:
 	TemporalAStar():env(0),totalExternalNodesExpanded(nullptr),externalExpansionLimit(INT_MAX),useBPMX(0),radius(4.0),stopAfterGoal(true),doPartialExpansion(false),verbose(false),weight(1),useRadius(false),useOccupancyInfo(false),radEnv(0),reopenNodes(false),theHeuristic(0),directed(false),noncritical(false),SuccessorFunc(&environment::GetSuccessors),ActionFunc(&environment::GetAction),GCostFunc(&environment::GCost){ResetNodeCount();}
 	virtual ~TemporalAStar() {}
 	void GetPath(environment *env, const state& from, const state& to, std::vector<state> &thePath, double minTime=0.0);
+        void GetPaths(environment *_env, const state& from, const state& to, std::vector<std::vector<state>> &paths, double window=1.0, double bestf=-1.0, double minTime=0.0);
 	double GetNextPath(environment *env, const state& from, const state& to, std::vector<state> &thePath, double minTime=0.0);
 	void GetPath(environment *, const state& , const state& , std::vector<action> &);
         inline openList* GetOpenList(){return &openClosedList;}
@@ -197,6 +198,33 @@ void TemporalAStar<state,action,environment,openList>::GetPath(environment *_env
   	while (!DoSingleSearchStep(thePath,minTime))
 	{
 	}
+}
+
+/*
+ * Get a set of paths in range of optimality
+ */
+template <class state, class action, class environment, class openList>
+void TemporalAStar<state,action,environment,openList>::GetPaths(environment *_env, const state& from, const state& to, std::vector<std::vector<state>> &paths, double window, double bestf, double minTime)
+{
+  double nextbestf(0);
+  if(openClosedList.OpenSize() == 0){
+    std::vector<state> thePath;
+    GetPath(_env,from,to,thePath,minTime);
+    GetClosedListGCost(thePath.back(),bestf);
+    paths.push_back(thePath);
+  }else if(bestf<0){
+    uint64_t key(openClosedList.Peek());
+    bestf=openClosedList.Lookup(key).g+openClosedList.Lookup(key).h;
+  }
+
+  while(fgeq(bestf+window,nextbestf)){
+    std::vector<state> thePath;
+    do{
+      uint64_t key(openClosedList.Peek());
+      nextbestf=openClosedList.Lookup(key).g+openClosedList.Lookup(key).h;
+    }while(fgeq(bestf+window,nextbestf)&&!DoSingleSearchStep(thePath,minTime));
+    if(thePath.size())paths.push_back(thePath);
+  }
 }
 
 /**
