@@ -349,9 +349,9 @@ float computeSolutionCost(Solution const& solution, bool ignoreWaitAtGoal=true){
 uint64_t Node::count(0);
 std::unordered_map<int,std::set<uint64_t>> costt;
 
-bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, int depth, int maxDepth, float& best, unsigned agent){
+bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, int depth, int maxDepth, float& best, unsigned agent, unsigned id){
   //std::cout << std::string((int)(maxDepth-depth)/INFLATION,' ') << start << "g:" << (maxDepth-depth) << " h:" << Node::env->HCost(start,end) << " f:" << ((maxDepth-depth)+Node::env->HCost(start,end));
-  if(depth<0 || maxDepth-depth+(int)(heuristics[agent]->HCost(start,end)*INFLATION)>maxDepth){ // Note - this only works for a perfect heuristic.
+  if(depth<0 || maxDepth-depth+(int)(heuristics[id]->HCost(start,end)*INFLATION)>maxDepth){ // Note - this only works for a perfect heuristic.
     //std::cout << " pruned " << depth <<" "<< (maxDepth-depth+(int)(Node::env->HCost(start,end)*INFLATION))<<">"<<maxDepth<<"\n";
     return false;
   }
@@ -395,7 +395,7 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, int
     //if(abs(node.x-start.x)>=1 && abs(node.y-start.y)>=1){
       //ddiff = M_SQRT2;
     //}
-    if(LimitedDFS(node,end,dag,root,depth-ddiff,maxDepth,best,agent)){
+    if(LimitedDFS(node,end,dag,root,depth-ddiff,maxDepth,best,agent,id)){
       Node n(start,(maxDepth-depth)/INFLATION);
       uint64_t hash(n.Hash());
       if(dag.find(hash)==dag.end()){
@@ -437,13 +437,13 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, int
 
 // Perform conflict check by moving forward in time at increments of the smallest time step
 // Test the efficiency of VO vs. time-vector approach
-void GetMDD(unsigned agent,xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& root, int depth, float& best){
+void GetMDD(unsigned agent,unsigned id,xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& root, int depth, float& best){
   if(verbose)std::cout << "MDD up to depth: " << depth << start << "-->" << end << "\n";
   uint64_t hash(((uint32_t) depth)<<8|agent);
   bool found(mddcache.find(hash)!=mddcache.end());
   if(verbose)std::cout << "lookup "<< (found?"found":"missed") << "\n";
   if(!found){
-    LimitedDFS(start,end,dag,root[agent],depth,depth,best,agent);
+    LimitedDFS(start,end,dag,root[agent],depth,depth,best,agent,id);
     mddcache[hash]=root[agent];
     lbcache[hash]=best;
   }else{
@@ -713,16 +713,16 @@ void join(std::stringstream& s, std::vector<float> const& x){
 }
 
 struct ICTSNode{
-  ICTSNode(ICTSNode* parent,int agent, float size):instance(parent->instance),dag(parent->dag),best(parent->best),bestSeen(0),sizes(parent->sizes),root(parent->root){
+  ICTSNode(ICTSNode* parent,int agent, float size):instance(parent->instance),dag(parent->dag),best(parent->best),bestSeen(0),sizes(parent->sizes),root(parent->root),ids(parent->ids){
     count++;
     sizes[agent]=size;
     best[agent]=INF;
-    if(verbose)std::cout << "replan agent " << agent << " GetMDD("<<(heuristics[agent]->HCost(instance.first[agent],instance.second[agent])+sizes[agent])<<")\n";
+    if(verbose)std::cout << "replan agent " << agent << " GetMDD("<<(heuristics[ids[agent]]->HCost(instance.first[agent],instance.second[agent])+sizes[agent])<<")\n";
     dag[agent].clear();
     replanned.push_back(agent);
     Timer timer;
     timer.StartTimer();
-    GetMDD(agent,instance.first[agent],instance.second[agent],dag[agent],root,(int)(heuristics[agent]->HCost(instance.first[agent],instance.second[agent])*INFLATION)+(int)(sizes[agent]*INFLATION),best[agent]);
+    GetMDD(agent,ids[agent],instance.first[agent],instance.second[agent],dag[agent],root,(int)(heuristics[ids[agent]]->HCost(instance.first[agent],instance.second[agent])*INFLATION)+(int)(sizes[agent]*INFLATION),best[agent]);
     mddTime+=timer.EndTimer();
     bestSeen=std::accumulate(best.begin(),best.end(),0.0f);
     // Replace new root node on top of old.
@@ -731,20 +731,20 @@ struct ICTSNode{
     //if(verbose)std::cout << agent << ":\n" << root[agent] << "\n";
   }
 
-  ICTSNode(Instance const& inst, std::vector<float> const& s):instance(inst),dag(s.size()),best(s.size()),bestSeen(0),sizes(s),root(s.size()){
+  ICTSNode(Instance const& inst, std::vector<float> const& s, std::vector<int> const& id):instance(inst),dag(s.size()),best(s.size()),bestSeen(0),sizes(s),root(s.size()),ids(id){
     count++;
     root.reserve(s.size());
     replanned.resize(s.size());
     for(int i(0); i<instance.first.size(); ++i){
       best[i]=INF;
       replanned[i]=i;
-      if(verbose)std::cout << "plan agent " << i << " GetMDD("<<(heuristics[i]->HCost(instance.first[i],instance.second[i])+sizes[i])<<")\n";
+      if(verbose)std::cout << "plan agent " << i << " GetMDD("<<(heuristics[ids[i]]->HCost(instance.first[i],instance.second[i])+sizes[i])<<")\n";
       //std::cout.precision(17);
       std::cout.precision(6);
 
       Timer timer;
       timer.StartTimer();
-      GetMDD(i,instance.first[i],instance.second[i],dag[i],root,(int)(heuristics[i]->HCost(instance.first[i],instance.second[i])*INFLATION)+(int)(sizes[i]*INFLATION),best[i]);
+      GetMDD(i,ids[i],instance.first[i],instance.second[i],dag[i],root,(int)(heuristics[ids[i]]->HCost(instance.first[i],instance.second[i])*INFLATION)+(int)(sizes[i]*INFLATION),best[i]);
       mddTime+=timer.EndTimer();
       bestSeen=std::accumulate(best.begin(),best.end(),0.0f);
       //if(verbose)std::cout << i << ":\n" << root[i] << "\n";
@@ -766,6 +766,7 @@ struct ICTSNode{
   std::vector<float> best;
   float bestSeen;
   MultiState root;
+  std::vector<int> ids;
   Instance points;
   std::vector<Node*> toDelete;
   static uint64_t count;
@@ -1245,7 +1246,7 @@ int main(int argc, char ** argv){
         custom_priority_queue<ICTSNode*,ICTSNodePtrComp> q;
         std::unordered_set<std::string> deconf;
 
-        q.push(new ICTSNode(g,sizes));
+        q.push(new ICTSNode(g,sizes,Gid[j]));
 
         std::vector<std::set<Node*,NodePtrComp>> answer;
         std::vector<ICTSNode*> toDelete;
