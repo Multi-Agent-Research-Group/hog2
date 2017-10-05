@@ -69,6 +69,7 @@ bool epp(false);
 bool verbose(false);
 bool quiet(false);
 bool verify(false);
+bool precheck(false);
 bool mouseTracking;
 unsigned agentType(5);
 unsigned killtime(300);
@@ -185,6 +186,7 @@ void InstallHandlers()
   InstallCommandLineHandler(MyCLHandler, "-quiet", "-quiet", "Turn off trace output");
   InstallCommandLineHandler(MyCLHandler, "-verbose", "-verbose", "Turn on verbose output");
   InstallCommandLineHandler(MyCLHandler, "-verify", "-verify", "Verify results");
+  InstallCommandLineHandler(MyCLHandler, "-precheck", "-precheck", "Perform simplified collision check before trying the expensive one");
   InstallCommandLineHandler(MyCLHandler, "-mode", "-mode s,b,p,a", "s=sub-optimal,p=pairwise,b=pairwise,sub-optimal,a=astar");
   InstallCommandLineHandler(MyCLHandler, "-increment", "-increment [value]", "High-level increment");
   InstallCommandLineHandler(MyCLHandler, "-seed", "-seed <number>", "Seed for random number generator (defaults to clock)");
@@ -478,6 +480,7 @@ void generatePermutations(std::vector<MultiEdge>& positions, std::vector<MultiEd
     MultiEdge copy(current);
     bool found(false);
     for(int j(0); j<current.size(); ++j){
+      if(precheck && !env->collisionPreCheck(positions[agent][i].first->n,positions[agent][i].second->n,agentRadius,current[j].first->n,current[j].second->n,agentRadius)) continue;
       // Make sure we don't do any checks that were already done
       //if(fequal(positions[agent][i].first->depth,lastTime)&&fequal(current[j].first->depth,lastTime))continue;
       //uint64_t hash(EdgePairHash(positions[agent][i],current[j]));
@@ -1362,6 +1365,11 @@ int main(int argc, char ** argv){
 
 int MyCLHandler(char *argument[], int maxNumArgs)
 {
+  if(strcmp(argument[0], "-precheck") == 0)
+  {
+    precheck = true;
+    return 1;
+  }
   if(strcmp(argument[0], "-verify") == 0)
   {
     verify = true;

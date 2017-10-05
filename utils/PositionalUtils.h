@@ -39,6 +39,10 @@ inline double distance(Vector2D const& A, Vector2D const& B){
   return distance(A.x,A.y,B.x,B.y);
 }
 
+inline double distance(Vector3D const& A, Vector3D const& B){
+  return distance(A.x,A.y,A.z,B.x,B.y,B.z);
+}
+
 // Get the heading from a to b (clockwise from north)
 template<unsigned steps360>
 inline unsigned heading(double x1, double y1, double x2, double y2){
@@ -157,6 +161,13 @@ inline double meanDistanceOfPointToLine(Vector2D const& a, Vector2D const& b, Ve
   double L2(sqrt(K3*K1));
   return (4.*K3*L1 + 2.*K2*(L1-L2) + (K2*K2-4.*K1*K3)*log((K2+2.*L2)/(2.*K3+K2+2.*L1)))/(8.*pow(K3,1.5));
 }
+
+// From http://www.cplusplus.com/forum/beginner/49408/
+
+double linesIntersect(Vector2D const& A1, Vector2D const& A2, Vector2D const& B1, Vector2D const& B2, double* out=nullptr);
+bool intersectionPoint(Vector2D const& A1, Vector2D const& A2, Vector2D const& B1, Vector2D const& B2, Vector2D& out);
+// Assume "rounded" line with radius (thus the line width is 2*r)
+bool fatLinesIntersect(Vector2D const& A1, Vector2D const& A2, double r1, Vector2D const& B1, Vector2D const& B2, double r2);
 
 };
 

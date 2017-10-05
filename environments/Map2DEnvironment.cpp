@@ -1690,6 +1690,216 @@ double MapEnvironment::GetPathLength(std::vector<xyLoc> &neighbors)
 	return length;
 }
 
+const unsigned MapEnvironment::CENTER_IDX9 = 544;
+const unsigned MapEnvironment::CENTER_IDX25 = 7812;
+const unsigned MapEnvironment::CENTER_IDX49 = 58824;
+// Initialize these to zero
+unsigned MapEnvironment::bitarray9r_25[9*9*9/WORD_BITS+1]={};
+unsigned MapEnvironment::bitarray25r_25[25*25*25/WORD_BITS+1]={};
+unsigned MapEnvironment::bitarray49r_25[49*49*49/WORD_BITS+1]={};
+unsigned MapEnvironment::bitarray9r_5[9*9*9/WORD_BITS+1]={};
+unsigned MapEnvironment::bitarray25r_5[25*25*25/WORD_BITS+1]={};
+unsigned MapEnvironment::bitarray49r_5[49*49*49/WORD_BITS+1]={};
+
+bool MapEnvironment::collisionPreCheck(xyLoc const& s1, xyLoc const& d1, double r1, xyLoc const& s2, xyLoc const& d2, double r2){
+  switch(connectedness){
+    case 4:
+    case 5:
+    case 8:
+    case 9:
+      if(abs(s1.x-s2.x)>1&&abs(s1.x-d2.x)>1&&abs(s1.y-s2.y)>1&&abs(s1.y-d2.y)>1){
+        return false;
+      }
+      return getPreCheck9(index9(s1,d1,s2,d2),std::max(r1,r2));
+      break;
+    case 24:
+    case 25:
+      if(abs(s1.x-s2.x)>2&&abs(s1.x-d2.x)>2&&abs(s1.y-s2.y)>2&&abs(s1.y-d2.y)>2){
+        return false;
+      }
+      return getPreCheck25(index25(s1,d1,s2,d2),std::max(r1,r2));
+      break;
+    case 48:
+    case 49:
+      if(abs(s1.x-s2.x)>3&&abs(s1.x-d2.x)>3&&abs(s1.y-s2.y)>3&&abs(s1.y-d2.y)>3){
+        return false;
+      }
+      return getPreCheck49(index49(s1,d1,s2,d2),std::max(r1,r2));
+      break;
+    default:
+      return true;
+      break;
+  };
+}
+
+bool MapEnvironment::getPreCheck9(size_t idx, double radius){
+  // Initialize if not already done
+  if(fgreater(radius,.25)){
+    if(!get(bitarray9r_5,CENTER_IDX9)){ // Center bit should always be 1 if initialized
+      bool orig(fullBranching);
+      fullBranching=true;
+      Map* origMap(map);
+      Map tempMap(13,13);
+      map=&tempMap;
+      std::vector<xyLoc> n;
+      xyLoc center(6,6);
+      GetSuccessors(center,n);
+      for(auto const& m:n){
+        for(auto const& o:n){
+          std::vector<xyLoc> p;
+          GetSuccessors(o,p);
+          for(auto const& q:p){
+            if(Util::fatLinesIntersect(center,m,.5,o,q,.5)){
+              set(bitarray9r_5,index25(center,m,o,q));
+            }
+          }
+        }
+      }
+      // Set back to original values
+      fullBranching=orig;
+      map=origMap;
+    }
+    return get(bitarray9r_5,idx);
+  }
+  if(!get(bitarray9r_25,CENTER_IDX9)){
+    bool orig(fullBranching);
+    fullBranching=true;
+    Map* origMap(map);
+    Map tempMap(13,13);
+    map=&tempMap;
+    std::vector<xyLoc> n;
+    xyLoc center(6,6);
+    GetSuccessors(center,n);
+    for(auto const& m:n){
+      for(auto const& o:n){
+        std::vector<xyLoc> p;
+        GetSuccessors(o,p);
+        for(auto const& q:p){
+          if(Util::fatLinesIntersect(center,m,.5,o,q,.5)){
+            set(bitarray9r_25,index25(center,m,o,q));
+          }
+        }
+      }
+    }
+    // Set back to original values
+    fullBranching=orig;
+    map=origMap;
+  }
+  return get(bitarray9r_25,idx);
+}
+
+bool MapEnvironment::getPreCheck25(size_t idx, double radius){
+  // Initialize if not already done
+  if(fgreater(radius,.25)){
+    if(!get(bitarray25r_5,CENTER_IDX25)){ // Center bit should always be 1 if initialized
+      bool orig(fullBranching);
+      fullBranching=true;
+      Map* origMap(map);
+      Map tempMap(13,13);
+      map=&tempMap;
+      std::vector<xyLoc> n;
+      xyLoc center(6,6);
+      GetSuccessors(center,n);
+      for(auto const& m:n){
+        for(auto const& o:n){
+          std::vector<xyLoc> p;
+          GetSuccessors(o,p);
+          for(auto const& q:p){
+            if(Util::fatLinesIntersect(center,m,.5,o,q,.5)){
+              set(bitarray25r_5,index25(center,m,o,q));
+            }
+          }
+        }
+      }
+      // Set back to original values
+      fullBranching=orig;
+      map=origMap;
+    }
+    return get(bitarray25r_5,idx);
+  }
+  if(!get(bitarray25r_25,CENTER_IDX25)){
+    bool orig(fullBranching);
+    fullBranching=true;
+    Map* origMap(map);
+    Map tempMap(13,13);
+    map=&tempMap;
+    std::vector<xyLoc> n;
+    xyLoc center(6,6);
+    GetSuccessors(center,n);
+    for(auto const& m:n){
+      for(auto const& o:n){
+        std::vector<xyLoc> p;
+        GetSuccessors(o,p);
+        for(auto const& q:p){
+          if(Util::fatLinesIntersect(center,m,.5,o,q,.5)){
+            set(bitarray25r_25,index25(center,m,o,q));
+          }
+        }
+      }
+    }
+    // Set back to original values
+    fullBranching=orig;
+    map=origMap;
+  }
+  return get(bitarray25r_25,idx);
+}
+
+bool MapEnvironment::getPreCheck49(size_t idx, double radius){
+  // Initialize if not already done
+  if(fgreater(radius,.25)){
+    if(!get(bitarray49r_5,CENTER_IDX49)){ // Center bit should always be 1 if initialized
+      bool orig(fullBranching);
+      fullBranching=true;
+      Map* origMap(map);
+      Map tempMap(13,13);
+      map=&tempMap;
+      std::vector<xyLoc> n;
+      xyLoc center(6,6);
+      GetSuccessors(center,n);
+      for(auto const& m:n){
+        for(auto const& o:n){
+          std::vector<xyLoc> p;
+          GetSuccessors(o,p);
+          for(auto const& q:p){
+            if(Util::fatLinesIntersect(center,m,.5,o,q,.5)){
+              set(bitarray49r_5,index25(center,m,o,q));
+            }
+          }
+        }
+      }
+      // Set back to original values
+      fullBranching=orig;
+      map=origMap;
+    }
+    return get(bitarray49r_5,idx);
+  }
+  if(!get(bitarray49r_25,CENTER_IDX49)){
+    bool orig(fullBranching);
+    fullBranching=true;
+    Map* origMap(map);
+    Map tempMap(13,13);
+    map=&tempMap;
+    std::vector<xyLoc> n;
+    xyLoc center(6,6);
+    GetSuccessors(center,n);
+    for(auto const& m:n){
+      for(auto const& o:n){
+        std::vector<xyLoc> p;
+        GetSuccessors(o,p);
+        for(auto const& q:p){
+          if(Util::fatLinesIntersect(center,m,.5,o,q,.5)){
+            set(bitarray49r_25,index25(center,m,o,q));
+          }
+        }
+      }
+    }
+    // Set back to original values
+    fullBranching=orig;
+    map=origMap;
+  }
+  return get(bitarray49r_25,idx);
+}
+
 /************************************************************/
 
 AbsMapEnvironment::AbsMapEnvironment(MapAbstraction *_ma)

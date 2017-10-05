@@ -51,6 +51,8 @@ class Vector3D {
     inline Vector3D operator+(const Vector3D& v2)const{return Vector3D(x+v2.x, y+v2.y, z+v2.z);}
 
     inline void operator+=(const Vector3D& v2){x+=v2.x; y+=v2.y;z+=v2.z;}
+    inline void operator *=(double s) { x*=s; y*=s; z*=s; }
+    inline void operator /=(double s) { x/=s; y/=s; z/=s; }
 
     inline void Normalize(){
       if(x==0&&y==0&&z==0) return;

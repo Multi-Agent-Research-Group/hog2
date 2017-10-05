@@ -30,9 +30,7 @@ const int numPrimitiveActions = 8;
 const int numActions = 10;
 const tDirection possibleDir[numActions] = { kN, kNE, kE, kSE, kS, kSW, kW, kNW, kStay, kTeleport };
 const int kStayIndex = 8; // index of kStay
-
-
-
+#define WORD_BITS (8 * sizeof(unsigned))
 
 //typedef OccupancyInterface<xyLoc, tDirection> BaseMapOccupancyInterface;
 
@@ -143,8 +141,70 @@ public:
         static double h24(const xyLoc &l1, const xyLoc &l2);
         static double _h48(unsigned dx,unsigned dy,double result=0);
         static double h48(const xyLoc &l1, const xyLoc &l2);
-protected:
-	GraphHeuristic *h;
+
+        // For fetching the index of a collision pre-check given two source/destination pairs
+        static inline unsigned index9(xyLoc const& s1, xyLoc d1, xyLoc s2, xyLoc d2){
+          // Translate d1 and s2 relative to s1
+          d1.x-=s1.x-1;
+          d1.y-=s1.y-1;
+          // Translate d2 relative to s2
+          d2.x-=s2.x-1;
+          d2.y-=s2.y-1;
+          s2.x-=s1.x-1;
+          s2.y-=s1.y-1;
+          return d1.y*3+d1.x + 9*(s2.y*5+s2.x) + 81*(d2.y*5+d2.x);
+        }
+
+        static inline unsigned index25(xyLoc const& s1, xyLoc d1, xyLoc s2, xyLoc d2){
+          // Translate d1 and s2 relative to s1
+          d1.x-=s1.x-2;
+          d1.y-=s1.y-2;
+          // Translate d2 relative to s2
+          d2.x-=s2.x-2;
+          d2.y-=s2.y-2;
+          s2.x-=s1.x-2;
+          s2.y-=s1.y-2;
+          return d1.y*5+d1.x + 25*(s2.y*5+s2.x) + 625*(d2.y*5+d2.x);
+        }
+
+        static inline unsigned index49(xyLoc const& s1, xyLoc d1, xyLoc s2, xyLoc d2){
+          // Translate d1 and s2 relative to s1
+          d1.x-=s1.x-3;
+          d1.y-=s1.y-3;
+          d2.x-=s2.x-3;
+          d2.y-=s2.y-3;
+          s2.x-=s1.x-3;
+          s2.y-=s1.y-3;
+          return d1.y*7+d1.x + 49*(s2.y*7+s2.x) + 2401*(d2.y*7+d2.x);
+        }
+
+        bool collisionPreCheck(xyLoc const& s1, xyLoc const& d1, double r1, xyLoc const& s2, xyLoc const& d2, double r2);
+
+  protected:
+        bool getPreCheck9(size_t idx, double radius);
+        bool getPreCheck25(size_t idx, double radius);
+        bool getPreCheck49(size_t idx, double radius);
+        static const unsigned CENTER_IDX9;
+        static const unsigned CENTER_IDX25;
+        static const unsigned CENTER_IDX49;
+        // bits for radius of .5
+        static unsigned bitarray9r_5[9*9*9/WORD_BITS+1];
+        static unsigned bitarray25r_5[25*25*25/WORD_BITS+1];
+        static unsigned bitarray49r_5[49*49*49/WORD_BITS+1];
+        // bits for radius of .25
+        static unsigned bitarray9r_25[9*9*9/WORD_BITS+1];
+        static unsigned bitarray25r_25[25*25*25/WORD_BITS+1];
+        static unsigned bitarray49r_25[49*49*49/WORD_BITS+1];
+
+        static inline bool get(unsigned* bitarray, size_t idx) {
+        return bitarray[idx / WORD_BITS] | (1 << (idx % WORD_BITS));
+        }
+
+        static inline void set(unsigned* bitarray, size_t idx) {
+          bitarray[idx / WORD_BITS] |= (1 << (idx % WORD_BITS));
+        }
+
+        GraphHeuristic *h;
         xyLoc const* start;
 	Map *map;
 	BaseMapOccupancyInterface *oi;

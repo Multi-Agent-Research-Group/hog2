@@ -40,9 +40,10 @@ class Vector2D {
 
     // Dot product
     inline double operator *(Vector2D const& other){return x * other.x + y * other.y;}
-    // Negation
     inline Vector2D operator -(Vector2D const& other)const{return Vector2D(x-other.x,y-other.y);}
+    inline Vector2D operator +(double s)const{return Vector2D(x+s,y+s);}
     inline void operator -=(Vector2D const& other){x-=other.x;y-=other.y;}
+    // Negation
     inline Vector2D operator -()const{return Vector2D(-x,-y);}
     // Slope angle of this vector
     inline double atan(){ return atan2(y,x); }
@@ -71,6 +72,8 @@ class Vector2D {
     }
 
     inline void operator +=(const Vector2D& v2) { x +=v2.x; y +=v2.y; }
+    inline void operator *=(double s) { x*=s; y*=s; }
+    inline void operator /=(double s) { x/=s; y/=s; }
 
     //                                                //private:
     double x, y;

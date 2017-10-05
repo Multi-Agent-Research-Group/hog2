@@ -1126,7 +1126,7 @@ TEST(Theta1, TestStepAside){
   menv.SetFiveConnected();
   ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment> tstar;
   tstar.SetHeuristic(new StraightLineHeuristic());
-  tstar.SetVerbose(true);
+  //tstar.SetVerbose(true);
   std::vector<xytLoc> solution;
   // No moving obstacle...
   tstar.GetPath(&env,{1,1,0},{6,1,0},solution);
@@ -1214,7 +1214,7 @@ TEST(DISABLED_Theta, TestMotionConstrained3D){
   Grid3DConstrainedEnvironment env(&menv);
   ThetaStar<xyztLoc,t3DDirection,Grid3DConstrainedEnvironment> tstar;
   tstar.SetHeuristic(new StraightLineHeuristic3D());
-  tstar.SetVerbose(true);
+  //tstar.SetVerbose(true);
   std::vector<xyztLoc> solution;
   env.SetMaxTurnAzimuth(45.0); //(only 45 deg turns allowed)
   env.SetMaxPitch(30.0); //(only 30 deg pitch change allowed)
@@ -1235,7 +1235,7 @@ TEST(DISABLED_Theta, Test3D){
   Grid3DConstrainedEnvironment env(&menv);
   ThetaStar<xyztLoc,t3DDirection,Grid3DConstrainedEnvironment> tstar;
   tstar.SetHeuristic(new StraightLineHeuristic3D());
-  tstar.SetVerbose(true);
+  //tstar.SetVerbose(true);
   std::vector<xyztLoc> solution;
   env.AddConstraint(Constraint<TemporalVector3D>({4,1,0,0},{1,1,0,6}));
   env.AddConstraint(Constraint<TemporalVector3D>({7,2,0,0},{1,2,0,6}));
@@ -1254,35 +1254,508 @@ TEST(DISABLED_Theta, Test3D){
 
 #define WORD_BITS (8 * sizeof(unsigned))
 
-static inline unsigned index(unsigned d1, unsigned s1, unsigned s2, unsigned w, unsigned h){}
+// w=1 for 5,9 connected; 2 for 25 and 3 for 49
+static inline unsigned index(xyLoc const& s1, xyLoc d1, xyLoc s2, xyLoc d2, unsigned w){
+  // Translate d1 and s2 relative to s1
+  d1.x-=s1.x-w;
+  d1.y-=s1.y-w;
+  // Translate d2 relative to s2
+  d2.x-=s2.x-w;
+  d2.y-=s2.y-w;
+  s2.x-=s1.x-w;
+  s2.y-=s1.y-w;
+  unsigned W(w*2+1);
+  unsigned Wsq(W*W);
+  unsigned W4(Wsq*Wsq);
+  return d1.y*W+d1.x + Wsq*(s2.y*W+s2.x) + W4*(d2.y*W+d2.x);
+}
 
-static inline bool getIndex(unsigned int * bitarray, size_t idx) {
+static inline unsigned index9(xyLoc const& s1, xyLoc d1, xyLoc s2, xyLoc d2){return index(s1,d1,s2,d2,1);}
+static inline unsigned index25(xyLoc const& s1, xyLoc d1, xyLoc s2, xyLoc d2){return index(s1,d1,s2,d2,2);}
+static inline unsigned index49(xyLoc const& s1, xyLoc d1, xyLoc s2, xyLoc d2){return index(s1,d1,s2,d2,3);}
+
+static inline bool get(unsigned* bitarray, size_t idx) {
     return bitarray[idx / WORD_BITS] | (1 << (idx % WORD_BITS));
 }
 
-static inline void setIndex(unsigned int * bitarray, size_t idx) {
+static inline void set(unsigned* bitarray, size_t idx) {
     bitarray[idx / WORD_BITS] |= (1 << (idx % WORD_BITS));
 }
 
-TEST(PreCollision, generate){
-{
-Map map(9,9);
-MapEnvironment env(&map);
-env.SetFiveConnected();
-std::vector<xyLoc> n;
-env.GetSuccessors({4,4},n);
-unsigned bitarray[9*9*9/WORD_BITS+1];
-//5*(9*5)=225
+// Polygonal intersection from:
+// https://www.geometrictools.com/Documentation/MethodOfSeparatingAxes.pdf
+
+
+TEST(PreCollision, generate9Conn_25Rad){
+  //9*(9*9)=729
+  unsigned bitarray[9*9*9/WORD_BITS+1];
+  memset(bitarray,0,sizeof(bitarray));
+  Map map(5,5);
+  MapEnvironment env(&map);
+  env.SetNineConnected();
+  std::vector<xyLoc> n;
+  xyLoc center(2,2);
+  env.GetSuccessors(center,n);
+  for(auto const& m:n){
+    for(auto const& o:n){
+      std::vector<xyLoc> p;
+      env.GetSuccessors(o,p);
+      for(auto const& q:p){
+        if(Util::fatLinesIntersect(center,m,.25,o,q,.25)){
+          set(bitarray,index9(center,m,o,q));
+        }
+      }
+    }
+  }
+
+  unsigned missedOpportunities(0);
+  unsigned wasHelpful(0);
+  unsigned total(0);
+  for(auto const& m:n){
+    for(auto const& o:n){
+      std::vector<xyLoc> p;
+      env.GetSuccessors(o,p);
+      for(auto const& q:p){
+        Vector2D A(center);
+        Vector2D VA(o);
+        VA-=A;
+        VA.Normalize();
+        double radius(.25);
+        Vector2D B(o);
+        Vector2D VB(q);
+        VB-=B;
+        VB.Normalize();
+        double d1(Util::distance(center,m));
+        double d2(Util::distance(o,q));
+
+        // This represents a broad-phase collision test -
+        // It's ok if the bitarray contains true when the real check is false, but if it contains
+        // false when the real check is true, that's bad
+        if(collisionImminent(A,VA,radius,0,d1,B,VB,radius,0,d2)){
+          ASSERT_TRUE(get(bitarray,index9(center,m,o,q)));
+          wasHelpful++;
+        }else if(!get(bitarray,index9(center,m,o,q)))missedOpportunities++;
+        if(collisionImminent(A,VA,radius,.1,.1+d1,B,VB,radius,0,d2)){
+          ASSERT_TRUE(get(bitarray,index9(center,m,o,q)));
+          wasHelpful++;
+        }else if(!get(bitarray,index9(center,m,o,q)))missedOpportunities++;
+        if(collisionImminent(A,VA,radius,0,d1,B,VB,radius,.2,.2+d2)){
+          ASSERT_TRUE(get(bitarray,index9(center,m,o,q)));
+          wasHelpful++;
+        }else if(!get(bitarray,index9(center,m,o,q)))missedOpportunities++;
+        total++;
+      }
+    }
+  }
+  std::cout << "helped " << wasHelpful << " missed " << missedOpportunities << " total " << total << "\n";
+  // Use the same for 5-connected
+  missedOpportunities=0;
+  wasHelpful=0;
+  total=0;
+  env.SetFiveConnected();
+  for(auto const& m:n){
+    for(auto const& o:n){
+      std::vector<xyLoc> p;
+      env.GetSuccessors(o,p);
+      for(auto const& q:p){
+        Vector2D A(center);
+        Vector2D VA(o);
+        VA-=A;
+        VA.Normalize();
+        double radius(.25);
+        Vector2D B(o);
+        Vector2D VB(q);
+        VB-=B;
+        VB.Normalize();
+        double d1(Util::distance(center,m));
+        double d2(Util::distance(o,q));
+
+        // This represents a broad-phase collision test -
+        // It's ok if the bitarray contains true when the real check is false, but if it contains
+        // false when the real check is true, that's bad
+        if(collisionImminent(A,VA,radius,0,d1,B,VB,radius,0,d2)){
+          ASSERT_TRUE(get(bitarray,index9(center,m,o,q)));
+          wasHelpful++;
+        }else if(!get(bitarray,index9(center,m,o,q)))missedOpportunities++;
+        if(collisionImminent(A,VA,radius,.1,.1+d1,B,VB,radius,0,d2)){
+          ASSERT_TRUE(get(bitarray,index9(center,m,o,q)));
+          wasHelpful++;
+        }else if(!get(bitarray,index9(center,m,o,q)))missedOpportunities++;
+        if(collisionImminent(A,VA,radius,0,d1,B,VB,radius,.2,.2+d2)){
+          ASSERT_TRUE(get(bitarray,index9(center,m,o,q)));
+          wasHelpful++;
+        }else if(!get(bitarray,index9(center,m,o,q)))missedOpportunities++;
+        total++;
+      }
+    }
+  }
+  std::cout << "helped " << wasHelpful << " missed " << missedOpportunities << " total " << total << "\n";
 }
-{
-Map map(9,9);
-MapEnvironment env(&map);
-env.SetFiveConnected();
-std::vector<xyLoc> n;
-env.GetSuccessors({4,4},n);
-unsigned bitarray[9*9*9/WORD_BITS+1];
-//9*(9*9)=729
+
+TEST(PreCollision, generate9Conn_5Rad){
+  //9*(9*9)=729
+  unsigned bitarray[9*9*9/WORD_BITS+1];
+  memset(bitarray,0,sizeof(bitarray));
+  Map map(5,5);
+  MapEnvironment env(&map);
+  env.SetNineConnected();
+  std::vector<xyLoc> n;
+  xyLoc center(2,2);
+  env.GetSuccessors(center,n);
+  for(auto const& m:n){
+    for(auto const& o:n){
+      std::vector<xyLoc> p;
+      env.GetSuccessors(o,p);
+      for(auto const& q:p){
+        if(Util::fatLinesIntersect(center,m,.5,o,q,.5)){
+          set(bitarray,index(center,m,o,q,1));
+        }
+      }
+    }
+  }
+
+  unsigned missedOpportunities(0);
+  unsigned wasHelpful(0);
+  unsigned total(0);
+  for(auto const& m:n){
+    for(auto const& o:n){
+      std::vector<xyLoc> p;
+      env.GetSuccessors(o,p);
+      for(auto const& q:p){
+        Vector2D A(center);
+        Vector2D VA(o);
+        VA-=A;
+        VA.Normalize();
+        double radius(.5);
+        Vector2D B(o);
+        Vector2D VB(q);
+        VB-=B;
+        VB.Normalize();
+        double d1(Util::distance(center,m));
+        double d2(Util::distance(o,q));
+
+        // This represents a broad-phase collision test -
+        // It's ok if the bitarray contains true when the real check is false, but if it contains
+        // false when the real check is true, that's bad
+        if(collisionImminent(A,VA,radius,0,d1,B,VB,radius,0,d2)){
+          ASSERT_TRUE(get(bitarray,index(center,m,o,q,1)));
+          wasHelpful++;
+        }else if(!get(bitarray,index(center,m,o,q,1)))missedOpportunities++;
+        if(collisionImminent(A,VA,radius,.1,.1+d1,B,VB,radius,0,d2)){
+          ASSERT_TRUE(get(bitarray,index(center,m,o,q,1)));
+          wasHelpful++;
+        }else if(!get(bitarray,index(center,m,o,q,1)))missedOpportunities++;
+        if(collisionImminent(A,VA,radius,0,d1,B,VB,radius,.2,.2+d2)){
+          ASSERT_TRUE(get(bitarray,index(center,m,o,q,1)));
+          wasHelpful++;
+        }else if(!get(bitarray,index(center,m,o,q,1)))missedOpportunities++;
+        total++;
+      }
+    }
+  }
+  std::cout << "helped " << wasHelpful << " missed " << missedOpportunities << " total " << total << "\n";
+  // Use the same for 5-connected
+  missedOpportunities=0;
+  wasHelpful=0;
+  total=0;
+  env.SetFiveConnected();
+  for(auto const& m:n){
+    for(auto const& o:n){
+      std::vector<xyLoc> p;
+      env.GetSuccessors(o,p);
+      for(auto const& q:p){
+        Vector2D A(center);
+        Vector2D VA(o);
+        VA-=A;
+        VA.Normalize();
+        double radius(.5);
+        Vector2D B(o);
+        Vector2D VB(q);
+        VB-=B;
+        VB.Normalize();
+        double d1(Util::distance(center,m));
+        double d2(Util::distance(o,q));
+
+        // This represents a broad-phase collision test -
+        // It's ok if the bitarray contains true when the real check is false, but if it contains
+        // false when the real check is true, that's bad
+        if(collisionImminent(A,VA,radius,0,d1,B,VB,radius,0,d2)){
+          ASSERT_TRUE(get(bitarray,index(center,m,o,q,1)));
+          wasHelpful++;
+        }else if(!get(bitarray,index(center,m,o,q,1)))missedOpportunities++;
+        if(collisionImminent(A,VA,radius,.1,.1+d1,B,VB,radius,0,d2)){
+          ASSERT_TRUE(get(bitarray,index(center,m,o,q,1)));
+          wasHelpful++;
+        }else if(!get(bitarray,index(center,m,o,q,1)))missedOpportunities++;
+        if(collisionImminent(A,VA,radius,0,d1,B,VB,radius,.2,.2+d2)){
+          ASSERT_TRUE(get(bitarray,index(center,m,o,q,1)));
+          wasHelpful++;
+        }else if(!get(bitarray,index(center,m,o,q,1)))missedOpportunities++;
+        total++;
+      }
+    }
+  }
+  std::cout << "size " << sizeof(bitarray) << " helped " << wasHelpful << " missed " << missedOpportunities << " total " << total << "\n";
 }
+
+TEST(PreCollision, generate25Conn_5Rad){
+  //9*(9*9)=729
+  unsigned bitarray[25*25*25/WORD_BITS+1];
+  memset(bitarray,0,sizeof(bitarray));
+  Map map(9,9);
+  MapEnvironment env(&map);
+  env.SetTwentyFiveConnected();
+  env.SetFullBranching(true); // Include extra long branches
+  std::vector<xyLoc> n;
+  xyLoc center(4,4);
+  env.GetSuccessors(center,n);
+  for(auto const& m:n){
+    for(auto const& o:n){
+      std::vector<xyLoc> p;
+      env.GetSuccessors(o,p);
+      for(auto const& q:p){
+        if(Util::fatLinesIntersect(center,m,.5,o,q,.5)){
+          set(bitarray,index25(center,m,o,q));
+        }
+      }
+    }
+  }
+
+  unsigned missedOpportunities(0);
+  unsigned wasHelpful(0);
+  unsigned total(0);
+  for(auto const& m:n){
+    for(auto const& o:n){
+      std::vector<xyLoc> p;
+      env.GetSuccessors(o,p);
+      for(auto const& q:p){
+        Vector2D A(center);
+        Vector2D VA(o);
+        VA-=A;
+        VA.Normalize();
+        double radius(.5);
+        Vector2D B(o);
+        Vector2D VB(q);
+        VB-=B;
+        VB.Normalize();
+        double d1(Util::distance(center,m));
+        double d2(Util::distance(o,q));
+
+        // This represents a broad-phase collision test -
+        // It's ok if the bitarray contains true when the real check is false, but if it contains
+        // false when the real check is true, that's bad
+        if(collisionImminent(A,VA,radius,0,d1,B,VB,radius,0,d2)){
+          ASSERT_TRUE(get(bitarray,index25(center,m,o,q)));
+          wasHelpful++;
+        }else if(!get(bitarray,index25(center,m,o,q)))missedOpportunities++;
+        if(collisionImminent(A,VA,radius,.1,.1+d1,B,VB,radius,0,d2)){
+          ASSERT_TRUE(get(bitarray,index25(center,m,o,q)));
+          wasHelpful++;
+        }else if(!get(bitarray,index25(center,m,o,q)))missedOpportunities++;
+        if(collisionImminent(A,VA,radius,0,d1,B,VB,radius,.2,.2+d2)){
+          ASSERT_TRUE(get(bitarray,index25(center,m,o,q)));
+          wasHelpful++;
+        }else if(!get(bitarray,index25(center,m,o,q)))missedOpportunities++;
+        total++;
+      }
+    }
+  }
+  std::cout << "size " << sizeof(bitarray) << " helped " << wasHelpful << " missed " << missedOpportunities << " total " << total << "\n";
+}
+
+TEST(PreCollision, generate25Conn_25Rad){
+  //9*(9*9)=729
+  unsigned bitarray[25*25*25/WORD_BITS+1];
+  memset(bitarray,0,sizeof(bitarray));
+  Map map(9,9);
+  MapEnvironment env(&map);
+  env.SetTwentyFiveConnected();
+  env.SetFullBranching(true); // Include extra long branches
+  std::vector<xyLoc> n;
+  xyLoc center(4,4);
+  env.GetSuccessors(center,n);
+  for(auto const& m:n){
+    for(auto const& o:n){
+      std::vector<xyLoc> p;
+      env.GetSuccessors(o,p);
+      for(auto const& q:p){
+        if(Util::fatLinesIntersect(center,m,.25,o,q,.25)){
+          set(bitarray,index25(center,m,o,q));
+        }
+      }
+    }
+  }
+
+  unsigned missedOpportunities(0);
+  unsigned wasHelpful(0);
+  unsigned total(0);
+  for(auto const& m:n){
+    for(auto const& o:n){
+      std::vector<xyLoc> p;
+      env.GetSuccessors(o,p);
+      for(auto const& q:p){
+        Vector2D A(center);
+        Vector2D VA(o);
+        VA-=A;
+        VA.Normalize();
+        double radius(.25);
+        Vector2D B(o);
+        Vector2D VB(q);
+        VB-=B;
+        VB.Normalize();
+        double d1(Util::distance(center,m));
+        double d2(Util::distance(o,q));
+
+        // This represents a broad-phase collision test -
+        // It's ok if the bitarray contains true when the real check is false, but if it contains
+        // false when the real check is true, that's bad
+        if(collisionImminent(A,VA,radius,0,d1,B,VB,radius,0,d2)){
+          ASSERT_TRUE(get(bitarray,index25(center,m,o,q)));
+          wasHelpful++;
+        }else if(!get(bitarray,index25(center,m,o,q)))missedOpportunities++;
+        if(collisionImminent(A,VA,radius,.1,.1+d1,B,VB,radius,0,d2)){
+          ASSERT_TRUE(get(bitarray,index25(center,m,o,q)));
+          wasHelpful++;
+        }else if(!get(bitarray,index25(center,m,o,q)))missedOpportunities++;
+        if(collisionImminent(A,VA,radius,0,d1,B,VB,radius,.2,.2+d2)){
+          ASSERT_TRUE(get(bitarray,index25(center,m,o,q)));
+          wasHelpful++;
+        }else if(!get(bitarray,index25(center,m,o,q)))missedOpportunities++;
+        total++;
+      }
+    }
+  }
+  std::cout << "size " << sizeof(bitarray) << " helped " << wasHelpful << " missed " << missedOpportunities << " total " << total << "\n";
+}
+
+TEST(PreCollision, generate49Conn_5Rad){
+  //9*(9*9)=729
+  unsigned bitarray[49*49*49/WORD_BITS+1];
+  memset(bitarray,0,sizeof(bitarray));
+  Map map(13,13);
+  MapEnvironment env(&map);
+  env.SetTwentyFiveConnected();
+  env.SetFullBranching(true); // Include extra long branches
+  std::vector<xyLoc> n;
+  xyLoc center(6,6);
+  env.GetSuccessors(center,n);
+  for(auto const& m:n){
+    for(auto const& o:n){
+      std::vector<xyLoc> p;
+      env.GetSuccessors(o,p);
+      for(auto const& q:p){
+        if(Util::fatLinesIntersect(center,m,.5,o,q,.5)){
+          set(bitarray,index49(center,m,o,q));
+        }
+      }
+    }
+  }
+
+  unsigned missedOpportunities(0);
+  unsigned wasHelpful(0);
+  unsigned total(0);
+  for(auto const& m:n){
+    for(auto const& o:n){
+      std::vector<xyLoc> p;
+      env.GetSuccessors(o,p);
+      for(auto const& q:p){
+        Vector2D A(center);
+        Vector2D VA(o);
+        VA-=A;
+        VA.Normalize();
+        double radius(.5);
+        Vector2D B(o);
+        Vector2D VB(q);
+        VB-=B;
+        VB.Normalize();
+        double d1(Util::distance(center,m));
+        double d2(Util::distance(o,q));
+
+        // This represents a broad-phase collision test -
+        // It's ok if the bitarray contains true when the real check is false, but if it contains
+        // false when the real check is true, that's bad
+        if(collisionImminent(A,VA,radius,0,d1,B,VB,radius,0,d2)){
+          ASSERT_TRUE(get(bitarray,index49(center,m,o,q)));
+          wasHelpful++;
+        }else if(!get(bitarray,index49(center,m,o,q)))missedOpportunities++;
+        if(collisionImminent(A,VA,radius,.1,.1+d1,B,VB,radius,0,d2)){
+          ASSERT_TRUE(get(bitarray,index49(center,m,o,q)));
+          wasHelpful++;
+        }else if(!get(bitarray,index49(center,m,o,q)))missedOpportunities++;
+        if(collisionImminent(A,VA,radius,0,d1,B,VB,radius,.2,.2+d2)){
+          ASSERT_TRUE(get(bitarray,index49(center,m,o,q)));
+          wasHelpful++;
+        }else if(!get(bitarray,index49(center,m,o,q)))missedOpportunities++;
+        total++;
+      }
+    }
+  }
+  std::cout << "size " << sizeof(bitarray) << " helped " << wasHelpful << " missed " << missedOpportunities << " total " << total << "\n";
+}
+
+TEST(PreCollision, generate49Conn_25Rad){
+  //9*(9*9)=729
+  unsigned bitarray[49*49*49/WORD_BITS+1];
+  memset(bitarray,0,sizeof(bitarray));
+  Map map(13,13);
+  MapEnvironment env(&map);
+  env.SetTwentyFiveConnected();
+  env.SetFullBranching(true); // Include extra long branches
+  std::vector<xyLoc> n;
+  xyLoc center(6,6);
+  env.GetSuccessors(center,n);
+  for(auto const& m:n){
+    for(auto const& o:n){
+      std::vector<xyLoc> p;
+      env.GetSuccessors(o,p);
+      for(auto const& q:p){
+        if(Util::fatLinesIntersect(center,m,.25,o,q,.25)){
+          set(bitarray,index49(center,m,o,q));
+        }
+      }
+    }
+  }
+
+  unsigned missedOpportunities(0);
+  unsigned wasHelpful(0);
+  unsigned total(0);
+  for(auto const& m:n){
+    for(auto const& o:n){
+      std::vector<xyLoc> p;
+      env.GetSuccessors(o,p);
+      for(auto const& q:p){
+        Vector2D A(center);
+        Vector2D VA(o);
+        VA-=A;
+        VA.Normalize();
+        double radius(.25);
+        Vector2D B(o);
+        Vector2D VB(q);
+        VB-=B;
+        VB.Normalize();
+        double d1(Util::distance(center,m));
+        double d2(Util::distance(o,q));
+
+        // This represents a broad-phase collision test -
+        // It's ok if the bitarray contains true when the real check is false, but if it contains
+        // false when the real check is true, that's bad
+        if(collisionImminent(A,VA,radius,0,d1,B,VB,radius,0,d2)){
+          ASSERT_TRUE(get(bitarray,index49(center,m,o,q)));
+          wasHelpful++;
+        }else if(!get(bitarray,index49(center,m,o,q)))missedOpportunities++;
+        if(collisionImminent(A,VA,radius,.1,.1+d1,B,VB,radius,0,d2)){
+          ASSERT_TRUE(get(bitarray,index49(center,m,o,q)));
+          wasHelpful++;
+        }else if(!get(bitarray,index49(center,m,o,q)))missedOpportunities++;
+        if(collisionImminent(A,VA,radius,0,d1,B,VB,radius,.2,.2+d2)){
+          ASSERT_TRUE(get(bitarray,index49(center,m,o,q)));
+          wasHelpful++;
+        }else if(!get(bitarray,index49(center,m,o,q)))missedOpportunities++;
+        total++;
+      }
+    }
+  }
+  std::cout << "size " << sizeof(bitarray) << " helped " << wasHelpful << " missed " << missedOpportunities << " total " << total << "\n";
 }
 
 /*TEST(Theta1, GetObstructedPath2){
