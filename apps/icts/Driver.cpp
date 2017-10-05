@@ -55,6 +55,13 @@ float jointTime(0);
 float pairwiseTime(0);
 float mddTime(0);
 float nogoodTime(0);
+float certifyTime(0);
+Timer certtimer;
+unsigned maxsingle(0);
+unsigned minsingle(INF);
+unsigned maxjoint(0);
+unsigned minjoint(INF);
+size_t maxnagents(0);
 
 extern double agentRadius;
 bool bestonly(false);
@@ -349,7 +356,7 @@ float computeSolutionCost(Solution const& solution, bool ignoreWaitAtGoal=true){
 uint64_t Node::count(0);
 std::unordered_map<int,std::set<uint64_t>> costt;
 
-bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, int depth, int maxDepth, float& best, unsigned agent, unsigned id){
+bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, int depth, int maxDepth, float& best, unsigned agent, unsigned id, unsigned recursions=1){
   //std::cout << std::string((int)(maxDepth-depth)/INFLATION,' ') << start << "g:" << (maxDepth-depth) << " h:" << Node::env->HCost(start,end) << " f:" << ((maxDepth-depth)+Node::env->HCost(start,end));
   if(depth<0 || maxDepth-depth+(int)(heuristics[id]->HCost(start,end)*INFLATION)>maxDepth){ // Note - this only works for a perfect heuristic.
     //std::cout << " pruned " << depth <<" "<< (maxDepth-depth+(int)(Node::env->HCost(start,end)*INFLATION))<<">"<<maxDepth<<"\n";
@@ -395,7 +402,9 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, int
     //if(abs(node.x-start.x)>=1 && abs(node.y-start.y)>=1){
       //ddiff = M_SQRT2;
     //}
-    if(LimitedDFS(node,end,dag,root,depth-ddiff,maxDepth,best,agent,id)){
+    if(LimitedDFS(node,end,dag,root,depth-ddiff,maxDepth,best,agent,id,recursions+1)){
+      maxsingle=std::max(recursions,maxsingle);
+      minsingle=std::min(recursions,minsingle);
       Node n(start,(maxDepth-depth)/INFLATION);
       uint64_t hash(n.Hash());
       if(dag.find(hash)==dag.end()){
@@ -499,7 +508,7 @@ void generatePermutations(std::vector<MultiEdge>& positions, std::vector<MultiEd
 // In order for this to work, we cannot generate sets of positions, we must generate sets of actions, since at time 1.0 an action from parent A at time 0.0 may have finished, while another action from the same parent A may still be in progress. 
 
 // Return true if we get to the desired depth
-bool jointDFS(MultiEdge const& s, float d, Solution solution, std::vector<Solution>& solutions, std::vector<Node*>& toDelete, float& best, float bestSeen, bool suboptimal=false, bool checkOnly=false){
+bool jointDFS(MultiEdge const& s, float d, Solution solution, std::vector<Solution>& solutions, std::vector<Node*>& toDelete, float& best, float bestSeen, unsigned recursions=1, bool suboptimal=false, bool checkOnly=false){
   // Compute hash for transposition table
   std::string hash(s.size()*sizeof(uint64_t),1);
   int i(0);
@@ -632,10 +641,13 @@ bool jointDFS(MultiEdge const& s, float d, Solution solution, std::vector<Soluti
   bool value(false);
   for(auto& a: crossProduct){
     if(verbose)std::cout << "EVAL " << s << "-->" << a << "\n";
-    if(jointDFS(a,md,solution,solutions,toDelete,best,bestSeen,suboptimal,checkOnly)){
+    if(jointDFS(a,md,solution,solutions,toDelete,best,bestSeen,recursions+1,suboptimal,checkOnly)){
+      maxjoint=std::max(recursions,maxjoint);
+      minjoint=std::min(recursions,minjoint);
       value=true;
       transTable[hash]=value;
       // Return first solution... (unless this is a pairwise check with pruning)
+      if(!checkOnly&&!certifyTime)certtimer.StartTimer();
       if(suboptimal&&!(epp&&checkOnly)) return true;
       // Return if solution is as good as any MDD
       if(!(epp&&checkOnly)&&fequal(best,bestSeen))return true;
@@ -807,7 +819,7 @@ struct ICTSNode{
       Timer timer;
       timer.StartTimer();
       // Perform pairwise check
-      if(verbose)std::cout<<"Pairwise checks\n";
+      if(!quiet)std::cout<<"Pairwise checks,max MDD depth: " << maxsingle << "\n";
       if(replanned.size()>1){
         for(int i(0); i<root.size(); ++i){
           for(int j(i+1); j<root.size(); ++j){
@@ -865,7 +877,7 @@ struct ICTSNode{
       pairwiseTime+=timer.EndTimer();
     }
     // Do a depth-first search; if the search terminates at a goal, its valid.
-    if(verbose)std::cout<<"Pairwise passed\nFull check\n";
+    if(!quiet)std::cout<<"Pairwise passed\nFull check, max joint MDD depth: " << maxjoint << "\n";
     Timer timer;
     timer.StartTimer();
     if(jointDFS(root,answers,toDelete,lb(),suboptimal)){
@@ -971,6 +983,7 @@ bool detectIndependence(Solution& solution, std::vector<Group*>& group, std::uno
               if(verbose)std::cout << "Inserting agent " << a << " into group for agent " << i << "\n";
               group[i]->insert(a);
               group[a]=group[i];
+              maxnagents=std::max(group[i]->size(),maxnagents);
             }
             delete toDelete;
             
@@ -997,6 +1010,7 @@ float cost(0);
 Timer tmr;
 
 void printResults(){
+  certifyTime=certtimer.EndTimer();
   if(!quiet){
     std::cout << "Solution:\n";
     int ii=0;
@@ -1031,7 +1045,8 @@ void printResults(){
   //std::cout << elapsed << " elapsed";
   //std::cout << std::endl;
   //total += elapsed;
-  std::cout << seed << ":" << filepath << "," << int(env->GetConnectedness()) << "," << ICTSNode::count << "," << jointnodes << "," << Node::count << "," << total << "," << mddTime << "," << pairwiseTime << "," << jointTime << "," << nogoodTime << "," << nacts << "," << cost;
+  if(!quiet)std::cout << "seed:filepath,Connectedness,ICTSNode::count,jointnodes,Node::count,maxnagents,minsingle,maxsingle,minjoint,maxjoint,total,mddTime,pairwiseTime,jointTime,nogoodTime,certifyTime,nacts,cost\n";
+  std::cout << seed << ":" << filepath << "," << int(env->GetConnectedness()) << "," << ICTSNode::count << "," << jointnodes << "," << Node::count << "," << maxnagents << "," << minsingle << "," << maxsingle << "," << minjoint << "," << maxjoint << "," << total << "," << mddTime << "," << pairwiseTime << "," << jointTime << "," << nogoodTime << "," << certifyTime << "," << nacts << "," << cost;
   if(total >= killtime)std::cout << " failure";
   std::cout << std::endl;
   if(total>=killtime)exit(1);

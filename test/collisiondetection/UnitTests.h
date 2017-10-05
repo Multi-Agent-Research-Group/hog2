@@ -1252,6 +1252,39 @@ TEST(DISABLED_Theta, Test3D){
   std::cout << std::endl;
 }
 
+#define WORD_BITS (8 * sizeof(unsigned))
+
+static inline unsigned index(unsigned d1, unsigned s1, unsigned s2, unsigned w, unsigned h){}
+
+static inline bool getIndex(unsigned int * bitarray, size_t idx) {
+    return bitarray[idx / WORD_BITS] | (1 << (idx % WORD_BITS));
+}
+
+static inline void setIndex(unsigned int * bitarray, size_t idx) {
+    bitarray[idx / WORD_BITS] |= (1 << (idx % WORD_BITS));
+}
+
+TEST(PreCollision, generate){
+{
+Map map(9,9);
+MapEnvironment env(&map);
+env.SetFiveConnected();
+std::vector<xyLoc> n;
+env.GetSuccessors({4,4},n);
+unsigned bitarray[9*9*9/WORD_BITS+1];
+//5*(9*5)=225
+}
+{
+Map map(9,9);
+MapEnvironment env(&map);
+env.SetFiveConnected();
+std::vector<xyLoc> n;
+env.GetSuccessors({4,4},n);
+unsigned bitarray[9*9*9/WORD_BITS+1];
+//9*(9*9)=729
+}
+}
+
 /*TEST(Theta1, GetObstructedPath2){
   Map map(8,8);
   MapEnvironment menv(&map);
