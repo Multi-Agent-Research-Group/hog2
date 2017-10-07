@@ -43,6 +43,7 @@ public:
 	bool ViolatesConstraint(const xytLoc &from, const xytLoc &to) const;
         void setSoftConstraintEffectiveness(double){}
 	double GetPathLength(std::vector<xytLoc> &neighbors);
+        bool collisionCheck(const xytLoc &s1, const xytLoc &d1, float r1, const xytLoc &s2, const xytLoc &d2, float r2);
 	
 	virtual bool InvertAction(tDirection &a) const;
 	

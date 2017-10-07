@@ -1690,6 +1690,7 @@ double MapEnvironment::GetPathLength(std::vector<xyLoc> &neighbors)
 	return length;
 }
 
+
 const unsigned MapEnvironment::CENTER_IDX9 = 544;
 const unsigned MapEnvironment::CENTER_IDX25 = 7812;
 const unsigned MapEnvironment::CENTER_IDX49 = 58824;
@@ -1707,21 +1708,21 @@ bool MapEnvironment::collisionPreCheck(xyLoc const& s1, xyLoc const& d1, double 
     case 5:
     case 8:
     case 9:
-      if(abs(s1.x-s2.x)>1&&abs(s1.x-d2.x)>1&&abs(s1.y-s2.y)>1&&abs(s1.y-d2.y)>1){
+      if(abs(s1.x-s2.x)>2||abs(s1.x-d2.x)>2||abs(s1.y-s2.y)>2||abs(s1.y-d2.y)>2){
         return false;
       }
       return getPreCheck9(index9(s1,d1,s2,d2),std::max(r1,r2));
       break;
     case 24:
     case 25:
-      if(abs(s1.x-s2.x)>2&&abs(s1.x-d2.x)>2&&abs(s1.y-s2.y)>2&&abs(s1.y-d2.y)>2){
+      if(abs(s1.x-s2.x)>4||abs(s1.x-d2.x)>4||abs(s1.y-s2.y)>4||abs(s1.y-d2.y)>4){
         return false;
       }
       return getPreCheck25(index25(s1,d1,s2,d2),std::max(r1,r2));
       break;
     case 48:
     case 49:
-      if(abs(s1.x-s2.x)>3&&abs(s1.x-d2.x)>3&&abs(s1.y-s2.y)>3&&abs(s1.y-d2.y)>3){
+      if(abs(s1.x-s2.x)>6||abs(s1.x-d2.x)>6||abs(s1.y-s2.y)>6||abs(s1.y-d2.y)>6){
         return false;
       }
       return getPreCheck49(index49(s1,d1,s2,d2),std::max(r1,r2));

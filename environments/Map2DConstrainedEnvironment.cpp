@@ -57,6 +57,19 @@ double Map2DConstrainedEnvironment::GetPathLength(std::vector<xytLoc> &neighbors
   return cost;
 }
 
+bool Map2DConstrainedEnvironment::collisionCheck(xytLoc const& s1, xytLoc const& d1, float radius1, xytLoc const& s2, xytLoc const& d2,float radius2){
+  if(!mapEnv->collisionPreCheck(s1,d1,radius1,s2,d2,radius2)) return false;
+  Vector2D A(s1);
+  Vector2D B(s2);
+  Vector2D VA(d1);
+  VA-=A;
+  VA.Normalize();
+  Vector2D VB(d2);
+  VB-=B;
+  VB.Normalize();
+  return collisionImminent(A,VA,radius1,s1.t,d1.t,B,VB,radius2,s2.t,d2.t);
+}
+
 void Map2DConstrainedEnvironment::GetSuccessors(const xytLoc &nodeID, std::vector<xytLoc> &neighbors) const
 {
   std::vector<xyLoc> n;
