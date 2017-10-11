@@ -69,7 +69,8 @@ bool epp(false);
 bool verbose(false);
 bool quiet(false);
 bool verify(false);
-bool precheck(false);
+bool ID(true);
+bool precheck(true);
 bool mouseTracking;
 unsigned agentType(5);
 unsigned killtime(300);
@@ -177,6 +178,7 @@ void InstallHandlers()
 {
   InstallCommandLineHandler(MyCLHandler, "-dimensions", "-dimensions width,length,height", "Set the length,width and height of the environment (max 65K,65K,1024).");
   InstallCommandLineHandler(MyCLHandler, "-scenfile", "-scenfile", "Scenario file to use");
+  InstallCommandLineHandler(MyCLHandler, "-mapfile", "-mapfile", "Map file to use");
   InstallCommandLineHandler(MyCLHandler, "-agentType", "-agentType [5,9,25,49]","Set the agent movement model");
   InstallCommandLineHandler(MyCLHandler, "-probfile", "-probfile", "Load MAPF instance from file");
   InstallCommandLineHandler(MyCLHandler, "-killtime", "-killtime [value]", "Kill after this many seconds");
@@ -186,7 +188,8 @@ void InstallHandlers()
   InstallCommandLineHandler(MyCLHandler, "-quiet", "-quiet", "Turn off trace output");
   InstallCommandLineHandler(MyCLHandler, "-verbose", "-verbose", "Turn on verbose output");
   InstallCommandLineHandler(MyCLHandler, "-verify", "-verify", "Verify results");
-  InstallCommandLineHandler(MyCLHandler, "-precheck", "-precheck", "Perform simplified collision check before trying the expensive one");
+  InstallCommandLineHandler(MyCLHandler, "-noID", "-noID", "No Independence Dection (ID) framework");
+  InstallCommandLineHandler(MyCLHandler, "-noprecheck", "-noprecheck", "Perform simplified collision check before trying the expensive one");
   InstallCommandLineHandler(MyCLHandler, "-mode", "-mode s,b,p,a", "s=sub-optimal,p=pairwise,b=pairwise,sub-optimal,a=astar");
   InstallCommandLineHandler(MyCLHandler, "-increment", "-increment [value]", "High-level increment");
   InstallCommandLineHandler(MyCLHandler, "-seed", "-seed <number>", "Seed for random number generator (defaults to clock)");
@@ -238,7 +241,7 @@ struct Node : public Hashable{
 	xyLoc n;
 	float depth;
         bool optimal;
-        uint64_t unified;
+        bool unified;
         bool nogood;
         //bool connected()const{return parents.size()+successors.size();}
 	//std::unordered_set<Node*> parents;
@@ -356,7 +359,7 @@ float computeSolutionCost(Solution const& solution, bool ignoreWaitAtGoal=true){
 
 
 uint64_t Node::count(0);
-std::unordered_map<int,std::set<uint64_t>> costt;
+//std::unordered_map<int,std::set<uint64_t>> costt;
 
 bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, int depth, int maxDepth, float& best, unsigned agent, unsigned id, unsigned recursions=1){
   //std::cout << std::string((int)(maxDepth-depth)/INFLATION,' ') << start << "g:" << (maxDepth-depth) << " h:" << Node::env->HCost(start,end) << " f:" << ((maxDepth-depth)+Node::env->HCost(start,end));
@@ -686,15 +689,17 @@ bool checkPair(Path const& p1, Path const& p2,bool loud=false){
   auto bp(p2.begin());
   auto b(bp+1);
   while(a!=p1.end() && b!=p2.end()){
-    Vector2D A((*ap)->n.x,(*ap)->n.y);
-    Vector2D B((*bp)->n.x,(*bp)->n.y);
-    Vector2D VA((*a)->n.x-(*ap)->n.x,(*a)->n.y-(*ap)->n.y);
-    VA.Normalize();
-    Vector2D VB((*b)->n.x-(*bp)->n.x,(*b)->n.y-(*bp)->n.y);
-    VB.Normalize();
-    if(collisionImminent(A,VA,agentRadius,(*ap)->depth,(*a)->depth,B,VB,agentRadius,(*bp)->depth,(*b)->depth)){
-      if(loud)std::cout << "Collision: " << **ap << "-->" << **a << "," << **bp << "-->" << **b;
-      return false;
+    if(!precheck || env->collisionPreCheck((*ap)->n,(*a)->n,agentRadius,(*bp)->n,(*b)->n,agentRadius)){
+      Vector2D A((*ap)->n.x,(*ap)->n.y);
+      Vector2D B((*bp)->n.x,(*bp)->n.y);
+      Vector2D VA((*a)->n.x-(*ap)->n.x,(*a)->n.y-(*ap)->n.y);
+      VA.Normalize();
+      Vector2D VB((*b)->n.x-(*bp)->n.x,(*b)->n.y-(*bp)->n.y);
+      VB.Normalize();
+      if(collisionImminent(A,VA,agentRadius,(*ap)->depth,(*a)->depth,B,VB,agentRadius,(*bp)->depth,(*b)->depth)){
+        if(loud)std::cout << "Collision: " << **ap << "-->" << **a << "," << **bp << "-->" << **b;
+        return false;
+      }
     }
     if(fless((*a)->depth,(*b)->depth)){
       ++a;
@@ -962,7 +967,6 @@ bool detectIndependence(Solution& solution, std::vector<Group*>& group, std::uno
   float minTime(-1);
   for(int i(0); i<solution.size(); ++i){
     for(int j(i+1); j<solution.size(); ++j){
-      if(group[i]==group[j]) continue; // This can happen if both collide with a common agent
       // check collision between i and j
       int a(1);
       int b(1);
@@ -970,28 +974,31 @@ bool detectIndependence(Solution& solution, std::vector<Group*>& group, std::uno
         //float t(min(solution[i][a]->depth,solution[j][b]->depth));
         while(1){
           if(a==solution[i].size() || b==solution[j].size()){break;}
-          Vector2D A(solution[i][a-1]->n.x,solution[i][a-1]->n.y);
-          Vector2D B(solution[j][b-1]->n.x,solution[j][b-1]->n.y);
-          Vector2D VA(solution[i][a]->n.x-solution[i][a-1]->n.x,solution[i][a]->n.y-solution[i][a-1]->n.y);
-          VA.Normalize();
-          Vector2D VB(solution[j][b]->n.x-solution[j][b-1]->n.x,solution[j][b]->n.y-solution[j][b-1]->n.y);
-          VB.Normalize();
-          if(collisionImminent(A,VA,agentRadius,solution[i][a-1]->depth,solution[i][a]->depth,B,VB,agentRadius,solution[j][b-1]->depth,solution[j][b]->depth)){
-            if(verbose)std::cout << i << " and " << j << " collide at " << solution[i][a-1]->depth << "~" << solution[i][a]->depth << solution[i][a-1]->n << "-->" << solution[i][a]->n << " X " << solution[j][b-1]->n << "-->" << solution[j][b]->n << "\n";
-            // Combine groups i and j
-            
-            Group* toDelete(group[j]);
-            groups.erase(group[j]);
-            for(auto a:*group[j]){
-              if(verbose)std::cout << "Inserting agent " << a << " into group for agent " << i << "\n";
-              group[i]->insert(a);
-              group[a]=group[i];
-              maxnagents=std::max(group[i]->size(),maxnagents);
+          if(!precheck || env->collisionPreCheck(solution[i][a-1]->n,solution[i][a]->n,agentRadius,solution[j][b-1]->n,solution[j][b]->n,agentRadius)){
+            Vector2D A(solution[i][a-1]->n.x,solution[i][a-1]->n.y);
+            Vector2D B(solution[j][b-1]->n.x,solution[j][b-1]->n.y);
+            Vector2D VA(solution[i][a]->n.x-solution[i][a-1]->n.x,solution[i][a]->n.y-solution[i][a-1]->n.y);
+            VA.Normalize();
+            Vector2D VB(solution[j][b]->n.x-solution[j][b-1]->n.x,solution[j][b]->n.y-solution[j][b-1]->n.y);
+            VB.Normalize();
+            if(collisionImminent(A,VA,agentRadius,solution[i][a-1]->depth,solution[i][a]->depth,B,VB,agentRadius,solution[j][b-1]->depth,solution[j][b]->depth)){
+              if(verbose)std::cout << i << " and " << j << " collide at " << solution[i][a-1]->depth << "~" << solution[i][a]->depth << solution[i][a-1]->n << "-->" << solution[i][a]->n << " X " << solution[j][b-1]->n << "-->" << solution[j][b]->n << "\n";
+              independent=false;
+              if(group[i]==group[j]) continue; // This can happen if both collide with a common agent
+              // Combine groups i and j
+
+              Group* toDelete(group[j]);
+              groups.erase(group[j]);
+              for(auto a:*group[j]){
+                if(verbose)std::cout << "Inserting agent " << a << " into group for agent " << i << "\n";
+                group[i]->insert(a);
+                group[a]=group[i];
+                maxnagents=std::max(group[i]->size(),maxnagents);
+              }
+              delete toDelete;
+
+              break;
             }
-            delete toDelete;
-            
-            independent=false;
-            break;
           }
           if(fequal(solution[i][a]->depth,solution[j][b]->depth)){
             ++a;++b;
@@ -1194,43 +1201,52 @@ int main(int argc, char ** argv){
   //std::cout << "Init groups\n";
   std::vector<Group*> group(n);
   std::unordered_set<Group*> groups;
-  // Add a singleton group for all groups
-  for(int i(0); i<n; ++i){
-    //group[i]=new Group(i); // Initially in its own group
-    group[i]=new Group();
-    group[i]->insert(i);
-    groups.insert(group[i]);
-  }
+    // Add a singleton group for all groups
+    for(int i(0); i<n; ++i){
+      //group[i]=new Group(i); // Initially in its own group
+      group[i]=new Group();
+      group[i]->insert(i);
+      groups.insert(group[i]);
+    }
 
-  // Initial individual paths.
-  for(int i(0); i<n; ++i){
-    Points path;
-    if(waypoints[i][0]==waypoints[i][1]){ // Already at goal
-      path.push_back(waypoints[i][0]);
-    }else{
-      astar.SetHeuristic(heuristics[i]);
-      astar.GetPath(env,waypoints[i][0],waypoints[i][1],path);
-    }
-    Path timePath;
-    //std::cout << s[i] << "-->" << e[i] << std::endl;
-    if(path.empty()){std::cout << "AStar failed on instance " << i << " - No solution\n"; return 0;}
-    timePath.push_back(new Node(path[0],0.0));
-    for(int i(1); i<path.size(); ++i){
-      timePath.push_back(new Node(path[i],timePath.back()->depth+Util::distance(path[i-1].x,path[i-1].y,path[i].x,path[i].y)));
-    }
-    timePath.push_back(new Node(timePath.back()->n,MAXTIME)); // Add a final wait action that goes way out...
-    solution.push_back(timePath);
-  }
-  if(verbose){
-    std::cout << std::endl;
-    std::cout << "Initial solution:\n";
-    int ii(0);
-    for(auto const& p:solution){
-      std::cout << ii++ << "\n";
-      for(auto const& t: p){
-        // Print solution
-        std::cout << t->n << "," << t->depth << "\n";
+  if(ID){
+    // Initial individual paths.
+    for(int i(0); i<n; ++i){
+      Points path;
+      if(waypoints[i][0]==waypoints[i][1]){ // Already at goal
+        path.push_back(waypoints[i][0]);
+      }else{
+        astar.SetHeuristic(heuristics[i]);
+        astar.GetPath(env,waypoints[i][0],waypoints[i][1],path);
       }
+      Path timePath;
+      //std::cout << s[i] << "-->" << e[i] << std::endl;
+      if(path.empty()){std::cout << "AStar failed on instance " << i << " - No solution\n"; return 0;}
+      timePath.push_back(new Node(path[0],0.0));
+      for(int i(1); i<path.size(); ++i){
+        timePath.push_back(new Node(path[i],timePath.back()->depth+Util::distance(path[i-1].x,path[i-1].y,path[i].x,path[i].y)));
+      }
+      timePath.push_back(new Node(timePath.back()->n,MAXTIME)); // Add a final wait action that goes way out...
+      solution.push_back(timePath);
+    }
+    if(verbose){
+      std::cout << std::endl;
+      std::cout << "Initial solution:\n";
+      int ii(0);
+      for(auto const& p:solution){
+        std::cout << ii++ << "\n";
+        for(auto const& t: p){
+          // Print solution
+          std::cout << t->n << "," << t->depth << "\n";
+        }
+      }
+    }
+  }else{
+    Path path;
+    path.emplace_back(new Node(xyLoc(0,0),0));
+    path.emplace_back(new Node(xyLoc(0,1),1));
+    for(int i(0); i<n; ++i){
+      solution.push_back(path);
     }
   }
 
@@ -1365,9 +1381,14 @@ int main(int argc, char ** argv){
 
 int MyCLHandler(char *argument[], int maxNumArgs)
 {
-  if(strcmp(argument[0], "-precheck") == 0)
+  if(strcmp(argument[0], "-noprecheck") == 0)
   {
-    precheck = true;
+    precheck = false;
+    return 1;
+  }
+  if(strcmp(argument[0], "-noID") == 0)
+  {
+    ID = false;
     return 1;
   }
   if(strcmp(argument[0], "-verify") == 0)

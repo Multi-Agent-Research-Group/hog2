@@ -41,6 +41,12 @@ const unsigned NULL_NODE = 0xffffffff;
 
 namespace aabb
 {
+    struct endpoint{
+      union{
+        float value;
+        uint32_t cvalue;
+      };
+    };
     /*! \brief The axis-aligned bounding box object.
 
         Axis-aligned bounding boxes (AABBs) store information for the minimum
@@ -63,6 +69,9 @@ namespace aabb
                 The upper bound in each dimension.
          */
         AABB(state const& start, state const& end, float radius);
+
+        // Create AABB by merging two AABBs
+        AABB(AABB const& one, AABB const& two);
 
         /// Compute the surface area of the box.
         float computeSurfaceArea() const;
@@ -96,12 +105,12 @@ namespace aabb
                 Whether the AABB overlaps.
          */
         inline bool overlaps(const AABB<state>& aabb) const{
-          return !(   aabb.upperBound[0] < lowerBound[0]
-              || aabb.lowerBound[0] > upperBound[0]
-              || aabb.upperBound[1] < lowerBound[1]
-              || aabb.lowerBound[1] > upperBound[1]
-              || aabb.upperBound[2] < lowerBound[2]
-              || aabb.lowerBound[2] > upperBound[2]
+          return !(   aabb.upperBound[0].cvalue < lowerBound[0].cvalue
+              || aabb.lowerBound[0].cvalue > upperBound[0].cvalue
+              || aabb.upperBound[1].cvalue < lowerBound[1].cvalue
+              || aabb.lowerBound[1].cvalue > upperBound[1].cvalue
+              || aabb.upperBound[2].cvalue < lowerBound[2].cvalue
+              || aabb.lowerBound[2].cvalue > upperBound[2].cvalue
               );
         }
 
@@ -110,20 +119,20 @@ namespace aabb
                 The position vector of the AABB centre.
          */
 
-        inline void computeCentre(float* position){
-          position[0]=0.5 * (lowerBound[0] + upperBound[0]);
-          position[1]=0.5 * (lowerBound[1] + upperBound[1]);
-          position[1]=0.5 * (lowerBound[2] + upperBound[2]);
+        inline void computeCentre(endpoint* position){
+          position[0].value=0.5 * (lowerBound[0].value + upperBound[0].value);
+          position[1].value=0.5 * (lowerBound[1].value + upperBound[1].value);
+          position[2].value=0.5 * (lowerBound[2].value + upperBound[2].value);
         }
 
         /// Lower bound of AABB in each dimension.
-        float lowerBound[3];
+        endpoint lowerBound[3];
 
         /// Upper bound of AABB in each dimension.
-        float upperBound[3];
+        endpoint upperBound[3];
 
         /// The position of the AABB centre.
-        float centre[3];
+        endpoint centre[3];
 
         /// The AABB's surface area.
         float surfaceArea;
@@ -148,7 +157,7 @@ namespace aabb
         unsigned parent;
 
         /// Index of the next node.
-        unsigned next;
+        //unsigned next;
 
         /// Index of the left-hand child.
         unsigned left;
@@ -382,21 +391,27 @@ namespace aabb
 
     template<typename state>
     AABB<state>::AABB(state const& start, state const& end, float radius){
-        lowerBound[0]=std::min(start.x,end.x)-radius;
-        lowerBound[1]=std::min(start.y,end.y)-radius;
-        lowerBound[2]=std::min(start.t,end.t)-radius;
-        upperBound[0]=std::max(start.x,end.x)+radius;
-        upperBound[1]=std::max(start.y,end.y)+radius;
-        upperBound[2]=std::max(start.t,end.t)+radius;
+        lowerBound[0].value=std::max(0.0f,std::min(start.x,end.x)-radius);
+        lowerBound[1].value=std::max(0.0f,std::min(start.y,end.y)-radius);
+        lowerBound[2].value=std::max(0.0f,std::min(start.t,end.t)-radius);
+        upperBound[0].value=std::max(0.0f,std::max(start.x,end.x)+radius);
+        upperBound[1].value=std::max(0.0f,std::max(start.y,end.y)+radius);
+        upperBound[2].value=std::max(0.0f,std::max(start.t,end.t)+radius);
         surfaceArea = computeSurfaceArea();
         computeCentre(centre);
     }
 
+    // Create merged node from two nodes
+    template<typename state>
+    AABB<state>::AABB(const AABB<state>& aabb1, const AABB<state>& aabb2){
+        merge(aabb1,aabb2);
+    }
+
     template<typename state>
     float AABB<state>::computeSurfaceArea() const{
-      float wx(upperBound[0] - lowerBound[0]);
-      float wy(upperBound[1] - lowerBound[1]);
-      float wz(upperBound[2] - lowerBound[2]);
+      float wx(upperBound[0].value - lowerBound[0].value);
+      float wy(upperBound[1].value - lowerBound[1].value);
+      float wz(upperBound[2].value - lowerBound[2].value);
       return 2.0 * (wx*wy + wx*wz + wy*wz);
     }
 
@@ -404,8 +419,8 @@ namespace aabb
     template<typename state>
     void AABB<state>::merge(const AABB<state>& aabb1, const AABB<state>& aabb2){
         for (unsigned i=0;i<3;i++){
-            lowerBound[i] = std::min(aabb1.lowerBound[i], aabb2.lowerBound[i]);
-            upperBound[i] = std::max(aabb1.upperBound[i], aabb2.upperBound[i]);
+            lowerBound[i].value = std::min(aabb1.lowerBound[i].value, aabb2.lowerBound[i].value);
+            upperBound[i].value = std::max(aabb1.upperBound[i].value, aabb2.upperBound[i].value);
         }
 
         surfaceArea = computeSurfaceArea();
@@ -415,8 +430,8 @@ namespace aabb
     template<typename state>
     bool AABB<state>::contains(AABB<state> const& aabb) const{
         for (unsigned i=0;i<3;i++){
-            if (lowerBound[i] < aabb.lowerBound[i]) return false;
-            if (upperBound[i] > aabb.upperBound[i]) return false;
+            if (lowerBound[i].cvalue < aabb.lowerBound[i].cvalue) return false;
+            if (upperBound[i].cvalue > aabb.upperBound[i].cvalue) return false;
         }
         return true;
     }
@@ -433,10 +448,10 @@ namespace aabb
 
         // Build a linked list for the list of free nodes.
         for (unsigned i=0;i<nodeCapacity-1;i++){
-            nodes[i].next = i + 1;
+            //nodes[i].next = i + 1;
             nodes[i].height = -1;
         }
-        nodes[nodeCapacity-1].next = NULL_NODE;
+        //nodes[nodeCapacity-1].next = NULL_NODE;
         nodes[nodeCapacity-1].height = -1;
 
         // Assign the index of the first free node.
@@ -458,10 +473,10 @@ namespace aabb
             // Build a linked list for the list of free nodes.
             for (unsigned i=nodeCount;i<nodeCapacity-1;i++)
             {
-                nodes[i].next = i + 1;
+                //nodes[i].next = i + 1;
                 nodes[i].height = -1;
             }
-            nodes[nodeCapacity-1].next = NULL_NODE;
+            //nodes[nodeCapacity-1].next = NULL_NODE;
             nodes[nodeCapacity-1].height = -1;
 
             // Assign the index of the first free node.
@@ -470,10 +485,8 @@ namespace aabb
 
         // Peel a node off the free list.
         unsigned node = freeList;
-        freeList = nodes[node].next;
-        nodes[node].parent = NULL_NODE;
-        nodes[node].left = NULL_NODE;
-        nodes[node].right = NULL_NODE;
+        freeList = node+1;//nodes[node].next;
+        nodes[node].parent = nodes[node].left = nodes[node].right = NULL_NODE;
         nodes[node].height = 0;
         nodeCount++;
 
@@ -486,7 +499,7 @@ namespace aabb
         assert(0 <= node && node < nodeCapacity);
         assert(0 < nodeCount);
 
-        nodes[node].next = freeList;
+        //nodes[node].next = freeList;
         nodes[node].height = -1;
         freeList = node;
         nodeCount--;
@@ -629,58 +642,47 @@ namespace aabb
         // Find the best sibling for the node.
 
         AABB<state> leafAABB = nodes[leaf].aabb;
-        unsigned index = root;
+        unsigned index(root);
 
         while (!nodes[index].isLeaf())
         {
             // Extract the children of the node.
-            unsigned left  = nodes[index].left;
-            unsigned right = nodes[index].right;
+            unsigned left(nodes[index].left);
+            unsigned right(nodes[index].right);
 
-            float surfaceArea = nodes[index].aabb.getSurfaceArea();
-
-            AABB<state> combinedAABB;
-            combinedAABB.merge(nodes[index].aabb, leafAABB);
+            AABB<state> combinedAABB(nodes[index].aabb, leafAABB);
             float combinedSurfaceArea = combinedAABB.getSurfaceArea();
 
             // Cost of creating a new parent for this node and the new leaf.
             float cost = 2.0 * combinedSurfaceArea;
 
             // Minimum cost of pushing the leaf further down the tree.
-            float inheritanceCost = 2.0 * (combinedSurfaceArea - surfaceArea);
+            float inheritanceCost = 2.0 * (combinedSurfaceArea - nodes[index].aabb.getSurfaceArea());
 
             // Cost of descending to the left.
             float costLeft;
             if (nodes[left].isLeaf())
             {
-                AABB<state> aabb;
-                aabb.merge(leafAABB, nodes[left].aabb);
+                AABB<state> aabb(leafAABB, nodes[left].aabb);
                 costLeft = aabb.getSurfaceArea() + inheritanceCost;
             }
             else
             {
-                AABB<state> aabb;
-                aabb.merge(leafAABB, nodes[left].aabb);
-                float oldArea = nodes[left].aabb.getSurfaceArea();
-                float newArea = aabb.getSurfaceArea();
-                costLeft = (newArea - oldArea) + inheritanceCost;
+                AABB<state> aabb(leafAABB, nodes[left].aabb);
+                costLeft = (aabb.getSurfaceArea() - nodes[left].aabb.getSurfaceArea()) + inheritanceCost;
             }
 
             // Cost of descending to the right.
             float costRight;
             if (nodes[right].isLeaf())
             {
-                AABB<state> aabb;
-                aabb.merge(leafAABB, nodes[right].aabb);
+                AABB<state> aabb(leafAABB, nodes[right].aabb);
                 costRight = aabb.getSurfaceArea() + inheritanceCost;
             }
             else
             {
-                AABB<state> aabb;
-                aabb.merge(leafAABB, nodes[right].aabb);
-                float oldArea = nodes[right].aabb.getSurfaceArea();
-                float newArea = aabb.getSurfaceArea();
-                costRight = (newArea - oldArea) + inheritanceCost;
+                AABB<state> aabb(leafAABB, nodes[right].aabb);
+                costRight = (aabb.getSurfaceArea() - nodes[right].aabb.getSurfaceArea()) + inheritanceCost;
             }
 
             // Descend according to the minimum cost.
@@ -691,7 +693,7 @@ namespace aabb
             else                      index = right;
         }
 
-        unsigned sibling = index;
+        unsigned sibling(index);
 
         // Create a new parent.
         unsigned oldParent = nodes[sibling].parent;
@@ -981,7 +983,7 @@ namespace aabb
         while (freeIndex != NULL_NODE)
         {
             assert((0 <= freeIndex) && (freeIndex < nodeCapacity));
-            freeIndex = nodes[freeIndex].next;
+            //freeIndex = nodes[freeIndex].next;
             freeCount++;
         }
 
@@ -1022,8 +1024,7 @@ namespace aabb
                 for (unsigned j=i+1;j<count;j++)
                 {
                     AABB<state> aabbj = nodes[nodeIndices[j]].aabb;
-                    AABB<state> aabb;
-                    aabb.merge(aabbi, aabbj);
+                    AABB<state> aabb(aabbi, aabbj);
                     float cost = aabb.getSurfaceArea();
 
                     if (cost < minCost)
@@ -1055,7 +1056,7 @@ namespace aabb
 
         root = nodeIndices[0];
 
-        validate();
+        //validate();
     }
 
     template<typename state>
@@ -1110,13 +1111,12 @@ namespace aabb
         int height = 1 + std::max(height1, height2);
         assert(nodes[node].height == height);
 
-        AABB<state> aabb;
-        aabb.merge(nodes[left].aabb, nodes[right].aabb);
+        AABB<state> aabb(nodes[left].aabb, nodes[right].aabb);
 
         for (unsigned i=0;i<3;i++)
         {
-            assert(aabb.lowerBound[i] == nodes[node].aabb.lowerBound[i]);
-            assert(aabb.upperBound[i] == nodes[node].aabb.upperBound[i]);
+            assert(aabb.lowerBound[i].cvalue == nodes[node].aabb.lowerBound[i].cvalue);
+            assert(aabb.upperBound[i].cvalue == nodes[node].aabb.upperBound[i].cvalue);
         }
 
         validateMetrics(left);

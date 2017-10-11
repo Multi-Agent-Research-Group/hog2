@@ -21,11 +21,13 @@
 
 #include <math.h>
 #include "FPUtil.h"
+#include "Vector2D.h"
 #include <ostream>
 
 class Vector3D {
   public:
     Vector3D(float _x,float _y,float _z):x(_x),y(_y),z(_z){}
+    Vector3D(Vector2D const& v):x(v.x),y(v.y),z(0){}
     Vector3D():x(0),y(0),z(0){}
     inline void Set(float _x, float _y, float _z) { x=_x; y=_y; z=_z; }
 
@@ -64,6 +66,14 @@ class Vector3D {
 
     float x, y, z;
 };
+
+struct TemporalVector3D : Vector3D {
+  TemporalVector3D(Vector3D const& loc, double time):Vector3D(loc), t(time){}
+  TemporalVector3D(double _x, double _y, double _z, float time):Vector3D(_x,_y,_z), t(time){}
+  TemporalVector3D():Vector3D(),t(0){}
+  double t;
+};
+
 
 // Calculate cross product of vectors
 inline Vector3D cross(Vector3D const& v1, Vector3D const& v2){ return Vector3D((v1.y*v2.z)-(v1.z*v2.y),(v1.z*v2.x)-(v1.x*v2.z),(v1.x*v2.y)-(v1.y*v2.x));}

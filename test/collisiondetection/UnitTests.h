@@ -1780,6 +1780,10 @@ unsigned countCollisions(std::vector<xytLoc> const& p1, std::vector<xytLoc> cons
   auto bp(p2.begin());
   auto b(bp+1);
   while(a!=p1.end() && b!=p2.end()){
+    /*if(checkForCollision(*ap,*a,*bp,*b,radius,nullptr) && !checkForCollision(*ap,*a,*bp,*b,radius,env)){
+      std::cout << "Missed collision for " << *ap << "-->" << *a << " "  << *bp << "-->" << *b << "\n";
+      checkForCollision(*ap,*a,*bp,*b,radius,env);
+    }*/
     if(checkForCollision(*ap,*a,*bp,*b,radius,env)){count++;}
     if(fless(a->t,b->t)){
       ++a;
@@ -1801,6 +1805,206 @@ unsigned getKey(int i, int j, int depth){
 std::pair<unsigned, unsigned> unravelKey(unsigned key, int depth){
   return {key/depth,key%depth};
 }
+
+struct pathpointid{
+  pathpointid(uint32_t k):agentid(k>>22),pointid(k&0x3fffff){}
+  pathpointid(unsigned agent, unsigned point):agentid(agent),pointid(point){}
+  unsigned pointid : 22; // Up to 262K points per agent
+  unsigned agentid : 10; // Up to 1024 agents (high-order bits)
+};
+
+struct endpoint{
+  endpoint():id(0,0),cvalue(0){}
+  endpoint(unsigned agent, unsigned point, unsigned dimension, xytLoc const& val):id(agent,point){
+    if(dimension==0)
+      value=val.t;
+    else if(dimension==1)
+      cvalue=val.x;
+    else
+      cvalue=val.y;
+  }
+  inline bool operator>(endpoint const& rhs)const{return cvalue==rhs.cvalue?id.agentid>rhs.id.agentid:cvalue>rhs.cvalue;}
+  union{
+    pathpointid id;
+    uint32_t key;
+  };
+  union{
+    float value;
+    uint32_t cvalue; // comparison value (As long as value>0, this is safe to use as a comparison for floats
+  };
+};
+static inline std::ostream& operator<<(std::ostream& os, endpoint const& v){os << v.cvalue; return os;}
+struct cmp{ inline bool operator()(std::vector<endpoint>::const_iterator& lhs, std::vector<endpoint>::const_iterator& rhs)const{return lhs->cvalue==rhs->cvalue?lhs->key>rhs->key:lhs->cvalue>rhs->cvalue;} };
+
+void mergeKSortedArrays(std::vector<std::vector<endpoint>::const_iterator>& paths, std::vector<std::vector<endpoint>::const_iterator> const& ends, std::vector<endpoint>& sorted){
+  std::make_heap(paths.begin(),paths.end(),cmp());
+  size_t ix(0);
+  while(paths.size()){
+    std::pop_heap(paths.begin(),paths.end(),cmp());
+    sorted[ix]=*paths.back()++;
+    if(paths.back()==ends[sorted[ix++].id.agentid]){
+      paths.pop_back();
+    }
+    std::push_heap(paths.begin(),paths.end(),cmp());
+  }
+}
+
+void insertionSort(std::vector<endpoint>& A){
+  endpoint key(A[0]);
+  int j(0);
+  for (int i(1); i < A.size(); ++i){
+    key = A[i];
+    j = i-1;
+
+    /* Move elements of A[0..i-1], that are greater than key, to one 
+     *    position ahead of their current position.
+     *        This loop will run at most k times */
+    while (j >= 0 && A[j] > key){
+      A[j+1] = A[j];
+      j = j-1;
+    }
+    A[j+1] = key;
+  }
+}
+
+struct ids{
+  ids(pathpointid fir, pathpointid sec):first(fir),second(sec){
+    if(fir.agentid>sec.agentid){
+      second=fir;
+      first=sec;
+    }
+  }
+  pathpointid first;
+  pathpointid second;
+};
+
+struct ID{
+  ID(pathpointid fir, pathpointid sec):id(fir,sec){}
+  union{
+    ids id;
+    uint64_t hash;
+  };
+  operator uint64_t(){return hash;}
+};
+
+void FindCollisions(std::vector<std::vector<endpoint>> const& temp, std::vector<std::vector<xytLoc>> const& paths, std::vector<endpoint>& axis, std::unordered_set<uint64_t>&pairs, std::vector<bool> const& reversed, MapEnvironment* env,float radius){
+  std::unordered_set<uint32_t> active;
+  active.emplace(axis[0].key);
+  for(int i(1); i<axis.size(); ++i){
+    for(auto const& val:active){
+      pathpointid cand(val);
+      if(cand.pointid-1 < temp[cand.agentid].size()){
+        //std::cout << "Looking at " << axis[i].id.agentid << " " << axis[i].id.pointid << ":" << axis[i].cvalue << " vs " << cand.agentid << " " << cand.pointid << ":"<<temp[cand.agentid][cand.pointid+1].cvalue<<"\n";
+        if(axis[i].cvalue>temp[cand.agentid][cand.pointid+1].cvalue){
+          //std::cout << "removing " << cand.agentid << " " << cand.pointid << "\n";
+          active.erase(val);
+        }else{
+          //std::cout << "inserting " << axis[i].id.agentid << " " << axis[i].id.pointid << "\n";
+          pairs.insert(ID(val,axis[i].key));
+        }
+      }
+      active.insert(axis[i].key);
+    }
+  }
+}
+
+void Update(std::vector<std::vector<endpoint>> const& temp, std::vector<std::vector<xytLoc>> const& paths, std::vector<endpoint>& axis, std::unordered_set<uint64_t>&pairs, std::vector<bool> const& reversed, MapEnvironment* env,float radius){
+  for (int j = 1; j < axis.size(); j++){
+    endpoint keyelement(axis[j]);
+    int i(j - 1);
+    while(i >= 0 && axis[i].cvalue > keyelement.cvalue){
+      if(keyelement.id.pointid+2>temp[keyelement.id.agentid].size()){continue;} // This is an endpoint
+      endpoint swapper = axis[i];
+      if(swapper.id.pointid+2>temp[keyelement.id.agentid].size()){continue;} // This is an endpoint
+
+      if(temp[swapper.id.agentid].size()<swapper.id.pointid+1 && keyelement.cvalue<=temp[swapper.id.agentid][swapper.id.pointid+1].cvalue){
+        if(env->collisionPreCheck(
+              reversed[swapper.id.agentid]?paths[swapper.id.agentid][paths[swapper.id.agentid].size()-swapper.id.pointid-1]:paths[swapper.id.agentid][swapper.id.pointid],
+              reversed[swapper.id.agentid]?paths[swapper.id.agentid][paths[swapper.id.agentid].size()-swapper.id.pointid]:paths[swapper.id.agentid][swapper.id.pointid+1],
+              radius,
+              reversed[keyelement.id.agentid]?paths[keyelement.id.agentid][paths[keyelement.id.agentid].size()-keyelement.id.pointid-1]:paths[keyelement.id.agentid][keyelement.id.pointid],
+              reversed[keyelement.id.agentid]?paths[keyelement.id.agentid][paths[keyelement.id.agentid].size()-keyelement.id.pointid]:paths[keyelement.id.agentid][keyelement.id.pointid+1],
+              radius)){
+          pairs.insert(ID(swapper.id,keyelement.id));
+        }
+      }else{
+        pairs.erase(ID(swapper.id,keyelement.id));
+      }
+
+      axis[i + 1] = swapper;
+      i = i - 1;
+    }
+    axis[i + 1] = keyelement;
+  }
+}
+
+
+// Take k semi-sorted arrays of paths in sorted time-order
+// output d arrays, of sorted points, one for each dimension
+void createSortedLists(std::vector<std::vector<xytLoc>>const& paths, std::vector<std::vector<endpoint>>& sorted, MapEnvironment* env, float radius=.25){
+  //Assume 'sorted' has been initialized for the correct number of dimensions
+  // Dimension 1 should always be time since it is always in sorted order
+  size_t totalpoints(0);
+  for(auto const& path:paths){
+    totalpoints+=path.size();
+  }
+  for(auto& s:sorted){
+    s=std::vector<endpoint>(totalpoints);
+  }
+  std::vector<std::vector<std::vector<endpoint>>> temp(sorted.size());
+  for(int d(0); d<sorted.size(); ++d){
+    temp[d]=std::vector<std::vector<endpoint>>(paths.size());
+    for(int a(0); a<paths.size(); ++a){
+      temp[d][a]=std::vector<endpoint>(paths[a].size());
+      for(int p(0); p<paths[a].size(); ++p){
+        temp[d][a][p]=endpoint(a,p,d,paths[a][p]);
+      }
+    }
+  }
+  std::vector<std::vector<endpoint>::const_iterator> pts(paths.size());
+  std::vector<std::vector<endpoint>::const_iterator> ends(paths.size());
+  std::vector<bool> reversed(paths.size());
+
+  size_t i(0);
+  for(auto const& path:temp[0]){
+    reversed[i]=false;
+    pts[i]=path.begin();
+    ends[i++]=path.end();
+  }
+  mergeKSortedArrays(pts,ends,sorted[0]);
+  // Make the assumption that arrays are *mostly* sorted, but may be in reverse order
+  std::unordered_set<uint64_t> pairs;
+  for(int dim(1); dim<sorted.size(); ++dim){
+    pts.resize(ends.size());
+    i=0;
+    for(auto& path:temp[dim]){
+    //std::cout << i+1 <<"---------\n";
+      //for(auto const& e:path){
+      //std::cout << e << "\n";
+      //}
+      reversed[i]=false;
+      if(path.front().cvalue>path.back().cvalue){
+        reversed[i]=true;
+        std::reverse(path.begin(),path.end());
+      }
+      insertionSort(path);
+      pts[i]=path.begin();
+      ends[i++]=path.end();
+    //std::cout << i <<"<<---------\n";
+      //for(auto const& e:path){
+      //std::cout << e << "\n";
+      //}
+    }
+    mergeKSortedArrays(pts,ends,sorted[dim]);
+    //std::cout << "=================---------\n";
+    //for(auto const& e:sorted[dim]){
+      //std::cout << e << "\n";
+    //}
+    //FindCollisions(temp[dim], paths, sorted[dim], pairs, reversed, env, radius);
+    std::cout << "collisions " << pairs.size();
+  }
+}
+
 TEST(AABB, BVHTreeTest){
   const int nagents(300);
   const int depth(1024); // Limit on path length...
@@ -1808,7 +2012,7 @@ TEST(AABB, BVHTreeTest){
 
   // Load problems from file
   {
-    std::ifstream ss("../../test/environments/instances/64x64/300/0.csv");
+    std::ifstream ss("../../test/environments/instances/64x64/300/22.csv");
     int x,y;
     float t(0.0);
     std::string line;
@@ -1847,9 +2051,16 @@ TEST(AABB, BVHTreeTest){
     }
     p.push_back(path);
   }
+
+  float radius(.25);
+  std::vector<std::vector<endpoint>> sorted(3);
+  //Timer tmr;
+  //tmr.StartTimer();
+  //createSortedLists(p,sorted,&menv,radius);
+  //std::cout << "Took " << tmr.EndTimer() << " to get sorted lists\n";
   // Create the AABB tree
   aabb::Tree<xytLoc> tree(nagents*100);
-  float radius(.25);
+
   // To load precheck bit-vector
   checkForCollision(p[0][0],p[0][1],p[0][0],p[0][1],radius,&menv);
 

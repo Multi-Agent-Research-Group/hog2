@@ -25,15 +25,15 @@
 
 class Vector2D {
   public:
-    Vector2D(double _x,double _y):x(_x),y(_y),updateTime(0),accessTime(0) {/*Normalize();*/}
-    Vector2D():x(0),y(0),updateTime(0),accessTime(0) {}
+    Vector2D(double _x,double _y):x(_x),y(_y) {/*Normalize();*/}
+    Vector2D():x(0),y(0) {}
     void Set(double _x, double _y) { x=_x; y=_y; /*Normalize();*/}
 
-    void SetUpdateTime(double t) {updateTime=t;}
-    double GetUpdateTime() {return updateTime;}
+    void SetUpdateTime(double t) {}
+    double GetUpdateTime() {return 0.0;}
 
-    void SetAccessTime(double t) {accessTime=t;}
-    double GetAccessTime() {return accessTime;}
+    void SetAccessTime(double t) {}
+    double GetAccessTime() {return 0.0;}
 
     bool operator==(const Vector2D &rhs)const{return (fequal(x,rhs.x)&&fequal(y,rhs.y));}
     bool operator<(const Vector2D &rhs)const{return fequal(x,rhs.x)?fless(y,rhs.y):fless(x,rhs.x);}
@@ -77,7 +77,7 @@ class Vector2D {
 
     //                                                //private:
     double x, y;
-    double updateTime, accessTime;
+    //double updateTime, accessTime;
 
     void Normalize()
     {
@@ -87,6 +87,13 @@ class Vector2D {
       x /= magnitude;
       y /= magnitude;
     }
+};
+
+struct TemporalVector : Vector2D {
+  TemporalVector(Vector2D const& loc, double time):Vector2D(loc), t(time){}
+  TemporalVector(double _x, double _y, float time):Vector2D(_x,_y), t(time){}
+  TemporalVector():Vector2D(),t(0){}
+  double t;
 };
 
 // Calculate determinant of vector

@@ -32,7 +32,7 @@ public:
 	uint16_t x;
 	uint16_t y;
         bool landed; // Have we already arrived at the goal? (always leave this false if agent can block other agents)
-        operator Vector2D()const{return Vector2D(x,y);}
+        virtual operator Vector2D()const{return Vector2D(x,y);}
         bool sameLoc(xyLoc const& other)const{return x==other.x&&y==other.y;}
 };
 
@@ -51,17 +51,10 @@ struct xytLoc : xyLoc {
 	xytLoc(uint16_t _x, uint16_t _y, float time):xyLoc(_x,_y), h(0), t(time) ,nc(-1){}
 	xytLoc(uint16_t _x, uint16_t _y, uint16_t _h, float time):xyLoc(_x,_y), h(_h), t(time) ,nc(-1){}
 	xytLoc():xyLoc(),h(0),t(0),nc(-1){}
+        virtual operator TemporalVector()const{return TemporalVector(x,y,t);}
 	float t;
         uint16_t h; // Heading quantized to epsilon=1/(2**16-1)... 0=north max=north-epsilon
         int16_t nc; // Number of conflicts, for conflict avoidance table
-};
-
-struct TemporalVector : Vector2D {
-	TemporalVector(Vector2D const& loc, double time):Vector2D(loc), t(time){}
-	TemporalVector(xytLoc const& loc):Vector2D(loc), t(loc.t){}
-	TemporalVector(double _x, double _y, float time):Vector2D(_x,_y), t(time){}
-	TemporalVector():Vector2D(),t(0){}
-	double t;
 };
 
 struct xyzLoc : public xyLoc {
@@ -69,6 +62,8 @@ public:
 	xyzLoc():xyLoc(-1,-1),z(-1){}
 	xyzLoc(uint16_t _x, uint16_t _y, uint16_t _z, uint16_t _v=0):xyLoc(_x,_y),z(_z){}
         bool operator<(xyzLoc const& other)const{return x==other.x?(y==other.y?z<other.z:y<other.y):x<other.x;}
+        operator Vector3D()const{return Vector3D(x,y,z);}
+        explicit operator Vector2D()const{return Vector2D(x,y);}
 	uint16_t z;
 };
 
@@ -79,24 +74,16 @@ struct xyztLoc : xyzLoc {
 	xyztLoc(uint16_t _x, uint16_t _y, uint16_t _z, uint16_t _h, int16_t _p, float time):xyzLoc(_x,_y,_z), h(_h), p(_p), t(time) ,nc(-1){}
 	xyztLoc(uint16_t _x, uint16_t _y, uint16_t _z, double _h, double _p, float time):xyzLoc(_x,_y,_z), h(_h*xyztLoc::HDG_RESOLUTON), p(_p*xyztLoc::PITCH_RESOLUTON), t(time) ,nc(-1){}
 	xyztLoc():xyzLoc(),h(0),p(0),t(0),nc(-1){}
+        operator TemporalVector3D()const{return TemporalVector3D(x,y,z,t);}
+        explicit operator TemporalVector()const{return TemporalVector(x,y,t);}
         int16_t nc; // Number of conflicts, for conflict avoidance table
         uint16_t h; // Heading
         int16_t p; // Pitch
 	float t;
-        operator Vector3D()const{return Vector3D(x,y,z);}
         bool sameLoc(xyztLoc const& other)const{return x==other.x&&y==other.y&&z==other.z;}
         static const float HDG_RESOLUTON;
         static const float PITCH_RESOLUTON;
 };
-
-struct TemporalVector3D : Vector3D {
-	TemporalVector3D(Vector3D const& loc, double time):Vector3D(loc), t(time){}
-	TemporalVector3D(xyztLoc const& loc):Vector3D(loc), t(loc.t){}
-	TemporalVector3D(double _x, double _y, double _z, float time):Vector3D(_x,_y,_z), t(time){}
-	TemporalVector3D():Vector3D(),t(0){}
-	double t;
-};
-
 
 struct AANode : xyLoc {
   AANode(uint16_t _x, uint16_t _y):xyLoc(_x,_y),F(0),g(0),Parent(nullptr){}

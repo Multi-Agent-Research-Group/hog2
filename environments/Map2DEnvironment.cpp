@@ -1703,29 +1703,37 @@ unsigned MapEnvironment::bitarray25r_5[25*25*25/WORD_BITS+1]={};
 unsigned MapEnvironment::bitarray49r_5[49*49*49/WORD_BITS+1]={};
 
 bool MapEnvironment::collisionPreCheck(xyLoc const& s1, xyLoc const& d1, double r1, xyLoc const& s2, xyLoc const& d2, double r2){
+  uint16_t ssx(abs(s1.x-s2.x));
+  uint16_t sdx(abs(s1.x-d2.x));
+  uint16_t ssy(abs(s1.y-s2.y));
+  uint16_t sdy(abs(s1.y-d2.y));
+
   switch(connectedness){
     case 4:
     case 5:
     case 8:
     case 9:
-      if(abs(s1.x-s2.x)>2||abs(s1.x-d2.x)>2||abs(s1.y-s2.y)>2||abs(s1.y-d2.y)>2){
-        return false;
-      }
-      return getPreCheck9(index9(s1,d1,s2,d2),std::max(r1,r2));
+      if(ssx<2 && ssy<2 && sdx <3 && sdy<3)
+        return getPreCheck9(index9(s1,d1,s2,d2),std::max(r1,r2));
+      if(sdx<2 && sdy<2 && ssx <3 && ssy<3)
+        return getPreCheck9(index9(s1,d1,d2,s2),std::max(r1,r2));
+      return false;
       break;
     case 24:
     case 25:
-      if(abs(s1.x-s2.x)>4||abs(s1.x-d2.x)>4||abs(s1.y-s2.y)>4||abs(s1.y-d2.y)>4){
-        return false;
-      }
-      return getPreCheck25(index25(s1,d1,s2,d2),std::max(r1,r2));
+      if(ssx<3 && ssy<3 && sdx <5 && sdy<5)
+        return getPreCheck25(index25(s1,d1,s2,d2),std::max(r1,r2));
+      if(sdx<3 && sdy<3 && ssx <5 && ssy<5)
+        return getPreCheck25(index25(s1,d1,d2,s2),std::max(r1,r2));
+      return false;
       break;
     case 48:
     case 49:
-      if(abs(s1.x-s2.x)>6||abs(s1.x-d2.x)>6||abs(s1.y-s2.y)>6||abs(s1.y-d2.y)>6){
-        return false;
-      }
-      return getPreCheck49(index49(s1,d1,s2,d2),std::max(r1,r2));
+      if(ssx<4 && ssy<4 && sdx <7 && sdy<7)
+        return getPreCheck49(index49(s1,d1,s2,d2),std::max(r1,r2));
+      if(sdx<4 && sdy<4 && ssx <7 && ssy<7)
+        return getPreCheck49(index49(s1,d1,d2,s2),std::max(r1,r2));
+      return false;
       break;
     default:
       return true;

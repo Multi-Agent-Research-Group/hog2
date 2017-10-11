@@ -182,6 +182,7 @@ struct airplaneState {
 	airplaneState() :x(0),y(0),height(20),speed(1),heading(0),landed(false) ,type(AirplaneType::PLANE) {}
 	airplaneState(uint16_t x,uint16_t y, uint16_t height, uint8_t speed, uint8_t heading, bool landed = false, AirplaneType t = AirplaneType::PLANE) :
         x(x),y(y),height(height),speed(speed),heading(heading), landed(landed), type(t) {}
+        operator Vector3D()const{return Vector3D(x,y,height);}
   
   // Fields
 	uint16_t x;
@@ -239,7 +240,7 @@ struct airtimeState : public airplaneState {
 	airtimeState(uint16_t x,uint16_t y, uint16_t height, uint8_t speed, uint8_t heading, bool landed = false, float time=0, int c=-1) : airplaneState(x,y,height,speed,heading,landed), t(time),nc(c){}
 
 	airtimeState() :airplaneState(), t(0), nc(-1) {}
-        operator Vector2D()const{return Vector2D(x,y);}
+        operator TemporalVector3D()const{return TemporalVector3D(x,y,height,t);}
 	float t;
         int16_t nc; // Number of conflicts
 };

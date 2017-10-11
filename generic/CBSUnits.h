@@ -758,17 +758,8 @@ void CBSGroup<state,action,comparison,conflicttable,searchalgo>::processSolution
     if(verify&&elapsed>0){
       for(unsigned int y = x+1; y < tree[bestNode].paths.size(); y++){
         for(unsigned i(1); i<tree[bestNode].paths[x].size(); ++i){
-          Vector2D A(tree[bestNode].paths[x][i-1]);
-          Vector2D VA(tree[bestNode].paths[x][i]);
-          VA-=A; // Direction vector
-          VA.Normalize();
           for(unsigned j(1); j<tree[bestNode].paths[y].size(); ++j){
-            Vector2D B(tree[bestNode].paths[y][j-1]);
-            Vector2D VB(tree[bestNode].paths[y][j]);
-            VB-=B; // Direction vector
-            VB.Normalize();
-
-            if(collisionImminent(A,VA,agentRadius,tree[bestNode].paths[x][i-1].t,tree[bestNode].paths[x][i].t,B,VB,agentRadius,tree[bestNode].paths[y][j-1].t,tree[bestNode].paths[y][j].t)){
+            if(collisionCheck(tree[bestNode].paths[x][i-1],tree[bestNode].paths[x][i],tree[bestNode].paths[y][j-1],tree[bestNode].paths[y][j],agentRadius)){
               valid=false;
               std::cout << "ERROR: Solution invalid; collision at: " << x <<":" << tree[bestNode].paths[x][i-1] << "-->" << tree[bestNode].paths[x][i] << ", " << y <<":" << tree[bestNode].paths[y][j-1] << "-->" << tree[bestNode].paths[y][j] << std::endl;
             }
@@ -1197,22 +1188,7 @@ void CBSGroup<state,action,comparison,conflicttable,searchalgo>::HasConflict(std
     {
       state const& aGoal(a[wa[pwptA+1]]);
       state const& bGoal(b[wb[pwptB+1]]);
-      // There are 4 states landed->landed landed->not_landed not_landed->landed and not_landed->not_landed. we
-      // need to check edge conflicts on all except the landed->landed states, which we do above. If one plane
-      // stays landed the whole time, then there's no edge-conflict -> but if they don't stay landed the whole time
-      // then there's obviously a conflict, because they both have to be doing something fishy.
-
-      // Check for edge conflicts
-      Vector2D A(a[xTime]);
-      Vector2D VA(a[xNextTime]);
-      VA-=A; // Direction vector
-      VA.Normalize();
-      Vector2D B(b[yTime]);
-      Vector2D VB(b[yNextTime]);
-      VB-=B; // Direction vector
-      VB.Normalize();
-
-      if(collisionImminent(A,VA,agentRadius,a[xTime].t,a[xNextTime].t,B,VB,agentRadius,b[yTime].t,b[yNextTime].t)){
+      if(collisionCheck(a[xTime],a[xNextTime],b[yTime],b[yNextTime],agentRadius)){
         ++conflict.first;
         if(verbose)std::cout<<conflict.first<<" conflicts; #"<<x<<":" << a[xTime]<<"-->"<<a[xNextTime]<<" #"<<y<<":"<<b[yTime]<<"-->"<<b[yNextTime]<<"\n";
         if(BOTH_CARDINAL!=(conflict.second&BOTH_CARDINAL)){ // Keep searching until we find a both-cardinal conflict

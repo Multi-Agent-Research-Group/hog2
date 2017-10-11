@@ -313,20 +313,13 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
         MultiEdge copy(current);
         bool found(false);
         for(int j(0); j<current.size(); ++j){
+          if(collisionCheck(positions[agent][i].first->n,positions[agent][i].second->n,current[j].first->n,current[j].second->n,agentRadius)){
           // Make sure we don't do any checks that were already done
           //if(fequal(positions[agent][i].first->depth,lastTime)&&fequal(current[j].first->depth,lastTime))continue;
           //uint64_t hash(EdgePairHash(positions[agent][i],current[j]));
           //if(checked.find(hash)!=checked.end())
           //{std::cout << "SKIPPED " << *positions[agent][i].second << " " << *current[j].second << "\n"; continue; /*No collision check necessary; checked already*/}
           //std::cout << "COMPARE " << *positions[agent][i].second << " " << *current[j].second << "\n";
-          Vector2D A(positions[agent][i].first->n.x,positions[agent][i].first->n.y);
-          Vector2D B(current[j].first->n.x,current[j].first->n.y);
-          Vector2D VA(positions[agent][i].second->n.x-positions[agent][i].first->n.x,positions[agent][i].second->n.y-positions[agent][i].first->n.y);
-          VA.Normalize();
-          Vector2D VB(current[j].second->n.x-current[j].first->n.x,current[j].second->n.y-current[j].first->n.y);
-          VB.Normalize();
-          //std::cout << "Test for collision: " << *positions[agent][i].first << "-->" << *positions[agent][i].second << " " << *current[j].first << "-->" << *current[j].second << "\n";
-          if(collisionImminent(A,VA,agentRadius,positions[agent][i].first->depth,positions[agent][i].second->depth,B,VB,agentRadius,current[j].first->depth,current[j].second->depth)){
             if(verbose)std::cout << "Collision averted: " << *positions[agent][i].first << "-->" << *positions[agent][i].second << " " << *current[j].first << "-->" << *current[j].second << "\n";
             found=true;
             //checked.insert(hash);
@@ -509,7 +502,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
     }
 
     // Check that two paths have no collisions
-    static bool checkPair(Path const& p1, Path const& p2,bool loud=false){
+    static bool checkPair(Path const& p1, Path const& p2, unsigned agent, bool loud=false){
       auto ap(p1.begin());
       auto a(ap+1);
       auto bp(p2.begin());
@@ -521,7 +514,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
         VA.Normalize();
         Vector2D VB((*b)->n.x-(*bp)->n.x,(*b)->n.y-(*bp)->n.y);
         VB.Normalize();
-        if(collisionImminent(A,VA,agentRadius,(*ap)->depth,(*a)->depth,B,VB,agentRadius,(*bp)->depth,(*b)->depth)){
+        if(collisionCheck((*ap)->n,(*a)->n,(*bp)->n,(*b)->n,agentRadius)){
           if(loud)std::cout << "Collision: " << **ap << "-->" << **a << "," << **bp << "-->" << **b;
           return false;
         }

@@ -145,6 +145,18 @@ bool collisionImminent(Vector2D A, Vector2D const& VA, double radiusA, double st
   return fleq(ctime,std::min(endTimeB,endTimeA)-startTimeA);
 }
 
+// Check for collision between entities moving from A1 to A2 and B1 to B2
+// Speed is optional. If provided, should be in grids per unit time; time should also be pre adjusted to reflect speed.
+bool collisionCheck(TemporalVector const& A1, TemporalVector const& A2, TemporalVector const& B1, TemporalVector const& B2, double radiusA, double radiusB, double speedA, double speedB){
+  Vector2D VA(A2-A1);
+  VA.Normalize();
+  VA*=speedA;
+  Vector2D VB(B2-B1);
+  VB.Normalize();
+  VB*=speedA;
+  return collisionImminent(A1,VA,radiusA,A1.t,A2.t,B1,VB,radiusB?radiusB:radiusA,B1.t,B2.t);
+}
+
 bool collisionImminent(Vector3D A, Vector3D const& VA, double radiusA, double startTimeA, double endTimeA, Vector3D B, Vector3D const& VB, double radiusB, double startTimeB, double endTimeB){
   // check for time overlap
   if(fgreater(startTimeA-radiusA,endTimeB)||fgreater(startTimeB-radiusB,endTimeA)||fequal(startTimeA,endTimeA)||fequal(startTimeB,endTimeB)){return false;}
@@ -183,6 +195,18 @@ bool collisionImminent(Vector3D A, Vector3D const& VA, double radiusA, double st
 
   // Collision will occur if collision time is before the end of the shortest segment
   return fleq(ctime,std::min(endTimeB,endTimeA)-startTimeA);
+}
+
+// Check for collision between entities moving from A1 to A2 and B1 to B2
+// Speed is optional. If provided, should be in grids per unit time; time should also be pre adjusted to reflect speed.
+bool collisionCheck(TemporalVector3D const& A1, TemporalVector3D const& A2, TemporalVector3D const& B1, TemporalVector3D const& B2, double radiusA, double radiusB, double speedA, double speedB){
+  Vector3D VA(A2-A1);
+  VA.Normalize();
+  VA*=speedA;
+  Vector3D VB(B2-B1);
+  VB.Normalize();
+  VB*=speedA;
+  return collisionImminent(A1,VA,radiusA,A1.t,A2.t,B1,VB,radiusB?radiusB:radiusA,B1.t,B2.t);
 }
 
 // Get collision time between two agents - that is the time that they will "start" colliding.
