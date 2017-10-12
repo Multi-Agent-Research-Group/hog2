@@ -39,55 +39,65 @@
  */
 
 class Map3D : public MapInterface{
-  enum tDisplay {
-    kPolygons,
-    kLines,
-    kPoints
-  };
   public:
   Map3D(long width, long height, long depth);
-  Map3D(const char *filename);
+  Map3D(const char *filename, const char *dtedfile, unsigned md=20);
   Map3D(Map3D *);
-  Map3D(FILE *);
-  Map3D(std::istringstream &data);
-  void Load(const char *filename);
-  void Load(FILE *f);
-  void Save(std::stringstream &data);
-  void Save(const char *filename);
-  void Save(FILE *f);
   Map3D *Clone() { return new Map3D(this); }
-  /** return the width of the map */
+  enum tTerrain {
+    kOutOfBounds =0x0, // not part of map
+    kOutOfBounds2=0x1, // not part of map - different color
+    kWater=0x10,     // water
+    kGround=0x20,     // ground
+    kSwamp=0x21,
+    kGrass=0x22,
+    kBlight=0x23,
+    kTrees=0x30,
+    kUndefined=0x40 // mixed type due to split tile
+  };
+
+  enum AgentType {
+    surface,ground,air,other
+  };
+  void Load(const char *filename, const char *dtedfile);
+  void loadOctile(FILE *f, float** elevation);
   inline long GetMapWidth() const { return width; }
-  /** return the height of the map */
   inline long GetMapHeight() const { return height; }
   inline long GetMapDepth() const { return depth; }
 
   inline bool InMap(unsigned x, unsigned y, unsigned z)const{ return x<width&&y<height&&z<depth;} // Relies on unsigned params to check <0
 
-  void OpenGLDraw(tDisplay how = kPolygons) const;
+  void OpenGLDraw() const;
+  void setColor(int x, int y) const;
   bool GetOpenGLCoord(int _x, int _y, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const{assert(!"not implemented");}
   bool GetOpenGLCoord(float _x, float _y, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const{assert(!"not implemented");}
   bool GetOpenGLCoord(int _x, int _y, int _z, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const{return GetOpenGLCoord((float)_x,(float)_y,(float)_z,x,y,z,radius);}
   bool GetOpenGLCoord(float _x, float _y, float _z, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const;
-  void GetPointFromCoordinate(point3d loc, int &px, int &py) const;
-  double GetCoordinateScale();
-  bool LineOfSight2D(int x, int y, int _x, int _y) const;
+  bool LineOfSight2D(int x, int y, int _x, int _y, AgentType agentType) const;
   bool LineOfSight(int x, int y, int z, int _x, int _y, int _z) const;
-  void AddObstacle(int x, int y, int z){obstacles[toIndex(x,y,z)]=true;}
-  bool IsTraversable(unsigned x, unsigned y, unsigned z)const{return InMap(x,y,z)&&obstacles.find(toIndex(x,y,z))==obstacles.end();}
-  bool HasObstacle(unsigned x, unsigned y, unsigned z)const{return !IsTraversable(x,y,z);}
+  void SetGrid(int x, int y, uint8_t elevation, tTerrain terrain){type[x][y]=terrain;elev[x][y]=std::min(maxDepth,elevation);}
+  bool CanStep(long x1, long y1, long x2, long y2, AgentType atype) const;
+  bool IsTraversable(unsigned x, unsigned y, AgentType atype)const{
+    if(!InMap(x,y,0))return false;
+    if(atype==surface&&type[x][y]!=kWater)return false;
+    if(atype==ground&&type[x][y]!=kGround)return false;
+    return elev[x][y]==0;
+  }
+  bool IsTraversable(unsigned x, unsigned y, unsigned z, AgentType atype)const{
+    if(!InMap(x,y,z))return false;
+    if(atype==surface&&type[x][y]!=kWater)return false;
+    if(atype==ground&&type[x][y]!=kGround)return false;
+    return elev[x][y]<=z;
+  }
+  bool HasObstacle(unsigned x, unsigned y, unsigned z)const{return !IsTraversable(x,y,z,air);}
+  inline tTerrain GetTerrain(int x, int y)const{return type[x][y];}
 
   private:
-  uint64_t toIndex(int x, int y, int z)const{
-    return x*height*depth+ y*depth+ z;
-  }
-  void fromIndex(uint64_t index, int& x, int& y, int& z)const{
-    z=index%depth;
-    y=((index-z)/depth)%height;
-    x=((index-y*depth-z)/(height*depth))%width;
-  }
   int width, height, depth;
-  std::unordered_map<uint64_t,bool> obstacles;
+  uint8_t maxDepth;
+  uint8_t** elev;
+  tTerrain** type;
+  mutable GLuint dList;
 };
 
 #endif

@@ -30,9 +30,10 @@ struct EnvironmentContainer {
 
 // Struct for parsing config files
 struct EnvData{
-  EnvData():name(),threshold(0),weight(1.0){}
-  EnvData(std::string const& n, unsigned t, double w):name(n),threshold(t),weight(w){}
+  EnvData():name(),agentType('A'),threshold(0),weight(1.0){}
+  EnvData(std::string const& n, char a, unsigned t, double w):name(n),agentType(a),threshold(t),weight(w){}
   std::string name;
+  char agentType; // 'A'=Air, 'G'=Ground, 'S'=Surface
   unsigned threshold;
   double weight;
 };
@@ -78,14 +79,11 @@ bool checkCollision(std::vector<state> const& p1, std::vector<state> const& p2,f
 }
 
 template<typename state>
-bool validateSolution(Solution<state> const& sol, bool bruteForce=true){
-  if(bruteForce){
-    for(auto a(sol.begin()); a!=sol.end(); ++a){
-      for(auto b(a+1); b!=sol.end(); ++b){
-        if(!checkCollision<state>(*a,*b)) return false;
-      }
+bool validateSolution(Solution<state> const& sol, bool verbose=true){
+  for(auto a(sol.begin()); a!=sol.end(); ++a){
+    for(auto b(a+1); b!=sol.end(); ++b){
+      if(!checkCollision<state>(*a,*b,.25,true)) return false;
     }
-  }else{
   }
   return true;
 }

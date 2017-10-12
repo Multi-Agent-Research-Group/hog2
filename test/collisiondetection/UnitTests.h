@@ -1294,13 +1294,13 @@ static inline unsigned index25(xyLoc const& s1, xyLoc d1, xyLoc s2, xyLoc d2){re
 static inline unsigned index49(xyLoc const& s1, xyLoc d1, xyLoc s2, xyLoc d2){return index(s1,d1,s2,d2,3);}
 static inline unsigned index125(xyzLoc const& s1, xyzLoc d1, xyzLoc s2, xyzLoc d2){return index(s1,d1,s2,d2,2);}
 
-static inline bool get(unsigned* bitarray, size_t idx) {
+/*static inline bool get(unsigned* bitarray, size_t idx) {
     return bitarray[idx / WORD_BITS] | (1 << (idx % WORD_BITS));
 }
 
 static inline void set(unsigned* bitarray, size_t idx) {
     bitarray[idx / WORD_BITS] |= (1 << (idx % WORD_BITS));
-}
+}*/
 
 // Polygonal intersection from:
 // https://www.geometrictools.com/Documentation/MethodOfSeparatingAxes.pdf

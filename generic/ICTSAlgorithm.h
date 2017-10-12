@@ -313,7 +313,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
         MultiEdge copy(current);
         bool found(false);
         for(int j(0); j<current.size(); ++j){
-          if(collisionCheck(positions[agent][i].first->n,positions[agent][i].second->n,current[j].first->n,current[j].second->n,agentRadius)){
+          if(collisionCheck3D(positions[agent][i].first->n,positions[agent][i].second->n,current[j].first->n,current[j].second->n,agentRadius)){
           // Make sure we don't do any checks that were already done
           //if(fequal(positions[agent][i].first->depth,lastTime)&&fequal(current[j].first->depth,lastTime))continue;
           //uint64_t hash(EdgePairHash(positions[agent][i],current[j]));
@@ -508,7 +508,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       auto bp(p2.begin());
       auto b(bp+1);
       while(a!=p1.end() && b!=p2.end()){
-        if(collisionCheck((*ap)->n,(*a)->n,(*bp)->n,(*b)->n,agentRadius)){
+        if(collisionCheck3D((*ap)->n,(*a)->n,(*bp)->n,(*b)->n,agentRadius)){
           if(loud)std::cout << "Collision: " << **ap << "-->" << **a << "," << **bp << "-->" << **b;
           return false;
         }

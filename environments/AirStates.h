@@ -16,7 +16,7 @@
 #include "ConstrainedEnvironment.h"
 #include "constants.h"
 #include <iostream>
-#include "Vector2D.h"
+#include "Vector3D.h"
 
 const int8_t k45 = 1;
 const int8_t k90 = 2;
@@ -33,19 +33,20 @@ enum AirplaneType {
 };
 
 class HolonomicLatticeAction {
-public:
-	HolonomicLatticeAction(int8_t t=0, int8_t s=0, int8_t h=0)
-	:turn(t), speed(s), height(h){}
-	int8_t turn;
-	int8_t speed;
-	int8_t height;
+  public:
+    HolonomicLatticeAction(int8_t t=0, int8_t s=0, int8_t h=0)
+      :turn(t), speed(s), height(h){}
+    int8_t turn;
+    int8_t speed;
+    int8_t height;
 };
 
 
 class TemporalHolonomicLatticeState{
-  TemporalHolonomicLatticeState() :x(0),y(0),height(20),speed(1),heading(0),t(0),landed(false){}
-  TemporalHolonomicLatticeState(uint16_t x,uint16_t y, uint16_t height, uint8_t speed, uint8_t heading, float time=0.0, bool landed = false):
-    x(x),y(y),height(height),speed(speed),heading(heading),t(time),landed(landed) {}
+  public:
+    TemporalHolonomicLatticeState() :x(0),y(0),height(20),speed(1),heading(0),t(0),landed(false){}
+    TemporalHolonomicLatticeState(uint16_t x,uint16_t y, uint16_t height, uint8_t speed, uint8_t heading, float time=0.0, bool landed = false):
+      x(x),y(y),height(height),speed(speed),heading(heading),t(time),landed(landed) {}
     virtual bool operator==(TemporalHolonomicLatticeState const& s2)const{
       return (x==s2.x && y==s2.y && height==s2.height && heading == s2.heading && speed == s2.speed);
     }
@@ -119,78 +120,77 @@ class TemporalHolonomicLatticeState{
     virtual uint64_t hash()const{
       uint64_t h = 0;
 
-        h |= x;
-        h = h << 16;
-        h |= y;
-        h = h << 10;
-        h |= height & (0x400-1); // 10 bits
-        h = h << 4;
-        h |= speed & (0xF); // 5 bits
-        h = h << 3;
-        // Heading increments are in 45 degrees
-        h |= heading & (0x8-1); // 3 bits
-        h = h << 1;
-        h |= landed;
-        h = h << 12;
-        h |= unsigned(t*16) & (0x1000-1);
-        return h;
+      h |= x;
+      h = h << 16;
+      h |= y;
+      h = h << 10;
+      h |= height & (0x400-1); // 10 bits
+      h = h << 4;
+      h |= speed & (0xF); // 5 bits
+      h = h << 3;
+      // Heading increments are in 45 degrees
+      h |= heading & (0x8-1); // 3 bits
+      h = h << 1;
+      h |= landed;
+      h = h << 12;
+      h |= unsigned(t*16) & (0x1000-1);
+      return h;
     }
 
-  // Methods
-  uint8_t headingTo(TemporalHolonomicLatticeState const& other) const {
-    return uint8_t(round((atan2(other.y-y,other.x-x)+(M_PI/2.0))*4.0/M_PI)+8.0)%8;
-  }
-  // Returns a heading of 0, 2, 4 or 6
-  uint8_t cardinalHeadingTo(TemporalHolonomicLatticeState const& other) const {
-    return uint8_t(round((atan2(other.y-y,other.x-x)+(M_PI/2.0))*2.0/M_PI)+4.0)%4*2;
-  }
+    // Methods
+    uint8_t headingTo(TemporalHolonomicLatticeState const& other) const {
+      return uint8_t(round((atan2(other.y-y,other.x-x)+(M_PI/2.0))*4.0/M_PI)+8.0)%8;
+    }
+    // Returns a heading of 0, 2, 4 or 6
+    uint8_t cardinalHeadingTo(TemporalHolonomicLatticeState const& other) const {
+      return uint8_t(round((atan2(other.y-y,other.x-x)+(M_PI/2.0))*2.0/M_PI)+4.0)%4*2;
+    }
 
-private:
-  // Fields
-  uint16_t x;
-  uint16_t y;
-  uint16_t height;
-  uint8_t speed;
-  uint8_t heading;
-  float t; // time
-  bool landed;
+  private:
+    // Fields
+    uint16_t x;
+    uint16_t y;
+    uint16_t height;
+    uint8_t speed;
+    uint8_t heading;
+    float t; // time
+    bool landed;
 
 };
 
 struct airplaneAction {
-public:
-	airplaneAction(int8_t t=0, int8_t s=0, int8_t h=0, int8_t takeoff = 0)
-	:turn(t), speed(s), height(h), takeoff(takeoff) {}
-	int8_t turn;
-	int8_t speed;
-	int8_t height;
-	int8_t takeoff; // 0 for no-land, 1 for takeoff, 2 for landing, 3 for landed-noop
+  public:
+    airplaneAction(int8_t t=0, int8_t s=0, int8_t h=0, int8_t takeoff=0):turn(t), speed(s), height(h), takeoff(takeoff) {}
+    int8_t turn;
+    int8_t speed;
+    int8_t height;
+    int8_t takeoff; // 0 for no-land, 1 for takeoff, 2 for landing, 3 for landed-noop
 };
 
 
 /** Output the information in an airplane action */
 static std::ostream& operator <<(std::ostream & out, const airplaneAction &act)
 {
-	out << "(turn:" << signed(act.turn) << ", speed:" << signed(act.speed) << ", height: " << signed(act.height) << ", takeoff: " << signed(act.takeoff) << ")";
-	return out;
+  out << "(turn:" << signed(act.turn) << ", speed:" << signed(act.speed) << ", height: " << signed(act.height) << ", takeoff: " << signed(act.takeoff) << ")";
+  return out;
 }
 
 
 // state
 struct airplaneState {
   // Constructors
-	airplaneState() :x(0),y(0),height(20),speed(1),heading(0),landed(false) ,type(AirplaneType::PLANE) {}
-	airplaneState(uint16_t x,uint16_t y, uint16_t height, uint8_t speed, uint8_t heading, bool landed = false, AirplaneType t = AirplaneType::PLANE) :
-        x(x),y(y),height(height),speed(speed),heading(heading), landed(landed), type(t) {}
-        operator Vector3D()const{return Vector3D(x,y,height);}
-  
+  airplaneState() :x(0),y(0),height(20),speed(1),heading(0),landed(false) ,type(AirplaneType::PLANE) {}
+  airplaneState(uint16_t x,uint16_t y, uint16_t height, uint8_t speed, uint8_t heading, bool landed = false, AirplaneType t = AirplaneType::PLANE) :
+    x(x),y(y),height(height),speed(speed),heading(heading), landed(landed), type(t) {}
+  operator Vector3D()const{return Vector3D(x,y,height);}
+
   // Fields
-	uint16_t x;
-	uint16_t y;
-	uint16_t height;
-	uint8_t speed;
-	uint8_t heading;
-	bool landed;
+  uint16_t x;
+  uint16_t y;
+  uint16_t height;
+  uint8_t speed;
+  uint8_t heading;
+  bool landed;
   AirplaneType type;
 
   // Methods

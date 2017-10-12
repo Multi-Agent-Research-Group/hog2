@@ -18,12 +18,6 @@
 #include "TemplateAStar.h"
 #include "MultiAgentStructures.h"
 
-static std::ostream& operator <<(std::ostream & out, const TemporalVector3D &loc)
-{
-	out << "<" << loc.x << ", " << loc.y << ", " << loc.z << ": " << loc.t << ">";
-	return out;
-}
-	
 	
 //bool operator==(const xyztLoc &l1, const xyztLoc &l2);
 
@@ -77,6 +71,8 @@ public:
         void SetMaxPitch(float val){maxPitch=val*xyztLoc::PITCH_RESOLUTON;}
         uint16_t maxTurnAzimuth=0; // 0 means "turn off"
         int16_t maxPitch=0;
+        virtual bool collisionCheck(const xyztLoc &s1, const xyztLoc &d1, float r1, const xyztLoc &s2, const xyztLoc &d2, float r2);
+        inline Grid3DEnvironment* GetMapEnv()const{return mapEnv;}
 private:
         bool ignoreTime;
         bool ignoreHeading;

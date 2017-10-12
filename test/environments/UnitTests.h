@@ -95,7 +95,7 @@ TEST(Map2D, FortyEightConnectedWObstacle_Successors){
 
 TEST(Map3D, LineOfSight){
   Map3D map(8,8,8);
-  map.AddObstacle(4,4,4);
+  map.SetGrid(4,4,4,Map3D::kOutOfBounds);
   ASSERT_TRUE(map.LineOfSight(3,3,3,0,0,0));
   ASSERT_FALSE(map.LineOfSight(5,5,5,0,0,0));
   ASSERT_FALSE(map.LineOfSight(7,1,7,1,7,1));

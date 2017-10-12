@@ -935,7 +935,7 @@ void CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::proce
       for(unsigned int y = x+1; y < tree[bestNode].paths.size(); y++){
         for(unsigned i(1); i<tree[bestNode].paths[x].size(); ++i){
           for(unsigned j(1); j<tree[bestNode].paths[y].size(); ++j){
-            if(collisionCheck(tree[bestNode].paths[x][i-1],tree[bestNode].paths[x][i],tree[bestNode].paths[y][j-1],tree[bestNode].paths[y][j],agentRadius)){
+            if(collisionCheck3D(tree[bestNode].paths[x][i-1],tree[bestNode].paths[x][i],tree[bestNode].paths[y][j-1],tree[bestNode].paths[y][j],agentRadius)){
               valid=false;
               std::cout << "ERROR: Solution invalid; collision at: " << x <<":" << tree[bestNode].paths[x][i-1] << "-->" << tree[bestNode].paths[x][i] << ", " << y <<":" << tree[bestNode].paths[y][j-1] << "-->" << tree[bestNode].paths[y][j] << std::endl;
             }
@@ -1426,7 +1426,7 @@ unsigned CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::H
 
       state const& aGoal(a[wa[pwptA+1]]);
       state const& bGoal(b[wb[pwptB+1]]);
-      if(collisionCheck(a[xTime],a[xNextTime],b[yTime],b[yNextTime],agentRadius)){
+      if(collisionCheck3D(a[xTime],a[xNextTime],b[yTime],b[yNextTime],agentRadius)){
         ++conflict.first;
         if(verbose)std::cout<<conflict.first<<" conflicts; #"<<x<<":" << a[xTime]<<"-->"<<a[xNextTime]<<" #"<<y<<":"<<b[yTime]<<"-->"<<b[yNextTime]<<"\n";
         if(update && (BOTH_CARDINAL!=(conflict.second&BOTH_CARDINAL))){ // Keep searching until we find a both-cardinal conflict

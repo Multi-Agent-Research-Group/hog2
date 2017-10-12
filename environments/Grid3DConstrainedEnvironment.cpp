@@ -7,6 +7,7 @@
 //
 
 #include "Grid3DConstrainedEnvironment.h"
+#include "VelocityObstacle.h"
 
 /*bool operator==(const xyztLoc &l1, const xyztLoc &l2)
 {
@@ -305,6 +306,20 @@ void Grid3DConstrainedEnvironment::GLDrawPath(const std::vector<xyztLoc> &p, con
           GLDrawLine(*(a-1),*a);
         }
 }
+
+bool Grid3DConstrainedEnvironment::collisionCheck(const xyztLoc &s1, const xyztLoc &d1, float r1, const xyztLoc &s2, const xyztLoc &d2, float r2){
+  Vector3D A(s1);
+  Vector3D VA(d1);
+  VA-=A; // Direction vector
+  VA.Normalize();
+  Vector3D B(s2);
+  Vector3D VB(d2);
+  VB-=B; // Direction vector
+  VB.Normalize();
+  return collisionImminent(A,VA,r1,s1.t,d1.t,B,VB,r2,s2.t,d2.t);
+  //return collisionCheck(s1,d1,s2,d2,double(r1),double(r2));
+}
+
 
 template<>
 bool Constraint<xyztLoc>::ConflictsWith(const xyztLoc &state) const

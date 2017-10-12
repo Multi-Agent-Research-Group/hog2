@@ -79,5 +79,11 @@ struct TemporalVector3D : Vector3D {
 inline Vector3D cross(Vector3D const& v1, Vector3D const& v2){ return Vector3D((v1.y*v2.z)-(v1.z*v2.y),(v1.z*v2.x)-(v1.x*v2.z),(v1.x*v2.y)-(v1.y*v2.x));}
 
 std::ostream& operator <<(std::ostream & out, Vector3D const& v);
+static std::ostream& operator <<(std::ostream & out, const TemporalVector3D &loc)
+{
+	out << "<" << loc.x << ", " << loc.y << ", " << loc.z << ": " << loc.t << ">";
+	return out;
+}
+	
 
 #endif

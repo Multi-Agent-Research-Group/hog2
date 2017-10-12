@@ -71,6 +71,7 @@ public:
         virtual Map* GetMap()const{return mapEnv->GetMap();}
         virtual MultiObjectiveEnvironment<PhysicalEnv,state,action>* GetEnv()const{return mapEnv;}
         bool LineOfSight(const state &x, const state &y)const{return mapEnv->GetPhysicalEnv()->LineOfSight(x,y);}
+        bool collisionCheck(const state &x,const state &y,float,state const&z, state const&a, float){return true;}
 private:
 	bool ViolatesConstraint(const state &from, const state &to, float time, float inc) const{return  mapEnv->GetPhysicalEnv()->ViolatesConstraint(from,to,time,inc);}
 

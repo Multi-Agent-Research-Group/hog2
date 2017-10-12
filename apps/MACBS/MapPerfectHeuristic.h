@@ -1,7 +1,6 @@
 #include "MapInterface.h"
 #include "Heuristic.h"
 #include "TemplateAStar.h"
-#include "
 
 // Computes a perfect heuristic given a goal state.
 // Note that this only works assuming that agents are
@@ -36,8 +35,7 @@ class MapPerfectHeuristic: public Heuristic<state> {
         astar.GetPath(e,goal,s1,path);
         for(int w(0); w<m->GetMapWidth(); ++w){
           for(int h(0); h<m->GetMapHeight(); ++h){
-            xytLoc v(w,h);
-            uint64_t h1(e->GetStateHash(v));
+            uint64_t h1(e->GetStateHash({w,h}));
             uint64_t id1;
             if(kClosedList==astar.GetOpenList()->Lookup(h1,id1))
               list[w*m->GetMapHeight()+h]=astar.GetOpenList()->Lookat(id1).g;

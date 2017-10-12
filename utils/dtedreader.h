@@ -6,7 +6,7 @@
 #define COL_HEADER 4 // 2-byte words
 #define COL_FOOTER 2 // 2-byte words
 // Reads a DTED1 (3 arc-second resolution) file
-bool readdted1(char* filename, float** elevations, unsigned width, unsigned height, unsigned xoffset=0, unsigned yoffset=0, float rescale=0){
+inline bool readdted1( const char* filename, float** elevations, unsigned width, unsigned height, unsigned xoffset=0, unsigned yoffset=0, float rescale=0){
 
   // Sanity check
   if(NUM_RECORDS-width-xoffset < 1)

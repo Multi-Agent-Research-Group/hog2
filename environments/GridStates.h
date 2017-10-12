@@ -30,14 +30,11 @@ struct tLoc {
   float t;
   int16_t nc; // Number of conflicts, for conflict avoidance table
   virtual bool operator==(tLoc const& other)const{return fequal(t,other.t);}
-  virtual bool operator!=(tLoc const& other)const{return !operator==(other); }
   virtual bool sameLoc(tLoc const& other)const{return true;}
   virtual void print(std::ostream& os)const{os<<"("<<t<<")";}
   virtual uint16_t X()const{return 0;}
   virtual uint16_t Y()const{return 0;}
   virtual uint16_t Z()const{return 0;}
-  explicit operator TemporalVector()const{return TemporalVector(X(),Y(),t);}
-  operator TemporalVector3D()const{return TemporalVector3D(X(),Y(),Z(),t);}
 };
 
 struct xyLoc {
@@ -48,7 +45,7 @@ struct xyLoc {
     uint16_t x;
     uint16_t y;
     bool landed; // Have we already arrived at the goal? (always leave this false if agent can block other agents)
-    virtual operator Vector2D()const{return Vector2D(x,y);}
+    operator Vector2D()const{return Vector2D(x,y);}
     virtual bool sameLoc(xyLoc const& other)const{return x==other.x&&y==other.y;}
     virtual bool operator==(xyLoc const& other)const{return sameLoc(other);}
     virtual bool operator!=(xyLoc const& other)const{return !operator==(other); }
@@ -71,10 +68,11 @@ struct xytLoc : xyLoc, tLoc {
   xytLoc(uint16_t _x, uint16_t _y, float time):xyLoc(_x,_y),tLoc(time), h(0){}
   xytLoc(uint16_t _x, uint16_t _y, uint16_t _h, float time):xyLoc(_x,_y),tLoc(time), h(_h){}
   xytLoc():xyLoc(),tLoc(),h(0){}
-  //virtual operator TemporalVector()const{return TemporalVector(x,y,t);}
+  operator TemporalVector()const{return TemporalVector(x,y,t);}
+  operator Vector2D()const{return Vector2D(x,y);}
   virtual bool sameLoc(xytLoc const& other)const{return x==other.x&&y==other.y;}
   virtual bool operator==(xytLoc const& other)const{return sameLoc(other)&&tLoc::operator==(other);}
-  virtual void print(std::ostream& os)const{os<<"("<<x<<","<<y<<"<"<<t<<")";}
+  virtual void print(std::ostream& os)const{os<<"("<<x<<","<<y<<","<<t<<")";}
   uint16_t h; // Heading quantized to epsilon=1/(2**16-1)... 0=north max=north-epsilon
   int16_t nc; // Number of conflicts, for conflict avoidance table
   virtual uint16_t X()const{return x;}
@@ -84,13 +82,13 @@ struct xytLoc : xyLoc, tLoc {
 struct xyzLoc : public xyLoc {
   public:
     xyzLoc():xyLoc(-1,-1),z(-1){}
-    xyzLoc(uint16_t _x, uint16_t _y, uint16_t _z, uint16_t _v=0):xyLoc(_x,_y),z(_z){}
+    xyzLoc(uint16_t _x, uint16_t _y, uint16_t _z=0):xyLoc(_x,_y),z(_z){}
     bool operator<(xyzLoc const& other)const{return x==other.x?(y==other.y?z<other.z:y<other.y):x<other.x;}
     operator Vector3D()const{return Vector3D(x,y,z);}
     explicit operator Vector2D()const{return Vector2D(x,y);}
     virtual bool sameLoc(xyzLoc const& other)const{return xyLoc::sameLoc(other)&&z==other.z;}
     virtual bool operator==(xyzLoc const& other)const{return sameLoc(other);}
-    virtual void print(std::ostream& os)const{os<<"("<<x<<","<<y<<"<"<<z<<")";}
+    virtual void print(std::ostream& os)const{os<<"("<<x<<","<<y<<","<<z<<")";}
     uint16_t z;
   virtual uint16_t Z()const{return z;}
 };
@@ -102,13 +100,15 @@ struct xyztLoc : xyzLoc, tLoc {
   xyztLoc(uint16_t _x, uint16_t _y, uint16_t _z, uint16_t _h, int16_t _p, float time):xyzLoc(_x,_y,_z),tLoc(time), h(_h), p(_p){}
   xyztLoc(uint16_t _x, uint16_t _y, uint16_t _z, double _h, double _p, float time):xyzLoc(_x,_y,_z),tLoc(time), h(_h*xyztLoc::HDG_RESOLUTON), p(_p*xyztLoc::PITCH_RESOLUTON){}
   xyztLoc():xyzLoc(),tLoc(),h(0),p(0){}
-  //operator TemporalVector3D()const{return TemporalVector3D(x,y,z,t);}
+  operator TemporalVector3D()const{return TemporalVector3D(x,y,z,t);}
   explicit operator TemporalVector()const{return TemporalVector(x,y,t);}
+  operator Vector3D()const{return Vector3D(x,y,z);}
+  explicit operator Vector2D()const{return Vector2D(x,y);}
   uint16_t h; // Heading
   int16_t p; // Pitch
   virtual bool sameLoc(xyztLoc const& other)const{return xyzLoc::sameLoc(other);}
   virtual bool operator==(xyztLoc const& other)const{return sameLoc(other)&&tLoc::operator==(other);}
-  virtual void print(std::ostream& os)const{os<<"("<<x<<","<<y<<"<"<<z<<","<<t<<")";}
+  virtual void print(std::ostream& os)const{os<<"("<<x<<","<<y<<","<<z<<","<<t<<")";}
   static const float HDG_RESOLUTON;
   static const float PITCH_RESOLUTON;
 };

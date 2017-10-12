@@ -410,7 +410,7 @@ bool collisionImminent(Vector3D A, Vector3D const& VA, double radiusA, double st
 
 // Check for collision between entities moving from A1 to A2 and B1 to B2
 // Speed is optional. If provided, should be in grids per unit time; time should also be pre adjusted to reflect speed.
-bool collisionCheck(TemporalVector3D const& A1, TemporalVector3D const& A2, TemporalVector3D const& B1, TemporalVector3D const& B2, double radiusA, double radiusB, double speedA, double speedB){
+bool collisionCheck3D(TemporalVector3D const& A1, TemporalVector3D const& A2, TemporalVector3D const& B1, TemporalVector3D const& B2, double radiusA, double radiusB, double speedA, double speedB){
   unsigned dim(std::max(std::max(std::max(fabs(A1.x-A2.x),fabs(B1.x-B2.x)),std::max(fabs(A1.y-A2.y),fabs(B1.y-B2.y))),std::max(fabs(A1.z-A2.z),fabs(B1.z-B2.z))));
   unsigned ssx(fabs(A1.x-B1.x));
   unsigned sdx(fabs(A1.x-B2.x));

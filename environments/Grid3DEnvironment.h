@@ -177,7 +177,7 @@ enum t3DDirection {
 class Grid3DEnvironment : public SearchEnvironment<xyzLoc, t3DDirection>
 {
 public:
-	Grid3DEnvironment(Map3D *m, bool=false);
+	Grid3DEnvironment(Map3D *m, bool wait=false,Map3D::AgentType a=Map3D::air);
 	Grid3DEnvironment(Grid3DEnvironment *);
 	virtual ~Grid3DEnvironment();
         virtual std::string name()const{return std::string("Grid3DEnvironment");}
@@ -231,13 +231,18 @@ public:
 	void SetOneConnected() { connectedness=1; }
 	void SetTwoConnected() { connectedness=2; }
 	void SetThreeConnected() { connectedness=3; }
+        void SetSurface() {agentType=Map3D::surface;}
+        void SetGround() {agentType=Map3D::ground;}
+        void SetAir() {agentType=Map3D::air;}
         uint8_t GetConnectedness()const{return connectedness;}
 	//virtual xyzLoc GetNextState(xyzLoc &s, t3DDirection dir);
 	double GetPathLength(std::vector<xyzLoc> &neighbors);
         std::vector<std::vector<std::pair<xyzLoc,double>>> solution;
         void findIntervals(xyzLoc curNode, std::vector<std::pair<double,double>>& intervals, std::vector<double>& EAT, int w) const;
-        inline void SetWaitAllowed(bool v){waitAllowed=v;}
+        inline void SetWaitAllowed(){waitAllowed=true;}
         inline void SetSurface(bool v){surface=v;}
+        Map3D::AgentType agentType;
+        bool fullBranching=false;
 protected:
 	GraphHeuristic *h;
 	Map3D *map;
