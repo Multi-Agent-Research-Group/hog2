@@ -24,13 +24,8 @@ static std::ostream& operator <<(std::ostream & out, const TemporalVector3D &loc
 	return out;
 }
 	
-static std::ostream& operator <<(std::ostream & out, const xyztLoc &loc)
-{
-	out << "(" << loc.x << "," << loc.y << "," << loc.z << "," << loc.h/xyztLoc::HDG_RESOLUTON << "," << loc.p/xyztLoc::PITCH_RESOLUTON << ": " << loc.t << ")";
-	return out;
-}
 	
-bool operator==(const xyztLoc &l1, const xyztLoc &l2);
+//bool operator==(const xyztLoc &l1, const xyztLoc &l2);
 
 class Grid3DConstrainedEnvironment : public ConstrainedEnvironment<xyztLoc, t3DDirection>
 {

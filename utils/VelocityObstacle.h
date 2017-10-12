@@ -19,6 +19,27 @@ bool getTangentOfCircle(Vector2D const& center, double radius, Vector2D const& p
 
 bool detectCollision(Vector2D A, Vector2D const& VA, double radiusA, double startTimeA, double endTimeA,
 Vector2D B, Vector2D const& VB, double radiusB, double startTimeB, double endTimeB);
+#define CENTER_IDX9 364
+#define CENTER_IDX25 7812
+#define CENTER_IDX49 58824
+#define CENTER_IDX27 9841
+#define CENTER_IDX125 976562
+#define WORD_BITS (8 * sizeof(unsigned))
+void get2DSuccessors(Vector2D const& c, std::vector<Vector2D>& s, unsigned conn);
+void get3DSuccessors(Vector3D const& c, std::vector<Vector3D>& s, unsigned conn);
+unsigned index9(Vector2D const& s1, Vector2D d1, Vector2D s2, Vector2D d2);
+unsigned index25(Vector2D const& s1, Vector2D d1, Vector2D s2, Vector2D d2);
+unsigned index49(Vector2D const& s1, Vector2D d1, Vector2D s2, Vector2D d2);
+unsigned index27(Vector3D const& s1, Vector3D d1, Vector3D s2, Vector3D d2);
+unsigned index125(Vector3D const& s1, Vector3D d1, Vector3D s2, Vector3D d2);
+
+inline bool get(unsigned* bitarray, size_t idx) {
+  return bitarray[idx / WORD_BITS] | (1 << (idx % WORD_BITS));
+}
+
+inline void set(unsigned* bitarray, size_t idx) {
+  bitarray[idx / WORD_BITS] |= (1 << (idx % WORD_BITS));
+}
 
 bool collisionImminent(Vector2D const A, Vector2D const& VA, double radiusA, double startTimeA, double endTimeA,
 Vector2D B, Vector2D const& VB, double radiusB, double startTimeB, double endTimeB);

@@ -2,33 +2,6 @@
 
 double agentRadius(.5);
 
-std::ostream& operator <<(std::ostream & out, const TemporalVector &loc) {
-  out << "(" << loc.x << ", " << loc.y << ": " << loc.t << ")";
-  return out;
-}
-
-std::ostream& operator <<(std::ostream & out, const xytLoc &loc) {
-  out << "(" << loc.x << ", " << loc.y << ", " << loc.h << ": " << loc.t << ")";
-  return out;
-}
-
-std::ostream& operator <<(std::ostream & out, const xyLoc &loc) {
-  out << "(" << loc.x << ", " << loc.y << ")";
-  return out;
-}
-
-bool operator==(const xyLoc &l1, const xyLoc &l2) {
-  return (l1.x == l2.x) && (l1.y == l2.y);
-}
-
-bool operator!=(const xyLoc &l1, const xyLoc &l2) {
-  return (l1.x != l2.x) || (l1.y != l2.y);
-}
-
-bool operator==(const xytLoc &l1, const xytLoc &l2) {
-  return int(l1.t*SEC2MSEC)==int(l2.t*SEC2MSEC) && l1.sameLoc(l2);
-}
-
 // Utility function
 void GLDrawCircle(GLfloat x, GLfloat y, GLfloat radius){
   static const int lineAmount(20); //# of segments

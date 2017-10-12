@@ -62,8 +62,8 @@ public:
 	virtual void OpenGLDraw(const xytLoc&) const;
 	virtual void OpenGLDraw(const xytLoc&, const tDirection&) const;
 	virtual void GLDrawLine(const xytLoc &x, const xytLoc &y) const;
-	virtual void GLLabelState(const xyLoc &s, const char *str) const{mapEnv->GLLabelState(s,str);}
-	virtual void GLLabelState(const xyLoc &s, const char *str, double scale) const{mapEnv->GLLabelState(s,str,scale);}
+	virtual void GLLabelState(const xytLoc &s, const char *str) const{mapEnv->GLLabelState(s,str);}
+	virtual void GLLabelState(const xytLoc &s, const char *str, double scale) const{mapEnv->GLLabelState(s,str,scale);}
         void GLDrawPath(const std::vector<xytLoc> &p, const std::vector<xytLoc> &waypoints) const;
         virtual Map* GetMap()const{return mapEnv->GetMap();}
         bool LineOfSight(const xytLoc &x, const xytLoc &y)const{return mapEnv->LineOfSight(x,y) && !ViolatesConstraint(x,y);}

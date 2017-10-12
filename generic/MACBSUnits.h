@@ -202,7 +202,7 @@ unsigned GetFullPath(CBSUnit<state,action,comparison,conflicttable,searchalgo>* 
   for(int i(0); i<wpts.size()-1; ++i){
     std::vector<state> path;
     state start(thePath.size()?thePath.back():c->GetWaypoint(i));
-    start.landed=false;
+    //start.landed=false;
     //start.t=0;
     state goal(c->GetWaypoint(i+1));
     env->setGoal(goal);
@@ -450,8 +450,8 @@ void CBSUnit<state,action,comparison,conflicttable,searchalgo>::OpenGLDraw(const
       //c.OpenGLDraw();
     }
   } else {
-    if (current.landed)
-      return;
+    //if (current.landed)
+      //return;
     //ae->OpenGLDraw(current);
     //Constraint<state> c(current);
     //glColor3f(1, 0, 0);
@@ -1424,11 +1424,6 @@ unsigned CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::H
     //state y_c =b[yTime];
 
 
-    // Deal with landing conflicts, we don't conflict if one of the planes stays landed at
-    // the entire time
-    if (!(a[xTime].landed && a[xNextTime].landed || 
-          b[yTime].landed && b[yNextTime].landed)) 
-    {
       state const& aGoal(a[wa[pwptA+1]]);
       state const& bGoal(b[wb[pwptB+1]]);
       if(collisionCheck(a[xTime],a[xNextTime],b[yTime],b[yNextTime],agentRadius)){
@@ -1479,7 +1474,6 @@ unsigned CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::H
           }
         }
       }
-    }
 
     // Increment the counters based on the time
 

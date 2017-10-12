@@ -184,9 +184,9 @@ public:
         bool getPreCheck9(size_t idx, double radius);
         bool getPreCheck25(size_t idx, double radius);
         bool getPreCheck49(size_t idx, double radius);
-        static const unsigned CENTER_IDX9;
-        static const unsigned CENTER_IDX25;
-        static const unsigned CENTER_IDX49;
+        static const unsigned M_CENTER_IDX9;
+        static const unsigned M_CENTER_IDX25;
+        static const unsigned M_CENTER_IDX49;
         // bits for radius of .5
         static unsigned bitarray9r_5[9*9*9/WORD_BITS+1];
         static unsigned bitarray25r_5[25*25*25/WORD_BITS+1];

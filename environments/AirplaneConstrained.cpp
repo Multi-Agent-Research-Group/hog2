@@ -248,7 +248,17 @@ double AirplaneConstrainedEnvironment::GetPathLength(const std::vector<airtimeSt
 	return ae->GetPathLength(n_air);
 }
 
-
+bool AirplaneConstrainedEnvironment::collisionCheck(airtimeState const& s1, airtimeState const& d1, float radius1, airtimeState const& s2, airtimeState const& d2,float radius2){
+  Vector3D A(s1);
+  Vector3D B(s2);
+  Vector3D VA(d1);
+  VA-=A;
+  VA.Normalize();
+  Vector3D VB(d2);
+  VB-=B;
+  VB.Normalize();
+  return collisionImminent(A,VA,radius1,s1.t,d1.t,B,VB,radius2,s2.t,d2.t);
+}
 
 /// GOAL TESTING
 

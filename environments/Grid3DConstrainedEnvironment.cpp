@@ -8,10 +8,10 @@
 
 #include "Grid3DConstrainedEnvironment.h"
 
-bool operator==(const xyztLoc &l1, const xyztLoc &l2)
+/*bool operator==(const xyztLoc &l1, const xyztLoc &l2)
 {
 	return fequal(l1.t,l2.t) && (l1.x == l2.x) && (l1.y==l2.y);
-}
+}*/
 
 Grid3DConstrainedEnvironment::Grid3DConstrainedEnvironment(Map3D *m):ignoreTime(false)
 {

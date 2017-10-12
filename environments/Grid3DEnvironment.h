@@ -26,19 +26,13 @@
 #include <cassert>
 
 
-static std::ostream& operator <<(std::ostream & out, const xyzLoc &loc)
-{
-	out << "(" << loc.x << "," << loc.y << "," << loc.z << ")";
-	return out;
-}
-
-static bool operator==(const xyzLoc &l1, const xyzLoc &l2) {
+/*static bool operator==(const xyzLoc &l1, const xyzLoc &l2) {
 	return (l1.x == l2.x) && (l1.y == l2.y) && (l1.z == l2.z);
 }
 
 static bool operator!=(const xyzLoc &l1, const xyzLoc &l2) {
 	return (l1.x != l2.x) || (l1.y != l2.y) || (l1.z != l2.z);
-}
+}*/
 
 
 enum t3DDirection {
@@ -242,11 +236,28 @@ public:
 	double GetPathLength(std::vector<xyzLoc> &neighbors);
         std::vector<std::vector<std::pair<xyzLoc,double>>> solution;
         void findIntervals(xyzLoc curNode, std::vector<std::pair<double,double>>& intervals, std::vector<double>& EAT, int w) const;
+        inline void SetWaitAllowed(bool v){waitAllowed=v;}
+        inline void SetSurface(bool v){surface=v;}
 protected:
 	GraphHeuristic *h;
 	Map3D *map;
 	uint8_t connectedness;
 	bool waitAllowed;
+        bool surface;
+        static double _h4(unsigned dx, unsigned dy, double result=0.0);
+        static double h4(const xyzLoc &l1, const xyzLoc &l2);
+        static double _h6(unsigned dx, unsigned dy, unsigned dz, double result=0.0);
+        static double h6(const xyzLoc &l1, const xyzLoc &l2);
+        static double _h8(unsigned dx,unsigned dy,double result=0);
+        static double h8(const xyzLoc &l1, const xyzLoc &l2);
+        static double _h24(unsigned dx,unsigned dy,double result=0);
+        static double h24(const xyzLoc &l1, const xyzLoc &l2);
+        static double _h48(unsigned dx,unsigned dy,double result=0);
+        static double h48(const xyzLoc &l1, const xyzLoc &l2);
+        static double _h26(unsigned dx,unsigned dy, unsigned dz, double result=0);
+        static double h26(const xyzLoc &l1, const xyzLoc &l2);
+        static double _h124(unsigned dx,unsigned dy, unsigned dz, double result=0);
+        static double h124(const xyzLoc &l1, const xyzLoc &l2);
 };
 
 /*class AbsGrid3DEnvironment : public Grid3DEnvironment

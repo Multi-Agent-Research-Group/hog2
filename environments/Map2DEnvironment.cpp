@@ -1691,9 +1691,9 @@ double MapEnvironment::GetPathLength(std::vector<xyLoc> &neighbors)
 }
 
 
-const unsigned MapEnvironment::CENTER_IDX9 = 544;
-const unsigned MapEnvironment::CENTER_IDX25 = 7812;
-const unsigned MapEnvironment::CENTER_IDX49 = 58824;
+const unsigned MapEnvironment::M_CENTER_IDX9 = 544;
+const unsigned MapEnvironment::M_CENTER_IDX25 = 7812;
+const unsigned MapEnvironment::M_CENTER_IDX49 = 58824;
 // Initialize these to zero
 unsigned MapEnvironment::bitarray9r_25[9*9*9/WORD_BITS+1]={};
 unsigned MapEnvironment::bitarray25r_25[25*25*25/WORD_BITS+1]={};
@@ -1744,7 +1744,7 @@ bool MapEnvironment::collisionPreCheck(xyLoc const& s1, xyLoc const& d1, double 
 bool MapEnvironment::getPreCheck9(size_t idx, double radius){
   // Initialize if not already done
   if(fgreater(radius,.25)){
-    if(!get(bitarray9r_5,CENTER_IDX9)){ // Center bit should always be 1 if initialized
+    if(!get(bitarray9r_5,M_CENTER_IDX9)){ // Center bit should always be 1 if initialized
       bool orig(fullBranching);
       fullBranching=true;
       Map* origMap(map);
@@ -1770,7 +1770,7 @@ bool MapEnvironment::getPreCheck9(size_t idx, double radius){
     }
     return get(bitarray9r_5,idx);
   }
-  if(!get(bitarray9r_25,CENTER_IDX9)){
+  if(!get(bitarray9r_25,M_CENTER_IDX9)){
     bool orig(fullBranching);
     fullBranching=true;
     Map* origMap(map);
@@ -1800,7 +1800,7 @@ bool MapEnvironment::getPreCheck9(size_t idx, double radius){
 bool MapEnvironment::getPreCheck25(size_t idx, double radius){
   // Initialize if not already done
   if(fgreater(radius,.25)){
-    if(!get(bitarray25r_5,CENTER_IDX25)){ // Center bit should always be 1 if initialized
+    if(!get(bitarray25r_5,M_CENTER_IDX25)){ // Center bit should always be 1 if initialized
       bool orig(fullBranching);
       fullBranching=true;
       Map* origMap(map);
@@ -1826,7 +1826,7 @@ bool MapEnvironment::getPreCheck25(size_t idx, double radius){
     }
     return get(bitarray25r_5,idx);
   }
-  if(!get(bitarray25r_25,CENTER_IDX25)){
+  if(!get(bitarray25r_25,M_CENTER_IDX25)){
     bool orig(fullBranching);
     fullBranching=true;
     Map* origMap(map);
@@ -1856,7 +1856,7 @@ bool MapEnvironment::getPreCheck25(size_t idx, double radius){
 bool MapEnvironment::getPreCheck49(size_t idx, double radius){
   // Initialize if not already done
   if(fgreater(radius,.25)){
-    if(!get(bitarray49r_5,CENTER_IDX49)){ // Center bit should always be 1 if initialized
+    if(!get(bitarray49r_5,M_CENTER_IDX49)){ // Center bit should always be 1 if initialized
       bool orig(fullBranching);
       fullBranching=true;
       Map* origMap(map);
@@ -1882,7 +1882,7 @@ bool MapEnvironment::getPreCheck49(size_t idx, double radius){
     }
     return get(bitarray49r_5,idx);
   }
-  if(!get(bitarray49r_25,CENTER_IDX49)){
+  if(!get(bitarray49r_25,M_CENTER_IDX49)){
     bool orig(fullBranching);
     fullBranching=true;
     Map* origMap(map);

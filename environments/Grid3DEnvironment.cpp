@@ -59,7 +59,8 @@ void Grid3DEnvironment::GetSuccessors(const xyzLoc &loc, std::vector<xyzLoc> &ne
       for(int j(-connectedness); j<=connectedness; ++j){
         for(int k(-connectedness); k<=connectedness; ++k){
           if(!waitAllowed && i==0 && j==0 && k==0)continue;
-          neighbors.emplace_back(loc.x+i,loc.y+j,loc.z+k);
+          if(map->IsTraversable(loc.x+i,loc.y+j,loc.z+k))
+            neighbors.emplace_back(loc.x+i,loc.y+j,loc.z+k);
         }
       }
     }
@@ -92,8 +93,202 @@ void Grid3DEnvironment::ApplyAction(xyzLoc &s, t3DDirection dir) const
  assert(false && "Not implemented");
 }
 
-double Grid3DEnvironment::HCost(const xyzLoc &l1, const xyzLoc &l2) const
-{
+double Grid3DEnvironment::_h4(unsigned dx, unsigned dy, double result){
+  return dx+dy+result;
+}
+
+double Grid3DEnvironment::h4(const xyzLoc &l1, const xyzLoc &l2){
+  return _h4(abs(l1.x-l2.x),abs(l1.y-l2.y));
+}
+
+double Grid3DEnvironment::_h6(unsigned dx, unsigned dy, unsigned dz, double result){
+  return dx+dy+dz+result;
+}
+
+double Grid3DEnvironment::h6(const xyzLoc &l1, const xyzLoc &l2){
+  return _h6(abs(l1.x-l2.x),abs(l1.y-l2.y),abs(l1.z-l2.z));
+}
+
+double Grid3DEnvironment::_h8(unsigned dx,unsigned dy,double result){
+  static double const SQRT_2(std::sqrt(2.0));
+  if(dx>dy){ // Swap
+    unsigned tmp(dx); dx=dy; dy=tmp;
+  }
+  if(dy>=dx){
+    result += dx*SQRT_2;
+      dy -= dx;
+      dx = 0;
+  }
+  return _h4(dy,dx,result);
+}
+
+double Grid3DEnvironment::h8(const xyzLoc &l1, const xyzLoc &l2){
+  return _h8(abs(l1.x-l2.x),abs(l1.y-l2.y));
+}
+
+double Grid3DEnvironment::_h26(unsigned dx,unsigned dy,unsigned dz,double result){
+  static double const SQRT_3(std::sqrt(3.0));
+  if(dx==0)return _h8(dy,dz,result);
+  if(dy==0)return _h8(dx,dz,result);
+  if(dz==0)return _h8(dx,dy,result);
+
+  if(dx>dy){ // Swap
+    unsigned tmp(dx); dx=dy; dy=tmp;
+  }
+  if(dz>dy){ // Swap
+    unsigned tmp(dz); dz=dy; dy=tmp;
+  }
+  if(dx>dz){ // Swap
+    unsigned tmp(dx); dx=dz; dz=tmp;
+  }
+  
+  result += dx*SQRT_3;
+  dy -= dx;
+  dz -= dx;
+  dx = 0;
+  return _h8(dy,dz,result);
+}
+
+double Grid3DEnvironment::h26(const xyzLoc &l1, const xyzLoc &l2){
+  return _h26(abs(l1.x-l2.x),abs(l1.y-l2.y),abs(l1.z-l2.z));
+}
+
+double Grid3DEnvironment::_h24(unsigned dx,unsigned dy,double result){
+  static double const SQRT_5(sqrt(5));
+  if(dx>dy){ // Swap
+    unsigned tmp(dx); dx=dy; dy=tmp;
+  }
+  if(dy>1){
+    unsigned diff(dy-dx);
+    if(diff >=1){
+      unsigned s5=std::min(diff,dx);
+      result += s5*SQRT_5;
+      dy -= s5*2; //up/down 2
+      dx -= s5; //over 1
+    }
+  }
+  return _h8(dy,dx,result);
+}
+
+double Grid3DEnvironment::h24(const xyzLoc &l1, const xyzLoc &l2){
+  return _h24(abs(l1.x-l2.x),abs(l1.y-l2.y));
+}
+
+double Grid3DEnvironment::_h48(unsigned dx,unsigned dy,double result){
+  static double const SQRT_2(std::sqrt(2.0));
+  static double const SQRT_5(std::sqrt(5.0));
+  static double const SQRT_10(sqrt(10));
+  static double const SQRT_13(sqrt(13));
+  if(dx==dy) return dx*SQRT_2;
+  if(dx>dy){ // Swap
+    unsigned tmp(dx); dx=dy; dy=tmp;
+  }
+  if(2*dx==dy) return dx*SQRT_5;
+  if(3*dx==dy) return dx*SQRT_10;
+  if(3*dx==2*dy) return (dx/2)*SQRT_13;
+  unsigned steps(dy/3);
+  unsigned ss2(dy/2);
+  if(steps>=dx){
+    //std::cout << dx << " " << dy << " " << "case 1\n";
+    result += SQRT_10*dx;
+    dy-=dx*3;
+    dx=0;
+  }else if(dx>2*steps){
+    //std::cout << steps << "-" << (dx%steps) << "+" << (dy%steps) << " " << dx << " " << dy << " " << "case 2\n";
+    unsigned ddx(dx-2*steps);
+    unsigned ddy(dy-3*steps);
+    if(ddx>ddy)
+      steps-=ddx-ddy;
+    result += steps*SQRT_13;
+    dx-=2*steps;
+    dy-=steps*3;
+  }else if(steps<dx && ss2>=dx){
+    //std::cout << dx << " " << dy << " " << "case n\n";
+    unsigned ddx(dx-steps);
+    unsigned ddy(dy-3*steps);
+    steps-=(2*ddx-ddy);
+    result += steps*SQRT_10;
+    dx-=steps;
+    dy-=steps*3;
+  }else if(ss2<dx && 2*steps>=dx){
+    //std::cout << dx << " " << dy << " " << "case p\n";
+    unsigned ddx(2*steps-dx);
+    unsigned ddy(dy-3*steps);
+    steps-=(2*ddx+ddy);
+    result += steps*SQRT_13;
+    dx-=steps*2;
+    dy-=steps*3;
+  }
+  return _h24(dy,dx,result);
+}
+
+double Grid3DEnvironment::h48(const xyzLoc &l1, const xyzLoc &l2){
+  return _h48(abs(l1.x-l2.x),abs(l1.y-l2.y));
+}
+
+double Grid3DEnvironment::_h124(unsigned dx,unsigned dy,unsigned dz,double result){
+  static double const SQRT_3(sqrt(3));
+  static double const SQRT_6(sqrt(6));
+  static double const SQRT_9(3.0);
+  if(dx==0)return _h24(dy,dz,result);
+  if(dy==0)return _h24(dx,dz,result);
+  if(dz==0)return _h24(dx,dy,result);
+  if(dx==dy&&dx==dz)return result+dx*SQRT_3;
+
+  if(dx>dy){ // Swap
+    unsigned tmp(dx); dx=dy; dy=tmp;
+  }
+  if(dz>dy){ // Swap
+    unsigned tmp(dz); dz=dy; dy=tmp;
+  }
+  if(dx>dz){ // Swap
+    unsigned tmp(dx); dx=dz; dz=tmp;
+  }
+
+  if(dy>dx){
+    if(dz>dx){
+      unsigned diff(dz-dx);
+      if(diff >=1){
+        unsigned s9=std::min(diff,dx);
+        result += s9*SQRT_9;
+        dy -= s9*2; //move 2
+        dz -= s9*2; //move 2
+        dx -= s9; //over 1
+      }
+    }
+    if(dy>dz){
+      unsigned diff(dy-dz);
+      if(diff >=1){
+        unsigned s6=std::min(diff,dx);
+        result += s6*SQRT_6;
+        dy -= s6*2; //move 2
+        dz -= s6*2; //move 2
+        dx -= s6; //over 1
+      }
+    }
+  }
+  return _h26(dy,dz,dx,result);
+}
+
+double Grid3DEnvironment::h124(const xyzLoc &l1, const xyzLoc &l2){
+  return _h124(abs(l1.x-l2.x),abs(l1.y-l2.y),abs(l1.z-l2.z));
+}
+
+
+double Grid3DEnvironment::HCost(const xyzLoc &l1, const xyzLoc &l2)const{
+  //if(l1.sameLoc(l2))return 1.0;
+  switch(connectedness){
+    case 0:
+      return h6(l1,l2);
+    case 1:
+      return h26(l1,l2);
+    case 2:
+      return h124(l1,l2);
+    case 3:
+      return h48(l1,l2);
+    default:
+      return Util::distance(l1.x,l1.y,l1.z,l2.x,l2.y,l2.z);
+  }
 }
 
 double Grid3DEnvironment::GCost(const xyzLoc &l, const t3DDirection &act) const

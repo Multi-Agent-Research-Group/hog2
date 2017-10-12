@@ -99,6 +99,7 @@ public:
           return GCost(node,node2);
         }
 	virtual double GetPathLength(const std::vector<airtimeState> &n) const;
+        virtual bool collisionCheck(const airtimeState &s1, const airtimeState &d1, float r1, const airtimeState &s2, const airtimeState &d2, float r2);
 
 	/// GOAL TESTING
 

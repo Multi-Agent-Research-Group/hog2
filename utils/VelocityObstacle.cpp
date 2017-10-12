@@ -145,9 +145,220 @@ bool collisionImminent(Vector2D A, Vector2D const& VA, double radiusA, double st
   return fleq(ctime,std::min(endTimeB,endTimeA)-startTimeA);
 }
 
+void get2DSuccessors(Vector2D const& c, std::vector<Vector2D>& s, unsigned conn){
+  s.reserve((conn*2+1)*(conn*2+1));
+  for(int x(c.x-conn); x<conn*2+1+c.x; ++x)
+    for(int y(c.y-conn); y<conn*2+1+c.y; ++y)
+      s.push_back(Vector2D(x,y));
+}
+
+void get3DSuccessors(Vector3D const& c, std::vector<Vector3D>& s, unsigned conn){
+  s.reserve((conn*2+1)*(conn*2+1)*(conn*2+1));
+  for(int x(c.x-conn); x<conn*2+1+c.x; ++x)
+    for(int y(c.y-conn); y<conn*2+1+c.y; ++y)
+      for(int z(c.z-conn); z<conn*2+1+c.z; ++z)
+        s.push_back(Vector3D(x,y,z));
+}
+
+unsigned index9(Vector2D const& s1, Vector2D d1, Vector2D s2, Vector2D d2){
+  // Translate d1 and s2 relative to s1
+  d1.x-=s1.x-1;
+  d1.y-=s1.y-1;
+  // Translate d2 relative to s2
+  d2.x-=s2.x-1;
+  d2.y-=s2.y-1;
+  s2.x-=s1.x-1;
+  s2.y-=s1.y-1;
+  return d1.y*3+d1.x + 9*(s2.y*3+s2.x) + 81*(d2.y*3+d2.x);
+}
+
+unsigned index25(Vector2D const& s1, Vector2D d1, Vector2D s2, Vector2D d2){
+  // Translate d1 and s2 relative to s1
+  d1.x-=s1.x-2;
+  d1.y-=s1.y-2;
+  // Translate d2 relative to s2
+  d2.x-=s2.x-2;
+  d2.y-=s2.y-2;
+  s2.x-=s1.x-2;
+  s2.y-=s1.y-2;
+  return d1.y*5+d1.x + 25*(s2.y*5+s2.x) + 625*(d2.y*5+d2.x);
+}
+
+unsigned index49(Vector2D const& s1, Vector2D d1, Vector2D s2, Vector2D d2){
+  // Translate d1 and s2 relative to s1
+  d1.x-=s1.x-3;
+  d1.y-=s1.y-3;
+  d2.x-=s2.x-3;
+  d2.y-=s2.y-3;
+  s2.x-=s1.x-3;
+  s2.y-=s1.y-3;
+  return d1.y*7+d1.x + 49*(s2.y*7+s2.x) + 2401*(d2.y*7+d2.x);
+}
+
+unsigned index27(Vector3D const& s1, Vector3D d1, Vector3D s2, Vector3D d2){
+  // Translate d1 and s2 relative to s1
+  d1.x-=s1.x-1;
+  d1.y-=s1.y-1;
+  d1.z-=s1.z-1;
+  d2.x-=s2.x-1;
+  d2.y-=s2.y-1;
+  d2.z-=s2.z-1;
+  s2.x-=s1.x-1;
+  s2.y-=s1.y-1;
+  s2.z-=s1.z-1;
+  return d1.z*9+d1.y*3+d1.x + 27*(s2.z*9+s2.y*3+s2.x) + 729*(d2.z*9+d2.y*3+d2.x);
+}
+
+unsigned index125(Vector3D const& s1, Vector3D d1, Vector3D s2, Vector3D d2){
+  // Translate d1 and s2 relative to s1
+  d1.x-=s1.x-2;
+  d1.y-=s1.y-2;
+  d1.z-=s1.z-2;
+  d2.x-=s2.x-2;
+  d2.y-=s2.y-2;
+  d2.z-=s2.z-2;
+  s2.x-=s1.x-2;
+  s2.y-=s1.y-2;
+  s2.z-=s1.z-2;
+  return d1.z*25+d1.y*5+d1.x + 125*(s2.z*25+s2.y*3+s2.x) + 15625*(d2.z*25+d2.y*5+d2.x);
+}
+
+
+void fillArray(unsigned* bitarray,unsigned (*index)(Vector2D const&,Vector2D, Vector2D,Vector2D),unsigned conn,double radius){
+  std::vector<Vector2D> n;
+  Vector2D center(6,6);
+  get2DSuccessors(center,n,conn);
+  for(auto const& m:n){
+    for(auto const& o:n){
+      std::vector<Vector2D> p;
+      get2DSuccessors(o,p,conn);
+      for(auto const& q:p){
+        if(Util::fatLinesIntersect(center,m,radius,o,q,radius)){
+          set(bitarray,(*index)(center,m,o,q));
+        }
+      }
+    }
+  }
+}
+
+void fillArray(unsigned* bitarray,unsigned (*index)(Vector3D const&,Vector3D, Vector3D,Vector3D),unsigned conn, double radius){
+  std::vector<Vector3D> n;
+  Vector3D center(6,6,6);
+  get3DSuccessors(center,n,conn);
+  for(auto const& m:n){
+    for(auto const& o:n){
+      std::vector<Vector3D> p;
+      get3DSuccessors(o,p,conn);
+      for(auto const& q:p){
+        if(Util::fatLinesIntersect(center,m,radius,o,q,radius)){
+          set(bitarray,(*index)(center,m,o,q));
+        }
+      }
+    }
+  }
+}
+
 // Check for collision between entities moving from A1 to A2 and B1 to B2
 // Speed is optional. If provided, should be in grids per unit time; time should also be pre adjusted to reflect speed.
 bool collisionCheck(TemporalVector const& A1, TemporalVector const& A2, TemporalVector const& B1, TemporalVector const& B2, double radiusA, double radiusB, double speedA, double speedB){
+  unsigned dim(std::max(std::max(fabs(A1.x-A2.x),fabs(B1.x-B2.x)),std::max(fabs(A1.y-A2.y),fabs(B1.y-B2.y))));
+  unsigned ssx(fabs(A1.x-B1.x));
+  unsigned sdx(fabs(A1.x-B2.x));
+  unsigned ssy(fabs(A1.y-B1.y));
+  unsigned sdy(fabs(A1.y-B2.y));
+
+  switch(dim){
+    case 0:
+    case 1:
+      if(std::max(radiusA,radiusB)>.25){
+        static unsigned bitarray9r_5[9*9*9/WORD_BITS+1];
+        if(!get(bitarray9r_5,CENTER_IDX9)){
+          fillArray(bitarray9r_5,*index9,1,.5);
+        }
+
+        if(ssx<2 && ssy<2 && sdx <3 && sdy<3){
+          if(!get(bitarray9r_5,index9(A1,A2,B1,B2)))
+             return false;
+        }else if(sdx<2 && sdy<2 && ssx <3 && ssy<3){
+          if(!get(bitarray9r_5,index9(A1,A2,B2,B1)))
+             return false;
+        }else{return false;}
+      }else{
+        static unsigned bitarray9r_25[9*9*9/WORD_BITS+1];
+        if(!get(bitarray9r_25,CENTER_IDX9)){
+          fillArray(bitarray9r_25,*index9,1,.25);
+        }
+
+        if(ssx<2 && ssy<2 && sdx <3 && sdy<3){
+          if(!get(bitarray9r_25,index9(A1,A2,B1,B2)))
+             return false;
+        }else if(sdx<2 && sdy<2 && ssx <3 && ssy<3){
+          if(!get(bitarray9r_25,index9(A1,A2,B2,B1)))
+             return false;
+        }else{return false;}
+      }
+      break;
+    case 2:
+      if(std::max(radiusA,radiusB)>.25){
+        static unsigned bitarray25r_5[25*25*25/WORD_BITS+1];
+        if(!get(bitarray25r_5,CENTER_IDX25)){
+          fillArray(bitarray25r_5,*index25,2,.5);
+        }
+
+        if(ssx<3 && ssy<3 && sdx <5 && sdy<5){
+          if(!get(bitarray25r_5,index25(A1,A2,B1,B2)))
+             return false;
+        }else if(sdx<3 && sdy<3 && ssx <5 && ssy<5){
+          if(!get(bitarray25r_5,index25(A1,A2,B2,B1)))
+             return false;
+        }else{return false;}
+      }else{
+        static unsigned bitarray25r_25[25*25*25/WORD_BITS+1];
+        if(!get(bitarray25r_25,CENTER_IDX25)){
+          fillArray(bitarray25r_25,*index25,2,.25);
+        }
+
+        if(ssx<3 && ssy<3 && sdx <5 && sdy<5){
+          if(!get(bitarray25r_25,index25(A1,A2,B1,B2)))
+             return false;
+        }else if(sdx<3 && sdy<3 && ssx <5 && ssy<5){
+          if(!get(bitarray25r_25,index25(A1,A2,B2,B1)))
+             return false;
+        }else{return false;}
+      }
+      break;
+    case 3:
+      if(std::max(radiusA,radiusB)>.25){
+        static unsigned bitarray49r_5[49*49*49/WORD_BITS+1];
+        if(!get(bitarray49r_5,CENTER_IDX49)){
+          fillArray(bitarray49r_5,*index49,3,.5);
+        }
+
+        if(ssx<4 && ssy<4 && sdx <7 && sdy<7){
+          if(!get(bitarray49r_5,index49(A1,A2,B1,B2)))
+             return false;
+        }else if(sdx<4 && sdy<4 && ssx <7 && ssy<7){
+          if(!get(bitarray49r_5,index49(A1,A2,B2,B1)))
+             return false;
+        }else{return false;}
+      }else{
+        static unsigned bitarray49r_25[49*49*49/WORD_BITS+1];
+        if(!get(bitarray49r_25,CENTER_IDX49)){
+          fillArray(bitarray49r_25,*index49,3,.25);
+        }
+
+        if(ssx<4 && ssy<4 && sdx <7 && sdy<7){
+          if(!get(bitarray49r_25,index49(A1,A2,B1,B2)))
+             return false;
+        }else if(sdx<4 && sdy<4 && ssx <7 && ssy<7){
+          if(!get(bitarray49r_25,index49(A1,A2,B2,B1)))
+             return false;
+        }else{return false;}
+      }
+      break;
+    default:
+      break;
+  };
   Vector2D VA(A2-A1);
   VA.Normalize();
   VA*=speedA;
@@ -200,6 +411,77 @@ bool collisionImminent(Vector3D A, Vector3D const& VA, double radiusA, double st
 // Check for collision between entities moving from A1 to A2 and B1 to B2
 // Speed is optional. If provided, should be in grids per unit time; time should also be pre adjusted to reflect speed.
 bool collisionCheck(TemporalVector3D const& A1, TemporalVector3D const& A2, TemporalVector3D const& B1, TemporalVector3D const& B2, double radiusA, double radiusB, double speedA, double speedB){
+  unsigned dim(std::max(std::max(std::max(fabs(A1.x-A2.x),fabs(B1.x-B2.x)),std::max(fabs(A1.y-A2.y),fabs(B1.y-B2.y))),std::max(fabs(A1.z-A2.z),fabs(B1.z-B2.z))));
+  unsigned ssx(fabs(A1.x-B1.x));
+  unsigned sdx(fabs(A1.x-B2.x));
+  unsigned ssy(fabs(A1.y-B1.y));
+  unsigned sdy(fabs(A1.y-B2.y));
+  unsigned ssz(fabs(A1.z-B1.z));
+  unsigned sdz(fabs(A1.z-B2.z));
+
+  switch(dim){
+    case 0:
+    case 1:
+      if(std::max(radiusA,radiusB)>.25){
+        static unsigned bitarray27r_5[27*27*27/WORD_BITS+1];
+        if(!get(bitarray27r_5,CENTER_IDX27)){
+          fillArray(bitarray27r_5,*index27,1,.5);
+        }
+
+        if(ssx<2 && ssy<2 && sdx <3 && sdy<3){
+          if(!get(bitarray27r_5,index27(A1,A2,B1,B2)))
+             return false;
+        }else if(sdx<2 && sdy<2 && ssx <3 && ssy<3){
+          if(!get(bitarray27r_5,index27(A1,A2,B2,B1)))
+             return false;
+        }else{return false;}
+      }else{
+        static unsigned bitarray27r_25[27*27*27/WORD_BITS+1];
+        if(!get(bitarray27r_25,CENTER_IDX27)){
+          fillArray(bitarray27r_25,*index27,1,.25);
+        }
+
+        if(ssx<2 && ssy<2 && sdx <3 && sdy<3){
+          if(!get(bitarray27r_25,index27(A1,A2,B1,B2)))
+             return false;
+        }else if(sdx<2 && sdy<2 && ssx <3 && ssy<3){
+          if(!get(bitarray27r_25,index27(A1,A2,B2,B1)))
+             return false;
+        }else{return false;}
+      }
+      break;
+    case 2:
+      if(std::max(radiusA,radiusB)>.25){
+        static unsigned bitarray125r_5[125*125*125/WORD_BITS+1];
+        if(!get(bitarray125r_5,CENTER_IDX125)){
+          fillArray(bitarray125r_5,*index125,2,.5);
+        }
+
+        if(ssx<3 && ssy<3 && sdx <5 && sdy<5){
+          if(!get(bitarray125r_5,index125(A1,A2,B1,B2)))
+             return false;
+        }else if(sdx<3 && sdy<3 && ssx <5 && ssy<5){
+          if(!get(bitarray125r_5,index125(A1,A2,B2,B1)))
+             return false;
+        }else{return false;}
+      }else{
+        static unsigned bitarray125r_25[125*125*125/WORD_BITS+1];
+        if(!get(bitarray125r_25,CENTER_IDX125)){
+          fillArray(bitarray125r_25,*index125,2,.25);
+        }
+
+        if(ssx<3 && ssy<3 && sdx <5 && sdy<5){
+          if(!get(bitarray125r_25,index125(A1,A2,B1,B2)))
+             return false;
+        }else if(sdx<3 && sdy<3 && ssx <5 && ssy<5){
+          if(!get(bitarray125r_25,index125(A1,A2,B2,B1)))
+             return false;
+        }else{return false;}
+      }
+      break;
+    default:
+      break;
+  };
   Vector3D VA(A2-A1);
   VA.Normalize();
   VA*=speedA;

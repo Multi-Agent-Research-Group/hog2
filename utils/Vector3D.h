@@ -35,7 +35,7 @@ class Vector3D {
     inline bool operator<(const Vector3D &rhs)const{return fequal(x,rhs.x)?(fequal(y,rhs.y)?fless(z,rhs.z):fless(y,rhs.y)):fless(x,rhs.x);}
 
     // Dot product
-    inline double operator*(Vector3D const& other)const{return x * other.x + y * other.y + z * other.z;}
+    inline float operator*(Vector3D const& other)const{return x * other.x + y * other.y + z * other.z;}
     // Negation
     inline Vector3D operator-(Vector3D const& other)const{return Vector3D(x-other.x,y-other.y,z-other.z);}
     inline void operator-=(Vector3D const& other){x-=other.x;y-=other.y;z-=other.z;}
@@ -44,17 +44,17 @@ class Vector3D {
     //inline float atan(){ return atan2(y,x); }
     // Square
     inline float sq(){ return (*this) * (*this); }
-    inline float len(){ return sqrt(sq()); }
+    inline double len(){ return sqrt(sq()); }
 
-    inline Vector3D operator/(const double num)const{return Vector3D(x/num, y/num, z/num);}
+    inline Vector3D operator/(const float num)const{return Vector3D(x/num, y/num, z/num);}
 
-    inline Vector3D operator*(const double num)const{return Vector3D(x*num, y*num, z*num);}
+    inline Vector3D operator*(const float num)const{return Vector3D(x*num, y*num, z*num);}
 
     inline Vector3D operator+(const Vector3D& v2)const{return Vector3D(x+v2.x, y+v2.y, z+v2.z);}
 
     inline void operator+=(const Vector3D& v2){x+=v2.x; y+=v2.y;z+=v2.z;}
-    inline void operator *=(double s) { x*=s; y*=s; z*=s; }
-    inline void operator /=(double s) { x/=s; y/=s; z/=s; }
+    inline void operator *=(float s) { x*=s; y*=s; z*=s; }
+    inline void operator /=(float s) { x/=s; y/=s; z/=s; }
 
     inline void Normalize(){
       if(x==0&&y==0&&z==0) return;

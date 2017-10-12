@@ -24,16 +24,36 @@ struct timecoord {
   uint32_t t; // Note: t=millisec
 };
 
+struct tLoc {
+  tLoc():t(0),nc(-1){}
+  tLoc(float time):t(time),nc(-1){}
+  float t;
+  int16_t nc; // Number of conflicts, for conflict avoidance table
+  virtual bool operator==(tLoc const& other)const{return fequal(t,other.t);}
+  virtual bool operator!=(tLoc const& other)const{return !operator==(other); }
+  virtual bool sameLoc(tLoc const& other)const{return true;}
+  virtual void print(std::ostream& os)const{os<<"("<<t<<")";}
+  virtual uint16_t X()const{return 0;}
+  virtual uint16_t Y()const{return 0;}
+  virtual uint16_t Z()const{return 0;}
+  explicit operator TemporalVector()const{return TemporalVector(X(),Y(),t);}
+  operator TemporalVector3D()const{return TemporalVector3D(X(),Y(),Z(),t);}
+};
+
 struct xyLoc {
-public:
-	xyLoc():x(-1),y(-1),landed(false){}
-	xyLoc(uint16_t _x, uint16_t _y, bool l=false) :x(_x), y(_y), landed(l) {}
-        bool operator<(xyLoc const& other)const{return x==other.x?y<other.y:x<other.x;}
-	uint16_t x;
-	uint16_t y;
-        bool landed; // Have we already arrived at the goal? (always leave this false if agent can block other agents)
-        virtual operator Vector2D()const{return Vector2D(x,y);}
-        bool sameLoc(xyLoc const& other)const{return x==other.x&&y==other.y;}
+  public:
+    xyLoc():x(-1),y(-1),landed(false){}
+    xyLoc(uint16_t _x, uint16_t _y, bool l=false) :x(_x), y(_y), landed(l) {}
+    bool operator<(xyLoc const& other)const{return x==other.x?y<other.y:x<other.x;}
+    uint16_t x;
+    uint16_t y;
+    bool landed; // Have we already arrived at the goal? (always leave this false if agent can block other agents)
+    virtual operator Vector2D()const{return Vector2D(x,y);}
+    virtual bool sameLoc(xyLoc const& other)const{return x==other.x&&y==other.y;}
+    virtual bool operator==(xyLoc const& other)const{return sameLoc(other);}
+    virtual bool operator!=(xyLoc const& other)const{return !operator==(other); }
+
+    virtual void print(std::ostream& os)const{os<<"("<<x<<","<<y<<")";}
 };
 
 struct xyLocHash
@@ -44,45 +64,53 @@ struct xyLocHash
 	}
 };
 
-struct xytLoc : xyLoc {
-	xytLoc(xyLoc loc, float time):xyLoc(loc), h(0), t(time) ,nc(-1){}
-	xytLoc(xyLoc loc, uint16_t _h, float time):xyLoc(loc), h(_h), t(time) ,nc(-1){}
-	xytLoc(uint16_t _x, uint16_t _y):xyLoc(_x,_y), h(0), t(0) ,nc(-1){}
-	xytLoc(uint16_t _x, uint16_t _y, float time):xyLoc(_x,_y), h(0), t(time) ,nc(-1){}
-	xytLoc(uint16_t _x, uint16_t _y, uint16_t _h, float time):xyLoc(_x,_y), h(_h), t(time) ,nc(-1){}
-	xytLoc():xyLoc(),h(0),t(0),nc(-1){}
-        virtual operator TemporalVector()const{return TemporalVector(x,y,t);}
-	float t;
-        uint16_t h; // Heading quantized to epsilon=1/(2**16-1)... 0=north max=north-epsilon
-        int16_t nc; // Number of conflicts, for conflict avoidance table
+struct xytLoc : xyLoc, tLoc {
+  xytLoc(xyLoc loc, float time):xyLoc(loc),tLoc(time), h(0){}
+  xytLoc(xyLoc loc, uint16_t _h, float time):xyLoc(loc),tLoc(time), h(_h){}
+  xytLoc(uint16_t _x, uint16_t _y):xyLoc(_x,_y),tLoc(), h(0){}
+  xytLoc(uint16_t _x, uint16_t _y, float time):xyLoc(_x,_y),tLoc(time), h(0){}
+  xytLoc(uint16_t _x, uint16_t _y, uint16_t _h, float time):xyLoc(_x,_y),tLoc(time), h(_h){}
+  xytLoc():xyLoc(),tLoc(),h(0){}
+  //virtual operator TemporalVector()const{return TemporalVector(x,y,t);}
+  virtual bool sameLoc(xytLoc const& other)const{return x==other.x&&y==other.y;}
+  virtual bool operator==(xytLoc const& other)const{return sameLoc(other)&&tLoc::operator==(other);}
+  virtual void print(std::ostream& os)const{os<<"("<<x<<","<<y<<"<"<<t<<")";}
+  uint16_t h; // Heading quantized to epsilon=1/(2**16-1)... 0=north max=north-epsilon
+  int16_t nc; // Number of conflicts, for conflict avoidance table
+  virtual uint16_t X()const{return x;}
+  virtual uint16_t Y()const{return y;}
 };
 
 struct xyzLoc : public xyLoc {
-public:
-	xyzLoc():xyLoc(-1,-1),z(-1){}
-	xyzLoc(uint16_t _x, uint16_t _y, uint16_t _z, uint16_t _v=0):xyLoc(_x,_y),z(_z){}
-        bool operator<(xyzLoc const& other)const{return x==other.x?(y==other.y?z<other.z:y<other.y):x<other.x;}
-        operator Vector3D()const{return Vector3D(x,y,z);}
-        explicit operator Vector2D()const{return Vector2D(x,y);}
-	uint16_t z;
+  public:
+    xyzLoc():xyLoc(-1,-1),z(-1){}
+    xyzLoc(uint16_t _x, uint16_t _y, uint16_t _z, uint16_t _v=0):xyLoc(_x,_y),z(_z){}
+    bool operator<(xyzLoc const& other)const{return x==other.x?(y==other.y?z<other.z:y<other.y):x<other.x;}
+    operator Vector3D()const{return Vector3D(x,y,z);}
+    explicit operator Vector2D()const{return Vector2D(x,y);}
+    virtual bool sameLoc(xyzLoc const& other)const{return xyLoc::sameLoc(other)&&z==other.z;}
+    virtual bool operator==(xyzLoc const& other)const{return sameLoc(other);}
+    virtual void print(std::ostream& os)const{os<<"("<<x<<","<<y<<"<"<<z<<")";}
+    uint16_t z;
+  virtual uint16_t Z()const{return z;}
 };
 
-struct xyztLoc : xyzLoc {
-	xyztLoc(xyzLoc loc, float time):xyzLoc(loc), h(0), p(0), t(time), nc(-1){}
-	xyztLoc(xyzLoc loc, uint16_t _h, int16_t _p, float time):xyzLoc(loc), h(_h), p(_p), t(time), nc(-1){}
-	xyztLoc(uint16_t _x, uint16_t _y, uint16_t _z, float time):xyzLoc(_x,_y,_z), h(0), p(0), t(time) ,nc(-1){}
-	xyztLoc(uint16_t _x, uint16_t _y, uint16_t _z, uint16_t _h, int16_t _p, float time):xyzLoc(_x,_y,_z), h(_h), p(_p), t(time) ,nc(-1){}
-	xyztLoc(uint16_t _x, uint16_t _y, uint16_t _z, double _h, double _p, float time):xyzLoc(_x,_y,_z), h(_h*xyztLoc::HDG_RESOLUTON), p(_p*xyztLoc::PITCH_RESOLUTON), t(time) ,nc(-1){}
-	xyztLoc():xyzLoc(),h(0),p(0),t(0),nc(-1){}
-        operator TemporalVector3D()const{return TemporalVector3D(x,y,z,t);}
-        explicit operator TemporalVector()const{return TemporalVector(x,y,t);}
-        int16_t nc; // Number of conflicts, for conflict avoidance table
-        uint16_t h; // Heading
-        int16_t p; // Pitch
-	float t;
-        bool sameLoc(xyztLoc const& other)const{return x==other.x&&y==other.y&&z==other.z;}
-        static const float HDG_RESOLUTON;
-        static const float PITCH_RESOLUTON;
+struct xyztLoc : xyzLoc, tLoc {
+  xyztLoc(xyzLoc loc, float time):xyzLoc(loc),tLoc(time), h(0), p(0){}
+  xyztLoc(xyzLoc loc, uint16_t _h, int16_t _p, float time):xyzLoc(loc),tLoc(time), h(_h), p(_p){}
+  xyztLoc(uint16_t _x, uint16_t _y, uint16_t _z=0, float time=0):xyzLoc(_x,_y,_z),tLoc(time), h(0), p(0){}
+  xyztLoc(uint16_t _x, uint16_t _y, uint16_t _z, uint16_t _h, int16_t _p, float time):xyzLoc(_x,_y,_z),tLoc(time), h(_h), p(_p){}
+  xyztLoc(uint16_t _x, uint16_t _y, uint16_t _z, double _h, double _p, float time):xyzLoc(_x,_y,_z),tLoc(time), h(_h*xyztLoc::HDG_RESOLUTON), p(_p*xyztLoc::PITCH_RESOLUTON){}
+  xyztLoc():xyzLoc(),tLoc(),h(0),p(0){}
+  //operator TemporalVector3D()const{return TemporalVector3D(x,y,z,t);}
+  explicit operator TemporalVector()const{return TemporalVector(x,y,t);}
+  uint16_t h; // Heading
+  int16_t p; // Pitch
+  virtual bool sameLoc(xyztLoc const& other)const{return xyzLoc::sameLoc(other);}
+  virtual bool operator==(xyztLoc const& other)const{return sameLoc(other)&&tLoc::operator==(other);}
+  virtual void print(std::ostream& os)const{os<<"("<<x<<","<<y<<"<"<<z<<","<<t<<")";}
+  static const float HDG_RESOLUTON;
+  static const float PITCH_RESOLUTON;
 };
 
 struct AANode : xyLoc {
@@ -99,12 +127,43 @@ struct Hashable{
   virtual float Depth()const=0;
 };
 
-std::ostream& operator <<(std::ostream & out, const TemporalVector &loc);
+/*std::ostream& operator <<(std::ostream & out, const TemporalVector &loc);
 std::ostream& operator <<(std::ostream & out, const xytLoc &loc);
 std::ostream& operator <<(std::ostream & out, const xyLoc &loc);
-bool operator==(const xytLoc &l1, const xytLoc &l2);
-bool operator!=(const xyLoc &l1, const xyLoc &l2);
-bool operator==(const xyLoc &l1, const xyLoc &l2);
+std::ostream& operator <<(std::ostream & out, const tLoc &loc);
+*/
+static inline std::ostream& operator <<(std::ostream & out, const TemporalVector &loc) {
+  out << "(" << loc.x << ", " << loc.y << ": " << loc.t << ")";
+  return out;
+}
+
+static inline std::ostream& operator <<(std::ostream & out, const xytLoc &loc) {
+  loc.print(out);
+  return out;
+}
+
+static inline std::ostream& operator <<(std::ostream & out, const xyLoc &loc) {
+  loc.print(out);
+  return out;
+}
+
+static inline std::ostream& operator <<(std::ostream & out, const tLoc &loc) {
+  loc.print(out);
+  return out;
+}
+
+static inline std::ostream& operator <<(std::ostream & out, const xyzLoc &loc)
+{
+  loc.print(out);
+  return out;
+}
+
+static inline std::ostream& operator <<(std::ostream & out, const xyztLoc &loc)
+{
+  loc.print(out);
+  return out;
+}
+
 
 enum tDirection {
 	kN=0x8, kS=0x4, kE=0x2, kW=0x1, kNW=kN|kW, kNE=kN|kE,

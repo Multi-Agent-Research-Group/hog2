@@ -233,7 +233,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       env->GetSuccessors(start,successors);
       bool result(false);
       for(auto const& node: successors){
-        int ddiff(std::max(Util::distance(node.x,node.y,start.x,start.y),1.0)*INFLATION);
+        int ddiff(std::max(Util::distance(node,start),1.0)*INFLATION);
         //std::cout << std::string(std::max(0,(maxDepth-(depth-ddiff)))/INFLATION,' ') << "MDDEVAL " << start << "-->" << node << "\n";
         //if(abs(node.x-start.x)>=1 && abs(node.y-start.y)>=1){
         //ddiff = M_SQRT2;
@@ -508,12 +508,6 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       auto bp(p2.begin());
       auto b(bp+1);
       while(a!=p1.end() && b!=p2.end()){
-        Vector2D A((*ap)->n.x,(*ap)->n.y);
-        Vector2D B((*bp)->n.x,(*bp)->n.y);
-        Vector2D VA((*a)->n.x-(*ap)->n.x,(*a)->n.y-(*ap)->n.y);
-        VA.Normalize();
-        Vector2D VB((*b)->n.x-(*bp)->n.x,(*b)->n.y-(*bp)->n.y);
-        VB.Normalize();
         if(collisionCheck((*ap)->n,(*a)->n,(*bp)->n,(*b)->n,agentRadius)){
           if(loud)std::cout << "Collision: " << **ap << "-->" << **a << "," << **bp << "-->" << **b;
           return false;

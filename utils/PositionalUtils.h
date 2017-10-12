@@ -168,6 +168,8 @@ double linesIntersect(Vector2D const& A1, Vector2D const& A2, Vector2D const& B1
 bool intersectionPoint(Vector2D const& A1, Vector2D const& A2, Vector2D const& B1, Vector2D const& B2, Vector2D& out);
 // Assume "rounded" line with radius (thus the line width is 2*r)
 bool fatLinesIntersect(Vector2D const& A1, Vector2D const& A2, double r1, Vector2D const& B1, Vector2D const& B2, double r2);
+float closestDistanceBetweenLineSegments(Vector3D const& s1, Vector3D const& d1, Vector3D const& s2, Vector3D const& d2);
+bool fatLinesIntersect(Vector3D const& A1, Vector3D const& A2, double r1, Vector3D const& B1, Vector3D const& B2, double r2);
 
 };
 

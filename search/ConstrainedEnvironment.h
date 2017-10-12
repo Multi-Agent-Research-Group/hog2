@@ -104,6 +104,7 @@ class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
     virtual bool GetIgnoreTime()const{return false;}
     virtual void SetIgnoreHeading(bool i){}
     virtual bool GetIgnoreHeading()const{return false;}
+    virtual bool collisionCheck(const State &s1, const State &d1, float r1, const State &s2, const State &d2, float r2)=0;
 };
 
 // We initialize these here, but they can be changed at run-time

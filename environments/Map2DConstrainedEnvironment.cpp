@@ -78,7 +78,7 @@ void Map2DConstrainedEnvironment::GetSuccessors(const xytLoc &nodeID, std::vecto
   // TODO: remove illegal successors
   for (unsigned int x = 0; x < n.size(); x++)
   {
-    float inc(nodeID.sameLoc(n[x])?1.0:mapEnv->GetConnectedness()>5?(Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y)):1.0);
+    float inc(n[x].sameLoc(nodeID)?1.0:mapEnv->GetConnectedness()>5?(Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y)):1.0);
     xytLoc newLoc(n[x],
         (uint16_t)Util::heading<1024>(nodeID.x,nodeID.y,n[x].x,n[x].y), // hdg
         nodeID.t+inc);
