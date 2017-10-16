@@ -517,7 +517,7 @@ CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::CBSGroup(s
     ++agent;
   }
 
-  //astar.SetVerbose(verbose);
+  astar.SetVerbose(verbose);
 }
 
 

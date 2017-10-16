@@ -372,6 +372,7 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, int
   if(env->GoalTest(start,end)){
     Node n(start,(maxDepth-depth)/INFLATION);
     uint64_t hash(n.Hash());
+      std::cout << n<<"\n";
     dag[hash]=n;
     // This may happen if the agent starts at the goal
     if(maxDepth-depth<=0){
@@ -385,6 +386,7 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, int
       // Wait at goal
       Node current(start,(d+=INFLATION)/INFLATION);
       uint64_t chash(current.Hash());
+      std::cout << current<<"\n";
       dag[chash]=current;
       if(verbose)std::cout << "inserting " << dag[chash] << " " << &dag[chash] << "under " << *parent << "\n";
       parent->successors.insert(&dag[chash]);
@@ -413,6 +415,7 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, int
       Node n(start,(maxDepth-depth)/INFLATION);
       uint64_t hash(n.Hash());
       if(dag.find(hash)==dag.end()){
+        std::cout << n<<"\n";
         dag[hash]=n;
         // This is the root if depth=0
         if(maxDepth-depth<=0){
@@ -1184,6 +1187,10 @@ int main(int argc, char ** argv){
       break;
   }
 
+  if(true){
+    waypoints.push_back({{10,10},{14,14}});
+  }
+
   heuristics.resize(waypoints.size());
   if(mapfile.empty()){
     for(int i(0); i<heuristics.size(); ++i){
@@ -1193,6 +1200,23 @@ int main(int argc, char ** argv){
     for(int i(0); i<heuristics.size(); ++i){
       heuristics[i] = new MapPerfectHeuristic<xyLoc,tDirection>(smap,env);
     }
+  }
+
+  if(true){
+    xyLoc f(10,10);
+    xyLoc w(14,14);
+    MultiState rt(1);
+    for(float i(0);i<11;++i){
+    DAG dg;
+      //std::cout << f << " " << w << std::endl;
+      float bst(9999999);
+      int hc(env->HCost(f,w)*INFLATION);
+      GetMDD(0,0,f,w,dg,rt,(hc+INFLATION*i/5.),bst);
+      std::cout<<"\n";
+      for(auto const& d:dg){std::cout << d.second<<"\n";}
+      std::cout << i/5. << " " << dg.size() << std::endl;
+    }
+    exit(0);
   }
 
   TemplateAStar<xyLoc,tDirection,SearchEnvironment<xyLoc,tDirection>> astar;
