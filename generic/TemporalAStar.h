@@ -469,6 +469,7 @@ if(this->nodesExpanded>1000 && this->noncritical){
 		switch (neighborLoc[x])
 		{
 			case kClosedList:
+                                if(verbose)std::cout << "Closed\n";
 				//edgeCost = env->GCost(openClosedList.Lookup(nodeid).data, neighbors[x]);
 //				std::cout << "Already closed\n";
 				if (useBPMX) // propagate parent to child - do this before potentially re-opening
@@ -504,7 +505,7 @@ if(this->nodesExpanded>1000 && this->noncritical){
 					// meta information is also copied, since this is the most generic A* implementation
 					openClosedList.Lookup(neighborID[x]).data = neighbors[x];
 					openClosedList.KeyChanged(neighborID[x]);
-//					std::cout << " Reducing cost to " << openClosedList.Lookup(nodeid).g+edgeCosts[x] << "\n";
+					if(verbose)std::cout << " Reducing cost to " << openClosedList.Lookup(nodeid).g+edgeCosts[x] << "\n";
 					// TODO: unify the KeyChanged calls.
 				}
 				else {

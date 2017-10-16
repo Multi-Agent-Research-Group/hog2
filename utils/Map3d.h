@@ -67,12 +67,13 @@ class Map3D : public MapInterface{
 
   inline bool InMap(unsigned x, unsigned y, unsigned z)const{ return x<width&&y<height&&z<depth;} // Relies on unsigned params to check <0
 
+  void doNormal(float x1, float y1, float z1,float x2, float y2, float z2,float x3, float y3, float z3) const;
   void OpenGLDraw() const;
   void setColor(int x, int y) const;
-  bool GetOpenGLCoord(int _x, int _y, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const{assert(!"not implemented");}
-  bool GetOpenGLCoord(float _x, float _y, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const{assert(!"not implemented");}
   bool GetOpenGLCoord(int _x, int _y, int _z, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const{return GetOpenGLCoord((float)_x,(float)_y,(float)_z,x,y,z,radius);}
   bool GetOpenGLCoord(float _x, float _y, float _z, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const;
+  bool GetOpenGLCoord(int _x, int _y, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const{return GetOpenGLCoord(_x,_y,0,x,y,z,radius);}
+  bool GetOpenGLCoord(float _x, float _y, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const{return GetOpenGLCoord(_x,_y,0.0f,x,y,z,radius);}
   bool LineOfSight2D(int x, int y, int _x, int _y, AgentType agentType) const;
   bool LineOfSight(int x, int y, int z, int _x, int _y, int _z) const;
   void SetGrid(int x, int y, uint8_t elevation, tTerrain terrain){type[x][y]=terrain;elev[x][y]=std::min(maxDepth,elevation);}
@@ -85,9 +86,17 @@ class Map3D : public MapInterface{
   }
   bool IsTraversable(unsigned x, unsigned y, unsigned z, AgentType atype)const{
     if(!InMap(x,y,z))return false;
-    if(atype==surface&&type[x][y]!=kWater)return false;
-    if(atype==ground&&type[x][y]!=kGround)return false;
-    return elev[x][y]<=z;
+    switch(atype){
+      case surface:
+        return type[x][y]==kWater && elev[x][y]<=z;
+        break;
+      case ground:
+        return type[x][y]==kGround && elev[x][y]<=z;
+        break;
+      default:
+        return elev[x][y]<z;
+        break;
+    }
   }
   bool HasObstacle(unsigned x, unsigned y, unsigned z)const{return !IsTraversable(x,y,z,air);}
   inline tTerrain GetTerrain(int x, int y)const{return type[x][y];}

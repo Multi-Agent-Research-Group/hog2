@@ -117,6 +117,7 @@ public:
 	environment *GetEnvironment() { return env; }
 		
 	void StepTime(double);
+	void StepTime2(double);
 	double GetSimulationTime() const { return currTime; }
 	double GetTimeToNextStep() const;
 	void SetStepType(tTimestep step) { stepType = step; }
@@ -145,10 +146,13 @@ public:
 
 protected:
 	void StepUnitTime(UnitInfo<state, action, environment> *ui, double timeStep);
+	void StepUnitTime2(UnitInfo<state, action, environment> *ui, double timeStep);
 	bool MakeUnitMove(UnitInfo<state, action, environment> *theUnit, action where, double &moveCost);
+	bool MakeUnitMove(UnitInfo<state, action, environment> *theUnit, state where, double &moveCost);
 
 	virtual void DoPreTimestepCalc();
 	virtual void DoTimestepCalc(double amount);
+	virtual void DoTimestepCalc2(double amount);
 	virtual void DoPostTimestepCalc();
 	
 	double penalty;
@@ -331,6 +335,25 @@ double UnitSimulation<state,action,environment>::GetTimeToNextStep() const {
 
 
 template<class state, class action, class environment>
+void UnitSimulation<state, action, environment>::StepTime2(double timeStep)
+{
+	//std::cout<<"StepTime\n";
+	if (paused)
+	{
+		return;
+	}
+	DoPreTimestepCalc();
+	if (logStats)
+		stats.AddStat("simulationTime", "UnitSimulation", currTime);
+	currTime += timeStep;
+	DoTimestepCalc2(timeStep);
+	DoPostTimestepCalc();
+	
+	//std::cout<<"currTime "<<currTime<<std::endl;
+	//if (Done()) std::cout<<"DONE!!!\n";
+}
+
+template<class state, class action, class environment>
 void UnitSimulation<state, action, environment>::StepTime(double timeStep)
 {
 	//std::cout<<"StepTime\n";
@@ -352,6 +375,22 @@ void UnitSimulation<state, action, environment>::StepTime(double timeStep)
 template<class state, class action, class environment>
 void UnitSimulation<state, action, environment>::DoPreTimestepCalc()
 {
+}
+
+template<class state, class action, class environment>
+void UnitSimulation<state, action, environment>::DoTimestepCalc2(double timeStep)
+{
+	for (unsigned int x = 0; x < units.size(); x++)
+	{
+		currentActor = x;
+		StepUnitTime2(units[x], timeStep);
+		
+		if (stepType == kRealTime)
+		{
+			while (currTime > units[x]->nextTime)
+				StepUnitTime2(units[x], 0);
+		}
+	}
 }
 
 template<class state, class action, class environment>
@@ -382,6 +421,70 @@ void UnitSimulation<state, action, environment>::DoPostTimestepCalc()
  * single unit, doing timing, etc. When overloading advanceTime, this
  * function can be called for each unit that moves.
  */
+template<class state, class action, class environment>
+void UnitSimulation<state, action, environment>::StepUnitTime2(UnitInfo<state, action, environment> *theUnit, double timeStep)
+{
+	if (currTime < theUnit->nextTime) return;
+
+	double moveThinking=0, locThinking=0, moveTime=0;
+	state where;
+	Timer t;
+	Unit<state, action, environment>* u = theUnit->agent;
+	
+	t.StartTimer();
+	// need to do if/then check - makemove ok or not? need to stay where you are? 
+	if (u->GetUnitGroup()->MakeMove(u, env, this, where))
+	{
+		moveThinking = t.EndTimer();
+		theUnit->totalThinking += moveThinking;
+		//theUnit->lastMove = where;
+		theUnit->lastTime = theUnit->nextTime;
+		theUnit->lastState = theUnit->currentState;
+		if (logStats)
+			stats.SumStat("MakeMoveThinkingTime", u->GetName(), moveThinking);
+	
+		bool success = MakeUnitMove(theUnit, where, moveTime);
+		//printf("Updating last state\n");
+		
+		t.StartTimer();
+		u->GetUnitGroup()->UpdateLocation(theUnit->agent, env, theUnit->currentState, success, this);
+		locThinking = t.EndTimer();
+		theUnit->totalThinking += locThinking;
+		if (logStats)
+			stats.SumStat("UpdateLocationThinkingTime", u->GetName(), locThinking);
+
+		switch (stepType)
+		{
+			case kLockStep:
+				theUnit->nextTime = currTime + timeStep;
+				break;
+			case kUniTime:
+				theUnit->nextTime = currTime + 1.;
+				break;
+			case kRealTime:
+				//printf("Incrementing time from %f to %f\n", theUnit->nextTime, theUnit->nextTime+moveTime);
+				theUnit->nextTime += (locThinking+moveThinking)*penalty + moveTime;
+				break;
+			case kMinTime:
+				theUnit->nextTime += max((locThinking+moveThinking)*penalty + moveTime,	 timeStep);
+			break;
+		}
+		//u->GetUnitGroup()->LogStats(&stats);
+		u->LogStats(&stats);
+	}
+	else // stay where you are
+	{
+		theUnit->lastTime = theUnit->nextTime;
+		theUnit->lastState = theUnit->currentState;
+		
+		if ( stepType == kUniTime )
+			theUnit->nextTime = currTime + 1.;
+		else
+			theUnit->nextTime += theUnit->agent->GetSpeed();
+		theUnit->agent->GetUnitGroup()->UpdateLocation(theUnit->agent, env, theUnit->currentState, true, this);	
+	}
+
+}
 template<class state, class action, class environment>
 void UnitSimulation<state, action, environment>::StepUnitTime(UnitInfo<state, action, environment> *theUnit, double timeStep)
 {
@@ -445,6 +548,56 @@ void UnitSimulation<state, action, environment>::StepUnitTime(UnitInfo<state, ac
 		theUnit->agent->GetUnitGroup()->UpdateLocation(theUnit->agent, env, theUnit->currentState, true, this);	
 	}
 
+}
+
+template<class state, class action, class environment>
+bool UnitSimulation<state, action, environment>::MakeUnitMove(UnitInfo<state, action, environment> *theUnit, state where, double &moveCost)
+{
+	bool success = false;
+	moveCost = 0;
+	state oldState = theUnit->currentState;
+        state goal;
+        theUnit->agent->GetGoal(goal);
+        env->setGoal(goal);
+        theUnit->currentState=where;
+	OccupancyInterface<state, action> *envInfo = env->GetOccupancyInfo();
+	
+	// TODO: Perhaps we need a legal action test here to handle the
+	//       cases where we can't generate all possible actions.
+	bool legal = true;
+//	std::vector<action> succ;
+//	env->GetActions(oldState, succ);
+//	for (unsigned int x = 0; x < succ.size(); x++)
+//	{
+//		if (succ[x] == where)
+//		{
+//			legal = true;
+//			break;
+//		}
+//	}
+	
+	if (legal && 
+		(!envInfo || (envInfo && envInfo->CanMove(oldState, theUnit->currentState))))
+	{	
+		success = true;
+		moveCost = env->GCost(oldState, theUnit->currentState)*theUnit->agent->GetSpeed();
+		theUnit->totalDistance += env->GCost(oldState, theUnit->currentState);
+		
+		if (envInfo)
+		{
+			envInfo->MoveUnitOccupancy(oldState, theUnit->currentState);
+		}
+	}
+	else {
+//		if (!envInfo)
+//			success = true;
+//		else
+		success = false;
+			
+		theUnit->currentState = oldState;
+	}
+	
+	return success;
 }
 
 template<class state, class action, class environment>

@@ -436,5 +436,15 @@ TEST(SecantLine, NoIntersectionInside){
   ASSERT_DOUBLE_EQ(6.0,d.second.y);
 }
 
+TEST(Grid3DConstrained, GetStateHash){
+  xyztLoc a={103,41,0,6.24264};
+  xyztLoc b={103,43,0,6.24264};
+  Map3D map(99,99,99);
+  Grid3DConstrainedEnvironment e(&map);
+  e.SetIgnoreHeading(true);
+  uint64_t ha(e.GetStateHash(a));
+  uint64_t hb(e.GetStateHash(b));
+  ASSERT_NE(ha,hb);
+}
 
 #endif

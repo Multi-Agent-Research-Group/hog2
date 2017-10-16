@@ -206,7 +206,7 @@ uint64_t Grid3DConstrainedEnvironment::GetStateHash(const xyztLoc &node) const
     h1 |= node.y;
     h1 <<= 11;
     h1 |= node.z;
-    h1 <<= 10;
+    h1 <<= 32;
     h1 |= (*(uint32_t*)&node.t);
     return h1;
   }
@@ -285,14 +285,14 @@ void Grid3DConstrainedEnvironment::GLDrawLine(const xyztLoc &x, const xyztLoc &y
 {
 	GLdouble xx, yy, zz, rad;
 	Map3D *map = mapEnv->GetMap();
-	map->GetOpenGLCoord(x.x, x.y, xx, yy, zz, rad);
+	map->GetOpenGLCoord(x.x, x.y, x.z, xx, yy, zz, rad);
 	
 	GLfloat r, g, b, t;
 	GetColor(r, g, b, t);
 	glColor4f(r, g, b, t);
 	glBegin(GL_LINES);
 	glVertex3f(xx, yy, zz);
-	map->GetOpenGLCoord(y.x, y.y, xx, yy, zz, rad);
+	map->GetOpenGLCoord(y.x, y.y, y.z, xx, yy, zz, rad);
 	glVertex3f(xx, yy, zz);
 	glEnd();
 }
@@ -301,6 +301,7 @@ void Grid3DConstrainedEnvironment::GLDrawPath(const std::vector<xyztLoc> &p, con
 {
         if(p.size()<2) return;
         int wpt(0);
+        glLineWidth(3.0);
         //TODO Draw waypoints as cubes.
         for(auto a(p.begin()+1); a!=p.end(); ++a){
           GLDrawLine(*(a-1),*a);

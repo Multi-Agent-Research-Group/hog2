@@ -71,6 +71,7 @@ public:
 	
 	void GetPath(environment *, const state& , const state& , std::vector<action> & ) { assert(false); };
 	
+        AStarOpenClosed<state, PEAStarCompare<state> >* GetOpenList(){return &openClosedList;}
 	AStarOpenClosed<state, PEAStarCompare<state> > openClosedList;
 	//BucketOpenClosed<state, PEAStarCompare<state> > openClosedList;
 	state goal, start;

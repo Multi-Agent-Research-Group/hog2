@@ -23,6 +23,7 @@
 #include <cstdlib>
 #include <cstring>
 #include "dtedreader.h"
+#include "Vector3D.h"
 
 
 using namespace std;
@@ -33,7 +34,7 @@ using namespace std;
 * A map is an array of tiles according to the height and width of the map.
 */
 Map3D::Map3D(long _width, long _height, long _depth)
-:width(_width), height(_height), depth(_depth)
+:width(_width), height(_height), depth(_depth), dList(0)
 {
   elev = new uint8_t *[width];
   for (int x = 0; x < width; x++){
@@ -58,12 +59,13 @@ Map3D::Map3D(long _width, long _height, long _depth)
 */
 Map3D::Map3D(Map3D *m)
 {
+  dList=m->dList;
   width = m->width;
   height = m->height;
   depth = m->depth;
   maxDepth=m->maxDepth;
-  memcpy(elev,m->elev,sizeof(elev));
-  memcpy(type,m->type,sizeof(type));
+  memcpy(elev,m->elev,sizeof(uint8_t)*width*height);
+  memcpy(type,m->type,sizeof(tTerrain)*width*height);
   
 }
 
@@ -72,7 +74,7 @@ Map3D::Map3D(Map3D *m)
 *
 * Creates a new map and initializes it with the file passed to it.
 */
-Map3D::Map3D(const char *filename, const char *dtedfile, unsigned md):maxDepth(md),depth(md){
+Map3D::Map3D(const char *filename, const char *dtedfile, unsigned md):maxDepth(md),depth(md),dList(0){
 	Load(filename,dtedfile);
 }
 
@@ -119,9 +121,9 @@ void Map3D::loadOctile(FILE *f, float** elevation){
   for (int x = 0; x < width; x++)
     type[x] = new tTerrain [height];
 
-  for (int x = 0; x < width; x++)
+  for (int y = 0; y < height; y++)
   {
-    for (int y = 0; y < height; y++)
+    for (int x = 0; x < width; x++)
     {
       char what;
       fscanf(f, "%c", &what);
@@ -129,7 +131,7 @@ void Map3D::loadOctile(FILE *f, float** elevation){
       {
         case '@':
         case 'O': // Out of bounds/obstructed
-          elev[x][y]=0;
+          elev[x][y]=elevation[x][y];
           type[x][y]=kOutOfBounds;
           break;
         case 'L': // Water; above sea level
@@ -145,12 +147,16 @@ void Map3D::loadOctile(FILE *f, float** elevation){
           elev[x][y]=elevation[x][y];
           type[x][y]=kGround;
           break;
+        case '\n':
+        case '\r':
+        break;
         default:
           elev[x][y]=0;
           type[x][y]=kGround;
           break;
       }
     }
+    fscanf(f, "\n");
   }
 }
 
@@ -168,7 +174,7 @@ void Map3D::setColor(int x, int y) const{
       glColor3f(0, 0, 0);
       break;
     case kGround:
-      glColor3f(0.9, 0.5, 0.5);
+      glColor3f(0.6, 0.4, 0.3);
       break;
     case kWater:
       glColor3f(0.0, 0.1, 0.9);
@@ -179,6 +185,15 @@ void Map3D::setColor(int x, int y) const{
   }
 }
 
+void Map3D::doNormal(float x1, float y1, float z1,float x2, float y2, float z2,float x3, float y3, float z3)const{
+  Vector3D p1(x1,y1,z1);
+  Vector3D p2(x2,y2,z2);
+  Vector3D p3(x3,y3,z3);
+  Vector3D U=p2-p1;
+  Vector3D V=p3-p1;
+  glNormal3f(U.y*V.z - U.z*V.y, U.z*V.x - U.x*V.z, U.x*V.y - U.y*V.x);
+}
+
 void Map3D::OpenGLDraw() const
 {
   if(dList){
@@ -186,35 +201,63 @@ void Map3D::OpenGLDraw() const
   }else{
     dList = glGenLists(1);
     glNewList(dList, GL_COMPILE_AND_EXECUTE);
+    glEnable(GL_LIGHTING);
+    glEnable(GL_LIGHT0);
+    glEnable(GL_NORMALIZE);
+    float ambientColour[4] = {0.2f, 0.2f, 0.2f, 1.0f};
+    float diffuseColour[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+    float specularColour[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+
+    glLightfv(GL_LIGHT0, GL_AMBIENT, ambientColour);
+    glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuseColour);
+    glLightfv(GL_LIGHT0, GL_DIFFUSE, specularColour);
+
+    float position[4] = {0.0f, 0.0f, -2.0f, 0.0f};
+    glLightfv(GL_LIGHT0, GL_POSITION, position);
+
     GLdouble xx, yy, zz, rr;
-    glBegin(GL_QUADS);
+    glBegin(GL_TRIANGLES);
     glColor3f(0.5, 0.5, 0.5);
     for(int y = 0; y < height; y++)
     {
-
-      GetOpenGLCoord(0, y, elev[0][y], xx, yy, zz, rr);
       setColor(0, y);
-      glVertex3f(xx-rr, yy-rr, zz);
-      glVertex3f(xx-rr, yy+rr, zz);
+      GetOpenGLCoord(0, y, elev[0][y], xx, yy, zz, rr);
+      doNormal(xx-rr, yy-rr, 0,xx-rr, yy+rr, 0,xx+rr, yy-rr, 0);
+      glVertex3f(xx-rr, yy-rr, 0);
+      glVertex3f(xx-rr, yy+rr, 0);
+      glVertex3f(xx+rr, yy-rr, y?elev[0][y-1]*-rr:0.0f);
+
+      doNormal(xx+rr, yy-rr, 0,xx+rr, yy+rr, elev[0][y]*-rr,xx-rr, yy+rr, 0);
+      glVertex3f(xx+rr, yy-rr, y?elev[0][y-1]*-rr:0.0f);
+      glVertex3f(xx+rr, yy+rr, elev[0][y]*-rr);
+      glVertex3f(xx-rr, yy+rr, 0);
+
       for(int x = 1; x < width; x++)
       {
-        if(type[x][y] != type[x-1][y])
-        {
-          setColor(x-1, y);
-          GetOpenGLCoord(x, y, elev[x][y], xx, yy, zz, rr);
-          glVertex3f(xx-rr, yy+rr, zz);
-          glVertex3f(xx-rr, yy-rr, zz);
+        setColor(x, y);
+        GetOpenGLCoord(x, y, elev[x][y], xx, yy, zz, rr);
+        doNormal(xx-rr, yy-rr, elev[x-1][y-1]*-rr, xx-rr, yy+rr, elev[x-1][y]*-rr, xx+rr, yy-rr, elev[x][y-1]*-rr);
+        glVertex3f(xx-rr, yy-rr, elev[x-1][y-1]*-rr);
+        glVertex3f(xx-rr, yy+rr, elev[x-1][y]*-rr);
+        glVertex3f(xx+rr, yy-rr, elev[x][y-1]*-rr);
 
-          setColor(x, y);
-          GetOpenGLCoord(x, y, elev[x][y], xx, yy, zz, rr);
-          glVertex3f(xx-rr, yy-rr, zz);
-          glVertex3f(xx-rr, yy+rr, zz);
-        }
+        GetOpenGLCoord(x, y, elev[x][y], xx, yy, zz, rr);
+        doNormal(xx+rr, yy-rr, elev[x][y-1]*-rr, xx+rr, yy+rr, elev[x][y]*-rr, xx-rr, yy+rr, elev[x-1][y]*-rr);
+        glVertex3f(xx+rr, yy-rr, elev[x][y-1]*-rr);
+        glVertex3f(xx+rr, yy+rr, elev[x][y]*-rr);
+        glVertex3f(xx-rr, yy+rr, elev[x-1][y]*-rr);
       }
       setColor(width-1, y);
       GetOpenGLCoord(width-1, y, elev[width-1][y], xx, yy, zz, rr);
-      glVertex3f(xx+rr, yy+rr, zz);
-      glVertex3f(xx+rr, yy-rr, zz);
+      doNormal(xx-rr, yy-rr, elev[width-1][y]*-rr, xx-rr, yy+rr, 0, xx+rr, yy-rr, 0);
+      glVertex3f(xx-rr, yy-rr, elev[width-1][y]*-rr);
+      glVertex3f(xx-rr, yy+rr, y<height-1?elev[width-1][y+1]*-rr:0.0f);
+      glVertex3f(xx+rr, yy-rr, 0);
+
+      doNormal(xx+rr, yy-rr, 0, xx+rr, yy+rr, 0, xx-rr, yy+rr, 0);
+      glVertex3f(xx+rr, yy-rr, 0);
+      glVertex3f(xx+rr, yy+rr, 0);
+      glVertex3f(xx-rr, yy+rr, y<height-1?elev[width-1][y+1]*-rr:0.0f);
     }
     glEnd();
     glEndList();
@@ -235,7 +278,7 @@ bool Map3D::GetOpenGLCoord(float _x, float _y, float _z, GLdouble &x, GLdouble &
   double _scale(1.0/std::max(std::max(height,width),depth));
   x = (2*_x-width)*_scale;
   y = (2*_y-height)*_scale;
-  z = (2*_z-depth)*_scale;
+  z = _z*-_scale; // Negative because minus approaches the camera
   radius=_scale;
   return true;
 }

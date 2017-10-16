@@ -287,52 +287,51 @@ void MyComputationHandler()
 {
 	while (true)
 	{
-		sim->StepTime(stepsPerFrame);
+		sim->StepTime2(stepsPerFrame);
 	}
 }
 
 //std::vector<t3DDirection> acts;
 void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 {
-
-	if (ace){
-        for(auto u : group->GetMembers()){
-            glLineWidth(2.0);
-            GLfloat r, g, b;
-            u->GetColor(r, g, b);
-            ace->SetColor(r,g,b);
-            ace->GLDrawPath(((MACBSUnit const*)u)->GetPath(),((MACBSUnit const*)u)->GetWaypoints());
-        }
+  if (ace){
+    for(auto u : group->GetMembers()){
+      glLineWidth(2.0);
+      GLfloat r, g, b;
+      u->GetColor(r, g, b);
+      ace->SetColor(r,g,b);
+      ace->GLDrawPath(((MACBSUnit const*)u)->GetPath(),((MACBSUnit const*)u)->GetWaypoints());
     }
+  }
 
   //static double ptime[500];
   //memset(ptime,0,500*sizeof(double));
-        if (sim){
-          sim->OpenGLDraw();
-          if (!paused) {
-            sim->StepTime(stepsPerFrame);
+  if (sim){
+    sim->OpenGLDraw();
+    if (!paused) {
+      sim->StepTime2(stepsPerFrame);
 
-            /*std::cout << "Printing locations at time: " << sim->GetSimulationTime() << std::endl;
-              for (int x = 0; x < group->GetNumMembers(); x ++) {
-              MACBSUnit* c((MACBSUnit*)group->GetMember(x));
-              xytLoc cur;
-              c->GetLocation(cur);
-            //if(!fequal(ptime[x],sim->GetSimulationTime())
-            std::cout << "\t" << x << ":" << cur << std::endl;
-            }*/
-          }
-        }
+      /*std::cout << "Printing locations at time: " << sim->GetSimulationTime() << std::endl;
+        for (int x = 0; x < group->GetNumMembers(); x ++) {
+        MACBSUnit* c((MACBSUnit*)group->GetMember(x));
+        xytLoc cur;
+        c->GetLocation(cur);
+      //if(!fequal(ptime[x],sim->GetSimulationTime())
+      std::cout << "\t" << x << ":" << cur << std::endl;
+      }*/
+    }
+  }
 
 
-	if (recording)
-	{
-		static int index = 0;
-		char fname[255];
-		sprintf(fname, "movies/cbs-%05d", index);
-		SaveScreenshot(windowID, fname);
-		printf("Saving '%s'\n", fname);
-		index++;
-	}
+  if (recording)
+  {
+    static int index = 0;
+    char fname[255];
+    sprintf(fname, "movies/cbs-%05d", index);
+    SaveScreenshot(windowID, fname);
+    printf("Saving '%s'\n", fname);
+    index++;
+  }
 }
 
 int MyCLHandler(char *argument[], int maxNumArgs)
@@ -408,8 +407,8 @@ int MyCLHandler(char *argument[], int maxNumArgs)
                 ey=rand()%map->GetMapHeight();
               }
             }
-            uint16_t sz(a[0].agentType=='A'?rand()%map->GetMapDepth():0);
-            uint16_t ez(a[0].agentType=='A'?rand()%map->GetMapDepth():0);
+            uint16_t sz(a[0].agentType=='A'?rand()%(map->GetMapDepth()-1)+1:0);
+            uint16_t ez(a[0].agentType=='A'?rand()%(map->GetMapDepth()-1)+1:0);
             while(true){
               bool bad(false);
               for(auto const& w:waypoints){
@@ -424,8 +423,8 @@ int MyCLHandler(char *argument[], int maxNumArgs)
               sy=e.GetStartY();
               ex=e.GetGoalX();
               ey=e.GetGoalY();
-              sz=(a[0].agentType=='A'?rand()%map->GetMapDepth():0);
-              ez=(a[0].agentType=='A'?rand()%map->GetMapDepth():0);
+              sz=a[0].agentType=='A'?rand()%(map->GetMapDepth()-1)+1:0;
+              ez=a[0].agentType=='A'?rand()%(map->GetMapDepth()-1)+1:0;
               if(a[0].agentType=='S'){
                 while(map->GetTerrain(sx,sy)!=Map3D::kWater){
                   sx=rand()%map->GetMapWidth();
@@ -447,37 +446,37 @@ int MyCLHandler(char *argument[], int maxNumArgs)
               Grid3DConstrainedEnvironment* newEnv(nullptr);
               if(e.name=="fourconnected"){
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetZeroConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
-                newEnv = new Grid3DConstrainedEnvironment(me);
+                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
               }else if(e.name=="fiveconnected"){
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetZeroConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
-                newEnv = new Grid3DConstrainedEnvironment(me);
+                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
               }else if(e.name=="eightconnected"){
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetOneConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
-                newEnv = new Grid3DConstrainedEnvironment(me);
+                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
               }else if(e.name=="nineconnected"){
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetOneConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
-                newEnv = new Grid3DConstrainedEnvironment(me);
+                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
               }else if(e.name=="twentyfourconnected"){
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetTwoConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
-                newEnv = new Grid3DConstrainedEnvironment(me);
+                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
               }else if(e.name=="twentyfiveconnected"){
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetTwoConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
-                newEnv = new Grid3DConstrainedEnvironment(me);
+                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
               }else if(e.name=="fortyeightconnected"){
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetThreeConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
-                newEnv = new Grid3DConstrainedEnvironment(me);
+                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
               }else if(e.name=="fortynineconnected"){
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetThreeConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
-                newEnv = new Grid3DConstrainedEnvironment(me);
+                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
               }else if(e.name=="3dcardinal"){
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetZeroConnected(); me->SetAir();
-                newEnv = new Grid3DConstrainedEnvironment(me);
+                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
               }else if(e.name=="3done"){
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetOneConnected(); me->SetAir();
-                newEnv = new Grid3DConstrainedEnvironment(me);
+                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
               }else if(e.name=="3dtwo"){
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetTwoConnected(); me->SetAir();
-                newEnv = new Grid3DConstrainedEnvironment(me);
+                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
               }else{
                 std::cout << "Unknown environment " << e.name << "\n";
                 assert(!"Unknown environment encountered");
@@ -503,66 +502,125 @@ int MyCLHandler(char *argument[], int maxNumArgs)
           mapfile.insert(0,pathprefix); // Add prefix
           Map3D* map=new Map3D(mapfile.c_str(),dtedfile.c_str());
           Grid3DConstrainedEnvironment* newEnv(nullptr);
-          // All agents have the same environments based on the cutoffs parameter
-          for(int i(0); i<num_agents; ++i){
-            std::vector<EnvironmentContainer<xyztLoc,t3DDirection>> ev;
-            {
-              Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetZeroConnected();
-              me->SetGround();
-              newEnv = new Grid3DConstrainedEnvironment(me);
-              ev.emplace_back("fourconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[0],weights[0]);
-            }{
-              Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetZeroConnected(); me->SetWaitAllowed();
-              me->SetGround();
-              newEnv = new Grid3DConstrainedEnvironment(me);
-              ev.emplace_back("fiveconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[1],weights[1]);
-            }{
-              Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetOneConnected();
-              me->SetGround();
-              newEnv = new Grid3DConstrainedEnvironment(me);
-              ev.emplace_back("eightconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[2],weights[2]);
-            }{
-              Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetOneConnected(); me->SetWaitAllowed();
-              me->SetGround();
-              newEnv = new Grid3DConstrainedEnvironment(me);
-              ev.emplace_back("nineconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[3],weights[3]);
-            }{
-              Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetTwoConnected();
-              me->SetGround();
-              newEnv = new Grid3DConstrainedEnvironment(me);
-              ev.emplace_back("twentyfourconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[4],weights[4]);
-            }{
-              Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetTwoConnected(); me->SetWaitAllowed();
-              me->SetGround();
-              newEnv = new Grid3DConstrainedEnvironment(me);
-              ev.emplace_back("twentyfiveconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[5],weights[5]);
-            }{
-              Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetThreeConnected();
-              me->SetGround();
-              newEnv = new Grid3DConstrainedEnvironment(me);
-              ev.emplace_back("fortyeightconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[6],weights[6]);
-            }{
-              Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetThreeConnected(); me->SetWaitAllowed();
-              me->SetGround();
-              newEnv = new Grid3DConstrainedEnvironment(me);
-              ev.emplace_back("fortynineconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[7],weights[7]);
-            }{
-              Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetZeroConnected();
-              me->SetAir();
-              newEnv = new Grid3DConstrainedEnvironment(me);
-              ev.emplace_back("3dcardinal",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[7],weights[7]);
-            }{
-              Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetOneConnected();
-              me->SetAir();
-              newEnv = new Grid3DConstrainedEnvironment(me);
-              ev.emplace_back("3done",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[7],weights[7]);
-            }{
-              Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetTwoConnected();
-              me->SetAir();
-              newEnv = new Grid3DConstrainedEnvironment(me);
-              ev.emplace_back("3dtwo",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[7],weights[7]);
+          if(envdata.size()){
+            int agent(0);
+            for(auto a: envdata){
+              // Add environments
+              std::vector<EnvironmentContainer<xyztLoc,t3DDirection>> ev;
+              for(auto e: a){
+                Grid3DConstrainedEnvironment* newEnv(nullptr);
+                if(e.name=="fourconnected"){
+                  Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetZeroConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
+                  newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+                }else if(e.name=="fiveconnected"){
+                  Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetZeroConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
+                  newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+                }else if(e.name=="eightconnected"){
+                  Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetOneConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
+                  newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+                }else if(e.name=="nineconnected"){
+                  Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetOneConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
+                  newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+                }else if(e.name=="twentyfourconnected"){
+                  Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetTwoConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
+                  newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+                }else if(e.name=="twentyfiveconnected"){
+                  Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetTwoConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
+                  newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+                }else if(e.name=="fortyeightconnected"){
+                  Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetThreeConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
+                  newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+                }else if(e.name=="fortynineconnected"){
+                  Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetThreeConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
+                  newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+                }else if(e.name=="3dcardinal"){
+                  Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetZeroConnected(); me->SetAir();
+                  newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+                }else if(e.name=="3done"){
+                  Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetOneConnected(); me->SetAir();
+                  newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+                }else if(e.name=="3dtwo"){
+                  Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetTwoConnected(); me->SetAir();
+                  newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+                }else{
+                  std::cout << "Unknown environment " << e.name << "\n";
+                  assert(!"Unknown environment encountered");
+                }
+                if(waypoints.size()>agent){
+                  if(!map->IsTraversable(waypoints[agent][0].x,waypoints[agent][0].y,waypoints[agent][0].z,newEnv->GetMapEnv()->agentType)){
+                    std::cout << "ERROR : start location for agent "<<agent<<"("<<e.agentType<<") is not traversable\n";assert(false);
+                  }
+                  if(!map->IsTraversable(waypoints[agent][1].x,waypoints[agent][1].y,waypoints[agent][1].z,newEnv->GetMapEnv()->agentType)){
+                    std::cout << "ERROR : goal location for agent "<<agent<<"("<<e.agentType<<") is not traversable\n";assert(false);
+                  }
+                }
+                ev.emplace_back(e.name,newEnv,new Map3dPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),e.threshold,e.weight);
+              }
+              environs.push_back(ev);
+              agent++;
             }
-            environs.push_back(ev);
+          }else{
+            // All agents have the same environments based on the cutoffs parameter
+            for(int i(0); i<num_agents; ++i){
+              std::vector<EnvironmentContainer<xyztLoc,t3DDirection>> ev;
+              {
+                Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetZeroConnected();
+                me->SetGround();
+                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+                ev.emplace_back("fourconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[0],weights[0]);
+              }{
+                Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetZeroConnected(); me->SetWaitAllowed();
+                me->SetGround();
+                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+                ev.emplace_back("fiveconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[1],weights[1]);
+              }{
+                Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetOneConnected();
+                me->SetGround();
+                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+                ev.emplace_back("eightconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[2],weights[2]);
+              }{
+                Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetOneConnected(); me->SetWaitAllowed();
+                me->SetGround();
+                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+                ev.emplace_back("nineconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[3],weights[3]);
+              }{
+                Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetTwoConnected();
+                me->SetGround();
+                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+                ev.emplace_back("twentyfourconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[4],weights[4]);
+              }{
+                Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetTwoConnected(); me->SetWaitAllowed();
+                me->SetGround();
+                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+                ev.emplace_back("twentyfiveconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[5],weights[5]);
+              }{
+                Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetThreeConnected();
+                me->SetGround();
+                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+                ev.emplace_back("fortyeightconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[6],weights[6]);
+              }{
+                Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetThreeConnected(); me->SetWaitAllowed();
+                me->SetGround();
+                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+                ev.emplace_back("fortynineconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[7],weights[7]);
+              }{
+                Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetZeroConnected();
+                me->SetAir();
+                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+                ev.emplace_back("3dcardinal",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[7],weights[7]);
+              }{
+                Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetOneConnected();
+                me->SetAir();
+                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+                ev.emplace_back("3done",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[7],weights[7]);
+              }{
+                Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetTwoConnected();
+                me->SetAir();
+                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+                ev.emplace_back("3dtwo",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[7],weights[7]);
+              }
+              environs.push_back(ev);
+            }
           }
           return 2;
         }
@@ -644,10 +702,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
             auto ln(Util::split(line,' '));
             int agent(atoi(ln[0].c_str()));
             char agentType(ln[1].c_str()[0]);
-            while(agent<agentNumber){
+            while(agent>agentNumber){
               envdata.push_back(envdata.back()); // make copies
               agentNumber++;
             }
+            agentNumber++;
             auto envs(Util::split(ln[2],','));
             std::vector<EnvData> envinfo;
             for(auto e:envs){
@@ -661,11 +720,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
         }
 	if(strcmp(argument[0], "-probfile") == 0){
 		//std::cout << "Reading instance from file: \""<<argument[1]<<"\"\n";
+		num_agents=0;
 		std::ifstream ss(argument[1]);
 		int x,y,z;
                 float t(0.0);
 		std::string line;
-		num_agents=0;
 		while(std::getline(ss, line)){
 			std::vector<xyztLoc> wpts;
 			std::istringstream is(line);
@@ -686,6 +745,9 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 			waypoints.push_back(wpts);
 			num_agents++;
 		}
+                if(waypoints.size()==0){
+                  assert(!"Invalid filename or empty file");
+                }
 		return 2;
 	}
 	if(strcmp(argument[0], "-constraints") == 0){
@@ -786,47 +848,47 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 
             {
               Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetZeroConnected(); me->SetGround();
-              newEnv = new Grid3DConstrainedEnvironment(me);
+              newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
               ev.emplace_back("fourconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[0],weights[0]);
             }{
               Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetZeroConnected(); me->SetWaitAllowed(); me->SetGround();
-              newEnv = new Grid3DConstrainedEnvironment(me);
+              newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
               ev.emplace_back("fiveconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[1],weights[1]);
             }{
               Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetOneConnected(); me->SetGround();
-              newEnv = new Grid3DConstrainedEnvironment(me);
+              newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
               ev.emplace_back("eightconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[2],weights[2]);
             }{
               Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetOneConnected(); me->SetWaitAllowed(); me->SetGround();
-              newEnv = new Grid3DConstrainedEnvironment(me);
+              newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
               ev.emplace_back("nineconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[3],weights[3]);
             }{
               Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetTwoConnected(); me->SetGround();
-              newEnv = new Grid3DConstrainedEnvironment(me);
+              newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
               ev.emplace_back("twentyfourconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[4],weights[4]);
             }{
               Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetTwoConnected(); me->SetWaitAllowed(); me->SetGround();
-              newEnv = new Grid3DConstrainedEnvironment(me);
+              newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
               ev.emplace_back("twentyfiveconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[5],weights[5]);
             }{
               Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetThreeConnected(); me->SetGround();
-              newEnv = new Grid3DConstrainedEnvironment(me);
+              newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
               ev.emplace_back("fortyeightconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[6],weights[6]);
             }{
               Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetThreeConnected(); me->SetWaitAllowed(); me->SetGround();
-              newEnv = new Grid3DConstrainedEnvironment(me);
+              newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
               ev.emplace_back("fortynineconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[7],weights[7]);
             }{
               Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetZeroConnected(); me->SetAir();
-              newEnv = new Grid3DConstrainedEnvironment(me);
+              newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
               ev.emplace_back("3dcardinal",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[7],weights[7]);
             }{
               Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetOneConnected(); me->SetAir();
-              newEnv = new Grid3DConstrainedEnvironment(me);
+              newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
               ev.emplace_back("3done",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[7],weights[7]);
             }{
               Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetTwoConnected(); me->SetAir();
-              newEnv = new Grid3DConstrainedEnvironment(me);
+              newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
               ev.emplace_back("3dtwo",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[7],weights[7]);
             }
             environs.push_back(ev);

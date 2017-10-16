@@ -50,6 +50,11 @@ public:
 	
 	virtual const char *GetName() { return "defaultUnitGroup"; }
 	
+	virtual bool MakeMove(Unit<state, action, environment> *u, environment *e, SimulationInfo<state,action,environment> *si, state& a)
+	{
+		return (u->MakeMove(e, e->GetOccupancyInfo(), si,a));
+	}
+
 	virtual bool MakeMove(Unit<state, action, environment> *u, environment *e, SimulationInfo<state,action,environment> *si, action& a)
 	{
 		return (u->MakeMove(e, e->GetOccupancyInfo(), si,a));

@@ -239,6 +239,10 @@ public:
   bool MakeMove(ConstrainedEnvironment<state,action> *,
       OccupancyInterface<state,action> *,
       SimulationInfo<state,action,ConstrainedEnvironment<state,action>> *,
+      state& a);
+  bool MakeMove(ConstrainedEnvironment<state,action> *,
+      OccupancyInterface<state,action> *,
+      SimulationInfo<state,action,ConstrainedEnvironment<state,action>> *,
       action& a);
   void UpdateLocation(ConstrainedEnvironment<state,action> *, state &newLoc, bool success,
       SimulationInfo<state,action,ConstrainedEnvironment<state,action>> *)
@@ -325,6 +329,8 @@ class CBSGroup : public UnitGroup<state, action, ConstrainedEnvironment<state,ac
     CBSGroup(std::vector<std::vector<EnvironmentContainer<state,action>>>&, bool v=false);
     bool MakeMove(Unit<state, action, ConstrainedEnvironment<state,action>> *u, ConstrainedEnvironment<state,action> *e, 
         SimulationInfo<state,action,ConstrainedEnvironment<state,action>> *si, action& a);
+    bool MakeMove(Unit<state, action, ConstrainedEnvironment<state,action>> *u, ConstrainedEnvironment<state,action> *e, 
+        SimulationInfo<state,action,ConstrainedEnvironment<state,action>> *si, state& a);
     void UpdateLocation(Unit<state, action, ConstrainedEnvironment<state,action>> *u, ConstrainedEnvironment<state,action> *e, 
         state &loc, bool success, SimulationInfo<state,action,ConstrainedEnvironment<state,action>> *si);
     void AddUnit(Unit<state, action, ConstrainedEnvironment<state,action>> *u);
@@ -820,16 +826,52 @@ bool CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::Expan
 
 template<typename state, typename action, typename comparison, typename conflicttable, class searchalgo>
 bool CBSUnit<state,action,comparison,conflicttable,searchalgo>::MakeMove(ConstrainedEnvironment<state,action> *ae, OccupancyInterface<state,action> *,
+							 SimulationInfo<state,action,ConstrainedEnvironment<state,action>> * si, state& a)
+{
+  if (myPath.size() > 1 && si->GetSimulationTime() > myPath[myPath.size()-2].t)
+  {
+    a=myPath[myPath.size()-2];
+
+    //std::cout << "Moved from " << myPath[myPath.size()-1] << " to " << myPath[myPath.size()-2] << std::endl;
+    //a = ae->GetAction(myPath[myPath.size()-1], myPath[myPath.size()-2]);
+    //std::cout << "Used action " << a << "\n";
+    myPath.pop_back();
+    return true;
+  }
+  return false;
+}
+
+template<typename state, typename action, typename comparison, typename conflicttable, class searchalgo>
+bool CBSUnit<state,action,comparison,conflicttable,searchalgo>::MakeMove(ConstrainedEnvironment<state,action> *ae, OccupancyInterface<state,action> *,
 							 SimulationInfo<state,action,ConstrainedEnvironment<state,action>> * si, action& a)
 {
   if (myPath.size() > 1 && si->GetSimulationTime() > myPath[myPath.size()-2].t)
   {
 
     //std::cout << "Moved from " << myPath[myPath.size()-1] << " to " << myPath[myPath.size()-2] << std::endl;
-    a = ae->GetAction(myPath[myPath.size()-1], myPath[myPath.size()-2]);
+    //a = ae->GetAction(myPath[myPath.size()-1], myPath[myPath.size()-2]);
     //std::cout << "Used action " << a << "\n";
     myPath.pop_back();
     return true;
+  }
+  return false;
+}
+
+template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class searchalgo>
+bool CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::MakeMove(Unit<state, action, ConstrainedEnvironment<state,action>> *u, ConstrainedEnvironment<state,action> *e,
+    SimulationInfo<state,action,ConstrainedEnvironment<state,action>> *si, state& a)
+{
+  if (planFinished && si->GetSimulationTime() > time)
+  {
+    return u->MakeMove(e,0,si,a);
+  }
+  else if ((si->GetSimulationTime() - time) < 0.0001)
+  {
+    return false;
+  }
+  else {
+    time = si->GetSimulationTime();
+    ExpandOneCBSNode();
   }
   return false;
 }
@@ -1515,6 +1557,7 @@ std::pair<unsigned,unsigned> CBSGroup<state,action,comparison,conflicttable,mapl
   if(verbose)std::cout<<"Checking for conflicts\n";
   // prefer cardinal conflicts
   std::pair<std::pair<unsigned,unsigned>,std::pair<Conflict<state>,Conflict<state>>> best;
+  std::vector<std::vector<bool>> proximityViolations(location.paths.size());
 
   Timer tmr;
   tmr.StartTimer();
@@ -1528,6 +1571,9 @@ std::pair<unsigned,unsigned> CBSGroup<state,action,comparison,conflicttable,mapl
           // This call will update "best" with the number of conflicts and
           // with the *most* cardinal conflicts
           intraConflicts+=HasConflict(location.paths[x],location.wpts[x],location.paths[y],location.wpts[y],x,y,best.second.first,best.second.second,best.first,update);
+          /*if(requireLOS&&currentEnvironment[x]->agentType==Map3D::air||currentEnvironment[y]->agentType==Map3D::air){
+            if(ViolatesProximity(location.paths[x],location.paths[y]
+          }*/
         }
       }
       // Make sure that the conflict counted is the one being returned (and being translated to meta-agent indices)

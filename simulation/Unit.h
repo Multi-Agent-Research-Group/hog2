@@ -61,6 +61,7 @@ public:
 	virtual ~Unit() { SetUnitGroup(0); }
 	virtual const char *GetName() = 0;
 	virtual bool MakeMove(environment *, OccupancyInterface<state,action> *, SimulationInfo<state,action,environment> *, action& a) = 0;
+	virtual bool MakeMove(environment *, OccupancyInterface<state,action> *, SimulationInfo<state,action,environment> *, state& a){return false;}
 	virtual void UpdateLocation(environment *, state &, bool success, SimulationInfo<state,action,environment> *) = 0;
 	virtual void GetLocation(state &) = 0;
 	virtual void OpenGLDraw(const environment *, const SimulationInfo<state,action,environment> *) const = 0;
