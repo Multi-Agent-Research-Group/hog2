@@ -120,9 +120,9 @@ unsigned ReplanLeg(CBSUnit<state,action,comparison,conflicttable,searchalgo>* c,
     assert(false && "Expected a valid path for re-planning.");
   }
   while(thePath.size()>wpts[g]+1 && thePath[wpts[g]].sameLoc(thePath[++wpts[g]])){deletes++;}
-  //std::cout << "Agent: " << "re-planning path from " << s << " to " << g << " on a path of len:" << thePath.size() << "\n";
   state start(c->GetWaypoint(s));
   state goal(c->GetWaypoint(g));
+  std::cout << "Agent: " << "re-planning path from " << start << " to " << goal << " on a path of len:" << thePath.size() << " out to time " << minTime <<"\n";
   // Preserve proper start time
   start.t = thePath[wpts[s]].t;
 

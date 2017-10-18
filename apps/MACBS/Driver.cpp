@@ -33,7 +33,7 @@ bool verbose(false);
 bool quiet(false);
 double simTime = 0;
 double stepsPerFrame = 1.0/100.0;
-double frameIncrement = 1.0/10000.0;
+double frameIncrement = 1.0/1000.0;
 std::string mapfile;
 std::string dtedfile;
 unsigned mergeThreshold(5);
@@ -41,7 +41,7 @@ std::vector<std::vector<xyztLoc> > waypoints;
 //std::vector<SoftConstraint<xytLoc> > sconstraints;
 #define NUMBER_CANONICAL_STATES 10
 
-  char const* envnames[8] = {"fourconnected","fiveconnected","eightconnected","nineconnected","twentyfourconnected","twentyfiveconnected","fortyeightconnected","fortynineconnected"};
+  char const* envnames[11] = {"fourconnected","fiveconnected","eightconnected","nineconnected","twentyfourconnected","twentyfiveconnected","fortyeightconnected","fortynineconnected","3dcardinal","3done","3dtwo"};
   int cutoffs[10] = {0,9999,9999,9999,9999,9999,9999,9999,9999,9999}; // for each env
   double weights[10] = {1,1,1,1,1,1,1,1,1,1}; // for each env
   std::vector<std::vector<EnvironmentContainer<xyztLoc,t3DDirection>>> environs;
@@ -139,6 +139,7 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-cutoffs", "-cutoffs <n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>", "Number of conflicts to tolerate before switching to less constrained layer of environment. Environments are ordered as: CardinalGrid,OctileGrid,Cardinal3D,Octile3D,H4,H8,Simple,Cardinal,Octile,48Highway");
 	InstallCommandLineHandler(MyCLHandler, "-weights", "-weights <n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>", "Weight to apply to the low-level search for each environment entered as: CardinalGrid,OctileGrid,Cardinal3D,Octile3D,H4,H8,Simple,Cardinal,Octile,48Highway");
 	InstallCommandLineHandler(MyCLHandler, "-probfile", "-probfile", "Load MAPF instance from file");
+	InstallCommandLineHandler(MyCLHandler, "-cfgfile", "-cfgfile", "Load MAPF configuration from file");
 	InstallCommandLineHandler(MyCLHandler, "-envfile", "-envfile", "Load environment settings per agent");
 	InstallCommandLineHandler(MyCLHandler, "-constraints", "-constraints", "Load constraints from file");
 	InstallCommandLineHandler(MyCLHandler, "-killtime", "-killtime", "Kill after this many seconds");
@@ -684,16 +685,32 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 		use_wait = true;
 		return 1;
 	}
-        if(strcmp(argument[0], "-envfile") == 0){
-          // Format:
-          //   agent# agentType envName1:threshold1:weight1,envName2:threshold2:weight2,...
+        if(strcmp(argument[0], "-cfgfile") == 0){
+          std::ifstream ss(argument[1]);
+          int agentNumber(0);
 
-          // Ex:
-          //   0 A fourconnected:0:1,eightconnected:10:1
-          //   4 G multiobjective:0:1.2
-          //
-          // Note: Non-inclusive agent ids inherit previous
-          //   The above example has agents 0-3 with the same env.
+          std::string line;
+          while(std::getline(ss, line)){
+            auto ln(Util::split(line,' '));
+            int agent(atoi(ln[0].c_str()));
+            char agentType(ln[1].c_str()[0]);
+            while(agent>agentNumber){
+              envdata.push_back(envdata.back()); // make copies
+              agentNumber++;
+            }
+            agentNumber++;
+            auto envs(Util::split(ln[2],','));
+            std::vector<EnvData> envinfo;
+            for(auto e:envs){
+              auto info(Util::split(e,':'));
+              envinfo.emplace_back(info[0],agentType,atoi(info[1].c_str()),atof(info[2].c_str()));
+            }
+            envdata.push_back(envinfo);
+          }
+          while(envdata.size()<num_agents){envdata.push_back(envdata.back());} // make copies
+          return 2;
+        }
+        if(strcmp(argument[0], "-envfile") == 0){
           std::ifstream ss(argument[1]);
           int agentNumber(0);
 

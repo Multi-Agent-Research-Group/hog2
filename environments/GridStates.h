@@ -124,7 +124,7 @@ struct AANode : xyLoc {
 
 struct Hashable{
   virtual uint64_t Hash()const=0;
-  virtual float Depth()const=0;
+  virtual uint32_t Depth()const=0;
 };
 
 /*std::ostream& operator <<(std::ostream & out, const TemporalVector &loc);

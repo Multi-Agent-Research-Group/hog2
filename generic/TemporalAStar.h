@@ -387,12 +387,12 @@ if(this->nodesExpanded>1000 && this->noncritical){
             // Path is backwards - reverse
             reverse(thePath.begin(), thePath.end()); 
             return true;
-          }else if(!fequal(minTime-openClosedList.Lookup(nodeid).data.t,1.0)){
+          }else{
             // Need an action with a good time.
             state n=openClosedList.Lookup(nodeid).data;
             n.t=minTime;
             if(!env->ViolatesConstraint(openClosedList.Lookup(nodeid).data,n)){
-              neighbors.push_back(n);
+              neighbors.insert(neighbors.begin(),n);
             }
           }
         }
