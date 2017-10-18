@@ -49,7 +49,7 @@ class MapPerfectHeuristic: public Heuristic<state> {
         elapsed+=tmr.EndTimer();
       }
       assert(s2.sameLoc(goal));
-      return list[s1.X()*m->GetMapHeight()+s1.Y()];
+      return list[s1.x*m->GetMapHeight()+s1.y];
     }
     mutable double elapsed;
 

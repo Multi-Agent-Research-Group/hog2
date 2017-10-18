@@ -223,9 +223,7 @@ public:
 	
 	void OpenGLDraw(tDisplay how = kPolygons) const;
 	bool GetOpenGLCoord(int _x, int _y, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const;
-	bool GetOpenGLCoord(float _x, float _y, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const;
         bool GetOpenGLCoord(int _x, int _y, int _z, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const{return  GetOpenGLCoord(_x,_y,x,y,z,radius);}
-        bool GetOpenGLCoord(float _x, float _y, float _z, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const{return  GetOpenGLCoord(_x,_y,x,y,z,radius);}
 	void GetPointFromCoordinate(point3d loc, int &px, int &py) const;
 	double GetCoordinateScale();
         bool LineOfSight(int x, int y, int _x, int _y) const;

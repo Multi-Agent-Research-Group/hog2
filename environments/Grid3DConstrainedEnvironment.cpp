@@ -50,10 +50,11 @@ void Grid3DConstrainedEnvironment::GetSuccessors(const xyztLoc &nodeID, std::vec
   // TODO: remove illegal successors
   for (unsigned int x = 0; x < n.size(); x++)
   {
-    float inc(mapEnv->GetConnectedness()>0?(Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y)):1.0);
+    unsigned inc(mapEnv->GetConnectedness()?(Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y))*xyztLoc::TIME_RESOLUTON:xyztLoc::TIME_RESOLUTON);
+    if(!inc)inc=xyztLoc::TIME_RESOLUTON; // Wait action
     xyztLoc newLoc(n[x],
-        Util::heading<USHRT_MAX>(nodeID.x,nodeID.y,n[x].x,n[x].y), // hdg
-        Util::angle<SHRT_MAX>(0.0,0.0,Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y),double(n[x].z-nodeID.z)), // pitch
+        //Util::heading<USHRT_MAX>(nodeID.x,nodeID.y,n[x].x,n[x].y), // hdg
+        //Util::angle<SHRT_MAX>(0.0,0.0,Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y),double(n[x].z-nodeID.z)), // pitch
         nodeID.t+inc);
     if (!ViolatesConstraint(nodeID,newLoc)){
       neighbors.push_back(newLoc);
@@ -71,55 +72,61 @@ void Grid3DConstrainedEnvironment::GetAllSuccessors(const xyztLoc &nodeID, std::
   // TODO: remove illegal successors
   for (unsigned int x = 0; x < n.size(); x++)
   {
-    float inc(mapEnv->GetConnectedness()>5?(Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y)):1.0);
+    unsigned inc(mapEnv->GetConnectedness()?(Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y))*xyztLoc::TIME_RESOLUTON:xyztLoc::TIME_RESOLUTON);
     xyztLoc newLoc(n[x],
-        Util::heading<USHRT_MAX>(nodeID.x,nodeID.y,n[x].x,n[x].y), // hdg
-        Util::heading<SHRT_MAX>(0.0,0.0,Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y),double(n[x].z-nodeID.z)), // pitch
+        //Util::heading<USHRT_MAX>(nodeID.x,nodeID.y,n[x].x,n[x].y), // hdg
+        //Util::heading<SHRT_MAX>(0.0,0.0,Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y),double(n[x].z-nodeID.z)), // pitch
         nodeID.t+inc);
     neighbors.push_back(newLoc);
   }
 }
 
-bool Grid3DConstrainedEnvironment::ViolatesConstraint(const xyztLoc &from, const xyztLoc &to) const{
+//returns time of violation or zero
+double Grid3DConstrainedEnvironment::ViolatesConstraint(const xyztLoc &from, const xyztLoc &to) const{
   
   // Check motion constraints
-  if(maxTurnAzimuth&&maxTurnAzimuth<abs(from.h-to.h)) return true;
-  if(maxPitch&&maxPitch<abs(from.p-to.p)) return true;
+  //if(maxTurnAzimuth&&maxTurnAzimuth<abs(from.h-to.h)) return true;
+  //if(maxPitch&&maxPitch<abs(from.p-to.p)) return true;
 
-  Vector3D A(from);
-  Vector3D VA(to);
-  VA-=A; // Direction vector
-  VA.Normalize();
+  //Vector3D A(from);
+  //Vector3D VA(to);
+  //VA-=A; // Direction vector
+  //VA.Normalize();
+  TemporalVector3D A1(from);
+  TemporalVector3D A2(to);
   static double aradius(0.25);
   static double bradius(0.25);
+  double ctime(0);
   // TODO: Put constraints into a kD tree so that we only need to compare vs relevant constraints
   for(unsigned int x = 0; x < constraints.size(); x++)
   {
-    Vector3D B(constraints[x].start_state);
-    Vector3D VB(constraints[x].end_state);
-    VB-=B; // Direction vector
-    VB.Normalize();
-    if(collisionImminent(A,VA,aradius,from.t,to.t,B,VB,bradius,constraints[x].start_state.t,constraints[x].end_state.t)){
+    //Vector3D B(constraints[x].start_state);
+    //Vector3D VB(constraints[x].end_state);
+    //VB-=B; // Direction vector
+    //VB.Normalize();
+    if(ctime=collisionCheck3D(A1,A2,constraints[x].start_state,constraints[x].end_state,aradius,bradius)){
+    //if(ctime=collisionImminent(A,VA,aradius,from.t,to.t,B,VB,bradius,constraints[x].start_state.t,constraints[x].end_state.t)){
       //std::cout << from << " --> " << to << " collides with " << vconstraints[x].start_state << "-->" << vconstraints[x].end_state << "\n";
-      return true;
+      return ctime;
     }else{
       //std::cout << from << " --> " << to << " does not collide with " << vconstraints[x].start_state << "-->" << vconstraints[x].end_state << "\n";
     }
   }
   for(unsigned int x = 0; x < vconstraints.size(); x++)
   {
-    Vector3D B(vconstraints[x].start_state);
-    Vector3D VB(vconstraints[x].end_state);
-    VB-=B; // Direction vector
-    VB.Normalize();
-    if(collisionImminent(A,VA,aradius,from.t,to.t,B,VB,bradius,vconstraints[x].start_state.t,vconstraints[x].end_state.t)){
+    //Vector3D B(vconstraints[x].start_state);
+    //Vector3D VB(vconstraints[x].end_state);
+    //VB-=B; // Direction vector
+    //VB.Normalize();
+    if(ctime=collisionCheck3D(A1,A2,constraints[x].start_state,constraints[x].end_state,aradius,bradius)){
+    //if(ctime=collisionImminent(A,VA,aradius,from.t,to.t,B,VB,bradius,vconstraints[x].start_state.t,vconstraints[x].end_state.t)){
       //std::cout << from << " --> " << to << " collides with " << vconstraints[x].start_state << "-->" << vconstraints[x].end_state << "\n";
-      return true;
+      return ctime;
     }else{
       //std::cout << from << " --> " << to << " does not collide with " << vconstraints[x].start_state << "-->" << vconstraints[x].end_state << "\n";
     }
   }
-  return false;
+  return 0;
 }
 
 bool Grid3DConstrainedEnvironment::ViolatesConstraint(const xyzLoc &from, const xyzLoc &to, float time, float inc) const
@@ -202,39 +209,38 @@ uint64_t Grid3DConstrainedEnvironment::GetStateHash(const xyztLoc &node) const
     return h1;
     }
     h1 = node.x;
-    h1 <<= 11;
+    h1 <<= 16;
     h1 |= node.y;
-    h1 <<= 11;
-    h1 |= node.z;
-    h1 <<= 32;
-    h1 |= (*(uint32_t*)&node.t);
+    h1 <<= 12;
+    h1 |= node.z; // up to 4096
+    h1 <<= 20;
+    h1 |= uint32_t(node.t*1000)&0xfffff; // Allow up to 1,048,576 milliseconds (20 bits)
     return h1;
   }
   
-  h1 = node.x;
-  h1 <<= 16;
-  h1 |= node.y;
-  h1 <<= 16;
-  h1 |= node.z;
-  uint64_t h2(*(uint32_t*)&node.t);
-  h2 <<= 16;
-  h2 |= node.h;
-  h2 <<= 16;
-  h2 |= node.p;
-  return (h1 * 16777619) ^ h2;
+  h1 = node.x; // up to 4096
+  h1 <<= 12;
+  h1 |= node.y&0xfff; // up to 4096;
+  h1 <<= 10;
+  h1 |= node.z&0x3ff; // up to 1024
+  h1 <<= 10;
+  h1 |= node.h&0x3ff; // up to 1024
+  h1 <<= 20;
+  //h2 |= node.p; // Ignore pitch for now :(
+  h1 |= uint32_t(node.t*1000)&0xfffff; // Allow up to 1,048,576 milliseconds (20 bits)
+  return h1;
 }
 
 void Grid3DConstrainedEnvironment::GetStateFromHash(uint64_t hash, xyztLoc &s) const
 {
   if(ignoreHeading){
     if(ignoreTime){
-      s.z=(hash)&(0x10000-1);
-      s.y=(hash>>16)&(0x10000-1);
-      s.x=(hash>>32)&(0x10000-1);
+      s.z=(hash)&0xffff;
+      s.y=(hash>>16)&0xffff;
+      s.x=(hash>>32)&0xffff;
       return;
     }
-    uint32_t tmp=(hash&(0x100000000-1));
-    s.t=*(float*)&tmp;
+    s.t=hash&0xfffff;
     s.z=(hash>>32)&(0x400-1);
     s.y=(hash>>42)&(0x800-1);
     s.x=(hash>>53)&(0x800-1);
@@ -242,6 +248,22 @@ void Grid3DConstrainedEnvironment::GetStateFromHash(uint64_t hash, xyztLoc &s) c
   }
   assert(!"Hash is irreversible...");
 }
+
+double Grid3DConstrainedEnvironment::GetPathLength(std::vector<xyztLoc> &neighbors)
+{
+  // There is no cost for waiting at the goal
+  double cost(0);
+  for(int j(neighbors.size()-1); j>0; --j){
+    if(!neighbors[j-1].sameLoc(neighbors[j])){
+      cost += neighbors[j].t;
+      break;
+    }else if(j==1){
+      cost += neighbors[0].t;
+    }
+  }
+  return cost;
+}
+
 
 uint64_t Grid3DConstrainedEnvironment::GetActionHash(t3DDirection act) const
 {
@@ -448,5 +470,3 @@ void Constraint<TemporalVector3D>::OpenGLDraw(MapInterface* map) const
 	//DrawSphere(xx, yy, zz, rad/2.0); // zz-l.t*2*rad
 }
 
-const float xyztLoc::HDG_RESOLUTON=65535.0/360.0;
-const float xyztLoc::PITCH_RESOLUTON=32767.0/90.0;

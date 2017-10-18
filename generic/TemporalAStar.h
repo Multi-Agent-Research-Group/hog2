@@ -391,8 +391,16 @@ if(this->nodesExpanded>1000 && this->noncritical){
             // Need an action with a good time.
             state n=openClosedList.Lookup(nodeid).data;
             n.t=minTime;
-            if(!env->ViolatesConstraint(openClosedList.Lookup(nodeid).data,n)){
+            // Returns 0 if no violation, otherwise the minimum safe time (minus epsilon)
+            n.t=env->ViolatesConstraint(openClosedList.Lookup(nodeid).data,n);
+            if(!n.t){
+              n.t=minTime;
               neighbors.insert(neighbors.begin(),n);
+            }else{
+              n.t-=1.0;
+              if(fgreater(n.t,openClosedList.Lookup(nodeid).data.t)){
+                neighbors.insert(neighbors.begin(),n);
+              }
             }
           }
         }

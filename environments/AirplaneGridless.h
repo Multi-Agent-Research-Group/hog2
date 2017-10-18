@@ -52,8 +52,8 @@ class AirplaneGridlessEnvironment : public ConstrainedEnvironment<PlatformState,
     void AddConstraint(Constraint<PlatformState> c);
     void ClearConstraints();
     void ClearStaticConstraints();
-    bool ViolatesConstraint(const PlatformState &from, const PlatformState &to, int time) const;
-    bool ViolatesConstraint(const PlatformState &from, const PlatformState &to) const;
+    double ViolatesConstraint(const PlatformState &from, const PlatformState &to, int time) const;
+    double ViolatesConstraint(const PlatformState &from, const PlatformState &to) const;
 
     // Successors and actions
     virtual void GetSuccessors(const PlatformState &nodeID, std::vector<PlatformState> &neighbors) const;

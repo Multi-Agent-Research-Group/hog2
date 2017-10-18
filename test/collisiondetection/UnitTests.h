@@ -1220,7 +1220,7 @@ TEST(DISABLED_Theta, TestMotionConstrained3D){
   std::vector<xyztLoc> solution;
   env.SetMaxTurnAzimuth(45.0); //(only 45 deg turns allowed)
   env.SetMaxPitch(30.0); //(only 30 deg pitch change allowed)
-  tstar.GetPath(&env,{4,4,0,90.0,0.0,0},{4,4,2,270.0,0.0,0},solution); // Turn around
+  tstar.GetPath(&env,{4,4,0,0.0f},{4,4,2,0.0f},solution); // Turn around
   for(auto const& ss: solution){
     std::cout << ss.x << "," << ss.y << "," << ss.z << "\n";
   }
@@ -1241,7 +1241,7 @@ TEST(DISABLED_Theta, Test3D){
   std::vector<xyztLoc> solution;
   env.AddConstraint(Constraint<TemporalVector3D>({4,1,0,0},{1,1,0,6}));
   env.AddConstraint(Constraint<TemporalVector3D>({7,2,0,0},{1,2,0,6}));
-  tstar.GetPath(&env,{1,1,0,0},{6,1,0,0},solution);
+  tstar.GetPath(&env,{1,1,0,0u},{6,1,0,0u},solution);
   for(auto const& ss: solution){
     std::cout << ss.x << "," << ss.y << "," << ss.z << "\n";
   }

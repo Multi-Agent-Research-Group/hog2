@@ -41,14 +41,14 @@ inline void set(unsigned* bitarray, size_t idx) {
   bitarray[idx / WORD_BITS] |= (1 << (idx % WORD_BITS));
 }
 
-bool collisionImminent(Vector2D const A, Vector2D const& VA, double radiusA, double startTimeA, double endTimeA,
+double collisionImminent(Vector2D const A, Vector2D const& VA, double radiusA, double startTimeA, double endTimeA,
 Vector2D B, Vector2D const& VB, double radiusB, double startTimeB, double endTimeB);
 bool collisionCheck(TemporalVector const& A1, TemporalVector const& A2, TemporalVector const& B1, TemporalVector const& B2,
 double radiusA, double radiusB=0, double speedA=1.0, double speedB=1.0);
 
-bool collisionImminent(Vector3D const A, Vector3D const& VA, double radiusA, double startTimeA, double endTimeA,
+double collisionImminent(Vector3D const A, Vector3D const& VA, double radiusA, double startTimeA, double endTimeA,
 Vector3D const B, Vector3D const& VB, double radiusB, double startTimeB, double endTimeB);
-bool collisionCheck3D(TemporalVector3D const& A1, TemporalVector3D const& A2, TemporalVector3D const& B1, TemporalVector3D const& B2,
+double collisionCheck3D(TemporalVector3D const& A1, TemporalVector3D const& A2, TemporalVector3D const& B1, TemporalVector3D const& B2,
 double radiusA, double radiusB=0, double speedA=1.0, double speedB=1.0);
 
 double  getCollisionTime(Vector2D const A, Vector2D const& VA, double radiusA, double startTimeA, double endTimeA,

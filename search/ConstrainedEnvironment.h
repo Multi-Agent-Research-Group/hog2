@@ -91,8 +91,8 @@ class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
     virtual void GetReverseActions(const State &nodeID, std::vector<Action> &actions) const = 0;
     /** Get the successor states not violating constraints */
     virtual void GetSuccessors(const State &nodeID, std::vector<State> &neighbors) const = 0;
-    /** Checks to see if any constraint is violated */
-    virtual bool ViolatesConstraint(const State &from, const State &to) const = 0;
+    /** Checks to see if any constraint is violated, returning the time of violation, 0 otherwise */
+    virtual double ViolatesConstraint(const State &from, const State &to) const = 0;
     virtual void GLDrawLine(const State &x, const State &y) const{}
     virtual void GLDrawPath(const std::vector<State> &p, const std::vector<State> &waypoints) const{
       if(p.size()<2) return;

@@ -129,8 +129,8 @@ public:
 	virtual void SetColor(double& r, double& g, double& b, double& t) const {this->ae->SetColor(r,g,b,t);}
 
 	/** Checks to see if any constraint is violated */
-	bool ViolatesConstraint(const airplaneState &from, const airplaneState &to, int time) const;
-	bool ViolatesConstraint(const airtimeState &from, const airtimeState &to) const;
+	double ViolatesConstraint(const airplaneState &from, const airplaneState &to, int time) const;
+	double ViolatesConstraint(const airtimeState &from, const airtimeState &to) const;
 	
 	/// UTILS
 	uint8_t GetSpeeds(){return ae->numSpeeds;}

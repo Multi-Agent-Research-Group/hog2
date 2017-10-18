@@ -105,6 +105,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
     uint32_t step;
     //int n;
     std::unordered_map<std::string,bool> transTable;
+    std::unordered_map<uint64_t,bool> singleTransTable;
 
     std::vector<SearchEnvironment<state,action>*> envs;
     std::vector<Heuristic<state>*> heuristics;
@@ -190,20 +191,22 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       return cost;
     }
 
-    // Big caveat - this implementation assumes that time is NOT a component of the state hash AND that it is <=32 bits in length.
+    // Big caveat - this implementation assumes that time IS a component of the state hash
     uint64_t GetHash(state const& n, uint32_t depth, unsigned agent){
-      return (envs[agent]->GetStateHash(n)<<32) | depth;}
+      return (envs[agent]->GetStateHash(n));}//<<20) | depth&0xfffff;}
 
     bool LimitedDFS(state const& start, state const& end, DAG& dag, Node*& root, uint32_t depth, uint32_t maxDepth, uint32_t& best, SearchEnvironment<state,action>* env, unsigned agent){
       if(depth<0 || maxDepth-depth+(int)(HCost(start,end,agent))>maxDepth){ // Note - this only works for a perfect heuristic.
         //std::cout << " pruned " << depth <<" "<< (maxDepth-depth+(int)(env->HCost(start,end)))<<">"<<maxDepth<<"\n";
         return false;
       }
+      Node n(start,(maxDepth-depth),GetHash(start,(maxDepth-depth),agent));
+      uint64_t hash(n.Hash());
+      if(singleTransTable.find(hash)!=singleTransTable.end()){return singleTransTable[hash];}
       //std::cout << "\n";
 
       if(env->GoalTest(start,end)){
-        Node n(start,(maxDepth-depth),GetHash(start,(maxDepth-depth),agent));
-        uint64_t hash(n.Hash());
+        singleTransTable[hash]=true;
         dag[hash]=n;
         // This may happen if the agent starts at the goal
         if(maxDepth-depth<=0){
@@ -239,8 +242,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
         //ddiff = M_SQRT2;
         //}
         if(LimitedDFS(node,end,dag,root,depth-ddiff,maxDepth,best,env,agent)){
-          Node n(start,(maxDepth-depth),GetHash(start,(maxDepth-depth),agent));
-          uint64_t hash(n.Hash());
+          singleTransTable[hash]=true;
           if(dag.find(hash)==dag.end()){
             dag[hash]=n;
             // This is the root if depth=0
@@ -275,6 +277,10 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
           //std::cout << "at" << &dag[parent->Hash()] << "\n";
         }
       }
+      singleTransTable[hash]=result;
+      if(!result){
+        dag.erase(hash);
+      }
       return result;
     }
 
@@ -287,6 +293,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       if(verbose)std::cout << "lookup "<< (found?"found":"missed") << "\n";
       if(!found){
         LimitedDFS(start,end,dag,root[agent],depth,depth,best,envs[agent],agent);
+        singleTransTable.clear();
         mddcache[hash]=root[agent];
         lbcache[hash]=best;
       }else{

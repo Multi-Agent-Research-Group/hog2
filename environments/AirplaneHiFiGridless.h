@@ -86,8 +86,8 @@ class AirplaneHiFiGridlessEnvironment : public ConstrainedEnvironment<PlatformSt
     void AddSoftConstraint(SoftConstraint<PlatformState> c){sconstraints.push_back(c);}
     void ClearConstraints();
     void ClearStaticConstraints();
-    bool ViolatesConstraint(const PlatformState &from, const PlatformState &to, int time) const;
-    bool ViolatesConstraint(const PlatformState &from, const PlatformState &to) const;
+    double ViolatesConstraint(const PlatformState &from, const PlatformState &to, int time) const;
+    double ViolatesConstraint(const PlatformState &from, const PlatformState &to) const;
 
     // Successors and actions
     virtual void GetSuccessors(const PlatformState &nodeID, std::vector<PlatformState> &neighbors) const;

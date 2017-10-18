@@ -26,52 +26,52 @@
 
 class Vector3D {
   public:
-    Vector3D(float _x,float _y,float _z):x(_x),y(_y),z(_z){}
+    Vector3D(double _x,double _y,double _z):x(_x),y(_y),z(_z){}
     Vector3D(Vector2D const& v):x(v.x),y(v.y),z(0){}
     Vector3D():x(0),y(0),z(0){}
-    inline void Set(float _x, float _y, float _z) { x=_x; y=_y; z=_z; }
+    inline void Set(double _x, double _y, double _z) { x=_x; y=_y; z=_z; }
 
     inline bool operator==(const Vector3D &rhs)const{return (fequal(x,rhs.x)&&fequal(y,rhs.y)&&fequal(z,rhs.z));}
     inline bool operator<(const Vector3D &rhs)const{return fequal(x,rhs.x)?(fequal(y,rhs.y)?fless(z,rhs.z):fless(y,rhs.y)):fless(x,rhs.x);}
 
     // Dot product
-    inline float operator*(Vector3D const& other)const{return x * other.x + y * other.y + z * other.z;}
+    inline double operator*(Vector3D const& other)const{return x * other.x + y * other.y + z * other.z;}
     // Negation
     inline Vector3D operator-(Vector3D const& other)const{return Vector3D(x-other.x,y-other.y,z-other.z);}
     inline void operator-=(Vector3D const& other){x-=other.x;y-=other.y;z-=other.z;}
     inline Vector3D operator-()const{return Vector3D(-x,-y,-z);}
     // Slope angle of this vector
-    //inline float atan(){ return atan2(y,x); }
+    //inline double atan(){ return atan2(y,x); }
     // Square
-    inline float sq(){ return (*this) * (*this); }
+    inline double sq(){ return (*this) * (*this); }
     inline double len(){ return sqrt(sq()); }
 
-    inline Vector3D operator/(const float num)const{return Vector3D(x/num, y/num, z/num);}
+    inline Vector3D operator/(const double num)const{return Vector3D(x/num, y/num, z/num);}
 
-    inline Vector3D operator*(const float num)const{return Vector3D(x*num, y*num, z*num);}
+    inline Vector3D operator*(const double num)const{return Vector3D(x*num, y*num, z*num);}
 
     inline Vector3D operator+(const Vector3D& v2)const{return Vector3D(x+v2.x, y+v2.y, z+v2.z);}
 
     inline void operator+=(const Vector3D& v2){x+=v2.x; y+=v2.y;z+=v2.z;}
-    inline void operator *=(float s) { x*=s; y*=s; z*=s; }
-    inline void operator /=(float s) { x/=s; y/=s; z/=s; }
+    inline void operator *=(double s) { x*=s; y*=s; z*=s; }
+    inline void operator /=(double s) { x/=s; y/=s; z/=s; }
 
     inline void Normalize(){
       if(x==0&&y==0&&z==0) return;
-      float magnitude(len());
+      double magnitude(len());
       x /= magnitude;
       y /= magnitude;
       z /= magnitude;
     }
 
-    float x, y, z;
+    double x, y, z;
 };
 
 struct TemporalVector3D : Vector3D {
   TemporalVector3D(Vector3D const& loc, double time):Vector3D(loc), t(time){}
   TemporalVector3D(double _x, double _y, double _z, float time):Vector3D(_x,_y,_z), t(time){}
   TemporalVector3D():Vector3D(),t(0){}
-  double t;
+  float t;
 };
 
 

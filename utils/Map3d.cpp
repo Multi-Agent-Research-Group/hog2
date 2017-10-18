@@ -271,7 +271,7 @@ void Map3D::OpenGLDraw() const
  * that tile along with the radius of the tile square. The map is drawn in the
  * x<->z plane, with the y plane up.
  */
-bool Map3D::GetOpenGLCoord(float _x, float _y, float _z, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const
+bool Map3D::GetOpenGLCoord(int _x, int _y, int _z, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const
 {
   if (_x >= width || _y >= height || _z>= depth)return false;
   if (_x <0 || _y <0 || _z<0)return false;

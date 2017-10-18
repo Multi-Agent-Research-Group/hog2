@@ -106,7 +106,7 @@ void Map2DConstrainedEnvironment::GetAllSuccessors(const xytLoc &nodeID, std::ve
   }
 }
 
-bool Map2DConstrainedEnvironment::ViolatesConstraint(const xytLoc &from, const xytLoc &to) const{
+double Map2DConstrainedEnvironment::ViolatesConstraint(const xytLoc &from, const xytLoc &to) const{
   
   // Check motion constraints first
   if(maxTurnAzimuth&&fless(maxTurnAzimuth,fabs(from.h-to.h))) return false;
@@ -116,7 +116,7 @@ bool Map2DConstrainedEnvironment::ViolatesConstraint(const xytLoc &from, const x
   {
     if(constraints[x].ConflictsWith(from,to)){
       //std::cout << from << " --> " << to << " collides with " << vconstraints[x].start_state << "-->" << vconstraints[x].end_state << "\n";
-      return true;
+      return std::max(constraints[x].start_state.t,from.t);
     }else{
       //std::cout << from << " --> " << to << " does not collide with " << vconstraints[x].start_state << "-->" << vconstraints[x].end_state << "\n";
     }
@@ -126,21 +126,22 @@ bool Map2DConstrainedEnvironment::ViolatesConstraint(const xytLoc &from, const x
     Vector2D VA(to);
     VA-=A; // Direction vector
     VA.Normalize();
+    double ctime(0);
     for(unsigned int x = 0; x < vconstraints.size(); x++)
     {
       Vector2D B(vconstraints[x].start_state);
       Vector2D VB(vconstraints[x].end_state);
       VB-=B; // Direction vector
       VB.Normalize();
-      if(collisionImminent(A,VA,agentRadius,from.t,to.t,B,VB,agentRadius,vconstraints[x].start_state.t,vconstraints[x].end_state.t)){
+      if(ctime=collisionImminent(A,VA,agentRadius,from.t,to.t,B,VB,agentRadius,vconstraints[x].start_state.t,vconstraints[x].end_state.t)){
         //std::cout << from << " --> " << to << " collides with " << vconstraints[x].start_state << "-->" << vconstraints[x].end_state << "\n";
-        return true;
+        return ctime;
       }else{
         //std::cout << from << " --> " << to << " does not collide with " << vconstraints[x].start_state << "-->" << vconstraints[x].end_state << "\n";
       }
     }
   }
-  return false;
+  return 0;
 }
 
 bool Map2DConstrainedEnvironment::ViolatesConstraint(const xyLoc &from, const xyLoc &to, float time, float inc) const

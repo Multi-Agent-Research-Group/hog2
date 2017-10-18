@@ -94,6 +94,7 @@ uint64_t jointnodes(0);
 uint32_t step(INFLATION);
 int n(0);
 std::unordered_map<std::string,bool> transTable;
+std::unordered_map<uint64_t,bool> singleTransTable;
 unsigned seed(clock());
 
 std::string filepath;
@@ -371,11 +372,14 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, uin
     //std::cout << " pruned " << depth <<" "<< (maxDepth-depth+(int)(Node::env->HCost(start,end)*INFLATION))<<">"<<maxDepth<<"\n";
     return false;
   }
+
+  Node n(start,(maxDepth-depth));
+  uint64_t hash(n.Hash());
+  if(singleTransTable.find(hash)!=singleTransTable.end()){return singleTransTable[hash];}
   //std::cout << "\n";
 
   if(env->GoalTest(start,end)){
-    Node n(start,(maxDepth-depth));
-    uint64_t hash(n.Hash());
+    singleTransTable[hash]=true;
       //std::cout << n<<"\n";
     dag[hash]=n;
     // This may happen if the agent starts at the goal
@@ -414,10 +418,9 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, uin
       //ddiff = M_SQRT2;
     //}
     if(LimitedDFS(node,end,dag,root,depth-ddiff,maxDepth,best,agent,id,recursions+1)){
+      singleTransTable[hash]=true;
       maxsingle=std::max(recursions,maxsingle);
       minsingle=std::min(recursions,minsingle);
-      Node n(start,(maxDepth-depth));
-      uint64_t hash(n.Hash());
       if(dag.find(hash)==dag.end()){
         //std::cout << n<<"\n";
         dag[hash]=n;
@@ -452,6 +455,11 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, uin
       dag[parent->Hash()].successors.insert(&dag[current->Hash()]);
       //std::cout << "at" << &dag[parent->Hash()] << "\n";
     }
+    singleTransTable[hash]=result;
+    if(!result){
+      dag.erase(hash);
+    }
+    return result;
   }
   return result;
 }
@@ -465,6 +473,7 @@ void GetMDD(unsigned agent,unsigned id,xyLoc const& start, xyLoc const& end, DAG
   if(verbose)std::cout << "lookup "<< (found?"found":"missed") << "\n";
   if(!found){
     LimitedDFS(start,end,dag,root[agent],depth,depth,best,agent,id);
+    singleTransTable.clear();
     mddcache[hash]=root[agent];
     lbcache[hash]=best;
   }else{
@@ -1492,8 +1501,8 @@ int main(int argc, char ** argv){
     }
     for(int j(0); j<G.size(); ++j){
       auto g(G[j]);
-      if(verbose)std::cout << "Group " << j <<":\n";
-      if(verbose)for(int i(0); i<g.first.size(); ++i){
+      if(!quiet)std::cout << "Group " << j <<":\n";
+      if(!quiet)for(int i(0); i<g.first.size(); ++i){
         std::cout << Gid[j][i] << ":" << g.first[i] << "-->" << g.second[i] << "\n";
       }
       if(g.first.size()>1){

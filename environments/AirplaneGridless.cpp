@@ -847,13 +847,14 @@ void AirplaneGridlessEnvironment::AddLandingStrip(gridlessLandingStrip& strip)
 void AirplaneGridlessEnvironment::AddConstraint(Constraint<PlatformState> c){constraints.push_back(c);}
 void AirplaneGridlessEnvironment::ClearConstraints(){constraints.resize(0);}
 void AirplaneGridlessEnvironment::ClearStaticConstraints(){static_constraints.resize(0);}
-bool AirplaneGridlessEnvironment::ViolatesConstraint(const PlatformState &from, const PlatformState &to, int time) const{
+double AirplaneGridlessEnvironment::ViolatesConstraint(const PlatformState &from, const PlatformState &to, int time) const{
   PlatformAction act = GetAction(from,to);
   PlatformState toState(from);
   ApplyAction(toState,act);
-  ViolatesConstraint(from,toState);
+  return ViolatesConstraint(from,toState);
 }
-bool AirplaneGridlessEnvironment::ViolatesConstraint(const PlatformState &from, const PlatformState &to) const{
+
+double AirplaneGridlessEnvironment::ViolatesConstraint(const PlatformState &from, const PlatformState &to) const{
  // Generate a well formed set of boxes for the action box
   // which we will need later to compare
   float a_minx = std::min(from.x, to.x);
@@ -898,7 +899,7 @@ bool AirplaneGridlessEnvironment::ViolatesConstraint(const PlatformState &from, 
       {
         // If we overlap on all three axis, then there must be a common point, and thus
         // we can return that the constraint was violated
-        return true;
+        return max(c.start().t, from.t)-TOLERANCE;
       }
 
     }
@@ -935,12 +936,12 @@ bool AirplaneGridlessEnvironment::ViolatesConstraint(const PlatformState &from, 
       {
         // If we overlap on all three axis, then there must be a common point, and thus
         // we can return that the constraint was violated
-        return true;
+        return max(c.start().t, from.t)-TOLERANCE;
       }
 
     }
   }
 
   // If no constraint is violated, return false
-  return false;
+  return 0;
 }

@@ -593,7 +593,7 @@ void Constraint<airtimeState>::OpenGLDraw(MapInterface*) const
 	glPopMatrix();
 }
 
-bool AirplaneConstrainedEnvironment::ViolatesConstraint(const airplaneState &from, const airplaneState &to, int time) const
+double AirplaneConstrainedEnvironment::ViolatesConstraint(const airplaneState &from, const airplaneState &to, int time) const
 {
   // Generate the two timestates that define the action box
   airplaneAction act = ae->GetAction(from, to);
@@ -606,7 +606,7 @@ bool AirplaneConstrainedEnvironment::ViolatesConstraint(const airplaneState &fro
 }
 
 // Basically the same code as above, but overloaded so the first section is not necessary
-bool AirplaneConstrainedEnvironment::ViolatesConstraint(const airtimeState &from, const airtimeState &to) const
+double AirplaneConstrainedEnvironment::ViolatesConstraint(const airtimeState &from, const airtimeState &to) const
 {
   // Generate a well formed set of boxes for the action box
   // which we will need later to compare
@@ -625,7 +625,7 @@ bool AirplaneConstrainedEnvironment::ViolatesConstraint(const airtimeState &from
 
   // If both are landed, then the plane's not going anywhere - and we're good
   if (from.landed && to.landed)
-    return false;
+    return 0;
 
   //Check if the action box violates any of the constraints that are in the constraints list
   for (Constraint<airtimeState> c : constraints)
@@ -652,7 +652,7 @@ bool AirplaneConstrainedEnvironment::ViolatesConstraint(const airtimeState &from
       {
         // If we overlap on all three axis, then there must be a common point, and thus
         // we can return that the constraint was violated
-        return true;
+        return max(c.start().t, from.t)-TOLERANCE;
       }
 
     }
@@ -663,7 +663,7 @@ bool AirplaneConstrainedEnvironment::ViolatesConstraint(const airtimeState &from
   // at the same time
   if (from.landed || to.landed)
   {
-    return false;
+    return 0;
   }
 
   //Check if the action box violates any of the constraints that are in the static constraints list
@@ -690,12 +690,12 @@ bool AirplaneConstrainedEnvironment::ViolatesConstraint(const airtimeState &from
       {
         // If we overlap on all three axis, then there must be a common point, and thus
         // we can return that the constraint was violated
-        return true;
+        return max(c.start().t, from.t)-TOLERANCE;
       }
 
     }
   }
 
   // If no constraint is violated, return false
-  return false;
+  return 0;
 }

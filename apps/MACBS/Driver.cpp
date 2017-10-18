@@ -229,7 +229,7 @@ void InitHeadless(){
           conflict=false;
           xyzLoc rs1(rand() % width, rand() % length, rand() % height);
           if(!ace->GetMap()->IsTraversable(rs1.x,rs1.y,rs1.z,Map3D::air)){conflict=true;continue;}
-          xyztLoc start(rs1, 0);
+          xyztLoc start(rs1, 0u);
           for (int j = 0; j < waypoints.size(); j++)
           {
             if(i==j){continue;}
@@ -394,10 +394,10 @@ int MyCLHandler(char *argument[], int maxNumArgs)
             // Add start/goal location
             std::vector<xyztLoc> wpts;
             Experiment e(sl.GetRandomExperiment());
-            uint16_t sx(e.GetStartX());
-            uint16_t sy(e.GetStartY());
-            uint16_t ex(e.GetGoalX());
-            uint16_t ey(e.GetGoalY());
+            unsigned sx(e.GetStartX());
+            unsigned sy(e.GetStartY());
+            unsigned ex(e.GetGoalX());
+            unsigned ey(e.GetGoalY());
             if(a[0].agentType=='S'){
               while(map->GetTerrain(sx,sy)!=Map3D::kWater){
                 sx=rand()%map->GetMapWidth();
@@ -408,8 +408,8 @@ int MyCLHandler(char *argument[], int maxNumArgs)
                 ey=rand()%map->GetMapHeight();
               }
             }
-            uint16_t sz(a[0].agentType=='A'?rand()%(map->GetMapDepth()-1)+1:0);
-            uint16_t ez(a[0].agentType=='A'?rand()%(map->GetMapDepth()-1)+1:0);
+            unsigned sz(a[0].agentType=='A'?rand()%(map->GetMapDepth()-1)+1:0);
+            unsigned ez(a[0].agentType=='A'?rand()%(map->GetMapDepth()-1)+1:0);
             while(true){
               bool bad(false);
               for(auto const& w:waypoints){

@@ -79,38 +79,46 @@ struct xytLoc : xyLoc, tLoc {
   virtual uint16_t Y()const{return y;}
 };
 
-struct xyzLoc : public xyLoc {
+struct xyzLoc {
   public:
-    xyzLoc():xyLoc(-1,-1),z(-1){}
-    xyzLoc(uint16_t _x, uint16_t _y, uint16_t _z=0):xyLoc(_x,_y),z(_z){}
+    xyzLoc():x(0),y(0),z(0){}
+    xyzLoc(unsigned _x, unsigned _y, unsigned _z=0):x(_x),y(_y),z(_z){}
     bool operator<(xyzLoc const& other)const{return x==other.x?(y==other.y?z<other.z:y<other.y):x<other.x;}
     operator Vector3D()const{return Vector3D(x,y,z);}
     explicit operator Vector2D()const{return Vector2D(x,y);}
-    virtual bool sameLoc(xyzLoc const& other)const{return xyLoc::sameLoc(other)&&z==other.z;}
+    virtual bool sameLoc(xyzLoc const& other)const{return x==other.x&&y==other.y&&z==other.z;}
     virtual bool operator==(xyzLoc const& other)const{return sameLoc(other);}
+    virtual bool operator!=(xyzLoc const& other)const{return !sameLoc(other);}
     virtual void print(std::ostream& os)const{os<<"("<<x<<","<<y<<","<<z<<")";}
-    uint16_t z;
-  virtual uint16_t Z()const{return z;}
+    unsigned x : 12;
+    unsigned y : 12;
+    unsigned z : 10;
 };
 
-struct xyztLoc : xyzLoc, tLoc {
-  xyztLoc(xyzLoc loc, float time):xyzLoc(loc),tLoc(time), h(0), p(0){}
-  xyztLoc(xyzLoc loc, uint16_t _h, int16_t _p, float time):xyzLoc(loc),tLoc(time), h(_h), p(_p){}
-  xyztLoc(uint16_t _x, uint16_t _y, uint16_t _z=0, float time=0):xyzLoc(_x,_y,_z),tLoc(time), h(0), p(0){}
-  xyztLoc(uint16_t _x, uint16_t _y, uint16_t _z, uint16_t _h, int16_t _p, float time):xyzLoc(_x,_y,_z),tLoc(time), h(_h), p(_p){}
-  xyztLoc(uint16_t _x, uint16_t _y, uint16_t _z, double _h, double _p, float time):xyzLoc(_x,_y,_z),tLoc(time), h(_h*xyztLoc::HDG_RESOLUTON), p(_p*xyztLoc::PITCH_RESOLUTON){}
-  xyztLoc():xyzLoc(),tLoc(),h(0),p(0){}
+struct xyztLoc : xyzLoc {
+  xyztLoc(xyzLoc loc, unsigned time):xyzLoc(loc),t(time), h(0){}
+  xyztLoc(xyzLoc loc, double time):xyzLoc(loc),t(round(time*TIME_RESOLUTON)), h(0){}
+  xyztLoc(xyzLoc loc, float time):xyzLoc(loc),t(round(time*TIME_RESOLUTON)), h(0){}
+  xyztLoc(xyzLoc loc, unsigned _h, float time):xyzLoc(loc),t(round(time*TIME_RESOLUTON)), h(_h){}
+  xyztLoc(unsigned _x, unsigned _y):xyzLoc(_x,_y,0),t(0), h(0){}
+  xyztLoc(unsigned _x, unsigned _y, unsigned _z, float time):xyzLoc(_x,_y,_z),t(round(time*TIME_RESOLUTON)), h(0){}
+  xyztLoc(unsigned _x, unsigned _y, unsigned _z):xyzLoc(_x,_y,_z),t(0), h(0){}
+  xyztLoc(unsigned _x, unsigned _y, unsigned _z, unsigned time):xyzLoc(_x,_y,_z),t(time), h(0){}
+  xyztLoc():xyzLoc(),h(0){}
   operator TemporalVector3D()const{return TemporalVector3D(x,y,z,t);}
   explicit operator TemporalVector()const{return TemporalVector(x,y,t);}
   operator Vector3D()const{return Vector3D(x,y,z);}
   explicit operator Vector2D()const{return Vector2D(x,y);}
-  uint16_t h; // Heading
-  int16_t p; // Pitch
+  unsigned t : 22; // Time (milliseconds)
+  unsigned h : 10; // Heading
+  //int16_t p; // Pitch
   virtual bool sameLoc(xyztLoc const& other)const{return xyzLoc::sameLoc(other);}
-  virtual bool operator==(xyztLoc const& other)const{return sameLoc(other)&&tLoc::operator==(other);}
-  virtual void print(std::ostream& os)const{os<<"("<<x<<","<<y<<","<<z<<","<<t<<")";}
+  virtual bool operator==(xyztLoc const& other)const{return sameLoc(other)&&t==other.t;}
+  virtual bool operator!=(xyztLoc const& other)const{return x!=other.x||y!=other.y||z!=other.z||t!=other.t;}
+  virtual void print(std::ostream& os)const{os<<"("<<x<<","<<y<<","<<z<<","<<t/1000<<")";}
   static const float HDG_RESOLUTON;
   static const float PITCH_RESOLUTON;
+  static const float TIME_RESOLUTON;
 };
 
 struct AANode : xyLoc {

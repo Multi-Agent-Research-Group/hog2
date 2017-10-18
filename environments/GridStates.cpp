@@ -256,3 +256,6 @@ bool BaseMapOccupancyInterface::CanMove(const xyLoc &, const xyLoc &l2)
 	
 }
 
+const float xyztLoc::TIME_RESOLUTON=1000.0f;
+const float xyztLoc::HDG_RESOLUTON=1024.0/360.0;
+const float xyztLoc::PITCH_RESOLUTON=1024.0/90.0;

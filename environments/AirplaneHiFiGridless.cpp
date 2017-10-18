@@ -971,23 +971,23 @@ void AirplaneHiFiGridlessEnvironment::AddConstraint(Constraint<PlatformState> c)
 void AirplaneHiFiGridlessEnvironment::ClearConstraints(){constraints.resize(0);}
 void AirplaneHiFiGridlessEnvironment::ClearStaticConstraints(){static_constraints.resize(0);}
 
-bool AirplaneHiFiGridlessEnvironment::ViolatesConstraint(const PlatformState &from, const PlatformState &to, int time) const
+double AirplaneHiFiGridlessEnvironment::ViolatesConstraint(const PlatformState &from, const PlatformState &to, int time) const
 {
   return ViolatesConstraint(from, to);
 
 }
 
 // Basically the same code as above, but overloaded so the first section is not necessary
-bool AirplaneHiFiGridlessEnvironment::ViolatesConstraint(const PlatformState &from, const PlatformState &to) const
+double AirplaneHiFiGridlessEnvironment::ViolatesConstraint(const PlatformState &from, const PlatformState &to) const
 {
   // If both are landed, then the plane's not going anywhere - and we're good
   if (from.landed && to.landed)
-    return false;
+    return 0;
 
   //Check if the action box violates any of the constraints that are in the constraints list
   for (Constraint<PlatformState> c : constraints)
   {
-    if(c.ConflictsWith(from,to)){return true;}
+    if(c.ConflictsWith(from,to)){return max(c.start_state.t, from.t)-TOLERANCE;}
   }
 
 
@@ -995,7 +995,7 @@ bool AirplaneHiFiGridlessEnvironment::ViolatesConstraint(const PlatformState &fr
   // at the same time
   if (from.landed || to.landed)
   {
-    return false;
+    return 0;
   }
 
   // Generate a well formed set of boxes for the action box
@@ -1037,14 +1037,14 @@ bool AirplaneHiFiGridlessEnvironment::ViolatesConstraint(const PlatformState &fr
       {
         // If we overlap on all three axis, then there must be a common point, and thus
         // we can return that the constraint was violated
-        return true;
+        return max(c.start_state.t, from.t)-TOLERANCE;
       }
 
     }
   }
 
   // If no constraint is violated, return false
-  return false;
+  return 0;
 }
 
 bool Constraint<PlatformState>::ConflictsWith(const PlatformState &state) const

@@ -24,9 +24,7 @@
 class MapInterface{
 public:
   virtual bool GetOpenGLCoord(int _x, int _y, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const=0;
-  virtual bool GetOpenGLCoord(float _x, float _y, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const=0;
   virtual bool GetOpenGLCoord(int _x, int _y, int _z, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const=0;
-  virtual bool GetOpenGLCoord(float _x, float _y, float _z, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const=0;
   virtual inline long GetMapWidth() const=0;
   virtual inline long GetMapHeight() const=0;
   virtual inline long GetMapDepth() const{return 0;}

@@ -105,13 +105,14 @@ Vector2D B, Vector2D const& VB, double radiusB, double startTimeB, double endTim
 
 // Detect whether collision is occurring or will occur between 2 agents
 // placed at pi and pj with velocity and radius.
-bool collisionImminent(Vector2D A, Vector2D const& VA, double radiusA, double startTimeA, double endTimeA, Vector2D B, Vector2D const& VB, double radiusB, double startTimeB, double endTimeB){
+// Return time of collision or zero otherwise
+double collisionImminent(Vector2D A, Vector2D const& VA, double radiusA, double startTimeA, double endTimeA, Vector2D B, Vector2D const& VB, double radiusB, double startTimeB, double endTimeB){
   // check for time overlap
-  if(fgreater(startTimeA-radiusA,endTimeB)||fgreater(startTimeB-radiusB,endTimeA)||fequal(startTimeA,endTimeA)||fequal(startTimeB,endTimeB)){return false;}
+  if(fgreater(startTimeA-radiusA,endTimeB)||fgreater(startTimeB-radiusB,endTimeA)||fequal(startTimeA,endTimeA)||fequal(startTimeB,endTimeB)){return 0;}
 
   if(A==B&&VA==VB&&VA.x==0&&VA.y==0){
-    if(fgreater(startTimeA,endTimeB)||fgreater(startTimeB,endTimeA)){return false;}
-    else{return true;}
+    if(fgreater(startTimeA,endTimeB)||fgreater(startTimeB,endTimeA)){return 0;}
+    else{return std::max(startTimeA,startTimeB)-TOLERANCE;}
   }
 
   if(fgreater(startTimeB,startTimeA)){
@@ -122,13 +123,13 @@ bool collisionImminent(Vector2D A, Vector2D const& VA, double radiusA, double st
     B+=VB*(startTimeA-startTimeB);
     startTimeB=startTimeA;
   }
-  if(fequal(startTimeA,endTimeA)||fequal(startTimeB,endTimeB)){return false;}
+  if(fequal(startTimeA,endTimeA)||fequal(startTimeB,endTimeB)){return 0;}
 
   // Assume an open interval just at the edge of the agents...
   double r(radiusA+radiusB-2*TOLERANCE); // Combined radius
   Vector2D w(B-A);
   double c(w.sq()-r*r);
-  if(fless(c,0.0)){return true;} // Agents are currently colliding
+  if(fless(c,0.0)){return startTimeA-TOLERANCE;} // Agents are currently colliding
 
   // Use the quadratic formula to detect nearest collision (if any)
   Vector2D v(VA-VB);
@@ -136,13 +137,13 @@ bool collisionImminent(Vector2D A, Vector2D const& VA, double radiusA, double st
   double b(w*v);
 
   double dscr(b*b-a*c);
-  if(fleq(dscr,0)){ return false; }
+  if(fleq(dscr,0)){ return 0; }
 
   double ctime((b-sqrt(dscr))/a); // Collision time
-  if(fless(ctime,0)){ return false; }
+  if(fless(ctime,0)){ return 0; }
 
   // Collision will occur if collision time is before the end of the shortest segment
-  return fleq(ctime,std::min(endTimeB,endTimeA)-startTimeA);
+  return fleq(ctime,std::min(endTimeB,endTimeA)-startTimeA)?ctime+startTimeA:0;
 }
 
 void get2DSuccessors(Vector2D const& c, std::vector<Vector2D>& s, unsigned conn){
@@ -368,13 +369,13 @@ bool collisionCheck(TemporalVector const& A1, TemporalVector const& A2, Temporal
   return collisionImminent(A1,VA,radiusA,A1.t,A2.t,B1,VB,radiusB?radiusB:radiusA,B1.t,B2.t);
 }
 
-bool collisionImminent(Vector3D A, Vector3D const& VA, double radiusA, double startTimeA, double endTimeA, Vector3D B, Vector3D const& VB, double radiusB, double startTimeB, double endTimeB){
+double collisionImminent(Vector3D A, Vector3D const& VA, double radiusA, double startTimeA, double endTimeA, Vector3D B, Vector3D const& VB, double radiusB, double startTimeB, double endTimeB){
   // check for time overlap
-  if(fgreater(startTimeA-radiusA,endTimeB)||fgreater(startTimeB-radiusB,endTimeA)||fequal(startTimeA,endTimeA)||fequal(startTimeB,endTimeB)){return false;}
+  if(fgreater(startTimeA-radiusA,endTimeB)||fgreater(startTimeB-radiusB,endTimeA)||fequal(startTimeA,endTimeA)||fequal(startTimeB,endTimeB)){return 0;}
 
   if(A==B&&VA==VB&&VA.x==0&&VA.y==0){
-    if(fgreater(startTimeA,endTimeB)||fgreater(startTimeB,endTimeA)){return false;}
-    else{return true;}
+    if(fgreater(startTimeA,endTimeB)||fgreater(startTimeB,endTimeA)){return 0;}
+    else{return std::max(startTimeA,startTimeB)-TOLERANCE;}
   }
 
   if(fgreater(startTimeB,startTimeA)){
@@ -385,13 +386,13 @@ bool collisionImminent(Vector3D A, Vector3D const& VA, double radiusA, double st
     B+=VB*(startTimeA-startTimeB);
     startTimeB=startTimeA;
   }
-  if(fequal(startTimeA,endTimeA)||fequal(startTimeB,endTimeB)){return false;}
+  if(fequal(startTimeA,endTimeA)||fequal(startTimeB,endTimeB)){return 0;}
 
   // Assume an open interval just at the edge of the agents...
   double r(radiusA+radiusB-2*TOLERANCE); // Combined radius
   Vector3D w(B-A);
   double c(w.sq()-r*r);
-  if(fless(c,0)){return true;} // Agents are currently colliding
+  if(fless(c,0)){return startTimeA-TOLERANCE;} // Agents are currently colliding
 
   // Use the quadratic formula to detect nearest collision (if any)
   Vector3D v(VA-VB);
@@ -399,18 +400,18 @@ bool collisionImminent(Vector3D A, Vector3D const& VA, double radiusA, double st
   double b(w*v);
 
   double dscr(b*b-a*c);
-  if(fleq(dscr,0)){ return false; }
+  if(fleq(dscr,0)){ return 0; }
 
   double ctime((b-sqrt(dscr))/a); // Collision time
-  if(fless(ctime,0)){ return false; }
+  if(fless(ctime,0)){ return 0; }
 
   // Collision will occur if collision time is before the end of the shortest segment
-  return fleq(ctime,std::min(endTimeB,endTimeA)-startTimeA);
+  return fleq(ctime,std::min(endTimeB,endTimeA)-startTimeA)?ctime+startTimeA:0;
 }
 
 // Check for collision between entities moving from A1 to A2 and B1 to B2
 // Speed is optional. If provided, should be in grids per unit time; time should also be pre adjusted to reflect speed.
-bool collisionCheck3D(TemporalVector3D const& A1, TemporalVector3D const& A2, TemporalVector3D const& B1, TemporalVector3D const& B2, double radiusA, double radiusB, double speedA, double speedB){
+double collisionCheck3D(TemporalVector3D const& A1, TemporalVector3D const& A2, TemporalVector3D const& B1, TemporalVector3D const& B2, double radiusA, double radiusB, double speedA, double speedB){
   unsigned dim(std::max(std::max(std::max(fabs(A1.x-A2.x),fabs(B1.x-B2.x)),std::max(fabs(A1.y-A2.y),fabs(B1.y-B2.y))),std::max(fabs(A1.z-A2.z),fabs(B1.z-B2.z))));
   unsigned ssx(fabs(A1.x-B1.x));
   unsigned sdx(fabs(A1.x-B2.x));
@@ -430,11 +431,11 @@ bool collisionCheck3D(TemporalVector3D const& A1, TemporalVector3D const& A2, Te
 
         if(ssx<2 && ssy<2 && sdx <3 && sdy<3){
           if(!get(bitarray27r_5,index27(A1,A2,B1,B2)))
-             return false;
+             return 0;
         }else if(sdx<2 && sdy<2 && ssx <3 && ssy<3){
           if(!get(bitarray27r_5,index27(A1,A2,B2,B1)))
-             return false;
-        }else{return false;}
+             return 0;
+        }else{return 0;}
       }else{
         static unsigned bitarray27r_25[27*27*27/WORD_BITS+1];
         if(!get(bitarray27r_25,CENTER_IDX27)){
@@ -443,11 +444,11 @@ bool collisionCheck3D(TemporalVector3D const& A1, TemporalVector3D const& A2, Te
 
         if(ssx<2 && ssy<2 && sdx <3 && sdy<3){
           if(!get(bitarray27r_25,index27(A1,A2,B1,B2)))
-             return false;
+             return 0;
         }else if(sdx<2 && sdy<2 && ssx <3 && ssy<3){
           if(!get(bitarray27r_25,index27(A1,A2,B2,B1)))
-             return false;
-        }else{return false;}
+             return 0;
+        }else{return 0;}
       }
       break;
     case 2:
@@ -459,11 +460,11 @@ bool collisionCheck3D(TemporalVector3D const& A1, TemporalVector3D const& A2, Te
 
         if(ssx<3 && ssy<3 && sdx <5 && sdy<5){
           if(!get(bitarray125r_5,index125(A1,A2,B1,B2)))
-             return false;
+             return 0;
         }else if(sdx<3 && sdy<3 && ssx <5 && ssy<5){
           if(!get(bitarray125r_5,index125(A1,A2,B2,B1)))
-             return false;
-        }else{return false;}
+             return 0;
+        }else{return 0;}
       }else{
         static unsigned bitarray125r_25[125*125*125/WORD_BITS+1];
         if(!get(bitarray125r_25,CENTER_IDX125)){
@@ -472,11 +473,11 @@ bool collisionCheck3D(TemporalVector3D const& A1, TemporalVector3D const& A2, Te
 
         if(ssx<3 && ssy<3 && sdx <5 && sdy<5){
           if(!get(bitarray125r_25,index125(A1,A2,B1,B2)))
-             return false;
+             return 0;
         }else if(sdx<3 && sdy<3 && ssx <5 && ssy<5){
           if(!get(bitarray125r_25,index125(A1,A2,B2,B1)))
-             return false;
-        }else{return false;}
+             return 0;
+        }else{return 0;}
       }
       break;
     default:

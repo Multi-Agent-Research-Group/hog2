@@ -41,7 +41,7 @@ public:
 	virtual void ApplyAction(state &s, action a) const{mapEnv->GetPhysicalEnv()->ApplyAction(s,a);}
 	virtual void UndoAction(state &s, action a) const{mapEnv->GetPhysicalEnv()->UndoAction(s,a);}
 	virtual void GetReverseActions(const state &nodeID, std::vector<action> &actions) const{mapEnv->GetPhysicalEnv()->GetReverseActions(nodeID,actions);}
-	bool ViolatesConstraint(const state &from, const state &to) const{return mapEnv->GetPhysicalEnv()->ViolatesConstraint(from,to);}
+	double ViolatesConstraint(const state &from, const state &to) const{return mapEnv->GetPhysicalEnv()->ViolatesConstraint(from,to);}
         void setSoftConstraintEffectiveness(double e){mapEnv->GetPhysicalEnv()->setSoftConstraintEffectiveness(e);}
 	
 	virtual bool InvertAction(action &a) const{return InvertAction(a);}
@@ -73,7 +73,7 @@ public:
         bool LineOfSight(const state &x, const state &y)const{return mapEnv->GetPhysicalEnv()->LineOfSight(x,y);}
         bool collisionCheck(const state &x,const state &y,float,state const&z, state const&a, float){return true;}
 private:
-	bool ViolatesConstraint(const state &from, const state &to, float time, float inc) const{return  mapEnv->GetPhysicalEnv()->ViolatesConstraint(from,to,time,inc);}
+	double ViolatesConstraint(const state &from, const state &to, float time, float inc) const{return  mapEnv->GetPhysicalEnv()->ViolatesConstraint(from,to,time,inc);}
 
 	std::vector<Constraint<state>> constraints;
 	std::vector<Constraint<TemporalVector>> vconstraints;

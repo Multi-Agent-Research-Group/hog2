@@ -437,8 +437,8 @@ TEST(SecantLine, NoIntersectionInside){
 }
 
 TEST(Grid3DConstrained, GetStateHash){
-  xyztLoc a={103,41,0,6.24264};
-  xyztLoc b={103,43,0,6.24264};
+  xyztLoc a={103,41,0,6.24264f};
+  xyztLoc b={103,43,0,6.24264f};
   Map3D map(99,99,99);
   Grid3DConstrainedEnvironment e(&map);
   e.SetIgnoreHeading(true);

@@ -39,7 +39,7 @@ public:
 	virtual void ApplyAction(xyztLoc &s, t3DDirection a) const;
 	virtual void UndoAction(xyztLoc &s, t3DDirection a) const;
 	virtual void GetReverseActions(const xyztLoc &nodeID, std::vector<t3DDirection> &actions) const;
-	bool ViolatesConstraint(const xyztLoc &from, const xyztLoc &to) const;
+	double ViolatesConstraint(const xyztLoc &from, const xyztLoc &to) const;
         void setSoftConstraintEffectiveness(double){}
 	
 	virtual bool InvertAction(t3DDirection &a) const;
@@ -53,6 +53,7 @@ public:
 	virtual uint64_t GetStateHash(const xyztLoc &node) const;
         virtual void GetStateFromHash(uint64_t hash, xyztLoc &s) const;
 	virtual uint64_t GetActionHash(t3DDirection act) const;
+	virtual double GetPathLength(std::vector<xyztLoc> &neighbors);
 
 	virtual void OpenGLDraw() const;
         void OpenGLDraw(const xyztLoc& s, const xyztLoc& t, float perc) const;
@@ -96,7 +97,7 @@ class TieBreaking3D {
     if (fequal(ci1.g+ci1.h, ci2.g+ci2.h)) // F-cost equal
     {
 
-      if(useCAT && CAT){
+      /*if(useCAT && CAT){
         // Make them non-const :)
         AStarOpenClosedData<state>& i1(const_cast<AStarOpenClosedData<state>&>(ci1));
         AStarOpenClosedData<state>& i2(const_cast<AStarOpenClosedData<state>&>(ci2));
@@ -153,15 +154,25 @@ class TieBreaking3D {
           i2.data.nc=nc2;
         }
         if(fequal(i1.data.nc,i2.data.nc)){
-          if(randomalg && fequal(ci1.g,ci2.g)){
-            return rand()%2;
+          if(fequal(ci1.g,ci2.g)){
+            uint32_t t1(ci1.data.t*1000);
+            uint32_t t2(ci2.data.t*1000);
+            if(randomalg && t1==t2){
+              return rand()%2;
+            }
+            return t1<t2;  // Tie-break toward greater time (relevant for waiting at goal)
           }
           return (fless(ci1.g, ci2.g));  // Tie-break toward greater g-cost
         }
         return fgreater(i1.data.nc,i2.data.nc);
-      }else{
-        if(randomalg && fequal(ci1.g,ci2.g)){
-          return rand()%2;
+      }else*/{
+        if(fequal(ci1.g,ci2.g)){
+          uint32_t t1(ci1.data.t*1000);
+          uint32_t t2(ci2.data.t*1000);
+          if(randomalg && t1==t2){
+            return rand()%2;
+          }
+          return t1<t2;  // Tie-break toward greater time (relevant for waiting at goal)
         }
         return (fless(ci1.g, ci2.g));  // Tie-break toward greater g-cost
       }
