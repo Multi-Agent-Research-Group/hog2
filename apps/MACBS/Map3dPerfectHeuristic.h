@@ -1,7 +1,7 @@
 #include "Grid3DConstrainedEnvironment.h"
 #include "Heuristic.h"
 #include "PEAStar.h"
-#include "TemplateAStar.h"
+#include "TemporalAStar.h"
 
 // Computes a perfect heuristic given a goal state.
 // Note that this only works assuming that agents are
@@ -24,7 +24,7 @@ class Map3dPerfectHeuristic: public Heuristic<state> {
         e->SetIgnoreTime(true); // Otherwise the search would never terminate
         e->SetIgnoreHeading(true);  // Don't care about alternate paths to this state
         //PEAStar<state,action,Grid3DConstrainedEnvironment> astar;
-        TemplateAStar<state,action,Grid3DConstrainedEnvironment> astar;
+        TemporalAStar<state,action,Grid3DConstrainedEnvironment> astar;
         //std::cout << "Loading heuristic\n";
         //astar.SetVerbose(false);
         astar.SetHeuristic(new ZeroHeuristic<state>);

@@ -43,8 +43,6 @@ extern double agentRadius;
 #define INF 9999999.0f
 // for agents to stay at goal
 #define MAXTIME 1000000
-// for inflation of floats to avoid rounding errors
-#define INFLATION 1000
 
 template<typename T, typename C>
 class custom_priority_queue : public std::priority_queue<T, std::vector<T>, C>
@@ -88,7 +86,7 @@ namespace std
 template<typename state, typename action>
 class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
   public:
-    ICTSAlgorithm():jointTime(0),pairwiseTime(0),mddTime(0),nogoodTime(0),epp(false),verbose(false),quiet(false),verify(false),jointnodes(0),step(INFLATION),suboptimal(false),pairwise(true){}
+    ICTSAlgorithm():jointTime(0),pairwiseTime(0),mddTime(0),nogoodTime(0),epp(false),verbose(false),quiet(false),verify(false),jointnodes(0),step(state::TIME_RESOLUTION_U),suboptimal(false),pairwise(true){}
     float jointTime;
     float pairwiseTime;
     float mddTime;
@@ -132,10 +130,10 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       //bool connected()const{return parents.size()+successors.size();}
       //std::unordered_set<Node*> parents;
       std::unordered_set<Node*> successors;
-      virtual uint64_t Hash()const{return hash;}//(env->GetStateHash(n)<<32) | ((uint32_t)(depth*INFLATION));}
+      virtual uint64_t Hash()const{return hash;}//(env->GetStateHash(n)<<32) | ((uint32_t)(depth*state::TIME_RESOLUTION_U));}
       virtual uint32_t Depth()const{return depth; }
       virtual void Print(std::ostream& ss, int d=0) const {
-        ss << std::string(d/INFLATION,' ')<<n << "_" << depth << std::endl;
+        ss << std::string(d/state::TIME_RESOLUTION_U,' ')<<n << "_" << depth << std::endl;
         //for(auto const& m: successors)
           //m->Print(ss,d+1);
       }
@@ -215,9 +213,9 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
         }
         Node* parent(&dag[hash]);
         int d(maxDepth-depth);
-        while(d+INFLATION<=maxDepth){ // Increment depth by 1 for wait actions
+        while(d+state::TIME_RESOLUTION_U<=maxDepth){ // Increment depth by 1 for wait actions
           // Wait at goal
-          d+=INFLATION;
+          d+=state::TIME_RESOLUTION_U;
           Node current(start,d,GetHash(start,d,agent));
           uint64_t chash(current.Hash());
           dag[chash]=current;
@@ -236,7 +234,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       env->GetSuccessors(start,successors);
       bool result(false);
       for(auto const& node: successors){
-        uint32_t ddiff(std::max((int)round(Util::distance(node,start)*INFLATION),INFLATION));
+        unsigned ddiff(std::max(round(Util::distance(node,start)*state::TIME_RESOLUTION_D),state::TIME_RESOLUTION_D));
         //std::cout << std::string(std::max(0,(maxDepth-(depth-ddiff))),' ') << "MDDEVAL " << start << "-->" << node << "\n";
         //if(abs(node.x-start.x)>=1 && abs(node.y-start.y)>=1){
         //ddiff = M_SQRT2;
@@ -551,7 +549,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
     }
 
     uint32_t HCost(state const& a, state const& b, unsigned agent)const{
-      return heuristics[agent]?round(heuristics[agent]->HCost(a,b)*INFLATION):round(envs[agent]->HCost(a,b)*INFLATION);
+      return heuristics[agent]?round(heuristics[agent]->HCost(a,b)*state::TIME_RESOLUTION_D):round(envs[agent]->HCost(a,b)*state::TIME_RESOLUTION_D);
     }
 
     struct ICTSNode{
@@ -716,7 +714,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
               for(int agent(0); agent<answers[num].size(); ++agent){
                 std::cout << "  " << agent << ":\n";
                 for(auto a(answers[num][agent].begin()); a!=answers[num][agent].end(); ++a){
-                  std::cout  << "  " << std::string((*a)->depth/INFLATION,' ') << **a << "\n";
+                  std::cout  << "  " << std::string((*a)->depth/state::TIME_RESOLUTION_U,' ') << **a << "\n";
                 }
                 std::cout << "\n";
               }

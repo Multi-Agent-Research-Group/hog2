@@ -50,8 +50,8 @@ void Grid3DConstrainedEnvironment::GetSuccessors(const xyztLoc &nodeID, std::vec
   // TODO: remove illegal successors
   for (unsigned int x = 0; x < n.size(); x++)
   {
-    unsigned inc(mapEnv->GetConnectedness()?(Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y))*xyztLoc::TIME_RESOLUTON:xyztLoc::TIME_RESOLUTON);
-    if(!inc)inc=xyztLoc::TIME_RESOLUTON; // Wait action
+    unsigned inc(mapEnv->GetConnectedness()?(Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y))*xyztLoc::TIME_RESOLUTION_D:xyztLoc::TIME_RESOLUTION);
+    if(!inc)inc=xyztLoc::TIME_RESOLUTION_U; // Wait action
     xyztLoc newLoc(n[x],
         //Util::heading<USHRT_MAX>(nodeID.x,nodeID.y,n[x].x,n[x].y), // hdg
         //Util::angle<SHRT_MAX>(0.0,0.0,Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y),double(n[x].z-nodeID.z)), // pitch
@@ -72,7 +72,8 @@ void Grid3DConstrainedEnvironment::GetAllSuccessors(const xyztLoc &nodeID, std::
   // TODO: remove illegal successors
   for (unsigned int x = 0; x < n.size(); x++)
   {
-    unsigned inc(mapEnv->GetConnectedness()?(Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y))*xyztLoc::TIME_RESOLUTON:xyztLoc::TIME_RESOLUTON);
+    unsigned inc(mapEnv->GetConnectedness()?(Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y))*xyztLoc::TIME_RESOLUTION_D:xyztLoc::TIME_RESOLUTION);
+    if(!inc)inc=xyztLoc::TIME_RESOLUTION_U; // Wait action
     xyztLoc newLoc(n[x],
         //Util::heading<USHRT_MAX>(nodeID.x,nodeID.y,n[x].x,n[x].y), // hdg
         //Util::heading<SHRT_MAX>(0.0,0.0,Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y),double(n[x].z-nodeID.z)), // pitch

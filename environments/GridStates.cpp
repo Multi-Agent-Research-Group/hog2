@@ -39,7 +39,7 @@ bool Constraint<xytLoc>::ConflictsWith(const xytLoc &state) const
 template<>
 bool Constraint<xytLoc>::ConflictsWith(const xytLoc &from, const xytLoc &to) const
 {
-  return from.sameLoc(start_state)&&to.sameLoc(end_state)&&int(from.t*SEC2MSEC)==int(start_state.t*SEC2MSEC)&&int(to.t*SEC2MSEC)==int(end_state.t*SEC2MSEC);
+  return from.sameLoc(start_state)&&to.sameLoc(end_state)&&int(from.t)==int(start_state.t)&&int(to.t)==int(end_state.t);
   //return from.sameLoc(to)&&fequal(from.t,to.t);
   /*Vector2D A(from);
   Vector2D VA(to);
@@ -256,6 +256,8 @@ bool BaseMapOccupancyInterface::CanMove(const xyLoc &, const xyLoc &l2)
 	
 }
 
-const float xyztLoc::TIME_RESOLUTON=1000.0f;
-const float xyztLoc::HDG_RESOLUTON=1024.0/360.0;
-const float xyztLoc::PITCH_RESOLUTON=1024.0/90.0;
+const float xyztLoc::TIME_RESOLUTION=1000.0f;
+const unsigned xyztLoc::TIME_RESOLUTION_U=1000u;
+const double xyztLoc::TIME_RESOLUTION_D=1000.0;
+const float xyztLoc::HDG_RESOLUTION=1024.0/360.0;
+const float xyztLoc::PITCH_RESOLUTION=1024.0/90.0;

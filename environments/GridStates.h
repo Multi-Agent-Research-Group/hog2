@@ -5,8 +5,6 @@
 #include "VelocityObstacle.h"
 #include "ConstrainedEnvironment.h"
 
-#define SEC2MSEC 1000
-
 // Utility function
 void GLDrawCircle(GLfloat x, GLfloat y, GLfloat radius);
 
@@ -97,11 +95,11 @@ struct xyzLoc {
 
 struct xyztLoc : xyzLoc {
   xyztLoc(xyzLoc loc, unsigned time):xyzLoc(loc),t(time), h(0){}
-  xyztLoc(xyzLoc loc, double time):xyzLoc(loc),t(round(time*TIME_RESOLUTON)), h(0){}
-  xyztLoc(xyzLoc loc, float time):xyzLoc(loc),t(round(time*TIME_RESOLUTON)), h(0){}
-  xyztLoc(xyzLoc loc, unsigned _h, float time):xyzLoc(loc),t(round(time*TIME_RESOLUTON)), h(_h){}
+  xyztLoc(xyzLoc loc, double time):xyzLoc(loc),t(round(time*TIME_RESOLUTION_U)), h(0){}
+  xyztLoc(xyzLoc loc, float time):xyzLoc(loc),t(round(time*TIME_RESOLUTION)), h(0){}
+  xyztLoc(xyzLoc loc, unsigned _h, float time):xyzLoc(loc),t(round(time*TIME_RESOLUTION)), h(_h){}
   xyztLoc(unsigned _x, unsigned _y):xyzLoc(_x,_y,0),t(0), h(0){}
-  xyztLoc(unsigned _x, unsigned _y, unsigned _z, float time):xyzLoc(_x,_y,_z),t(round(time*TIME_RESOLUTON)), h(0){}
+  xyztLoc(unsigned _x, unsigned _y, unsigned _z, float time):xyzLoc(_x,_y,_z),t(round(time*TIME_RESOLUTION)), h(0){}
   xyztLoc(unsigned _x, unsigned _y, unsigned _z):xyzLoc(_x,_y,_z),t(0), h(0){}
   xyztLoc(unsigned _x, unsigned _y, unsigned _z, unsigned time):xyzLoc(_x,_y,_z),t(time), h(0){}
   xyztLoc():xyzLoc(),h(0){}
@@ -115,10 +113,12 @@ struct xyztLoc : xyzLoc {
   virtual bool sameLoc(xyztLoc const& other)const{return xyzLoc::sameLoc(other);}
   virtual bool operator==(xyztLoc const& other)const{return sameLoc(other)&&t==other.t;}
   virtual bool operator!=(xyztLoc const& other)const{return x!=other.x||y!=other.y||z!=other.z||t!=other.t;}
-  virtual void print(std::ostream& os)const{os<<"("<<x<<","<<y<<","<<z<<","<<t/1000<<")";}
-  static const float HDG_RESOLUTON;
-  static const float PITCH_RESOLUTON;
-  static const float TIME_RESOLUTON;
+  virtual void print(std::ostream& os)const{os<<"("<<x<<","<<y<<","<<z<<","<<float(t)/TIME_RESOLUTION<<")";}
+  static const float HDG_RESOLUTION;
+  static const float PITCH_RESOLUTION;
+  static const float TIME_RESOLUTION;
+  static const unsigned TIME_RESOLUTION_U;
+  static const double TIME_RESOLUTION_D;
 };
 
 struct AANode : xyLoc {

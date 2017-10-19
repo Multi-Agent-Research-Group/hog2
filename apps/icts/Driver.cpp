@@ -560,7 +560,7 @@ bool jointDFS2(MultiEdge const& r, uint32_t d, Solution solution, std::vector<So
 
   std::string h(r.size()*sizeof(uint64_t),1);
   getHash(r,h);
-  stack.push({r,h,0.0f});
+  stack.push({r,h,0u});
 
   while(stack.size()){
     auto v(stack.top());

@@ -322,7 +322,7 @@ struct ClearablePQ:public std::priority_queue<T,C,Cmp>{
   }
 };
 
-template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class searchalgo=TemporalAStar<state, action, ConstrainedEnvironment<state,action>, AStarOpenClosed<state, comparison>>>
+template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class searchalgo=TemporalAStar<state, action, ConstrainedEnvironment<state,action>, AStarOpenClosed<state, comparison>,1000>>
 class CBSGroup : public UnitGroup<state, action, ConstrainedEnvironment<state,action>>
 {
   public:
@@ -442,9 +442,9 @@ void CBSUnit<state,action,comparison,conflicttable,searchalgo>::OpenGLDraw(const
     state start_t = myPath[myPath.size()-1];
     state stop_t = myPath[myPath.size()-2];
 
-    if(si->GetSimulationTime()*1000 <= stop_t.t && si->GetSimulationTime()*1000 >= start_t.t)
+    if(si->GetSimulationTime()*state::TIME_RESOLUTION_D <= stop_t.t && si->GetSimulationTime()*state::TIME_RESOLUTION_D >= start_t.t)
     {
-      float perc = (stop_t.t - si->GetSimulationTime()*1000)/(stop_t.t - start_t.t);
+      float perc = (stop_t.t - si->GetSimulationTime()*state::TIME_RESOLUTION_D)/(stop_t.t - start_t.t);
       ae->OpenGLDraw(stop_t, start_t, perc);
       //Constraint<state> c(stop_t, start_t);
       //glColor3f(1, 0, 0);
@@ -828,7 +828,7 @@ template<typename state, typename action, typename comparison, typename conflict
 bool CBSUnit<state,action,comparison,conflicttable,searchalgo>::MakeMove(ConstrainedEnvironment<state,action> *ae, OccupancyInterface<state,action> *,
 							 SimulationInfo<state,action,ConstrainedEnvironment<state,action>> * si, state& a)
 {
-  if (myPath.size() > 1 && si->GetSimulationTime()*1000 > myPath[myPath.size()-2].t)
+  if (myPath.size() > 1 && si->GetSimulationTime()*state::TIME_RESOLUTION_D > myPath[myPath.size()-2].t)
   {
     a=myPath[myPath.size()-2];
 
@@ -845,7 +845,7 @@ template<typename state, typename action, typename comparison, typename conflict
 bool CBSUnit<state,action,comparison,conflicttable,searchalgo>::MakeMove(ConstrainedEnvironment<state,action> *ae, OccupancyInterface<state,action> *,
 							 SimulationInfo<state,action,ConstrainedEnvironment<state,action>> * si, action& a)
 {
-  if (myPath.size() > 1 && si->GetSimulationTime()*1000 > myPath[myPath.size()-2].t)
+  if (myPath.size() > 1 && si->GetSimulationTime()*state::TIME_RESOLUTION_D > myPath[myPath.size()-2].t)
   {
 
     //std::cout << "Moved from " << myPath[myPath.size()-1] << " to " << myPath[myPath.size()-2] << std::endl;
@@ -1002,7 +1002,7 @@ void CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::proce
   std::cout << collisionTime << ",";
   std::cout << TOTAL_EXPANSIONS << ",";
   std::cout << tree.size() << ",";
-  std::cout << cost/1000. << ","; 
+  std::cout << cost/state::TIME_RESOLUTION_D << ","; 
   std::cout << total << std::endl;
   TOTAL_EXPANSIONS = 0;
   planFinished = true;
@@ -1134,9 +1134,9 @@ void CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::StayA
 
   // Add wait actions (of 1 second) to goal states less than max
   for(auto& n:tree[location].paths){
-    while(n.back().t<maxDuration-1000){
+    while(n.back().t<maxDuration-state::TIME_RESOLUTION_U){
       state x(n.back());
-      x.t+=1000;
+      x.t+=state::TIME_RESOLUTION_U;
       n.push_back(x);
     }
   }
