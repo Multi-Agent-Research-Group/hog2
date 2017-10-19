@@ -56,6 +56,16 @@ void Grid3DConstrainedEnvironment::GetSuccessors(const xyztLoc &nodeID, std::vec
         //Util::heading<USHRT_MAX>(nodeID.x,nodeID.y,n[x].x,n[x].y), // hdg
         //Util::angle<SHRT_MAX>(0.0,0.0,Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y),double(n[x].z-nodeID.z)), // pitch
         nodeID.t+inc);
+    /*bool bad(false);
+    for(unsigned int x = 0; x < constraints.size(); x++)
+    {
+      if(nodeID.sameLoc(constraints[x].start_state)&&newLoc.sameLoc(constraints[x].end_state)){
+        bad=true;
+      }
+    }
+    if(!bad)
+      neighbors.push_back(newLoc);
+      */
     if (!ViolatesConstraint(nodeID,newLoc)){
       neighbors.push_back(newLoc);
     }else{

@@ -122,7 +122,6 @@ unsigned ReplanLeg(CBSUnit<state,action,comparison,conflicttable,searchalgo>* c,
   while(thePath.size()>wpts[g]+1 && thePath[wpts[g]].sameLoc(thePath[++wpts[g]])){deletes++;}
   state start(c->GetWaypoint(s));
   state goal(c->GetWaypoint(g));
-  std::cout << "Agent: " << "re-planning path from " << start << " to " << goal << " on a path of len:" << thePath.size() << " out to time " << minTime <<"\n";
   // Preserve proper start time
   start.t = thePath[wpts[s]].t;
 
@@ -551,9 +550,9 @@ bool CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::Expan
     // if both children are cardinal, create children for both
 
     // Swap units
-    //unsigned tmp(c1.unit1);
-    //c1.unit1=c2.unit1;
-    //c2.unit1=tmp;
+    unsigned tmp(c1.unit1);
+    c1.unit1=c2.unit1;
+    c2.unit1=tmp;
     // Notify the user of the conflict
       if(!quiet)std::cout << "TREE " << bestNode <<"("<<tree[bestNode].parent << ") " <<(numConflicts.second==7?"CARDINAL":(numConflicts.second==3?"LEFT-CARDINAL":(numConflicts.second==5?"RIGHT-CARDINAL":"NON-CARDINAL")))<< " conflict found between MA " << c1.unit1 << " and MA " << c2.unit1 << " @:" << c2.c.start() << "-->" << c2.c.end() <<  " and " << c1.c.start() << "-->" << c1.c.end() << " NC " << numConflicts.first << " prev-W " << c1.prevWpt << " " << c2.prevWpt << "\n";
     //if(verbose){
@@ -575,7 +574,7 @@ bool CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::Expan
     for(unsigned i(0); i < activeMetaAgents.size(); ++i){
       for(unsigned j(i+1); j < activeMetaAgents.size(); ++j){
         if(metaAgentConflictMatrix[i][j] > mergeThreshold){
-          std::cout << "Merging " << i << " and " << j << "\n";    
+          if(!quiet)std::cout << "Merging " << i << " and " << j << "\n";    
           // Merge i and j
           for(unsigned x : activeMetaAgents[j].units){
             activeMetaAgents[i].units.push_back(x);
@@ -627,7 +626,7 @@ bool CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::Expan
           tmr.StartTimer();
           maPlanner.GetSolution(envs, start, goal, solution);
           maplanTime+=tmr.EndTimer();
-          std::cout << "Merged plan took " << maPlanner.GetNodesExpanded() << " expansions\n";
+          if(!quiet)std::cout << "Merged plan took " << maPlanner.GetNodesExpanded() << " expansions\n";
 
           TOTAL_EXPANSIONS += maPlanner.GetNodesExpanded();
 
@@ -723,7 +722,7 @@ bool CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::Expan
             unit->SetPath(newPath);
           }
 
-          std::cout << "Merged MAs " << i << " and " << j << std::endl;
+          if(!quiet)std::cout << "Merged MAs " << i << " and " << j << std::endl;
           // Finished merging - return from the unit
           return true; 
         }
@@ -1326,7 +1325,8 @@ void CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::Repla
     }
 
 
-    //std::cout << "Replan agent " << theUnit << "\n";
+    if(!quiet)std::cout << "Replan agent " << theUnit << "\n";
+    //if(!quiet)std::cout << "re-planning path from " << start << " to " << goal << " on a path of len:" << thePath.size() << " out to time " << minTime <<"\n";
     ReplanLeg<state,action,comparison,conflicttable,searchalgo>(c, astar, currentEnvironment[theUnit]->environment, tree[location].paths[theUnit], tree[location].wpts[theUnit], tree[location].con.prevWpt, tree[location].con.prevWpt+1,minTime);
     //for(int i(0); i<tree[location].paths.size(); ++i)
     //std::cout << "Replanned agent "<<i<<" path " << tree[location].paths[i].size() << "\n";

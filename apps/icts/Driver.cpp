@@ -254,7 +254,7 @@ struct Node : public Hashable{
 	virtual uint64_t Hash()const{return (env->GetStateHash(n)<<32) | depth;}
 	virtual uint32_t Depth()const{return depth; }
         virtual void Print(std::ostream& ss, int d=0) const {
-          ss << std::string(d/INFLATION,' ')<<n << "_" << depth << std::endl;
+          ss << std::string(d,' ')<<n << "_" << depth << std::endl;
           for(auto const& m: successors)
             m->Print(ss,d+1);
         }
@@ -328,7 +328,8 @@ std::ostream& operator << (std::ostream& ss, MultiEdge const& n){
 }
 
 std::ostream& operator << (std::ostream& ss, Node const& n){
-  ss << n.n << "@" << n.depth;
+  //ss << n.n.x-10 << "," << n.n.y-10 << "," << float(n.depth)/1000.;
+  ss << n.n.x << "," << n.n.y << "," << float(n.depth)/1000.;
   return ss;
 }
 
@@ -455,11 +456,10 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, uin
       dag[parent->Hash()].successors.insert(&dag[current->Hash()]);
       //std::cout << "at" << &dag[parent->Hash()] << "\n";
     }
-    singleTransTable[hash]=result;
-    if(!result){
-      dag.erase(hash);
-    }
-    return result;
+  }
+  singleTransTable[hash]=result;
+  if(!result){
+    dag.erase(hash);
   }
   return result;
 }
@@ -888,7 +888,7 @@ bool jointDFS(MultiState const& s, std::vector<Solution>& solutions, std::vector
   uint32_t best(INF);
 
   transTable.clear();
-  return jointDFS(act,0.0,solution,solutions,toDelete,best,bestSeen,suboptimal,checkOnly);
+  return jointDFS(act,0.0,solution,solutions,toDelete,best,bestSeen,1,suboptimal,checkOnly);
 }
 
 // Check that two paths have no collisions
@@ -946,7 +946,7 @@ struct ICTSNode{
     count++;
     sizes[agent]=size;
     best[agent]=INF;
-    if(verbose)std::cout << "replan agent " << agent << " GetMDD("<<(heuristics[ids[agent]]->HCost(instance.first[agent],instance.second[agent])+sizes[agent])<<")\n";
+    if(!quiet)std::cout << "rebuild MDD for agent " << agent << " GetMDD("<<(heuristics[ids[agent]]->HCost(instance.first[agent],instance.second[agent])+sizes[agent]/1000.)<<")\n";
     dag[agent].clear();
     replanned.push_back(agent);
     Timer timer;
@@ -967,7 +967,7 @@ struct ICTSNode{
     for(int i(0); i<instance.first.size(); ++i){
       best[i]=INF;
       replanned[i]=i;
-      if(verbose)std::cout << "plan agent " << i << " GetMDD("<<(heuristics[ids[i]]->HCost(instance.first[i],instance.second[i])+sizes[i])<<")\n";
+      if(!quiet)std::cout << "build MDD for agent " << i << " GetMDD("<<(heuristics[ids[i]]->HCost(instance.first[i],instance.second[i])+sizes[i]/1000.)<<")\n";
       //std::cout.precision(17);
       std::cout.precision(6);
 
@@ -1190,10 +1190,10 @@ bool detectIndependence(Solution& solution, std::vector<Group*>& group, std::uno
             VA.Normalize();
             Vector2D VB(solution[j][b]->n.x-solution[j][b-1]->n.x,solution[j][b]->n.y-solution[j][b-1]->n.y);
             VB.Normalize();
-            if(collisionImminent(A,VA,agentRadius,solution[i][a-1]->depth,solution[i][a]->depth,B,VB,agentRadius,solution[j][b-1]->depth,solution[j][b]->depth)){
+            if(collisionImminent(A,VA,agentRadius,solution[i][a-1]->depth*TOMSECS,solution[i][a]->depth*TOMSECS,B,VB,agentRadius,solution[j][b-1]->depth*TOMSECS,solution[j][b]->depth*TOMSECS)){
               if(verbose)std::cout << i << " and " << j << " collide at " << solution[i][a-1]->depth << "~" << solution[i][a]->depth << solution[i][a-1]->n << "-->" << solution[i][a]->n << " X " << solution[j][b-1]->n << "-->" << solution[j][b]->n << "\n";
               independent=false;
-              if(group[i]==group[j]) continue; // This can happen if both collide with a common agent
+              if(group[i]==group[j]) break; // This can happen if both collide with a common agent
               // Combine groups i and j
 
               Group* toDelete(group[j]);
@@ -1392,8 +1392,10 @@ int main(int argc, char ** argv){
       env->SetFiveConnected();
       break;
   }
+  //env->SetFullBranching(true);
 
   if(false){
+    waypoints.clear();
     waypoints.push_back({{10,10},{14,14}});
   }
 
@@ -1411,16 +1413,47 @@ int main(int argc, char ** argv){
   if(false){
     xyLoc f(10,10);
     xyLoc w(14,14);
-    MultiState rt(1);
+    std::cout<<"require('rgl')\nrequire('igraph')";
     for(uint32_t i(0);i<11;++i){
+    MultiState rt(1);
     DAG dg;
       //std::cout << f << " " << w << std::endl;
       uint32_t bst(9999999);
       int hc(env->HCost(f,w)*INFLATION);
       GetMDD(0,0,f,w,dg,rt,(hc+INFLATION*i/5.),bst);
       std::cout<<"\n";
+      //std::cout << rt[0];
+      std::unordered_map<uint64_t,uint64_t> labels;
+      std::vector<uint64_t> goals;
+      for(auto const& d:dg){
+        if(labels.find(d.first)==labels.end()){labels[d.first]=labels.size();}
+        if(d.second.n.sameLoc(w))goals.push_back(labels[d.first]);
+      }
+      std::cout << "edges=c(";
+      std::string sep("");
+      for(auto const& d:dg){
+        for(auto const& s:d.second.successors){
+          std::cout << sep<< labels[d.first]<<","<<labels[s->Hash()];
+          sep=",";
+        }
+      }
+      std::cout<<")\nlayout=data.matrix(read.csv(textConnection(\"";
       for(auto const& d:dg){std::cout << d.second<<"\n";}
-      std::cout << i/5. << " " << dg.size() << std::endl;
+      std::cout<<"\"),header=F))\n";
+      //std::cout << i/5. << " " << dg.size() << std::endl;
+      std::cout <<"g<-graph(edges, n=max(edges), directed=TRUE)\n";
+      std::cout<< "V(g)$color<-'lightblue'\n";
+      std::cout<< "V(g)$color["<<labels[rt[0]->Hash()]<<"]<-'blue'\n";
+      std::cout<< "V(g)$color[c(";
+      sep="";
+      for(auto const& i:goals){
+        std::cout << sep << i;
+        sep=",";
+      }
+      std::cout<<")]<-'red'\n";
+      std::cout<< "rglplot(g,layout=layout,edge.arrow.size=5,vertex.label=NA,rescale=F,edge.width=2)\n";
+      std::cout <<"axes3d()\n";
+      std::cout <<"bgplot3d({\nplot.new()\ntitle(main = '"<<agentType<<"-connected, up to opt+"<<i/5.<<"', line = 3)\nmtext(side = 1, '"<<dg.size()<<" nodes', line = 4)\n})\n";
     }
     exit(0);
   }
@@ -1448,6 +1481,7 @@ int main(int argc, char ** argv){
       }else{
         astar.SetHeuristic(heuristics[i]);
         astar.GetPath(env,waypoints[i][0],waypoints[i][1],path);
+        if(!quiet)std::cout<<"Planned agent "<<i<<"\n";
       }
       Path timePath;
       //std::cout << s[i] << "-->" << e[i] << std::endl;
@@ -1814,4 +1848,3 @@ int MyCLHandler(char *argument[], int maxNumArgs)
   }
   return 1;
 }
-
