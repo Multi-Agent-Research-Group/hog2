@@ -19,7 +19,8 @@ bool randomalg = false; // Randomize tiebreaking
 bool useCAT = false; // Use conflict avoidance table
 bool verify = false;
 bool mouseTracking;
-unsigned killtime(3600); // Kill after some number of seconds
+unsigned killtime(300); // Kill after some number of seconds
+unsigned killmem(1024); // 1GB
 unsigned killex(INT_MAX); // Kill after some number of expansions
 bool disappearAtGoal(false);
 int px1, py1, px2, py2;
@@ -69,6 +70,7 @@ std::vector<std::vector<xyztLoc> > waypoints;
   {
   InstallHandlers();
   ProcessCommandLineArgs(argc, argv);
+  Util::setmemlimit(killmem);
   
   if(gui)
   {
@@ -143,6 +145,7 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-envfile", "-envfile", "Load environment settings per agent");
 	InstallCommandLineHandler(MyCLHandler, "-constraints", "-constraints", "Load constraints from file");
 	InstallCommandLineHandler(MyCLHandler, "-killtime", "-killtime", "Kill after this many seconds");
+	InstallCommandLineHandler(MyCLHandler, "-killmem", "-killmem", "Kill after this many seconds");
 	InstallCommandLineHandler(MyCLHandler, "-killex", "-killex", "Kill after this many expansions");
 	InstallCommandLineHandler(MyCLHandler, "-mapfile", "-mapfile", "Map file to use");
 	InstallCommandLineHandler(MyCLHandler, "-dtedfile", "-dtedfile", "Map file to use");
@@ -633,6 +636,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 	if(strcmp(argument[0], "-killex") == 0)
 	{
                 killex = atoi(argument[1]);
+		return 2;
+	}
+	if(strcmp(argument[0], "-killmem") == 0)
+	{
+                killmem = atoi(argument[1]);
 		return 2;
 	}
 	if(strcmp(argument[0], "-killtime") == 0)

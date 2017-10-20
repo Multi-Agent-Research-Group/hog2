@@ -5,8 +5,18 @@
 #include <sstream>
 #include <vector>
 #include <algorithm>
+#include <sys/resource.h>
 
 namespace Util{
+  // Set upper limit on memory consumption
+  void setmemlimit(unsigned megabytes)
+  {
+    struct rlimit memlimit;
+
+    megabytes*=(1024*1024);
+    memlimit.rlim_cur = memlimit.rlim_max = megabytes;
+    setrlimit(RLIMIT_AS, &memlimit);
+  }
 
   // swaps two values
   template <typename T>

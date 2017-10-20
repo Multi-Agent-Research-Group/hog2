@@ -46,6 +46,7 @@
 #include "UnitSimulation.h"
 #include "ScenarioLoader.h"
 #include "MapPerfectHeuristic.h"
+#include "Utilities.h"
 
 // for agents to stay at goal
 #define MAXTIME 1000000
@@ -81,6 +82,7 @@ bool precheck(true);
 bool mouseTracking;
 unsigned agentType(5);
 unsigned killtime(300);
+unsigned killmem(1024); // 1GB
 int width = 64;
 int length = 64;
 int height = 0;
@@ -186,6 +188,7 @@ void InstallHandlers()
   InstallCommandLineHandler(MyCLHandler, "-agentType", "-agentType [5,9,25,49]","Set the agent movement model");
   InstallCommandLineHandler(MyCLHandler, "-probfile", "-probfile", "Load MAPF instance from file");
   InstallCommandLineHandler(MyCLHandler, "-killtime", "-killtime [value]", "Kill after this many seconds");
+  InstallCommandLineHandler(MyCLHandler, "-killmem", "-killmem [value megabytes]", "Kill if a process exceeds this size in memory");
   InstallCommandLineHandler(MyCLHandler, "-radius", "-radius [value]", "Radius in units of agent");
   InstallCommandLineHandler(MyCLHandler, "-nogui", "-nogui", "Turn off gui");
   InstallCommandLineHandler(MyCLHandler, "-epp", "-epp", "Nogood pruning enhancement");
@@ -1356,6 +1359,7 @@ int main(int argc, char ** argv){
   
   InstallHandlers();
   ProcessCommandLineArgs(argc, argv);
+  Util::setmemlimit(killmem);
   MapInterface* smap(nullptr);
   Map* map(nullptr);
   if(mapfile.empty()){
@@ -1396,7 +1400,7 @@ int main(int argc, char ** argv){
 
   if(false){
     waypoints.clear();
-    waypoints.push_back({{10,10},{14,14}});
+    waypoints.push_back({{30,30},{39,39}});
   }
 
   heuristics.resize(waypoints.size());
@@ -1411,17 +1415,17 @@ int main(int argc, char ** argv){
   }
 
   if(false){
-    xyLoc f(10,10);
-    xyLoc w(14,14);
-    std::cout<<"require('rgl')\nrequire('igraph')";
-    for(uint32_t i(0);i<11;++i){
+    xyLoc f(30,30);
+    xyLoc w(39,39);
+    //std::cout<<"require('rgl')\nrequire('igraph')";
+    for(uint32_t i(0);i<101;++i){
     MultiState rt(1);
     DAG dg;
       //std::cout << f << " " << w << std::endl;
       uint32_t bst(9999999);
       int hc(env->HCost(f,w)*INFLATION);
       GetMDD(0,0,f,w,dg,rt,(hc+INFLATION*i/5.),bst);
-      std::cout<<"\n";
+      //std::cout<<"\n";
       //std::cout << rt[0];
       std::unordered_map<uint64_t,uint64_t> labels;
       std::vector<uint64_t> goals;
@@ -1429,31 +1433,32 @@ int main(int argc, char ** argv){
         if(labels.find(d.first)==labels.end()){labels[d.first]=labels.size();}
         if(d.second.n.sameLoc(w))goals.push_back(labels[d.first]);
       }
-      std::cout << "edges=c(";
-      std::string sep("");
-      for(auto const& d:dg){
-        for(auto const& s:d.second.successors){
-          std::cout << sep<< labels[d.first]<<","<<labels[s->Hash()];
-          sep=",";
-        }
-      }
-      std::cout<<")\nlayout=data.matrix(read.csv(textConnection(\"";
-      for(auto const& d:dg){std::cout << d.second<<"\n";}
-      std::cout<<"\"),header=F))\n";
+      std::cout << i/5.<<","<<dg.size()<<","<<goals.size()<<std::endl;
+      //std::cout << "edges=c(";
+      //std::string sep("");
+      //for(auto const& d:dg){
+        //for(auto const& s:d.second.successors){
+          //std::cout << sep<< labels[d.first]<<","<<labels[s->Hash()];
+          //sep=",";
+        //}
+      //}
+      //std::cout<<")\nlayout=data.matrix(read.csv(textConnection(\"";
+      //for(auto const& d:dg){std::cout << d.second<<"\n";}
+      //std::cout<<"\"),header=F))\n";
       //std::cout << i/5. << " " << dg.size() << std::endl;
-      std::cout <<"g<-graph(edges, n=max(edges), directed=TRUE)\n";
-      std::cout<< "V(g)$color<-'lightblue'\n";
-      std::cout<< "V(g)$color["<<labels[rt[0]->Hash()]<<"]<-'blue'\n";
-      std::cout<< "V(g)$color[c(";
-      sep="";
-      for(auto const& i:goals){
-        std::cout << sep << i;
-        sep=",";
-      }
-      std::cout<<")]<-'red'\n";
-      std::cout<< "rglplot(g,layout=layout,edge.arrow.size=5,vertex.label=NA,rescale=F,edge.width=2)\n";
-      std::cout <<"axes3d()\n";
-      std::cout <<"bgplot3d({\nplot.new()\ntitle(main = '"<<agentType<<"-connected, up to opt+"<<i/5.<<"', line = 3)\nmtext(side = 1, '"<<dg.size()<<" nodes', line = 4)\n})\n";
+      //std::cout <<"g<-graph(edges, n=max(edges), directed=TRUE)\n";
+      //std::cout<< "V(g)$color<-'lightblue'\n";
+      //std::cout<< "V(g)$color["<<labels[rt[0]->Hash()]<<"]<-'blue'\n";
+      //std::cout<< "V(g)$color[c(";
+      //sep="";
+      //for(auto const& i:goals){
+        //std::cout << sep << i;
+        //sep=",";
+      //}
+      //std::cout<<")]<-'red'\n";
+      //std::cout<< "rglplot(g,layout=layout,edge.arrow.size=5,vertex.label=NA,rescale=F,edge.width=2)\n";
+      //std::cout <<"axes3d()\n";
+      //std::cout <<"bgplot3d({\nplot.new()\ntitle(main = '"<<agentType<<"-connected, up to opt+"<<i/5.<<"', line = 3)\nmtext(side = 1, '"<<dg.size()<<" nodes', line = 4)\n})\n";
     }
     exit(0);
   }
@@ -1680,6 +1685,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
   if(strcmp(argument[0], "-killtime") == 0)
   {
     killtime = atoi(argument[1]);
+    return 2;
+  }
+  if(strcmp(argument[0], "-killmem") == 0)
+  {
+    killmem = atoi(argument[1]);
     return 2;
   }
   if(strcmp(argument[0], "-epp") == 0)
