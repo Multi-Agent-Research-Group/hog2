@@ -27,11 +27,9 @@ double SoftConstraint<PlatformState>::cost(PlatformState const& other, double sc
 // Check if an openlist node conflicts with a node from an existing path
 template<typename state>
 unsigned checkForTheConflict(state const*const parent, state const*const node, state const*const pathParent, state const*const pathNode){
-  Constraint<state> v(*node);
-  if(v.ConflictsWith(*pathNode)){return 1;}
   if(parent && pathParent){
-    Constraint<state> e1(*parent,*node);
-    if(e1.ConflictsWith(*pathParent,*pathNode)){return 1;}
+    CollisionDetector<state> e1(.25);
+    if(e1.ConflictsWith(*parent,*node,*pathParent,*pathNode)){return 1;}
   }
   return 0; 
 }
@@ -82,9 +80,7 @@ class AirplaneHiFiGridlessEnvironment : public ConstrainedEnvironment<PlatformSt
     //std::string const& perimeterFile=std::string("airplanePerimeter.dat"));
 
     virtual std::string name()const{return "AirplaneHiFiGridlessEnvironment";}
-    void AddConstraint(Constraint<PlatformState> c);
     void AddSoftConstraint(SoftConstraint<PlatformState> c){sconstraints.push_back(c);}
-    void ClearConstraints();
     void ClearStaticConstraints();
     double ViolatesConstraint(const PlatformState &from, const PlatformState &to, int time) const;
     double ViolatesConstraint(const PlatformState &from, const PlatformState &to) const;
@@ -202,8 +198,7 @@ class AirplaneHiFiGridlessEnvironment : public ConstrainedEnvironment<PlatformSt
     std::vector<int8_t> quad_turns;
 
     std::vector<SoftConstraint<PlatformState> > sconstraints;
-    std::vector<Constraint<PlatformState> > constraints;
-    std::vector<Constraint<PlatformState> > static_constraints;
+    std::vector<Collision<PlatformState> > static_constraints;
     float softConstraintEffectiveness=0.0;
 
   private:

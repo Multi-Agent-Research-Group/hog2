@@ -9,6 +9,7 @@
 #define __hog2_glut__Grid3DConstrainedEnvironment__
 
 #include <iostream>
+#include <memory>
 
 #include "Grid3DEnvironment.h"
 #include "Vector3D.h"
@@ -26,11 +27,6 @@ class Grid3DConstrainedEnvironment : public ConstrainedEnvironment<xyztLoc, t3DD
 public:
 	Grid3DConstrainedEnvironment(Map3D *m);
 	Grid3DConstrainedEnvironment(Grid3DEnvironment *m);
-	virtual void AddConstraint(Constraint<xyztLoc> const& c);
-	virtual void AddConstraint(Constraint<TemporalVector3D> const& c);
-	//void AddConstraint(xyztLoc const& loc);
-	void AddConstraint(xyztLoc const& loc, t3DDirection dir);
-	void ClearConstraints();
         virtual std::string name()const{return mapEnv->name();}
 	virtual void GetSuccessors(const xyztLoc &nodeID, std::vector<xyztLoc> &neighbors) const;
 	virtual void GetAllSuccessors(const xyztLoc &nodeID, std::vector<xyztLoc> &neighbors) const;
@@ -39,8 +35,6 @@ public:
 	virtual void ApplyAction(xyztLoc &s, t3DDirection a) const;
 	virtual void UndoAction(xyztLoc &s, t3DDirection a) const;
 	virtual void GetReverseActions(const xyztLoc &nodeID, std::vector<t3DDirection> &actions) const;
-	double ViolatesConstraint(const xyztLoc &from, const xyztLoc &to) const;
-        void setSoftConstraintEffectiveness(double){}
 	
 	virtual bool InvertAction(t3DDirection &a) const;
 	
@@ -77,10 +71,7 @@ public:
 private:
         bool ignoreTime;
         bool ignoreHeading;
-	bool ViolatesConstraint(const xyzLoc &from, const xyzLoc &to, float time, float inc) const;
 
-	std::vector<Constraint<xyztLoc>> constraints;
-	std::vector<Constraint<TemporalVector3D>> vconstraints;
 	Grid3DEnvironment *mapEnv;
 };
 

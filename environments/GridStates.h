@@ -66,7 +66,7 @@ struct xytLoc : xyLoc, tLoc {
   xytLoc(uint16_t _x, uint16_t _y, float time):xyLoc(_x,_y),tLoc(time), h(0){}
   xytLoc(uint16_t _x, uint16_t _y, uint16_t _h, float time):xyLoc(_x,_y),tLoc(time), h(_h){}
   xytLoc():xyLoc(),tLoc(),h(0){}
-  operator TemporalVector()const{return TemporalVector(x,y,t);}
+  operator TemporalVector3D()const{return TemporalVector3D(x,y,0,t);}
   operator Vector2D()const{return Vector2D(x,y);}
   virtual bool sameLoc(xytLoc const& other)const{return x==other.x&&y==other.y;}
   virtual bool operator==(xytLoc const& other)const{return sameLoc(other)&&tLoc::operator==(other);}
@@ -95,7 +95,7 @@ struct xyzLoc {
 
 struct xyztLoc : xyzLoc {
   xyztLoc(xyzLoc loc, unsigned time):xyzLoc(loc),t(time), h(0){}
-  xyztLoc(xyzLoc loc, double time):xyzLoc(loc),t(round(time*TIME_RESOLUTION_U)), h(0){}
+  xyztLoc(xyzLoc loc, double time):xyzLoc(loc),t(round(time*TIME_RESOLUTION_D)), h(0){}
   xyztLoc(xyzLoc loc, float time):xyzLoc(loc),t(round(time*TIME_RESOLUTION)), h(0){}
   xyztLoc(xyzLoc loc, unsigned _h, float time):xyzLoc(loc),t(round(time*TIME_RESOLUTION)), h(_h){}
   xyztLoc(unsigned _x, unsigned _y):xyzLoc(_x,_y,0),t(0), h(0){}
@@ -103,8 +103,8 @@ struct xyztLoc : xyzLoc {
   xyztLoc(unsigned _x, unsigned _y, unsigned _z):xyzLoc(_x,_y,_z),t(0), h(0){}
   xyztLoc(unsigned _x, unsigned _y, unsigned _z, unsigned time):xyzLoc(_x,_y,_z),t(time), h(0){}
   xyztLoc():xyzLoc(),h(0){}
-  operator TemporalVector3D()const{return TemporalVector3D(x,y,z,t);}
-  explicit operator TemporalVector()const{return TemporalVector(x,y,t);}
+  operator TemporalVector3D()const{return TemporalVector3D(x,y,z,t/TIME_RESOLUTION_D);}
+  explicit operator TemporalVector()const{return TemporalVector(x,y,t/TIME_RESOLUTION_D);}
   operator Vector3D()const{return Vector3D(x,y,z);}
   explicit operator Vector2D()const{return Vector2D(x,y);}
   unsigned t : 22; // Time (milliseconds)
@@ -237,5 +237,35 @@ private:
 
 	long CalculateIndex(uint16_t x, uint16_t y);
 };
+
+// Ignore time component
+static inline double distanceSquared(xyzLoc const& A1, xyzLoc const& B1){
+  return (A1.x-B1.x)*(A1.x-B1.x) + (A1.y-B1.y)*(A1.y-B1.y) + (A1.z-B1.z)*(A1.z-B1.z);
+}
+
+static inline double distanceSquared(xyztLoc const& A1, xyztLoc const& A2, xyztLoc const& B1, xyztLoc const& B2){
+  if(A1.t<B1.t){
+    TemporalVector3D vec(A2);
+    TemporalVector3D pos1(A1);
+    vec-=pos1; // Get pointing vector from A1 to A2
+    vec.Normalize();
+    TemporalVector3D pos2(B1);
+    pos1+=vec*(pos2.t-pos1.t); // Project along pointing vector
+    pos2-=pos1; // Take difference
+    return pos2.sq(); // Squared distance
+  }else if(B1.t<A1.t){
+    TemporalVector3D vec(B2);
+    TemporalVector3D pos1(B1);
+    vec-=pos1; // Get pointing vector from A1 to A2
+    vec.Normalize();
+    TemporalVector3D pos2(A1);
+    pos1+=vec*(pos2.t-pos1.t); // Project along pointing vector
+    pos2-=pos1; // Take difference
+    return pos2.sq(); // Squared distance
+  }
+
+  // If A1.t==B1.t, the solution is much simpler
+  return distanceSquared(A1,B1);
+}
 
 #endif

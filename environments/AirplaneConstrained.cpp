@@ -45,7 +45,7 @@ AirplaneConstrainedEnvironment::AirplaneConstrainedEnvironment(AirplaneEnvironme
 		airtimeState o(mi, 0);
 		airplaneState ma(max(st.x1, st.x2), max(st.y1, st.y2), 10, 0,0);
 		airtimeState f(ma, std::numeric_limits<float>::max());
-		Constraint<airtimeState> c(o, f);
+		Collision<airtimeState> c(o, f);
 		c.strip=true;
 		static_constraints.push_back(c);
 	}*/
@@ -55,42 +55,13 @@ AirplaneConstrainedEnvironment::AirplaneConstrainedEnvironment(AirplaneEnvironme
 	airtimeState o(mi, 0);
 	airplaneState ma(width, length, 0, 0,0);
 	airtimeState f(ma, std::numeric_limits<float>::max());
-	Constraint<airtimeState> c(o, f);
-	c.strip=false;
+	Collision<airtimeState> c(o, f, .25);
+	//c.strip=false;
 	static_constraints.push_back(c);
 }
 
-/// CONSTRAINT MANAGEMENT
-
 // Add a constraint of any type
-void AirplaneConstrainedEnvironment::AddConstraint(Constraint<airtimeState> const& c)
-{
-	constraints.push_back(c);
-}
-
-// Add a point constraint
-void AirplaneConstrainedEnvironment::AddPointConstraint(const airtimeState &loc)
-{
-	Constraint<airtimeState> x(loc);
-	constraints.push_back(x);
-  std::cout << "1CONSTRAINTS " << constraints.size() << "\n";
-}
-
-void AirplaneConstrainedEnvironment::AddBoxConstraint(const airtimeState &loc1, const airtimeState &loc2)
-{
-	Constraint<airtimeState> x(loc1, loc2);
-	constraints.push_back(x);
-  std::cout << "2CONSTRAINTS " << constraints.size() << "\n";
-}
-
-void AirplaneConstrainedEnvironment::ClearConstraints()
-{
-	constraints.resize(0);
-}
-
-
-// Add a constraint of any type
-void AirplaneConstrainedEnvironment::AddStaticConstraint(Constraint<airtimeState> const& c)
+void AirplaneConstrainedEnvironment::AddStaticConstraint(Collision<airtimeState> const& c)
 {
 	static_constraints.push_back(c);
 }
@@ -98,13 +69,13 @@ void AirplaneConstrainedEnvironment::AddStaticConstraint(Constraint<airtimeState
 // Add a point constraint
 void AirplaneConstrainedEnvironment::AddStaticPointConstraint(const airtimeState &loc)
 {
-	Constraint<airtimeState> x(loc);
-	static_constraints.push_back(x);
+	//Collision<airtimeState> x(loc);
+	//static_constraints.push_back(x);
 }
 
 void AirplaneConstrainedEnvironment::AddStaticBoxConstraint(const airtimeState &loc1, const airtimeState &loc2)
 {
-	Constraint<airtimeState> x(loc1, loc2);
+	Collision<airtimeState> x(loc1, loc2, .25);
 	static_constraints.push_back(x);
 }
 
@@ -326,6 +297,93 @@ uint64_t AirplaneConstrainedEnvironment::GetActionHash(airplaneAction act) const
 	return h;
 }
 
+template<>
+void Collision<airtimeState>::OpenGLDraw(MapInterface*) const 
+{
+        static float halfWidth(DrawableConstraint::width/2.0);
+        static float halfLength(DrawableConstraint::length/2.0);
+	glLineWidth(2.0); // Make it wide
+
+	// Normalize coordinates between (-1, 1)
+	GLfloat x_start = (start_state.x-halfWidth)/halfWidth;
+	GLfloat y_start = (start_state.y-halfLength)/halfLength;
+	GLfloat z_start = -start_state.height/float(DrawableConstraint::width);
+
+	GLfloat x_end = (end_state.x-halfWidth)/halfWidth;
+	GLfloat y_end = (end_state.y-halfLength)/halfLength;
+	GLfloat z_end = -end_state.height/float(DrawableConstraint::width);
+
+
+	GLfloat min_x, min_y, min_z, max_x, max_y, max_z;
+
+        min_x = min(x_start-.5/halfWidth,x_end-.5/halfWidth);
+        max_x = max(x_start+.5/halfWidth,x_end+.5/halfWidth);
+        min_y = min(y_start-.5/halfLength,y_end-.5/halfLength);
+        max_y = max(y_start+.5/halfLength,y_end+.5/halfLength);
+        min_z = min(z_start-.5/halfLength,z_end-.5/halfLength);
+        max_z = max(z_start+.5/halfLength,z_end+.5/halfLength);
+
+	glDisable(GL_LIGHTING);
+	glPushMatrix();
+
+	// Draw the lower loop
+	glBegin(GL_LINE_LOOP);
+	glVertex3f(min_x, min_y, min_z);
+	glVertex3f(max_x, min_y, min_z);
+	glVertex3f(max_x, max_y, min_z);
+	glVertex3f(min_x, max_y, min_z);
+	glEnd();
+
+	// Draw the upper loop
+	glBegin(GL_LINE_LOOP);
+	glVertex3f(min_x, min_y, max_z);
+	glVertex3f(max_x, min_y, max_z);
+	glVertex3f(max_x, max_y, max_z);
+	glVertex3f(min_x, max_y, max_z);
+	glEnd();
+
+	// Draw the edge line segments
+	glBegin(GL_LINES);
+
+	glVertex3f(min_x, min_y, min_z);
+	glVertex3f(min_x, min_y, max_z);
+
+	glVertex3f(min_x, max_y, min_z);
+	glVertex3f(min_x, max_y, max_z);
+
+	glVertex3f(max_x, min_y, min_z);
+	glVertex3f(max_x, min_y, max_z);
+
+	glVertex3f(max_x, max_y, min_z);
+	glVertex3f(max_x, max_y, max_z);
+
+	glEnd();
+
+	glPopMatrix();
+}
+
+void SoftConstraint<airtimeState>::OpenGLDraw(MapInterface*) const 
+{
+        static float halfWidth(DrawableConstraint::width/2.0);
+        static float halfLength(DrawableConstraint::length/2.0);
+
+	// Normalize coordinates between (-1, 1)
+	GLfloat x((center.x-halfWidth)/halfWidth);
+	GLfloat y((center.y-halfLength)/halfLength);
+	GLfloat z(-center.height/float(DrawableConstraint::width));
+
+	//glDisable(GL_LIGHTING);
+
+	glLineWidth(1.0); // Make it wide
+        //glEnable(GL_BLEND);
+        //glBlendFunc (GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
+        glPushMatrix();
+        glColor3f(1, 0, 0);
+        glTranslatef(x, y, z);
+        glutWireSphere((radius/DrawableConstraint::width)*2.0, 20,20);
+        glPopMatrix();
+        glDisable(GL_BLEND);
+}
 
 /// DRAWING
 
@@ -346,7 +404,7 @@ void AirplaneConstrainedEnvironment::OpenGLDraw() const
 	{
 		glColor3f(1, 0, 0); // Make it red
 		glLineWidth(2.0);
-		static_constraints.at(i).OpenGLDraw();	
+		static_constraints.at(i).OpenGLDraw(0);	
 	}
 
         // Soft constraints
@@ -399,303 +457,3 @@ void AirplaneConstrainedEnvironment::GLDrawPath(const std::vector<airtimeState> 
 }
 
 
-/////////////////////////////// PRIVATE ////////////////////////////////////////////////////
-
-bool Constraint<airtimeState>::ConflictsWith(const airtimeState &state) const
-{
-if(state.landed || end_state.landed && start_state.landed) return false;
-//std::cout << "VERTEX"<<*this << "ConflictsWith" << state << "...\n";
-	if (state.t >= start_state.t - 0.001 && state.t <= end_state.t + 0.001)
-    {
-        // Each constraint defines an x, y, z box with corners on the state locations. We 
-        // need to check if they overlap at any point. We do this using the separating 
-        // axis theorem. Note that all of our boxes are non-rotated, and thus, should never have
-        // to worry about non-axis aligned planes of separation. Thus, we check to see if there is 
-        // a separating plane on the X axis, Y axis and Z axis, and if no such plane exists, then
-        // the boxes must intersect.
-        
-        // Generate a well formed set of boxes for the constraint box
-        
-        int c_minx = start_state.x < end_state.x ? start_state.x : end_state.x;
-        int c_maxx = start_state.x > end_state.x ? start_state.x : end_state.x;
-
-        int c_miny = start_state.y < end_state.y ? start_state.y : end_state.y;
-        int c_maxy = start_state.y > end_state.y ? start_state.y : end_state.y;
-
-        int c_minz = start_state.height < end_state.height ? start_state.height : end_state.height;
-        int c_maxz = start_state.height > end_state.height ? start_state.height : end_state.height;
-
-        
-        if (state.x >= c_minx && state.x <= c_maxx && // Check if overlapping on the X axis
-            state.y >= c_miny && state.y <= c_maxy && // Check if overlapping on the Y axis
-            state.height >= c_minz && state.height <= c_maxz // Check if overlapping on the Z axis
-            )
-        {
-                // If we overlap on all three axis, then there must be a common point, and thus
-                // we can return that the constraint was violated
-                return true;
-        }
-    }
-return false;
-}
-
-bool Constraint<airtimeState>::ConflictsWith(const airtimeState &from, const airtimeState &to) const
-{
-//std::cout << "VERTEX"<<from << "ConflictsWith" << to << "...\n";
-if(from.landed && to.landed || end_state.landed && start_state.landed) return false;
-    if (max(start_state.t, from.t) <= min(end_state.t, to.t) + 0.001) 
-    {
-        // Each constraint defines an x, y, z box with corners on the state locations. We 
-        // need to check if they overlap at any point. We do this using the separating 
-        // axis theorem. Note that all of our boxes are non-rotated, and thus, should never have
-        // to worry about non-axis aligned planes of separation. Thus, we check to see if there is 
-        // a separating plane on the X axis, Y axis and Z axis, and if no such plane exists, then
-        // the boxes must intersect.
-        
-        // Note that these comparisons go center to center, that is, the constraints evaluate unit-wise
-        // and no unit is alowed inside another unit's box. The boxes may be allowed to overlap however
-        
-        // Generate a well formed set of boxes for the action box
-        int a_minx = std::min<int>(from.x, to.x);
-        int a_maxx = std::max<int>(from.x, to.x);
-
-        int a_miny = std::min<int>(from.y, to.y);
-        int a_maxy = std::max<int>(from.y, to.y);
-
-        int a_minz = std::min<int>(from.height, to.height);
-        int a_maxz = std::max<int>(from.height, to.height);
-        
-        // Generate a well formed set of boxes for the constraint box
-        int c_minx = start_state.x < end_state.x ? start_state.x : end_state.x;
-        int c_maxx = start_state.x > end_state.x ? start_state.x : end_state.x;
-
-        int c_miny = start_state.y < end_state.y ? start_state.y : end_state.y;
-        int c_maxy = start_state.y > end_state.y ? start_state.y : end_state.y;
-
-        int c_minz = start_state.height < end_state.height ? start_state.height : end_state.height;
-        int c_maxz = start_state.height > end_state.height ? start_state.height : end_state.height;
-
-        
-        if (std::max<int>(c_minx, a_minx) <= std::min<int>(c_maxx, a_maxx) && // Check if overlapping on the X axis
-            std::max<int>(c_miny, a_miny) <= std::min<int>(c_maxy, a_maxy) && // Check if overlapping on the Y axis
-            std::max<int>(c_minz, a_minz) <= std::min<int>(c_maxz, a_maxz)    // Check if overlapping on the Z axis
-            )
-        {
-                // If we overlap on all three axis, then there must be a common point, and thus
-                // we can return that the constraint was violated
-                return true;
-        }
-    }
-
-	return false;
-}
-
-bool Constraint<airtimeState>::ConflictsWith(const Constraint<airtimeState> &x) const
-{
-	return ConflictsWith(x.start_state, x.end_state);
-}
-
-
-void SoftConstraint<airtimeState>::OpenGLDraw(MapInterface*) const 
-{
-        static float halfWidth(DrawableConstraint::width/2.0);
-        static float halfLength(DrawableConstraint::length/2.0);
-
-	// Normalize coordinates between (-1, 1)
-	GLfloat x((center.x-halfWidth)/halfWidth);
-	GLfloat y((center.y-halfLength)/halfLength);
-	GLfloat z(-center.height/float(DrawableConstraint::width));
-
-	//glDisable(GL_LIGHTING);
-
-	glLineWidth(1.0); // Make it wide
-        //glEnable(GL_BLEND);
-        //glBlendFunc (GL_SRC_ALPHA,GL_ONE_MINUS_SRC_ALPHA);
-        glPushMatrix();
-        glColor3f(1, 0, 0);
-        glTranslatef(x, y, z);
-        glutWireSphere((radius/DrawableConstraint::width)*2.0, 20,20);
-        glPopMatrix();
-        glDisable(GL_BLEND);
-}
-
-void Constraint<airtimeState>::OpenGLDraw(MapInterface*) const 
-{
-        static float halfWidth(DrawableConstraint::width/2.0);
-        static float halfLength(DrawableConstraint::length/2.0);
-	glLineWidth(2.0); // Make it wide
-
-	// Normalize coordinates between (-1, 1)
-	GLfloat x_start = (start_state.x-halfWidth)/halfWidth;
-	GLfloat y_start = (start_state.y-halfLength)/halfLength;
-	GLfloat z_start = -start_state.height/float(DrawableConstraint::width);
-
-	GLfloat x_end = (end_state.x-halfWidth)/halfWidth;
-	GLfloat y_end = (end_state.y-halfLength)/halfLength;
-	GLfloat z_end = -end_state.height/float(DrawableConstraint::width);
-
-
-	GLfloat min_x, min_y, min_z, max_x, max_y, max_z;
-
-	if (strip)
-	{
-		min_x = min(x_start-.5/halfWidth,x_end-.5/halfWidth);
-		max_x = max(x_start+.5/halfWidth,x_end+.5/halfWidth);
-		min_y = min(y_start-.5/halfLength,y_end-.5/halfLength);
-		max_y = max(y_start+.5/halfLength,y_end+.5/halfLength);
-		min_z = min(z_start,z_end);
-		max_z = max(z_start+.5/halfLength,z_end+.5/halfLength);
-	} else {
-		min_x = min(x_start-.5/halfWidth,x_end-.5/halfWidth);
-		max_x = max(x_start+.5/halfWidth,x_end+.5/halfWidth);
-		min_y = min(y_start-.5/halfLength,y_end-.5/halfLength);
-		max_y = max(y_start+.5/halfLength,y_end+.5/halfLength);
-		min_z = min(z_start-.5/halfLength,z_end-.5/halfLength);
-		max_z = max(z_start+.5/halfLength,z_end+.5/halfLength);
-	}
-
-	glDisable(GL_LIGHTING);
-	glPushMatrix();
-
-	// Draw the lower loop
-	glBegin(GL_LINE_LOOP);
-	glVertex3f(min_x, min_y, min_z);
-	glVertex3f(max_x, min_y, min_z);
-	glVertex3f(max_x, max_y, min_z);
-	glVertex3f(min_x, max_y, min_z);
-	glEnd();
-
-	// Draw the upper loop
-	glBegin(GL_LINE_LOOP);
-	glVertex3f(min_x, min_y, max_z);
-	glVertex3f(max_x, min_y, max_z);
-	glVertex3f(max_x, max_y, max_z);
-	glVertex3f(min_x, max_y, max_z);
-	glEnd();
-
-	// Draw the edge line segments
-	glBegin(GL_LINES);
-
-	glVertex3f(min_x, min_y, min_z);
-	glVertex3f(min_x, min_y, max_z);
-
-	glVertex3f(min_x, max_y, min_z);
-	glVertex3f(min_x, max_y, max_z);
-
-	glVertex3f(max_x, min_y, min_z);
-	glVertex3f(max_x, min_y, max_z);
-
-	glVertex3f(max_x, max_y, min_z);
-	glVertex3f(max_x, max_y, max_z);
-
-	glEnd();
-
-	glPopMatrix();
-}
-
-double AirplaneConstrainedEnvironment::ViolatesConstraint(const airplaneState &from, const airplaneState &to, int time) const
-{
-  // Generate the two timestates that define the action box
-  airplaneAction act = ae->GetAction(from, to);
-  airtimeState fromtimestate(from, time);
-  airtimeState totimestate(from, time);
-  this->ApplyAction(totimestate, act);
-
-  return ViolatesConstraint(fromtimestate,totimestate);
-
-}
-
-// Basically the same code as above, but overloaded so the first section is not necessary
-double AirplaneConstrainedEnvironment::ViolatesConstraint(const airtimeState &from, const airtimeState &to) const
-{
-  // Generate a well formed set of boxes for the action box
-  // which we will need later to compare
-  int a_minx = std::min<int>(from.x, to.x);
-  int a_maxx = std::max<int>(from.x, to.x);
-
-  int a_miny = std::min<int>(from.y, to.y);
-  int a_maxy = std::max<int>(from.y, to.y);
-
-  int a_minz = std::min<int>(from.height, to.height);
-  int a_maxz = std::max<int>(from.height, to.height);
-
-  // Allocate some temp variables
-  int c_minx, c_maxx, c_miny, c_maxy, c_minz, c_maxz;
-
-
-  // If both are landed, then the plane's not going anywhere - and we're good
-  if (from.landed && to.landed)
-    return 0;
-
-  //Check if the action box violates any of the constraints that are in the constraints list
-  for (Constraint<airtimeState> c : constraints)
-  {
-
-    // Check if the range of the constraint overlaps in time
-    if (max(c.start().t, from.t) <= min(c.end().t, to.t) + 0.00001) 
-    {
-      // Generate a well formed set of boxes for the constraint box
-      c_minx = c.start().x < c.end().x ? c.start().x : c.end().x;
-      c_maxx = c.start().x > c.end().x ? c.start().x : c.end().x;
-
-      c_miny = c.start().y < c.end().y ? c.start().y : c.end().y;
-      c_maxy = c.start().y > c.end().y ? c.start().y : c.end().y;
-
-      c_minz = c.start().height < c.end().height ? c.start().height : c.end().height;
-      c_maxz = c.start().height > c.end().height ? c.start().height : c.end().height;
-
-
-      if (std::max<int>(c_minx, a_minx) <= std::min<int>(c_maxx, a_maxx) && // Check if overlapping on the X axis
-          std::max<int>(c_miny, a_miny) <= std::min<int>(c_maxy, a_maxy) && // Check if overlapping on the Y axis
-          std::max<int>(c_minz, a_minz) <= std::min<int>(c_maxz, a_maxz)    // Check if overlapping on the Z axis
-         )
-      {
-        // If we overlap on all three axis, then there must be a common point, and thus
-        // we can return that the constraint was violated
-        return max(c.start().t, from.t)-TOLERANCE;
-      }
-
-    }
-  }
-
-
-  // If landing, we don't want to check the static constraints - but we don't want planes taking off and landing
-  // at the same time
-  if (from.landed || to.landed)
-  {
-    return 0;
-  }
-
-  //Check if the action box violates any of the constraints that are in the static constraints list
-  for (Constraint<airtimeState> c : static_constraints)
-  {
-    // Check if the range of the constraint overlaps in time
-    if (max(c.start().t, from.t) <= min(c.end().t, to.t) + 0.00001) 
-    {
-      // Generate a well formed set of boxes for the constraint box
-      c_minx = c.start().x < c.end().x ? c.start().x : c.end().x;
-      c_maxx = c.start().x > c.end().x ? c.start().x : c.end().x;
-
-      c_miny = c.start().y < c.end().y ? c.start().y : c.end().y;
-      c_maxy = c.start().y > c.end().y ? c.start().y : c.end().y;
-
-      c_minz = c.start().height < c.end().height ? c.start().height : c.end().height;
-      c_maxz = c.start().height > c.end().height ? c.start().height : c.end().height;
-
-
-      if (std::max<int>(c_minx, a_minx) <= std::min<int>(c_maxx, a_maxx) && // Check if overlapping on the X axis
-          std::max<int>(c_miny, a_miny) <= std::min<int>(c_maxy, a_maxy) && // Check if overlapping on the Y axis
-          std::max<int>(c_minz, a_minz) <= std::min<int>(c_maxz, a_maxz)    // Check if overlapping on the Z axis
-         )
-      {
-        // If we overlap on all three axis, then there must be a common point, and thus
-        // we can return that the constraint was violated
-        return max(c.start().t, from.t)-TOLERANCE;
-      }
-
-    }
-  }
-
-  // If no constraint is violated, return false
-  return 0;
-}

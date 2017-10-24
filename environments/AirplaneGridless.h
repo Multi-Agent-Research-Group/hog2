@@ -49,8 +49,6 @@ class AirplaneGridlessEnvironment : public ConstrainedEnvironment<PlatformState,
     //std::string const& perimeterFile=std::string("airplanePerimeter.dat"));
 
     virtual std::string name()const{return "AirplaneGridlessEnvironment";}
-    void AddConstraint(Constraint<PlatformState> c);
-    void ClearConstraints();
     void ClearStaticConstraints();
     double ViolatesConstraint(const PlatformState &from, const PlatformState &to, int time) const;
     double ViolatesConstraint(const PlatformState &from, const PlatformState &to) const;
@@ -157,8 +155,7 @@ class AirplaneGridlessEnvironment : public ConstrainedEnvironment<PlatformState,
     std::vector<int8_t> turns;
     std::vector<int8_t> quad_turns;
 
-    std::vector<Constraint<PlatformState> > constraints;
-    std::vector<Constraint<PlatformState> > static_constraints;
+    std::vector<Constraint<PlatformState>*> static_constraints;
 
   private:
     virtual double myHCost(const PlatformState &node1, const PlatformState &node2) const;

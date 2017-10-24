@@ -10,9 +10,11 @@
 #define __hog2_glut__ConstrainedEnvironment__
 
 #include <vector>
+#include <algorithm>
 #include "MapInterface.h"
 #include "SearchEnvironment.h"
 #include "PositionalUtils.h"
+#include "VelocityObstacle.h"
 
 /*
 struct Action{
@@ -71,28 +73,130 @@ class Constraint : public DrawableConstraint{
     State start() const {return start_state;}
     State end() const {return end_state;}
 
-    virtual bool ConflictsWith(State const& s) const {return start_state == s || end_state == s;}
-    virtual bool ConflictsWith(State const& from, State const& to) const {return ConflictsWith(from) || ConflictsWith(to);}
-    virtual bool ConflictsWith(Constraint const& x) const {return ConflictsWith(x.start_state, x.end_state);}
+    virtual double ConflictsWith(State const& s) const=0;
+    virtual double ConflictsWith(State const& from, State const& to) const=0;
+    virtual double ConflictsWith(Constraint const& x) const {return ConflictsWith(x.start_state, x.end_state);}
     virtual void OpenGLDraw(MapInterface*) const {}
 
     State start_state;
     State end_state;
 };
+
+template<typename State>
+class Identical : public Constraint<State> {
+  public:
+    Identical():Constraint<State>(){}
+    Identical(State const& start, State const& end):Constraint<State>(start,end) {}
+    virtual double ConflictsWith(State const& s) const {return 0;} // Vertex collisions are ignored
+    virtual double ConflictsWith(State const& from, State const& to) const {return (from == this->start_state && to == this->end_state)?from.t:0;}
+};
+
+template<typename State>
+class Collision : public Constraint<State> {
+  public:
+    Collision(double radius=.25):Constraint<State>(),agentRadius(radius){}
+    Collision(State const& start, State const& end,double radius=.25):Constraint<State>(start,end),agentRadius(radius){}
+    virtual double ConflictsWith(State const& s) const {return 0;} // Vertex collisions are ignored
+    virtual double ConflictsWith(State const& from, State const& to) const {return collisionCheck3D(from,to,this->start_state,this->end_state,agentRadius);}
+    virtual double ConflictsWith(Collision<State> const& x) const {return collisionCheck3D(this->start_state,this->end_state,x.start_state,x.end_state,agentRadius,x.agentRadius);}
+    virtual void OpenGLDraw(MapInterface*) const {}
+    double agentRadius;
+};
+
+template<typename State>
+class ConflictDetector{
+  public:
+    ConflictDetector(){}
+    virtual bool HasConflict(unsigned agentA, State const& A1, State const& A2, unsigned agentB, State const& B1, State const& B2)const=0;
+    // Returns a newly allocated pointer to a constraint representing the conflict or zero
+    // The caller is responsible for managing the memory
+    virtual Constraint<State>* GetConstraint(State const& A1, State const& A2, State const& B1, State const& B2)const=0;
+};
+
+template<typename State>
+class CollisionDetector : public ConflictDetector<State> {
+  public:
+    CollisionDetector(double radius):ConflictDetector<State>(),agentRadius(radius){}
+    inline virtual bool HasConflict(unsigned agentA, State const& A1, State const& A2, unsigned agentB, State const& B1, State const& B2)const{
+      return collisionCheck3D(A1,A2,B1,B2);
+    }
+    inline virtual Constraint<State>* GetConstraint(State const& A1, State const& A2, State const& B1, State const& B2)const{
+       return new Collision<State>(B1,B2,agentRadius);
+    }
+    double agentRadius;
+};
+
+// Require LOS between agent A and at least one other agent in the set
+template<typename State>
+class AnyLOS: public ConflictDetector<State> {
+  public:
+    AnyLOS(unsigned agentA, std::vector<unsigned> const& a, double dist):ConflictDetector<State>(),mainAgent(agentA),agentNumbers(a),maxDistanceSq(dist*dist),finalResult(true),agent(-1){} // Squared distance
+    // Assume a violation until we find one in the set that is within line of sight (if none are found, a violation has occurred)
+    inline virtual bool HasConflict(unsigned agentA, State const& A1, State const& A2, unsigned agentB, State const& B1, State const& B2)const{
+      if(finalResult){
+        if(agentA==mainAgent && std::find(agentNumbers.begin(),agentNumbers.end(),agentB)!=agentNumbers.end() && !(finalResult=(fleq(maxDistanceSq,distanceSquared(A1,A2,B1,B2))))){
+          agent=agentB;
+          agent1={A1,A2}; // Main agent
+          agent2={B1,B2};
+        }else if(agentB==mainAgent && std::find(agentNumbers.begin(),agentNumbers.end(),agentA)!=agentNumbers.end() && !(finalResult=(fleq(maxDistanceSq,distanceSquared(A1,A2,B1,B2))))){
+          agent=agentA;
+          agent1={B1,B2}; // Main agent
+          agent2={A1,A2};
+        }
+      }
+      return finalResult;
+    }
+    inline virtual Constraint<State>* GetConstraint(State const& A1, State const& A2, State const& B1, State const& B2)const{
+      return new Identical<State>(A1,A2);
+    }
+    unsigned mainAgent;
+    std::vector<unsigned> agentNumbers; // List of agent numbers that must maintain tether
+    double maxDistanceSq;
+    mutable bool finalResult;
+    mutable signed agent;
+    mutable std::pair<State,State> agent1;
+    mutable std::pair<State,State> agent2;
+    
+};
+
+// Require LOS between all agents
+template<typename State>
+class AllLOS : public ConflictDetector<State> {
+  public:
+    AllLOS(std::vector<unsigned> const& agents, double dist):ConflictDetector<State>(),agentNumbers(agents),maxDistanceSq(dist*dist){} // Squared distance
+    inline virtual bool HasConflict(unsigned agentA, State const& A1, State const& A2, unsigned agentB, State const& B1, State const& B2)const{
+      return std::find(agentNumbers.begin(),agentNumbers.end(),agentA)!=agentNumbers.end() &&
+        std::find(agentNumbers.begin(),agentNumbers.end(),agentB)!=agentNumbers.end() &&
+        fleq(maxDistanceSq,distanceSquared(A1,A2,B1,B2));
+    }
+    inline virtual Constraint<State>* GetConstraint(State const& A1, State const& A2, State const& B1, State const& B2)const{
+      return new Identical<State>(A1,A2);
+    }
+    std::vector<unsigned> agentNumbers; // List of agent numbers that must maintain tether
+    double maxDistanceSq;
+};
+
 template<typename State, typename Action>
 class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
   public:
     /** Add a constraint to the model */
-    virtual void AddConstraint(Constraint<State> const& c) = 0;
+    virtual void AddConstraint(Constraint<State>* c){constraints.emplace_back(c);}
     /** Clear the constraints */
-    virtual void ClearConstraints() = 0;
+    virtual void ClearConstraints(){constraints.resize(0);}
     /** Get the possible actions from a state */
     virtual void GetActions(const State &nodeID, std::vector<Action> &actions) const = 0;
     virtual void GetReverseActions(const State &nodeID, std::vector<Action> &actions) const = 0;
     /** Get the successor states not violating constraints */
     virtual void GetSuccessors(const State &nodeID, std::vector<State> &neighbors) const = 0;
     /** Checks to see if any constraint is violated, returning the time of violation, 0 otherwise */
-    virtual double ViolatesConstraint(const State &from, const State &to) const = 0;
+    virtual inline double ViolatesConstraint(const State &from, const State &to) const {
+      //Check if the action violates any of the constraints that are in the constraints list
+      for (auto const& c : constraints){
+        double vtime(c->ConflictsWith(from,to));
+        if(vtime)return vtime;
+      }
+      return 0;
+    }
     virtual void GLDrawLine(const State &x, const State &y) const{}
     virtual void GLDrawPath(const std::vector<State> &p, const std::vector<State> &waypoints) const{
       if(p.size()<2) return;
@@ -105,6 +209,8 @@ class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
     virtual void SetIgnoreHeading(bool i){}
     virtual bool GetIgnoreHeading()const{return false;}
     virtual bool collisionCheck(const State &s1, const State &d1, float r1, const State &s2, const State &d2, float r2)=0;
+
+    std::vector<Constraint<State>*> constraints;
 };
 
 // We initialize these here, but they can be changed at run-time

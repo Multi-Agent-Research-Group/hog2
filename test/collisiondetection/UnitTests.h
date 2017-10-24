@@ -1140,7 +1140,7 @@ TEST(Theta1, TestStepAside){
     ASSERT_TRUE(env.LineOfSight(solution[i-1],solution[i]));
   }
   std::cout << "with obstacle" << std::endl;
-  env.AddConstraint(Constraint<TemporalVector>({6,1,0},{1,1,6}));
+  env.AddConstraint((Constraint<TemporalVector3D>*)new Collision<TemporalVector3D>({6,1,0,0},{1,1,0,.6}));
   agentRadius=.25;
   tstar.GetPath(&env,{1,1,0},{6,1,0},solution);
   for(auto const& ss: solution){
@@ -1197,8 +1197,8 @@ TEST(Theta1, TestDodging){
   tstar.SetHeuristic(new StraightLineHeuristic());
   //tstar.SetVerbose(true);
   std::vector<xytLoc> solution;
-  env.AddConstraint(Constraint<TemporalVector>({4,1,0},{1,1,6}));
-  env.AddConstraint(Constraint<TemporalVector>({7,2,0},{1,2,6}));
+  env.AddConstraint((Constraint<TemporalVector3D>*)new Collision<TemporalVector3D>({4,1,0,0},{1,1,0,6}));
+  env.AddConstraint((Constraint<TemporalVector3D>*)new Collision<TemporalVector3D>({7,2,0,0},{1,2,0,6}));
   tstar.GetPath(&env,{1,1,0},{6,1,0},solution);
   for(auto const& ss: solution){
     std::cout << ss.x << "," << ss.y << "\n";
@@ -1239,8 +1239,8 @@ TEST(DISABLED_Theta, Test3D){
   tstar.SetHeuristic(new StraightLineHeuristic3D());
   //tstar.SetVerbose(true);
   std::vector<xyztLoc> solution;
-  env.AddConstraint(Constraint<TemporalVector3D>({4,1,0,0},{1,1,0,6}));
-  env.AddConstraint(Constraint<TemporalVector3D>({7,2,0,0},{1,2,0,6}));
+  env.AddConstraint((Constraint<xyztLoc>*)new Collision<xyztLoc>(xyztLoc(4,1,0,0.0f),xyztLoc(1,1,0,6.0f)));
+  env.AddConstraint((Constraint<xyztLoc>*)new Collision<xyztLoc>(xyztLoc(7,2,0,0.0f),xyztLoc(1,2,0,6.0f)));
   tstar.GetPath(&env,{1,1,0,0u},{6,1,0,0u},solution);
   for(auto const& ss: solution){
     std::cout << ss.x << "," << ss.y << "," << ss.z << "\n";

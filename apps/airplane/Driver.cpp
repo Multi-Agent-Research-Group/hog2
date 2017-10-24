@@ -274,9 +274,9 @@ void InitHeadless(){
             if(waypoints[j].size()<n)
             {
               airtimeState a(waypoints[j][n]);
-              // Make sure that no gubgoals at similar times have a conflict
-              Constraint<airtimeState> x_c(a);
-              if(x_c.ConflictsWith(start)){conflict=true;break;}
+              // Make sure that no subgoals at similar times have a conflict
+              Collision<airtimeState> x_c(a,a,.25);
+              if(x_c.ConflictsWith(start,start)){conflict=true;break;}
             }
             airtimeState a(start,1);
             airtimeState b(a);

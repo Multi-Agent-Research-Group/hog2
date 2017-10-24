@@ -844,8 +844,6 @@ void AirplaneGridlessEnvironment::AddLandingStrip(gridlessLandingStrip& strip)
 
 }
 
-void AirplaneGridlessEnvironment::AddConstraint(Constraint<PlatformState> c){constraints.push_back(c);}
-void AirplaneGridlessEnvironment::ClearConstraints(){constraints.resize(0);}
 void AirplaneGridlessEnvironment::ClearStaticConstraints(){static_constraints.resize(0);}
 double AirplaneGridlessEnvironment::ViolatesConstraint(const PlatformState &from, const PlatformState &to, int time) const{
   PlatformAction act = GetAction(from,to);
@@ -875,21 +873,21 @@ double AirplaneGridlessEnvironment::ViolatesConstraint(const PlatformState &from
     //return false;
 
   //Check if the action box violates any of the constraints that are in the constraints list
-  for (Constraint<PlatformState> c : constraints)
+  for (auto const& c : constraints)
   {
 
     // Check if the range of the constraint overlaps in time
-    if (max(c.start().t, from.t) <= min(c.end().t, to.t) + 0.00001)
+    if (max(c->start().t, from.t) <= min(c->end().t, to.t) + 0.00001)
     {
       // Generate a well formed set of boxes for the constraint box
-      c_minx = c.start().x < c.end().x ? c.start().x : c.end().x;
-      c_maxx = c.start().x > c.end().x ? c.start().x : c.end().x;
+      c_minx = c->start().x < c->end().x ? c->start().x : c->end().x;
+      c_maxx = c->start().x > c->end().x ? c->start().x : c->end().x;
 
-      c_miny = c.start().y < c.end().y ? c.start().y : c.end().y;
-      c_maxy = c.start().y > c.end().y ? c.start().y : c.end().y;
+      c_miny = c->start().y < c->end().y ? c->start().y : c->end().y;
+      c_maxy = c->start().y > c->end().y ? c->start().y : c->end().y;
 
-      c_minz = c.start().z < c.end().z ? c.start().z : c.end().z;
-      c_maxz = c.start().z > c.end().z ? c.start().z : c.end().z;
+      c_minz = c->start().z < c->end().z ? c->start().z : c->end().z;
+      c_maxz = c->start().z > c->end().z ? c->start().z : c->end().z;
 
 
       if (std::max(c_minx, a_minx) <= std::min(c_maxx, a_maxx) && // Check if overlapping on the X axis
@@ -899,7 +897,7 @@ double AirplaneGridlessEnvironment::ViolatesConstraint(const PlatformState &from
       {
         // If we overlap on all three axis, then there must be a common point, and thus
         // we can return that the constraint was violated
-        return max(c.start().t, from.t)-TOLERANCE;
+        return max(c->start().t, from.t)-TOLERANCE;
       }
 
     }
@@ -913,20 +911,20 @@ double AirplaneGridlessEnvironment::ViolatesConstraint(const PlatformState &from
     //return false;
   //}
 //Check if the action box violates any of the constraints that are in the static constraints list
-  for (Constraint<PlatformState> c : static_constraints)
+  for (auto const& c : static_constraints)
   {
     // Check if the range of the constraint overlaps in time
-    if (max(c.start().t, from.t) <= min(c.end().t, to.t) + 0.00001)
+    if (max(c->start().t, from.t) <= min(c->end().t, to.t) + 0.00001)
     {
       // Generate a well formed set of boxes for the constraint box
-      c_minx = c.start().x < c.end().x ? c.start().x : c.end().x;
-      c_maxx = c.start().x > c.end().x ? c.start().x : c.end().x;
+      c_minx = c->start().x < c->end().x ? c->start().x : c->end().x;
+      c_maxx = c->start().x > c->end().x ? c->start().x : c->end().x;
 
-      c_miny = c.start().y < c.end().y ? c.start().y : c.end().y;
-      c_maxy = c.start().y > c.end().y ? c.start().y : c.end().y;
+      c_miny = c->start().y < c->end().y ? c->start().y : c->end().y;
+      c_maxy = c->start().y > c->end().y ? c->start().y : c->end().y;
 
-      c_minz = c.start().z < c.end().z ? c.start().z : c.end().z;
-      c_maxz = c.start().z > c.end().z ? c.start().z : c.end().z;
+      c_minz = c->start().z < c->end().z ? c->start().z : c->end().z;
+      c_maxz = c->start().z > c->end().z ? c->start().z : c->end().z;
 
 
       if (std::max(c_minx, a_minx) <= std::min(c_maxx, a_maxx) && // Check if overlapping on the X axis
@@ -936,7 +934,7 @@ double AirplaneGridlessEnvironment::ViolatesConstraint(const PlatformState &from
       {
         // If we overlap on all three axis, then there must be a common point, and thus
         // we can return that the constraint was violated
-        return max(c.start().t, from.t)-TOLERANCE;
+        return max(c->start().t, from.t)-TOLERANCE;
       }
 
     }

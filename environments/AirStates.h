@@ -264,27 +264,6 @@ bool operator==(const airtimeState &l1, const airtimeState &l2);
  * each one describes a box between two states.
  */
 template<>
-struct Constraint<airtimeState>
-{
-	Constraint<airtimeState>() {}
-	Constraint<airtimeState>(airtimeState s1) : start_state(s1), end_state(s1) {}
-	Constraint<airtimeState>(airtimeState s1, airtimeState s2) : start_state(s1), end_state(s2) {}
-	Constraint<airtimeState>(Constraint<airtimeState> const& c) : Constraint<airtimeState>(c.start_state, c.end_state) {}
-        airtimeState start() const {return start_state;}
-        airtimeState end() const {return end_state;}
-
-
-	bool strip = false;
-	virtual bool ConflictsWith(const airtimeState &state) const;
-	virtual bool ConflictsWith(const airtimeState &from, const airtimeState &to) const;
-	virtual bool ConflictsWith(const Constraint<airtimeState> &x) const;
-	virtual void OpenGLDraw(MapInterface*m=0) const;
-
-        airtimeState start_state;
-        airtimeState end_state;
-};
-
-template<>
 class SoftConstraint<airtimeState> : public DrawableConstraint {
   public:
     SoftConstraint() {}
@@ -466,19 +445,19 @@ static std::ostream& operator <<(std::ostream & out, PlatformState const& loc)
 
 
 template<>
-struct Constraint<PlatformState>{
-  Constraint<PlatformState>() {}
-  Constraint<PlatformState>(PlatformState s1) : start_state(s1), end_state(s1) {}
-  Constraint<PlatformState>(PlatformState s1, PlatformState s2) : start_state(s1), end_state(s2) {}
-  Constraint<PlatformState>(Constraint<PlatformState> const& c) : Constraint<PlatformState>(c.start_state, c.end_state) {}
+struct Collision<PlatformState>{
+  Collision<PlatformState>() {}
+  Collision<PlatformState>(PlatformState s1) : start_state(s1), end_state(s1) {}
+  Collision<PlatformState>(PlatformState s1, PlatformState s2) : start_state(s1), end_state(s2) {}
+  Collision<PlatformState>(Collision<PlatformState> const& c) : Collision<PlatformState>(c.start_state, c.end_state) {}
   PlatformState start() const {return start_state;}
   PlatformState end() const {return end_state;}
 
 
   bool strip = false;
-  virtual bool ConflictsWith(const PlatformState &state) const;
-  virtual bool ConflictsWith(const PlatformState &from, const PlatformState &to) const;
-  virtual bool ConflictsWith(const Constraint<PlatformState> &x) const;
+  virtual double ConflictsWith(const PlatformState &state) const;
+  virtual double ConflictsWith(const PlatformState &from, const PlatformState &to) const;
+  virtual double ConflictsWith(const Collision<PlatformState> &x) const;
   virtual void OpenGLDraw(MapInterface*) const;
 
   PlatformState start_state;

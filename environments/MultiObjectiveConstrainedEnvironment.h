@@ -28,10 +28,8 @@ class MultiObjectiveConstrainedEnvironment : public ConstrainedEnvironment<state
 {
 public:
 	MultiObjectiveConstrainedEnvironment(MultiObjectiveEnvironment<PhysicalEnv,state,action> *m);
-	virtual void AddConstraint(Constraint<state> const& c){mapEnv->GetPhysicalEnv()->AddConstraint(c);}
-	virtual void AddConstraint(Constraint<TemporalVector> const& c){mapEnv->GetPhysicalEnv()->AddConstraint(c);}
-	//void AddConstraint(state const& loc);
-	void AddConstraint(state const& loc, action dir);
+	virtual void AddConstraint(Constraint<state>* c){mapEnv->GetPhysicalEnv()->AddConstraint(c);}
+	//virtual void AddConstraint(Constraint<TemporalVector> const& c){mapEnv->GetPhysicalEnv()->AddConstraint(c);}
 	void ClearConstraints(){mapEnv->GetPhysicalEnv()->ClearConstraints();}
         virtual std::string name()const{return mapEnv->name();}
 	virtual void GetSuccessors(const state &nodeID, std::vector<state> &neighbors) const{mapEnv->GetPhysicalEnv()->GetSuccessors(nodeID,neighbors);}

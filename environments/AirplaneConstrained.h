@@ -40,21 +40,17 @@ public:
 	/// CONSTRAINTS
 	
 	/** Add a constraint to the model */
-	void AddConstraint(Constraint<airtimeState> const& c);
 	void AddSoftConstraint(SoftConstraint<airtimeState> const& c){sconstraints.push_back(c);}
 
-	void AddPointConstraint(const airtimeState &loc);
-	void AddBoxConstraint(const airtimeState &loc1, const airtimeState &loc2);
-	void AddStaticConstraint(Constraint<airtimeState> const& c);
+	void AddStaticConstraint(Collision<airtimeState> const& c);
 	void AddStaticPointConstraint(const airtimeState &loc);
 	void AddStaticBoxConstraint(const airtimeState &loc1, const airtimeState &loc2);
 
 
-	Constraint<airtimeState> GetPointConstraint(const airtimeState &loc);
-	Constraint<airtimeState> GetBoxConstraint(const airtimeState &loc1, const airtimeState &loc2);
+	Collision<airtimeState> GetPointConstraint(const airtimeState &loc);
+	Collision<airtimeState> GetBoxConstraint(const airtimeState &loc1, const airtimeState &loc2);
 
 	/** Clear the constraints */
-	void ClearConstraints();
 	void ClearStaticConstraints();
 
 	/// STATE MANAGEMENT
@@ -128,16 +124,11 @@ public:
 	virtual void SetColor(double r, double g, double b, double t = 1.0) const {this->ae->SetColor(r,g,b,t);}
 	virtual void SetColor(double& r, double& g, double& b, double& t) const {this->ae->SetColor(r,g,b,t);}
 
-	/** Checks to see if any constraint is violated */
-	double ViolatesConstraint(const airplaneState &from, const airplaneState &to, int time) const;
-	double ViolatesConstraint(const airtimeState &from, const airtimeState &to) const;
-	
 	/// UTILS
 	uint8_t GetSpeeds(){return ae->numSpeeds;}
 	//void SetTicketAuthority(TicketAuthority* tk) {this->ticket_authority = tk;}
 	//TicketAuthority* ticket_authority;
 	/** Vector holding the current constraints */
-	std::vector<Constraint<airtimeState>> constraints;
 	std::vector<SoftConstraint<airtimeState>> sconstraints;
 
         virtual airtimeState const& getGoal()const{return airtimeState(ae->getGoal(),0);}
@@ -154,7 +145,7 @@ private:
 	
 
 
-	std::vector<Constraint<airtimeState>> static_constraints;
+	std::vector<Collision<airtimeState>> static_constraints;
 
 	/** Map holding the current sets of restricted airspace */
 

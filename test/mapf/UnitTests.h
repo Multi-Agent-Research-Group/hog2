@@ -53,7 +53,7 @@ TEST(ICTSAlgorithm, Funky){
   env.SetIgnoreTime(true);
   env.SetIgnoreHeading(true);
 
-  std::vector<EnvironmentContainer<xyztLoc,t3DDirection>*> envs(4);
+  std::vector<EnvironmentContainer<xyztLoc,t3DDirection>*> envs(2);
   for(auto& e:envs){
     e=new EnvironmentContainer<xyztLoc,t3DDirection>();
     e->environment=&env;
@@ -69,6 +69,57 @@ TEST(ICTSAlgorithm, Funky){
     for(auto const& s:ss)
       std::cout << s << "\n";
   ASSERT_TRUE(validateSolution(solution));
+}
+
+TEST(LOSConstraint, Tether){
+  xyztLoc a1(1,2,0,0.0f);
+  xyztLoc a2(2,3,0,1.414f);
+  xyztLoc b1(0,0,0,0.0f);
+  xyztLoc b2(0,1,0,1.0f);
+  AllLOS<xyztLoc> tether({0,1},2);
+  // The distance between A1 and B1 is sqrt(5)>2
+  ASSERT_TRUE(tether.HasConflict(0,a1,a2,1,b1,b2));
+  a1.t+=900;
+  a2.t+=900;
+  ASSERT_FALSE(tether.HasConflict(0,a1,a2,1,b1,b2));
+}
+
+TEST(LOSConstraint, Cluster){
+  xyztLoc a1(1,2,0,0.0f);
+  xyztLoc a2(2,3,0,1.414f);
+  xyztLoc b1(0,0,0,0.0f);
+  xyztLoc b2(0,1,0,1.0f);
+  xyztLoc c1(2,2,0,0.0f);
+  xyztLoc c2(1,1,0,1.414f);
+  AllLOS<xyztLoc> tether({0,1},2);
+  // The distance between A1 and B1 is sqrt(5)>2
+  ASSERT_TRUE(tether.HasConflict(0,a1,a2,1,b1,b2));
+  a1.t+=900;
+  a2.t+=900;
+  ASSERT_FALSE(tether.HasConflict(0,a1,a2,1,b1,b2));
+}
+
+TEST(LOSConstraint, Chain){
+  xyztLoc a1(1,2,0,0.0f);
+  xyztLoc a2(2,3,0,1.414f);
+  xyztLoc b1(0,0,0,0.0f);
+  xyztLoc b2(0,1,0,1.0f);
+  xyztLoc c1(2,2,0,0.0f);
+  xyztLoc c2(1,1,0,1.414f);
+  AnyLOS<xyztLoc> tether(0,{1,2},2); // 0 must maintain line of sight (max dist 2) with one of 1,2
+  // The distance between A1 and B1 is sqrt(5)(>2), but A1 to C1 is 1(<2)
+  ASSERT_EQ(-1,tether.agent);
+  ASSERT_EQ(0,tether.mainAgent);
+  ASSERT_TRUE(tether.finalResult);
+  ASSERT_TRUE(tether.HasConflict(0,a1,a2,1,b1,b2)); // No LOS here
+  ASSERT_EQ(-1,tether.agent);
+  ASSERT_FALSE(tether.HasConflict(0,a1,a2,2,c1,c2)); // LOS here
+  ASSERT_FALSE(tether.finalResult); // At least one LOS found... :)
+  ASSERT_EQ(2,tether.agent); // LOS with agent 2
+  ASSERT_EQ(a1,tether.agent1.first);
+  ASSERT_EQ(a2,tether.agent1.second);
+  ASSERT_EQ(c1,tether.agent2.first);
+  ASSERT_EQ(c2,tether.agent2.second);
 }
 
 #endif

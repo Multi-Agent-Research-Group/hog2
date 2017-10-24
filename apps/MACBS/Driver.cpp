@@ -240,7 +240,7 @@ void InitHeadless(){
             {
               xyztLoc a(waypoints[j][n]);
               // Make sure that no subgoals at similar times have a conflict
-              Constraint<xyztLoc> x_c(a,a);
+              Collision<xyztLoc> x_c(a,a,agentRadius);
               if(x_c.ConflictsWith(start,start)){conflict=true;break;}
               if(a==start){conflict=true;break;}
             }

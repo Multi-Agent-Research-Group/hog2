@@ -285,14 +285,26 @@ private:
 
 template<typename state>
 struct Conflict {
-	Constraint<state> c;
-	unsigned unit1;
-        unsigned prevWpt;
+  Conflict<state>():c(nullptr),unit1(9999999),prevWpt(0){}
+  Conflict<state>(Conflict<state>const& from):c(nullptr),unit1(from.unit1),prevWpt(from.prevWpt){}
+  Conflict<state>& operator=(Conflict<state>const& from){c=nullptr;unit1=from.unit1;prevWpt=from.prevWpt;}
+  std::unique_ptr<Constraint<state>> c;
+  unsigned unit1;
+  unsigned prevWpt;
 };
 
 template<typename state, typename conflicttable, class searchalgo>
 struct CBSTreeNode {
 	CBSTreeNode():parent(0),satisfiable(true),cat(){}
+	CBSTreeNode(CBSTreeNode<state,conflicttable,searchalgo> const& from):wpts(from.wpts),paths(from.paths),con(from.con),parent(from.parent),satisfiable(from.satisfiable),cat(from.cat){}
+        CBSTreeNode& operator=(CBSTreeNode<state,conflicttable,searchalgo> const& from){
+          wpts=from.wpts;
+          paths=from.paths;
+          con=from.con;
+          parent=from.parent;
+          satisfiable=from.satisfiable;
+          cat=from.cat;
+        }
 	std::vector< std::vector<int> > wpts;
 	Solution<state> paths;
 	Conflict<state> con;
@@ -356,7 +368,7 @@ class CBSGroup : public UnitGroup<state, action, ConstrainedEnvironment<state,ac
 
     void SetEnvironment(unsigned conflicts,unsigned agent);
     void ClearEnvironmentConstraints(unsigned agent);
-    void AddEnvironmentConstraint(Constraint<state> const& c, unsigned agent);
+    void AddEnvironmentConstraint(Constraint<state>* c, unsigned agent);
 
     double time;
 
@@ -473,7 +485,7 @@ void CBSGroup<state,action,comparison,conflicttable,searchalgo>::ClearEnvironmen
 
 
 template<typename state, typename action, typename comparison, typename conflicttable, class searchalgo>
-void CBSGroup<state,action,comparison,conflicttable,searchalgo>::AddEnvironmentConstraint(Constraint<state>const& c, unsigned agent){
+void CBSGroup<state,action,comparison,conflicttable,searchalgo>::AddEnvironmentConstraint(Constraint<state>* c, unsigned agent){
   //if(verbose)std::cout << "Add constraint " << c.start_state << "-->" << c.end_state << "\n";
   for (EnvironmentContainer<state,action> env : this->environments[agent]) {
     env.environment->AddConstraint(c);
@@ -539,7 +551,7 @@ bool CBSGroup<state,action,comparison,conflicttable,searchalgo>::ExpandOneCBSNod
     //c1.unit1=c2.unit1;
     //c2.unit1=tmp;
     // Notify the user of the conflict
-    if(!quiet)std::cout << "TREE " << bestNode <<"("<<tree[bestNode].parent << ") " <<(numConflicts.second==7?"CARDINAL":(numConflicts.second==3?"LEFT-CARDINAL":(numConflicts.second==5?"RIGHT-CARDINAL":"NON-CARDIANL")))<< " conflict found between unit " << c1.unit1 << " and unit " << c2.unit1 << " @:" << c2.c.start() << "-->" << c2.c.end() <<  " and " << c1.c.start() << "-->" << c1.c.end() << " NC " << numConflicts.first << " prev-W " << c1.prevWpt << " " << c2.prevWpt << "\n";
+    if(!quiet)std::cout << "TREE " << bestNode <<"("<<tree[bestNode].parent << ") " <<(numConflicts.second==7?"CARDINAL":(numConflicts.second==3?"LEFT-CARDINAL":(numConflicts.second==5?"RIGHT-CARDINAL":"NON-CARDIANL")))<< " conflict found between unit " << c1.unit1 << " and unit " << c2.unit1 << " @:" << c2.c->start() << "-->" << c2.c->end() <<  " and " << c1.c->start() << "-->" << c1.c->end() << " NC " << numConflicts.first << " prev-W " << c1.prevWpt << " " << c2.prevWpt << "\n";
     if(verbose){
       std::cout << c1.unit1 << ":\n";
       for(auto const& a:tree[bestNode].paths[c1.unit1]){
@@ -551,8 +563,8 @@ bool CBSGroup<state,action,comparison,conflicttable,searchalgo>::ExpandOneCBSNod
       }
     }
     if(animate){
-      c1.c.OpenGLDraw(currentEnvironment[0]->environment->GetMap());
-      c2.c.OpenGLDraw(currentEnvironment[0]->environment->GetMap());
+      c1.c->OpenGLDraw(currentEnvironment[0]->environment->GetMap());
+      c2.c->OpenGLDraw(currentEnvironment[0]->environment->GetMap());
       usleep(animate*1000);
     }
 
@@ -925,14 +937,14 @@ unsigned CBSGroup<state,action,comparison,conflicttable,searchalgo>::LoadConstra
     if(theUnit == tree[location].con.unit1)
     {
       numConflicts++;
-      AddEnvironmentConstraint(tree[location].con.c,theUnit);
-      if(verbose)std::cout << "Adding constraint (in accumulation)" << tree[location].con.c.start_state << "-->" << tree[location].con.c.end_state << " for unit " << theUnit << "\n";
+      AddEnvironmentConstraint(tree[location].con.c.get(),theUnit);
+      if(verbose)std::cout << "Adding constraint (in accumulation)" << tree[location].con.c->start_state << "-->" << tree[location].con.c->end_state << " for unit " << theUnit << "\n";
     }
     location = tree[location].parent;
   }// while (location != 0);
   //Implement ECBS prioritization which penalizes the second element in a path.
   if(ECBSheuristic && strstr(currentEnvironment[theUnit]->environment->name().c_str(),"Highway")==NULL && tree[location].paths[tree[location].con.unit1].size()>1)
-    AddEnvironmentConstraint(Constraint<state>(tree[location].paths[tree[location].con.unit1][1]),theUnit);
+    AddEnvironmentConstraint((Constraint<state>*)new Collision<state>(tree[location].paths[tree[location].con.unit1][0],tree[location].paths[tree[location].con.unit1][1],agentRadius),theUnit);
   return numConflicts;
 }
 
@@ -943,7 +955,7 @@ bool CBSGroup<state,action,comparison,conflicttable,searchalgo>::Bypass(int best
 {
   if(nobypass)return false;
   LoadConstraintsForNode(best,c1.unit1);
-  AddEnvironmentConstraint(c1.c,c1.unit1); // Add this constraint
+  AddEnvironmentConstraint(c1.c.get(),c1.unit1); // Add this constraint
 
   //std::cout << "Attempt to find a bypass.\n";
 
@@ -1222,11 +1234,8 @@ void CBSGroup<state,action,comparison,conflicttable,searchalgo>::HasConflict(std
           if(NO_CONFLICT==conflict.second || ((conflict.second<=NON_CARDINAL)&&conf) || BOTH_CARDINAL==conf){
             conflict.second=conf+1;
 
-            Constraint<state> x_e_c(a[xTime], a[xNextTime]);
-            Constraint<state> y_e_c(b[yTime], b[yNextTime]);
-
-            c1.c = x_e_c;
-            c2.c = y_e_c;
+            c1.c.reset((Constraint<state>*)new Collision<state>(a[xTime], a[xNextTime]));
+            c2.c.reset((Constraint<state>*)new Collision<state>(b[yTime], b[yNextTime]));
 
             c1.unit1 = x;
             c2.unit1 = y;

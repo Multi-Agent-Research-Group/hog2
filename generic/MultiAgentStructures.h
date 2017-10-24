@@ -91,10 +91,10 @@ bool validateSolution(Solution<state> const& sol, bool verbose=true){
 // Check if an openlist node conflicts with a node from an existing path
 template<typename state>
 unsigned checkForConflict(state const*const parent, state const*const node, state const*const pathParent, state const*const pathNode){
-  Constraint<state> v(*node);
-  if(v.ConflictsWith(*pathNode)){return 1;}
+  Collision<state> v(*node,*node);
+  if(v.ConflictsWith(*pathNode,*pathNode)){return 1;}
   if(parent && pathParent){
-    Constraint<state> e1(*parent,*node);
+    Collision<state> e1(*parent,*node);
     if(e1.ConflictsWith(*pathParent,*pathNode)){return 1;}
   }
   return 0; 

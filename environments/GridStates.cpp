@@ -19,50 +19,6 @@ void GLDrawCircle(GLfloat x, GLfloat y, GLfloat radius){
 }
 
 template<>
-bool Constraint<xytLoc>::ConflictsWith(const xytLoc &state) const
-{
-  /*if(state.landed || end_state.landed && start_state.landed) return false;
-  Vector2D A(state);
-  Vector2D VA(0,0);
-  //VA.Normalize();
-  Vector2D B(start_state);
-  Vector2D VB(end_state);
-  VB-=B; // Direction vector
-  //VB.Normalize();
-  if(collisionImminent(A,VA,agentRadius,state.t,state.t+1.0,B,VB,agentRadius,start_state.t,end_state.t)){
-    return true;
-  }*/
-  return false; // There is really no such thing as a vertex conflict in continuous time domains.
-}
-
-// Check both vertex and edge constraints
-template<>
-bool Constraint<xytLoc>::ConflictsWith(const xytLoc &from, const xytLoc &to) const
-{
-  return from.sameLoc(start_state)&&to.sameLoc(end_state)&&int(from.t)==int(start_state.t)&&int(to.t)==int(end_state.t);
-  //return from.sameLoc(to)&&fequal(from.t,to.t);
-  /*Vector2D A(from);
-  Vector2D VA(to);
-  VA-=A; // Direction vector
-  VA.Normalize();
-  Vector2D B(start_state);
-  Vector2D VB(end_state);
-  VB-=B; // Direction vector
-  VB.Normalize();
-  if(collisionImminent(A,VA,agentRadius,from.t,to.t,B,VB,agentRadius,start_state.t,end_state.t)){
-    return true;
-  }
-  return false;*/
-}
-
-template<>
-bool Constraint<xytLoc>::ConflictsWith(const Constraint<xytLoc> &x) const
-{
-  return ConflictsWith(x.start_state, x.end_state);
-}
-
-
-template<>
 void Constraint<xytLoc>::OpenGLDraw(MapInterface* map) const 
 {
   GLdouble xx, yy, zz, rad;
@@ -75,48 +31,6 @@ void Constraint<xytLoc>::OpenGLDraw(MapInterface* map) const
   glVertex3f(xx, yy, -rad);
   glEnd();
 }
-
-template<>
-bool Constraint<TemporalVector>::ConflictsWith(const TemporalVector &state) const
-{
-  /*if(state.landed || end_state.landed && start_state.landed) return false;
-  Vector2D A(state);
-  Vector2D VA(0,0);
-  //VA.Normalize();
-  Vector2D B(start_state);
-  Vector2D VB(end_state);
-  VB-=B; // Direction vector
-  //VB.Normalize();
-  if(collisionImminent(A,VA,agentRadius,state.t,state.t+1.0,B,VB,agentRadius,start_state.t,end_state.t)){
-    return true;
-  }*/
-  return false; // There is really no such thing as a vertex conflict in continuous time domains.
-}
-
-// Check both vertex and edge constraints
-template<>
-bool Constraint<TemporalVector>::ConflictsWith(const TemporalVector &from, const TemporalVector &to) const
-{
-  Vector2D A(from);
-  Vector2D VA(to);
-  VA-=A; // Direction vector
-  VA.Normalize();
-  Vector2D B(start_state);
-  Vector2D VB(end_state);
-  VB-=B; // Direction vector
-  VB.Normalize();
-  if(collisionImminent(A,VA,agentRadius,from.t,to.t,B,VB,agentRadius,start_state.t,end_state.t)){
-    return true;
-  }
-  return false;
-}
-
-template<>
-bool Constraint<TemporalVector>::ConflictsWith(const Constraint<TemporalVector> &x) const
-{
-  return ConflictsWith(x.start_state, x.end_state);
-}
-
 
 template<>
 void Constraint<TemporalVector>::OpenGLDraw(MapInterface* map) const 

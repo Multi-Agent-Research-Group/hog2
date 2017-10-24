@@ -203,14 +203,26 @@ private:
 
 template<typename state>
 struct Conflict {
-	Constraint<state> c;
-	int unit1;
-        int prevWpt;
+  Conflict<state>():c(nullptr),unit1(9999999),prevWpt(0){}
+  Conflict<state>(Conflict<state>const& from):c(nullptr),unit1(from.unit1),prevWpt(from.prevWpt){}
+  Conflict<state>& operator=(Conflict<state>const& from){c=nullptr;unit1=from.unit1;prevWpt=from.prevWpt;}
+  std::unique_ptr<Constraint<state>> c;
+  int unit1;
+  int prevWpt;
 };
 
 template<typename state, typename conflicttable>
 struct CBSTreeNode {
 	CBSTreeNode():parent(0),satisfiable(true),cat(){}
+	CBSTreeNode(CBSTreeNode<state,conflicttable> const& from):wpts(from.wpts),paths(from.paths),con(from.con),parent(from.parent),satisfiable(from.satisfiable),cat(from.cat){}
+        CBSTreeNode& operator=(CBSTreeNode<state,conflicttable> const& from){
+          wpts=from.wpts;
+          paths=from.paths;
+          con=from.con;
+          parent=from.parent;
+          satisfiable=from.satisfiable;
+          cat=from.cat;
+        }
 	std::vector< std::vector<int> > wpts;
 	std::vector< std::vector<state> > paths;
 	Conflict<state> con;
@@ -250,7 +262,6 @@ class CBSGroup : public UnitGroup<state, action, environment>
         state &loc, bool success, SimulationInfo<state,action,environment> *si);
     void AddUnit(Unit<state, action, environment> *u);
     void UpdateUnitGoal(Unit<state, action, environment> *u, state newGoal);
-    void UpdateSingleUnitPath(Unit<state, action, environment> *u, state newGoal);
     double GetMaxTime(int location, int agent);
     void StayAtGoal(int location);
 
@@ -279,7 +290,7 @@ class CBSGroup : public UnitGroup<state, action, environment>
 
     void SetEnvironment(unsigned);
     void ClearEnvironmentConstraints();
-    void AddEnvironmentConstraint(Constraint<state> c);
+    void AddEnvironmentConstraint(Constraint<state>* c);
 
     double time;
 
@@ -395,7 +406,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable,dim,searchalgo>:
 
 
 template<typename state, typename action, typename environment, typename comparison, typename conflicttable, unsigned dim, class searchalgo>
-void CBSGroup<state,action,environment,comparison,conflicttable,dim,searchalgo>::AddEnvironmentConstraint(Constraint<state>  c){
+void CBSGroup<state,action,environment,comparison,conflicttable,dim,searchalgo>::AddEnvironmentConstraint(Constraint<state>* c){
   //if(verbose)std::cout << "Add constraint " << c.start_state << "-->" << c.end_state << "\n";
   for (MOEnvironmentContainer<state,action,environment> env : this->environments) {
     env.environment->AddConstraint(c);
@@ -444,7 +455,7 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,dim,searchalgo>:
 
   unsigned numConflicts(FindFirstConflict(tree[bestNode], c1, c2));
   // If not conflicts are found in this node, then the path is done
-  if (numConflicts==0)
+  if(numConflicts==0)
   {
     processSolution(timer->EndTimer());
   } 
@@ -458,7 +469,7 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,dim,searchalgo>:
       c2.unit1=tmp;
     // Notify the user of the conflict
     if(verbose){
-      std::cout << "TREE " << bestNode <<"("<<tree[bestNode].parent << ") Conflict found between unit " << c1.unit1 << " and unit " << c2.unit1 << " @:" << c2.c.start() << "-->" << c2.c.end() <<  " and " << c1.c.start() << "-->" << c1.c.end() << " NC " << numConflicts << " prev-W " << c1.prevWpt << " " << c2.prevWpt << "\n";
+      std::cout << "TREE " << bestNode <<"("<<tree[bestNode].parent << ") Conflict found between unit " << c1.unit1 << " and unit " << c2.unit1 << " @:" << c2.c->start() << "-->" << c2.c->end() <<  " and " << c1.c->start() << "-->" << c1.c->end() << " NC " << numConflicts << " prev-W " << c1.prevWpt << " " << c2.prevWpt << "\n";
       std::cout << c1.unit1 << ":\n";
       for(auto const& a:tree[bestNode].paths[c1.unit1]){
         std::cout << a << "\n";
@@ -469,8 +480,8 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,dim,searchalgo>:
       }
     }
     if(animate){
-      c1.c.OpenGLDraw(currentEnvironment->environment->GetMap());
-      c2.c.OpenGLDraw(currentEnvironment->environment->GetMap());
+      c1.c->OpenGLDraw(currentEnvironment->environment->GetMap());
+      c2.c->OpenGLDraw(currentEnvironment->environment->GetMap());
       //usleep(animate*1000);
     }
 
@@ -600,14 +611,12 @@ bool CBSUnit<state,action,environment,comparison,conflicttable,dim,searchalgo>::
   state newGoal(land, 0);
   CBSGroup* g = (CBSGroup*) this->GetUnitGroup();
   //g->UpdateUnitGoal(this, newGoal);			
-  g->UpdateSingleUnitPath(this, newGoal);
   } else {
   // Replan the node to a random location
   state rs(rand() % 70 + 5, rand() % 70 + 5, rand() % 7 + 11, rand() % 3 + 1, rand() % 8, false);
   state newGoal(rs, 0);
   CBSGroup* g = (CBSGroup*) this->GetUnitGroup();
   //g->UpdateUnitGoal(this, newGoal);
-  g->UpdateSingleUnitPath(this, newGoal);
   }
   }
   }*/
@@ -945,69 +954,6 @@ void CBSGroup<state,action,environment,comparison,conflicttable,dim,searchalgo>:
   }
 }
 
-/** Update Unit Path */
-template<typename state, typename action, typename environment, typename comparison, typename conflicttable, unsigned dim, class searchalgo>
-void CBSGroup<state,action,environment,comparison,conflicttable,dim,searchalgo>::UpdateSingleUnitPath(Unit<state, action, environment> *u, state newGoal)
-{
-
-  //std::cout << "Replanning Single Unit Path..." << std::endl;
-
-  //std::cout << "Clear the environmental constraints" << std::endl;
-  // Clear the constraints from the environment set
-  ClearEnvironmentConstraints();
-
-  // Add constraints for the rest of the units' pre-planned paths
-  for (int x = 0; x < this->GetNumMembers(); x++) {
-    if (this->GetMember(x) != u) {
-      CBSUnit<state,action,environment,comparison,conflicttable,dim,searchalgo> *c = (CBSUnit<state,action,environment,comparison,conflicttable,dim,searchalgo>*)this->GetMember(x);
-
-      // Loop over the pre-planned path
-      for (int i = 0; i < c->GetPath().size(); i++) {
-        // Add a vertex constraint. If you're landed, you don't collide with
-        // anything
-        if (!(c->GetPath()[i].landed)) {
-          Constraint<state> c1(c->GetPath()[i]);
-          AddEnvironmentConstraint(c1);
-        }
-
-        // If we can add an edge constraint (because we know where we're going...)
-        if (i +1 < c->GetPath().size()) {
-          // Add edge consraints if the plane is landing, taking off, or 
-          // just in the air. If both states stay landed, no edge constraint
-          if (!(c->GetPath()[i].landed && !c->GetPath()[i+1].landed) ||
-              !(c->GetPath()[i].landed && c->GetPath()[i+1].landed) || 
-              (c->GetPath()[i].landed && !c->GetPath()[i+1].landed)
-             ) 
-          {
-            Constraint<state> c2(c->GetPath()[i], c->GetPath()[i+1]);
-            AddEnvironmentConstraint(c2);
-          }
-        }
-      } /* End loop over pre-planned path */
-    } /* End if */
-  } /* End for */
-
-
-  // Get the unit location
-  CBSUnit<state,action,environment,comparison,conflicttable,dim,searchalgo> *c = (CBSUnit<state,action,environment,comparison,conflicttable,dim,searchalgo>*)u;
-  state current = c->GetPath()[0];
-
-  // Plan a new path for the unit
-  //std::cout << "Going from " << current << " to " << newGoal << std::endl;
-  //astar.GetPath(currentEnvironment->environment, current, newGoal, thePath);
-  std::vector<state> thePath;
-  DoHAStar(current, newGoal, thePath);
-  //std::cout << "Finished replanning with " << astar.GetNodesExpanded() << " expansions." << std::endl;
-
-  //std::cout << "New Path: ";
-  //for (auto &a : thePath)
-  //std::cout << a << " ";
-  //std::cout << std::endl;
-
-  // Update the Unit Path
-  c->SetPath(thePath);
-}
-
 // Loads conflicts into environements and returns the number of conflicts loaded.
 template<typename state, typename action, typename environment, typename comparison, typename conflicttable, unsigned dim, class searchalgo>
 unsigned CBSGroup<state,action,environment,comparison,conflicttable,dim,searchalgo>::LoadConstraintsForNode(int location){
@@ -1023,14 +969,14 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable,dim,searchal
     if(theUnit == tree[location].con.unit1)
     {
       numConflicts++;
-      AddEnvironmentConstraint(tree[location].con.c);
-      if(verbose)std::cout << "Adding constraint (in accumulation)" << tree[location].con.c.start_state << "-->" << tree[location].con.c.end_state << " for unit " << theUnit << "\n";
+      AddEnvironmentConstraint(tree[location].con.c.get());
+      if(verbose)std::cout << "Adding constraint (in accumulation)" << tree[location].con.c->start_state << "-->" << tree[location].con.c->end_state << " for unit " << theUnit << "\n";
     }
     location = tree[location].parent;
   }// while (location != 0);
   //Implement ECBS prioritization which penalizes the second element in a path.
   if(ECBSheuristic && strstr(currentEnvironment->environment->name().c_str(),"Highway")==NULL && tree[location].paths[tree[location].con.unit1].size()>1)
-    AddEnvironmentConstraint(Constraint<state>(tree[location].paths[tree[location].con.unit1][1]));
+    AddEnvironmentConstraint((Constraint<state>*)new Collision<state>(tree[location].paths[tree[location].con.unit1][0],tree[location].paths[tree[location].con.unit1][1]));
   return numConflicts;
 }
 
@@ -1250,8 +1196,8 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable,dim,searchal
     if(verbose)std::cout << "Looking at positions " << xTime <<":"<<a[xTime].t << "," << j<<":"<<b[yTime].t << std::endl;
 
     // Check the point constraints
-    Constraint<state> x_c(a[xTime]);
-    state y_c =b[yTime];
+    //Constraint<state> x_c(a[xTime]);
+    //state y_c =b[yTime];
 
 
     // Deal with landing conflicts, we don't conflict if one of the planes stays landed at
@@ -1266,7 +1212,7 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable,dim,searchal
 
 
       // Check the vertex conflict
-      if (x_c.ConflictsWith(y_c) && ++numConflicts && update)
+      /*if (x_c.ConflictsWith(y_c) && ++numConflicts && update)
       {
         c1.c = x_c;
         c2.c = y_c;
@@ -1279,16 +1225,16 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable,dim,searchal
 
         update = false;
         return 1;
-      }
+      }*/
 
       // Check the edge conflicts
-      Constraint<state> x_e_c(a[xTime], a[min(xmax-1, xTime+1)]);
-      Constraint<state> y_e_c(b[yTime], b[min(ymax-1, yTime+1)]);
+      std::unique_ptr<Constraint<state>> x_e_c((Constraint<state>*) new Collision<state>(a[xTime], a[min(xmax-1, xTime+1)]));
+      std::unique_ptr<Constraint<state>> y_e_c((Constraint<state>*) new Collision<state>(b[yTime], b[min(ymax-1, yTime+1)]));
 
-      if (x_e_c.ConflictsWith(y_e_c) && ++numConflicts && update)
+      if (x_e_c->ConflictsWith(*y_e_c) && ++numConflicts && update)
       {
-        c1.c = x_e_c;
-        c2.c = y_e_c;
+        c1.c.reset(x_e_c.release());
+        c2.c.reset(y_e_c.release());
 
         c1.unit1 = y;
         c2.unit1 = x;

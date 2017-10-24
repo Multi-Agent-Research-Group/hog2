@@ -1832,53 +1832,6 @@ void testConstraints() {
 
 	airplaneState O(0,0,0,0,0);
 	airtimeState OT(O, 1.0f);
-	Constraint<airtimeState> CO(OT);
-
-
-	// Check self-conflict - you should always conflict with yourself
-	{
-		airplaneState s1(10,10,10,0,0);
-		airtimeState st1(s1, 1.0f);
-		Constraint<airtimeState> c(st1);
-
-		// Should always conflict with yourself
-		assert(c.ConflictsWith(c));
-		assert(c.ConflictsWith(st1));
-		assert(c.ConflictsWith(st1, st1));
-
-		// Should not conflict with this
-		assert(!c.ConflictsWith(CO));
-
-		std::cout << ".";
-	}
-
-	// Don't conflict if times do not overlap
-	{
-		airplaneState s1(10,10,10,0,0);
-		airtimeState st1(s1, 1.0f);
-		airtimeState st2(s1, 2.0f);
-		Constraint<airtimeState> c(st1);
-
-		assert(!c.ConflictsWith(st2));
-
-		// Should not conflict with this
-		assert(!c.ConflictsWith(CO));
-
-		std::cout << ".";
-	}
-
-	// another case..
-	{
-		airplaneState s1(32,40,14,1,6);
-		airplaneState s2(31,41,14,2,6);
-		airtimeState st1(s1, 0.0f);
-		airtimeState st2(s1, 0.204465f);
-		Constraint<airtimeState> c(st1);
-
-		assert(!c.ConflictsWith(st2));
-
-		std::cout << ".";
-	}
 
 	// Check simple straight conflict
 	{
@@ -1895,22 +1848,15 @@ void testConstraints() {
 				airtimeState st2(s1, 1.0f);
 				ace.ApplyAction(st2, a1);
 				
-				Constraint<airtimeState> c1(st1, st2);
+				Collision<airtimeState> c1(st1, st2);
 
 				
-				// Should conflict at both endpoints
-				assert(c1.ConflictsWith(st2));
-				assert(c1.ConflictsWith(st1));
-
 				// Should conflict with the motion
 				assert(c1.ConflictsWith(st1, st2));
 
 				// Should also conflict with something in the middle
 				airtimeState st3(s1, 0.9f);
 				ace.ApplyAction(st3, a1);
-				assert(c1.ConflictsWith(st3));
-
-				assert(!c1.ConflictsWith(CO));
 
 				std::cout << ".";
 			}
@@ -1936,12 +1882,7 @@ void testConstraints() {
 					airtimeState st2(s1, 1.0f);
 					ace.ApplyAction(st2, a1);
 					
-					Constraint<airtimeState> c1(st1, st2);
-
-					
-					// Should conflict at both endpoints
-					assert(c1.ConflictsWith(st2));
-					assert(c1.ConflictsWith(st1));
+					Collision<airtimeState> c1(st1, st2);
 
 					// Should conflict with the motion
 					assert(c1.ConflictsWith(st1, st2));
@@ -1950,8 +1891,6 @@ void testConstraints() {
 					airtimeState st3(s1, 0.9f);
 					ace.ApplyAction(st3, a1);
 					assert(c1.ConflictsWith(st3));
-
-					assert(!c1.ConflictsWith(CO));
 
 					std::cout << ".";
 				}
@@ -1978,22 +1917,15 @@ void testConstraints() {
 					airtimeState st2(s1, 1.0f);
 					ace.ApplyAction(st2, a1);
 					
-					Constraint<airtimeState> c1(st1, st2);
+					Collision<airtimeState> c1(st1, st2);
 
 					
-					// Should conflict at both endpoints
-					assert(c1.ConflictsWith(st2));
-					assert(c1.ConflictsWith(st1));
-
 					// Should conflict with the motion
 					assert(c1.ConflictsWith(st1, st2));
 
 					// Should also conflict with something in the middle
 					airtimeState st3(s1, 0.9f);
 					ace.ApplyAction(st3, a1);
-					assert(c1.ConflictsWith(st3));
-
-					assert(!c1.ConflictsWith(CO));
 
 					std::cout << ".";
 				}

@@ -24,24 +24,6 @@ Grid3DConstrainedEnvironment::Grid3DConstrainedEnvironment(Grid3DEnvironment *m)
 	mapEnv = m;
 }
 
-/*void Grid3DConstrainedEnvironment::AddConstraint(xyztLoc loc)
-{
-	AddConstraint(loc, kTeleport);
-}*/
-
-void Grid3DConstrainedEnvironment::AddConstraint(xyztLoc const& loc, t3DDirection dir)
-{
-        xyztLoc tmp(loc);
-        ApplyAction(tmp,dir);
-	constraints.emplace_back(loc,tmp);
-}
-
-void Grid3DConstrainedEnvironment::ClearConstraints()
-{
-	constraints.resize(0);
-	vconstraints.resize(0);
-}
-
 void Grid3DConstrainedEnvironment::GetSuccessors(const xyztLoc &nodeID, std::vector<xyztLoc> &neighbors) const
 {
   std::vector<xyzLoc> n;
@@ -68,8 +50,6 @@ void Grid3DConstrainedEnvironment::GetSuccessors(const xyztLoc &nodeID, std::vec
       */
     if (!ViolatesConstraint(nodeID,newLoc)){
       neighbors.push_back(newLoc);
-    }else{
-      //std::cout << n[x] << " violates\n";
     }
   }
 }
@@ -90,60 +70,6 @@ void Grid3DConstrainedEnvironment::GetAllSuccessors(const xyztLoc &nodeID, std::
         nodeID.t+inc);
     neighbors.push_back(newLoc);
   }
-}
-
-//returns time of violation or zero
-double Grid3DConstrainedEnvironment::ViolatesConstraint(const xyztLoc &from, const xyztLoc &to) const{
-  
-  // Check motion constraints
-  //if(maxTurnAzimuth&&maxTurnAzimuth<abs(from.h-to.h)) return true;
-  //if(maxPitch&&maxPitch<abs(from.p-to.p)) return true;
-
-  //Vector3D A(from);
-  //Vector3D VA(to);
-  //VA-=A; // Direction vector
-  //VA.Normalize();
-  TemporalVector3D A1(from);
-  TemporalVector3D A2(to);
-  static double aradius(0.25);
-  static double bradius(0.25);
-  double ctime(0);
-  // TODO: Put constraints into a kD tree so that we only need to compare vs relevant constraints
-  for(unsigned int x = 0; x < constraints.size(); x++)
-  {
-    //Vector3D B(constraints[x].start_state);
-    //Vector3D VB(constraints[x].end_state);
-    //VB-=B; // Direction vector
-    //VB.Normalize();
-    if(ctime=collisionCheck3D(A1,A2,constraints[x].start_state,constraints[x].end_state,aradius,bradius)){
-    //if(ctime=collisionImminent(A,VA,aradius,from.t,to.t,B,VB,bradius,constraints[x].start_state.t,constraints[x].end_state.t)){
-      //std::cout << from << " --> " << to << " collides with " << vconstraints[x].start_state << "-->" << vconstraints[x].end_state << "\n";
-      return ctime;
-    }else{
-      //std::cout << from << " --> " << to << " does not collide with " << vconstraints[x].start_state << "-->" << vconstraints[x].end_state << "\n";
-    }
-  }
-  for(unsigned int x = 0; x < vconstraints.size(); x++)
-  {
-    //Vector3D B(vconstraints[x].start_state);
-    //Vector3D VB(vconstraints[x].end_state);
-    //VB-=B; // Direction vector
-    //VB.Normalize();
-    if(ctime=collisionCheck3D(A1,A2,constraints[x].start_state,constraints[x].end_state,aradius,bradius)){
-    //if(ctime=collisionImminent(A,VA,aradius,from.t,to.t,B,VB,bradius,vconstraints[x].start_state.t,vconstraints[x].end_state.t)){
-      //std::cout << from << " --> " << to << " collides with " << vconstraints[x].start_state << "-->" << vconstraints[x].end_state << "\n";
-      return ctime;
-    }else{
-      //std::cout << from << " --> " << to << " does not collide with " << vconstraints[x].start_state << "-->" << vconstraints[x].end_state << "\n";
-    }
-  }
-  return 0;
-}
-
-bool Grid3DConstrainedEnvironment::ViolatesConstraint(const xyzLoc &from, const xyzLoc &to, float time, float inc) const
-{
-  assert(!"Not implemented");
-  return false;//ViolatesConstraint(xyztLoc(from,time),xyztLoc(to,time+inc));
 }
 
 void Grid3DConstrainedEnvironment::GetActions(const xyztLoc &nodeID, std::vector<t3DDirection> &actions) const
@@ -168,16 +94,6 @@ void Grid3DConstrainedEnvironment::UndoAction(xyztLoc &s, t3DDirection a) const
 {
 	mapEnv->UndoAction(s, a);
 	s.t-=1;
-}
-
-void Grid3DConstrainedEnvironment::AddConstraint(Constraint<xyztLoc> const& c)
-{
-	constraints.push_back(c);
-}
-
-void Grid3DConstrainedEnvironment::AddConstraint(Constraint<TemporalVector3D> const& c)
-{
-	vconstraints.push_back(c);
 }
 
 void Grid3DConstrainedEnvironment::GetReverseActions(const xyztLoc &nodeID, std::vector<t3DDirection> &actions) const
@@ -356,52 +272,6 @@ bool Grid3DConstrainedEnvironment::collisionCheck(const xyztLoc &s1, const xyztL
 
 
 template<>
-bool Constraint<xyztLoc>::ConflictsWith(const xyztLoc &state) const
-{
-  /*if(state.landed || end_state.landed && start_state.landed) return false;
-  Vector3D A(state);
-  Vector3D VA(0,0);
-  //VA.Normalize();
-  static double aradius(0.25);
-  static double bradius(0.25);
-  Vector3D B(start_state);
-  Vector3D VB(end_state);
-  VB-=B; // Direction vector
-  //VB.Normalize();
-  if(collisionImminent(A,VA,aradius,state.t,state.t+1.0,B,VB,bradius,start_state.t,end_state.t)){
-    return true;
-  }*/
-  return false; // There is really no such thing as a vertex conflict in continuous time domains.
-}
-
-// Check both vertex and edge constraints
-template<>
-bool Constraint<xyztLoc>::ConflictsWith(const xyztLoc &from, const xyztLoc &to) const
-{
-  Vector3D A(from);
-  Vector3D VA(to);
-  VA-=A; // Direction vector
-  VA.Normalize();
-  static double aradius(0.25);
-  static double bradius(0.25);
-  Vector3D B(start_state);
-  Vector3D VB(end_state);
-  VB-=B; // Direction vector
-  VB.Normalize();
-  if(collisionImminent(A,VA,aradius,from.t,to.t,B,VB,bradius,start_state.t,end_state.t)){
-    return true;
-  }
-  return false;
-}
-
-template<>
-bool Constraint<xyztLoc>::ConflictsWith(const Constraint<xyztLoc> &x) const
-{
-  return ConflictsWith(x.start_state, x.end_state);
-}
-
-
-template<>
 void Constraint<xyztLoc>::OpenGLDraw(MapInterface* map) const 
 {
   GLdouble xx, yy, zz, rad;
@@ -413,51 +283,6 @@ void Constraint<xyztLoc>::OpenGLDraw(MapInterface* map) const
   map->GetOpenGLCoord(end_state.x, end_state.y, xx, yy, zz, rad);
   glVertex3f(xx, yy, -rad);
   glEnd();
-}
-
-template<>
-bool Constraint<TemporalVector3D>::ConflictsWith(const TemporalVector3D &state) const
-{
-  /*if(state.landed || end_state.landed && start_state.landed) return false;
-  Vector3D A(state);
-  Vector3D VA(0,0);
-  //VA.Normalize();
-  static double aradius(0.25);
-  static double bradius(0.25);
-  Vector3D B(start_state);
-  Vector3D VB(end_state);
-  VB-=B; // Direction vector
-  //VB.Normalize();
-  if(collisionImminent(A,VA,aradius,state.t,state.t+1.0,B,VB,bradius,start_state.t,end_state.t)){
-    return true;
-  }*/
-  return false; // There is really no such thing as a vertex conflict in continuous time domains.
-}
-
-// Check both vertex and edge constraints
-template<>
-bool Constraint<TemporalVector3D>::ConflictsWith(const TemporalVector3D &from, const TemporalVector3D &to) const
-{
-  Vector3D A(from);
-  Vector3D VA(to);
-  VA-=A; // Direction vector
-  VA.Normalize();
-  static double aradius(0.25);
-  static double bradius(0.25);
-  Vector3D B(start_state);
-  Vector3D VB(end_state);
-  VB-=B; // Direction vector
-  VB.Normalize();
-  if(collisionImminent(A,VA,aradius,from.t,to.t,B,VB,bradius,start_state.t,end_state.t)){
-    return true;
-  }
-  return false;
-}
-
-template<>
-bool Constraint<TemporalVector3D>::ConflictsWith(const Constraint<TemporalVector3D> &x) const
-{
-  return ConflictsWith(x.start_state, x.end_state);
 }
 
 template<>

@@ -506,7 +506,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       return jointDFS(act,0.0,solution,solutions,toDelete,best,bestSeen,suboptimal,checkOnly);
     }
 
-    // Check that two paths have no collisions
+    // Check that two paths have no conflicts
     static bool checkPair(Path const& p1, Path const& p2, unsigned agent, bool loud=false){
       auto ap(p1.begin());
       auto a(ap+1);

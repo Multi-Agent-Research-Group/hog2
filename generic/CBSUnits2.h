@@ -13,6 +13,7 @@
 #include <limits> 
 #include <algorithm>
 #include <map>
+#include <memory>
 
 #include <queue>
 #include <functional>
@@ -222,17 +223,29 @@ private:
 
 template<typename state>
 struct Conflict {
-	Constraint<TemporalVector> c;
-	int unit1;
-        int prevWpt;
+  Conflict<state>():c(nullptr),unit1(9999999),prevWpt(0){}
+  Conflict<state>(Conflict<TemporalVector3D>const& from):c(nullptr),unit1(from.unit1),prevWpt(from.prevWpt){}
+  Conflict<state>& operator=(Conflict<TemporalVector3D>const& from){c=nullptr;unit1=from.unit1;prevWpt=from.prevWpt;}
+  std::unique_ptr<Constraint<state>> c;
+  unsigned unit1;
+  unsigned prevWpt;
 };
 
 template<typename state, typename conflicttable, class searchalgo>
 struct CBSTreeNode {
 	CBSTreeNode():parent(0),satisfiable(true),cat(){}
+	CBSTreeNode(CBSTreeNode<state,conflicttable,searchalgo> const& from):wpts(from.wpts),paths(from.paths),con(from.con),parent(from.parent),satisfiable(from.satisfiable),cat(from.cat){}
+        CBSTreeNode& operator=(CBSTreeNode<state,conflicttable,searchalgo> const& from){
+          wpts=from.wpts;
+          paths=from.paths;
+          con=from.con;
+          parent=from.parent;
+          satisfiable=from.satisfiable;
+          cat=from.cat;
+        }
 	std::vector< std::vector<int> > wpts;
 	std::vector< std::vector<state> > paths;
-	Conflict<state> con;
+	Conflict<TemporalVector3D> con;
 	unsigned int parent;
 	bool satisfiable;
         //IntervalTree cat; // Conflict avoidance table
@@ -285,10 +298,10 @@ class CBSGroup : public UnitGroup<state, action, environment>
   private:    
 
     unsigned LoadConstraintsForNode(int location);
-    bool Bypass(int best, unsigned numConflicts, Conflict<state> const& c1);
+    bool Bypass(int best, unsigned numConflicts, Conflict<TemporalVector3D> const& c1);
     void Replan(int location);
-    unsigned HasConflict(std::vector<state> const& a, std::vector<int> const& wa, std::vector<state> const& b, std::vector<int> const& wb, int x, int y, Conflict<state> &c1, Conflict<state> &c2, bool update, bool verbose=false);
-    unsigned FindFirstConflict(CBSTreeNode<state,conflicttable,searchalgo>  const& location, Conflict<state> &c1, Conflict<state> &c2);
+    unsigned HasConflict(std::vector<state> const& a, std::vector<int> const& wa, std::vector<state> const& b, std::vector<int> const& wb, int x, int y, Conflict<TemporalVector3D> &c1, Conflict<TemporalVector3D> &c2, bool update, bool verbose=false);
+    unsigned FindFirstConflict(CBSTreeNode<state,conflicttable,searchalgo>  const& location, Conflict<TemporalVector3D> &c1, Conflict<TemporalVector3D> &c2);
 
     bool planFinished;
 
@@ -298,7 +311,7 @@ class CBSGroup : public UnitGroup<state, action, environment>
 
     void SetEnvironment(unsigned);
     void ClearEnvironmentConstraints();
-    void AddEnvironmentConstraint(Constraint<TemporalVector> c);
+    void AddEnvironmentConstraint(Constraint<TemporalVector3D>* c);
 
     double time;
 
@@ -375,20 +388,20 @@ void CBSUnit<state,action,environment,comparison,conflicttable,searchalgo>::Open
     {
       float perc = (stop_t.t - si->GetSimulationTime())/(stop_t.t - start_t.t);
       ae->OpenGLDraw(stop_t, start_t, perc);
-      //Constraint<TemporalVector> c(stop_t, start_t);
+      //Constraint<TemporalVector3D> c(stop_t, start_t);
       //glColor3f(1, 0, 0);
       //c.OpenGLDraw();
     } else {		
       //ae->OpenGLDraw(stop_t);
       //glColor3f(1, 0, 0);
-      //Constraint<TemporalVector> c(current);
+      //Constraint<TemporalVector3D> c(current);
       //c.OpenGLDraw();
     }
   } else {
     if (current.landed)
       return;
     //ae->OpenGLDraw(current);
-    //Constraint<TemporalVector> c(current);
+    //Constraint<TemporalVector3D> c(current);
     //glColor3f(1, 0, 0);
     //c.OpenGLDraw();
   }
@@ -414,7 +427,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Cle
 
 
 template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
-void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::AddEnvironmentConstraint(Constraint<TemporalVector>  c){
+void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::AddEnvironmentConstraint(Constraint<TemporalVector3D>* c){
   //if(verbose)std::cout << "Add constraint " << c.start_state << "-->" << c.end_state << "\n";
   for (EnvironmentContainer2<state,action,environment> env : this->environments) {
     env.environment->AddConstraint(c);
@@ -458,7 +471,7 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Exp
   if (planFinished)
     return false;
 
-  Conflict<state> c1, c2;
+  Conflict<TemporalVector3D> c1, c2;
   unsigned long last = tree.size();
 
   unsigned numConflicts(FindFirstConflict(tree[bestNode], c1, c2));
@@ -473,7 +486,7 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Exp
   {
     // Notify the user of the conflict
     if(verbose){
-      std::cout << "TREE " << bestNode <<"("<<tree[bestNode].parent << ") Conflict found between unit " << c1.unit1 << " and unit " << c2.unit1 << " @:" << c1.c.start() << "-->" << c1.c.end() <<  " and " << c2.c.start() << "-->" << c2.c.end() << " NC " << numConflicts << " prev-W " << c1.prevWpt << " " << c2.prevWpt << "\n";
+      std::cout << "TREE " << bestNode <<"("<<tree[bestNode].parent << ") Conflict found between unit " << c1.unit1 << " and unit " << c2.unit1 << " @:" << c1.c->start() << "-->" << c1.c->end() <<  " and " << c2.c->start() << "-->" << c2.c->end() << " NC " << numConflicts << " prev-W " << c1.prevWpt << " " << c2.prevWpt << "\n";
     }
     // Swap units
     /*unsigned tmp(c1.unit1);
@@ -482,44 +495,44 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Exp
 
     // Pare down the collision area:
     if(true){
-      Vector2D A(c1.c.start_state);
-      Vector2D VA(c1.c.end_state);
+      TemporalVector3D A(c1.c->start_state);
+      TemporalVector3D VA(c1.c->end_state);
       VA-=A; // Direction vector
       VA.Normalize();
-      Vector2D B(c2.c.start_state);
-      Vector2D VB(c2.c.end_state);
+      TemporalVector3D B(c2.c->start_state);
+      TemporalVector3D VB(c2.c->end_state);
       VB-=B; // Direction vector
       VB.Normalize();
-      if(verbose)std::cout << "Collision Interval " << c1.unit1 << ": " << c1.c.start() << "-->" << c1.c.end() <<  " and unit " << c2.unit1 << ": "<< c2.c.start() << "-->" << c2.c.end() << std::endl;
-      auto ivl(getCollisionInterval(A,VA,agentRadius,c1.c.start_state.t,c1.c.end_state.t,B,VB,agentRadius,c2.c.start_state.t,c2.c.end_state.t));
-      if(verbose)std::cout << "A interval " << c1.c.start_state.t << " -- " << c1.c.end_state.t << std::endl;
-      if(verbose) std::cout << "B interval " << c2.c.start_state.t << " -- " << c2.c.end_state.t << std::endl;
+      if(verbose)std::cout << "Collision Interval " << c1.unit1 << ": " << c1.c->start() << "-->" << c1.c->end() <<  " and unit " << c2.unit1 << ": "<< c2.c->start() << "-->" << c2.c->end() << std::endl;
+      auto ivl(getCollisionInterval(A,VA,agentRadius,c1.c->start_state.t,c1.c->end_state.t,B,VB,agentRadius,c2.c->start_state.t,c2.c->end_state.t));
+      if(verbose)std::cout << "A interval " << c1.c->start_state.t << " -- " << c1.c->end_state.t << std::endl;
+      if(verbose) std::cout << "B interval " << c2.c->start_state.t << " -- " << c2.c->end_state.t << std::endl;
       if(verbose) std::cout << "interval " << ivl.first << " -- " << ivl.second << std::endl;
-      Vector2D A1=A+VA*(ivl.first-c1.c.start_state.t);
-      Vector2D A2=A+VA*(ivl.second-c1.c.start_state.t);
-      Vector2D B1=B+VB*(ivl.first-c2.c.start_state.t);
-      Vector2D B2=B+VB*(ivl.second-c2.c.start_state.t);
-      c1.c.start_state.x=A1.x;
-      c1.c.start_state.y=A1.y;
-      c1.c.start_state.t=ivl.first;
-      c1.c.end_state.x=A2.x;
-      c1.c.end_state.y=A2.y;
-      c1.c.end_state.t=ivl.second;
-      c2.c.start_state.x=B1.x;
-      c2.c.start_state.y=B1.y;
-      c2.c.start_state.t=ivl.first;
-      c2.c.end_state.x=B2.x;
-      c2.c.end_state.y=B2.y;
-      c2.c.end_state.t=ivl.second;
-      if(c1.c.start_state.x<0 || c1.c.start_state.x>currentEnvironment->environment->GetMap()->GetMapWidth() || c1.c.end_state.x<0 || c1.c.end_state.x>currentEnvironment->environment->GetMap()->GetMapWidth() ||
-      c2.c.start_state.x<0 || c2.c.start_state.x>currentEnvironment->environment->GetMap()->GetMapWidth() || c2.c.end_state.x<0 || c2.c.end_state.x>currentEnvironment->environment->GetMap()->GetMapWidth()){
+      TemporalVector3D A1=A+VA*(ivl.first-c1.c->start_state.t);
+      TemporalVector3D A2=A+VA*(ivl.second-c1.c->start_state.t);
+      TemporalVector3D B1=B+VB*(ivl.first-c2.c->start_state.t);
+      TemporalVector3D B2=B+VB*(ivl.second-c2.c->start_state.t);
+      c1.c->start_state.x=A1.x;
+      c1.c->start_state.y=A1.y;
+      c1.c->start_state.t=ivl.first;
+      c1.c->end_state.x=A2.x;
+      c1.c->end_state.y=A2.y;
+      c1.c->end_state.t=ivl.second;
+      c2.c->start_state.x=B1.x;
+      c2.c->start_state.y=B1.y;
+      c2.c->start_state.t=ivl.first;
+      c2.c->end_state.x=B2.x;
+      c2.c->end_state.y=B2.y;
+      c2.c->end_state.t=ivl.second;
+      if(c1.c->start_state.x<0 || c1.c->start_state.x>currentEnvironment->environment->GetMap()->GetMapWidth() || c1.c->end_state.x<0 || c1.c->end_state.x>currentEnvironment->environment->GetMap()->GetMapWidth() ||
+      c2.c->start_state.x<0 || c2.c->start_state.x>currentEnvironment->environment->GetMap()->GetMapWidth() || c2.c->end_state.x<0 || c2.c->end_state.x>currentEnvironment->environment->GetMap()->GetMapWidth()){
         int x = 2;
       }
-      if(verbose)std::cout << "fixed conflicts unit " << c1.unit1 << ": " << c1.c.start() << "-->" << c1.c.end() <<  " and unit " << c2.unit1 << ": "<< c2.c.start() << "-->" << c2.c.end() << std::endl; 
+      if(verbose)std::cout << "fixed conflicts unit " << c1.unit1 << ": " << c1.c->start() << "-->" << c1.c->end() <<  " and unit " << c2.unit1 << ": "<< c2.c->start() << "-->" << c2.c->end() << std::endl; 
     }
     if(animate){
-      c1.c.OpenGLDraw(currentEnvironment->environment->GetMap());
-      c2.c.OpenGLDraw(currentEnvironment->environment->GetMap());
+      c1.c->OpenGLDraw(currentEnvironment->environment->GetMap());
+      c2.c->OpenGLDraw(currentEnvironment->environment->GetMap());
       usleep(animate*100);
     }
     if(verbose){
@@ -754,17 +767,17 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::pro
       bool valid(true);
       for(unsigned int y = x+1; y < tree[bestNode].paths.size(); y++){
         for(unsigned i(1); i<tree[bestNode].paths[x].size(); ++i){
-          Vector2D A(tree[bestNode].paths[x][i-1]);
-          Vector2D VA(tree[bestNode].paths[x][i]);
-          VA-=A; // Direction vector
-          VA.Normalize();
+          TemporalVector3D A(tree[bestNode].paths[x][i-1]);
+          TemporalVector3D VA(tree[bestNode].paths[x][i]);
+          //VA-=A; // Direction vector
+          //VA.Normalize();
           for(unsigned j(1); j<tree[bestNode].paths[y].size(); ++j){
-            Vector2D B(tree[bestNode].paths[y][j-1]);
-            Vector2D VB(tree[bestNode].paths[y][j]);
-            VB-=B; // Direction vector
-            VB.Normalize();
+            TemporalVector3D B(tree[bestNode].paths[y][j-1]);
+            TemporalVector3D VB(tree[bestNode].paths[y][j]);
+            //VB-=B; // Direction vector
+            //VB.Normalize();
 
-            if(collisionImminent(A,VA,agentRadius,tree[bestNode].paths[x][i-1].t,tree[bestNode].paths[x][i].t,B,VB,agentRadius,tree[bestNode].paths[y][j-1].t,tree[bestNode].paths[y][j].t)){
+            if(collisionCheck3D(A,VA,B,VB,agentRadius)){
               valid=false;
               std::cout << "ERROR: Solution invalid; collision at: " << tree[bestNode].paths[x][i-1] << "-->" << tree[bestNode].paths[x][i] << ", " << tree[bestNode].paths[y][j-1] << "-->" << tree[bestNode].paths[y][j] << std::endl;
             }
@@ -778,10 +791,10 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::pro
   if(true){
     int location=bestNode;
     while(location!=0){
-      AddEnvironmentConstraint(tree[location].con.c);
-      if(true)std::cout << "Unit: " << tree[location].con.unit1 << " " << tree[location].con.c.start_state << "-->" << tree[location].con.c.end_state << "\n";
+      AddEnvironmentConstraint(tree[location].con.c.get());
+      if(true)std::cout << "Unit: " << tree[location].con.unit1 << " " << tree[location].con.c->start_state << "-->" << tree[location].con.c->end_state << "\n";
       //if(animate){
-        //tree[location].con.c.OpenGLDraw(currentEnvironment->environment->GetMap());
+        //tree[location].con.c->OpenGLDraw(currentEnvironment->environment->GetMap());
       //}
       location = tree[location].parent;
     }// while (location != 0);
@@ -1042,12 +1055,12 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>:
     if(theUnit == tree[location].con.unit1)
     {
       numConflicts++;
-      AddEnvironmentConstraint(tree[location].con.c);
-      if(verbose)std::cout << "Adding constraint (in accumulation)" << tree[location].con.c.start_state << "-->" << tree[location].con.c.end_state << " for unit " << theUnit << "\n";
+      AddEnvironmentConstraint(tree[location].con.c.get());
+      if(verbose)std::cout << "Adding constraint (in accumulation)" << tree[location].con.c->start_state << "-->" << tree[location].con.c->end_state << " for unit " << theUnit << "\n";
       //if(animate){
-      //tree[location].con.c.OpenGLDraw(currentEnvironment->environment->GetMap());
+      //tree[location].con.c->OpenGLDraw(currentEnvironment->environment->GetMap());
       //}
-      //if(!first && tree[location].con.c.start_state==prev.start_state && tree[location].con.c.end_state==prev.end_state){
+      //if(!first && tree[location].con.c->start_state==prev.start_state && tree[location].con.c->end_state==prev.end_state){
         //std::cout << "Possible deadlock between agent " << theUnit << " and " << tree[location].con.unit1 << std::endl;
       //}
       //first=false;
@@ -1057,14 +1070,14 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>:
   }// while (location != 0);
   //Implement ECBS prioritization which penalizes the second element in a path.
   if(ECBSheuristic && strstr(currentEnvironment->environment->name().c_str(),"Highway")==NULL && tree[location].paths[tree[location].con.unit1].size()>1)
-    AddEnvironmentConstraint(Constraint<TemporalVector>(tree[location].paths[tree[location].con.unit1][1]));
+    AddEnvironmentConstraint((Constraint<TemporalVector3D>*)new Collision<TemporalVector3D>(tree[location].paths[tree[location].con.unit1][0],tree[location].paths[tree[location].con.unit1][1]));
   return numConflicts;
 }
 
 // Attempts a bypass around the conflict using an alternate optimal path
 // Returns whether the bypass was effective
 template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
-bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Bypass(int best, unsigned numConflicts, Conflict<state> const& c1)
+bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Bypass(int best, unsigned numConflicts, Conflict<TemporalVector3D> const& c1)
 {
   if(nobypass)return false;
   LoadConstraintsForNode(best);
@@ -1072,7 +1085,7 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Byp
   //std::cout << "Attempt to find a bypass.\n";
 
   bool success(false);
-  Conflict<state> c3, c4;
+  Conflict<TemporalVector3D> c3, c4;
   std::vector<state> newPath(tree[best].paths[c1.unit1]);
   std::vector<int> newWpts(tree[best].wpts[c1.unit1]);
   // Re-perform the search with the same constraints (since the start and goal are the same)
@@ -1233,7 +1246,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Rep
 }
 
 template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
-unsigned CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::HasConflict(std::vector<state> const& a, std::vector<int> const& wa, std::vector<state> const& b, std::vector<int> const& wb, int x, int y, Conflict<state> &c1, Conflict<state> &c2, bool update, bool verbose)
+unsigned CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::HasConflict(std::vector<state> const& a, std::vector<int> const& wa, std::vector<state> const& b, std::vector<int> const& wb, int x, int y, Conflict<TemporalVector3D> &c1, Conflict<TemporalVector3D> &c2, bool update, bool verbose)
 {
   unsigned numConflicts(0);
   // To check for conflicts, we loop through the timed actions, and check 
@@ -1276,7 +1289,7 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>:
     if(verbose)std::cout << "Looking at positions " << xTime <<":"<<a[xTime].t << "," << j<<":"<<b[yTime].t << std::endl;
 
     // Check the point constraints
-    //Constraint<TemporalVector> x_c(a[xTime]);
+    //Constraint<TemporalVector3D> x_c(a[xTime]);
     //state y_c =b[yTime];
 
 
@@ -1308,13 +1321,13 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>:
       }*/
 
       // Check the edge conflicts
-      Constraint<TemporalVector> x_e_c(a[xTime], a[min(xmax-1, xTime+1)]);
-      Constraint<TemporalVector> y_e_c(b[yTime], b[min(ymax-1, yTime+1)]);
+      std::unique_ptr<Constraint<TemporalVector3D>> x_e_c((Constraint<TemporalVector3D>*) new Collision<TemporalVector3D>(a[xTime], a[min(xmax-1, xTime+1)]));
+      std::unique_ptr<Constraint<TemporalVector3D>> y_e_c((Constraint<TemporalVector3D>*) new Collision<TemporalVector3D>(b[yTime], b[min(ymax-1, yTime+1)]));
 
-      if (x_e_c.ConflictsWith(y_e_c) && ++numConflicts && update)
+      if (x_e_c->ConflictsWith(*y_e_c) && ++numConflicts && update)
       {
-        c1.c = x_e_c;
-        c2.c = y_e_c;
+        c1.c.reset(x_e_c.release());
+        c2.c.reset(y_e_c.release());
 
         c1.unit1 = y;
         c2.unit1 = x;
@@ -1362,7 +1375,7 @@ unsigned CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>:
 
 /** Find the first place that there is a conflict in the tree */
 template<typename state, typename action, typename environment, typename comparison, typename conflicttable, class searchalgo>
-unsigned CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::FindFirstConflict(CBSTreeNode<state,conflicttable,searchalgo> const& location, Conflict<state> &c1, Conflict<state> &c2)
+unsigned CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::FindFirstConflict(CBSTreeNode<state,conflicttable,searchalgo> const& location, Conflict<TemporalVector3D> &c1, Conflict<TemporalVector3D> &c2)
 {
 
   unsigned numConflicts(0);
@@ -1390,7 +1403,7 @@ void CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Ope
   glLineWidth(4.0);
   int location(bestNode);
   while(location!=0){
-    tree[location].con.c.OpenGLDraw(currentEnvironment->environment->GetMap());
+    tree[location].con.c->OpenGLDraw(currentEnvironment->environment->GetMap());
     location = tree[location].parent;
   }
   glLineWidth(1.0);

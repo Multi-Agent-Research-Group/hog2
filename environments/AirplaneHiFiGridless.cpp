@@ -967,8 +967,6 @@ void AirplaneHiFiGridlessEnvironment::AddLandingStrip(gridlessLandingStrip& stri
 
 }
 
-void AirplaneHiFiGridlessEnvironment::AddConstraint(Constraint<PlatformState> c){constraints.push_back(c);}
-void AirplaneHiFiGridlessEnvironment::ClearConstraints(){constraints.resize(0);}
 void AirplaneHiFiGridlessEnvironment::ClearStaticConstraints(){static_constraints.resize(0);}
 
 double AirplaneHiFiGridlessEnvironment::ViolatesConstraint(const PlatformState &from, const PlatformState &to, int time) const
@@ -985,9 +983,9 @@ double AirplaneHiFiGridlessEnvironment::ViolatesConstraint(const PlatformState &
     return 0;
 
   //Check if the action box violates any of the constraints that are in the constraints list
-  for (Constraint<PlatformState> c : constraints)
+  for (auto const& c : constraints)
   {
-    if(c.ConflictsWith(from,to)){return max(c.start_state.t, from.t)-TOLERANCE;}
+    if(c->ConflictsWith(from,to)){return max(c->start_state.t, from.t)-TOLERANCE;}
   }
 
 
@@ -1014,7 +1012,7 @@ double AirplaneHiFiGridlessEnvironment::ViolatesConstraint(const PlatformState &
 
 
   // Treat static constraints as a box
-  for (Constraint<PlatformState> c : static_constraints)
+  for (Collision<PlatformState>const& c : static_constraints)
   {
     // Check if the range of the constraint overlaps in time
     if (max(c.start_state.t, from.t) <= min(c.end_state.t, to.t) + 0.00001) 
@@ -1047,7 +1045,7 @@ double AirplaneHiFiGridlessEnvironment::ViolatesConstraint(const PlatformState &
   return 0;
 }
 
-bool Constraint<PlatformState>::ConflictsWith(const PlatformState &state) const
+double Collision<PlatformState>::ConflictsWith(const PlatformState &state) const
 {
   if(state.landed || end_state.landed && start_state.landed) return false;
   //std::cout << "VERTEX"<<*this << "ConflictsWith" << state << "...\n";
@@ -1059,7 +1057,7 @@ bool Constraint<PlatformState>::ConflictsWith(const PlatformState &state) const
 }
 
 // Check both vertex and edge constraints
-bool Constraint<PlatformState>::ConflictsWith(const PlatformState &from, const PlatformState &to) const
+double Collision<PlatformState>::ConflictsWith(const PlatformState &from, const PlatformState &to) const
 {
   //std::cout << "EDGE"<<from << "ConflictsWith" << to << "...\n";
   if(from.landed && to.landed || end_state.landed && start_state.landed) return false;
@@ -1079,13 +1077,13 @@ bool Constraint<PlatformState>::ConflictsWith(const PlatformState &from, const P
   return false;
 }
 
-bool Constraint<PlatformState>::ConflictsWith(const Constraint<PlatformState> &x) const
+double Collision<PlatformState>::ConflictsWith(const Collision<PlatformState> &x) const
 {
   return ConflictsWith(x.start_state, x.end_state);
 }
 
 
-void Constraint<PlatformState>::OpenGLDraw(MapInterface*) const 
+void Collision<PlatformState>::OpenGLDraw(MapInterface*) const 
 {
   glLineWidth(2.0); // Make it wide
   static int halfWidth(DrawableConstraint::width/2.0);

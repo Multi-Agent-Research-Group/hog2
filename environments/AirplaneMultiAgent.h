@@ -116,11 +116,10 @@ void AirplaneMultiAgentEnvironment<state,action,environment>::GetSuccessors(cons
     bool hasConflict(false);
     for(int i(0); i<s.size(); ++i){
       for(int j(i+1); j<s.size(); ++j){
-        Constraint<airtimeState> ac(s[i]);
-        Constraint<airtimeState> ec1(nodeID[i],s[i]);
-        Constraint<airtimeState> ec2(nodeID[j],s[j]);
+        Collision<airtimeState> ec1(nodeID[i],s[i]);
+        Collision<airtimeState> ec2(nodeID[j],s[j]);
         // Only keep this state if there are no internal conflicts
-        if(ac.ConflictsWith(s[j]) || ec1.ConflictsWith(ec2)){
+        if(ec1.ConflictsWith(ec2)){
           //std::cout << "CONFLICT: " << (ac.ConflictsWith(s[j])?"vertex":"edge") << s << "\n";
           hasConflict = true;
           break;
