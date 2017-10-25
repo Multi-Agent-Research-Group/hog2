@@ -286,9 +286,9 @@ private:
 template<typename state>
 struct Conflict {
   Conflict<state>():c(nullptr),unit1(9999999),prevWpt(0){}
-  Conflict<state>(Conflict<state>const& from):c(nullptr),unit1(from.unit1),prevWpt(from.prevWpt){}
-  Conflict<state>& operator=(Conflict<state>const& from){c=nullptr;unit1=from.unit1;prevWpt=from.prevWpt;}
-  std::unique_ptr<Constraint<state>> c;
+  Conflict<state>(Conflict<state>const& from):c(from.c.release()),unit1(from.unit1),prevWpt(from.prevWpt){}
+  Conflict<state>& operator=(Conflict<state>const& from){c.reset(from.c.release());unit1=from.unit1;prevWpt=from.prevWpt;}
+  mutable std::unique_ptr<Constraint<state>> c;
   unsigned unit1;
   unsigned prevWpt;
 };
@@ -297,6 +297,7 @@ template<typename state, typename conflicttable, class searchalgo>
 struct CBSTreeNode {
 	CBSTreeNode():parent(0),satisfiable(true),cat(){}
 	CBSTreeNode(CBSTreeNode<state,conflicttable,searchalgo> const& from):wpts(from.wpts),paths(from.paths),con(from.con),parent(from.parent),satisfiable(from.satisfiable),cat(from.cat){}
+        CBSTreeNode(CBSTreeNode<state,conflicttable,searchalgo> const& node, Conflict<state> const& c, unsigned p, bool s):wpts(node.wpts),paths(node.paths),con(c),parent(p),satisfiable(s),cat(node.cat){}
         CBSTreeNode& operator=(CBSTreeNode<state,conflicttable,searchalgo> const& from){
           wpts=from.wpts;
           paths=from.paths;
@@ -576,10 +577,7 @@ bool CBSGroup<state,action,comparison,conflicttable,searchalgo>::ExpandOneCBSNod
     if((numConflicts.second&LEFT_CARDINAL) || !Bypass(bestNode,numConflicts,c1,c2.unit1,minTime)){
       last = tree.size();
       tree.resize(last+1);
-      tree[last] = tree[bestNode];
-      tree[last].con = c1;
-      tree[last].parent = bestNode;
-      tree[last].satisfiable = true;
+      tree[last] = CBSTreeNode<state,conflicttable,searchalgo>(tree[bestNode],c1,bestNode,true);
       Replan(last);
       unsigned nc1(numConflicts.first);
       double cost = 0;
@@ -604,10 +602,7 @@ bool CBSGroup<state,action,comparison,conflicttable,searchalgo>::ExpandOneCBSNod
     if((numConflicts.second&RIGHT_CARDINAL) || !Bypass(bestNode,numConflicts,c2,c1.unit1,minTime)){
       last = tree.size();
       tree.resize(last+1);
-      tree[last] = tree[bestNode];
-      tree[last].con = c2;
-      tree[last].parent = bestNode;
-      tree[last].satisfiable = true;
+      tree[last] = CBSTreeNode<state,conflicttable,searchalgo>(tree[bestNode],c2,bestNode,true);
       Replan(last);
       unsigned nc1(numConflicts.first);
       double cost = 0;
@@ -1029,10 +1024,7 @@ bool CBSGroup<state,action,comparison,conflicttable,searchalgo>::Bypass(int best
   // Add CT node with the "best" bypass
   unsigned last = tree.size();
   tree.resize(last+1);
-  tree[last] = tree[bestNode];
-  tree[last].con = c1;
-  tree[last].parent = bestNode;
-  tree[last].satisfiable = true;
+  tree[last] = CBSTreeNode<state,conflicttable,searchalgo>(tree[bestNode],c1,bestNode,true);
   cost=0;
   for (int y = 0; y < tree[last].paths.size(); y++){
     if(verbose){

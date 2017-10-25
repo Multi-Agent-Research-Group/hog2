@@ -949,7 +949,7 @@ struct ICTSNode{
     count++;
     sizes[agent]=size;
     best[agent]=INF;
-    if(!quiet)std::cout << "rebuild MDD for agent " << agent << " GetMDD("<<(heuristics[ids[agent]]->HCost(instance.first[agent],instance.second[agent])+sizes[agent]/1000.)<<")\n";
+    if(verbose)std::cout << "rebuild MDD for agent " << agent << " GetMDD("<<(heuristics[ids[agent]]->HCost(instance.first[agent],instance.second[agent])+sizes[agent]/1000.)<<")\n";
     dag[agent].clear();
     replanned.push_back(agent);
     Timer timer;
@@ -1194,7 +1194,7 @@ bool detectIndependence(Solution& solution, std::vector<Group*>& group, std::uno
             Vector2D VB(solution[j][b]->n.x-solution[j][b-1]->n.x,solution[j][b]->n.y-solution[j][b-1]->n.y);
             VB.Normalize();
             if(collisionImminent(A,VA,agentRadius,solution[i][a-1]->depth*TOMSECS,solution[i][a]->depth*TOMSECS,B,VB,agentRadius,solution[j][b-1]->depth*TOMSECS,solution[j][b]->depth*TOMSECS)){
-              if(verbose)std::cout << i << " and " << j << " collide at " << solution[i][a-1]->depth << "~" << solution[i][a]->depth << solution[i][a-1]->n << "-->" << solution[i][a]->n << " X " << solution[j][b-1]->n << "-->" << solution[j][b]->n << "\n";
+              if(!quiet)std::cout << i << " and " << j << " collide at " << solution[i][a-1]->depth << "~" << solution[i][a]->depth << solution[i][a-1]->n << "-->" << solution[i][a]->n << " X " << solution[j][b-1]->n << "-->" << solution[j][b]->n << "\n";
               independent=false;
               if(group[i]==group[j]) break; // This can happen if both collide with a common agent
               // Combine groups i and j

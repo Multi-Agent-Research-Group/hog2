@@ -41,7 +41,7 @@
 
 extern double agentRadius;
 
-#define INF 999999999.0f
+#define INFTY 999999999
 // for agents to stay at goal
 const uint32_t MAXTIME(1000000);
 
@@ -263,7 +263,6 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
           uint32_t newDepth(maxDepth-depth+ddiff);
           state tmp(node,newDepth);
           uint64_t chash(GetHash(tmp,agent));
-          if(hash==chash){std::cout << "parent equals child! depth=(" << maxDepth << "-" << depth << "+" <<ddiff<<")=="<<newDepth<<"\n";continue;}
           if(dag.find(chash)==dag.end()&&dag.find(chash+1)==dag.end()&&dag.find(chash-1)==dag.end()){
             std::cout << "Expected " << Node(tmp,GetHash(tmp,agent)) << " " << chash << " to be in the dag\n";
             assert(!"Uh oh, node not already in the DAG!");
@@ -427,13 +426,13 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       std::vector<MultiEdge> successors;
 
       // Find minimum depth of current edges
-      uint32_t sd(INF);
+      uint32_t sd(INFTY);
       for(auto const& a: s){
         sd=min(sd,a.second->Depth());
       }
       //std::cout << "min-depth: " << sd << "\n";
 
-      uint32_t md(INF); // Min depth of successors
+      uint32_t md(INFTY); // Min depth of successors
       //Add in successors for parents who are equal to the min
       for(auto const& a: s){
         if(epp){
@@ -509,7 +508,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
           solution.push_back({n});
         }
       }
-      uint64_t best(0xfffffffffffffffff);
+      uint64_t best(0xffffffffffffffff);
 
       transTable.clear();
       return jointDFS(act,0.0,solution,solutions,toDelete,best,bestSeen,suboptimal,checkOnly);
@@ -577,7 +576,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       ICTSNode(ICTSAlgorithm* alg, ICTSNode* parent,int agent, uint32_t size):ictsalg(alg),instance(parent->instance),dag(parent->dag),best(parent->best),bestSeen(0),sizes(parent->sizes),root(parent->root){
         count++;
         sizes[agent]=size;
-        best[agent]=INF;
+        best[agent]=INFTY;
         if(alg->verbose)std::cout << "replan agent " << agent << " GetMDD("<<(alg->HCost(instance.first[agent],instance.second[agent],agent)+sizes[agent])<<")\n";
         dag[agent].clear();
         replanned.push_back(agent);
@@ -596,7 +595,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
         count++;
         replanned.resize(s.size());
         for(int i(0); i<instance.first.size(); ++i){
-          best[i]=INF;
+          best[i]=INFTY;
           replanned[i]=i;
           if(alg->verbose)std::cout << "plan agent " << i << " GetMDD("<<(alg->HCost(instance.first[i],instance.second[i],i)+sizes[i])<<")\n";
           //std::cout.precision(17);
@@ -673,7 +672,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
                 std::vector<Node*> toDeleteTmp;
                 // This is a satisficing search, thus we only need do a sub-optimal check
                 if(ictsalg->verbose)std::cout<<"pairwise for " << i << ","<<j<<"\n";
-                if(!ictsalg->jointDFS(tmproot,answers,toDeleteTmp,INF,true,true)){
+                if(!ictsalg->jointDFS(tmproot,answers,toDeleteTmp,INFTY,true,true)){
                   if(ictsalg->verbose)std::cout << "Pairwise failed\n";
                   //clearNoGoods();
                   // Reset the MDDs
@@ -700,7 +699,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
               std::vector<Node*> toDeleteTmp;
               // This is a satisficing search, thus we only need do a sub-optimal check
               if(ictsalg->verbose)std::cout<<"pairwise for " << i << ","<<replanned[0]<<"\n";
-              if(!ictsalg->jointDFS(tmproot,answers,toDeleteTmp,INF,true,true)){
+              if(!ictsalg->jointDFS(tmproot,answers,toDeleteTmp,INFTY,true,true)){
                 if(ictsalg->verbose)std::cout << "Pairwise failed\n";
                 //clearNoGoods();
                 // Reset the MDDs
@@ -811,7 +810,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
 
       std::vector<uint32_t> sizes(start.size());
       if(hint.size()>0){
-        std::cout << "loading hint: " << hint << "\n";
+        if(verbose)std::cout << "loading hint: " << hint << "\n";
         auto stuff(Util::split(hint,':'));
         uint64_t prevBest(atoi(stuff[0].c_str()));
         // Format = prevcost:<;-delimited queue stuff>:<;-delimited hash stuff>
@@ -840,8 +839,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
                 bestCost=std::min(bestCost,cost);
                 answerkey=node->key();
               }
-              if(bestCost<=prevBest||suboptimal){std::cout << "Immediate solution @ "<<h<<"\n";return;}
-              else{std::cout << "Valid but no solution!\n";}
+              if(bestCost<=prevBest||suboptimal){return;}
             }
             // No solution... perform the split operation
             for(int i(0); i<node->sizes.size(); ++i){

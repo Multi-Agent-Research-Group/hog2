@@ -9,7 +9,7 @@
 
 namespace Util{
   // Set upper limit on memory consumption
-  void setmemlimit(unsigned megabytes)
+  void setmemlimit(rlim_t megabytes)
   {
     struct rlimit memlimit;
 

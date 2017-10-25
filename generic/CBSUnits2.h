@@ -224,9 +224,9 @@ private:
 template<typename state>
 struct Conflict {
   Conflict<state>():c(nullptr),unit1(9999999),prevWpt(0){}
-  Conflict<state>(Conflict<TemporalVector3D>const& from):c(nullptr),unit1(from.unit1),prevWpt(from.prevWpt){}
-  Conflict<state>& operator=(Conflict<TemporalVector3D>const& from){c=nullptr;unit1=from.unit1;prevWpt=from.prevWpt;}
-  std::unique_ptr<Constraint<state>> c;
+  Conflict<state>(Conflict<state>const& from):c(from.c.release()),unit1(from.unit1),prevWpt(from.prevWpt){}
+  Conflict<state>& operator=(Conflict<state>const& from){c.reset(from.c.release());unit1=from.unit1;prevWpt=from.prevWpt;}
+  mutable std::unique_ptr<Constraint<state>> c;
   unsigned unit1;
   unsigned prevWpt;
 };
@@ -235,6 +235,7 @@ template<typename state, typename conflicttable, class searchalgo>
 struct CBSTreeNode {
 	CBSTreeNode():parent(0),satisfiable(true),cat(){}
 	CBSTreeNode(CBSTreeNode<state,conflicttable,searchalgo> const& from):wpts(from.wpts),paths(from.paths),con(from.con),parent(from.parent),satisfiable(from.satisfiable),cat(from.cat){}
+        CBSTreeNode(CBSTreeNode<state,conflicttable,searchalgo> const& node, Conflict<TemporalVector3D> const& c, unsigned p, bool s):wpts(node.wpts),paths(node.paths),con(c),parent(p),satisfiable(s),cat(node.cat){}
         CBSTreeNode& operator=(CBSTreeNode<state,conflicttable,searchalgo> const& from){
           wpts=from.wpts;
           paths=from.paths;
@@ -558,16 +559,9 @@ bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Exp
       tree.resize(last+2);
       //std::cout << "Tree has " << tree.size() << "\n";
       // The first node contains the conflict c1
-      tree[last] = tree[bestNode];
-      tree[last].con = c1;
-      tree[last].parent = bestNode;
-      tree[last].satisfiable = true;
-
+      tree[last] = CBSTreeNode<state,conflicttable,searchalgo>(tree[bestNode],c1,bestNode,true);
       // The second node constains the conflict c2
-      tree[last+1] = tree[bestNode];
-      tree[last+1].con = c2;
-      tree[last+1].parent = bestNode;
-      tree[last+1].satisfiable = true;
+      tree[last+1] = CBSTreeNode<state,conflicttable,searchalgo>(tree[bestNode],c2,bestNode,true);
 
       // We now replan in the tree for both of the child nodes
       Replan(last);
@@ -1080,6 +1074,7 @@ template<typename state, typename action, typename environment, typename compari
 bool CBSGroup<state,action,environment,comparison,conflicttable,searchalgo>::Bypass(int best, unsigned numConflicts, Conflict<TemporalVector3D> const& c1)
 {
   if(nobypass)return false;
+  assert(false); // Not implemented correctly
   LoadConstraintsForNode(best);
 
   //std::cout << "Attempt to find a bypass.\n";

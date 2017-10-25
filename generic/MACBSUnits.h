@@ -993,7 +993,7 @@ void CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::proce
   }
   fflush(stdout);
   std::cout<<"elapsed,planTime,replanTime,bypassplanTime,maplanTime,collisionTime,expansions,collisions,cost,actions\n";
-  if(verify)std::cout << (valid?"VALID":"INVALID")<<std::endl;
+  if(verify&&elapsed>0)std::cout << (valid?"VALID":"INVALID")<<std::endl;
   if(elapsed<0){
     //std::cout << seed<<":FAILED\n";
     std::cout << seed<<":" << elapsed*(-1.0) << ",";
@@ -1501,7 +1501,7 @@ unsigned CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::H
             }
             if(!found){conf|=RIGHT_CARDINAL;}
           }
-          // Have we increased form non-cardinal to semi-cardinal or both-cardinal?
+          // Have we increased from non-cardinal to semi-cardinal or both-cardinal?
           if(NO_CONFLICT==conflict.second || ((conflict.second<=NON_CARDINAL)&&conf) || BOTH_CARDINAL==conf){
             conflict.second=conf+1;
 
@@ -1557,7 +1557,6 @@ std::pair<unsigned,unsigned> CBSGroup<state,action,comparison,conflicttable,mapl
   if(verbose)std::cout<<"Checking for conflicts\n";
   // prefer cardinal conflicts
   std::pair<std::pair<unsigned,unsigned>,std::pair<Conflict<state>,Conflict<state>>> best;
-  std::vector<std::vector<bool>> proximityViolations(location.paths.size());
 
   Timer tmr;
   tmr.StartTimer();
@@ -1584,9 +1583,11 @@ std::pair<unsigned,unsigned> CBSGroup<state,action,comparison,conflicttable,mapl
     }
   }
   collisionTime+=tmr.EndTimer();
-  metaAgentConflictMatrix[best.second.first.unit1][best.second.second.unit1]++;
-  c1=best.second.first;
-  c2=best.second.second;
+  if(best.first.first){
+    metaAgentConflictMatrix[best.second.first.unit1][best.second.second.unit1]++;
+    c1=best.second.first;
+    c2=best.second.second;
+  }
   return best.first;
 }
 
