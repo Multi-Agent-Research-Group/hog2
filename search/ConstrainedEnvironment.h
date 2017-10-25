@@ -118,7 +118,7 @@ class CollisionDetector : public ConflictDetector<State> {
   public:
     CollisionDetector(double radius):ConflictDetector<State>(),agentRadius(radius){}
     inline virtual bool HasConflict(unsigned agentA, State const& A1, State const& A2, unsigned agentB, State const& B1, State const& B2)const{
-      return collisionCheck3D(A1,A2,B1,B2);
+      return collisionCheck3D(A1,A2,B1,B2,agentRadius);
     }
     inline virtual Constraint<State>* GetConstraint(State const& A1, State const& A2, State const& B1, State const& B2)const{
        return new Collision<State>(B1,B2,agentRadius);
