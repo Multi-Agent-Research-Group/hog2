@@ -41,7 +41,7 @@ struct EnvData{
 template<typename state, typename action>
 class MAPFAlgorithm{
   public:
-  virtual void GetSolution(std::vector<EnvironmentContainer<state,action>*> const& env, MultiAgentState<state> const& start, MultiAgentState<state> const& goal, Solution<state>& solution)=0;
+  virtual void GetSolution(std::vector<EnvironmentContainer<state,action>*> const& env, MultiAgentState<state> const& start, MultiAgentState<state> const& goal, Solution<state>& solution, std::string& hint)=0;
   virtual unsigned GetNodesExpanded()const=0;
 };
 

@@ -94,10 +94,10 @@ struct xyzLoc {
 };
 
 struct xyztLoc : xyzLoc {
-  xyztLoc(xyzLoc loc, unsigned time):xyzLoc(loc),t(time), h(0){}
-  xyztLoc(xyzLoc loc, double time):xyzLoc(loc),t(round(time*TIME_RESOLUTION_D)), h(0){}
-  xyztLoc(xyzLoc loc, float time):xyzLoc(loc),t(round(time*TIME_RESOLUTION)), h(0){}
-  xyztLoc(xyzLoc loc, unsigned _h, float time):xyzLoc(loc),t(round(time*TIME_RESOLUTION)), h(_h){}
+  xyztLoc(xyzLoc const& loc, unsigned time):xyzLoc(loc),t(time), h(0){}
+  xyztLoc(xyzLoc const& loc, double time):xyzLoc(loc),t(round(time*TIME_RESOLUTION_D)), h(0){}
+  xyztLoc(xyzLoc const& loc, float time):xyzLoc(loc),t(round(time*TIME_RESOLUTION)), h(0){}
+  xyztLoc(xyzLoc const& loc, unsigned _h, float time):xyzLoc(loc),t(round(time*TIME_RESOLUTION)), h(_h){}
   xyztLoc(unsigned _x, unsigned _y):xyzLoc(_x,_y,0),t(0), h(0){}
   xyztLoc(unsigned _x, unsigned _y, unsigned _z, float time):xyzLoc(_x,_y,_z),t(round(time*TIME_RESOLUTION)), h(0){}
   xyztLoc(unsigned _x, unsigned _y, unsigned _z):xyzLoc(_x,_y,_z),t(0), h(0){}

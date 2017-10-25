@@ -37,12 +37,13 @@
 #include "TemplateAStar.h"
 #include "Heuristic.h"
 #include "MultiAgentStructures.h"
+#include "Utilities.h"
 
 extern double agentRadius;
 
-#define INF 9999999.0f
+#define INF 999999999.0f
 // for agents to stay at goal
-#define MAXTIME 1000000
+const uint32_t MAXTIME(1000000);
 
 template<typename T, typename C>
 class custom_priority_queue : public std::priority_queue<T, std::vector<T>, C>
@@ -61,7 +62,7 @@ class custom_priority_queue : public std::priority_queue<T, std::vector<T>, C>
      *                                                           return true;
      *                                                               }*/
     virtual T popTop(){
-      T val(this->top());
+      T val(const_cast<T&>(this->top()).release());
       this->pop();
       /*while(toDelete.find(val->key()) != toDelete.end()){
        *         val=this->top();
@@ -119,10 +120,10 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       static uint64_t count;
 
       Node(){}
-      Node(state a, uint32_t d, uint64_t h):n(a),depth(d),hash(h),optimal(false),unified(false),nogood(false){count++;}
+      Node(state a, uint64_t h):n(a),hash(h),optimal(false),unified(false),nogood(false){count++;}
       virtual ~Node(){}
       state n;
-      uint32_t depth;
+      //uint32_t depth;
       uint64_t hash;
       bool optimal;
       bool unified;
@@ -131,13 +132,13 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       //std::unordered_set<Node*> parents;
       std::unordered_set<Node*> successors;
       virtual uint64_t Hash()const{return hash;}//(env->GetStateHash(n)<<32) | ((uint32_t)(depth*state::TIME_RESOLUTION_U));}
-      virtual uint32_t Depth()const{return depth; }
+      virtual uint32_t Depth()const{return n.t;}
       virtual void Print(std::ostream& ss, int d=0) const {
-        ss << std::string(d/state::TIME_RESOLUTION_U,' ')<<n << "_" << depth << std::endl;
+        ss << std::string(d/state::TIME_RESOLUTION_U,' ')<<n << std::endl;
         //for(auto const& m: successors)
           //m->Print(ss,d+1);
       }
-      bool operator==(Node const& other)const{return n.sameLoc(other.n)&&depth==other.depth;}
+      bool operator==(Node const& other)const{return n==other.n;}
     };
 
     typedef std::pair<MultiAgentState<state>,MultiAgentState<state>> Instance;
@@ -160,7 +161,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       ss << std::string(d,' ');
       int i(0);
       for(auto const& a: *this)
-      ss << " "<<++i<<"." << a.second->n << "@" << a.second->depth;
+      ss << " "<<++i<<"." << a.second->n << "@" << a.second->Depth();
       ss << std::endl;
       for(auto const& m: successors)
       m.Print(ss,d+1);
@@ -168,37 +169,37 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       };*/
 
     // Compute path cost, ignoring actions that wait at the goal
-    static uint32_t computeSolutionCost(MDDSolution const& solution, bool ignoreWaitAtGoal=true){
-      uint32_t cost(0);
+    static uint64_t computeSolutionCost(MDDSolution const& solution, bool ignoreWaitAtGoal=true){
+      uint64_t cost(0);
       if(ignoreWaitAtGoal){
         for(auto const& path:solution){
           for(int j(path.size()-1); j>0; --j){
-            if(path[j-1]->n!=path[j]->n){
-              cost += path[j]->depth;
+            if(!path[j-1]->n.sameLoc(path[j]->n)){
+              cost+=path[j]->Depth();
               break;
             }else if(j==1){
-              cost += path[0]->depth;
+              cost+=path[0]->Depth();
             }
           }
         }
       }else{
         for(auto const& path:solution){
-          cost+=path.back()->depth;
+          cost+=path.back()->Depth();
         }
       }
       return cost;
     }
 
     // Big caveat - this implementation assumes that time IS a component of the state hash
-    uint64_t GetHash(state const& n, uint32_t depth, unsigned agent){
-      return (envs[agent]->GetStateHash(n));}//<<20) | depth&0xfffff;}
+    uint64_t GetHash(state const& n, unsigned agent){
+      return (envs[agent]->GetStateHash(n));}
 
     bool LimitedDFS(state const& start, state const& end, DAG& dag, Node*& root, uint32_t depth, uint32_t maxDepth, uint32_t& best, SearchEnvironment<state,action>* env, unsigned agent){
       if(depth<0 || maxDepth-depth+(int)(HCost(start,end,agent))>maxDepth){ // Note - this only works for a perfect heuristic.
         //std::cout << " pruned " << depth <<" "<< (maxDepth-depth+(int)(env->HCost(start,end)))<<">"<<maxDepth<<"\n";
         return false;
       }
-      Node n(start,(maxDepth-depth),GetHash(start,(maxDepth-depth),agent));
+      Node n(start,GetHash(start,agent));
       uint64_t hash(n.Hash());
       if(singleTransTable.find(hash)!=singleTransTable.end()){return singleTransTable[hash];}
       //std::cout << "\n";
@@ -212,11 +213,13 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
           //std::cout << "root_ " << &dag[hash];
         }
         Node* parent(&dag[hash]);
-        int d(maxDepth-depth);
+        uint32_t d(parent->Depth());
+        //int d(maxDepth-depth);
         while(d+state::TIME_RESOLUTION_U<=maxDepth){ // Increment depth by 1 for wait actions
           // Wait at goal
           d+=state::TIME_RESOLUTION_U;
-          Node current(start,d,GetHash(start,d,agent));
+          state tmp(start,d);
+          Node current(tmp,GetHash(tmp,agent));
           uint64_t chash(current.Hash());
           dag[chash]=current;
           if(verbose)std::cout << "inserting " << dag[chash] << " " << &dag[chash] << "under " << *parent << "\n";
@@ -224,7 +227,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
           //dag[chash].parents.insert(parent);
           parent=&dag[chash];
         }
-        best=std::min(best,parent->depth);
+        best=std::min(best,parent->Depth());
         //std::cout << "found d\n";
         //if(verbose)std::cout << "ABEST "<<best<<"\n";
         return true;
@@ -257,12 +260,15 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
           Node* parent(&dag[hash]);
 
           //std::cout << "found " << start << "\n";
-          uint64_t chash(GetHash(node,(maxDepth-depth+ddiff),agent));
+          uint32_t newDepth(maxDepth-depth+ddiff);
+          state tmp(node,newDepth);
+          uint64_t chash(GetHash(tmp,agent));
+          if(hash==chash){std::cout << "parent equals child! depth=(" << maxDepth << "-" << depth << "+" <<ddiff<<")=="<<newDepth<<"\n";continue;}
           if(dag.find(chash)==dag.end()&&dag.find(chash+1)==dag.end()&&dag.find(chash-1)==dag.end()){
-            std::cout << "Expected " << Node(node,maxDepth-depth+ddiff,GetHash(node,(maxDepth-depth+ddiff),agent)) << " " << chash << " to be in the dag\n";
+            std::cout << "Expected " << Node(tmp,GetHash(tmp,agent)) << " " << chash << " to be in the dag\n";
             assert(!"Uh oh, node not already in the DAG!");
             //std::cout << "Add new.\n";
-            Node c(node,(maxDepth-depth+ddiff),chash);
+            Node c(tmp,chash);
             dag[chash]=c;
           }
           Node* current(&dag[chash]);
@@ -285,6 +291,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
     // Perform conflict check by moving forward in time at increments of the smallest time step
     // Test the efficiency of VO vs. time-vector approach
     void GetMDD(unsigned agent,state const& start, state const& end, DAG& dag, MultiState& root, int depth, uint32_t& best, SearchEnvironment<state,action>* env){
+      root[agent]=nullptr;
       if(verbose)std::cout << "MDD up to depth: " << depth << start << "-->" << end << "\n";
       uint64_t hash(((uint32_t) depth)<<8|agent);
       bool found(mddcache.find(hash)!=mddcache.end());
@@ -320,7 +327,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
         for(int j(0); j<current.size(); ++j){
           if(collisionCheck3D(positions[agent][i].first->n,positions[agent][i].second->n,current[j].first->n,current[j].second->n,agentRadius)){
           // Make sure we don't do any checks that were already done
-          //if(positions[agent][i].first->depth==lastTime&&current[j].first->depth==lastTime)continue;
+          //if(positions[agent][i].first->Depth()==lastTime&&current[j].first->Depth()==lastTime)continue;
           //uint64_t hash(EdgePairHash(positions[agent][i],current[j]));
           //if(checked.find(hash)!=checked.end())
           //{std::cout << "SKIPPED " << *positions[agent][i].second << " " << *current[j].second << "\n"; continue; /*No collision check necessary; checked already*/}
@@ -341,7 +348,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
     // In order for this to work, we cannot generate sets of positions, we must generate sets of actions, since at time 1.0 an action from parent A at time 0.0 may have finished, while another action from the same parent A may still be in progress. 
 
     // Return true if we get to the desired depth
-    bool jointDFS(MultiEdge const& s, uint32_t d, MDDSolution solution, std::vector<MDDSolution>& solutions, std::vector<Node*>& toDelete, uint32_t& best, uint32_t bestSeen, bool suboptimal=false, bool checkOnly=false){
+    bool jointDFS(MultiEdge const& s, uint32_t d, MDDSolution solution, std::vector<MDDSolution>& solutions, std::vector<Node*>& toDelete, uint64_t& best, uint64_t bestSeen, bool suboptimal=false, bool checkOnly=false){
       // Compute hash for transposition table
       std::string hash(s.size()*sizeof(uint64_t),1);
       int i(0);
@@ -378,7 +385,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
               break;
             }
           }
-          if(found || (s[i].second->n.sameLoc(p.back()->n) && s[i].second->depth>p.back()->depth)){
+          if(found || (s[i].second->n.sameLoc(p.back()->n) && s[i].second->Depth()>p.back()->Depth())){
             solution[i].push_back(s[i].second);
           }
         }
@@ -386,11 +393,11 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
 
       bool done(true);
       for(auto const& g:s){
-        if(g.second->depth!=MAXTIME){
+        if(g.second->Depth()!=MAXTIME){
           done=false;
           break;
         }
-        //maxCost=std::max(maxCost,g.second->depth);
+        //maxCost=std::max(maxCost,g.second->Depth());
       }
       if(done){
         uint32_t cost(computeSolutionCost(solution));
@@ -404,8 +411,9 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
           if(!checkOnly){
             // Shore up with wait actions
             for(int i(0); i<solution.size(); ++i){
-              if(solution[i].back()->depth<MAXTIME){
-                solution[i].emplace_back(new Node(solution[i].back()->n,MAXTIME,GetHash(solution[i].back()->n,MAXTIME,i)));
+              if(solution[i].back()->Depth()<MAXTIME){
+                state tmp(solution[i].back()->n,MAXTIME);
+                solution[i].emplace_back(new Node(tmp,GetHash(tmp,i)));
                 toDelete.push_back(solution[i].back());
               }
             }
@@ -421,7 +429,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       // Find minimum depth of current edges
       uint32_t sd(INF);
       for(auto const& a: s){
-        sd=min(sd,a.second->depth);
+        sd=min(sd,a.second->Depth());
       }
       //std::cout << "min-depth: " << sd << "\n";
 
@@ -438,23 +446,24 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
           }
         }
         MultiEdge output;
-        if(a.second->depth<=sd){
+        if(a.second->Depth()<=sd){
           //std::cout << "Keep Successors of " << *a.second << "\n";
           for(auto const& b: a.second->successors){
             output.emplace_back(a.second,b);
-            md=min(md,b->depth);
+            md=min(md,b->Depth());
           }
         }else{
           //std::cout << "Keep Just " << *a.second << "\n";
           output.push_back(a);
-          md=min(md,a.second->depth);
+          md=min(md,a.second->Depth());
         }
         if(output.empty()){
           // Stay at state...
-          output.emplace_back(a.second,new Node(a.second->n,MAXTIME,GetHash(a.second->n,MAXTIME,successors.size())));
+            state tmp(a.second->n,MAXTIME);
+          output.emplace_back(a.second,new Node(tmp,GetHash(tmp,successors.size())));
           //if(verbose)std::cout << "Wait " << *output.back().second << "\n";
           toDelete.push_back(output.back().second);
-          //md=min(md,a.second->depth+1.0); // Amount of time to wait
+          //md=min(md,a.second->Depth()+1.0); // Amount of time to wait
         }
         //std::cout << "successor  of " << s << "gets("<<*a<< "): " << output << "\n";
         successors.push_back(output);
@@ -487,7 +496,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       return value;
     }
 
-    bool jointDFS(MultiState const& s, std::vector<MDDSolution>& solutions, std::vector<Node*>& toDelete, uint32_t bestSeen, bool suboptimal=false, bool checkOnly=false){
+    bool jointDFS(MultiState const& s, std::vector<MDDSolution>& solutions, std::vector<Node*>& toDelete, uint64_t bestSeen, bool suboptimal=false, bool checkOnly=false){
       if(verbose)std::cout << "JointDFS\n";
       MultiEdge act;
       MDDSolution solution;
@@ -500,7 +509,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
           solution.push_back({n});
         }
       }
-      uint32_t best(INF);
+      uint64_t best(0xfffffffffffffffff);
 
       transTable.clear();
       return jointDFS(act,0.0,solution,solutions,toDelete,best,bestSeen,suboptimal,checkOnly);
@@ -517,10 +526,10 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
           if(loud)std::cout << "Collision: " << **ap << "-->" << **a << "," << **bp << "-->" << **b;
           return false;
         }
-        if((*a)->depth<(*b)->depth){
+        if((*a)->Depth()<(*b)->Depth()){
           ++a;
           ++ap;
-        }else if((*a)->depth>(*b)->depth){
+        }else if((*a)->Depth()>(*b)->Depth()){
           ++b;
           ++bp;
         }else{
@@ -544,8 +553,20 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       return true;
     }
 
-    static void join(std::stringstream& s, std::vector<uint32_t> const& x){
+    static void parse(std::string const& s, std::vector<uint32_t> &sizes){
+        auto strings(Util::split(s,','));
+        if(strings.size()!=sizes.size()){
+          std::cout << "bad string: " << s << "expected length of " << sizes.size() << "but got " << strings.size() << "\n";
+        }else{
+          for(int i(0); i<sizes.size(); ++i){
+            sizes[i]=atoi(strings[i].c_str());
+          }
+        }
+    }
+    static std::string join(std::vector<uint32_t> const& x){
+      std::stringstream s;
       copy(x.begin(),x.end(), std::ostream_iterator<uint32_t>(s,","));
+      return s.str().substr(0,s.str().size()-1);
     }
 
     uint32_t HCost(state const& a, state const& b, unsigned agent)const{
@@ -564,7 +585,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
         timer.StartTimer();
         ictsalg->GetMDD(agent,instance.first[agent],instance.second[agent],dag[agent],root,(int)(alg->HCost(instance.first[agent],instance.second[agent],agent))+(int)(sizes[agent]),best[agent],alg->envs[agent]);
         ictsalg->mddTime+=timer.EndTimer();
-        bestSeen=std::accumulate(best.begin(),best.end(),0.0f);
+        bestSeen=std::accumulate(best.begin(),best.end(),0);
         // Replace new root node on top of old.
         //std::swap(root[agent],root[root.size()-1]);
         //root.resize(root.size()-1);
@@ -573,7 +594,6 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
 
       ICTSNode(ICTSAlgorithm* alg, Instance const& inst, std::vector<uint32_t> const& s):ictsalg(alg),instance(inst),dag(s.size()),best(s.size()),bestSeen(0),sizes(s),root(s.size()){
         count++;
-        root.reserve(s.size());
         replanned.resize(s.size());
         for(int i(0); i<instance.first.size(); ++i){
           best[i]=INF;
@@ -586,18 +606,16 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
           timer.StartTimer();
           ictsalg->GetMDD(i,instance.first[i],instance.second[i],dag[i],root,(int)(alg->HCost(instance.first[i],instance.second[i],i))+(int)(sizes[i]),best[i],alg->envs[i]);
           ictsalg->mddTime+=timer.EndTimer();
-          bestSeen=std::accumulate(best.begin(),best.end(),0.0f);
           //if(verbose)std::cout << i << ":\n" << root[i] << "\n";
         }
+        bestSeen=std::accumulate(best.begin(),best.end(),0);
       }
 
       virtual ~ICTSNode(){for(auto d:toDelete){delete d;}}
 
       // Get unique identifier for this node
       std::string key()const{
-        std::stringstream sv;
-        join(sv,sizes);
-        return sv.str();
+        return join(sizes);
       }
 
       ICTSAlgorithm* ictsalg;
@@ -605,7 +623,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       std::vector<DAG> dag;
       std::vector<uint32_t> sizes;
       std::vector<uint32_t> best;
-      uint32_t bestSeen;
+      uint64_t bestSeen;
       MultiState root;
       Instance points;
       std::vector<Node*> toDelete;
@@ -640,6 +658,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
         ictsalg->nogoodTime+=timer.EndTimer();
       }
       bool isValid(std::vector<MDDSolution>& answers){
+        for(auto const& r:root){if(!r)return false;} // Make sure all MDDs have a solution
         if(root.size()>2 && ictsalg->pairwise){
           Timer timer;
           timer.StartTimer();
@@ -714,7 +733,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
               for(int agent(0); agent<answers[num].size(); ++agent){
                 std::cout << "  " << agent << ":\n";
                 for(auto a(answers[num][agent].begin()); a!=answers[num][agent].end(); ++a){
-                  std::cout  << "  " << std::string((*a)->depth/state::TIME_RESOLUTION_U,' ') << **a << "\n";
+                  std::cout  << "  " << std::string((*a)->Depth()/state::TIME_RESOLUTION_U,' ') << **a << "\n";
                 }
                 std::cout << "\n";
               }
@@ -765,33 +784,84 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
         }
         return total;
       }
-      uint32_t lb()const{ return bestSeen; }
+      uint64_t lb()const{ return bestSeen; }
     };
 
     struct ICTSNodePtrComp
     {
-      bool operator()(const ICTSNode* lhs, const ICTSNode* rhs) const  { return *lhs<*rhs; }
+      bool operator()(std::unique_ptr<ICTSNode> const& lhs, std::unique_ptr<ICTSNode> const& rhs) const  { return *lhs<*rhs; }
     };
 
     void SetVerbose(bool v){verbose=v;}
     virtual unsigned GetNodesExpanded()const{return Node::count;}
 
-    void GetSolution(std::vector<EnvironmentContainer<state,action>*> const& env, MultiAgentState<state> const& start, MultiAgentState<state> const& goal, Solution<state>& solution){
+    void GetSolution(std::vector<EnvironmentContainer<state,action>*> const& env, MultiAgentState<state> const& start, MultiAgentState<state> const& goal, Solution<state>& solution, std::string& hint){
       for(int i(0);i<env.size(); ++i){
         envs.push_back(env[i]->environment);
         heuristics.push_back(env[i]->heuristic);
       }
 
-      std::vector<uint32_t> sizes(start.size());
-      custom_priority_queue<ICTSNode*,ICTSNodePtrComp> q;
+      custom_priority_queue<std::unique_ptr<ICTSNode>,ICTSNodePtrComp> q;
       std::unordered_set<std::string> deconf;
-
-      Instance inst(start,goal);
-      q.push(new ICTSNode(this,inst,sizes));
-
       std::vector<std::set<Node*,NodePtrComp>> answer;
-      std::vector<ICTSNode*> toDelete;
-      uint32_t bestCost(INF);
+      std::vector<std::unique_ptr<ICTSNode>> toDelete;
+      uint64_t bestCost(0xffffffffffffffff);
+      Instance inst(start,goal);
+      std::string answerkey;
+
+      std::vector<uint32_t> sizes(start.size());
+      if(hint.size()>0){
+        std::cout << "loading hint: " << hint << "\n";
+        auto stuff(Util::split(hint,':'));
+        uint64_t prevBest(atoi(stuff[0].c_str()));
+        // Format = prevcost:<;-delimited queue stuff>:<;-delimited hash stuff>
+        
+        int i(0);
+        for(auto h:Util::split(stuff[1],';')){
+          parse(h,sizes);
+          if(i++){
+            q.emplace(new ICTSNode(this,inst,sizes));
+          }else{
+            // The first seed in the queue is the one most likely to yield an answer
+            std::vector<MDDSolution> answers;
+            ICTSNode* node(new ICTSNode(this,inst,sizes));
+            toDelete.emplace_back(node);
+            if(node->isValid(answers)){
+              for(auto const& a:answers){
+                auto cost(computeSolutionCost(a));
+                solution.resize(0);
+                for(auto const& path:a){
+                  std::vector<state> p;
+                  for(auto const& s:path){
+                    p.push_back(s->n);
+                  }
+                  solution.push_back(p);
+                }
+                bestCost=std::min(bestCost,cost);
+                answerkey=node->key();
+              }
+              if(bestCost<=prevBest||suboptimal){std::cout << "Immediate solution @ "<<h<<"\n";return;}
+              else{std::cout << "Valid but no solution!\n";}
+            }
+            // No solution... perform the split operation
+            for(int i(0); i<node->sizes.size(); ++i){
+              std::vector<uint32_t> sz(node->sizes);
+              sz[i]+=step;
+              std::string sv(join(sz));
+              if(deconf.find(sv)==deconf.end()){
+                q.emplace(new ICTSNode(this,node,i,sz[i]));
+                deconf.insert(sv);
+              }
+            }
+          }
+        }
+        for(auto h:Util::split(stuff[2],';')){
+          deconf.insert(h);
+        }
+      }else{
+        q.emplace(new ICTSNode(this,inst,sizes));
+      }
+
       //clearNoGoods();
       while(q.size()){
         // Keep searching until we've found a candidate with greater cost than 'best'
@@ -800,10 +870,27 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
         // no node of cost>=best can possibly produce a child with better cost
         if(verbose)std::cout << "TOP: " << q.top()->lb() << " BEST: " << bestCost << "\n";
         if(q.top()->lb()>=bestCost){
+          // Record the hint
+          std::stringstream ss;
+          ss << bestCost << ":"<<answerkey;
+          hint=ss.str();
+          while(q.size()){
+            hint.append(";");
+            hint.append(q.popTop()->key()); // this also deletes the contents of the queue
+          }
+          hint.append(":");
+          hint.append(answerkey);
+          for(auto const& d:deconf){
+            if(d!=answerkey){
+              hint.append(";");
+              hint.append(d);
+            }
+          }
           break;
         }
         // This node could contain a solution since its lb is <=
-        ICTSNode* parent(q.popTop());
+        toDelete.push_back(q.popTop());
+        ICTSNode* parent(toDelete.back().get());
         if(!quiet){
           std::cout << "pop ";
           for(auto const& a: parent->sizes){
@@ -835,18 +922,36 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
                 }
                 solution.push_back(p);
               }
+              answerkey=parent->key();
             }
           }
-          if(suboptimal||q.top()->lb()>bestCost){break;}
+          if(answerkey!=""&&(suboptimal||q.empty()||q.top()->lb()>bestCost)){
+            // Record the hint
+            std::stringstream ss;
+            ss << bestCost << ":"<<answerkey;
+            hint=ss.str();
+            while(q.size()){
+              hint.append(";");
+              hint.append(q.popTop()->key()); // this also deletes the contents of the queue
+            }
+            hint.append(":");
+            hint.append(answerkey);
+            for(auto const& d:deconf){
+              if(d!=answerkey){
+                hint.append(";");
+                hint.append(d);
+              }
+            }
+            break;
+          }
         }
 
         // Split the ICTS node
         for(int i(0); i<parent->sizes.size(); ++i){
           std::vector<uint32_t> sz(parent->sizes);
           sz[i]+=step;
-          std::stringstream sv;
-          join(sv,sz);
-          if(deconf.find(sv.str())==deconf.end()){
+          std::string sv(join(sz));
+          if(deconf.find(sv)==deconf.end()){
             ICTSNode* tmp(new ICTSNode(this,parent,i,sz[i]));
             if(verbose){
               std::cout << "push ";
@@ -861,36 +966,28 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
               std::cout << "\n";
               std::cout << "  SIC: " << tmp->lb() << std::endl;
             }
-            q.push(tmp);
-            deconf.insert(sv.str());
+            q.emplace(tmp);
+            deconf.insert(sv);
           }
         }
-        toDelete.push_back(parent);
       }
 
       // Clean up before exiting
-      for(auto z:toDelete){
-        delete z;
-      }
       mddcache.clear();
       lbcache.clear();
-      while(!q.empty()){
-        delete q.top();
-        q.pop();
-      }
     }
 
     friend std::ostream& operator << (std::ostream& ss, MultiState const& n){
       int i(0);
       for(auto const& a: n)
-        ss << " "<<++i<<"." << a->n << "@" << a->depth;
+        ss << " "<<++i<<"." << a->n << "@" << a->Depth();
       return ss;
     }
 
     friend std::ostream& operator << (std::ostream& ss, MultiEdge const& n){
       int i(0);
       for(auto const& a: n)
-        ss << " "<<++i<<"." << a.second->n << "@" << a.second->depth;
+        ss << " "<<++i<<"." << a.second->n << "@" << a.second->Depth();
       ss << std::endl;
       /*
          for(auto const& m:n.successors)
@@ -901,13 +998,13 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
     }
 
     friend std::ostream& operator << (std::ostream& ss, Node const& n){
-      ss << n.n << "@" << n.depth;
+      ss << n.n << "@" << n.Depth();
       return ss;
     }
 
     friend std::ostream& operator << (std::ostream& ss, Node const* n){
       n->Print(ss);
-      //ss << std::string(n->depth,' ')<<n->n << "_" << n->depth << std::endl;
+      //ss << std::string(n->Depth(),' ')<<n->n << "_" << n->Depth() << std::endl;
       //for(auto const& m: n->successors)
       //ss << m;
       return ss;

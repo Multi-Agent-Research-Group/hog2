@@ -18,6 +18,7 @@ bool ECBSheuristic = false; // use ECBS heuristic at low-level
 bool randomalg = false; // Randomize tiebreaking
 bool useCAT = false; // Use conflict avoidance table
 bool verify = false;
+bool suboptimal = false;
 bool mouseTracking;
 unsigned killtime(300); // Kill after some number of seconds
 unsigned killmem(1024); // 1GB
@@ -159,6 +160,7 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-cat", "-cat", "Use Conflict Avoidance Table (CAT)");
 	InstallCommandLineHandler(MyCLHandler, "-animate", "-animate", "Animate CBS search");
 	InstallCommandLineHandler(MyCLHandler, "-verify", "-verify", "Verify results");
+	InstallCommandLineHandler(MyCLHandler, "-suboptimal", "-suboptimal", "Sub-optimal answers");
 	InstallCommandLineHandler(MyCLHandler, "-random", "-random", "Randomize conflict resolution order");
 	InstallCommandLineHandler(MyCLHandler, "-greedyCT", "-greedyCT", "Greedy sort high-level search by number of conflicts (GCBS)");
 	InstallCommandLineHandler(MyCLHandler, "-ECBSheuristic", "-ECBSheuristic", "Use heuristic in low-level search");
@@ -201,6 +203,7 @@ void InitHeadless(){
   group->ECBSheuristic=ECBSheuristic;
   group->nobypass=nobypass;
   group->verify=verify;
+  MACBSGroup::greedyCT=suboptimal;
   group->quiet=quiet;
   TieBreaking3D<xyztLoc,t3DDirection>::randomalg=randomalg;
   TieBreaking3D<xyztLoc,t3DDirection>::useCAT=useCAT;
@@ -349,6 +352,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 	if(strcmp(argument[0], "-greedyCT") == 0)
 	{
                 greedyCT = true;
+		return 1;
+	}
+	if(strcmp(argument[0], "-suboptimal") == 0)
+	{
+                suboptimal = true;
 		return 1;
 	}
 	if(strcmp(argument[0], "-verify") == 0)

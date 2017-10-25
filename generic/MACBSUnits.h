@@ -284,6 +284,7 @@ struct MetaAgent {
   MetaAgent(unsigned agent){units.push_back(agent);}
   //std::vector<Constraint<state>> c;
   std::vector<unsigned> units;
+  std::string hint; // Instructions for the meta-agent planner
 };
 
 template<typename state>
@@ -590,6 +591,8 @@ bool CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::Expan
             metaAgentConflictMatrix[x].erase(metaAgentConflictMatrix[x].begin() + j);
           }
           metaAgentConflictMatrix.erase(metaAgentConflictMatrix.begin() + j);
+          // Reset the hint
+          activeMetaAgents[i].hint="";
 
           // Reset the search (This is the merge and restart enhancement)
           // Clear up the rest of the tree and clean the open list
@@ -598,6 +601,10 @@ bool CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::Expan
           openList.clear();
           //openList=ClearablePQ<CBSGroup::OpenListNode, std::vector<CBSGroup::OpenListNode>, CBSGroup::OpenListNodeCompare>();
           openList.emplace(0, 0, 0);
+          // Clear all constraints from environments
+          for(auto const& e:currentEnvironment){
+            e->environment->ClearConstraints();
+          }
 
           // Re-Plan the merged meta-agent
           ClearEnvironmentConstraints(i);
@@ -626,9 +633,10 @@ bool CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::Expan
           maplanner maPlanner;
           maPlanner.SetVerbose(verbose);
           maPlanner.quiet=quiet;
+          maPlanner.suboptimal=greedyCT;
           Timer tmr;
           tmr.StartTimer();
-          maPlanner.GetSolution(envs, start, goal, solution);
+          maPlanner.GetSolution(envs, start, goal, solution, activeMetaAgents[i].hint);
           maplanTime+=tmr.EndTimer();
           if(!quiet)std::cout << "Merged plan took " << maPlanner.GetNodesExpanded() << " expansions\n";
 
@@ -1367,7 +1375,7 @@ void CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::Repla
     maPlanner.quiet=quiet;
     Timer tmr;
     tmr.StartTimer();
-    maPlanner.GetSolution(envs, start, goal, partial);
+    maPlanner.GetSolution(envs, start, goal, partial, activeMetaAgents[theMA].hint);
     maplanTime+=tmr.EndTimer();
     if(partial.size()){
       i=0;

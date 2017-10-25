@@ -141,7 +141,7 @@ uint64_t Grid3DConstrainedEnvironment::GetStateHash(const xyztLoc &node) const
     h1 <<= 12;
     h1 |= node.z; // up to 4096
     h1 <<= 20;
-    h1 |= uint32_t(node.t*1000)&0xfffff; // Allow up to 1,048,576 milliseconds (20 bits)
+    h1 |= node.t&0xfffff; // Allow up to 1,048,576 milliseconds (20 bits)
     return h1;
   }
   
@@ -154,7 +154,7 @@ uint64_t Grid3DConstrainedEnvironment::GetStateHash(const xyztLoc &node) const
   h1 |= node.h&0x3ff; // up to 1024
   h1 <<= 20;
   //h2 |= node.p; // Ignore pitch for now :(
-  h1 |= uint32_t(node.t*1000)&0xfffff; // Allow up to 1,048,576 milliseconds (20 bits)
+  h1 |= node.t&0xfffff; // Allow up to 1,048,576 milliseconds (20 bits)
   return h1;
 }
 

@@ -36,7 +36,8 @@ TEST(ICTSAlgorithm, SimpleTest){
   ICTSAlgorithm<xyztLoc,t3DDirection> ia;
   ia.verify=true;
   ia.verbose=false;
-  ia.GetSolution(envs,start,goal,solution);
+  std::string hint;
+  ia.GetSolution(envs,start,goal,solution,hint);
   for(auto const& ss: solution)
     for(auto const& s:ss)
       std::cout << s << "\n";
@@ -64,7 +65,8 @@ TEST(ICTSAlgorithm, Funky){
   ICTSAlgorithm<xyztLoc,t3DDirection> ia;
   ia.verify=true;
   ia.verbose=true;
-  ia.GetSolution(envs,start,goal,solution);
+  std::string hint;
+  ia.GetSolution(envs,start,goal,solution,hint);
   for(auto const& ss: solution)
     for(auto const& s:ss)
       std::cout << s << "\n";
