@@ -7,6 +7,8 @@
  *  Created by Nathan Sturtevant on 5/25/09.
  *  Copyright 2009 NS Software. All rights reserved.
  *
+ *  Modified by Thayne Walker on 10/26/2017.
+ *
  * This file is part of HOG2.
  *
  * HOG2 is free software; you can redistribute it and/or modify
