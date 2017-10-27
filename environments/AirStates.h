@@ -5,6 +5,8 @@
 //  Created by David Chan on 7/24/16.
 //  Copyright © 2016 University of Denver. All rights reserved.
 //
+//  Modified by Thayne Walker 2017
+//
 
 #ifndef AirStates_h
 #define AirStates_h

@@ -1,22 +1,15 @@
 /*
- * $Id: sample.h,v 1.6 2006/09/18 06:23:39 nathanst Exp $
+ *  Created by Thayne Walker.
+ *  Copyright (c) Thayne Walker 2017 All rights reserved.
  *
- *  Driver.h
- *  hog
+ * This file is part of HOG2.
  *
- *  Created by Nathan Sturtevant on 6/8/16.
- *  Copyright 2016 Nathan Sturtevant, University of Denver. All rights reserved.
- *
- * 	Modified by David Chan on 6/12/16
- *
- * This file is part of HOG.
- *
- * HOG is free software; you can redistribute it and/or modify
+ * HOG2 is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
  * (at your option) any later version.
  * 
- * HOG is distributed in the hope that it will be useful,
+ * HOG2 is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.

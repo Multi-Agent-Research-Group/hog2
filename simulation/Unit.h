@@ -6,6 +6,9 @@
  *  Created by Nathan Sturtevant on 9/28/04.
  *  Copyright 2004 Nathan Sturtevant. All rights reserved.
  *
+ *  Modified by Thayne Walker 2017.
+ *
+ *
  * This file is part of HOG.
  *
  * HOG is free software; you can redistribute it and/or modify

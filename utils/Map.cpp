@@ -1,6 +1,9 @@
 /*
  * $Id: map.cpp,v 1.28 2007/03/07 22:01:36 nathanst Exp $
  *
+ *  Modified by Thayne Walker 2017.
+ *
+ *
  * This file is part of HOG.
  *
  * HOG is free software; you can redistribute it and/or modify

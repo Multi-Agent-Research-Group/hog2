@@ -6,6 +6,9 @@
  * SearchEnvironment
  * @date 3/22/06, modified 06/13/2007
  *
+ *  Modified by Thayne Walker 2017.
+ *
+ *
  * This file is part of HOG2.
  * HOG : http://www.cs.ualberta.ca/~nathanst/hog.html
  * HOG2: http://code.google.com/p/hog2/

@@ -5,6 +5,8 @@
 //  Created by Nathan Sturtevant on 8/3/12.
 //  Copyright (c) 2012 University of Denver. All rights reserved.
 //
+//  Modified by Thayne Walker 2017.
+//
 
 #include "Map2DConstrainedEnvironment.h"
 #include "PositionalUtils.h"

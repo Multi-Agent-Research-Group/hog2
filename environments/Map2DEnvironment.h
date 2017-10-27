@@ -5,6 +5,9 @@
  *  Created by Nathan Sturtevant on 4/20/07.
  *  Copyright 2007 Nathan Sturtevant, University of Alberta. All rights reserved.
  *
+ *  Modified by Thayne Walker 2017.
+ *
+ *
  */
 
 #ifndef MAP2DENVIRONMENT_H

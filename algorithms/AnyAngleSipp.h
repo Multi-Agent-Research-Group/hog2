@@ -1,6 +1,7 @@
 /*
  *  Created by Thayne Walker.
- *  Copyright 2017 All rights reserved.
+ *  Based on the algorithm of (Yakovlev and Andreychuk 2017)
+ *  Copyright (c) 2017 Thayne Walker All rights reserved.
  *
  * This file is part of HOG2.
  *

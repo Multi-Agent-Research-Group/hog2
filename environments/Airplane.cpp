@@ -5,6 +5,8 @@
 //  Created by Nathan Sturtevant on 5/4/16.
 //  Copyright © 2016 University of Denver. All rights reserved.
 //
+//  Modified by Thayne Walker 2017
+//
 
 #include <stdio.h>
 #include "Airplane.h"

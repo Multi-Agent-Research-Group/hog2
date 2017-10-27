@@ -5,6 +5,8 @@
 //  Created by David Chan on 6/8/16.
 //  Copyright (c) 2016 University of Denver. All rights reserved.
 //
+//  Modified by Thayne Walker 2017.
+//
 
 #ifndef __hog2_glut__AirplaneCBSUnits__
 #define __hog2_glut__AirplaneCBSUnits__
