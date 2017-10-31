@@ -47,25 +47,9 @@ template<typename T, typename C>
 class custom_priority_queue : public std::priority_queue<T, std::vector<T>, C>
 {
   public:
-
-    /*bool remove(const T& value) {
-     *       toDelete.insert(value->key());
-     *           }
-     *               bool removeAll(int agent, int count){
-     *                     for(auto const& value:this->c){
-     *                             if(value->sizes[agent]<count){
-     *                                       toDelete.insert(value->key());
-     *                                               }
-     *                                                     }
-     *                                                           return true;
-     *                                                               }*/
     virtual T popTop(){
       T val(const_cast<T&>(this->top()).release());
       this->pop();
-      /*while(toDelete.find(val->key()) != toDelete.end()){
-       *         val=this->top();
-       *                 this->pop();
-       *                       }*/
       return val;
     }
 };
@@ -118,14 +102,13 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       static uint64_t count;
 
       Node(){}
-      Node(state a, uint64_t h):n(a),hash(h),optimal(false),unified(false),nogood(false){count++;}
+      Node(state a, uint64_t h):n(a),hash(h),id(0),optimal(false){count++;}
       virtual ~Node(){}
       state n;
       //uint32_t depth;
       uint64_t hash;
+      uint32_t id;
       bool optimal;
-      bool unified;
-      bool nogood;
       //bool connected()const{return parents.size()+successors.size();}
       //std::unordered_set<Node*> parents;
       std::unordered_set<Node*> successors;
@@ -148,6 +131,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
     typedef std::unordered_map<uint64_t,Node> DAG;
     std::unordered_map<uint64_t,Node*> mddcache;
     std::unordered_map<uint64_t,uint32_t> lbcache;
+    std::unordered_map<uint64_t,uint32_t> mscache;
 
     /*class MultiEdge: public Multiedge{
       public:
@@ -188,6 +172,13 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       return cost;
     }
 
+    static inline bool get(uint64_t* bitarray, size_t idx) {
+      return bitarray[idx / 64] | (1 << (idx % 64));
+    }
+    static inline void set(uint64_t* bitarray, size_t idx) {
+      bitarray[idx / 64] |= (1 << (idx % 64));
+    }
+
     // Big caveat - this implementation assumes that time IS a component of the state hash
     uint64_t GetHash(state const& n, unsigned agent){
       return (envs[agent]->GetStateHash(n));}
@@ -204,6 +195,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
 
       if(env->GoalTest(start,end)){
         singleTransTable[hash]=true;
+        n.id=dag.size();
         dag[hash]=n;
         // This may happen if the agent starts at the goal
         if(maxDepth-depth<=0){
@@ -219,6 +211,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
           state tmp(start,d);
           Node current(tmp,GetHash(tmp,agent));
           uint64_t chash(current.Hash());
+          current.id=dag.size();
           dag[chash]=current;
           if(verbose)std::cout << "inserting " << dag[chash] << " " << &dag[chash] << "under " << *parent << "\n";
           parent->successors.insert(&dag[chash]);
@@ -235,14 +228,11 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       env->GetSuccessors(start,successors);
       bool result(false);
       for(auto const& node: successors){
-        unsigned ddiff(std::max(round(Util::distance(node,start)*state::TIME_RESOLUTION_D),state::TIME_RESOLUTION_D));
-        //std::cout << std::string(std::max(0,(maxDepth-(depth-ddiff))),' ') << "MDDEVAL " << start << "-->" << node << "\n";
-        //if(abs(node.x-start.x)>=1 && abs(node.y-start.y)>=1){
-        //ddiff = M_SQRT2;
-        //}
+        unsigned ddiff(node.t-start.t);
         if(LimitedDFS(node,end,dag,root,depth-ddiff,maxDepth,best,env,agent)){
           singleTransTable[hash]=true;
           if(dag.find(hash)==dag.end()){
+            n.id=dag.size();
             dag[hash]=n;
             // This is the root if depth=0
             if(maxDepth-depth<=0){
@@ -265,8 +255,8 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
             std::cout << "Expected " << Node(tmp,GetHash(tmp,agent)) << " " << chash << " to be in the dag\n";
             assert(!"Uh oh, node not already in the DAG!");
             //std::cout << "Add new.\n";
-            Node c(tmp,chash);
-            dag[chash]=c;
+            //Node c(tmp,chash);
+            //dag[chash]=c;
           }
           Node* current(&dag[chash]);
           current->optimal = result = true;
@@ -287,7 +277,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
 
     // Perform conflict check by moving forward in time at increments of the smallest time step
     // Test the efficiency of VO vs. time-vector approach
-    void GetMDD(unsigned agent,state const& start, state const& end, DAG& dag, MultiState& root, int depth, uint32_t& best, SearchEnvironment<state,action>* env){
+    void GetMDD(unsigned agent,state const& start, state const& end, DAG& dag, MultiState& root, int depth, uint32_t& best, uint32_t& dagsize, SearchEnvironment<state,action>* env){
       root[agent]=nullptr;
       if(verbose)std::cout << "MDD up to depth: " << depth << start << "-->" << end << "\n";
       uint64_t hash(((uint32_t) depth)<<8|agent);
@@ -298,9 +288,11 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
         singleTransTable.clear();
         mddcache[hash]=root[agent];
         lbcache[hash]=best;
+        mscache[hash]=dagsize=dag.size();
       }else{
         root[agent]=mddcache[hash];
         best=lbcache[hash];
+        dagsize=mscache[hash];
       }
       if(verbose)std::cout << "Finally set root to: " << (uint64_t)root[agent] << "\n";
       if(verbose)std::cout << root[agent] << "\n";
@@ -345,18 +337,18 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
     // In order for this to work, we cannot generate sets of positions, we must generate sets of actions, since at time 1.0 an action from parent A at time 0.0 may have finished, while another action from the same parent A may still be in progress. 
 
     // Return true if we get to the desired depth
-    bool jointDFS(MultiEdge const& s, uint32_t d, MDDSolution solution, std::vector<MDDSolution>& solutions, std::vector<Node*>& toDelete, uint64_t& best, uint64_t bestSeen, bool suboptimal=false, bool checkOnly=false){
+    bool jointDFS(MultiEdge const& s, uint32_t d, MDDSolution solution, std::vector<MDDSolution>& solutions, std::vector<Node*>& toDelete, uint64_t& best, uint64_t bestSeen, std::vector<std::vector<uint64_t>*>& good, std::vector<std::vector<uint64_t>>& unified, bool suboptimal=false, bool checkOnly=false){
       // Compute hash for transposition table
       std::string hash(s.size()*sizeof(uint64_t),1);
-      int i(0);
+      int k(0);
       for(auto v:s){
         uint64_t h1(v.second->Hash());
         uint8_t c[sizeof(uint64_t)];
         memcpy(c,&h1,sizeof(uint64_t));
         for(unsigned j(0); j<sizeof(uint64_t); ++j){
-          hash[i*sizeof(uint64_t)+j]=((int)c[j])?c[j]:1; // Replace null-terminators in the middle of the string
+          hash[k*sizeof(uint64_t)+j]=((int)c[j])?c[j]:1; // Replace null-terminators in the middle of the string
         }
-        ++i;
+        ++k;
       }
       if(verbose)std::cout << "saw " << s << " hash ";
       if(verbose)for(unsigned int i(0); i<hash.size(); ++i){
@@ -422,6 +414,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       }
       //Get successors into a vector
       std::vector<MultiEdge> successors;
+      successors.reserve(s.size());
 
       // Find minimum depth of current edges
       uint32_t sd(INFTY);
@@ -432,14 +425,15 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
 
       uint32_t md(INFTY); // Min depth of successors
       //Add in successors for parents who are equal to the min
+      k=0;
       for(auto const& a: s){
         if(epp){
-          if(a.second->nogood){
+          if(!get(good[k]->data(),a.second->id)){
             if(verbose)std::cout << *a.second << " is no good.\n";
             return false; // If any  of these are "no good" just exit now
           }else{
             // The fact that we are evaluating this node means that all components were unified with something
-            if(checkOnly)a.second->unified=true;
+            if(checkOnly)set(unified[k].data(),a.second->id);
           }
         }
         MultiEdge output;
@@ -464,6 +458,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
         }
         //std::cout << "successor  of " << s << "gets("<<*a<< "): " << output << "\n";
         successors.push_back(output);
+        ++k;
       }
       if(verbose){
         std::cout << "Move set\n";
@@ -480,7 +475,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       bool value(false);
       for(auto& a: crossProduct){
         if(verbose)std::cout << "EVAL " << s << "-->" << a << "\n";
-        if(jointDFS(a,md,solution,solutions,toDelete,best,bestSeen,suboptimal,checkOnly)){
+        if(jointDFS(a,md,solution,solutions,toDelete,best,bestSeen,good,unified,suboptimal,checkOnly)){
           value=true;
           transTable[hash]=value;
           // Return first solution... (unless this is a pairwise check with pruning)
@@ -493,7 +488,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       return value;
     }
 
-    bool jointDFS(MultiState const& s, std::vector<MDDSolution>& solutions, std::vector<Node*>& toDelete, uint64_t bestSeen, bool suboptimal=false, bool checkOnly=false){
+    bool jointDFS(MultiState const& s, std::vector<MDDSolution>& solutions, std::vector<Node*>& toDelete, uint64_t bestSeen, std::vector<std::vector<uint64_t>*>& good, std::vector<std::vector<uint64_t>>& unified, bool suboptimal=false, bool checkOnly=false){
       if(verbose)std::cout << "JointDFS\n";
       MultiEdge act;
       MDDSolution solution;
@@ -509,7 +504,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       uint64_t best(0xffffffffffffffff);
 
       transTable.clear();
-      return jointDFS(act,0.0,solution,solutions,toDelete,best,bestSeen,suboptimal,checkOnly);
+      return jointDFS(act,0.0,solution,solutions,toDelete,best,bestSeen,good,unified,suboptimal,checkOnly);
     }
 
     // Check that two paths have no conflicts
@@ -571,16 +566,15 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
     }
 
     struct ICTSNode{
-      ICTSNode(ICTSAlgorithm* alg, ICTSNode* parent,int agent, uint32_t size):ictsalg(alg),instance(parent->instance),dag(parent->dag),best(parent->best),bestSeen(0),sizes(parent->sizes),root(parent->root){
+      ICTSNode(ICTSAlgorithm* alg, ICTSNode* parent,int agent, uint32_t size):ictsalg(alg),instance(parent->instance),dag(parent->dag.size()),best(parent->best),dagsize(parent->dagsize),bestSeen(0),sizes(parent->sizes),root(parent->root){
         count++;
         sizes[agent]=size;
         best[agent]=INFTY;
         if(alg->verbose)std::cout << "replan agent " << agent << " GetMDD("<<(alg->HCost(instance.first[agent],instance.second[agent],agent)+sizes[agent])<<")\n";
-        dag[agent].clear();
         replanned.push_back(agent);
         Timer timer;
         timer.StartTimer();
-        ictsalg->GetMDD(agent,instance.first[agent],instance.second[agent],dag[agent],root,(int)(alg->HCost(instance.first[agent],instance.second[agent],agent))+(int)(sizes[agent]),best[agent],alg->envs[agent]);
+        ictsalg->GetMDD(agent,instance.first[agent],instance.second[agent],dag[agent],root,(int)(alg->HCost(instance.first[agent],instance.second[agent],agent))+(int)(sizes[agent]),best[agent],dagsize[agent],alg->envs[agent]);
         ictsalg->mddTime+=timer.EndTimer();
         bestSeen=std::accumulate(best.begin(),best.end(),0);
         // Replace new root node on top of old.
@@ -589,7 +583,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
         //if(verbose)std::cout << agent << ":\n" << root[agent] << "\n";
       }
 
-      ICTSNode(ICTSAlgorithm* alg, Instance const& inst, std::vector<uint32_t> const& s):ictsalg(alg),instance(inst),dag(s.size()),best(s.size()),bestSeen(0),sizes(s),root(s.size()){
+      ICTSNode(ICTSAlgorithm* alg, Instance const& inst, std::vector<uint32_t> const& s):ictsalg(alg),instance(inst),dag(s.size()),best(s.size()),dagsize(s.size()),bestSeen(0),sizes(s),root(s.size()){
         count++;
         replanned.resize(s.size());
         for(int i(0); i<instance.first.size(); ++i){
@@ -601,7 +595,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
 
           Timer timer;
           timer.StartTimer();
-          ictsalg->GetMDD(i,instance.first[i],instance.second[i],dag[i],root,(int)(alg->HCost(instance.first[i],instance.second[i],i))+(int)(sizes[i]),best[i],alg->envs[i]);
+          ictsalg->GetMDD(i,instance.first[i],instance.second[i],dag[i],root,(int)(alg->HCost(instance.first[i],instance.second[i],i))+(int)(sizes[i]),best[i],dagsize[i],alg->envs[i]);
           ictsalg->mddTime+=timer.EndTimer();
           //if(verbose)std::cout << i << ":\n" << root[i] << "\n";
         }
@@ -620,6 +614,8 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       std::vector<DAG> dag;
       std::vector<uint32_t> sizes;
       std::vector<uint32_t> best;
+      std::vector<uint32_t> dagsize;
+      ICTSNode* p;
       uint64_t bestSeen;
       MultiState root;
       Instance points;
@@ -627,92 +623,43 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       static uint64_t count;
       std::vector<int> replanned; // Set of nodes that was just re-planned
 
-      // Set all nodes that were never unified as "no good"
-      void resetNoGoods(Node* root){
-        if(!ictsalg->epp)return;
-        root->nogood=false;
-        root->unified=false;
-        for(auto& a:root->successors)
-          resetNoGoods(a);
-      }
-      void resetUnified(Node* root){
-        root->unified=false;
-        for(auto& a:root->successors)
-          resetUnified(a);
-      }
-      void setNoGoods(Node* root){
-        if(root->nogood)return;
-        root->nogood=!root->unified;
-        for(auto& a:root->successors)
-          setNoGoods(a);
-      }
-      void updateNoGoods(Node* root){
-        if(!ictsalg->epp)return;
-        Timer timer;
-        timer.StartTimer();
-        setNoGoods(root); // Set them all first
-        resetUnified(root); // Reset the unified flag
-        ictsalg->nogoodTime+=timer.EndTimer();
-      }
       bool isValid(std::vector<MDDSolution>& answers){
+        std::vector<std::vector<uint64_t>> goods(root.size());
+        for(int i(0); i<root.size(); ++i){
+          goods[i]=std::vector<uint64_t>(dagsize[i]/64+1,0xffffffffffffffff); // All "good"
+        }
         for(auto const& r:root){if(!r)return false;} // Make sure all MDDs have a solution
         if(root.size()>2 && ictsalg->pairwise){
           Timer timer;
           timer.StartTimer();
           // Perform pairwise check
           if(ictsalg->verbose)std::cout<<"Pairwise checks\n";
-          if(replanned.size()>1){
-            for(int i(0); i<root.size(); ++i){
-              for(int j(i+1); j<root.size(); ++j){
-                MultiState tmproot(2);
-                tmproot[0]=root[i];
-                tmproot[1]=root[j];
-                std::vector<Node*> toDeleteTmp;
-                // This is a satisficing search, thus we only need do a sub-optimal check
-                if(ictsalg->verbose)std::cout<<"pairwise for " << i << ","<<j<<"\n";
-                if(!ictsalg->jointDFS(tmproot,answers,toDeleteTmp,INFTY,true,true)){
-                  if(ictsalg->verbose)std::cout << "Pairwise failed\n";
-                  //clearNoGoods();
-                  // Reset the MDDs
-                  if(ictsalg->epp){
-                    Timer timer;
-                    timer.StartTimer();
-                    for(int i(0); i<root.size(); ++i){
-                      resetNoGoods(root[i]);
-                    }
-                    ictsalg->nogoodTime+=timer.EndTimer();
-                  }
-                  return false;
-                }
-                updateNoGoods(root[i]);
-                updateNoGoods(root[j]);
-              }
-            }
-          }else{
-            for(int i(0); i<root.size(); ++i){
-              if(i==replanned[0]){continue;}
+          for(int i(0); i<root.size(); ++i){
+            for(int j(i+1); j<root.size(); ++j){
               MultiState tmproot(2);
               tmproot[0]=root[i];
-              tmproot[1]=root[replanned[0]];
+              tmproot[1]=root[j];
               std::vector<Node*> toDeleteTmp;
+              std::vector<std::vector<uint64_t>> unified(2);
+              unified[0]=std::vector<uint64_t>(goods[i].size()); // All false
+              unified[1]=std::vector<uint64_t>(goods[j].size());
+              std::vector<std::vector<uint64_t>*> tmpgood(2);
+              tmpgood[0]=&goods[i];
+              tmpgood[1]=&goods[j];
+
               // This is a satisficing search, thus we only need do a sub-optimal check
-              if(ictsalg->verbose)std::cout<<"pairwise for " << i << ","<<replanned[0]<<"\n";
-              if(!ictsalg->jointDFS(tmproot,answers,toDeleteTmp,INFTY,true,true)){
+              if(ictsalg->verbose)std::cout<<"pairwise for " << i << ","<<j<<"\n";
+              if(!ictsalg->jointDFS(tmproot,answers,toDeleteTmp,INFTY,tmpgood,unified,true,true)){
                 if(ictsalg->verbose)std::cout << "Pairwise failed\n";
-                //clearNoGoods();
-                // Reset the MDDs
-                if(ictsalg->epp){
-                  Timer timer;
-                  timer.StartTimer();
-                  for(int i(0); i<root.size(); ++i){
-                    resetNoGoods(root[i]);
-                  }
-                  ictsalg->nogoodTime+=timer.EndTimer();
-                }
                 return false;
               }
-              updateNoGoods(root[i]);
-              updateNoGoods(root[replanned[0]]);
+              // Perform a bitwise "and", to filter out nodes that were not unified
+              for(int k(0); k<goods[i].size(); ++k){
+                goods[i][k]&=unified[0][k];
+              }
+              for(int k(0); k<goods[j].size(); ++k){
+                goods[j][k]&=unified[1][k];
+              }
             }
           }
           ictsalg->pairwiseTime+=timer.EndTimer();
@@ -721,7 +668,12 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
         if(ictsalg->verbose)std::cout<<"Pairwise passed\nFull check\n";
         Timer timer;
         timer.StartTimer();
-        if(ictsalg->jointDFS(root,answers,toDelete,lb(),ictsalg->suboptimal)){
+        std::vector<std::vector<uint64_t>> unified(root.size());
+        std::vector<std::vector<uint64_t>*> tmpgood(root.size());
+        for(int i(0); i<tmpgood.size(); ++i){
+          tmpgood[i]=&goods[i];
+        }
+        if(ictsalg->jointDFS(root,answers,toDelete,lb(),tmpgood,unified,ictsalg->suboptimal)){
           ictsalg->jointTime+=timer.EndTimer();
           if(ictsalg->verbose){
             std::cout << "Answer:\n";
@@ -741,15 +693,6 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
           //clearNoGoods();
           if(ictsalg->verbose)std::cout << "Full check passed\n";
           return true;
-        }
-        // Reset the MDDs
-        if(ictsalg->epp){
-          Timer timer;
-          timer.StartTimer();
-          for(int i(0); i<root.size(); ++i){
-            resetNoGoods(root[i]);
-          }
-          ictsalg->nogoodTime=timer.EndTimer();
         }
 
         if(ictsalg->verbose)std::cout << "Full check failed\n";
@@ -971,6 +914,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       // Clean up before exiting
       mddcache.clear();
       lbcache.clear();
+      mscache.clear();
     }
 
     friend std::ostream& operator << (std::ostream& ss, MultiState const& n){
