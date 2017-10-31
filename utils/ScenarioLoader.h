@@ -4,6 +4,9 @@
  *
  * Created by Renee Jansen on 5/2/2006
  *
+ *  Modified by Thayne Walker 2017.
+ *
+ *
  */ 
 
 #ifndef SCENARIOLOADER_H

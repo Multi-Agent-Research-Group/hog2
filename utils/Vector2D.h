@@ -1,4 +1,7 @@
 /**
+*
+*  Modified by Thayne Walker 2017.
+*
 * This file is part of HOG2.
 *
 * HOG2 is free software; you can redistribute it and/or modify

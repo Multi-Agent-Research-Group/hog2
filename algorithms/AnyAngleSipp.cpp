@@ -1,6 +1,6 @@
 /*
  *  Created by Thayne Walker.
- *  Copyright 2017 All rights reserved.
+ *  Copyright (c) Thayne Walker 2017 All rights reserved.
  *
  * This file is part of HOG2.
  *

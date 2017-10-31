@@ -5,6 +5,9 @@
  * @author Nathan Sturtevant
  * SearchEnvironment
  *
+ *  Modified by Thayne Walker 2017.
+ *
+ *
  * This file is part of HOG2.
  * HOG : http://www.cs.ualberta.ca/~nathanst/hog.html
  * HOG2: http://code.google.com/p/hog2/

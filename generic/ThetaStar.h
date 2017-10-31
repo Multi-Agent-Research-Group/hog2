@@ -1,13 +1,8 @@
-/**
- * @file ThetaStar.h
- * @package hog2
- * @brief A templated version of the original HOG's genericAstar.h
- * @author Thayne Walker
- * SearchEnvironment
+/*
+ *  Created by Thayne Walker.
+ *  Copyright (c) Thayne Walker 2017 All rights reserved.
  *
  * This file is part of HOG2.
- * HOG : http://www.cs.ualberta.ca/~nathanst/hog.html
- * HOG2: http://code.google.com/p/hog2/
  *
  * HOG2 is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,8 +15,9 @@
  * GNU General Public License for more details.
  * 
  * You should have received a copy of the GNU General Public License
- * along with HOG2; if not, write to the Free Software
+ * along with HOG; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+ *
  */
 
 #ifndef ThetaStar_H

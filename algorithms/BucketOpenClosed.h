@@ -5,6 +5,8 @@
 //  Created by Nathan Sturtevant on 1/16/12.
 //  Copyright (c) 2012 University of Denver. All rights reserved.
 //
+//  Modified by Thayne Walker 2017
+//
 
 #ifndef hog2_glut_BucketOpenClosed_h
 #define hog2_glut_BucketOpenClosed_h

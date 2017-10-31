@@ -6,8 +6,6 @@
  * SearchEnvironment
  *
  * This file is part of HOG2.
- * HOG : http://www.cs.ualberta.ca/~nathanst/hog.html
- * HOG2: http://code.google.com/p/hog2/
  *
  * HOG2 is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

@@ -5,6 +5,8 @@
 //  Created by Nathan Sturtevant on 8/3/12.
 //  Copyright (c) 2012 University of Denver. All rights reserved.
 //
+//  Modified by Thayne Walker 2017.
+//
 
 #ifndef __hog2_glut__Map2DConstrainedEnvironment__
 #define __hog2_glut__Map2DConstrainedEnvironment__

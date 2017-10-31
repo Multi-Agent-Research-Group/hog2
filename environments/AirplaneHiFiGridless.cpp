@@ -3,6 +3,7 @@
 //  hog2 glut
 //
 //  Created by Thayne Walker on 2/6/17.
+//  Copyright (c) Thayne Walker 2017.
 //
 
 #include <stdio.h>
