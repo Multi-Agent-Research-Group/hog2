@@ -128,7 +128,7 @@ struct xyztLoc : xyzLoc {
   explicit operator TemporalVector()const{return TemporalVector(x,y,t/TIME_RESOLUTION_D);}
   operator Vector3D()const{return Vector3D(x,y,z);}
   explicit operator Vector2D()const{return Vector2D(x,y);}
-  unsigned t : 22; // Time (milliseconds)
+  unsigned t : 20; // Time (milliseconds)
   unsigned h : 10; // Heading
   //int16_t p; // Pitch
   virtual bool sameLoc(xyztLoc const& other)const{return xyzLoc::sameLoc(other);}
