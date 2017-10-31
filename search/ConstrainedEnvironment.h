@@ -112,6 +112,7 @@ class ConflictDetector{
     // Returns a newly allocated pointer to a constraint representing the conflict or zero
     // The caller is responsible for managing the memory
     virtual Constraint<State>* GetConstraint(State const& A1, State const& A2, State const& B1, State const& B2)const=0;
+    virtual void OpenGLDraw()const{}
 };
 
 template<typename State>
@@ -140,6 +141,7 @@ class AllLOS : public ConflictDetector<State> {
     inline virtual Constraint<State>* GetConstraint(State const& A1, State const& A2, State const& B1, State const& B2)const{
       return new Identical<State>(A1,A2);
     }
+    virtual void OpenGLDraw()const{}
     std::vector<unsigned> agentNumbers; // List of agent numbers that must maintain tether
     double maxDistanceSq;
 };
@@ -147,14 +149,18 @@ class AllLOS : public ConflictDetector<State> {
 template<typename State>
 class GroupConflictDetector{
   public:
-    GroupConflictDetector(unsigned mainAgent):agent1(mainAgent),agent2(-1){}
+    GroupConflictDetector(unsigned mainAgent, std::vector<unsigned> const& a):agent1(mainAgent),agentNumbers(a),agent2(-1){}
     inline virtual bool HasConflict(std::vector<std::pair<State,State>> const& states)const=0;
     virtual bool HasConflict(std::vector<std::vector<State>> const& solution)const=0;
     virtual bool HasConflict(std::vector<std::vector<State>> const& solution, Constraint<State>*& c1, Constraint<State>*& c2, std::pair<unsigned,unsigned>& conflict)const=0;
+    virtual bool ShouldMerge(std::vector<std::vector<State>> const& solution, std::set<unsigned>& toMerge)const=0;
     // Returns a newly allocated pointer to a constraint representing the conflict or zero
     // The caller is responsible for managing the memory
     virtual Constraint<State>* GetConstraint(State const& A1, State const& A2, State const& B1, State const& B2)const=0;
+    virtual void OpenGLDraw()const{}
+    virtual GroupConflictDetector<State>* clone()=0;
     unsigned agent1;
+    std::vector<unsigned> agentNumbers; // List of agent numbers that must maintain tether
     mutable signed agent2;
 };
 
@@ -162,7 +168,7 @@ class GroupConflictDetector{
 template<typename State>
 class AnyLOS: public GroupConflictDetector<State> {
   public:
-    AnyLOS(unsigned agentA, std::vector<unsigned> const& a, double dist):GroupConflictDetector<State>(agentA),agentNumbers(a),maxDistanceSq(dist*dist){} // Squared distance
+    AnyLOS(unsigned agentA, std::vector<unsigned> const& a, double dist):GroupConflictDetector<State>(agentA,a),maxDistanceSq(dist*dist){} // Squared distance
     // Assume a violation until we find one in the set that is within line of sight (if none are found, a violation has occurred)
     inline virtual bool HasConflict(std::vector<std::pair<State,State>> const& states)const{
       bool violation(true);
@@ -175,40 +181,34 @@ class AnyLOS: public GroupConflictDetector<State> {
     }
 
     inline virtual bool ShouldMerge(std::vector<std::vector<State>> const& solution, std::set<unsigned>& toMerge)const{
-      std::vector<unsigned> indices(agentNumbers.size()); // Defaults to zero
+      std::vector<unsigned> indices(this->agentNumbers.size()); // Defaults to zero
       unsigned index(0);
 
       unsigned minTime(solution[this->agent1][index].t);
       // Move other agents forward in time if necessary (we don't assume all paths start at t=0)
-      for(int i(0); i<agentNumbers.size(); ++i){
-        while(indices[i]<solution[agentNumbers[i]].size()-1 && solution[agentNumbers[i]][indices[i]].t<minTime){indices[i]++;}
+      for(int i(0); i<this->agentNumbers.size(); ++i){
+        while(indices[i]<solution[this->agentNumbers[i]].size()-1 && solution[this->agentNumbers[i]][indices[i]].t<minTime){indices[i]++;}
       }
       this->agent2=-1;
       while(index<solution[this->agent1].size()-1){
         double closest(999999999);
         double dist(999999999);
-        bool violation(true);
-        for(int i(0); i<agentNumbers.size(); ++i){
-          if(fleq(maxDistanceSq,dist=distanceSquared(solution[this->agent1][index],solution[this->agent1][index+1],solution[agentNumbers[i]][indices[i]],solution[agentNumbers[i]][indices[i]+1]))){
-            if(dist<closest){
-              closest=dist;
-              this->agent2=agentNumbers[i];
-            }
-          }else{
-            violation=false;
-            break;
+        for(int i(0); i<this->agentNumbers.size(); ++i){
+          dist=distanceSquared(solution[this->agent1][index],solution[this->agent1][index+1],solution[this->agentNumbers[i]][indices[i]],solution[this->agentNumbers[i]][indices[i]+1]);
+          if(dist<closest){
+            closest=dist;
+            this->agent2=this->agentNumbers[i];
           }
         }
-        if(violation){ // No agents are in LOS of the main agent
-          toMerge.insert(this->agent2);
-        }
+        toMerge.insert(this->agent2);
         minTime=solution[this->agent1][++index].t;
         // Move other agents forward in time if necessary
-        for(int i(0); i<agentNumbers.size(); ++i){
-          while(indices[i]<solution[agentNumbers[i]].size()-2 && solution[agentNumbers[i]][indices[i]].t<minTime){indices[i]++;}
+        for(int i(0); i<this->agentNumbers.size(); ++i){
+          while(indices[i]<solution[this->agentNumbers[i]].size()-2 && solution[this->agentNumbers[i]][indices[i]].t<minTime){indices[i]++;}
         }
       }
-      return toMerge.size()>0;
+      toMerge.insert(this->agent1);
+      return toMerge.size()>1;
     }
 
     inline virtual bool HasConflict(std::vector<std::vector<State>> const& solution)const{
@@ -220,13 +220,13 @@ class AnyLOS: public GroupConflictDetector<State> {
 
     inline virtual bool HasConflict(std::vector<std::vector<State>> const& solution, Constraint<State>*& c1, Constraint<State>*& c2, std::pair<unsigned,unsigned>& conflict)const{
       // Step through time, checking for group-wise conflicts
-      std::vector<unsigned> indices(agentNumbers.size()); // Defaults to zero
+      std::vector<unsigned> indices(this->agentNumbers.size()); // Defaults to zero
       unsigned index(0);
 
       unsigned minTime(solution[this->agent1][index].t);
       // Move other agents forward in time if necessary (we don't assume all paths start at t=0)
-      for(int i(0); i<agentNumbers.size(); ++i){
-        while(indices[i]<solution[agentNumbers[i]].size()-1 && solution[agentNumbers[i]][indices[i]].t<minTime){indices[i]++;}
+      for(int i(0); i<this->agentNumbers.size(); ++i){
+        while(indices[i]<solution[this->agentNumbers[i]].size()-1 && solution[this->agentNumbers[i]][indices[i]].t<minTime){indices[i]++;}
       }
       double closest(999999999);
       this->agent2=-1;
@@ -235,11 +235,11 @@ class AnyLOS: public GroupConflictDetector<State> {
       while(index<solution[this->agent1].size()-1){
         double dist(999999999);
         bool violation(true);
-        for(int i(0); i<agentNumbers.size(); ++i){
-          if(fleq(maxDistanceSq,dist=distanceSquared(solution[this->agent1][index],solution[this->agent1][index+1],solution[agentNumbers[i]][indices[i]],solution[agentNumbers[i]][indices[i]+1]))){
+        for(int i(0); i<this->agentNumbers.size(); ++i){
+          if(fleq(maxDistanceSq,dist=distanceSquared(solution[this->agent1][index],solution[this->agent1][index+1],solution[this->agentNumbers[i]][indices[i]],solution[this->agentNumbers[i]][indices[i]+1]))){
             if(dist<closest){
               closest=dist;
-              this->agent2=agentNumbers[i];
+              this->agent2=this->agentNumbers[i];
               i1=index;
               i2=indices[i];
             }
@@ -253,8 +253,8 @@ class AnyLOS: public GroupConflictDetector<State> {
         }
         minTime=solution[this->agent1][++index].t;
         // Move other agents forward in time if necessary
-        for(int i(0); i<agentNumbers.size(); ++i){
-          while(indices[i]<solution[agentNumbers[i]].size()-2 && solution[agentNumbers[i]][indices[i]].t<minTime){indices[i]++;}
+        for(int i(0); i<this->agentNumbers.size(); ++i){
+          while(indices[i]<solution[this->agentNumbers[i]].size()-2 && solution[this->agentNumbers[i]][indices[i]].t<minTime){indices[i]++;}
         }
       }
       if(conflict.first>0){
@@ -267,8 +267,26 @@ class AnyLOS: public GroupConflictDetector<State> {
     inline virtual Constraint<State>* GetConstraint(State const& A1, State const& A2, State const& B1, State const& B2)const{
       return new Identical<State>(A1,A2);
     }
-    std::vector<unsigned> agentNumbers; // List of agent numbers that must maintain tether
+    virtual void OpenGLDraw(std::vector<State> const& states, MapInterface const& map)const{
+      for(auto const& a:this->agentNumbers){
+        if(Util::distance(states[this->agent1].x,states[this->agent1].y,states[a].x,states[a].y)<=sqrt(maxDistanceSq)){
+          glColor4f(0,0,0,0);
+
+        }else{
+          glColor4f(1,0,0,0);
+        }
+        GLdouble xx1, yy1, zz1, rad, xx2, yy2, zz2;
+        map.GetOpenGLCoord(states[this->agent1].x, states[this->agent1].y, states[this->agent1].z, xx1, yy1, zz1, rad);
+        map.GetOpenGLCoord(states[a].x, states[a].y, states[a].z, xx2, yy2, zz2, rad);
+glBegin(GL_LINES);
+        glVertex3f(xx1, yy1, zz1-rad/2);
+        glVertex3f(xx2, yy2, zz2-rad/2);
+        glEnd();
+
+      }
+    }
     double maxDistanceSq;
+    virtual GroupConflictDetector<State>* clone(){return new AnyLOS(*this);}
 };
 
 template<typename State, typename Action>
