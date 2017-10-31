@@ -174,8 +174,8 @@ class AnyLOS: public GroupConflictDetector<State> {
     // Assume a violation until we find one in the set that is within line of sight (if none are found, a violation has occurred)
     inline virtual bool HasConflict(std::vector<std::pair<State,State>> const& states)const{
       bool violation(true);
-      for(int i(0); i<states.size(); ++i){
-        if(i!=this->agent1 && fgreater(maxDistanceSq,distanceSquared(states[this->agent1].first,states[this->agent1].second,states[i].first,states[i].second))){
+      for(auto const& i:this->agentNumbers){
+        if(fgreater(maxDistanceSq,distanceSquared(states[this->agent1].first,states[this->agent1].second,states[i].first,states[i].second))){
           return false;
         }
       }
