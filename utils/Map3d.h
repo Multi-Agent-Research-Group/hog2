@@ -72,8 +72,8 @@ class Map3D : public MapInterface{
   void doNormal(float x1, float y1, float z1,float x2, float y2, float z2,float x3, float y3, float z3) const;
   void OpenGLDraw() const;
   void setColor(int x, int y) const;
-  bool GetOpenGLCoord(int _x, int _y, int _z, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const;
-  bool GetOpenGLCoord(int _x, int _y, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const{return GetOpenGLCoord(_x,_y,0,x,y,z,radius);}
+  bool GetOpenGLCoord(float _x, float _y, float _z, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const;
+  bool GetOpenGLCoord(float _x, float _y, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const{return GetOpenGLCoord(_x,_y,0,x,y,z,radius);}
   bool LineOfSight2D(int x, int y, int _x, int _y, AgentType agentType) const;
   bool LineOfSight(int x, int y, int z, int _x, int _y, int _z) const;
   void SetGrid(int x, int y, uint8_t elevation, tTerrain terrain){type[x][y]=terrain;elev[x][y]=std::min(maxDepth,elevation);}

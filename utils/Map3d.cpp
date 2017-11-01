@@ -219,47 +219,236 @@ void Map3D::OpenGLDraw() const
 
     GLdouble xx, yy, zz, rr;
     glBegin(GL_TRIANGLES);
-    glColor3f(0.5, 0.5, 0.5);
     for(int y = 0; y < height; y++)
     {
       setColor(0, y);
       GetOpenGLCoord(0, y, elev[0][y], xx, yy, zz, rr);
-      doNormal(xx-rr, yy-rr, 0,xx-rr, yy+rr, 0,xx+rr, yy-rr, 0);
-      glVertex3f(xx-rr, yy-rr, 0);
-      glVertex3f(xx-rr, yy+rr, 0);
-      glVertex3f(xx+rr, yy-rr, y?elev[0][y-1]*-rr:0.0f);
 
-      doNormal(xx+rr, yy-rr, 0,xx+rr, yy+rr, elev[0][y]*-rr,xx-rr, yy+rr, 0);
-      glVertex3f(xx+rr, yy-rr, y?elev[0][y-1]*-rr:0.0f);
-      glVertex3f(xx+rr, yy+rr, elev[0][y]*-rr);
-      glVertex3f(xx-rr, yy+rr, 0);
+      GLdouble x1(xx-rr);
+      GLdouble x2(xx+rr);
+      GLdouble y1(yy-rr);
+      GLdouble y2(yy+rr);
+      GLdouble z11(0);
+      GLdouble z12(0);
+      GLdouble z21(y?elev[0][y-1]*-rr:0);
+      GLdouble z22(elev[0][y]*-rr);
+      GLdouble z11n(0);
+      GLdouble z12n(0);
+      GLdouble z21n(y?elev[0][y-1]*-rr:0);
+      GLdouble z22n(elev[0][y]*-rr);
+      
+        doNormal(x1,y1,z11n, x1,y2,z12n, x2,y1,z21n);
+        glVertex3f(x1, y1, z11n);
+        glVertex3f(x1, y2, z12n);
+        glVertex3f(x2, y1, z21n);
+
+        doNormal(x2,y1,z21n, x2,y2,z22n, x1,y2,z12n);
+        glVertex3f(x2, y1, z21n);
+        glVertex3f(x2, y2, z22n);
+        glVertex3f(x1, y2, z12n);
+
+      /*if(z21||z22){
+        // Level change
+
+        // Make a west vertical edge
+        doNormal(x1,y1,z11, x1,y2,z12, x1,y1,z21);
+        glVertex3f(x1, y1, z11);
+        glVertex3f(x1, y1, z21);
+        glVertex3f(x1, y2, z12);
+
+        doNormal(x1,y1,z11, x1,y2,z12, x1,y2,z22);
+        glVertex3f(x1, y1, z21);
+        glVertex3f(x1, y2, z12);
+        glVertex3f(x1, y2, z22);
+
+        // Make the surface
+        doNormal(x1,y1,z21, x1,y2,z22, x2,y1,z21);
+        glVertex3f(x1, y1, z21);
+        glVertex3f(x1, y2, z22);
+        glVertex3f(x2, y1, z21);
+
+        doNormal(x2,y1,z21, x2,y2,z22, x1,y2,z22);
+        glVertex3f(x2, y1, z21);
+        glVertex3f(x2, y2, z22);
+        glVertex3f(x1, y2, z22);
+      }else{
+        // All on a level
+        doNormal(x1,y1,z11, x1,y2,z12, x2,y1,z21);
+        glVertex3f(x1, y1, z11);
+        glVertex3f(x1, y2, z12);
+        glVertex3f(x2, y1, z21);
+
+        doNormal(x2,y1,z21, x2,y2,z22, x1,y2,z12);
+        glVertex3f(x2, y1, z21);
+        glVertex3f(x2, y2, z22);
+        glVertex3f(x1, y2, z12);
+      }
+      if(y==0){
+        // Make a north vertical edge
+        doNormal(x1,y1,z11, x2,y1,z21, x1,y1,z12);
+        glVertex3f(x1, y1, z11);
+        glVertex3f(x2, y1, z11);
+        glVertex3f(x1, y1, z12);
+        
+        doNormal(x1,y1,z12, x2,y1,z22, x2,y1,z21);
+        glVertex3f(x1, y1, z12);
+        glVertex3f(x2, y1, z22);
+        glVertex3f(x2, y1, z21);
+      }*/
 
       for(int x = 1; x < width; x++)
       {
         setColor(x, y);
         GetOpenGLCoord(x, y, elev[x][y], xx, yy, zz, rr);
-        doNormal(xx-rr, yy-rr, elev[x-1][y-1]*-rr, xx-rr, yy+rr, elev[x-1][y]*-rr, xx+rr, yy-rr, elev[x][y-1]*-rr);
-        glVertex3f(xx-rr, yy-rr, elev[x-1][y-1]*-rr);
-        glVertex3f(xx-rr, yy+rr, elev[x-1][y]*-rr);
-        glVertex3f(xx+rr, yy-rr, elev[x][y-1]*-rr);
+        x1=xx-rr;
+        x2=xx+rr;
+        y1=yy-rr;
+        y2=yy+rr;
+        z11n=z11=y?elev[x-1][y-1]*-rr:0;
+        z12n=z12=elev[x-1][y]*-rr;
+        z21n=z21=y?elev[x][y-1]*-rr:0;
+        z22n=z22=elev[x][y]*-rr;
 
-        GetOpenGLCoord(x, y, elev[x][y], xx, yy, zz, rr);
-        doNormal(xx+rr, yy-rr, elev[x][y-1]*-rr, xx+rr, yy+rr, elev[x][y]*-rr, xx-rr, yy+rr, elev[x-1][y]*-rr);
-        glVertex3f(xx+rr, yy-rr, elev[x][y-1]*-rr);
-        glVertex3f(xx+rr, yy+rr, elev[x][y]*-rr);
-        glVertex3f(xx-rr, yy+rr, elev[x-1][y]*-rr);
+        /*if(!z11&&z22){
+          if(z12){ // y rises
+            if(z21){ // x rises
+              z11n=(z21n+z12n)/2.0;
+              z12n=z22;
+              // Make a west vertical edge
+              doNormal(x1,y1,0, x1,y2,z12n, x1,y1,z11n);
+              glVertex3f(x1, y1, 0);
+              glVertex3f(x1, y2, z12n);
+              glVertex3f(x1, y1, z11n);
+            }
+              if(!z11n)z11n=z12;
+              // Make a north vertical edge
+              doNormal(x1,y1,0, x2,y1,z21n, x1,y1,z11n);
+              glVertex3f(x1, y1, 0);
+              glVertex3f(x2, y1, z21n);
+              glVertex3f(x1, y1, z11n);
+          }else if(z21){ // x rises
+            z11n=z21;
+            z12n=z22;
+            // Make a west vertical edge
+            doNormal(x1,y1,0, x1,y2,z12n, x1,y1,z11n);
+            glVertex3f(x1, y1, 0);
+            glVertex3f(x1, y2, z12n);
+            glVertex3f(x1, y1, z11n);
+          }
+        }*/
+
+        if(z11){
+          if(!z12&&z21){
+            // Make a south vertical edge
+            doNormal(x1,y1,z11n, x2,y1,z21n, x1,y1,0);
+            glVertex3f(x1, y1, z11n);
+            glVertex3f(x2, y1, z21n);
+            glVertex3f(x1, y1, 0);
+            z11n=0;
+          }else if(!z21){
+            // Make a east vertical edge
+            if(z12n){
+            doNormal(x1,y1,z11n, x1,y2,z12n, x1,y1,0);
+            glVertex3f(x1, y1, z11n);
+            glVertex3f(x1, y2, z12n);
+            glVertex3f(x1, y1, 0);
+            }
+            z11n=0;
+          }
+        }
+        if(!z22){
+          if(z21){
+            if(z12){
+              // Make a east vertical edge
+              doNormal(x1,y1,z11n, x1,y2,z12n, x1,y2,0);
+              glVertex3f(x1, y1, z11n);
+              glVertex3f(x1, y2, z12n);
+              glVertex3f(x1, y2, 0);
+              z12n=0;
+            }
+            // Make a south vertical edge
+            doNormal(x1,y1,z11n, x2,y1,z21n, x2,y1,z22n);
+            glVertex3f(x1, y1, z11n);
+            glVertex3f(x2, y1, z21n);
+            glVertex3f(x2, y1, z22n);
+            z21n=0;
+          }else if(z12){
+            // Make a east vertical edge
+            doNormal(x1,y1,z11n, x1,y2,z12n, x1,y2,z22n);
+            glVertex3f(x1, y1, z21n);
+            glVertex3f(x1, y2, z12n);
+            glVertex3f(x1, y2, z22n);
+            z12n=0;
+          }
+        }
+
+        if(z11&&!z12&&!z21&&!z22&&type[x-1][y]!=kGround){
+          doNormal(x1,y1,z11, x1,y1,0, x1,y2,0);
+          glVertex3f(x1, y1, z11);
+          glVertex3f(x1, y1, 0);
+          glVertex3f(x1, y2, 0);
+        }
+
+/*
+        if(!z21 && z22){
+          z21n=z22;
+          // Make a north vertical edge
+          doNormal(x1,y1,z11n, x2,y1,z21n, x2,y1,0);
+          glVertex3f(x1, y1, z11n);
+          glVertex3f(x2, y1, z21n);
+          glVertex3f(x2, y1, 0);
+        }
+
+        if(!z12 && z22){
+          z12n=z22;
+          // Make a west vertical edge
+          doNormal(x1,y1,0, x1,y2,0, x1,y2,z12n);
+          glVertex3f(x1, y1, 0);
+          glVertex3f(x1, y2, 0);
+          glVertex3f(x1, y2, z12n);
+        }
+*/
+        doNormal(x1,y1,z11n, x1,y2,z12n, x2,y1,z21n);
+        glVertex3f(x1, y1, z11n);
+        glVertex3f(x1, y2, z12n);
+        glVertex3f(x2, y1, z21n);
+
+        doNormal(x2,y1,z21n, x2,y2,z22n, x1,y2,z12n);
+        glVertex3f(x2, y1, z21n);
+        glVertex3f(x2, y2, z22n);
+        glVertex3f(x1, y2, z12n);
       }
-      setColor(width-1, y);
-      GetOpenGLCoord(width-1, y, elev[width-1][y], xx, yy, zz, rr);
-      doNormal(xx-rr, yy-rr, elev[width-1][y]*-rr, xx-rr, yy+rr, 0, xx+rr, yy-rr, 0);
-      glVertex3f(xx-rr, yy-rr, elev[width-1][y]*-rr);
-      glVertex3f(xx-rr, yy+rr, y<height-1?elev[width-1][y+1]*-rr:0.0f);
-      glVertex3f(xx+rr, yy-rr, 0);
+      /*setColor(width-1, y);
+        GetOpenGLCoord(width-1, y, elev[width-1][y], xx, yy, zz, rr);
+        x1=xx-rr;
+        x2=xx+rr;
+        y1=yy-rr;
+        y2=yy+rr;
+        z11=elev[x-1][y-1]*-rr;
+        z12=elev[x-1][y]*-rr;
+        z21=elev[x][y-1]*-rr;
+        z22=elev[x][y]*-rr;
 
-      doNormal(xx+rr, yy-rr, 0, xx+rr, yy+rr, 0, xx-rr, yy+rr, 0);
-      glVertex3f(xx+rr, yy-rr, 0);
-      glVertex3f(xx+rr, yy+rr, 0);
-      glVertex3f(xx-rr, yy+rr, y<height-1?elev[width-1][y+1]*-rr:0.0f);
+        doNormal(x1,y1,z11, x1,y2,z12, x2,y1,z21);
+        glVertex3f(x1, y1, z11);
+        glVertex3f(x1, y2, z12);
+        glVertex3f(x2, y1, z21);
+
+        doNormal(x2,y1,z21, x2,y2,z22, x1,y2,z12);
+        glVertex3f(x2, y1, z21);
+        glVertex3f(x2, y2, z22);
+        glVertex3f(x1, y2, z12);
+
+        doNormal(xx-rr, yy-rr, elev[width-1][y]*-rr, xx-rr, yy+rr, 0, xx+rr, yy-rr, 0);
+        glVertex3f(xx-rr, yy-rr, elev[width-1][y]*-rr);
+        glVertex3f(xx-rr, yy+rr, y<height-1?elev[width-1][y+1]*-rr:0.0f);
+        glVertex3f(xx+rr, yy-rr, 0);
+
+        doNormal(xx+rr, yy-rr, 0, xx+rr, yy+rr, 0, xx-rr, yy+rr, 0);
+        glVertex3f(xx+rr, yy-rr, 0);
+        glVertex3f(xx+rr, yy+rr, 0);
+        glVertex3f(xx-rr, yy+rr, y<height-1?elev[width-1][y+1]*-rr:0.0f);
+       */
     }
     glEnd();
     glEndList();
@@ -273,7 +462,7 @@ void Map3D::OpenGLDraw() const
  * that tile along with the radius of the tile square. The map is drawn in the
  * x<->z plane, with the y plane up.
  */
-bool Map3D::GetOpenGLCoord(int _x, int _y, int _z, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const
+bool Map3D::GetOpenGLCoord(float _x, float _y, float _z, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const
 {
   if (_x >= width || _y >= height || _z>= depth)return false;
   if (_x <0 || _y <0 || _z<0)return false;
