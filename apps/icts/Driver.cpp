@@ -88,6 +88,9 @@ double frameIncrement = 1.0/10000.0;
 bool paused = false;
 bool gui=true;
 uint64_t jointnodes(0);
+uint64_t branchingfactor(0);
+uint64_t largestbranch(0);
+float largestJoint(0);
 uint32_t step(INFLATION);
 int n(0);
 std::unordered_map<std::string,bool> transTable;
@@ -239,14 +242,12 @@ struct Node : public Hashable{
         static uint64_t count;
 
 	Node(){count++;}
-	Node(xyLoc a, uint32_t d):n(a),depth(d),id(0),optimal(false),unified(false),nogood(false){count++;}
+	Node(xyLoc a, uint32_t d):n(a),depth(d),id(0),optimal(false){count++;}
 	//Node(xyLoc a, float d):n(a),depth(d*INFLATION),optimal(false),unified(false),nogood(false){count++;}
 	xyLoc n;
 	uint32_t depth;
 	uint32_t id;
         bool optimal;
-        bool unified;
-        bool nogood;
         //bool connected()const{return parents.size()+successors.size();}
 	//std::unordered_set<Node*> parents;
 	std::unordered_set<Node*> successors;
@@ -596,7 +597,7 @@ bool jointDFS2(MultiEdge const& r, uint32_t d, Solution solution, std::vector<So
     uint32_t md(INF); // Min depth of successors
     //Add in successors for parents who are equal to the min
     for(auto const& a: s){
-      if(epp){
+      /*if(epp){
         if(a.second->nogood){
           if(verbose)std::cout << *a.second << " is no good.\n";
           return false; // If any  of these are "no good" just exit now
@@ -604,7 +605,7 @@ bool jointDFS2(MultiEdge const& r, uint32_t d, Solution solution, std::vector<So
           // The fact that we are evaluating this node means that all components were unified with something
           if(checkOnly)a.second->unified=true;
         }
-      }
+      }*/
       MultiEdge output;
       if(a.second->depth<=sd){
         //std::cout << "Keep Successors of " << *a.second << "\n";
@@ -830,11 +831,12 @@ bool jointDFS(MultiEdge const& s, uint32_t d, Solution solution, std::vector<Sol
     if(epp){
       //std::cout << "GOOD " << (good[k]->size()*64) << std::endl;
       if(!get(good[k]->data(),a.second->id)){
-        if(verbose)std::cout << *a.second << " is no good.\n";
+        std::cout << *a.second << " is no good.\n";
         return false; // If any  of these are "no good" just exit now
       }else{
         // The fact that we are evaluating this node means that all components were unified with something
         if(checkOnly)set(unified[k].data(),a.second->id);
+        //std::cout << ".";
         //if(checkOnly)a.second->unified=true;
       }
     }
@@ -873,6 +875,10 @@ bool jointDFS(MultiEdge const& s, uint32_t d, Solution solution, std::vector<Sol
   std::vector<MultiEdge> crossProduct;
   MultiEdge tmp;
   generatePermutations(successors,crossProduct,0,tmp,sd);
+  if(crossProduct.size()){
+    branchingfactor+=crossProduct.size();
+    largestbranch=std::max(largestbranch,crossProduct.size());
+  }
   bool value(false);
   for(auto& a: crossProduct){
     if(verbose)std::cout << "EVAL " << s << "-->" << a << "\n";
@@ -1027,32 +1033,6 @@ struct ICTSNode{
   std::vector<int> replanned; // Set of nodes that was just re-planned
 
   // Set all nodes that were never unified as "no good"
-  void resetNoGoods(Node* root){
-    if(!epp)return;
-    root->nogood=false;
-    root->unified=false;
-    for(auto& a:root->successors)
-      resetNoGoods(a);
-  }
-  void resetUnified(Node* root){
-    root->unified=false;
-    for(auto& a:root->successors)
-      resetUnified(a);
-  }
-  void setNoGoods(Node* root){
-    if(root->nogood)return;
-    root->nogood=!root->unified;
-    for(auto& a:root->successors)
-      setNoGoods(a);
-  }
-  void updateNoGoods(Node* root){
-    if(!epp)return;
-    Timer timer;
-    timer.StartTimer();
-    setNoGoods(root); // Set them all first
-    resetUnified(root); // Reset the unified flag
-    nogoodTime+=timer.EndTimer();
-  }
   bool isValid(std::vector<Solution>& answers){
     std::vector<std::vector<uint64_t>> goods(root.size());
     for(int i(0); i<root.size(); ++i){
@@ -1079,26 +1059,23 @@ struct ICTSNode{
           if(verbose)std::cout<<"pairwise for " << i << ","<<j<<"\n";
           if(!jointDFS(tmproot,answers,toDeleteTmp,INF,tmpgood,unified,true,true)){
             if(verbose)std::cout << "Pairwise failed\n";
-            //clearNoGoods();
-            // Reset the MDDs
-            //if(epp){
-            //Timer timer;
-            //timer.StartTimer();
-            //for(int k(0); k<root.size(); ++k){
-            //resetNoGoods(root[k]);
-            //}
-            //nogoodTime+=timer.EndTimer();
-            //}
             return false;
           }
           // Perform a bitwise "and", to filter out nodes that were not unified
-          std::cout << "Update nogoods for " << i <<":"<<dag[i].size() << "," << j <<":"<<dag[j].size()<< "\n";
-          for(int k(0); k<goods[i].size(); ++k){
-            goods[i][k]&=unified[0][k];
-          }
-          for(int k(0); k<goods[j].size(); ++k){
-            goods[j][k]&=unified[1][k];
-          }
+          //std::cout << "Update nogoods for " << i <<":"<<dag[i].size() << "," << j <<":"<<dag[j].size()<< "\n";
+          //int sum(0);
+          //int sum2(0);
+          //for(int k(0); k<goods[i].size(); ++k){
+            //goods[i][k]&=unified[0][k];
+            //sum+= __builtin_popcount(unified[0][k]);
+            //sum2+= __builtin_popcount(goods[i][k]);
+          //}
+          //std::cout << sum << " of " << dagsize[i] << " nodes were unified for MDD " << i << "\n";
+          //std::cout << sum2 << " of " << dagsize[i] << " nodes are still good for MDD " << i << "\n";
+          //std::cout << (dagsize[i]-sum2) << " ==? " << sum  << "=" << ((dagsize[i]-sum2)-sum) << " diff\n";
+          //for(int k(0); k<goods[j].size(); ++k){
+            //goods[j][k]&=unified[1][k];
+          //}
         }
       }
       pairwiseTime+=timer.EndTimer();
@@ -1129,22 +1106,11 @@ struct ICTSNode{
           if(verify&&!checkAnswer(answers[num]))std::cout<< "Failed in ICT node\n";
         }
       }
-      //clearNoGoods();
       if(verbose)std::cout << "Full check passed\n";
       return true;
     }
-    // Reset the MDDs
-    //if(epp){
-      //Timer timer;
-      //timer.StartTimer();
-      //for(int i(0); i<root.size(); ++i){
-        //resetNoGoods(root[i]);
-      //}
-      //nogoodTime=timer.EndTimer();
-    //}
     
     if(verbose)std::cout << "Full check failed\n";
-    //clearNoGoods();
     return false;
   }
 
@@ -1237,7 +1203,7 @@ bool detectIndependence(Solution& solution, std::vector<Group*>& group, std::uno
 }
 
 Solution solution;
-uint32_t total(0.0);
+double total(0.0);
 uint32_t nacts(0.0);
 int failed(0);
 uint32_t cost(0);
@@ -1276,11 +1242,12 @@ void printResults(){
     if(!checkAnswer(solution)) std::cout << "INVALID!\n";
     else if(!quiet) std::cout << "VALID\n";
   }
+  
   //std::cout << elapsed << " elapsed";
   //std::cout << std::endl;
   //total += elapsed;
-  if(!quiet)std::cout << "seed:filepath,Connectedness,ICTSNode::count,jointnodes,Node::count,maxnagents,minsingle,maxsingle,minjoint,maxjoint,total,mddTime,pairwiseTime,jointTime,nogoodTime,certifyTime,nacts,cost\n";
-  std::cout << seed << ":" << filepath << "," << int(env->GetConnectedness()) << "," << ICTSNode::count << "," << jointnodes << "," << Node::count << "," << maxnagents << "," << minsingle << "," << maxsingle << "," << minjoint << "," << maxjoint << "," << total << "," << mddTime << "," << pairwiseTime << "," << jointTime << "," << nogoodTime << "," << certifyTime << "," << nacts << "," << cost;
+  if(!quiet)std::cout << "seed:filepath,Connectedness,ICTSNode::count,jointnodes,largestJoint,largestbranch,branchingfactor,Node::count,maxnagents,minsingle,maxsingle,minjoint,maxjoint,total,mddTime,pairwiseTime,jointTime,nogoodTime,certifyTime,nacts,cost\n";
+  std::cout << seed << ":" << filepath << "," << int(env->GetConnectedness()) << "," << ICTSNode::count << "," << jointnodes << "," <<largestJoint << "," << largestbranch << "," << branchingfactor << " " <<(double(branchingfactor)/double(jointnodes)) << "," << Node::count << "," << maxnagents << "," << minsingle << "," << maxsingle << "," << minjoint << "," << maxjoint << "," << total << "," << mddTime << "," << pairwiseTime << "," << jointTime << "," << nogoodTime << "," << certifyTime << "," << nacts << "," << cost;
   if(total >= killtime)std::cout << " failure";
   std::cout << std::endl;
   if(total>=killtime)exit(1);
@@ -1653,9 +1620,7 @@ int main(int argc, char ** argv){
       }
     }
 
-    for(auto y:groups){
-      //delete y;
-    }
+    largestJoint = float(n)/float(groups.size());
 
   }
   printResults();
@@ -1822,10 +1787,10 @@ int MyCLHandler(char *argument[], int maxNumArgs)
   }
   if(strcmp(argument[0], "-scenfile") == 0)
   {
-    if(n==0){
-      std::cout<<"-nagents must be specified before -scenfile\n";
-      exit(1);
-    }
+    //if(n==0){
+      //std::cout<<"-nagents must be specified before -scenfile\n";
+      //exit(1);
+    //}
     ScenarioLoader sl(argument[1]);
     if(sl.GetNumExperiments()==0)
     {
@@ -1836,11 +1801,13 @@ int MyCLHandler(char *argument[], int maxNumArgs)
     mapfile=sl.GetNthExperiment(0).GetMapName();
     mapfile.insert(0,pathprefix); // Add prefix
 
+    n=sl.GetNumExperiments();
     for(int i(0); i<n; ++i){
       // Add start/goal location
       std::vector<xyLoc> wpts;
-      Experiment e(sl.GetRandomExperiment());
-      while(true){
+      ///Experiment e(sl.GetRandomExperiment());
+      Experiment e(sl.GetNthExperiment(i));
+      while(false){
         bool bad(false);
         for(auto const& w:waypoints){
           if((e.GetStartX()==w[0].x && e.GetStartY()==w[0].y) || (e.GetGoalX()==w[1].x && e.GetGoalY()==w[1].y)){
