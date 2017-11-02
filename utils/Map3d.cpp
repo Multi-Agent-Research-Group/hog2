@@ -90,6 +90,7 @@ void Map3D::Load(const char *filename, const char *dtedfile)
   FILE *f(fopen(filename, "r"));
   char format[32];
   int num = fscanf(f, "type %s\nheight %d\nwidth %d\nmap\n", format, &height, &width);
+  std::string fmt(format);
 
   float** elevation = new float*[width];
   for(int i = 0; i <width; i++){
@@ -97,11 +98,23 @@ void Map3D::Load(const char *filename, const char *dtedfile)
     memset(elevation[i],0,height); // Set to zero for now...
   }
 
-  if(!readdted1(dtedfile,elevation,width,height,0,0,depth)){
+  if(!readdted1(dtedfile,elevation,width,height,0,0,depth-2)){
     printf("Dted not loaded\n");
   }
 
-  if(num == 3){
+
+  if(num == 3 && fmt == "octile"){
+    loadOctile(f,elevation);
+  }else if(num == 3 && fmt == "octile-corner"){
+    for (int y = 0; y < height; y++)
+    {
+      for (int x = 0; x < width; x++)
+      {
+        char what;
+        fscanf(f, "%c", &what);
+      }
+      fscanf(f, "\n");
+    }
     loadOctile(f,elevation);
   }else{
     printf("Unknown map type; aborting load!\n");
