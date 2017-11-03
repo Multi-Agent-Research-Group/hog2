@@ -155,7 +155,7 @@ public:
           d2.y-=s2.y-1;
           s2.x-=s1.x-1;
           s2.y-=s1.y-1;
-          return d1.y*3+d1.x + 9*(s2.y*5+s2.x) + 81*(d2.y*5+d2.x);
+          return d1.y*3+d1.x + 9*(s2.y*3+s2.x) + 81*(d2.y*3+d2.x);
         }
 
         static inline unsigned index25(xyLoc const& s1, xyLoc d1, xyLoc s2, xyLoc d2){
@@ -200,7 +200,7 @@ public:
         static unsigned bitarray49r_25[49*49*49/WORD_BITS+1];
 
         static inline bool get(unsigned* bitarray, size_t idx) {
-        return bitarray[idx / WORD_BITS] | (1 << (idx % WORD_BITS));
+        return bitarray[idx / WORD_BITS] & (1 << (idx % WORD_BITS));
         }
 
         static inline void set(unsigned* bitarray, size_t idx) {

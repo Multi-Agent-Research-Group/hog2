@@ -74,8 +74,10 @@ class Vector2D {
       return Vector2D(v1.x + v2.x, v1.y + v2.y);
     }
 
+    inline void operator +=(double s) { x +=s; y +=s; }
     inline void operator +=(const Vector2D& v2) { x +=v2.x; y +=v2.y; }
     inline void operator *=(double s) { x*=s; y*=s; }
+    inline void operator *=(Vector2D const& s) { x*=s.x; y*=s.y; }
     inline void operator /=(double s) { x/=s; y/=s; }
 
     //                                                //private:

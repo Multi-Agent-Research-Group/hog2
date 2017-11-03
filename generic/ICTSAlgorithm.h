@@ -173,7 +173,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
     }
 
     static inline bool get(uint64_t* bitarray, size_t idx) {
-      return bitarray[idx / 64] | (1 << (idx % 64));
+      return bitarray[idx / 64] & (1 << (idx % 64));
     }
     static inline void set(uint64_t* bitarray, size_t idx) {
       bitarray[idx / 64] |= (1 << (idx % 64));

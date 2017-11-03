@@ -29,7 +29,7 @@ double Util::linesIntersect(Vector2D const& A1, Vector2D const& A2, Vector2D con
 
   double f(det(a,b));
   if(!f)      // lines are parallel
-    return false;
+    return A1==B1||A1==B2||A2==B1||A2==B2?true:false;
 
   Vector2D c(B2-A2);
   double aa(det(a,c));
@@ -71,16 +71,20 @@ bool Util::fatLinesIntersect(Vector2D const& A1, Vector2D const& A2, double r1, 
 
   Vector2D NA(normal(A1,A2)*r1); // Normal of line from A1 to A2 
   Vector2D NB(normal(B1,B2)*r2); // Normal of line from B1 to B2 
+  NA.Normalize();
+  NA*=r1;
+  NB.Normalize();
+  NB*=r2;
 
   // If A and B are parallel, then we can just check the distance
   double r(r1+r2);
   if((NA==NB || NA==-NB) && fless(distanceOfPointToLine(A1,A2,B1),r)){return true;}
 
   // Project along normal in both directions
-  Vector2D A11(A1+NB);
-  Vector2D A21(A2+NB);
-  Vector2D A12(A1-NB);
-  Vector2D A22(A2-NB);
+  Vector2D A11(A1+NA);
+  Vector2D A21(A2+NA);
+  Vector2D A12(A1-NA);
+  Vector2D A22(A2-NA);
 
   Vector2D B11(B1+NB);
   Vector2D B21(B2+NB);

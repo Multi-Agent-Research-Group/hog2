@@ -101,10 +101,23 @@ inline double steps2Rad(signed steps){return steps/double(steps360)*360.*M_PI/18
 template<unsigned steps360>
 inline double steps2deg(signed steps){return steps/double(steps360)*360.;}
 
-inline double distanceOfPointToLine(Vector2D const& a, Vector2D const& b, Vector2D const& x){
-  double dy(a.y-b.y);
-  double dx(a.x-b.x);
-  return fabs(dy*x.x-dx-x.y+a.x*b.y-a.y*b.x)/sqrt(dy*dy+dx*dx);
+inline double distanceOfPointToLine(Vector2D v, Vector2D w, Vector2D const& p){
+  const double l2((v-w).sq());  // i.e. |w-v|^2 -  avoid a sqrt
+  if (fequal(l2,0.0)) return distance(p, v);   // v == w case
+  // Consider the line extending the segment, parameterized as v + t (w - v).
+  // We find projection of point p onto the line. 
+  // It falls where t = [(p-v) . (w-v)] / |w-v|^2
+  // We clamp t from [0,1] to handle points outside the segment vw.
+  const double t(max(0.0, min(1.0, ((p - v)*(w - v)) / l2)));
+  //const double T(((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2);
+  //const Vector2D projection((v + t) * (w - v));  // Projection falls on the segment
+  w-=v;
+  w*=t;
+  v+=w; // piecewise multiply
+  return distance(p, v);
+  //double dy(a.y-b.y);
+  //double dx(a.x-b.x);
+  //return fabs(dy*x.x-dx-x.y+a.x*b.y-a.y*b.x)/sqrt(dy*dy+dx*dx);
 }
 
 // Get the coordinates of a secant line cut by a circle at center c with radius r

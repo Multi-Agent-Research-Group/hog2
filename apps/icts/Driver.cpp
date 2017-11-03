@@ -24,6 +24,7 @@
 #include "Driver.h"
 #include <memory>
 #include <iostream>
+#include <bitset>
 #include <iomanip>
 #include <unordered_set>
 #include <set>
@@ -254,7 +255,7 @@ struct Node : public Hashable{
 	virtual uint64_t Hash()const{return (env->GetStateHash(n)<<32) | depth;}
 	virtual uint32_t Depth()const{return depth; }
         virtual void Print(std::ostream& ss, int d=0) const {
-          ss << std::string(d,' ')<<n << "_" << depth << std::endl;
+          ss << std::string(d,' ')<<n << "_" << depth<<":"<<id << std::endl;
           for(auto const& m: successors)
             m->Print(ss,d+1);
         }
@@ -298,11 +299,11 @@ std::unordered_map<uint64_t,uint32_t> mscache;
   }
 };*/
 
-static inline bool get(uint64_t* bitarray, size_t idx) {
-  return bitarray[idx / 64] | (1 << (idx % 64));
+static inline bool get(uint64_t const* bitarray, uint64_t idx) {
+  return bitarray[idx / 64] & (1UL << (idx % 64));
 }
-static inline void set(uint64_t* bitarray, size_t idx) {
-  bitarray[idx / 64] |= (1 << (idx % 64));
+static inline void set(uint64_t* bitarray, uint64_t idx) {
+  bitarray[idx / 64] |= (1UL << (idx % 64));
 }
 
 
@@ -319,14 +320,14 @@ std::ostream& operator << (std::ostream& ss, Group const* n){
 std::ostream& operator << (std::ostream& ss, MultiState const& n){
   int i(0);
   for(auto const& a: n)
-    ss << " "<<++i<<"." << a->n << "@" << a->depth;
+    ss << " "<<++i<<"." << a->n << "@" << a->depth << ":" << a->id;
   return ss;
 }
 
 std::ostream& operator << (std::ostream& ss, MultiEdge const& n){
   int i(0);
   for(auto const& a: n)
-    ss << " "<<++i<<"." << a.second->n << "@" << a.second->depth;
+    ss << " "<<++i<<"." << a.second->n << "@" << a.second->depth << ":" << a.second->id;
   ss << std::endl;
   /*
   for(auto const& m:n.successors)
@@ -338,7 +339,7 @@ std::ostream& operator << (std::ostream& ss, MultiEdge const& n){
 
 std::ostream& operator << (std::ostream& ss, Node const& n){
   //ss << n.n.x-10 << "," << n.n.y-10 << "," << float(n.depth)/1000.;
-  ss << n.n.x << "," << n.n.y << "," << float(n.depth)/1000.;
+  ss << n.n.x << "," << n.n.y << "," << float(n.depth)/1000.<<":"<<n.id;
   return ss;
 }
 
@@ -391,7 +392,7 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, uin
   if(env->GoalTest(start,end)){
     singleTransTable[hash]=true;
       //std::cout << n<<"\n";
-    n.id=dag.size();
+    n.id=dag.size()+1;
     dag[hash]=n;
     // This may happen if the agent starts at the goal
     if(maxDepth-depth<=0){
@@ -406,7 +407,7 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, uin
       Node current(start,(d+=INFLATION));
       uint64_t chash(current.Hash());
       //std::cout << current<<"\n";
-      current.id=dag.size();
+      current.id=dag.size()+1;
       dag[chash]=current;
       if(verbose)std::cout << "inserting " << dag[chash] << " " << &dag[chash] << "under " << *parent << "\n";
       parent->successors.insert(&dag[chash]);
@@ -436,7 +437,7 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, uin
       if(dag.find(hash)==dag.end()){
         //std::cout << n<<"\n";
 
-        n.id=dag.size();
+        n.id=dag.size()+1;
         dag[hash]=n;
         // This is the root if depth=0
         if(maxDepth-depth<=0){
@@ -828,24 +829,30 @@ bool jointDFS(MultiEdge const& s, uint32_t d, Solution solution, std::vector<Sol
   //Add in successors for parents who are equal to the min
   k=0;
   for(auto const& a: s){
-    if(epp){
+    //if(epp){
       //std::cout << "GOOD " << (good[k]->size()*64) << std::endl;
-      if(!get(good[k]->data(),a.second->id)){
-        std::cout << *a.second << " is no good.\n";
-        return false; // If any  of these are "no good" just exit now
-      }else{
+      //if(!get(good[k]->data(),a.second->id)){
+        //std::cout << *a.second << " is NO GOOD1.\n";
+        //return false; // If any  of these are "no good" just exit now
+      //}//else{
         // The fact that we are evaluating this node means that all components were unified with something
-        if(checkOnly)set(unified[k].data(),a.second->id);
+        //if(checkOnly)std::cout << "unified ("<<k<<")" << *a.second << "\n";
+        //if(checkOnly)set(unified[k].data(),a.second->id);
+        //if(checkOnly)std::cout << std::bitset<64>(unified[k][0]) << "\n";
         //std::cout << ".";
         //if(checkOnly)a.second->unified=true;
-      }
-    }
+      //}
+    //}
     MultiEdge output;
     if(a.second->depth<=sd){
       //std::cout << "Keep Successors of " << *a.second << "\n";
       for(auto const& b: a.second->successors){
-          output.emplace_back(a.second,b);
-          md=min(md,b->depth);
+        if(epp&&!get(good[k]->data(),b->id)){
+          //std::cout << *b << " is NO GOOD2.\n";
+          continue;
+        }
+        output.emplace_back(a.second,b);
+        md=min(md,b->depth);
       }
     }else{
       //std::cout << "Keep Just " << *a.second << "\n";
@@ -881,6 +888,9 @@ bool jointDFS(MultiEdge const& s, uint32_t d, Solution solution, std::vector<Sol
   }
   bool value(false);
   for(auto& a: crossProduct){
+    if(epp&&checkOnly)for(int k(0); k<a.size(); ++k){
+      set(unified[k].data(),a[k].second->id);
+    }
     if(verbose)std::cout << "EVAL " << s << "-->" << a << "\n";
     if(jointDFS(a,md,solution,solutions,toDelete,best,bestSeen,good,unified,recursions+1,suboptimal,checkOnly)){
       maxjoint=std::max(recursions,maxjoint);
@@ -1001,9 +1011,9 @@ struct ICTSNode{
       timer.StartTimer();
       GetMDD(i,ids[i],instance.first[i],instance.second[i],dag[i],root,(int)(heuristics[ids[i]]->HCost(instance.first[i],instance.second[i])*INFLATION)+(int)(sizes[i]),best[i],dagsize[i]);
       mddTime+=timer.EndTimer();
-      bestSeen=std::accumulate(best.begin(),best.end(),0.0f);
       //if(verbose)std::cout << i << ":\n" << root[i] << "\n";
     }
+    bestSeen=std::accumulate(best.begin(),best.end(),0.0f);
   }
 
   ~ICTSNode(){for(auto d:toDelete){delete d;}}
@@ -1032,11 +1042,20 @@ struct ICTSNode{
   static bool epsilon;
   std::vector<int> replanned; // Set of nodes that was just re-planned
 
+  void printUnificationStatus(Node* root, std::vector<uint64_t> const& unified, int d=0){
+    std::cout << std::string(d,' ');
+    std::cout << *root;
+    if(!get(unified.data(),root->id)) std::cout <<"*";
+    std::cout <<"\n";
+    for(auto const& s:root->successors){
+      printUnificationStatus(s,unified,d+1);
+    }
+  }
   // Set all nodes that were never unified as "no good"
-  bool isValid(std::vector<Solution>& answers){
+  bool isValid(std::vector<Solution>& answers,std::vector<unsigned>& cardinal){
     std::vector<std::vector<uint64_t>> goods(root.size());
     for(int i(0); i<root.size(); ++i){
-      goods[i]=std::vector<uint64_t>(dagsize[i]/64+1,0xffffffffffffffff); // All "good"
+      goods[i]=std::vector<uint64_t>((dagsize[i]+1)/64+1,0xffffffffffffffff); // All "good"
     }
     if(root.size()>2 && pairwise){
       Timer timer;
@@ -1052,30 +1071,57 @@ struct ICTSNode{
           std::vector<std::vector<uint64_t>> unified(2);
           unified[0]=std::vector<uint64_t>(goods[i].size()); // All false
           unified[1]=std::vector<uint64_t>(goods[j].size());
+          set(unified[0].data(),0); // Default to true for first bit
+          set(unified[1].data(),0); // Default to true for first bit
+          set(unified[0].data(),root[i]->id);
+          set(unified[1].data(),root[j]->id);
           std::vector<std::vector<uint64_t>*> tmpgood(2);
           tmpgood[0]=&goods[i];
           tmpgood[1]=&goods[j];
           // This is a satisficing search, thus we only need do a sub-optimal check
-          if(verbose)std::cout<<"pairwise for " << i << ","<<j<<"\n";
+          if(!quiet)std::cout<<"pairwise for " << i << ","<<j<<"\n";
           if(!jointDFS(tmproot,answers,toDeleteTmp,INF,tmpgood,unified,true,true)){
-            if(verbose)std::cout << "Pairwise failed\n";
+            if(!quiet)std::cout << "Pairwise failed\n";
+            cardinal.push_back(i);
+            cardinal.push_back(j);
             return false;
           }
+          //std::cout << i << "\n";
+          //printUnificationStatus(root[i],unified[0]);
+          //std::cout << j << "\n";
+          //printUnificationStatus(root[j],unified[1]);
           // Perform a bitwise "and", to filter out nodes that were not unified
           //std::cout << "Update nogoods for " << i <<":"<<dag[i].size() << "," << j <<":"<<dag[j].size()<< "\n";
           //int sum(0);
           //int sum2(0);
-          //for(int k(0); k<goods[i].size(); ++k){
-            //goods[i][k]&=unified[0][k];
+          for(int k(0); k<goods[i].size(); ++k){
+            goods[i][k]&=unified[0][k];
+            //std::cout << std::bitset<64>(unified[0][k]);
             //sum+= __builtin_popcount(unified[0][k]);
             //sum2+= __builtin_popcount(goods[i][k]);
-          //}
+          }
+          //std::cout << std::endl;
+          //for(int k(0); k<goods[i].size(); ++k)
+            //std::cout << std::bitset<64>(goods[i][k]);
+          //std::cout << std::endl;
           //std::cout << sum << " of " << dagsize[i] << " nodes were unified for MDD " << i << "\n";
           //std::cout << sum2 << " of " << dagsize[i] << " nodes are still good for MDD " << i << "\n";
+          //std::cout << root[i] << "\n";
           //std::cout << (dagsize[i]-sum2) << " ==? " << sum  << "=" << ((dagsize[i]-sum2)-sum) << " diff\n";
-          //for(int k(0); k<goods[j].size(); ++k){
-            //goods[j][k]&=unified[1][k];
-          //}
+          //sum=sum2=0;
+          for(int k(0); k<goods[j].size(); ++k){
+            goods[j][k]&=unified[1][k];
+            //std::cout << std::bitset<64>(unified[1][k]);
+            //sum+= __builtin_popcount(unified[1][k]);
+            //sum2+= __builtin_popcount(goods[j][k]);
+          }
+          //std::cout << std::endl;
+          //for(int k(0); k<goods[j].size(); ++k)
+            //std::cout << std::bitset<64>(goods[j][k]);
+          //std::cout << std::endl;
+          //std::cout << sum << " of " << dagsize[j] << " nodes were unified for MDD " << j << "\n";
+          //std::cout << sum2 << " of " << dagsize[j] << " nodes are still good for MDD " << j << "\n";
+          //std::cout << root[j] << "\n";
         }
       }
       pairwiseTime+=timer.EndTimer();
@@ -1088,6 +1134,7 @@ struct ICTSNode{
     std::vector<std::vector<uint64_t>*> tmpgood(root.size());
     for(int i(0); i<tmpgood.size(); ++i){
       tmpgood[i]=&goods[i];
+      //std::cout << "MDD for agent " << i << ": " << std::bitset<64>(goods[i][0]) << "\n";
     }
     if(jointDFS(root,answers,toDelete,lb(),tmpgood,unified,suboptimal)){
       jointTime+=timer.EndTimer();
@@ -1211,7 +1258,7 @@ Timer tmr;
 
 void printResults(){
   certifyTime=certtimer.EndTimer();
-  if(!quiet){
+  if(verbose){
     std::cout << "Solution:\n";
     int ii=0;
     for(auto const& p:solution){
@@ -1564,11 +1611,12 @@ int main(int argc, char ** argv){
             std::cout << "SIC: " << parent->lb() << std::endl;
           }
           std::vector<Solution> answers;
+          std::vector<unsigned> cardinal;
           // If we found an answer set and any of the answers are not in conflict
           // with other paths in the solution, we can quit if the answer has a cost
           // equal to that of the best SIC in the current plateau. Otherwise, we will
           // continue the ICT search until the next plateau
-          if(parent->isValid(answers)){
+          if(parent->isValid(answers,cardinal)){
             auto cost(mergeSolution(answers,solution,Gid[j],bestMergedCost)); // Returns the cost of the merged solution if < best cost; 0 otherwise
             bestCost=std::min(bestCost,cost.second);
             if(bestCost==parent->lb()&&(q.empty()||q.top()->lb()>bestCost)){break;}
@@ -1581,28 +1629,55 @@ int main(int argc, char ** argv){
             }
           }
 
-          for(int i(0); i<parent->sizes.size(); ++i){
-            std::vector<uint32_t> sz(parent->sizes);
-            sz[i]+=step;
-            std::stringstream sv;
-            join(sv,sz);
-            if(deconf.find(sv.str())==deconf.end()){
-              ICTSNode* tmp(new ICTSNode(parent,i,sz[i]));
-              if(verbose){
-                std::cout << "push ";
-                for(auto const& a: tmp->sizes){
-                  std::cout << a << " ";
+          if(cardinal.size()){
+            for(auto const& i:cardinal){
+              std::vector<uint32_t> sz(parent->sizes);
+              sz[i]+=step;
+              std::stringstream sv;
+              join(sv,sz);
+              if(deconf.find(sv.str())==deconf.end()){
+                ICTSNode* tmp(new ICTSNode(parent,i,sz[i]));
+                if(!quiet){
+                  std::cout << "push ";
+                  for(auto const& a: tmp->sizes){
+                    std::cout << a << " ";
+                  }
+                  std::cout << "\n";
+                  //best: 5.82843 6.65685 5.41421
+                  //best: 5.82843 6.65685 5.24264
+                  std::cout << "  best: ";
+                  for(auto b:tmp->best)std::cout << b << " ";
+                  std::cout << "\n";
+                  std::cout << "  SIC: " << tmp->lb() << std::endl;
                 }
-                std::cout << "\n";
-                //best: 5.82843 6.65685 5.41421
-                //best: 5.82843 6.65685 5.24264
-                std::cout << "  best: ";
-                for(auto b:tmp->best)std::cout << b << " ";
-                std::cout << "\n";
-                std::cout << "  SIC: " << tmp->lb() << std::endl;
+                q.push(tmp);
+                deconf.insert(sv.str());
               }
-              q.push(tmp);
-              deconf.insert(sv.str());
+            }
+          }else{
+            for(int i(0); i<parent->sizes.size(); ++i){
+              std::vector<uint32_t> sz(parent->sizes);
+              sz[i]+=step;
+              std::stringstream sv;
+              join(sv,sz);
+              if(deconf.find(sv.str())==deconf.end()){
+                ICTSNode* tmp(new ICTSNode(parent,i,sz[i]));
+                if(!quiet){
+                  std::cout << "push ";
+                  for(auto const& a: tmp->sizes){
+                    std::cout << a << " ";
+                  }
+                  std::cout << "\n";
+                  //best: 5.82843 6.65685 5.41421
+                  //best: 5.82843 6.65685 5.24264
+                  std::cout << "  best: ";
+                  for(auto b:tmp->best)std::cout << b << " ";
+                  std::cout << "\n";
+                  std::cout << "  SIC: " << tmp->lb() << std::endl;
+                }
+                q.push(tmp);
+                deconf.insert(sv.str());
+              }
             }
           }
           toDelete.push_back(parent);

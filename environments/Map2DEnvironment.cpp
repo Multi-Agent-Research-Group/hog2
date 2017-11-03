@@ -1762,7 +1762,7 @@ bool MapEnvironment::getPreCheck9(size_t idx, double radius){
           GetSuccessors(o,p);
           for(auto const& q:p){
             if(Util::fatLinesIntersect(center,m,.5,o,q,.5)){
-              set(bitarray9r_5,index25(center,m,o,q));
+              set(bitarray9r_5,index9(center,m,o,q));
             }
           }
         }
@@ -1787,8 +1787,8 @@ bool MapEnvironment::getPreCheck9(size_t idx, double radius){
         std::vector<xyLoc> p;
         GetSuccessors(o,p);
         for(auto const& q:p){
-          if(Util::fatLinesIntersect(center,m,.5,o,q,.5)){
-            set(bitarray9r_25,index25(center,m,o,q));
+          if(Util::fatLinesIntersect(center,m,.25,o,q,.25)){
+            set(bitarray9r_25,index9(center,m,o,q));
           }
         }
       }
@@ -1843,7 +1843,7 @@ bool MapEnvironment::getPreCheck25(size_t idx, double radius){
         std::vector<xyLoc> p;
         GetSuccessors(o,p);
         for(auto const& q:p){
-          if(Util::fatLinesIntersect(center,m,.5,o,q,.5)){
+          if(Util::fatLinesIntersect(center,m,.25,o,q,.25)){
             set(bitarray25r_25,index25(center,m,o,q));
           }
         }
@@ -1874,7 +1874,7 @@ bool MapEnvironment::getPreCheck49(size_t idx, double radius){
           GetSuccessors(o,p);
           for(auto const& q:p){
             if(Util::fatLinesIntersect(center,m,.5,o,q,.5)){
-              set(bitarray49r_5,index25(center,m,o,q));
+              set(bitarray49r_5,index49(center,m,o,q));
             }
           }
         }
@@ -1899,8 +1899,8 @@ bool MapEnvironment::getPreCheck49(size_t idx, double radius){
         std::vector<xyLoc> p;
         GetSuccessors(o,p);
         for(auto const& q:p){
-          if(Util::fatLinesIntersect(center,m,.5,o,q,.5)){
-            set(bitarray49r_25,index25(center,m,o,q));
+          if(Util::fatLinesIntersect(center,m,.25,o,q,.25)){
+            set(bitarray49r_25,index49(center,m,o,q));
           }
         }
       }

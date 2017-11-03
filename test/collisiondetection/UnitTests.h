@@ -1316,7 +1316,7 @@ static inline unsigned index49(xyLoc const& s1, xyLoc d1, xyLoc s2, xyLoc d2){re
 static inline unsigned index125(xyzLoc const& s1, xyzLoc d1, xyzLoc s2, xyzLoc d2){return index(s1,d1,s2,d2,2);}
 
 /*static inline bool get(unsigned* bitarray, size_t idx) {
-    return bitarray[idx / WORD_BITS] | (1 << (idx % WORD_BITS));
+    return bitarray[idx / WORD_BITS] & (1 << (idx % WORD_BITS));
 }
 
 static inline void set(unsigned* bitarray, size_t idx) {
@@ -1325,12 +1325,17 @@ static inline void set(unsigned* bitarray, size_t idx) {
 
 // Polygonal intersection from:
 // https://www.geometrictools.com/Documentation/MethodOfSeparatingAxes.pdf
+TEST(PolygonalIntersection, test1){
+  ASSERT_TRUE(Util::fatLinesIntersect({2,2},{2,3},.25,{2,3},{1,3},.25));
+}
 
 
 TEST(PreCollision, generate9Conn_25Rad){
   //9*(9*9)=729
   unsigned bitarray[9*9*9/WORD_BITS+1];
+  unsigned bitarray1[9*9*9/WORD_BITS+1];
   memset(bitarray,0,sizeof(bitarray));
+  memset(bitarray1,0,sizeof(bitarray));
   Map map(5,5);
   MapEnvironment env(&map);
   env.SetNineConnected();
@@ -1342,6 +1347,29 @@ TEST(PreCollision, generate9Conn_25Rad){
       std::vector<xyLoc> p;
       env.GetSuccessors(o,p);
       for(auto const& q:p){
+        Vector2D A(center);
+        Vector2D VA(m);
+        VA-=A;
+        VA.Normalize();
+        double radius(.25);
+        Vector2D B(o);
+        Vector2D VB(q);
+        VB-=B;
+        VB.Normalize();
+        double d1(Util::distance(center,m));
+        double d2(Util::distance(o,q));
+        if(collisionImminent(A,VA,radius,0,d1,B,VB,radius,0,d2) &&
+         !Util::fatLinesIntersect(center,m,.25,o,q,.25)){
+          std::cout << "Collision between " << center<<"-->"<<m<<" and " << o << "-->"<<q << "detected, but lines do not intersect\n";
+          int x=1;
+          collisionImminent(A,VA,radius,0,d1,B,VB,radius,0,d2);
+          Util::fatLinesIntersect(center,m,.25,o,q,.25);
+        }
+
+        if(get(bitarray1,index9(center,m,o,q))){
+          ASSERT_FALSE(true);
+        }
+        set(bitarray1,index9(center,m,o,q));
         if(Util::fatLinesIntersect(center,m,.25,o,q,.25)){
           set(bitarray,index9(center,m,o,q));
         }
@@ -1358,7 +1386,7 @@ TEST(PreCollision, generate9Conn_25Rad){
       env.GetSuccessors(o,p);
       for(auto const& q:p){
         Vector2D A(center);
-        Vector2D VA(o);
+        Vector2D VA(m);
         VA-=A;
         VA.Normalize();
         double radius(.25);
@@ -1400,7 +1428,7 @@ TEST(PreCollision, generate9Conn_25Rad){
       env.GetSuccessors(o,p);
       for(auto const& q:p){
         Vector2D A(center);
-        Vector2D VA(o);
+        Vector2D VA(m);
         VA-=A;
         VA.Normalize();
         double radius(.25);
@@ -1464,7 +1492,7 @@ TEST(PreCollision, generate9Conn_5Rad){
       env.GetSuccessors(o,p);
       for(auto const& q:p){
         Vector2D A(center);
-        Vector2D VA(o);
+        Vector2D VA(m);
         VA-=A;
         VA.Normalize();
         double radius(.5);
@@ -1483,10 +1511,19 @@ TEST(PreCollision, generate9Conn_5Rad){
           wasHelpful++;
         }else if(!get(bitarray,index(center,m,o,q,1)))missedOpportunities++;
         if(collisionImminent(A,VA,radius,.1,.1+d1,B,VB,radius,0,d2)){
+          if(!get(bitarray,index(center,m,o,q,1))){
+            std::cout << "Collision between " << center<<"-->"<<m<<" and " << o << "-->"<<q << "detected, but lines do not intersect\n";
+            Util::fatLinesIntersect(center,m,.5,o,q,.5);
+          }
           ASSERT_TRUE(get(bitarray,index(center,m,o,q,1)));
           wasHelpful++;
         }else if(!get(bitarray,index(center,m,o,q,1)))missedOpportunities++;
         if(collisionImminent(A,VA,radius,0,d1,B,VB,radius,.2,.2+d2)){
+          if(!get(bitarray,index(center,m,o,q,1))){
+            std::cout << "Collision between " << center<<"-->"<<m<<" and " << o << "-->"<<q << "detected, but lines do not intersect\n";
+            Util::fatLinesIntersect(center,m,.5,o,q,.5);
+          }
+            
           ASSERT_TRUE(get(bitarray,index(center,m,o,q,1)));
           wasHelpful++;
         }else if(!get(bitarray,index(center,m,o,q,1)))missedOpportunities++;
@@ -1506,7 +1543,7 @@ TEST(PreCollision, generate9Conn_5Rad){
       env.GetSuccessors(o,p);
       for(auto const& q:p){
         Vector2D A(center);
-        Vector2D VA(o);
+        Vector2D VA(m);
         VA-=A;
         VA.Normalize();
         double radius(.5);
@@ -1571,7 +1608,7 @@ TEST(PreCollision, generate25Conn_5Rad){
       env.GetSuccessors(o,p);
       for(auto const& q:p){
         Vector2D A(center);
-        Vector2D VA(o);
+        Vector2D VA(m);
         VA-=A;
         VA.Normalize();
         double radius(.5);
@@ -1586,6 +1623,10 @@ TEST(PreCollision, generate25Conn_5Rad){
         // It's ok if the bitarray contains true when the real check is false, but if it contains
         // false when the real check is true, that's bad
         if(collisionImminent(A,VA,radius,0,d1,B,VB,radius,0,d2)){
+          if(!get(bitarray,index25(center,m,o,q))){
+            std::cout << "Collision between " << center<<"-->"<<m<<" and " << o << "-->"<<q << "detected, but lines do not intersect\n";
+            Util::fatLinesIntersect(center,m,.5,o,q,.5);
+}
           ASSERT_TRUE(get(bitarray,index25(center,m,o,q)));
           wasHelpful++;
         }else if(!get(bitarray,index25(center,m,o,q)))missedOpportunities++;
@@ -1636,7 +1677,7 @@ TEST(PreCollision, generate25Conn_25Rad){
       env.GetSuccessors(o,p);
       for(auto const& q:p){
         Vector2D A(center);
-        Vector2D VA(o);
+        Vector2D VA(m);
         VA-=A;
         VA.Normalize();
         double radius(.25);
@@ -1701,7 +1742,7 @@ TEST(PreCollision, generate49Conn_5Rad){
       env.GetSuccessors(o,p);
       for(auto const& q:p){
         Vector2D A(center);
-        Vector2D VA(o);
+        Vector2D VA(m);
         VA-=A;
         VA.Normalize();
         double radius(.5);
@@ -1766,7 +1807,7 @@ TEST(PreCollision, generate49Conn_25Rad){
       env.GetSuccessors(o,p);
       for(auto const& q:p){
         Vector2D A(center);
-        Vector2D VA(o);
+        Vector2D VA(m);
         VA-=A;
         VA.Normalize();
         double radius(.25);
@@ -1830,7 +1871,7 @@ TEST(PreCollision, generate27Conn_25Rad){
       env.GetSuccessors(o,p);
       for(auto const& q:p){
         Vector3D A(center);
-        Vector3D VA(o);
+        Vector3D VA(m);
         VA-=A;
         VA.Normalize();
         double radius(.25);
@@ -1872,7 +1913,7 @@ TEST(PreCollision, generate27Conn_25Rad){
       env.GetSuccessors(o,p);
       for(auto const& q:p){
         Vector3D A(center);
-        Vector3D VA(o);
+        Vector3D VA(m);
         VA-=A;
         VA.Normalize();
         double radius(.25);
@@ -1936,7 +1977,7 @@ TEST(PreCollision, generate27Conn_5Rad){
       env.GetSuccessors(o,p);
       for(auto const& q:p){
         Vector3D A(center);
-        Vector3D VA(o);
+        Vector3D VA(m);
         VA-=A;
         VA.Normalize();
         double radius(.5);
@@ -1978,7 +2019,7 @@ TEST(PreCollision, generate27Conn_5Rad){
       env.GetSuccessors(o,p);
       for(auto const& q:p){
         Vector3D A(center);
-        Vector3D VA(o);
+        Vector3D VA(m);
         VA-=A;
         VA.Normalize();
         double radius(.25);
@@ -2042,7 +2083,7 @@ TEST(PreCollision, generate125Conn_25Rad){
       env.GetSuccessors(o,p);
       for(auto const& q:p){
         Vector3D A(center);
-        Vector3D VA(o);
+        Vector3D VA(m);
         VA-=A;
         VA.Normalize();
         double radius(.25);
@@ -2106,7 +2147,7 @@ TEST(PreCollision, generate125Conn_5Rad){
       env.GetSuccessors(o,p);
       for(auto const& q:p){
         Vector3D A(center);
-        Vector3D VA(o);
+        Vector3D VA(m);
         VA-=A;
         VA.Normalize();
         double radius(.5);

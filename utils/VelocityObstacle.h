@@ -55,7 +55,7 @@ unsigned index27(Vector3D const& s1, Vector3D d1, Vector3D s2, Vector3D d2);
 unsigned index125(Vector3D const& s1, Vector3D d1, Vector3D s2, Vector3D d2);
 
 inline bool get(unsigned* bitarray, size_t idx) {
-  return bitarray[idx / WORD_BITS] | (1 << (idx % WORD_BITS));
+  return bitarray[idx / WORD_BITS] & (1 << (idx % WORD_BITS));
 }
 
 inline void set(unsigned* bitarray, size_t idx) {
