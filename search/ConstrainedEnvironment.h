@@ -224,7 +224,7 @@ class AnyLOS: public GroupConflictDetector<State> {
       // Step through time, checking for group-wise conflicts
       std::vector<unsigned> indices(this->agentNumbers.size()); // Defaults to zero
       unsigned index(0);
-
+      bool foundConflict(false);
       unsigned minTime(solution[this->agent1][index].t);
       // Move other agents forward in time if necessary (we don't assume all paths start at t=0)
       for(int i(0); i<this->agentNumbers.size(); ++i){
@@ -252,6 +252,7 @@ class AnyLOS: public GroupConflictDetector<State> {
         }
         if(violation){ // No agents are in LOS of the main agent
           conflict.first++;
+          foundConflict=true;
         }
         minTime=solution[this->agent1][++index].t;
         // Move other agents forward in time if necessary
@@ -259,11 +260,11 @@ class AnyLOS: public GroupConflictDetector<State> {
           while(indices[i]<solution[this->agentNumbers[i]].size()-2 && solution[this->agentNumbers[i]][indices[i]].t<minTime){indices[i]++;}
         }
       }
-      if(conflict.first>0){
+      if(foundConflict){
         c1=GetConstraint(solution[this->agent1][i1],solution[this->agent1][i1+1],solution[this->agent2][i2],solution[this->agent2][i2+1]);
         c2=GetConstraint(solution[this->agent2][i2],solution[this->agent2][i2+1],solution[this->agent1][i1],solution[this->agent1][i1+1]);
       }
-      return conflict.first>0;
+      return foundConflict;
     }
 
     inline virtual Constraint<State>* GetConstraint(State const& A1, State const& A2, State const& B1, State const& B2)const{
