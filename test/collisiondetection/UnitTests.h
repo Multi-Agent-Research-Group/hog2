@@ -1310,10 +1310,10 @@ static inline unsigned index(Vector3D const& s1, Vector3D d1, Vector3D s2, Vecto
 }
 
 static inline unsigned index9(xyLoc const& s1, xyLoc d1, xyLoc s2, xyLoc d2){return index(s1,d1,s2,d2,1);}
-static inline unsigned index27(xyzLoc const& s1, xyzLoc d1, xyzLoc s2, xyzLoc d2){return index(s1,d1,s2,d2,1);}
+static inline unsigned index27(xyztLoc const& s1, xyztLoc d1, xyztLoc s2, xyztLoc d2){return index(s1,d1,s2,d2,1);}
 static inline unsigned index25(xyLoc const& s1, xyLoc d1, xyLoc s2, xyLoc d2){return index(s1,d1,s2,d2,2);}
 static inline unsigned index49(xyLoc const& s1, xyLoc d1, xyLoc s2, xyLoc d2){return index(s1,d1,s2,d2,3);}
-static inline unsigned index125(xyzLoc const& s1, xyzLoc d1, xyzLoc s2, xyzLoc d2){return index(s1,d1,s2,d2,2);}
+static inline unsigned index125(xyztLoc const& s1, xyztLoc d1, xyztLoc s2, xyztLoc d2){return index(s1,d1,s2,d2,2);}
 
 /*static inline bool get(unsigned* bitarray, size_t idx) {
     return bitarray[idx / WORD_BITS] & (1 << (idx % WORD_BITS));
@@ -1847,12 +1847,12 @@ TEST(PreCollision, generate27Conn_25Rad){
   Map3D map(5,5,5);
   Grid3DEnvironment env(&map);
   env.SetOneConnected();
-  std::vector<xyzLoc> n;
-  xyzLoc center(2,2,2);
+  std::vector<xyztLoc> n;
+  xyztLoc center(2,2,2);
   env.GetSuccessors(center,n);
   for(auto const& m:n){
     for(auto const& o:n){
-      std::vector<xyzLoc> p;
+      std::vector<xyztLoc> p;
       env.GetSuccessors(o,p);
       for(auto const& q:p){
         if(Util::fatLinesIntersect(center,m,.25,o,q,.25)){
@@ -1867,7 +1867,7 @@ TEST(PreCollision, generate27Conn_25Rad){
   unsigned total(0);
   for(auto const& m:n){
     for(auto const& o:n){
-      std::vector<xyzLoc> p;
+      std::vector<xyztLoc> p;
       env.GetSuccessors(o,p);
       for(auto const& q:p){
         Vector3D A(center);
@@ -1909,7 +1909,7 @@ TEST(PreCollision, generate27Conn_25Rad){
   env.SetZeroConnected();
   for(auto const& m:n){
     for(auto const& o:n){
-      std::vector<xyzLoc> p;
+      std::vector<xyztLoc> p;
       env.GetSuccessors(o,p);
       for(auto const& q:p){
         Vector3D A(center);
@@ -1953,12 +1953,12 @@ TEST(PreCollision, generate27Conn_5Rad){
   Map3D map(5,5,5);
   Grid3DEnvironment env(&map);
   env.SetOneConnected();
-  std::vector<xyzLoc> n;
-  xyzLoc center(2,2,2);
+  std::vector<xyztLoc> n;
+  xyztLoc center(2,2,2);
   env.GetSuccessors(center,n);
   for(auto const& m:n){
     for(auto const& o:n){
-      std::vector<xyzLoc> p;
+      std::vector<xyztLoc> p;
       env.GetSuccessors(o,p);
       for(auto const& q:p){
         if(Util::fatLinesIntersect(center,m,.5,o,q,.5)){
@@ -1973,7 +1973,7 @@ TEST(PreCollision, generate27Conn_5Rad){
   unsigned total(0);
   for(auto const& m:n){
     for(auto const& o:n){
-      std::vector<xyzLoc> p;
+      std::vector<xyztLoc> p;
       env.GetSuccessors(o,p);
       for(auto const& q:p){
         Vector3D A(center);
@@ -2015,7 +2015,7 @@ TEST(PreCollision, generate27Conn_5Rad){
   env.SetZeroConnected();
   for(auto const& m:n){
     for(auto const& o:n){
-      std::vector<xyzLoc> p;
+      std::vector<xyztLoc> p;
       env.GetSuccessors(o,p);
       for(auto const& q:p){
         Vector3D A(center);
@@ -2059,12 +2059,12 @@ TEST(PreCollision, generate125Conn_25Rad){
   Map3D map(9,9,9);
   Grid3DEnvironment env(&map);
   env.SetTwoConnected();
-  std::vector<xyzLoc> n;
-  xyzLoc center(4,4,4);
+  std::vector<xyztLoc> n;
+  xyztLoc center(4,4,4);
   env.GetSuccessors(center,n);
   for(auto const& m:n){
     for(auto const& o:n){
-      std::vector<xyzLoc> p;
+      std::vector<xyztLoc> p;
       env.GetSuccessors(o,p);
       for(auto const& q:p){
         if(Util::fatLinesIntersect(center,m,.25,o,q,.25)){
@@ -2079,7 +2079,7 @@ TEST(PreCollision, generate125Conn_25Rad){
   unsigned total(0);
   for(auto const& m:n){
     for(auto const& o:n){
-      std::vector<xyzLoc> p;
+      std::vector<xyztLoc> p;
       env.GetSuccessors(o,p);
       for(auto const& q:p){
         Vector3D A(center);
@@ -2123,12 +2123,12 @@ TEST(PreCollision, generate125Conn_5Rad){
   Map3D map(9,9,9);
   Grid3DEnvironment env(&map);
   env.SetTwoConnected();
-  std::vector<xyzLoc> n;
-  xyzLoc center(4,4,4);
+  std::vector<xyztLoc> n;
+  xyztLoc center(4,4,4);
   env.GetSuccessors(center,n);
   for(auto const& m:n){
     for(auto const& o:n){
-      std::vector<xyzLoc> p;
+      std::vector<xyztLoc> p;
       env.GetSuccessors(o,p);
       for(auto const& q:p){
         if(Util::fatLinesIntersect(center,m,.5,o,q,.5)){
@@ -2143,7 +2143,7 @@ TEST(PreCollision, generate125Conn_5Rad){
   unsigned total(0);
   for(auto const& m:n){
     for(auto const& o:n){
-      std::vector<xyzLoc> p;
+      std::vector<xyztLoc> p;
       env.GetSuccessors(o,p);
       for(auto const& q:p){
         Vector3D A(center);

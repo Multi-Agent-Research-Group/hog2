@@ -68,7 +68,6 @@ unsigned minjoint(INF);
 size_t maxnagents(0);
 
 extern double agentRadius;
-bool bestonly(false);
 bool epp(false);
 bool verbose(false);
 bool quiet(false);
@@ -1799,8 +1798,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
     }
     else if(argument[1][0]=='f'){
       ICTSNode::pairwise=true;
-      bestonly=true;
-      if(!quiet)std::cout << "pairwise,bestonly\n";
+      if(!quiet)std::cout << "pairwise\n";
     }
     else if(argument[1][0]=='e'){
       ICTSNode::pairwise=true;

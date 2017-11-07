@@ -51,7 +51,7 @@ void Grid3DEnvironment::SetGraphHeuristic(GraphHeuristic *gh)
 	h = gh;
 }
 
-void Grid3DEnvironment::GetSuccessors(const xyzLoc &loc, std::vector<xyzLoc> &neighbors) const
+void Grid3DEnvironment::GetSuccessors(const xyztLoc &loc, std::vector<xyztLoc> &neighbors) const
 {
   if(agentType==Map3D::air){
     // TODO add LOS checks
@@ -303,13 +303,13 @@ void Grid3DEnvironment::GetSuccessors(const xyzLoc &loc, std::vector<xyzLoc> &ne
   }
 }
 
-void Grid3DEnvironment::GetActions(const xyzLoc &loc, std::vector<t3DDirection> &actions) const
+void Grid3DEnvironment::GetActions(const xyztLoc &loc, std::vector<t3DDirection> &actions) const
 {
 // TODO: Implement this
  assert(false && "Not implemented");
 }
 
-t3DDirection Grid3DEnvironment::GetAction(const xyzLoc &s1, const xyzLoc &s2) const
+t3DDirection Grid3DEnvironment::GetAction(const xyztLoc &s1, const xyztLoc &s2) const
 {
 // TODO: Implement this
  assert(false && "Not implemented");
@@ -323,7 +323,7 @@ bool Grid3DEnvironment::InvertAction(t3DDirection &a) const
 	return true;
 }
 
-void Grid3DEnvironment::ApplyAction(xyzLoc &s, t3DDirection dir) const
+void Grid3DEnvironment::ApplyAction(xyztLoc &s, t3DDirection dir) const
 {
 // TODO
  assert(false && "Not implemented");
@@ -333,7 +333,7 @@ double Grid3DEnvironment::_h4(unsigned dx, unsigned dy, double result){
   return dx+dy+result;
 }
 
-double Grid3DEnvironment::h4(const xyzLoc &l1, const xyzLoc &l2){
+double Grid3DEnvironment::h4(const xyztLoc &l1, const xyztLoc &l2){
   return _h4(abs(l1.x-l2.x),abs(l1.y-l2.y));
 }
 
@@ -341,7 +341,7 @@ double Grid3DEnvironment::_h6(unsigned dx, unsigned dy, unsigned dz, double resu
   return dx+dy+dz+result;
 }
 
-double Grid3DEnvironment::h6(const xyzLoc &l1, const xyzLoc &l2){
+double Grid3DEnvironment::h6(const xyztLoc &l1, const xyztLoc &l2){
   return _h6(abs(l1.x-l2.x),abs(l1.y-l2.y),abs(l1.z-l2.z));
 }
 
@@ -358,7 +358,7 @@ double Grid3DEnvironment::_h8(unsigned dx,unsigned dy,double result){
   return _h4(dy,dx,result);
 }
 
-double Grid3DEnvironment::h8(const xyzLoc &l1, const xyzLoc &l2){
+double Grid3DEnvironment::h8(const xyztLoc &l1, const xyztLoc &l2){
   return _h8(abs(l1.x-l2.x),abs(l1.y-l2.y));
 }
 
@@ -385,7 +385,7 @@ double Grid3DEnvironment::_h26(unsigned dx,unsigned dy,unsigned dz,double result
   return _h8(dy,dz,result);
 }
 
-double Grid3DEnvironment::h26(const xyzLoc &l1, const xyzLoc &l2){
+double Grid3DEnvironment::h26(const xyztLoc &l1, const xyztLoc &l2){
   return _h26(abs(l1.x-l2.x),abs(l1.y-l2.y),abs(l1.z-l2.z));
 }
 
@@ -406,7 +406,7 @@ double Grid3DEnvironment::_h24(unsigned dx,unsigned dy,double result){
   return _h8(dy,dx,result);
 }
 
-double Grid3DEnvironment::h24(const xyzLoc &l1, const xyzLoc &l2){
+double Grid3DEnvironment::h24(const xyztLoc &l1, const xyztLoc &l2){
   return _h24(abs(l1.x-l2.x),abs(l1.y-l2.y));
 }
 
@@ -458,7 +458,7 @@ double Grid3DEnvironment::_h48(unsigned dx,unsigned dy,double result){
   return _h24(dy,dx,result);
 }
 
-double Grid3DEnvironment::h48(const xyzLoc &l1, const xyzLoc &l2){
+double Grid3DEnvironment::h48(const xyztLoc &l1, const xyztLoc &l2){
   return _h48(abs(l1.x-l2.x),abs(l1.y-l2.y));
 }
 
@@ -506,12 +506,12 @@ double Grid3DEnvironment::_h124(unsigned dx,unsigned dy,unsigned dz,double resul
   return _h26(dy,dz,dx,result);
 }
 
-double Grid3DEnvironment::h124(const xyzLoc &l1, const xyzLoc &l2){
+double Grid3DEnvironment::h124(const xyztLoc &l1, const xyztLoc &l2){
   return _h124(abs(l1.x-l2.x),abs(l1.y-l2.y),abs(l1.z-l2.z));
 }
 
 
-double Grid3DEnvironment::HCost(const xyzLoc &l1, const xyzLoc &l2)const{
+double Grid3DEnvironment::HCost(const xyztLoc &l1, const xyztLoc &l2)const{
   //if(l1.sameLoc(l2))return 1.0;
   switch(connectedness){
     case 0:
@@ -527,13 +527,13 @@ double Grid3DEnvironment::HCost(const xyzLoc &l1, const xyzLoc &l2)const{
   }
 }
 
-double Grid3DEnvironment::GCost(const xyzLoc &l, const t3DDirection &act) const
+double Grid3DEnvironment::GCost(const xyztLoc &l, const t3DDirection &act) const
 {
   assert(false&&"Not implemented");
   return 0;
 }
 
-double Grid3DEnvironment::GCost(const xyzLoc &l1, const xyzLoc &l2) const
+double Grid3DEnvironment::GCost(const xyztLoc &l1, const xyztLoc &l2) const
 {
   double multiplier = 1.0;
   static const float SQRT_2(sqrt(2));
@@ -621,11 +621,11 @@ double Grid3DEnvironment::GCost(const xyzLoc &l1, const xyzLoc &l2) const
   }
 }
 
-bool Grid3DEnvironment::LineOfSight(const xyzLoc &node, const xyzLoc &goal) const{
+bool Grid3DEnvironment::LineOfSight(const xyztLoc &node, const xyztLoc &goal) const{
   return map->LineOfSight(node.x,node.y,node.z,goal.x,goal.y,goal.z);
 }
 
-bool Grid3DEnvironment::GoalTest(const xyzLoc &node, const xyzLoc &goal) const
+bool Grid3DEnvironment::GoalTest(const xyztLoc &node, const xyztLoc &goal) const
 {
 	return ((node.x == goal.x) && (node.y == goal.y));
 }
@@ -635,7 +635,7 @@ uint64_t Grid3DEnvironment::GetMaxHash() const
 	return map->GetMapWidth()*map->GetMapHeight();
 }
 
-uint64_t Grid3DEnvironment::GetStateHash(const xyzLoc &node) const
+uint64_t Grid3DEnvironment::GetStateHash(const xyztLoc &node) const
 {
 	//return (((uint64_t)node.x)<<16)|node.y;
 	return node.y*map->GetMapWidth()+node.x;
@@ -652,7 +652,7 @@ void Grid3DEnvironment::OpenGLDraw() const
 	map->OpenGLDraw();
 }
 
-void Grid3DEnvironment::OpenGLDraw(const xyzLoc &l) const
+void Grid3DEnvironment::OpenGLDraw(const xyztLoc &l) const
 {
 	GLdouble xx, yy, zz, rad;
 	map->GetOpenGLCoord(l.x, l.y, xx, yy, zz, rad);
@@ -663,7 +663,7 @@ void Grid3DEnvironment::OpenGLDraw(const xyzLoc &l) const
 	DrawSphere(xx, yy, zz, rad);
 }
 
-void Grid3DEnvironment::OpenGLDraw(const xyzLoc &l1, const xyzLoc &l2, float v) const
+void Grid3DEnvironment::OpenGLDraw(const xyztLoc &l1, const xyztLoc &l2, float v) const
 {
 	GLdouble xx, yy, zz, rad;
 	GLdouble xx2, yy2, zz2;
@@ -682,7 +682,7 @@ void Grid3DEnvironment::OpenGLDraw(const xyzLoc &l1, const xyzLoc &l2, float v) 
 	DrawSphere(xx, yy, zz, rad);
 }
 
-//void Grid3DEnvironment::OpenGLDraw(const xyzLoc &l, GLfloat r, GLfloat g, GLfloat b) const
+//void Grid3DEnvironment::OpenGLDraw(const xyztLoc &l, GLfloat r, GLfloat g, GLfloat b) const
 //{
 //	GLdouble xx, yy, zz, rad;
 //	map->GetOpenGLCoord(l.x, l.y, xx, yy, zz, rad);
@@ -691,11 +691,11 @@ void Grid3DEnvironment::OpenGLDraw(const xyzLoc &l1, const xyzLoc &l2, float v) 
 //}
 
 
-void Grid3DEnvironment::OpenGLDraw(const xyzLoc& initial, const t3DDirection &dir) const
+void Grid3DEnvironment::OpenGLDraw(const xyztLoc& initial, const t3DDirection &dir) const
 {
         assert(false&&"not implemented");
 	
-	xyzLoc s = initial;
+	xyztLoc s = initial;
 	GLdouble xx, yy, zz, rad;
 	map->GetOpenGLCoord(s.x, s.y, xx, yy, zz, rad);
 	
@@ -711,7 +711,7 @@ void Grid3DEnvironment::OpenGLDraw(const xyzLoc& initial, const t3DDirection &di
 	
 }
 
-void Grid3DEnvironment::GLDrawLine(const xyzLoc &a, const xyzLoc &b) const
+void Grid3DEnvironment::GLDrawLine(const xyztLoc &a, const xyztLoc &b) const
 {
 	GLdouble xx1, yy1, zz1, rad;
 	GLdouble xx2, yy2, zz2;
@@ -754,7 +754,7 @@ void Grid3DEnvironment::GLDrawLine(const xyzLoc &a, const xyzLoc &b) const
 //	glEnd();
 }
 
-void Grid3DEnvironment::GLLabelState(const xyzLoc &s, const char *str, double scale) const
+void Grid3DEnvironment::GLLabelState(const xyztLoc &s, const char *str, double scale) const
 {
 	glPushMatrix();
 	
@@ -777,7 +777,7 @@ void Grid3DEnvironment::GLLabelState(const xyzLoc &s, const char *str, double sc
 	glPopMatrix();
 }
 
-void Grid3DEnvironment::GLLabelState(const xyzLoc &s, const char *str) const
+void Grid3DEnvironment::GLLabelState(const xyztLoc &s, const char *str) const
 {
 	glPushMatrix();
 
@@ -804,7 +804,7 @@ void Grid3DEnvironment::Draw() const
 {
 }
 
-void Grid3DEnvironment::Draw(const xyzLoc &l) const
+void Grid3DEnvironment::Draw(const xyztLoc &l) const
 {
 	GLdouble px, py, t, rad;
 	map->GetOpenGLCoord(l.x, l.y, px, py, t, rad);
@@ -827,7 +827,7 @@ void Grid3DEnvironment::Draw(const xyzLoc &l) const
 	}
 }
 
-void Grid3DEnvironment::DrawLine(const xyzLoc &a, const xyzLoc &b, double width) const
+void Grid3DEnvironment::DrawLine(const xyztLoc &a, const xyztLoc &b, double width) const
 {
 	GLdouble xx1, yy1, zz1, rad;
 	GLdouble xx2, yy2, zz2;
@@ -843,7 +843,7 @@ void Grid3DEnvironment::DrawLine(const xyzLoc &a, const xyzLoc &b, double width)
 
 
 
-double Grid3DEnvironment::GetPathLength(std::vector<xyzLoc> &neighbors)
+double Grid3DEnvironment::GetPathLength(std::vector<xyztLoc> &neighbors)
 {
 	double length = 0;
 	for (unsigned int x = 1; x < neighbors.size(); x++)

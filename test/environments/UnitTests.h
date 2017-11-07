@@ -127,7 +127,7 @@ TEST(Map3D, LineOfSight){
 TEST(Map3D, ZeroConnected){
   Map3D map(8,8,8);
   Grid3DEnvironment env(&map);
-  std::vector<xyzLoc> successors;
+  std::vector<xyztLoc> successors;
   env.GetSuccessors({3,3,3},successors);
   ASSERT_EQ(6,successors.size());
   for(int i(0);i<successors.size(); ++i){
@@ -143,7 +143,7 @@ TEST(Map3D, OneConnected){
   Map3D map(8,8,8);
   Grid3DEnvironment env(&map);
   env.SetOneConnected();
-  std::vector<xyzLoc> successors;
+  std::vector<xyztLoc> successors;
   env.GetSuccessors({3,3,3},successors);
   ASSERT_EQ(26,successors.size());
   for(int i(0);i<successors.size(); ++i){
@@ -159,7 +159,7 @@ TEST(Map3D, TwoConnected){
   Map3D map(8,8,8);
   Grid3DEnvironment env(&map);
   env.SetTwoConnected();
-  std::vector<xyzLoc> successors;
+  std::vector<xyztLoc> successors;
   env.GetSuccessors({3,3,3},successors);
   ASSERT_EQ(124,successors.size());
   for(int i(0);i<successors.size(); ++i){
@@ -174,7 +174,7 @@ TEST(Map3D, ThreeConnected){
   Map3D map(8,8,8);
   Grid3DEnvironment env(&map);
   env.SetThreeConnected();
-  std::vector<xyzLoc> successors;
+  std::vector<xyztLoc> successors;
   env.GetSuccessors({3,3,3},successors);
   ASSERT_EQ(342,successors.size());
   for(int i(0);i<successors.size(); ++i){
@@ -188,7 +188,7 @@ TEST(Map3D, ThreeConnected){
 TEST(Map3D, SingleConnected){
   Map3D map(8,8,8);
   Grid3DEnvironment env(&map);
-  std::vector<xyzLoc> successors;
+  std::vector<xyztLoc> successors;
   env.GetSuccessors({3,3,3},successors);
   ASSERT_EQ(6,successors.size());
   for(int i(0);i<successors.size(); ++i){

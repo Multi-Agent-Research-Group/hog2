@@ -39,11 +39,11 @@
 #include <cassert>
 
 
-/*static bool operator==(const xyzLoc &l1, const xyzLoc &l2) {
+/*static bool operator==(const xyztLoc &l1, const xyztLoc &l2) {
 	return (l1.x == l2.x) && (l1.y == l2.y) && (l1.z == l2.z);
 }
 
-static bool operator!=(const xyzLoc &l1, const xyzLoc &l2) {
+static bool operator!=(const xyztLoc &l1, const xyztLoc &l2) {
 	return (l1.x != l2.x) || (l1.y != l2.y) || (l1.z != l2.z);
 }*/
 
@@ -187,7 +187,7 @@ enum t3DDirection {
   kDNNNWWW=kD|kNNN|kWWW
 };*/
 
-class Grid3DEnvironment : public SearchEnvironment<xyzLoc, t3DDirection>
+class Grid3DEnvironment : public SearchEnvironment<xyztLoc, t3DDirection>
 {
 public:
 	Grid3DEnvironment(Map3D *m, bool wait=false,Map3D::AgentType a=Map3D::air);
@@ -196,48 +196,48 @@ public:
         virtual std::string name()const{return std::string("Grid3DEnvironment");}
 	void SetGraphHeuristic(GraphHeuristic *h);
 	GraphHeuristic *GetGraphHeuristic();
-	virtual void GetSuccessors(const xyzLoc &nodeID, std::vector<xyzLoc> &neighbors) const;
-	void GetActions(const xyzLoc &nodeID, std::vector<t3DDirection> &actions) const;
-	t3DDirection GetAction(const xyzLoc &s1, const xyzLoc &s2) const;
-	virtual void ApplyAction(xyzLoc &s, t3DDirection dir) const;
+	virtual void GetSuccessors(const xyztLoc &nodeID, std::vector<xyztLoc> &neighbors) const;
+	void GetActions(const xyztLoc &nodeID, std::vector<t3DDirection> &actions) const;
+	t3DDirection GetAction(const xyztLoc &s1, const xyztLoc &s2) const;
+	virtual void ApplyAction(xyztLoc &s, t3DDirection dir) const;
 	virtual bool InvertAction(t3DDirection &a) const;
 
-//	bool Contractable(const xyzLoc &where);
+//	bool Contractable(const xyztLoc &where);
 	
-	virtual double HCost(const xyzLoc &) const {
+	virtual double HCost(const xyztLoc &) const {
 		fprintf(stderr, "ERROR: Single State HCost not implemented for Grid3DEnvironment\n");
 		exit(1); return -1.0;}
-	virtual double HCost(const xyzLoc &node1, const xyzLoc &node2) const;
-	virtual double GCost(const xyzLoc &node1, const xyzLoc &node2) const;
-	virtual double GCost(const xyzLoc &node1, const t3DDirection &act) const;
-        bool LineOfSight(const xyzLoc &node, const xyzLoc &goal) const;
-	bool GoalTest(const xyzLoc &node, const xyzLoc &goal) const;
+	virtual double HCost(const xyztLoc &node1, const xyztLoc &node2) const;
+	virtual double GCost(const xyztLoc &node1, const xyztLoc &node2) const;
+	virtual double GCost(const xyztLoc &node1, const t3DDirection &act) const;
+        bool LineOfSight(const xyztLoc &node, const xyztLoc &goal) const;
+	bool GoalTest(const xyztLoc &node, const xyztLoc &goal) const;
 
-	bool GoalTest(const xyzLoc &){
+	bool GoalTest(const xyztLoc &){
 		fprintf(stderr, "ERROR: Single State Goal Test not implemented for Grid3DEnvironment\n");
 		exit(1); return false;}
 
 	uint64_t GetMaxHash() const;
-	uint64_t GetStateHash(const xyzLoc &node) const;
+	uint64_t GetStateHash(const xyztLoc &node) const;
 	uint64_t GetActionHash(t3DDirection act) const;
 	virtual void OpenGLDraw() const;
-	virtual void OpenGLDraw(const xyzLoc &l) const;
-	virtual void OpenGLDraw(const xyzLoc &l1, const xyzLoc &l2, float v) const;
-	virtual void OpenGLDraw(const xyzLoc &, const t3DDirection &) const;
-	virtual void GLLabelState(const xyzLoc &, const char *) const;
-	virtual void GLLabelState(const xyzLoc &s, const char *str, double scale) const;
-	virtual void GLDrawLine(const xyzLoc &x, const xyzLoc &y) const;
+	virtual void OpenGLDraw(const xyztLoc &l) const;
+	virtual void OpenGLDraw(const xyztLoc &l1, const xyztLoc &l2, float v) const;
+	virtual void OpenGLDraw(const xyztLoc &, const t3DDirection &) const;
+	virtual void GLLabelState(const xyztLoc &, const char *) const;
+	virtual void GLLabelState(const xyztLoc &s, const char *str, double scale) const;
+	virtual void GLDrawLine(const xyztLoc &x, const xyztLoc &y) const;
 
 	virtual void Draw() const;
-	virtual void Draw(const xyzLoc &l) const;
-	virtual void DrawLine(const xyzLoc &x, const xyzLoc &y, double width = 1.0) const;
+	virtual void Draw(const xyztLoc &l) const;
+	virtual void DrawLine(const xyztLoc &x, const xyztLoc &y, double width = 1.0) const;
 
 	
-	//virtual void OpenGLDraw(const xyzLoc &, const t3DDirection &, GLfloat r, GLfloat g, GLfloat b) const;
-	//virtual void OpenGLDraw(const xyzLoc &l, GLfloat r, GLfloat g, GLfloat b) const;
+	//virtual void OpenGLDraw(const xyztLoc &, const t3DDirection &, GLfloat r, GLfloat g, GLfloat b) const;
+	//virtual void OpenGLDraw(const xyztLoc &l, GLfloat r, GLfloat g, GLfloat b) const;
 	Map3D* GetMap() const { return map; }
 
-	void StoreGoal(xyzLoc &) {} // stores the locations for the given goal state
+	void StoreGoal(xyztLoc &) {} // stores the locations for the given goal state
 	void ClearGoal() {}
 	bool IsGoalStored() const {return false;}
 	void SetZeroConnected() { connectedness=0; }
@@ -248,10 +248,10 @@ public:
         void SetGround() {agentType=Map3D::ground;}
         void SetAir() {agentType=Map3D::air;}
         uint8_t GetConnectedness()const{return connectedness;}
-	//virtual xyzLoc GetNextState(xyzLoc &s, t3DDirection dir);
-	double GetPathLength(std::vector<xyzLoc> &neighbors);
-        std::vector<std::vector<std::pair<xyzLoc,double>>> solution;
-        void findIntervals(xyzLoc curNode, std::vector<std::pair<double,double>>& intervals, std::vector<double>& EAT, int w) const;
+	//virtual xyztLoc GetNextState(xyztLoc &s, t3DDirection dir);
+	double GetPathLength(std::vector<xyztLoc> &neighbors);
+        std::vector<std::vector<std::pair<xyztLoc,double>>> solution;
+        void findIntervals(xyztLoc curNode, std::vector<std::pair<double,double>>& intervals, std::vector<double>& EAT, int w) const;
         inline void SetWaitAllowed(){waitAllowed=true;}
         inline void SetSurface(bool v){surface=v;}
         Map3D::AgentType agentType;
@@ -263,19 +263,19 @@ protected:
 	bool waitAllowed;
         bool surface;
         static double _h4(unsigned dx, unsigned dy, double result=0.0);
-        static double h4(const xyzLoc &l1, const xyzLoc &l2);
+        static double h4(const xyztLoc &l1, const xyztLoc &l2);
         static double _h6(unsigned dx, unsigned dy, unsigned dz, double result=0.0);
-        static double h6(const xyzLoc &l1, const xyzLoc &l2);
+        static double h6(const xyztLoc &l1, const xyztLoc &l2);
         static double _h8(unsigned dx,unsigned dy,double result=0);
-        static double h8(const xyzLoc &l1, const xyzLoc &l2);
+        static double h8(const xyztLoc &l1, const xyztLoc &l2);
         static double _h24(unsigned dx,unsigned dy,double result=0);
-        static double h24(const xyzLoc &l1, const xyzLoc &l2);
+        static double h24(const xyztLoc &l1, const xyztLoc &l2);
         static double _h48(unsigned dx,unsigned dy,double result=0);
-        static double h48(const xyzLoc &l1, const xyzLoc &l2);
+        static double h48(const xyztLoc &l1, const xyztLoc &l2);
         static double _h26(unsigned dx,unsigned dy, unsigned dz, double result=0);
-        static double h26(const xyzLoc &l1, const xyzLoc &l2);
+        static double h26(const xyztLoc &l1, const xyztLoc &l2);
         static double _h124(unsigned dx,unsigned dy, unsigned dz, double result=0);
-        static double h124(const xyzLoc &l1, const xyzLoc &l2);
+        static double h124(const xyztLoc &l1, const xyztLoc &l2);
 };
 
 /*class AbsGrid3DEnvironment : public Grid3DEnvironment
@@ -285,20 +285,20 @@ public:
 	virtual ~AbsGrid3DEnvironment();
 	MapAbstraction *GetMapAbstraction() { return ma; }
 	void OpenGLDraw() const { map->OpenGLDraw(); ma->OpenGLDraw(); }
-	void OpenGLDraw(const xyzLoc &l) const { Grid3DEnvironment::OpenGLDraw(l); }
-	void OpenGLDraw(const xyzLoc& s, const t3DDirection &dir) const {Grid3DEnvironment::OpenGLDraw(s,dir);}
-	void OpenGLDraw(const xyzLoc &l1, const xyzLoc &l2, float v) const { Grid3DEnvironment::OpenGLDraw(l1, l2, v); }
+	void OpenGLDraw(const xyztLoc &l) const { Grid3DEnvironment::OpenGLDraw(l); }
+	void OpenGLDraw(const xyztLoc& s, const t3DDirection &dir) const {Grid3DEnvironment::OpenGLDraw(s,dir);}
+	void OpenGLDraw(const xyztLoc &l1, const xyztLoc &l2, float v) const { Grid3DEnvironment::OpenGLDraw(l1, l2, v); }
 
 protected:
 	MapAbstraction *ma;
 };*/
 
-typedef UnitSimulation<xyzLoc, t3DDirection, Grid3DEnvironment> UnitMap3DSimulation;
-//typedef UnitSimulation<xyzLoc, t3DDirection, AbsGrid3DEnvironment> UnitAbsMap3DSimulation;
+typedef UnitSimulation<xyztLoc, t3DDirection, Grid3DEnvironment> UnitMap3DSimulation;
+//typedef UnitSimulation<xyztLoc, t3DDirection, AbsGrid3DEnvironment> UnitAbsMap3DSimulation;
 
 
 //template<>
-//void UnitSimulation<xyzLoc, t3DDirection, Grid3DEnvironment>::OpenGLDraw()
+//void UnitSimulation<xyztLoc, t3DDirection, Grid3DEnvironment>::OpenGLDraw()
 //{
 //	env->OpenGLDraw();
 //	for (unsigned int x = 0; x < units.size(); x++)
@@ -308,7 +308,7 @@ typedef UnitSimulation<xyzLoc, t3DDirection, Grid3DEnvironment> UnitMap3DSimulat
 //}
 //
 //template<>
-//void UnitSimulation<xyzLoc, t3DDirection, AbsGrid3DEnvironment>::OpenGLDraw()
+//void UnitSimulation<xyztLoc, t3DDirection, AbsGrid3DEnvironment>::OpenGLDraw()
 //{
 //	env->OpenGLDraw();
 //	for (unsigned int x = 0; x < units.size(); x++)

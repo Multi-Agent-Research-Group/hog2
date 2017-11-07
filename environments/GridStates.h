@@ -114,24 +114,24 @@ struct xyzLoc {
     unsigned z : 10;
 };
 
-struct xyztLoc : xyzLoc {
-  xyztLoc(xyzLoc const& loc, unsigned time):xyzLoc(loc),t(time), h(0){}
-  xyztLoc(xyzLoc const& loc, double time):xyzLoc(loc),t(round(time*TIME_RESOLUTION_D)), h(0){}
-  xyztLoc(xyzLoc const& loc, float time):xyzLoc(loc),t(round(time*TIME_RESOLUTION)), h(0){}
-  xyztLoc(xyzLoc const& loc, unsigned _h, float time):xyzLoc(loc),t(round(time*TIME_RESOLUTION)), h(_h){}
-  xyztLoc(unsigned _x, unsigned _y):xyzLoc(_x,_y,0),t(0), h(0){}
-  xyztLoc(unsigned _x, unsigned _y, unsigned _z, float time):xyzLoc(_x,_y,_z),t(round(time*TIME_RESOLUTION)), h(0){}
-  xyztLoc(unsigned _x, unsigned _y, unsigned _z):xyzLoc(_x,_y,_z),t(0), h(0){}
-  xyztLoc(unsigned _x, unsigned _y, unsigned _z, unsigned time):xyzLoc(_x,_y,_z),t(time), h(0){}
-  xyztLoc():xyzLoc(),h(0){}
+struct xyztLoc {
+  xyztLoc():x(0),y(0),z(0),t(0),h(0){}
+  xyztLoc(xyztLoc const& v, unsigned time):x(v.x),y(v.y),z(v.z),t(time),h(0){}
+  xyztLoc(unsigned _x, unsigned _y):x(_x),y(_y),z(0),t(0),h(0){}
+  xyztLoc(unsigned _x, unsigned _y, unsigned _z, float time):x(_x),y(_y),z(_z),t(round(time*TIME_RESOLUTION)),h(0){}
+  xyztLoc(unsigned _x, unsigned _y, unsigned _z):x(_x),y(_y),z(_z),t(0),h(0){}
+  xyztLoc(unsigned _x, unsigned _y, unsigned _z, unsigned time):x(_x),y(_y),z(_z),t(time),h(0){}
   operator TemporalVector3D()const{return TemporalVector3D(x,y,z,t/TIME_RESOLUTION_D);}
   explicit operator TemporalVector()const{return TemporalVector(x,y,t/TIME_RESOLUTION_D);}
   operator Vector3D()const{return Vector3D(x,y,z);}
   explicit operator Vector2D()const{return Vector2D(x,y);}
+  unsigned x : 12;
+  unsigned y : 12;
+  unsigned z : 10;
   unsigned t : 20; // Time (milliseconds)
   unsigned h : 10; // Heading
   //int16_t p; // Pitch
-  virtual bool sameLoc(xyztLoc const& other)const{return xyzLoc::sameLoc(other);}
+  virtual bool sameLoc(xyztLoc const& other)const{return x==other.x&&y==other.y&&z==other.z;}
   virtual bool operator==(xyztLoc const& other)const{return sameLoc(other)&&t==other.t;}
   virtual bool operator!=(xyztLoc const& other)const{return x!=other.x||y!=other.y||z!=other.z||t!=other.t;}
   virtual void print(std::ostream& os)const{os<<"("<<x<<","<<y<<","<<z<<","<<float(t)/TIME_RESOLUTION<<")";}
@@ -260,7 +260,7 @@ private:
 };
 
 // Ignore time component
-static inline double distanceSquared(xyzLoc const& A1, xyzLoc const& B1){
+static inline double distanceSquared(xyztLoc const& A1, xyztLoc const& B1){
   return (A1.x-B1.x)*(A1.x-B1.x) + (A1.y-B1.y)*(A1.y-B1.y) + (A1.z-B1.z)*(A1.z-B1.z);
 }
 

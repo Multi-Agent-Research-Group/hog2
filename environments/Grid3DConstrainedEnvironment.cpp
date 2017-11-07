@@ -40,7 +40,7 @@ Grid3DConstrainedEnvironment::Grid3DConstrainedEnvironment(Grid3DEnvironment *m)
 
 void Grid3DConstrainedEnvironment::GetSuccessors(const xyztLoc &nodeID, std::vector<xyztLoc> &neighbors) const
 {
-  std::vector<xyzLoc> n;
+  std::vector<xyztLoc> n;
   mapEnv->GetSuccessors(nodeID, n);
 
   // TODO: remove illegal successors
@@ -48,10 +48,11 @@ void Grid3DConstrainedEnvironment::GetSuccessors(const xyztLoc &nodeID, std::vec
   {
     unsigned inc(mapEnv->GetConnectedness()?(Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y))*xyztLoc::TIME_RESOLUTION_D:xyztLoc::TIME_RESOLUTION);
     if(!inc)inc=xyztLoc::TIME_RESOLUTION_U; // Wait action
-    xyztLoc newLoc(n[x],
+    n[x].t=nodeID.t+inc;
+    //xyztLoc newLoc(n[x],
         //Util::heading<USHRT_MAX>(nodeID.x,nodeID.y,n[x].x,n[x].y), // hdg
         //Util::angle<SHRT_MAX>(0.0,0.0,Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y),double(n[x].z-nodeID.z)), // pitch
-        nodeID.t+inc);
+        //nodeID.t+inc);
     /*bool bad(false);
     for(unsigned int x = 0; x < constraints.size(); x++)
     {
@@ -62,27 +63,23 @@ void Grid3DConstrainedEnvironment::GetSuccessors(const xyztLoc &nodeID, std::vec
     if(!bad)
       neighbors.push_back(newLoc);
       */
-    if (!ViolatesConstraint(nodeID,newLoc)){
-      neighbors.push_back(newLoc);
+    if (!ViolatesConstraint(nodeID,n[x])){
+      neighbors.push_back(n[x]);
     }
   }
 }
 
 void Grid3DConstrainedEnvironment::GetAllSuccessors(const xyztLoc &nodeID, std::vector<xyztLoc> &neighbors) const
 {
-  std::vector<xyzLoc> n;
-  mapEnv->GetSuccessors(nodeID, n);
+  mapEnv->GetSuccessors(nodeID, neighbors);
 
   // TODO: remove illegal successors
-  for (unsigned int x = 0; x < n.size(); x++)
+  for (unsigned int x = 0; x < neighbors.size(); x++)
   {
-    unsigned inc(mapEnv->GetConnectedness()?(Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y))*xyztLoc::TIME_RESOLUTION_D:xyztLoc::TIME_RESOLUTION);
+    unsigned inc(mapEnv->GetConnectedness()?(Util::distance(nodeID.x,nodeID.y,neighbors[x].x,neighbors[x].y))*xyztLoc::TIME_RESOLUTION_D:xyztLoc::TIME_RESOLUTION);
     if(!inc)inc=xyztLoc::TIME_RESOLUTION_U; // Wait action
-    xyztLoc newLoc(n[x],
-        //Util::heading<USHRT_MAX>(nodeID.x,nodeID.y,n[x].x,n[x].y), // hdg
-        //Util::heading<SHRT_MAX>(0.0,0.0,Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y),double(n[x].z-nodeID.z)), // pitch
-        nodeID.t+inc);
-    neighbors.push_back(newLoc);
+    
+    neighbors[x].t+=inc;
   }
 }
 

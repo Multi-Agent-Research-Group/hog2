@@ -254,9 +254,8 @@ void InitHeadless(){
         bool conflict(true);
         while(conflict){
           conflict=false;
-          xyzLoc rs1(rand() % width, rand() % length, rand() % height);
-          if(!ace->GetMap()->IsTraversable(rs1.x,rs1.y,rs1.z,Map3D::air)){conflict=true;continue;}
-          xyztLoc start(rs1, 0u);
+          xyztLoc start(rand() % width, rand() % length, rand() % height,0u);
+          if(!ace->GetMap()->IsTraversable(start.x,start.y,start.z,Map3D::air)){conflict=true;continue;}
           for (int j = 0; j < waypoints.size(); j++)
           {
             if(i==j){continue;}
