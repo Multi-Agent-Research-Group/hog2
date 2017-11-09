@@ -26,6 +26,7 @@
 #include <gtest/gtest.h>
 #include "Grid3DEnvironment.h"
 #include "Grid3DConstrainedEnvironment.h"
+#include "MultiAgentEnvironment.h"
 //#include "Grid3DEnvironment.h"
 //#include "Grid3DConstrainedEnvironment.h"
 //#include "Map3d.h"
@@ -65,7 +66,7 @@ TEST(ICTSAlgorithm, SimpleTest){
   ASSERT_TRUE(validateSolution(solution));
 }
 
-TEST(ICTSAlgorithm, Funky){
+/*TEST(ICTSAlgorithm, Funky){
   agentRadius=.25;
   Map3D map(8,8,8);
   Grid3DEnvironment menv(&map);
@@ -92,7 +93,7 @@ TEST(ICTSAlgorithm, Funky){
     for(auto const& s:ss)
       std::cout << s << "\n";
   ASSERT_TRUE(validateSolution(solution));
-}
+}*/
 
 TEST(LOSConstraint, Tether){
   xyztLoc a1(1,2,0,0.0f);
@@ -180,5 +181,28 @@ TEST(LOSConstraint, ShouldMerge){
   ASSERT_EQ(1,tether.agent2);
   ASSERT_EQ(1,c.first);
 }
+TEST(MAAStar, search){
+  Map3D map(64,64,1);
+  Grid3DEnvironment menv(&map);
+  menv.SetOneConnected();
+  menv.SetGround();
+  Grid3DConstrainedEnvironment env(&menv);
+  env.SetIgnoreTime(true);
+  env.SetIgnoreHeading(true);
+  MultiAgentEnvironment<std::pair<xyztLoc,xyztLoc>,t3DDirection,Grid3DConstrainedEnvironment> mae(&env);
+  TemplateAStar<MultiAgentEnvironment<std::pair<xyztLoc,xyztLoc>,t3DDirection,Grid3DConstrainedEnvironment>::MultiAgentState, MultiAgentEnvironment<std::pair<xyztLoc,xyztLoc>,t3DDirection,Grid3DConstrainedEnvironment>::MultiAgentAction, MultiAgentEnvironment<std::pair<xyztLoc,xyztLoc>,t3DDirection,Grid3DConstrainedEnvironment> > astar;
+  MultiAgentEnvironment<std::pair<xyztLoc,xyztLoc>,t3DDirection,Grid3DConstrainedEnvironment>::MultiAgentState start;
+  start.emplace_back(xyztLoc(50,45,0),xyztLoc(50,45,0));
+  start.emplace_back(xyztLoc(55,50,0),xyztLoc(55,50,0));
+  MultiAgentEnvironment<std::pair<xyztLoc,xyztLoc>,t3DDirection,Grid3DConstrainedEnvironment>::MultiAgentState goal;
+  goal.emplace_back(xyztLoc(50,55,0),xyztLoc(50,55,0));
+  goal.emplace_back(xyztLoc(45,50,0),xyztLoc(54,50,0));
+  std::vector<MultiAgentEnvironment<std::pair<xyztLoc,xyztLoc>,t3DDirection,Grid3DConstrainedEnvironment>::MultiAgentState> path;
+  astar.GetPath(&mae,start,goal,path);
+  for(auto const& s:path){
+    std::cout << s << "\n";
+  }
+}
+
 
 #endif

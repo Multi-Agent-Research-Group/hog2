@@ -53,6 +53,7 @@ PROJECTS = \
   apps/delta \
   apps/MACBS \
   apps/MAPF \
+  apps/MAAStar \
   apps/aacbs \
   apps/MO \
   demos/DFID \

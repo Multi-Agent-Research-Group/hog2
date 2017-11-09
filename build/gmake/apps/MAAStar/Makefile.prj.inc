@@ -5,7 +5,7 @@
 # $Source: /usr/cvsroot/project_hog/build/gmake/apps/nathan/Makefile.prj.inc,v $
 #-----------------------------------------------------------------------------
 
-NAME = MAAStar
+NAME = MAPF
 DBG_NAME = $(NAME)
 REL_NAME = $(NAME)
 
@@ -69,4 +69,4 @@ endif
 default : all
 
 SRC_CPP = \
-	apps/MAAStar/Driver.cpp
+	apps/MAPF/Driver.cpp
