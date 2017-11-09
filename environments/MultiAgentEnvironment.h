@@ -39,7 +39,7 @@ class MultiAgentEnvironment : public SearchEnvironment<std::vector<state>, std::
     typedef std::vector<action> MultiAgentAction;
 
     // Constructor
-    MultiAgentEnvironment(ConstrainedEnvironment<typename state::first_type,action> * const base):env(base){}
+    MultiAgentEnvironment(environment * const base):env(base){}
 
     virtual void GetSuccessors(const MultiAgentState &nodeID, std::vector<MultiAgentState> &neighbors) const;
 
@@ -81,7 +81,7 @@ class MultiAgentEnvironment : public SearchEnvironment<std::vector<state>, std::
     MultiAgentState const* goal;
     MultiAgentState const& getGoal()const{return *goal;}
     void setGoal(MultiAgentState const& g){goal=&g;}
-    ConstrainedEnvironment<typename state::first_type,action> const* const getEnv()const{return env;}
+    environment const* const getEnv()const{return env;}
 
   protected:
 
@@ -91,7 +91,7 @@ class MultiAgentEnvironment : public SearchEnvironment<std::vector<state>, std::
 
 
   private:
-    ConstrainedEnvironment<typename state::first_type,action> *const env;
+    environment *const env;
 };
 
 template<typename state>
