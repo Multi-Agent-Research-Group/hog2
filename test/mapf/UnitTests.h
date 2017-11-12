@@ -189,7 +189,8 @@ TEST(MAAStar, search){
   Grid3DConstrainedEnvironment env(&menv);
   env.SetIgnoreTime(true);
   env.SetIgnoreHeading(true);
-  MultiAgentEnvironment<std::pair<xyztLoc,xyztLoc>,t3DDirection,Grid3DConstrainedEnvironment> mae(&env);
+  std::vector<Grid3DConstrainedEnvironment const*> envs ={&env,&env};
+  MultiAgentEnvironment<std::pair<xyztLoc,xyztLoc>,t3DDirection,Grid3DConstrainedEnvironment> mae(envs);
   TemplateAStar<MultiAgentEnvironment<std::pair<xyztLoc,xyztLoc>,t3DDirection,Grid3DConstrainedEnvironment>::MultiAgentState, MultiAgentEnvironment<std::pair<xyztLoc,xyztLoc>,t3DDirection,Grid3DConstrainedEnvironment>::MultiAgentAction, MultiAgentEnvironment<std::pair<xyztLoc,xyztLoc>,t3DDirection,Grid3DConstrainedEnvironment> > astar;
   MultiAgentEnvironment<std::pair<xyztLoc,xyztLoc>,t3DDirection,Grid3DConstrainedEnvironment>::MultiAgentState start;
   start.emplace_back(xyztLoc(50,45,0),xyztLoc(50,45,0));

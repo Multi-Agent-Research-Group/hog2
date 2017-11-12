@@ -33,18 +33,14 @@ class MapPerfectHeuristic: public Heuristic<state> {
 
   public:
     // constructor
-    MapPerfectHeuristic( MapInterface *_m, ConstrainedEnvironment<state,action>* _e): m(_m),e(_e),elapsed(0.0),loaded(false),list(m->GetMapHeight()*m->GetMapWidth()){}
+    MapPerfectHeuristic( MapInterface *_m, SearchEnvironment<state,action>* _e): m(_m),e(_e),elapsed(0.0),loaded(false),list(m->GetMapHeight()*m->GetMapWidth()){}
 
     double HCost( const state &s1, const state &s2 ) const {
       if(!loaded){
         goal=s2;
         Timer tmr;
         tmr.StartTimer();
-        bool originalIgnoreTime(e->GetIgnoreTime());
-        bool originalIgnoreHeading(e->GetIgnoreHeading());
-        e->SetIgnoreTime(true); // Otherwise the search would never terminate
-        e->SetIgnoreHeading(true);  // Don't care about alternate paths to this state
-        TemplateAStar<state,action,ConstrainedEnvironment<state,action>> astar;
+        TemplateAStar<state,action,SearchEnvironment<state,action>> astar;
         //std::cout << "Loading heuristic\n";
         astar.SetVerbose(false);
         astar.SetHeuristic(new ZeroHeuristic<state>);
@@ -64,8 +60,6 @@ class MapPerfectHeuristic: public Heuristic<state> {
               list[w*m->GetMapHeight()+h]=INF;
           }
         }
-        e->SetIgnoreTime(originalIgnoreTime);
-        e->SetIgnoreHeading(originalIgnoreHeading);
         loaded=true;
         elapsed+=tmr.EndTimer();
       }
@@ -76,7 +70,7 @@ class MapPerfectHeuristic: public Heuristic<state> {
 
   private:
     MapInterface *m;
-    ConstrainedEnvironment<state,action> *e;
+    SearchEnvironment<state,action> *e;
     mutable bool loaded;
     mutable std::vector<float> list;
     mutable state goal;

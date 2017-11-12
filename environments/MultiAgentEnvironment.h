@@ -39,7 +39,7 @@ class MultiAgentEnvironment : public SearchEnvironment<std::vector<state>, std::
     typedef std::vector<action> MultiAgentAction;
 
     // Constructor
-    MultiAgentEnvironment(environment * const base):env(base){}
+    MultiAgentEnvironment(std::vector<environment const*> const& base):env(base){}
 
     virtual void GetSuccessors(const MultiAgentState &nodeID, std::vector<MultiAgentState> &neighbors) const;
 
@@ -81,7 +81,7 @@ class MultiAgentEnvironment : public SearchEnvironment<std::vector<state>, std::
     MultiAgentState const* goal;
     MultiAgentState const& getGoal()const{return *goal;}
     void setGoal(MultiAgentState const& g){goal=&g;}
-    environment const* const getEnv()const{return env;}
+    environment const* const getEnv(unsigned index)const{return env[index];}
 
   protected:
 
@@ -91,7 +91,7 @@ class MultiAgentEnvironment : public SearchEnvironment<std::vector<state>, std::
 
 
   private:
-    environment *const env;
+    std::vector<environment const*> env;
 };
 
 template<typename state>
@@ -141,11 +141,12 @@ void MultiAgentEnvironment<state,action,environment>::GetSuccessors(const MultiA
 
   uint32_t md(0xffffffff); // Min depth of successors
   //Add in successors for parents who are equal to the min
+  unsigned k(0);
   for(auto const& a: s){
     std::vector<state> output;
     if(a.second.t<=sd){
       std::vector<typename state::first_type> n;
-      env->GetSuccessors(a.second,n);
+      env[k++]->GetSuccessors(a.second,n);
       //std::cout << "Keep Successors of " << *a.second << "\n";
       for(auto const& b: n){
         output.emplace_back(a.second,b);
@@ -173,7 +174,7 @@ double MultiAgentEnvironment<state,action,environment>::HCost(const MultiAgentEn
 {
   double total(0.0);
   for(int i(0); i<node1.size(); ++i){
-    total += env->HCost(node1[i].second,node2[i].second);
+    total += env[i]->HCost(node1[i].second,node2[i].second);
   }
   return total;
 }
@@ -184,7 +185,7 @@ template<typename state, typename action, typename environment>
 double MultiAgentEnvironment<state,action,environment>::GCost(MultiAgentEnvironment<state,action,environment>::MultiAgentState const& node1, MultiAgentEnvironment<state,action,environment>::MultiAgentState const& node2) const {
   double total(0.0);
   for(int i(0); i<node1.size(); ++i){
-    total += env->GCost(node1[i].second,node2[i].second);
+    total += env[i]->GCost(node1[i].second,node2[i].second);
   }
   return total;
 }
@@ -192,51 +193,67 @@ double MultiAgentEnvironment<state,action,environment>::GCost(MultiAgentEnvironm
 template<typename state, typename action, typename environment>
 bool MultiAgentEnvironment<state,action,environment>::GoalTest(const MultiAgentEnvironment<state,action,environment>::MultiAgentState &node, const MultiAgentEnvironment<state,action,environment>::MultiAgentState &goal) const
 {
-  bool done(true);
   for(int i(0); i<node.size(); ++i){
-    done = done && env->GoalTest(node[i].second,goal[i].second);
+    if(!env[i]->GoalTest(node[i].second,goal[i].second))
+      return false;
   }
-  return done;
+  return true;
 }
 
 template<typename state, typename action, typename environment>
 double MultiAgentEnvironment<state,action,environment>::GetPathLength(const std::vector<MultiAgentEnvironment<state,action,environment>::MultiAgentState> &sol) const
 {
-    double gcost(0.0);
-    if(sol.size()>1)
-      for(auto n(sol.begin()+1); n!=sol.end(); ++n)
-        gcost += GCost(*(n-1),*n);
-    return gcost;
+    //double gcost(0.0);
+    //if(sol.size()>1)
+      //for(auto n(sol.begin()+1); n!=sol.end(); ++n)
+        //gcost += GCost(*(n-1),*n);
+    //return gcost;
+  // Compute cost where waiting at the goal is free.
+  uint32_t cost(0);
+  for(auto const& path:sol){
+    for(int j(path.size()-1); j>0; --j){
+      if(path[j-1].second!=path[j].second){
+        cost += path[j].second.t;
+        break;
+      }else if(j==1){
+        cost += path[0].second.t;
+      }
+    }
+  }
+  return cost;
 }
 
 template<typename state, typename action, typename environment>
 uint64_t MultiAgentEnvironment<state,action,environment>::GetStateHash(const MultiAgentEnvironment<state,action,environment>::MultiAgentState &node) const
 {
-    uint64_t h = 0;
-    for(auto const& s : node){
-      h = (h * 16777619) ^ env->GetStateHash(s.second); // xor
-    }
-    return h;
+  uint64_t h(0);
+  unsigned i(0);
+  for(auto const& s : node){
+    h = (h * 16777619) ^ env[i++]->GetStateHash(s.second); // xor
+  }
+  return h;
 }
 
 template<typename state, typename action, typename environment>
 void MultiAgentEnvironment<state,action,environment>::OpenGLDraw() const
 {
-  env->OpenGLDraw();
+  env[0]->OpenGLDraw();
 }
 
 template<typename state, typename action, typename environment>
 void MultiAgentEnvironment<state,action,environment>::OpenGLDraw(const MultiAgentEnvironment<state,action,environment>::MultiAgentState &l) const
 {
+  unsigned i(0);
   for(auto const& s: l)
-    env->OpenGLDraw(s.second);
+    env[i++]->OpenGLDraw(s.second);
 }
 
 template<typename state, typename action, typename environment>
 void MultiAgentEnvironment<state,action,environment>::OpenGLDraw(const MultiAgentEnvironment<state,action,environment>::MultiAgentState& o, const MultiAgentEnvironment<state,action,environment>::MultiAgentState &n, float perc) const
 {
+  unsigned i(0);
   for(auto const& s: n)
-    env->OpenGLDraw(s.first,s.second,perc);
+    env[i++]->OpenGLDraw(s.first,s.second,perc);
 }
 
 template<typename state, typename action, typename environment>
@@ -250,7 +267,7 @@ void MultiAgentEnvironment<state,action,environment>::GLDrawLine(const MultiAgen
 {
   int i(0);
   for(auto const& s: a)
-    env->GLDrawLine(s.first,s.second);
+    env[i++]->GLDrawLine(s.first,s.second);
 }
 
 template<typename state, typename action, typename environment>
