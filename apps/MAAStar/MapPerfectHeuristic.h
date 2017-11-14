@@ -19,6 +19,7 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+#include "Map2DConstrainedEnvironment.h"
 #include "MapInterface.h"
 #include "Heuristic.h"
 #include "TemplateAStar.h"
@@ -28,31 +29,30 @@
 // holonomic (otherwise a reverse search becomes imperative)
 #define INF 9999999
 
-template<typename state, typename action>
-class MapPerfectHeuristic: public Heuristic<state> {
+class MapPerfectHeuristic: public Heuristic<xytLoc> {
 
   public:
     // constructor
-    MapPerfectHeuristic( MapInterface *_m, ConstrainedEnvironment<state,action>* _e): m(_m),e(_e),elapsed(0.0),loaded(false),list(m->GetMapHeight()*m->GetMapWidth()){}
+    MapPerfectHeuristic( MapInterface *_m, Map2DConstrainedEnvironment* _e): m(_m),e(_e),elapsed(0.0),loaded(false),list(m->GetMapHeight()*m->GetMapWidth()){}
 
-    double HCost( const state &s1, const state &s2 ) const {
+    double HCost( const xytLoc &s1, const xytLoc &s2 ) const {
       if(!loaded){
         goal=s2;
         Timer tmr;
         tmr.StartTimer();
+        TemplateAStar<xytLoc,tDirection,Map2DConstrainedEnvironment> astar;
         bool originalIgnoreTime(e->GetIgnoreTime());
         bool originalIgnoreHeading(e->GetIgnoreHeading());
         e->SetIgnoreTime(true); // Otherwise the search would never terminate
         e->SetIgnoreHeading(true);  // Don't care about alternate paths to this state
-        TemplateAStar<state,action,ConstrainedEnvironment<state,action>> astar;
         //std::cout << "Loading heuristic\n";
         astar.SetVerbose(false);
-        astar.SetHeuristic(new ZeroHeuristic<state>);
+        astar.SetHeuristic(new ZeroHeuristic<xytLoc>);
         astar.SetStopAfterGoal(false); // Search the entire space
         // Now perform a search to get all costs
         // NOTE: This should be a reverse-search, but our agents are holonomic
         // so the costs forward are the same as the costs backward
-        std::vector<state> path;
+        std::vector<xytLoc> path;
         astar.GetPath(e,goal,s1,path);
         for(int w(0); w<m->GetMapWidth(); ++w){
           for(int h(0); h<m->GetMapHeight(); ++h){
@@ -76,10 +76,10 @@ class MapPerfectHeuristic: public Heuristic<state> {
 
   private:
     MapInterface *m;
-    ConstrainedEnvironment<state,action> *e;
+    Map2DConstrainedEnvironment *e;
     mutable bool loaded;
     mutable std::vector<float> list;
-    mutable state goal;
+    mutable xytLoc goal;
 
 };
 

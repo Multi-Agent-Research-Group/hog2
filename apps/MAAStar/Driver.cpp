@@ -19,368 +19,158 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+
 #include "Common.h"
 #include "Driver.h"
+#include <memory>
+#include <iostream>
+#include <bitset>
+#include <iomanip>
+#include <unordered_set>
+#include <set>
+#include <stack>
+#include <unordered_map>
+#include <sstream>
+#include <iterator>
+#include <algorithm>
+#include <functional>
+#include "VelocityObstacle.h"
+#include "PEAStar.h"
+#include "TemplateAStar.h"
+#include "Heuristic.h"
 #include "UnitSimulation.h"
 #include "ScenarioLoader.h"
-#include "MACBSUnits.h"
-#include "NonUnitTimeCAT.h"
-#include "ICTSAlgorithm.h"
 #include "MapPerfectHeuristic.h"
-#include "Map3dPerfectHeuristic.h"
-#include "MultiAgentEnvironment.h"
-#include "TemplateAStar.h"
-//#include "AirplaneConstrained.h"
-#include "Grid3DConstrainedEnvironment.h"
 #include "Utilities.h"
-#include <sstream>
+#include "MultiAgentEnvironment.h"
+#include "Map2DEnvironment.h"
+#include "Map2DConstrainedEnvironment.h"
+#include "Map.h"
+#include "TemporalAStar.h"
 
-std::vector<MultiAgentEnvironment<std::pair<xyztLoc,xyztLoc>,t3DDirection,Grid3DConstrainedEnvironment>::MultiAgentState> solution;
-Grid3DEnvironment* menv(nullptr);
-Grid3DConstrainedEnvironment* env(nullptr);
+// for agents to stay at goal
+#define MAXTIME 1000000
+// for inflation of floats to avoid rounding errors
+#define INFLATION 1000
+#define TOMSECS 0.001
+
+typedef std::pair<std::vector<xytLoc>,std::vector<xytLoc>> Instance;
+std::vector<MapEnvironment*> menv;
+std::vector<Map2DConstrainedEnvironment*> env;
+std::vector<Heuristic<xytLoc>*> heuristics;
+std::string mapfile;
+std::string dtedfile;
+
+Timer certtimer;
+size_t maxnagents(0);
 
 extern double agentRadius;
-bool greedyCT = false; // use greedy heuristic at the high-level
-bool ECBSheuristic = false; // use ECBS heuristic at low-level
-bool randomalg = false; // Randomize tiebreaking
-bool useCAT = false; // Use conflict avoidance table
-bool verify = false;
-bool suboptimal = false;
+bool epp(false);
+bool verbose(false);
+bool quiet(false);
+bool verify(false);
+bool ID(true);
+bool precheck(true);
 bool mouseTracking;
-unsigned killtime(300); // Kill after some number of seconds
+unsigned agentType(5);
+unsigned killtime(300);
 unsigned killmem(1024); // 1GB
-unsigned killex(INT_MAX); // Kill after some number of expansions
-bool disappearAtGoal(false);
-int px1, py1, px2, py2;
-int absType = 0;
-int mapSize = 128;
 int width = 64;
 int length = 64;
 int height = 0;
-bool recording = false; // Record frames
-bool verbose(false);
-bool quiet(false);
+bool recording = false;
 double simTime = 0;
 double stepsPerFrame = 1.0/100.0;
-double frameIncrement = 1.0/1000.0;
-std::string mapfile;
-std::string dtedfile;
-unsigned mergeThreshold(5);
-std::vector<std::vector<xyztLoc> > waypoints;
-//std::vector<SoftConstraint<xytLoc> > sconstraints;
-#define NUMBER_CANONICAL_STATES 10
+double frameIncrement = 1.0/10000.0;
+bool paused = false;
+bool gui=true;
+uint64_t jointnodes(0);
+uint64_t branchingfactor(0);
+uint64_t largestbranch(0);
+float largestJoint(1);
+uint32_t step(INFLATION);
+int n(0);
+std::unordered_map<std::string,bool> transTable;
+std::unordered_map<uint64_t,bool> singleTransTable;
+unsigned seed(clock());
 
-  char const* envnames[11] = {"fourconnected","fiveconnected","eightconnected","nineconnected","twentyfourconnected","twentyfiveconnected","fortyeightconnected","fortynineconnected","3dcardinal","3done","3dtwo"};
-  int cutoffs[10] = {0,9999,9999,9999,9999,9999,9999,9999,9999,9999}; // for each env
-  double weights[10] = {1,1,1,1,1,1,1,1,1,1}; // for each env
-  std::vector<std::vector<EnvironmentContainer<xyztLoc,t3DDirection>>> environs;
-  std::vector<std::vector<EnvData>> envdata;
-  int seed = clock();
-  int num_agents = 0;
-  int minsubgoals(1);
-  int maxsubgoals(1);
-  bool use_wait = false;
-  bool nobypass = false;
+std::string filepath;
+std::vector<std::vector<xytLoc> > waypoints;
 
-  bool paused = false;
+UnitSimulation<xytLoc, tDirection, Map2DConstrainedEnvironment> *sim = 0;
 
-  Grid3DConstrainedEnvironment *ace = 0;
-  UnitSimulation<xyztLoc, t3DDirection, ConstrainedEnvironment<xyztLoc,t3DDirection>> *sim = 0;
-  typedef CBSUnit<xyztLoc,t3DDirection,TieBreaking3D<xyztLoc,t3DDirection>,NonUnitTimeCAT<xyztLoc,t3DDirection,GRID3D_HASH_INTERVAL_HUNDREDTHS>> MACBSUnit;
-  typedef CBSGroup<xyztLoc,t3DDirection,TieBreaking3D<xyztLoc,t3DDirection>,NonUnitTimeCAT<xyztLoc,t3DDirection,GRID3D_HASH_INTERVAL_HUNDREDTHS>,ICTSAlgorithm<xyztLoc,t3DDirection>> MACBSGroup;
-  MACBSGroup* group(nullptr);
-
-  bool gui=true;
-  int animate(0);
-  void InitHeadless();
-
-struct Dummy{
-  void processSolution(double elapsed)
-  {
-
-    double cost(0.0);
-    unsigned total(0);
-    // For every unit in the node
-    bool valid(true);
-    for (unsigned int x = 0; x < solution.size(); x++)
-    {
-      for(int j(solution[x].size()-1); j>0; --j){
-        if(!solution[x][j-1].second.sameLoc(solution[x][j].second)){
-          cost += solution[x][j].second.t;
-          total += j;
-          if(verbose)std::cout << "Adding " << solution[x][j].second.t << "\n";
-          break;
-        }else if(j==1){
-          cost += solution[x][0].second.t;
-          if(verbose)std::cout << "Adding_" << solution[x][0].second.t << "\n";
-          total += 1;
-        }
-      }
-
-      if(solution.size()){
-        if(!quiet)std::cout << "Agent " << x << ": " << "\n";
-        if(!quiet)for(auto &a: solution[x])
-        {
-          std::cout << "  " << a.second << "\n";
-        }
-      }else{
-        if(!quiet)std::cout << "Agent " << x << ": " << "NO Path Found.\n";
-      }
-      // Only verify the solution if the run didn't time out
-      if(verify&&elapsed>0){
-        for(unsigned int y = x+1; y < solution.size(); y++){
-          for(unsigned i(1); i<solution[x].size(); ++i){
-            for(unsigned j(1); j<solution[y].size(); ++j){
-              if(collisionCheck3D(solution[x][i-1].second,solution[x][i].second,solution[y][j-1].second,solution[y][j].second,agentRadius)){
-                valid=false;
-                std::cout << "ERROR: Solution invalid; collision at: " << x <<":" << solution[x][i-1].second << "-->" << solution[x][i].second << ", " << y <<":" << solution[y][j-1].second << "-->" << solution[y][j].second << std::endl;
-              }
-            }
-          }
-        }
-      }
-    }
-    fflush(stdout);
-    std::cout<<"elapsed,planTime,replanTime,bypassplanTime,maplanTime,collisionTime,expansions,cost,actions\n";
-    if(verify&&elapsed>0)std::cout << (valid?"VALID":"INVALID")<<std::endl;
-    if(elapsed<0){
-      //std::cout << seed<<":FAILED\n";
-      std::cout << seed<<":" << elapsed*(-1.0) << ",";
-    }else{
-      std::cout << seed<<":" << elapsed << ",";
-    }
-    std::cout << planTime << ",";
-    std::cout << replanTime << ",";
-    std::cout << bypassplanTime << ",";
-    std::cout << maplanTime << ",";
-    std::cout << collisionTime << ",";
-    std::cout << cost/xyztLoc::TIME_RESOLUTION_D << ","; 
-    std::cout << total << std::endl;
-    if(!gui)exit(0);
-  }
-
+class Edge:public std::pair<xytLoc,xytLoc>{
+  public:
+    Edge(xytLoc const& a, xytLoc const& b):std::pair<xytLoc,xytLoc>(a,b),t(b.t){}
+    uint32_t t;
 };
 
-  int main(int argc, char* argv[])
-  {
-  InstallHandlers();
-  ProcessCommandLineArgs(argc, argv);
-  Util::setmemlimit(killmem);
-  
-  if(gui)
-  {
-    RunHOGGUI(0, 0);
-  }
-  else
-  {
-    InitHeadless();
-    while (true)
-    {
-      group->ExpandOneCBSNode();
-    }
-  }
-}
-
-
-/**
- * This function is used to allocate the unit simulated that you want to run.
- * Any parameters or other experimental setup can be done at this time.
- */
 void CreateSimulation(int id)
 {
-	SetNumPorts(id, 1);
-	
-//	unitSims.resize(id+1);
-//	unitSims[id] = new DirectionSimulation(new Directional2DEnvironment(map, kVehicle));
-//	unitSims[id]->SetStepType(kRealTime);
-//	unitSims[id]->GetStats()->EnablePrintOutput(true);
-//	unitSims[id]->GetStats()->AddIncludeFilter("gCost");
-//	unitSims[id]->GetStats()->AddIncludeFilter("nodesExpanded");
-//	dp = new DirectionalPlanner(quad);
-}
-
-/**
- * Allows you to install any keyboard handlers needed for program interaction.
- */
-void InstallHandlers()
-{
-	InstallKeyboardHandler(MyDisplayHandler, "Toggle Abstraction", "Toggle display of the ith level of the abstraction", kAnyModifier, '0', '9');
-	InstallKeyboardHandler(MyDisplayHandler, "Cycle Abs. Display", "Cycle which group abstraction is drawn", kAnyModifier, '\t');
-	InstallKeyboardHandler(MyDisplayHandler, "Pause Simulation", "Pause simulation execution.", kNoModifier, 'p');
-	InstallKeyboardHandler(MyDisplayHandler, "Speed Up Simulation", "Speed Up simulation execution.", kNoModifier, '=');
-	InstallKeyboardHandler(MyDisplayHandler, "Slow Down Simulation", "Slow Down simulation execution.", kNoModifier, '-');
-	InstallKeyboardHandler(MyDisplayHandler, "Step Simulation", "If the simulation is paused, step forward .1 sec.", kNoModifier, 'o');
-	InstallKeyboardHandler(MyDisplayHandler, "Record", "Toggle recording.", kNoModifier, 'r');
-	InstallKeyboardHandler(MyDisplayHandler, "Step History", "If the simulation is paused, step forward .1 sec in history", kAnyModifier, '}');
-	InstallKeyboardHandler(MyDisplayHandler, "Step History", "If the simulation is paused, step back .1 sec in history", kAnyModifier, '{');
-	InstallKeyboardHandler(MyDisplayHandler, "Step Abs Type", "Increase abstraction type", kAnyModifier, ']');
-	InstallKeyboardHandler(MyDisplayHandler, "Step Abs Type", "Decrease abstraction type", kAnyModifier, '[');
-
-	InstallKeyboardHandler(MyPathfindingKeyHandler, "Mapbuilding Unit", "Deploy unit that paths to a target, building a map as it travels", kNoModifier, 'd');
-	InstallKeyboardHandler(MyRandomUnitKeyHandler, "Add A* Unit", "Deploys a simple a* unit", kNoModifier, 'a');
-	InstallKeyboardHandler(MyRandomUnitKeyHandler, "Add simple Unit", "Deploys a randomly moving unit", kShiftDown, 'a');
-	InstallKeyboardHandler(MyRandomUnitKeyHandler, "Add simple Unit", "Deploys a right-hand-rule unit", kControlDown, '1');
-
-	InstallCommandLineHandler(MyCLHandler, "-uwait", "-uwait", "Choose if the wait action is used.");
-	InstallCommandLineHandler(MyCLHandler, "-dimensions", "-dimensions width,length,height", "Set the length,width and height of the environment (max 65K,65K,1024).");
-	InstallCommandLineHandler(MyCLHandler, "-nagents", "-nagents <number>", "Select the number of agents.");
-	InstallCommandLineHandler(MyCLHandler, "-nsubgoals", "-nsubgoals <number>,<number>", "Select the min,max number of subgoals per agent.");
-	InstallCommandLineHandler(MyCLHandler, "-seed", "-seed <number>", "Seed for random number generator (defaults to clock)");
-	InstallCommandLineHandler(MyCLHandler, "-nobypass", "-nobypass", "Turn off bypass option");
-        InstallCommandLineHandler(MyCLHandler, "-record", "-record", "Record frames");
-	InstallCommandLineHandler(MyCLHandler, "-cutoffs", "-cutoffs <n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>", "Number of conflicts to tolerate before switching to less constrained layer of environment. Environments are ordered as: CardinalGrid,OctileGrid,Cardinal3D,Octile3D,H4,H8,Simple,Cardinal,Octile,48Highway");
-	InstallCommandLineHandler(MyCLHandler, "-weights", "-weights <n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>", "Weight to apply to the low-level search for each environment entered as: CardinalGrid,OctileGrid,Cardinal3D,Octile3D,H4,H8,Simple,Cardinal,Octile,48Highway");
-	InstallCommandLineHandler(MyCLHandler, "-probfile", "-probfile", "Load MAPF instance from file");
-	InstallCommandLineHandler(MyCLHandler, "-cfgfile", "-cfgfile", "Load MAPF configuration from file");
-	InstallCommandLineHandler(MyCLHandler, "-envfile", "-envfile", "Load environment settings per agent");
-	InstallCommandLineHandler(MyCLHandler, "-constraints", "-constraints", "Load constraints from file");
-	InstallCommandLineHandler(MyCLHandler, "-killtime", "-killtime", "Kill after this many seconds");
-	InstallCommandLineHandler(MyCLHandler, "-killmem", "-killmem", "Kill after this many seconds");
-	InstallCommandLineHandler(MyCLHandler, "-killex", "-killex", "Kill after this many expansions");
-	InstallCommandLineHandler(MyCLHandler, "-mapfile", "-mapfile", "Map file to use");
-	InstallCommandLineHandler(MyCLHandler, "-dtedfile", "-dtedfile", "Map file to use");
-	InstallCommandLineHandler(MyCLHandler, "-scenfile", "-scenfile", "Scenario file to use");
-	InstallCommandLineHandler(MyCLHandler, "-mergeThreshold", "-mergeThreshold", "Number of conflicts to tolerate between meta-agents before merging");
-	InstallCommandLineHandler(MyCLHandler, "-radius", "-radius", "Radius in units of agent");
-	InstallCommandLineHandler(MyCLHandler, "-disappear", "-disappear", "Agents disappear at goal");
-	InstallCommandLineHandler(MyCLHandler, "-nogui", "-nogui", "Turn off gui");
-	InstallCommandLineHandler(MyCLHandler, "-verbose", "-verbose", "Turn on verbose output");
-	InstallCommandLineHandler(MyCLHandler, "-quiet", "-quiet", "Extreme minimal output");
-	InstallCommandLineHandler(MyCLHandler, "-cat", "-cat", "Use Conflict Avoidance Table (CAT)");
-	InstallCommandLineHandler(MyCLHandler, "-animate", "-animate", "Animate CBS search");
-	InstallCommandLineHandler(MyCLHandler, "-verify", "-verify", "Verify results");
-	InstallCommandLineHandler(MyCLHandler, "-suboptimal", "-suboptimal", "Sub-optimal answers");
-	InstallCommandLineHandler(MyCLHandler, "-random", "-random", "Randomize conflict resolution order");
-	InstallCommandLineHandler(MyCLHandler, "-greedyCT", "-greedyCT", "Greedy sort high-level search by number of conflicts (GCBS)");
-	InstallCommandLineHandler(MyCLHandler, "-ECBSheuristic", "-ECBSheuristic", "Use heuristic in low-level search");
-
-    InstallWindowHandler(MyWindowHandler);
-
-	InstallMouseClickHandler(MyClickHandler);
+        SetNumPorts(id, 1);
 }
 
 void MyWindowHandler(unsigned long windowID, tWindowEventType eType)
 {
-	if (eType == kWindowDestroyed)
-	{
-		printf("Window %ld destroyed\n", windowID);
-		RemoveFrameHandler(MyFrameHandler, windowID, 0);
-	}
-	else if (eType == kWindowCreated)
-	{
-		glClearColor(0.6, 0.8, 1.0, 1.0);
-		printf("Window %ld created\n", windowID);
-		InstallFrameHandler(MyFrameHandler, windowID, 0);
-		InitSim();
-		CreateSimulation(windowID);
-	}
+        if (eType == kWindowDestroyed)
+        {
+                printf("Window %ld destroyed\n", windowID);
+                RemoveFrameHandler(MyFrameHandler, windowID, 0);
+        }
+        else if (eType == kWindowCreated)
+        {
+                glClearColor(0.6, 0.8, 1.0, 1.0);
+                printf("Window %ld created\n", windowID);
+                InstallFrameHandler(MyFrameHandler, windowID, 0);
+                InitSim();
+                CreateSimulation(windowID);
+        }
 }
 
-void InitHeadless(){
-  if(verbose)std::cout << "Adding " << num_agents << "agents." << std::endl;
-
-  for (int i = 0; i < num_agents; i++) {
-    if(waypoints.size()<num_agents){
-      // Adding random waypoints
-      std::vector<xyztLoc> s;
-      unsigned r(maxsubgoals-minsubgoals);
-      int numsubgoals(minsubgoals+1);
-      if(r>0){
-        numsubgoals = rand()%(maxsubgoals-minsubgoals)+minsubgoals+1;
-      }
-      if(verbose)std::cout << "Agent " << i << " add " << numsubgoals << " subgoals\n";
-
-      for(int n(0); n<numsubgoals; ++n){
-        bool conflict(true);
-        while(conflict){
-          conflict=false;
-          xyztLoc start(rand() % width, rand() % length, rand() % height,0u);
-          if(!ace->GetMap()->IsTraversable(start.x,start.y,start.z,Map3D::air)){conflict=true;continue;}
-          for (int j = 0; j < waypoints.size(); j++)
-          {
-            if(i==j){continue;}
-            if(waypoints[j].size()>n)
-            {
-              xyztLoc a(waypoints[j][n]);
-              // Make sure that no subgoals at similar times have a conflict
-              Collision<xyztLoc> x_c(a,a,agentRadius);
-              if(x_c.ConflictsWith(start,start)){conflict=true;break;}
-              if(a==start){conflict=true;break;}
-            }
-            /*xytLoc a(start,1.0);
-              xytLoc b(a);
-              b.x++;
-              if(conflict=ace->ViolatesConstraint(a,b)){break;}*/
-          }
-          if(!conflict) s.push_back(start);
-        }
-      }
-      waypoints.push_back(s);
-    }
-    for(auto w(waypoints.begin()+1); w!=waypoints.end();/*++w*/){
-      if(*(w-1) == *w)
-        waypoints.erase(w);
-      else
-        ++w;
-    }
-
-    if(!quiet){
-      std::cout << "Set unit " << i << " subgoals: ";
-      for(auto &a: waypoints[i])
-        std::cout << a << " ";
-      std::cout << std::endl;
-    }
+void MyDisplayHandler(unsigned long windowID, tKeyboardModifier mod, char key)
+{
+  switch (key)
+  {
+    case 'r': recording = !recording; break;
+    case 'p': paused = !paused; break;
+    default: break;
   }
-  MultiAgentEnvironment<std::pair<xyztLoc,xyztLoc>,t3DDirection,Grid3DConstrainedEnvironment> mae(env);
-  Timer timer;
+}
 
-  Dummy dummy;
-  if(!gui){
-    Timer::Timeout func(std::bind(&Dummy::processSolution, &dummy, std::placeholders::_1));
-    timer.StartTimeout(std::chrono::seconds(killtime),func);
+bool MyClickHandler(unsigned long windowID, int, int, point3d loc, tButtonType button, tMouseEventType mType)
+{
+  return false;
+  mouseTracking = false;
+  if (button == kRightButton)
+  {
+    switch (mType)
+    {
+      case kMouseDown: break;
+      case kMouseDrag: mouseTracking = true; break;
+      case kMouseUp: break;
+    }
+    return true;
   }
-  std::vector<std::pair<xyztLoc,xyztLoc>> start;
-  std::vector<std::pair<xyztLoc,xyztLoc>> goal;
-  for(auto const& s:waypoints){
-    start.emplace_back(s[0],s[0]);
-    goal.emplace_back(s[1],s[0]);
-  }
-  TemplateAStar<MultiAgentEnvironment<std::pair<xyztLoc,xyztLoc>,t3DDirection,Grid3DConstrainedEnvironment>::MultiAgentState, MultiAgentEnvironment<std::pair<xyztLoc,xyztLoc>,t3DDirection,Grid3DConstrainedEnvironment>::MultiAgentAction, MultiAgentEnvironment<std::pair<xyztLoc,xyztLoc>,t3DDirection,Grid3DConstrainedEnvironment>> astar;
-
-  astar.GetPath(&mae,start,goal,solution);
-  dummy.processSolution(timer.EndTimer());
+  return false;
 }
 
 void InitSim(){
-  InitHeadless();
 }
 
 void MyComputationHandler()
 {
-	//while (true)
-	//{
-		//sim->StepTime2(stepsPerFrame);
-	//}
+  while (true)
+  {
+    sim->StepTime(stepsPerFrame);
+  }
 }
 
-//std::vector<t3DDirection> acts;
+
 void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 {
-  /*if (ace){
-    for(auto u : group->GetMembers()){
-      glLineWidth(2.0);
-      GLfloat r, g, b;
-      u->GetColor(r, g, b);
-      ace->SetColor(r,g,b);
-      ace->GLDrawPath(((MACBSUnit const*)u)->GetPath(),((MACBSUnit const*)u)->GetWaypoints());
-    }
-  }
-
-  */
-
-
-  if (recording)
-  {
+  if(sim){sim->OpenGLDraw();}
+  if (!paused) {sim->StepTime(stepsPerFrame);}
+  if (recording) {
     static int index = 0;
     char fname[255];
     sprintf(fname, "movies/cbs-%05d", index);
@@ -390,644 +180,653 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
   }
 }
 
+void InstallHandlers()
+{
+  InstallCommandLineHandler(MyCLHandler, "-dimensions", "-dimensions width,length,height", "Set the length,width and height of the environment (max 65K,65K,1024).");
+  InstallCommandLineHandler(MyCLHandler, "-scenfile", "-scenfile", "Scenario file to use");
+  InstallCommandLineHandler(MyCLHandler, "-mapfile", "-mapfile", "Map file to use");
+  InstallCommandLineHandler(MyCLHandler, "-dtedfile", "-dtedfile", "Map file to use");
+  InstallCommandLineHandler(MyCLHandler, "-agentType", "-agentType [5,9,25,49]","Set the agent movement model");
+  InstallCommandLineHandler(MyCLHandler, "-probfile", "-probfile", "Load MAPF instance from file");
+  InstallCommandLineHandler(MyCLHandler, "-killtime", "-killtime [value]", "Kill after this many seconds");
+  InstallCommandLineHandler(MyCLHandler, "-killmem", "-killmem [value megabytes]", "Kill if a process exceeds this size in memory");
+  InstallCommandLineHandler(MyCLHandler, "-radius", "-radius [value]", "Radius in units of agent");
+  InstallCommandLineHandler(MyCLHandler, "-nogui", "-nogui", "Turn off gui");
+  InstallCommandLineHandler(MyCLHandler, "-epp", "-epp", "Nogood pruning enhancement");
+  InstallCommandLineHandler(MyCLHandler, "-quiet", "-quiet", "Turn off trace output");
+  InstallCommandLineHandler(MyCLHandler, "-verbose", "-verbose", "Turn on verbose output");
+  InstallCommandLineHandler(MyCLHandler, "-verify", "-verify", "Verify results");
+  InstallCommandLineHandler(MyCLHandler, "-noID", "-noID", "No Independence Dection (ID) framework");
+  InstallCommandLineHandler(MyCLHandler, "-noprecheck", "-noprecheck", "Perform simplified collision check before trying the expensive one");
+  InstallCommandLineHandler(MyCLHandler, "-mode", "-mode s,b,p,a", "s=sub-optimal,p=pairwise,b=pairwise,sub-optimal,a=astar");
+  InstallCommandLineHandler(MyCLHandler, "-increment", "-increment [value]", "High-level increment");
+  InstallCommandLineHandler(MyCLHandler, "-seed", "-seed <number>", "Seed for random number generator (defaults to clock)");
+  InstallCommandLineHandler(MyCLHandler, "-nagents", "-nagents <number>", "Select the number of agents.");
+
+  InstallWindowHandler(MyWindowHandler);
+  InstallMouseClickHandler(MyClickHandler);
+}
+
+//int renderScene(){return 1;}
+
+typedef std::unordered_set<int> Group;
+
+// Compute path cost, ignoring actions that wait at the goal
+uint32_t computeSolutionCost(Solution<xytLoc> const& solution, bool ignoreWaitAtGoal=true){
+  uint32_t cost(0);
+  if(ignoreWaitAtGoal){
+    for(auto const& path:solution){
+      for(int j(path.size()-1); j>0; --j){
+        if(path[j-1]!=path[j]){
+          cost += path[j].t;
+          break;
+        }else if(j==1){
+          cost += path[0].t;
+        }
+      }
+    }
+  }else{
+    for(auto const& path:solution){
+      cost+=path.back().t;
+    }
+  }
+  return cost;
+}
+
+
+// Check that two paths have no collisions
+bool checkPair(std::vector<xytLoc> const& p1, std::vector<xytLoc> const& p2,bool loud=false){
+  auto ap(p1.begin());
+  auto a(ap+1);
+  auto bp(p2.begin());
+  auto b(bp+1);
+  while(a!=p1.end() && b!=p2.end()){
+    Vector2D A((*ap).x,(*ap).y);
+    Vector2D B((*bp).x,(*bp).y);
+    Vector2D VA((*a).x-(*ap).x,(*a).y-(*ap).y);
+    VA.Normalize();
+    Vector2D VB((*b).x-(*bp).x,(*b).y-(*bp).y);
+    VB.Normalize();
+    if(collisionImminent(A,VA,agentRadius,(*ap).t,(*a).t,B,VB,agentRadius,(*bp).t,(*b).t)){
+      if(loud)std::cout << "Collision: " << *ap << "-->" << *a << "," << *bp << "-->" << *b;
+      return false;
+    }
+    if((*a).t<(*b).t){
+      ++a;
+      ++ap;
+    }else if((*a).t>(*b).t){
+      ++b;
+      ++bp;
+    }else{
+      ++a;++b;
+      ++ap;++bp;
+    }
+  }
+  return true;
+}
+
+// Not part of the algorithm... just for validating the answers
+bool checkAnswer(Solution<xytLoc> const& answer){
+  for(int i(0);i<answer.size();++i){
+    for(int j(i+1);j<answer.size();++j){
+      if(!checkPair(answer[i],answer[j],verify)){
+        if(verify)std::cout<< "for agents: " << i << " and " << j << "\n";
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+bool detectIndependence(Solution<xytLoc>& solution, std::vector<Group*>& group, std::unordered_set<Group*>& groups){
+  bool independent(true);
+  // Check all pairs for collision
+  uint32_t minTime(-1);
+  for(int i(0); i<solution.size(); ++i){
+    for(int j(i+1); j<solution.size(); ++j){
+      // check collision between i and j
+      int a(1);
+      int b(1);
+      if(solution[i].size() > a && solution[j].size() > b){
+        //uint32_t t(min(solution[i][a].t,solution[j][b].t));
+        while(1){
+          if(a==solution[i].size() || b==solution[j].size()){break;}
+          Vector2D A(solution[i][a-1].x,solution[i][a-1].y);
+          Vector2D B(solution[j][b-1].x,solution[j][b-1].y);
+          Vector2D VA(solution[i][a].x-solution[i][a-1].x,solution[i][a].y-solution[i][a-1].y);
+          VA.Normalize();
+          Vector2D VB(solution[j][b].x-solution[j][b-1].x,solution[j][b].y-solution[j][b-1].y);
+          VB.Normalize();
+          if(collisionImminent(A,VA,agentRadius,solution[i][a-1].t,solution[i][a].t,B,VB,agentRadius,solution[j][b-1].t,solution[j][b].t)){
+            if(!quiet)std::cout << i << " and " << j << " collide at " << solution[i][a-1].t << "~" << solution[i][a].t << solution[i][a-1] << "-->" << solution[i][a] << " X " << solution[j][b-1] << "-->" << solution[j][b] << "\n";
+            independent=false;
+            if(group[i]==group[j]) break; // This can happen if both collide with a common agent
+            // Combine groups i and j
+
+            Group* toDelete(group[j]);
+            groups.erase(group[j]);
+            for(auto a:*group[j]){
+              if(verbose)std::cout << "Inserting agent " << a << " into group for agent " << i << "\n";
+              group[i]->insert(a);
+              group[a]=group[i];
+              maxnagents=std::max(group[i]->size(),maxnagents);
+            }
+            delete toDelete;
+
+            break;
+          }
+          if(solution[i][a].t==solution[j][b].t){
+            ++a;++b;
+          }else if(solution[i][a].t<solution[j][b].t){
+            ++a;
+          }else{++b;}
+        }
+      }
+    }
+  }
+  return independent;
+}
+
+Solution<xytLoc> solution;
+double total(0.0);
+uint32_t nacts(0.0);
+int failed(0);
+uint32_t cost(0);
+Timer tmr;
+
+void printResults(){
+  if(verbose){
+    std::cout << "Solution:\n";
+    int ii=0;
+    for(auto const& p:solution){
+      std::cout << ii++ << "\n";
+      for(auto const& t: p){
+        // Print solution
+        std::cout << t << "\n";
+      }
+    }
+  }
+  for(auto const& path:solution){
+    for(int j(path.size()-1); j>0; --j){
+      if(!path[j-1].sameLoc(path[j])){
+        cost += path[j].t;
+        nacts += j;
+        if(verbose)std::cout << "Adding " << path[j]<<","<<path[j].t<<"\n";
+        break;
+      }else if(j==1){
+        cost += path[0].t;
+        nacts += 1;
+        if(verbose)std::cout << "Adding_" << path[0]<<","<<path[0].t<<"\n";
+      }
+    }
+  }
+  if(!quiet)std::cout << std::endl;
+  total=tmr.EndTimer();
+  if(total<killtime&&verify){
+    if(!checkAnswer(solution)) std::cout << "INVALID!\n";
+    else if(!quiet) std::cout << "VALID\n";
+  }
+  
+  //std::cout << elapsed << " elapsed";
+  //std::cout << std::endl;
+  //total += elapsed;
+  if(!quiet)std::cout << "seed:filepath,jointnodes,largestJoint,maxnagents,total,nacts,cost\n";
+  std::cout << seed << ":" << filepath << "," << jointnodes << "," <<largestJoint << "," << maxnagents << "," << total << "," << nacts << "," << cost;
+  if(total >= killtime)std::cout << " failure";
+  std::cout << std::endl;
+  if(total>=killtime)exit(1);
+}
+
+// Scan the candidate answers and merge a non-conflicting answer set in with
+// the main solution. Return the added cost amount. Returns zero if no solutions
+// could be merged, or the cost of the valid solution is higher than the maximum
+// allowable cost.
+// returns the merged cost or zero if unable to merge and the best cost
+// (the best solution is merged in either case).
+std::pair<uint32_t,uint32_t> mergeSolution(std::vector<Solution<xytLoc>>& answers, Solution<xytLoc>& s, std::vector<int> const& insiders, uint32_t maxMergedCost){
+  // Compute agents not in the answer group
+  std::vector<int> outsiders;
+  for(int k(0); k<s.size(); ++k){
+    bool found(false);
+    for(int i(0); i<answers[0].size(); ++i){
+      if(k==insiders[i]){
+        found=true;
+        break;
+      }
+    }
+    if(!found)
+      outsiders.push_back(k);
+  }
+  std::vector<int> sorted(answers.size());
+  std::iota(sorted.begin(),sorted.end(),0); // Fill with 0,1,2,3...
+  std::vector<uint32_t> costs(answers.size());
+  bool allSame(true);
+  costs[0]=computeSolutionCost(answers[0]);
+  for(int i(1); i<answers.size(); ++i){
+    costs[i]=computeSolutionCost(answers[i]);
+    if(allSame&&!costs[0]==costs[i]){allSame=false;}
+  }
+  if(!allSame){
+    // Sort the cost indices
+    std::sort(sorted.begin(),sorted.end(), [&](int a, int b){ return costs[a]<costs[b]; });
+  }
+  // Check all answers against current paths in solution outside of the group
+  for(auto index:sorted){
+    if(costs[index]>=maxMergedCost){
+      break; // Nothing else will be good to merge (because of sorting)
+    }
+    auto const& ans(answers[index]);
+    bool allValid(true);
+    for(int i(0); i<ans.size(); ++i){
+      for(int j:outsiders){
+        if(!checkPair(ans[i],s[j])){
+          allValid=false;
+          break;
+        }
+      }
+      if(!allValid) break;
+    }
+    // If a conflict free set is found, merge it and return the cost
+    if(allValid){
+      for(int i(0); i<ans.size(); ++i){
+        s[insiders[i]].resize(0);
+        for(auto& a:ans[i]){
+          s[insiders[i]].push_back(a);
+        }
+      }
+      // We have found a feasible global solution
+      if(verbose)std::cout<<"Feasible solution merged\n";
+      return {costs[index],costs[sorted[0]]};
+    }
+  }
+  if(verbose)std::cout << "Solution merged but not conflict-free\n";
+  if(maxMergedCost==INF){
+    // No merge took place, just merge the first/best answer
+    for(int i(0); i<answers[0].size(); ++i){
+      s[insiders[i]].resize(0);
+      for(auto& a:answers[0][i]){
+        s[insiders[i]].push_back(a);
+      }
+    }
+  }
+  return {0.0f,costs[sorted[0]]};
+}
+
+int main(int argc, char ** argv){
+  
+  InstallHandlers();
+  ProcessCommandLineArgs(argc, argv);
+  Util::setmemlimit(killmem);
+  Map* map(nullptr);
+  if(mapfile.empty()){
+    map = new Map(width,length);
+  }else{
+    map = new Map(mapfile.c_str());
+  }
+
+  for(int i(0); i<waypoints.size(); ++i){
+    menv.push_back(new MapEnvironment(map));
+    //menv.back()->SetGround();
+    //menv.back()->SetWaitAllowed();
+    env.push_back(new Map2DConstrainedEnvironment(menv.back()));
+    env.back()->SetIgnoreHeading(true);
+
+    switch(agentType){
+      case 8:
+        menv.back()->SetEightConnected();
+      case 9:
+        menv.back()->SetNineConnected();
+        break;
+      case 24:
+        menv.back()->SetTwentyFourConnected();
+      case 25:
+        menv.back()->SetTwentyFiveConnected();
+        break;
+      case 48:
+        menv.back()->SetFortyEightConnected();
+      case 49:
+        menv.back()->SetFortyNineConnected();
+        break;
+      default:
+      case 4:
+        menv.back()->SetFourConnected();
+      case 5:
+        menv.back()->SetFiveConnected();
+        break;
+    }
+  }
+
+  heuristics.resize(waypoints.size());
+  if(mapfile.empty()){
+    for(int i(0); i<heuristics.size(); ++i){
+      heuristics[i]=env[i];
+    }
+  }else{
+    for(int i(0); i<heuristics.size(); ++i){
+      heuristics[i] = new MapPerfectHeuristic(map,env[i]);
+    }
+  }
+
+  //TemporalAStar<xytLoc,tDirection,Map2DConstrainedEnvironment> astar;
+  TemplateAStar<xytLoc,tDirection,Map2DConstrainedEnvironment> astar;
+  //astar.SetVerbose(true);
+  //std::cout << "Init groups\n";
+  std::vector<Group*> group(n);
+  std::unordered_set<Group*> groups;
+    // Add a singleton group for all groups
+    for(int i(0); i<n; ++i){
+      //group[i]=new Group(i); // Initially in its own group
+      group[i]=new Group();
+      group[i]->insert(i);
+      groups.insert(group[i]);
+    }
+
+  if(ID){
+    // Initial individual paths.
+    for(int i(0); i<n; ++i){
+      std::vector<xytLoc> path;
+      if(waypoints[i][0]==waypoints[i][1]){ // Already at goal
+        path.push_back(waypoints[i][0]);
+      }else{
+        astar.SetVerbose(verbose);
+        astar.SetHeuristic(heuristics[i]);
+        env[i]->GetMapEnv()->setGoal(waypoints[i][1]); // For wait Actions
+        astar.GetPath(env[i],waypoints[i][0],waypoints[i][1],path);
+        if(!quiet)std::cout<<"Planned agent "<<i<<"\n";
+      }
+      std::vector<xytLoc> timePath;
+      //std::cout << s[i] << "-->" << e[i] << std::endl;
+      if(path.empty()){std::cout << "AStar failed on instance " << i << " - No solution\n"; return 0;}
+      for(int i(0); i<path.size(); ++i){
+        timePath.push_back(path[i]);
+      }
+      timePath.push_back(xytLoc(timePath.back(),MAXTIME)); // Add a final wait action that goes way out...
+      solution.push_back(timePath);
+    }
+    if(verbose){
+      std::cout << std::endl;
+      std::cout << "Initial solution:\n";
+      int ii(0);
+      for(auto const& p:solution){
+        std::cout << ii++ << "\n";
+        for(auto const& t: p){
+          // Print solution
+          std::cout << t << "," << t.t << "\n";
+        }
+      }
+    }
+  }else{
+    std::vector<xytLoc> path;
+    path.emplace_back(xytLoc(0,0,0.0f));
+    path.emplace_back(xytLoc(0,1,1.0f));
+    for(int i(0); i<n; ++i){
+      solution.push_back(path);
+    }
+  }
+
+  // Start timing
+  tmr.StartTimer();
+
+  Timer::Timeout func(std::bind(&printResults));
+  tmr.StartTimeout(std::chrono::seconds(killtime),func);
+  while(!detectIndependence(solution,group,groups)){
+    float maxTime(0);
+    for(auto const& p:solution){
+      if(p.back().t!=MAXTIME){
+        maxTime=std::max(maxTime,p.back().t);
+      }else{
+        maxTime=std::max(maxTime,(p.rbegin()+1)->t);
+      }
+      
+    }
+    largestJoint = float(n)/float(groups.size());
+    std::unordered_map<int,Instance> G;
+    std::unordered_map<int,std::vector<int>> Gid;
+    if(verbose)std::cout << "There are " << groups.size() << " groups" << std::endl;
+    // Create groups
+    int g(0);
+    for(auto const& grp:groups){
+      for(auto a:*grp){
+        G[g].first.push_back(waypoints[a][0]);
+        G[g].second.push_back(waypoints[a][1]);
+        Gid[g].push_back(a);
+      }
+      ++g;
+    }
+    for(int j(0); j<G.size(); ++j){
+      auto g(G[j]);
+      if(!quiet)std::cout << "Group " << j <<":\n";
+      if(!quiet)for(int i(0); i<g.first.size(); ++i){
+        std::cout << Gid[j][i] << ":" << g.first[i] << "-->" << g.second[i] << "\n";
+      }
+      // Copy env pointers to vector
+      std::vector<Map2DConstrainedEnvironment const*> envs(g.first.size());
+      std::vector<Heuristic<xytLoc> const*> heu(g.first.size());
+      for(int i(0); i<g.first.size(); ++i){
+        envs[i]=env[Gid[j][i]];
+        heu[i]=heuristics[Gid[j][i]];
+      }
+
+      if(g.first.size()>1){
+        MultiAgentEnvironment<Edge,tDirection,Map2DConstrainedEnvironment> mae(envs);
+        TemporalAStar<MAState<Edge>, MultiAgentEnvironment<Edge,tDirection,Map2DConstrainedEnvironment>::MultiAgentAction, MultiAgentEnvironment<Edge,tDirection,Map2DConstrainedEnvironment> > astar;
+
+        MAState<Edge> start;
+        MAState<Edge> goal;
+        for(int i(0); i<g.first.size(); ++i){
+          start.emplace_back(g.first[i],g.first[i]);
+          goal.emplace_back(g.second[i],g.second[i]);
+        }
+
+        std::vector<MAState<Edge>> path;
+        //astar.SetVerbose(verbose);
+        astar.GetPath(&mae,start,goal,path,maxTime);
+
+        std::vector<Solution<xytLoc>> answers(1);
+        answers[0].resize(Gid[j].size());
+        for(int i(0); i<Gid[j].size();++i){
+          answers[0][i].reserve(path.size());
+          for(auto const& a:path){
+            if(!answers[0][i].size() || (answers[0][i].size() && !answers[0][i].back().sameLoc(a[i].second))){
+              answers[0][i].push_back(a[i].second);
+            }
+          }
+          //answers[0][i].push_back(xytLoc(answers[0][i].back(),MAXTIME)); // Add a final wait action that goes way out...
+        }
+          
+        double bestMergedCost(999999999.0);
+        mergeSolution(answers,solution,Gid[j],bestMergedCost);
+      }
+    }
+  }
+  printResults();
+  return 0;
+}
+
 int MyCLHandler(char *argument[], int maxNumArgs)
 {
-
-	if(strcmp(argument[0], "-ECBSheuristic") == 0)
-	{
-                ECBSheuristic = true;
-		return 1;
-	}
-	if(strcmp(argument[0], "-greedyCT") == 0)
-	{
-                greedyCT = true;
-		return 1;
-	}
-	if(strcmp(argument[0], "-suboptimal") == 0)
-	{
-                suboptimal = true;
-		return 1;
-	}
-	if(strcmp(argument[0], "-verify") == 0)
-	{
-                verify = true;
-		return 1;
-	}
-	if(strcmp(argument[0], "-cat") == 0)
-	{
-                useCAT = true;
-		return 1;
-	}
-	if(strcmp(argument[0], "-random") == 0)
-	{
-                randomalg = true;
-		return 1;
-	}
-	if(strcmp(argument[0], "-scenfile") == 0)
-        {
-          std::string pathprefix("../../"); // Because I always run from the build directory...
-          if(num_agents==0){
-            std::cout<<"-nagents must be specified before -scenfile\n";
-            exit(1);
-          }
-          ScenarioLoader sl(argument[1]);
-          if(sl.GetNumExperiments()==0)
-          {
-            std::cout<<"No experiments in this scenario file or invalid file.\n";
-            exit(1);
-          }
-          mapfile=sl.GetNthExperiment(0).GetMapName();
-          mapfile.insert(0,pathprefix); // Add prefix
-          Map3D* map=new Map3D(mapfile.c_str(),dtedfile.c_str());
-          if(!envdata.size()){
-            for(int i(0); i<num_agents; ++i){
-              std::vector<EnvData> ev;
-              for(int j(0); j<sizeof(cutoffs)/sizeof(cutoffs[0]); ++j){
-                if(cutoffs[j]<9999)
-                  ev.emplace_back(envnames[j],'G',cutoffs[j],weights[j]);
-              }
-              envdata.push_back(ev);
-            }
-          }
-
-          for(auto a: envdata){
-            // Add start/goal location
-            std::vector<xyztLoc> wpts;
-            Experiment e(sl.GetRandomExperiment());
-            unsigned sx(e.GetStartX());
-            unsigned sy(e.GetStartY());
-            unsigned ex(e.GetGoalX());
-            unsigned ey(e.GetGoalY());
-            if(a[0].agentType=='S'){
-              while(map->GetTerrain(sx,sy)!=Map3D::kWater){
-                sx=rand()%map->GetMapWidth();
-                sy=rand()%map->GetMapHeight();
-              }
-              while(map->GetTerrain(ex,ey)!=Map3D::kWater){
-                ex=rand()%map->GetMapWidth();
-                ey=rand()%map->GetMapHeight();
-              }
-            }
-            unsigned sz(a[0].agentType=='A'?rand()%(map->GetMapDepth()-1)+1:0);
-            unsigned ez(a[0].agentType=='A'?rand()%(map->GetMapDepth()-1)+1:0);
-            while(true){
-              bool bad(false);
-              for(auto const& w:waypoints){
-                if((sx==w[0].x && sy==w[0].y && sz==w[0].z) || (ex==w[1].x && ey==w[1].y && ez==w[0].z)){
-                  bad=true;
-                  break;
-                }
-              }
-              if(!bad)break;
-              e=sl.GetRandomExperiment();
-              sx=e.GetStartX();
-              sy=e.GetStartY();
-              ex=e.GetGoalX();
-              ey=e.GetGoalY();
-              sz=a[0].agentType=='A'?rand()%(map->GetMapDepth()-1)+1:0;
-              ez=a[0].agentType=='A'?rand()%(map->GetMapDepth()-1)+1:0;
-              if(a[0].agentType=='S'){
-                while(map->GetTerrain(sx,sy)!=Map3D::kWater){
-                  sx=rand()%map->GetMapWidth();
-                  sy=rand()%map->GetMapHeight();
-                }
-                while(map->GetTerrain(ex,ey)!=Map3D::kWater){
-                  ex=rand()%map->GetMapWidth();
-                  ey=rand()%map->GetMapHeight();
-                }
-              }
-            }
-            wpts.emplace_back(sx,sy,sz);
-            wpts.emplace_back(ex,ey,ez);
-            waypoints.push_back(wpts);
-
-            // Add environments
-            std::vector<EnvironmentContainer<xyztLoc,t3DDirection>> ev;
-            for(auto e: a){
-              menv=new Grid3DEnvironment(map);
-              env=new Grid3DConstrainedEnvironment(menv);
-              env->SetIgnoreHeading(true);
-              menv->SetWaitAllowed();
-              e.agentType=='G'?menv->SetGround():menv->SetSurface();
-              if(e.name=="fourconnected"){
-                menv->SetZeroConnected();
-              }else if(e.name=="fiveconnected"){
-                menv->SetZeroConnected();
-              }else if(e.name=="eightconnected"){
-                menv->SetOneConnected();
-              }else if(e.name=="nineconnected"){
-                menv->SetOneConnected();
-              }else if(e.name=="twentyfourconnected"){
-                menv->SetTwoConnected();
-              }else if(e.name=="twentyfiveconnected"){
-                menv->SetTwoConnected();
-              }else if(e.name=="fortyeightconnected"){
-                menv->SetThreeConnected();
-              }else if(e.name=="fortynineconnected"){
-                menv->SetThreeConnected();
-              }else if(e.name=="3dcardinal"){
-                menv->SetZeroConnected(); menv->SetAir();
-              }else if(e.name=="3done"){
-                menv->SetOneConnected(); menv->SetAir();
-              }else if(e.name=="3dtwo"){
-                menv->SetTwoConnected(); menv->SetAir();
-              }else{
-                std::cout << "Unknown environment " << e.name << "\n";
-                assert(!"Unknown environment encountered");
-              }
-              ev.emplace_back(e.name,env,new Map3dPerfectHeuristic<xyztLoc,t3DDirection>(map,env),e.threshold,e.weight);
-            }
-            environs.push_back(ev);
-          }
-          
-          return 2;
+  if(strcmp(argument[0], "-noprecheck") == 0)
+  {
+    precheck = false;
+    return 1;
+  }
+  if(strcmp(argument[0], "-noID") == 0)
+  {
+    ID = false;
+    return 1;
+  }
+  if(strcmp(argument[0], "-verify") == 0)
+  {
+    verify = true;
+    return 1;
+  }
+  if(strcmp(argument[0], "-seed") == 0)
+  {
+    seed = atoi(argument[1]);
+    srand(seed);
+    srandom(seed);
+    return 2;
+  }
+  if(strcmp(argument[0], "-nagents") == 0)
+  {
+    n = atoi(argument[1]);
+    return 2;
+  }
+  if(strcmp(argument[0], "-agentType") == 0)
+  {
+    agentType = atoi(argument[1]);
+    return 2;
+  }
+  if(strcmp(argument[0], "-killtime") == 0)
+  {
+    killtime = atoi(argument[1]);
+    return 2;
+  }
+  if(strcmp(argument[0], "-killmem") == 0)
+  {
+    killmem = atoi(argument[1]);
+    return 2;
+  }
+  if(strcmp(argument[0], "-epp") == 0)
+  {
+    epp = true;
+    return 1;
+  }
+  if(strcmp(argument[0], "-nogui") == 0)
+  {
+    gui = false;
+    return 1;
+  }
+  if(strcmp(argument[0], "-quiet") == 0)
+  {
+    quiet = true;
+    return 1;
+  }
+  if(strcmp(argument[0], "-verbose") == 0)
+  {
+    verbose = true;
+    quiet=false;
+    return 1;
+  }
+  if(strcmp(argument[0], "-radius") == 0)
+  {
+    agentRadius=atof(argument[1]);
+    return 2;
+  }
+  if(strcmp(argument[0], "-nagents") == 0)
+  {
+    n=atoi(argument[1]);
+    return 2;
+  }
+  if(strcmp(argument[0], "-increment") == 0)
+  {
+    step=atof(argument[1])*INFLATION;
+    return 2;
+  }
+  if(strcmp(argument[0], "-probfile") == 0){
+    if(!quiet)std::cout << "Reading instance from file: \""<<argument[1]<<"\"\n";
+    filepath=argument[1];
+    std::ifstream ss(argument[1]);
+    int x,y;
+    uint32_t t(0.0);
+    std::string line;
+    n=0;
+    while(std::getline(ss, line)){
+      std::vector<xytLoc> wpts;
+      std::istringstream is(line);
+      std::string field;
+      while(is >> field){
+        size_t a(std::count(field.begin(), field.end(), ','));
+        if(a==1){
+          sscanf(field.c_str(),"%d,%d", &x,&y);
+        }else if(a==2){
+          sscanf(field.c_str(),"%d,%d,%f", &x,&y,&t);
+        }else{
+          assert(!"Invalid value inside problem file");
         }
-	if(strcmp(argument[0], "-dtedfile") == 0)
-        {
-          // If this flag is used, assume there is no scenfile flag
-          dtedfile=argument[1];
-          return 2;
-        }
-	if(strcmp(argument[0], "-mapfile") == 0)
-        {
-          // If this flag is used, assume there is no scenfile flag
-          mapfile=argument[1];
-          std::string pathprefix("../../"); // Because I always run from the build directory...
-          mapfile.insert(0,pathprefix); // Add prefix
-          Map3D* map=new Map3D(mapfile.c_str(),dtedfile.c_str());
-          if(envdata.size()){
-            int agent(0);
-            for(auto a: envdata){
-              // Add environments
-              std::vector<EnvironmentContainer<xyztLoc,t3DDirection>> ev;
-              for(auto e: a){
-                menv=new Grid3DEnvironment(map);
-                env=new Grid3DConstrainedEnvironment(menv);
-                env->SetIgnoreHeading(true);
-                menv->SetWaitAllowed();
-                e.agentType=='G'?menv->SetGround():menv->SetSurface();
-                if(e.name=="fourconnected"){
-                  menv->SetZeroConnected();
-                }else if(e.name=="fiveconnected"){
-                  menv->SetZeroConnected();
-                }else if(e.name=="eightconnected"){
-                  menv->SetOneConnected();
-                }else if(e.name=="nineconnected"){
-                  menv->SetOneConnected();
-                }else if(e.name=="twentyfourconnected"){
-                  menv->SetTwoConnected();
-                }else if(e.name=="twentyfiveconnected"){
-                  menv->SetTwoConnected();
-                }else if(e.name=="fortyeightconnected"){
-                  menv->SetThreeConnected();
-                }else if(e.name=="fortynineconnected"){
-                  menv->SetThreeConnected();
-                }else if(e.name=="3dcardinal"){
-                  menv->SetZeroConnected(); menv->SetAir();
-                }else if(e.name=="3done"){
-                  menv->SetOneConnected(); menv->SetAir();
-                }else if(e.name=="3dtwo"){
-                  menv->SetTwoConnected(); menv->SetAir();
-                }else{
-                  std::cout << "Unknown environment " << e.name << "\n";
-                  assert(!"Unknown environment encountered");
-                }
-                ev.emplace_back(e.name,env,new Map3dPerfectHeuristic<xyztLoc,t3DDirection>(map,env),e.threshold,e.weight);
-                environs.push_back(ev);
-                agent++;
-                if(waypoints.size()>agent){
-                  if(!map->IsTraversable(waypoints[agent][0].x,waypoints[agent][0].y,waypoints[agent][0].z,env->GetMapEnv()->agentType)){
-                    std::cout << "ERROR : start location for agent "<<agent<<"("<<e.agentType<<") is not traversable\n";assert(false);
-                  }
-                  if(!map->IsTraversable(waypoints[agent][1].x,waypoints[agent][1].y,waypoints[agent][1].z,env->GetMapEnv()->agentType)){
-                    std::cout << "ERROR : goal location for agent "<<agent<<"("<<e.agentType<<") is not traversable\n";assert(false);
-                  }
-                }
-              }
-            }
-          }else{
-std::cout << "No environment provided\n";
-            assert(false);
+        wpts.emplace_back(x,y,t);
+      }
+      waypoints.push_back(wpts);
+      n++;
+    }
+    return 2;
+  }
+  if(strcmp(argument[0], "-dimensions") == 0)
+  {
+    std::string str = argument[1];
+
+    std::stringstream ss(str);
+
+    int i;
+    ss >> i;
+    width = i;
+    if (ss.peek() == ',')
+      ss.ignore();
+    ss >> i;
+    length = i;
+    if (ss.peek() == ',')
+      ss.ignore();
+    ss >> i;
+    height = i;
+    return 2;
+  }
+  if(strcmp(argument[0], "-scenfile") == 0)
+  {
+    //if(n==0){
+      //std::cout<<"-nagents must be specified before -scenfile\n";
+      //exit(1);
+    //}
+    ScenarioLoader sl(argument[1]);
+    if(sl.GetNumExperiments()==0)
+    {
+      std::cout<<"No experiments in this scenario file or invalid file.\n";
+      exit(1);
+    }
+    std::string pathprefix("../../"); // Because I always run from the build directory...
+    mapfile=sl.GetNthExperiment(0).GetMapName();
+    mapfile.insert(0,pathprefix); // Add prefix
+
+    n=sl.GetNumExperiments();
+    for(int i(0); i<n; ++i){
+      // Add start/goal location
+      std::vector<xytLoc> wpts;
+      ///Experiment e(sl.GetRandomExperiment());
+      Experiment e(sl.GetNthExperiment(i));
+      while(false){
+        bool bad(false);
+        for(auto const& w:waypoints){
+          if((e.GetStartX()==w[0].x && e.GetStartY()==w[0].y) || (e.GetGoalX()==w[1].x && e.GetGoalY()==w[1].y)){
+            bad=true;
+            break;
           }
-          return 2;
         }
-	if(strcmp(argument[0], "-mergeThreshold") == 0)
-        {
-                mergeThreshold = atoi(argument[1]);
-		return 2;
-	}
-	if(strcmp(argument[0], "-killex") == 0)
-	{
-                killex = atoi(argument[1]);
-		return 2;
-	}
-	if(strcmp(argument[0], "-killmem") == 0)
-	{
-                killmem = atoi(argument[1]);
-		return 2;
-	}
-	if(strcmp(argument[0], "-killtime") == 0)
-	{
-                killtime = atoi(argument[1]);
-		return 2;
-	}
-	if(strcmp(argument[0], "-animate") == 0)
-	{
-		animate=atoi(argument[1]);
-		return 2;
-	}
-	if(strcmp(argument[0], "-nogui") == 0)
-	{
-		gui = false;
-		return 1;
-	}
-	if(strcmp(argument[0], "-quiet") == 0)
-	{
-		quiet = true;
-		return 1;
-	}
-	if(strcmp(argument[0], "-verbose") == 0)
-	{
-		verbose = true;
-		return 1;
-	}
-	if(strcmp(argument[0], "-disappear") == 0)
-	{
-		disappearAtGoal = true;
-		return 1;
-	}
-	if(strcmp(argument[0], "-radius") == 0)
-	{
-		agentRadius=atof(argument[1]);
-		return 2;
-	}
-	if(strcmp(argument[0], "-nobypass") == 0)
-	{
-		nobypass = true;
-		return 1;
-	}
-        if(strcmp(argument[0], "-record") == 0)
-        {
-                recording = true;
-                return 1;
-        }
-	if(strcmp(argument[0], "-uwait") == 0)
-	{
-		use_wait = true;
-		return 1;
-	}
-        if(strcmp(argument[0], "-cfgfile") == 0){
-          std::ifstream ss(argument[1]);
-          int agentNumber(0);
+        if(!bad)break;
+        e=sl.GetRandomExperiment();
+      }
+      wpts.emplace_back(e.GetStartX(),e.GetStartY());
+      wpts.emplace_back(e.GetGoalX(),e.GetGoalY());
+      waypoints.push_back(wpts);
+    }
 
-          std::string line;
-          while(std::getline(ss, line)){
-            auto ln(Util::split(line,' '));
-            int agent(atoi(ln[0].c_str()));
-            char agentType(ln[1].c_str()[0]);
-            while(agent>agentNumber){
-              envdata.push_back(envdata.back()); // make copies
-              agentNumber++;
-            }
-            agentNumber++;
-            auto envs(Util::split(ln[2],','));
-            std::vector<EnvData> envinfo;
-            for(auto e:envs){
-              auto info(Util::split(e,':'));
-              envinfo.emplace_back(info[0],agentType,atoi(info[1].c_str()),atof(info[2].c_str()));
-            }
-            envdata.push_back(envinfo);
-          }
-          while(envdata.size()<num_agents){envdata.push_back(envdata.back());} // make copies
-          return 2;
-        }
-        if(strcmp(argument[0], "-envfile") == 0){
-          std::ifstream ss(argument[1]);
-          int agentNumber(0);
-
-          std::string line;
-          while(std::getline(ss, line)){
-            auto ln(Util::split(line,' '));
-            int agent(atoi(ln[0].c_str()));
-            char agentType(ln[1].c_str()[0]);
-            while(agent>agentNumber){
-              envdata.push_back(envdata.back()); // make copies
-              agentNumber++;
-            }
-            agentNumber++;
-            auto envs(Util::split(ln[2],','));
-            std::vector<EnvData> envinfo;
-            for(auto e:envs){
-              auto info(Util::split(e,':'));
-              envinfo.emplace_back(info[0],agentType,atoi(info[1].c_str()),atof(info[2].c_str()));
-            }
-            envdata.push_back(envinfo);
-          }
-          while(envdata.size()<num_agents){envdata.push_back(envdata.back());} // make copies
-          return 2;
-        }
-	if(strcmp(argument[0], "-probfile") == 0){
-		//std::cout << "Reading instance from file: \""<<argument[1]<<"\"\n";
-		num_agents=0;
-		std::ifstream ss(argument[1]);
-		int x,y,z;
-                float t(0.0);
-		std::string line;
-		while(std::getline(ss, line)){
-			std::vector<xyztLoc> wpts;
-			std::istringstream is(line);
-			std::string field;
-			while(is >> field){
-                                size_t n(std::count(field.begin(), field.end(), ','));
-                                if(n==1){
-                                  sscanf(field.c_str(),"%d,%d", &x,&y);
-                                  z=0;
-                                  t=0;
-                                }else if(n==2){
-				  sscanf(field.c_str(),"%d,%d,%f", &x,&y,&t);
-                                  z=0;
-                                }else if(n==3){
-				  sscanf(field.c_str(),"%d,%d,%d,%f", &x,&y,&z,&t);
-                                }else{
-                                  assert(!"Invalid value inside problem file");
-                                }
-				wpts.emplace_back(x,y,z,t);
-			}
-			waypoints.push_back(wpts);
-			num_agents++;
-		}
-                if(waypoints.size()==0){
-                  assert(!"Invalid filename or empty file");
-                }
-		return 2;
-	}
-	if(strcmp(argument[0], "-constraints") == 0){
-		std::cout << "Reading constraints from file: \""<<argument[1]<<"\"\n";
-		std::ifstream ss(argument[1]);
-		int x,y,r;
-		std::string line;
-		while(std::getline(ss, line)){
-			std::vector<xytLoc> wpts;
-			std::istringstream is(line);
-			std::string field;
-			while(is >> field){
-				sscanf(field.c_str(),"%d,%d,%d", &x,&y,&r);
-				//sconstraints.push_back(SoftConstraint<xytLoc>(xytLoc(x,y,0),r));
-			}
-		}
-		return 2;
-	}
-	if(strcmp(argument[0], "-cutoffs") == 0)
-        {
-          std::string str = argument[1];
-
-          std::stringstream ss(str);
-
-          int i;
-          int index(0);
-
-          while (ss >> i)
-          {
-            cutoffs[index++] = i;
-
-            if (ss.peek() == ',')
-              ss.ignore();
-          }
-          return 2;
-        }
-	if(strcmp(argument[0], "-weights") == 0)
-        {
-          std::string str = argument[1];
-
-          std::stringstream ss(str);
-
-          double i;
-          int index(0);
-
-          while (ss >> i)
-          {
-            weights[index++] = i;
-
-            if (ss.peek() == ',')
-              ss.ignore();
-          }
-          return 2;
-        }
-	if(strcmp(argument[0], "-seed") == 0)
-	{
-		seed = atoi(argument[1]);	
-                srand(seed);
-                srandom(seed);
-		return 2;
-	}
-	if(strcmp(argument[0], "-nsubgoals") == 0)
-        {
-          std::string str = argument[1];
-
-          std::stringstream ss(str);
-
-          int i;
-          ss >> i;
-          minsubgoals = i;
-          if (ss.peek() == ',')
-            ss.ignore();
-          ss >> i;
-          maxsubgoals = i;
-          return 2;
-        }
-	if(strcmp(argument[0], "-dimensions") == 0)
-        {
-          std::string str = argument[1];
-          std::stringstream ss(str);
-
-          int i;
-          ss >> i;
-          width = i;
-          if (ss.peek() == ',')
-            ss.ignore();
-          ss >> i;
-          length = i;
-          if (ss.peek() == ',')
-            ss.ignore();
-          ss >> i;
-          height = i;
-
-          Map3D* map(new Map3D(width,length,height));
-          for(auto a: envdata){
-            // Add environments
-            std::vector<EnvironmentContainer<xyztLoc,t3DDirection>> ev;
-            for(auto e: a){
-              menv=new Grid3DEnvironment(map);
-              env=new Grid3DConstrainedEnvironment(menv);
-              env->SetIgnoreHeading(true);
-              menv->SetWaitAllowed();
-              e.agentType=='G'?menv->SetGround():menv->SetSurface();
-              if(e.name=="fourconnected"){
-                menv->SetZeroConnected();
-              }else if(e.name=="fiveconnected"){
-                menv->SetZeroConnected();
-              }else if(e.name=="eightconnected"){
-                menv->SetOneConnected();
-              }else if(e.name=="nineconnected"){
-                menv->SetOneConnected();
-              }else if(e.name=="twentyfourconnected"){
-                menv->SetTwoConnected();
-              }else if(e.name=="twentyfiveconnected"){
-                menv->SetTwoConnected();
-              }else if(e.name=="fortyeightconnected"){
-                menv->SetThreeConnected();
-              }else if(e.name=="fortynineconnected"){
-                menv->SetThreeConnected();
-              }else if(e.name=="3dcardinal"){
-                menv->SetZeroConnected(); menv->SetAir();
-              }else if(e.name=="3done"){
-                menv->SetOneConnected(); menv->SetAir();
-              }else if(e.name=="3dtwo"){
-                menv->SetTwoConnected(); menv->SetAir();
-              }else{
-                std::cout << "Unknown environment " << e.name << "\n";
-                assert(!"Unknown environment encountered");
-              }
-              ev.emplace_back(e.name,env,new Map3dPerfectHeuristic<xyztLoc,t3DDirection>(map,env),e.threshold,e.weight);
-              environs.push_back(ev);
-            }
-          }
-          return 2;
-        }
-	if(strcmp(argument[0], "-nagents") == 0)
-	{
-		num_agents = atoi(argument[1]);	
-		return 2;
-	}
-	return 1; //ignore typos
-}
-
-
-void MyDisplayHandler(unsigned long windowID, tKeyboardModifier mod, char key)
-{
-	xyLoc b;
-	switch (key)
-	{
-		case 'r': recording = !recording; break;
-		case '[': recording = true; break;
-		case ']': recording = false; break;
-		case '\t':
-			if (mod != kShiftDown)
-				SetActivePort(windowID, (GetActivePort(windowID)+1)%GetNumPorts(windowID));
-			else
-			{
-				SetNumPorts(windowID, 1+(GetNumPorts(windowID)%MAXPORTS));
-			}
-			break;
-		case '-': 
-                        if(stepsPerFrame>0)stepsPerFrame-=frameIncrement;
-                        break;
-		case '=': 
-                        stepsPerFrame+=frameIncrement;
-                        break;
-		case 'p': 
-			paused = !paused;
-			break;//unitSims[windowID]->SetPaused(!unitSims[windowID]->GetPaused()); break;
-		case 'o':
-//			if (unitSims[windowID]->GetPaused())
-//			{
-//				unitSims[windowID]->SetPaused(false);
-//				unitSims[windowID]->StepTime(1.0/30.0);
-//				unitSims[windowID]->SetPaused(true);
-//			}
-			break;
-		case 'd':
-			
-			break;
-		default:
-			break;
-	}
-}
-
-void MyRandomUnitKeyHandler(unsigned long windowID, tKeyboardModifier mod, char)
-{
-	
-}
-
-void MyPathfindingKeyHandler(unsigned long , tKeyboardModifier , char)
-{
-//	// attmpt to learn!
-//	Map3D m(100, 100);
-//	Directional2DEnvironment d(&m);
-//	//Directional2DEnvironment(Map3D *m, model envType = kVehicle, heuristicType heuristic = kExtendedPerimeterHeuristic);
-//	xySpeedHeading l1(50, 50), l2(50, 50);
-//	__gnu_cxx::hash_map<uint64_t, xySpeedHeading, Hash64 > stateTable;
-//	
-//	std::vector<xySpeedHeading> path;
-//	TemplateAStar2<xySpeedHeading, deltaSpeedHeading, Directional2DEnvironment> alg;
-//	alg.SetStopAfterGoal(false);
-//	alg.InitializeSearch(&d, l1, l1, path);
-//	for (int x = 0; x < 2000; x++)
-//		alg.DoSingleSearchStep(path);
-//	int count = alg.GetNumItems();
-//	LinearRegression lr(37, 1, 1/37.0); // 10 x, 10 y, dist, heading offset [16]
-//	std::vector<double> inputs;
-//	std::vector<double> output(1);
-//	for (unsigned int x = 0; x < count; x++)
-//	{
-//		// note that the start state is always at rest;
-//		// we actually want the goal state at rest?
-//		// or generate everything by backtracking through the parents of each state
-//		const AStarOpenClosedData<xySpeedHeading> val = GetItem(x);
-//		inputs[0] = sqrt((val.data.x-l1.x)*(val.data.x-l1.x)+(val.data.y-l1.)*(val.data.y-l1.y));
-//		// fill in values
-//		if (fabs(val.data.x-l1.x) >= 10)
-//			inputs[10] = 1;
-//		else inputs[1+fabs(val.data.x-l1.x)] = 1;
-//		if (fabs(val.data.y-l1.y) >= 10)
-//			inputs[20] = 1;
-//		else inputs[11+fabs(val.data.y-l1.y)] = 1;
-//		// this is wrong -- I need the possibility of flipping 15/1 is only 2 apart
-//		intputs[30+((int)(fabs(l1.rotation-val.data.rotation)))%16] = 1;
-//		output[0] = val.g;
-//		lr.train(inputs, output);
-//		// get data and learn to predict the g-cost
-//		//val.data.
-//		//val.g;
-//	}
-}
-
-bool MyClickHandler(unsigned long windowID, int, int, point3d loc, tButtonType button, tMouseEventType mType)
-{
-	return false;
-	mouseTracking = false;
-	if (button == kRightButton)
-	{
-		switch (mType)
-		{
-			case kMouseDown:
-				//unitSims[windowID]->GetEnvironment()->GetMap()->GetPointFromCoordinate(loc, px1, py1);
-				//printf("Mouse down at (%d, %d)\n", px1, py1);
-				break;
-			case kMouseDrag:
-				mouseTracking = true;
-				//unitSims[windowID]->GetEnvironment()->GetMap()->GetPointFromCoordinate(loc, px2, py2);
-				//printf("Mouse tracking at (%d, %d)\n", px2, py2);
-				break;
-			case kMouseUp:
-			{
-//				if ((px1 == -1) || (px2 == -1))
-//					break;
-//				xySpeedHeading l1, l2;
-//				l1.x = px1;
-//				l1.y = py1;
-//				l2.x = px2;
-//				l2.y = py2;
-//				DirPatrolUnit *ru1 = new DirPatrolUnit(l1, dp);
-//				ru1->SetNumPatrols(1);
-//				ru1->AddPatrolLocation(l2);
-//				ru1->AddPatrolLocation(l1);
-//				ru1->SetSpeed(2);
-//				unitSims[windowID]->AddUnit(ru1);
-			}
-			break;
-		}
-		return true;
-	}
-	return false;
+    return 2;
+  }
+  if(strcmp(argument[0], "-dtedfile") == 0)
+  {
+    // If this flag is used, assume there is no scenfile flag
+    dtedfile=argument[1];
+    return 2;
+  }
+  if(strcmp(argument[0], "-mapfile") == 0)
+  {
+    // If this flag is used, assume there is no scenfile flag
+    mapfile=argument[1];
+    std::string pathprefix("../../"); // Because I always run from the build directory...
+    mapfile.insert(0,pathprefix); // Add prefix
+    if(n==0){
+      std::cout<<"-nagents must be specified before -mapfile\n";
+      exit(1);
+    }
+    return 2;
+  }
+  return 1;
 }
