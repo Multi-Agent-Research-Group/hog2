@@ -40,12 +40,12 @@
 #include "Heuristic.h"
 #include "UnitSimulation.h"
 #include "ScenarioLoader.h"
-#include "Map3dPerfectHeuristic.h"
+#include "MapPerfectHeuristic.h"
 #include "Utilities.h"
 #include "MultiAgentEnvironment.h"
-#include "Grid3DEnvironment.h"
-#include "Grid3DConstrainedEnvironment.h"
-#include "Map3d.h"
+#include "Map2DEnvironment.h"
+#include "Map2DConstrainedEnvironment.h"
+#include "Map.h"
 #include "TemporalAStar.h"
 
 // for agents to stay at goal
@@ -54,23 +54,14 @@
 #define INFLATION 1000
 #define TOMSECS 0.001
 
-typedef std::pair<std::vector<xyztLoc>,std::vector<xyztLoc>> Instance;
-std::vector<Grid3DEnvironment*> menv;
-std::vector<Grid3DConstrainedEnvironment*> env;
-std::vector<Heuristic<xyztLoc>*> heuristics;
+typedef std::pair<std::vector<xytLoc>,std::vector<xytLoc>> Instance;
+std::vector<MapEnvironment*> menv;
+std::vector<Map2DConstrainedEnvironment*> env;
+std::vector<Heuristic<xytLoc>*> heuristics;
 std::string mapfile;
 std::string dtedfile;
 
-float jointTime(0);
-float pairwiseTime(0);
-float mddTime(0);
-float nogoodTime(0);
-float certifyTime(0);
 Timer certtimer;
-unsigned maxsingle(0);
-unsigned minsingle(INF);
-unsigned maxjoint(0);
-unsigned minjoint(INF);
 size_t maxnagents(0);
 
 extern double agentRadius;
@@ -96,7 +87,7 @@ bool gui=true;
 uint64_t jointnodes(0);
 uint64_t branchingfactor(0);
 uint64_t largestbranch(0);
-float largestJoint(0);
+float largestJoint(1);
 uint32_t step(INFLATION);
 int n(0);
 std::unordered_map<std::string,bool> transTable;
@@ -104,9 +95,15 @@ std::unordered_map<uint64_t,bool> singleTransTable;
 unsigned seed(clock());
 
 std::string filepath;
-std::vector<std::vector<xyztLoc> > waypoints;
+std::vector<std::vector<xytLoc> > waypoints;
 
-UnitSimulation<xyztLoc, t3DDirection, Grid3DConstrainedEnvironment> *sim = 0;
+UnitSimulation<xytLoc, tDirection, Map2DConstrainedEnvironment> *sim = 0;
+
+class Edge:public std::pair<xytLoc,xytLoc>{
+  public:
+    Edge(xytLoc const& a, xytLoc const& b):std::pair<xytLoc,xytLoc>(a,b),t(b.t){}
+    uint32_t t;
+};
 
 void CreateSimulation(int id)
 {
@@ -215,7 +212,7 @@ void InstallHandlers()
 typedef std::unordered_set<int> Group;
 
 // Compute path cost, ignoring actions that wait at the goal
-uint32_t computeSolutionCost(Solution<xyztLoc> const& solution, bool ignoreWaitAtGoal=true){
+uint32_t computeSolutionCost(Solution<xytLoc> const& solution, bool ignoreWaitAtGoal=true){
   uint32_t cost(0);
   if(ignoreWaitAtGoal){
     for(auto const& path:solution){
@@ -238,7 +235,7 @@ uint32_t computeSolutionCost(Solution<xyztLoc> const& solution, bool ignoreWaitA
 
 
 // Check that two paths have no collisions
-bool checkPair(std::vector<xyztLoc> const& p1, std::vector<xyztLoc> const& p2,bool loud=false){
+bool checkPair(std::vector<xytLoc> const& p1, std::vector<xytLoc> const& p2,bool loud=false){
   auto ap(p1.begin());
   auto a(ap+1);
   auto bp(p2.begin());
@@ -250,7 +247,7 @@ bool checkPair(std::vector<xyztLoc> const& p1, std::vector<xyztLoc> const& p2,bo
     VA.Normalize();
     Vector2D VB((*b).x-(*bp).x,(*b).y-(*bp).y);
     VB.Normalize();
-    if(collisionImminent(A,VA,agentRadius,(*ap).t*TOMSECS,(*a).t*TOMSECS,B,VB,agentRadius,(*bp).t*TOMSECS,(*b).t*TOMSECS)){
+    if(collisionImminent(A,VA,agentRadius,(*ap).t,(*a).t,B,VB,agentRadius,(*bp).t,(*b).t)){
       if(loud)std::cout << "Collision: " << *ap << "-->" << *a << "," << *bp << "-->" << *b;
       return false;
     }
@@ -269,7 +266,7 @@ bool checkPair(std::vector<xyztLoc> const& p1, std::vector<xyztLoc> const& p2,bo
 }
 
 // Not part of the algorithm... just for validating the answers
-bool checkAnswer(Solution<xyztLoc> const& answer){
+bool checkAnswer(Solution<xytLoc> const& answer){
   for(int i(0);i<answer.size();++i){
     for(int j(i+1);j<answer.size();++j){
       if(!checkPair(answer[i],answer[j],verify)){
@@ -281,7 +278,7 @@ bool checkAnswer(Solution<xyztLoc> const& answer){
   return true;
 }
 
-bool detectIndependence(Solution<xyztLoc>& solution, std::vector<Group*>& group, std::unordered_set<Group*>& groups){
+bool detectIndependence(Solution<xytLoc>& solution, std::vector<Group*>& group, std::unordered_set<Group*>& groups){
   bool independent(true);
   // Check all pairs for collision
   uint32_t minTime(-1);
@@ -300,7 +297,7 @@ bool detectIndependence(Solution<xyztLoc>& solution, std::vector<Group*>& group,
           VA.Normalize();
           Vector2D VB(solution[j][b].x-solution[j][b-1].x,solution[j][b].y-solution[j][b-1].y);
           VB.Normalize();
-          if(collisionImminent(A,VA,agentRadius,solution[i][a-1].t*TOMSECS,solution[i][a].t*TOMSECS,B,VB,agentRadius,solution[j][b-1].t*TOMSECS,solution[j][b].t*TOMSECS)){
+          if(collisionImminent(A,VA,agentRadius,solution[i][a-1].t,solution[i][a].t,B,VB,agentRadius,solution[j][b-1].t,solution[j][b].t)){
             if(!quiet)std::cout << i << " and " << j << " collide at " << solution[i][a-1].t << "~" << solution[i][a].t << solution[i][a-1] << "-->" << solution[i][a] << " X " << solution[j][b-1] << "-->" << solution[j][b] << "\n";
             independent=false;
             if(group[i]==group[j]) break; // This can happen if both collide with a common agent
@@ -330,7 +327,7 @@ bool detectIndependence(Solution<xyztLoc>& solution, std::vector<Group*>& group,
   return independent;
 }
 
-Solution<xyztLoc> solution;
+Solution<xytLoc> solution;
 double total(0.0);
 uint32_t nacts(0.0);
 int failed(0);
@@ -338,7 +335,6 @@ uint32_t cost(0);
 Timer tmr;
 
 void printResults(){
-  certifyTime=certtimer.EndTimer();
   if(verbose){
     std::cout << "Solution:\n";
     int ii=0;
@@ -346,13 +342,13 @@ void printResults(){
       std::cout << ii++ << "\n";
       for(auto const& t: p){
         // Print solution
-        std::cout << t << "," << t.t/1000. << "\n";
+        std::cout << t << "\n";
       }
     }
   }
   for(auto const& path:solution){
     for(int j(path.size()-1); j>0; --j){
-      if(path[j-1]!=path[j]){
+      if(!path[j-1].sameLoc(path[j])){
         cost += path[j].t;
         nacts += j;
         if(verbose)std::cout << "Adding " << path[j]<<","<<path[j].t<<"\n";
@@ -374,8 +370,8 @@ void printResults(){
   //std::cout << elapsed << " elapsed";
   //std::cout << std::endl;
   //total += elapsed;
-  if(!quiet)std::cout << "seed:filepath,Connectedness,jointnodes,largestJoint,largestbranch,branchingfactor,maxnagents,minsingle,maxsingle,minjoint,maxjoint,total,mddTime,pairwiseTime,jointTime,nogoodTime,certifyTime,nacts,cost\n";
-  std::cout << seed << ":" << filepath << "," << jointnodes << "," <<largestJoint << "," << largestbranch << "," << branchingfactor << " " <<(double(branchingfactor)/double(jointnodes)) << "," << maxnagents << "," << minsingle << "," << maxsingle << "," << minjoint << "," << maxjoint << "," << total << "," << mddTime << "," << pairwiseTime << "," << jointTime << "," << nogoodTime << "," << certifyTime << "," << nacts << "," << cost;
+  if(!quiet)std::cout << "seed:filepath,jointnodes,largestJoint,maxnagents,total,nacts,cost\n";
+  std::cout << seed << ":" << filepath << "," << jointnodes << "," <<largestJoint << "," << maxnagents << "," << total << "," << nacts << "," << cost;
   if(total >= killtime)std::cout << " failure";
   std::cout << std::endl;
   if(total>=killtime)exit(1);
@@ -387,7 +383,7 @@ void printResults(){
 // allowable cost.
 // returns the merged cost or zero if unable to merge and the best cost
 // (the best solution is merged in either case).
-std::pair<uint32_t,uint32_t> mergeSolution(std::vector<Solution<xyztLoc>>& answers, Solution<xyztLoc>& s, std::vector<int> const& insiders, uint32_t maxMergedCost){
+std::pair<uint32_t,uint32_t> mergeSolution(std::vector<Solution<xytLoc>>& answers, Solution<xytLoc>& s, std::vector<int> const& insiders, uint32_t maxMergedCost){
   // Compute agents not in the answer group
   std::vector<int> outsiders;
   for(int k(0); k<s.size(); ++k){
@@ -461,34 +457,41 @@ int main(int argc, char ** argv){
   InstallHandlers();
   ProcessCommandLineArgs(argc, argv);
   Util::setmemlimit(killmem);
-  Map3D* map(nullptr);
+  Map* map(nullptr);
   if(mapfile.empty()){
-    map = new Map3D(width,length,1);
+    map = new Map(width,length);
   }else{
-    map = new Map3D(mapfile.c_str(),dtedfile.c_str());
+    map = new Map(mapfile.c_str());
   }
 
   for(int i(0); i<waypoints.size(); ++i){
-    menv.push_back(new Grid3DEnvironment(map));
-    env.push_back(new Grid3DConstrainedEnvironment(menv.back()));
+    menv.push_back(new MapEnvironment(map));
+    //menv.back()->SetGround();
+    //menv.back()->SetWaitAllowed();
+    env.push_back(new Map2DConstrainedEnvironment(menv.back()));
+    env.back()->SetIgnoreHeading(true);
 
     switch(agentType){
       case 8:
+        menv.back()->SetEightConnected();
       case 9:
-        menv.back()->SetOneConnected();
+        menv.back()->SetNineConnected();
         break;
       case 24:
+        menv.back()->SetTwentyFourConnected();
       case 25:
-        menv.back()->SetTwoConnected();
+        menv.back()->SetTwentyFiveConnected();
         break;
       case 48:
+        menv.back()->SetFortyEightConnected();
       case 49:
-        menv.back()->SetThreeConnected();
+        menv.back()->SetFortyNineConnected();
         break;
       default:
       case 4:
+        menv.back()->SetFourConnected();
       case 5:
-        menv.back()->SetZeroConnected();
+        menv.back()->SetFiveConnected();
         break;
     }
   }
@@ -500,11 +503,12 @@ int main(int argc, char ** argv){
     }
   }else{
     for(int i(0); i<heuristics.size(); ++i){
-      heuristics[i] = new Map3dPerfectHeuristic<xyztLoc,t3DDirection>(map,env[i]);
+      heuristics[i] = new MapPerfectHeuristic(map,env[i]);
     }
   }
 
-  TemplateAStar<xyztLoc,t3DDirection,Grid3DConstrainedEnvironment> astar;
+  //TemporalAStar<xytLoc,tDirection,Map2DConstrainedEnvironment> astar;
+  TemplateAStar<xytLoc,tDirection,Map2DConstrainedEnvironment> astar;
   //astar.SetVerbose(true);
   //std::cout << "Init groups\n";
   std::vector<Group*> group(n);
@@ -520,21 +524,23 @@ int main(int argc, char ** argv){
   if(ID){
     // Initial individual paths.
     for(int i(0); i<n; ++i){
-      std::vector<xyztLoc> path;
+      std::vector<xytLoc> path;
       if(waypoints[i][0]==waypoints[i][1]){ // Already at goal
         path.push_back(waypoints[i][0]);
       }else{
+        astar.SetVerbose(verbose);
         astar.SetHeuristic(heuristics[i]);
+        env[i]->GetMapEnv()->setGoal(waypoints[i][1]); // For wait Actions
         astar.GetPath(env[i],waypoints[i][0],waypoints[i][1],path);
         if(!quiet)std::cout<<"Planned agent "<<i<<"\n";
       }
-      std::vector<xyztLoc> timePath;
+      std::vector<xytLoc> timePath;
       //std::cout << s[i] << "-->" << e[i] << std::endl;
       if(path.empty()){std::cout << "AStar failed on instance " << i << " - No solution\n"; return 0;}
       for(int i(0); i<path.size(); ++i){
-        timePath.push_back(path[0]);
+        timePath.push_back(path[i]);
       }
-      timePath.push_back(xyztLoc(timePath.back(),MAXTIME)); // Add a final wait action that goes way out...
+      timePath.push_back(xytLoc(timePath.back(),MAXTIME)); // Add a final wait action that goes way out...
       solution.push_back(timePath);
     }
     if(verbose){
@@ -550,9 +556,9 @@ int main(int argc, char ** argv){
       }
     }
   }else{
-    std::vector<xyztLoc> path;
-    path.emplace_back(xyztLoc(0,0,0,0.0f));
-    path.emplace_back(xyztLoc(0,1,0,1.0f));
+    std::vector<xytLoc> path;
+    path.emplace_back(xytLoc(0,0,0.0f));
+    path.emplace_back(xytLoc(0,1,1.0f));
     for(int i(0); i<n; ++i){
       solution.push_back(path);
     }
@@ -564,6 +570,16 @@ int main(int argc, char ** argv){
   Timer::Timeout func(std::bind(&printResults));
   tmr.StartTimeout(std::chrono::seconds(killtime),func);
   while(!detectIndependence(solution,group,groups)){
+    float maxTime(0);
+    for(auto const& p:solution){
+      if(p.back().t!=MAXTIME){
+        maxTime=std::max(maxTime,p.back().t);
+      }else{
+        maxTime=std::max(maxTime,(p.rbegin()+1)->t);
+      }
+      
+    }
+    largestJoint = float(n)/float(groups.size());
     std::unordered_map<int,Instance> G;
     std::unordered_map<int,std::vector<int>> Gid;
     if(verbose)std::cout << "There are " << groups.size() << " groups" << std::endl;
@@ -584,38 +600,44 @@ int main(int argc, char ** argv){
         std::cout << Gid[j][i] << ":" << g.first[i] << "-->" << g.second[i] << "\n";
       }
       // Copy env pointers to vector
-      std::vector<Grid3DConstrainedEnvironment const*> envs(g.first.size());
-      for(int i(0); i<g.first.size(); ++i){envs[i]=env[Gid[j][i]];}
+      std::vector<Map2DConstrainedEnvironment const*> envs(g.first.size());
+      std::vector<Heuristic<xytLoc> const*> heu(g.first.size());
+      for(int i(0); i<g.first.size(); ++i){
+        envs[i]=env[Gid[j][i]];
+        heu[i]=heuristics[Gid[j][i]];
+      }
 
       if(g.first.size()>1){
-        MultiAgentEnvironment<std::pair<xyztLoc,xyztLoc>,t3DDirection,Grid3DConstrainedEnvironment> mae(envs);
-        TemplateAStar<MultiAgentEnvironment<std::pair<xyztLoc,xyztLoc>,t3DDirection,Grid3DConstrainedEnvironment>::MultiAgentState, MultiAgentEnvironment<std::pair<xyztLoc,xyztLoc>,t3DDirection,Grid3DConstrainedEnvironment>::MultiAgentAction, MultiAgentEnvironment<std::pair<xyztLoc,xyztLoc>,t3DDirection,Grid3DConstrainedEnvironment> > astar;
+        MultiAgentEnvironment<Edge,tDirection,Map2DConstrainedEnvironment> mae(envs);
+        TemporalAStar<MAState<Edge>, MultiAgentEnvironment<Edge,tDirection,Map2DConstrainedEnvironment>::MultiAgentAction, MultiAgentEnvironment<Edge,tDirection,Map2DConstrainedEnvironment> > astar;
 
-        MultiAgentEnvironment<std::pair<xyztLoc,xyztLoc>,t3DDirection,Grid3DConstrainedEnvironment>::MultiAgentState start;
-        MultiAgentEnvironment<std::pair<xyztLoc,xyztLoc>,t3DDirection,Grid3DConstrainedEnvironment>::MultiAgentState goal;
+        MAState<Edge> start;
+        MAState<Edge> goal;
         for(int i(0); i<g.first.size(); ++i){
           start.emplace_back(g.first[i],g.first[i]);
           goal.emplace_back(g.second[i],g.second[i]);
         }
 
-        std::vector<MultiAgentEnvironment<std::pair<xyztLoc,xyztLoc>,t3DDirection,Grid3DConstrainedEnvironment>::MultiAgentState> path;
-        astar.GetPath(&mae,start,goal,path);
+        std::vector<MAState<Edge>> path;
+        //astar.SetVerbose(verbose);
+        astar.GetPath(&mae,start,goal,path,maxTime);
 
-        std::vector<Solution<xyztLoc>> answers(1);
-        for(auto const& a:path){
-          std::vector<xyztLoc> tmp;
-          for(auto const& b:a){
-            tmp.push_back(b.second);
+        std::vector<Solution<xytLoc>> answers(1);
+        answers[0].resize(Gid[j].size());
+        for(int i(0); i<Gid[j].size();++i){
+          answers[0][i].reserve(path.size());
+          for(auto const& a:path){
+            if(!answers[0][i].size() || (answers[0][i].size() && !answers[0][i].back().sameLoc(a[i].second))){
+              answers[0][i].push_back(a[i].second);
+            }
           }
-          answers[0].push_back(tmp);
+          //answers[0][i].push_back(xytLoc(answers[0][i].back(),MAXTIME)); // Add a final wait action that goes way out...
         }
           
         double bestMergedCost(999999999.0);
         mergeSolution(answers,solution,Gid[j],bestMergedCost);
       }
     }
-
-    largestJoint = float(n)/float(groups.size());
   }
   printResults();
   return 0;
@@ -710,7 +732,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
     std::string line;
     n=0;
     while(std::getline(ss, line)){
-      std::vector<xyztLoc> wpts;
+      std::vector<xytLoc> wpts;
       std::istringstream is(line);
       std::string field;
       while(is >> field){
@@ -767,7 +789,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
     n=sl.GetNumExperiments();
     for(int i(0); i<n; ++i){
       // Add start/goal location
-      std::vector<xyztLoc> wpts;
+      std::vector<xytLoc> wpts;
       ///Experiment e(sl.GetRandomExperiment());
       Experiment e(sl.GetNthExperiment(i));
       while(false){

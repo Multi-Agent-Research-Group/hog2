@@ -28,74 +28,92 @@
 #include <cmath>
 #include "SearchEnvironment.h"
 
+template<typename state>
+class MAState : public std::vector<state>{
+  public:
+    void setT(){
+      for(auto s(this->begin()); s!=this->end(); ++s){
+        t=std::max(t,s->t);
+      }
+    }
+    uint32_t t;
+};
 
 // Note state must have fields: first,second
 // Actual Environment
 template<typename state, typename action, typename environment>
-class MultiAgentEnvironment : public SearchEnvironment<std::vector<state>, std::vector<action> >
+class MultiAgentEnvironment : public SearchEnvironment<MAState<state>, std::vector<action> >
 {
   public:
-    typedef std::vector<state> MultiAgentState;
+    //typedef std::vector<state> MAState<state>;
     typedef std::vector<action> MultiAgentAction;
 
     // Constructor
-    MultiAgentEnvironment(std::vector<environment const*> const& base):env(base){}
+    MultiAgentEnvironment(std::vector<environment const*> const& base):env(base){
+      heuristics.reserve(env.size());
+      for(auto const& e:base){
+        heuristics.push_back((Heuristic<typename state::first_type> const*)e);
+      }
+    }
+    MultiAgentEnvironment(std::vector<environment const*> const& base, std::vector<Heuristic<typename state::first_type> const*> const& h):env(base),heuristics(h){}
 
-    virtual void GetSuccessors(const MultiAgentState &nodeID, std::vector<MultiAgentState> &neighbors) const;
+    virtual void GetSuccessors(const MAState<state> &nodeID, std::vector<MAState<state>> &neighbors) const;
 
-    virtual void GetActions(const MultiAgentState &nodeID, std::vector<MultiAgentAction> &actions) const{assert(false);}
+    virtual void GetActions(const MAState<state> &nodeID, std::vector<MultiAgentAction> &actions) const{assert(false);}
 
-    virtual void GetReverseActions(const MultiAgentState &nodeID, std::vector<MultiAgentAction> &actions) const{assert(false);}
+    virtual void GetReverseActions(const MAState<state> &nodeID, std::vector<MultiAgentAction> &actions) const{assert(false);}
 
-    virtual void ApplyAction(MultiAgentState &s, MultiAgentAction dir) const{assert(false);}
-    virtual void UndoAction(MultiAgentState &s, MultiAgentAction const& dir) const{assert(false);}
-    virtual void GetNextState(MultiAgentState const& currents, MultiAgentAction const& dir, MultiAgentState &news) const{assert(false);}
+    virtual void ApplyAction(MAState<state> &s, MultiAgentAction dir) const{assert(false);}
+    virtual void UndoAction(MAState<state> &s, MultiAgentAction const& dir) const{assert(false);}
+    virtual void GetNextState(MAState<state> const& currents, MultiAgentAction const& dir, MAState<state> &news) const{assert(false);}
     virtual bool InvertAction(MultiAgentAction &a) const { return false; }
-    virtual MultiAgentAction GetAction(MultiAgentState const& node1, MultiAgentState const& node2) const{assert(false);}
+    virtual MultiAgentAction GetAction(MAState<state> const& node1, MAState<state> const& node2) const{assert(false);}
 
 
     // Heuristics and paths
-    virtual double HCost(const MultiAgentState& node1, const MultiAgentState& node2) const;
-    virtual double HCost(MultiAgentState const& )  const { assert(false); return 0; }
-    virtual double GCost(MultiAgentState const& node1, MultiAgentState const& node2) const;
-    virtual double GCost(MultiAgentState const& node1, MultiAgentAction const& act) const{assert(false);}
-    virtual double GetPathLength(std::vector<MultiAgentState> const& n) const;
+    virtual double HCost(const MAState<state>& node1, const MAState<state>& node2) const;
+    virtual double HCost(MAState<state> const& )  const { assert(false); return 0; }
+    virtual double GCost(MAState<state> const& node1, MAState<state> const& node2) const;
+    virtual double GCost(MAState<state> const& node1, MultiAgentAction const& act) const{assert(false);}
+    virtual double GetPathLength(std::vector<MAState<state>> const& n) const;
     void loadPerimeterDB();
 
     // Goal testing
-    virtual bool GoalTest(MultiAgentState const& node, MultiAgentState const& goal) const;
-    virtual bool GoalTest(MultiAgentState const&) const { assert(false); return false; }
+    virtual bool GoalTest(MAState<state> const& node, MAState<state> const& goal) const;
+    virtual bool GoalTest(MAState<state> const&) const { assert(false); return false; }
 
     // Hashing
-    virtual uint64_t GetStateHash(MultiAgentState const& node) const;
+    virtual uint64_t GetStateHash(MAState<state> const& node) const;
     virtual uint64_t GetActionHash(MultiAgentAction act) const{assert(false);}
 
     // Drawing
     virtual void OpenGLDraw() const;
-    virtual void OpenGLDraw(const MultiAgentState &l) const;
-    virtual void OpenGLDraw(const MultiAgentState& oldState, const MultiAgentState &newState, float perc) const;
-    virtual void OpenGLDraw(const MultiAgentState &, const MultiAgentAction &) const;
-    void GLDrawLine(const MultiAgentState &a, const MultiAgentState &b) const;
-    void GLDrawPath(const std::vector<MultiAgentState> &p) const;
+    virtual void OpenGLDraw(const MAState<state> &l) const;
+    virtual void OpenGLDraw(const MAState<state>& oldState, const MAState<state> &newState, float perc) const;
+    virtual void OpenGLDraw(const MAState<state> &, const MultiAgentAction &) const;
+    void GLDrawLine(const MAState<state> &a, const MAState<state> &b) const;
+    void GLDrawPath(const std::vector<MAState<state>> &p) const;
 
-    MultiAgentState const* goal;
-    MultiAgentState const& getGoal()const{return *goal;}
-    void setGoal(MultiAgentState const& g){goal=&g;}
+    MAState<state> const* goal;
+    MAState<state> const& getGoal()const{return *goal;}
+    void setGoal(MAState<state> const& g){goal=&g;}
     environment const* const getEnv(unsigned index)const{return env[index];}
+    double ViolatesConstraint(MAState<state> const& a,MAState<state> const& n){return false;}
 
   protected:
 
     //mutable std::vector<MultiAgentAction> internalActions;
 
-    static void generatePermutations(std::vector<MultiAgentState>& positions, std::vector<MultiAgentState>& result, int agent, MultiAgentState const& current, uint32_t lastTime);
+    static void generatePermutations(std::vector<std::vector<state>>& positions, std::vector<MAState<state>>& result, int agent, MAState<state>& current, uint32_t lastTime);
 
 
   private:
     std::vector<environment const*> env;
+    std::vector<Heuristic<typename state::first_type> const*> heuristics;
 };
 
 template<typename state>
-static std::ostream& operator <<(std::ostream& os, std::vector<state> const& s){
+static std::ostream& operator <<(std::ostream& os, MAState<state> const& s){
   for(auto const& a : s){
     os << a.second << "/";
   }
@@ -103,16 +121,17 @@ static std::ostream& operator <<(std::ostream& os, std::vector<state> const& s){
 }
 
 template<typename state, typename action, typename environment>
-void MultiAgentEnvironment<state,action,environment>::generatePermutations(std::vector<MultiAgentState>& positions, std::vector<MultiAgentState>& result, int agent, MultiAgentState const& current, uint32_t lastTime) {
+void MultiAgentEnvironment<state,action,environment>::generatePermutations(std::vector<std::vector<state>>& positions, std::vector<MAState<state>>& result, int agent, MAState<state>& current, uint32_t lastTime) {
   static double agentRadius=.25;
   if(agent == positions.size()) {
+    current.setT();
     result.push_back(current);
     return;
   }
 
   for(int i = 0; i < positions[agent].size(); ++i) {
     bool found(false);
-    MultiAgentState copy(current);
+    MAState<state> copy(current);
     for(int j(0); j<current.size(); ++j){
       if(collisionCheck3D(positions[agent][i].first,positions[agent][i].second,current[j].first,current[j].second,agentRadius)){
         found=true;
@@ -126,7 +145,7 @@ void MultiAgentEnvironment<state,action,environment>::generatePermutations(std::
 }
 
 template<typename state, typename action, typename environment>
-void MultiAgentEnvironment<state,action,environment>::GetSuccessors(const MultiAgentEnvironment<state,action,environment>::MultiAgentState &s, std::vector<MultiAgentEnvironment<state,action,environment>::MultiAgentState> &neighbors) const
+void MultiAgentEnvironment<state,action,environment>::GetSuccessors(const MAState<state> &s, std::vector<MAState<state>> &neighbors) const
 {
   //Get successors into a vector
   std::vector<std::vector<state>> successors;
@@ -142,9 +161,11 @@ void MultiAgentEnvironment<state,action,environment>::GetSuccessors(const MultiA
   uint32_t md(0xffffffff); // Min depth of successors
   //Add in successors for parents who are equal to the min
   unsigned k(0);
+  bool first(true);
   for(auto const& a: s){
     std::vector<state> output;
-    if(a.second.t<=sd){
+    if(first && a.second.t<=sd){
+      first=false;
       std::vector<typename state::first_type> n;
       env[k++]->GetSuccessors(a.second,n);
       //std::cout << "Keep Successors of " << *a.second << "\n";
@@ -165,16 +186,16 @@ void MultiAgentEnvironment<state,action,environment>::GetSuccessors(const MultiA
     //std::cout << "successor  of " << s << "gets("<<*a<< "): " << output << "\n";
     successors.push_back(output);
   }
-  MultiAgentState tmp;
+  MAState<state> tmp;
   generatePermutations(successors,neighbors,0,tmp,sd);
 }
 
 template<typename state, typename action, typename environment>
-double MultiAgentEnvironment<state,action,environment>::HCost(const MultiAgentEnvironment<state,action,environment>::MultiAgentState &node1, const MultiAgentEnvironment<state,action,environment>::MultiAgentState &node2) const
+double MultiAgentEnvironment<state,action,environment>::HCost(const MAState<state> &node1, const MAState<state> &node2) const
 {
   double total(0.0);
   for(int i(0); i<node1.size(); ++i){
-    total += env[i]->HCost(node1[i].second,node2[i].second);
+    total += heuristics[i]->HCost(node1[i].second,node2[i].second);
   }
   return total;
 }
@@ -182,7 +203,7 @@ double MultiAgentEnvironment<state,action,environment>::HCost(const MultiAgentEn
 
 
 template<typename state, typename action, typename environment>
-double MultiAgentEnvironment<state,action,environment>::GCost(MultiAgentEnvironment<state,action,environment>::MultiAgentState const& node1, MultiAgentEnvironment<state,action,environment>::MultiAgentState const& node2) const {
+double MultiAgentEnvironment<state,action,environment>::GCost(MAState<state> const& node1, MAState<state> const& node2) const {
   double total(0.0);
   for(int i(0); i<node1.size(); ++i){
     total += env[i]->GCost(node1[i].second,node2[i].second);
@@ -191,7 +212,7 @@ double MultiAgentEnvironment<state,action,environment>::GCost(MultiAgentEnvironm
 }
 
 template<typename state, typename action, typename environment>
-bool MultiAgentEnvironment<state,action,environment>::GoalTest(const MultiAgentEnvironment<state,action,environment>::MultiAgentState &node, const MultiAgentEnvironment<state,action,environment>::MultiAgentState &goal) const
+bool MultiAgentEnvironment<state,action,environment>::GoalTest(const MAState<state> &node, const MAState<state> &goal) const
 {
   for(int i(0); i<node.size(); ++i){
     if(!env[i]->GoalTest(node[i].second,goal[i].second))
@@ -201,7 +222,7 @@ bool MultiAgentEnvironment<state,action,environment>::GoalTest(const MultiAgentE
 }
 
 template<typename state, typename action, typename environment>
-double MultiAgentEnvironment<state,action,environment>::GetPathLength(const std::vector<MultiAgentEnvironment<state,action,environment>::MultiAgentState> &sol) const
+double MultiAgentEnvironment<state,action,environment>::GetPathLength(const std::vector<MAState<state>> &sol) const
 {
     //double gcost(0.0);
     //if(sol.size()>1)
@@ -224,12 +245,20 @@ double MultiAgentEnvironment<state,action,environment>::GetPathLength(const std:
 }
 
 template<typename state, typename action, typename environment>
-uint64_t MultiAgentEnvironment<state,action,environment>::GetStateHash(const MultiAgentEnvironment<state,action,environment>::MultiAgentState &node) const
+uint64_t MultiAgentEnvironment<state,action,environment>::GetStateHash(const MAState<state> &node) const
 {
-  uint64_t h(0);
+  // Implement the FNV-1a hash http://www.isthe.com/chongo/tech/comp/fnv/index.html
+  uint64_t h(14695981039346656037); // Offset basis
   unsigned i(0);
-  for(auto const& s : node){
-    h = (h * 16777619) ^ env[i++]->GetStateHash(s.second); // xor
+  for(auto const& v : node){
+    uint64_t h1(env[i++]->GetStateHash(v.second));
+    uint8_t c[sizeof(uint64_t)];
+    memcpy(c,&h1,sizeof(uint64_t));
+    for(unsigned j(0); j<sizeof(uint64_t); ++j){
+      //hash[k*sizeof(uint64_t)+j]=((int)c[j])?c[j]:1; // Replace null-terminators in the middle of the string
+      h=h^c[j]; // Xor with octet
+      h=h*1099511628211; // multiply by the FNV prime
+    }
   }
   return h;
 }
@@ -241,7 +270,7 @@ void MultiAgentEnvironment<state,action,environment>::OpenGLDraw() const
 }
 
 template<typename state, typename action, typename environment>
-void MultiAgentEnvironment<state,action,environment>::OpenGLDraw(const MultiAgentEnvironment<state,action,environment>::MultiAgentState &l) const
+void MultiAgentEnvironment<state,action,environment>::OpenGLDraw(const MAState<state> &l) const
 {
   unsigned i(0);
   for(auto const& s: l)
@@ -249,7 +278,7 @@ void MultiAgentEnvironment<state,action,environment>::OpenGLDraw(const MultiAgen
 }
 
 template<typename state, typename action, typename environment>
-void MultiAgentEnvironment<state,action,environment>::OpenGLDraw(const MultiAgentEnvironment<state,action,environment>::MultiAgentState& o, const MultiAgentEnvironment<state,action,environment>::MultiAgentState &n, float perc) const
+void MultiAgentEnvironment<state,action,environment>::OpenGLDraw(const MAState<state>& o, const MAState<state> &n, float perc) const
 {
   unsigned i(0);
   for(auto const& s: n)
@@ -257,13 +286,13 @@ void MultiAgentEnvironment<state,action,environment>::OpenGLDraw(const MultiAgen
 }
 
 template<typename state, typename action, typename environment>
-void MultiAgentEnvironment<state,action,environment>::OpenGLDraw(const MultiAgentEnvironment<state,action,environment>::MultiAgentState &, const MultiAgentEnvironment<state,action,environment>::MultiAgentAction &) const
+void MultiAgentEnvironment<state,action,environment>::OpenGLDraw(const MAState<state> &, const MultiAgentEnvironment<state,action,environment>::MultiAgentAction &) const
 {
     //TODO: Implement this
 }
 
 template<typename state, typename action, typename environment>
-void MultiAgentEnvironment<state,action,environment>::GLDrawLine(const MultiAgentEnvironment<state,action,environment>::MultiAgentState &a, const MultiAgentEnvironment<state,action,environment>::MultiAgentState &b) const
+void MultiAgentEnvironment<state,action,environment>::GLDrawLine(const MAState<state> &a, const MAState<state> &b) const
 {
   int i(0);
   for(auto const& s: a)
@@ -271,7 +300,7 @@ void MultiAgentEnvironment<state,action,environment>::GLDrawLine(const MultiAgen
 }
 
 template<typename state, typename action, typename environment>
-void MultiAgentEnvironment<state,action,environment>::GLDrawPath(const std::vector<MultiAgentEnvironment<state,action,environment>::MultiAgentState> &p) const
+void MultiAgentEnvironment<state,action,environment>::GLDrawPath(const std::vector<MAState<state>> &p) const
 {
         if(p.size()<2) return;
         for(auto a(p.begin()+1); a!=p.end(); ++a){

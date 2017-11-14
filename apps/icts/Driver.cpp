@@ -1510,6 +1510,7 @@ int main(int argc, char ** argv){
       if(waypoints[i][0]==waypoints[i][1]){ // Already at goal
         path.push_back(waypoints[i][0]);
       }else{
+        astar.SetVerbose(verbose);
         astar.SetHeuristic(heuristics[i]);
         astar.GetPath(env,waypoints[i][0],waypoints[i][1],path);
         if(!quiet)std::cout<<"Planned agent "<<i<<"\n";

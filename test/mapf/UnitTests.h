@@ -190,7 +190,7 @@ TEST(MAAStar, search){
   env.SetIgnoreTime(true);
   env.SetIgnoreHeading(true);
   std::vector<Grid3DConstrainedEnvironment const*> envs ={&env,&env};
-  MultiAgentEnvironment<std::pair<xyztLoc,xyztLoc>,t3DDirection,Grid3DConstrainedEnvironment> mae(envs);
+  /*MultiAgentEnvironment<std::pair<xyztLoc,xyztLoc>,t3DDirection,Grid3DConstrainedEnvironment> mae(envs);
   TemplateAStar<MultiAgentEnvironment<std::pair<xyztLoc,xyztLoc>,t3DDirection,Grid3DConstrainedEnvironment>::MultiAgentState, MultiAgentEnvironment<std::pair<xyztLoc,xyztLoc>,t3DDirection,Grid3DConstrainedEnvironment>::MultiAgentAction, MultiAgentEnvironment<std::pair<xyztLoc,xyztLoc>,t3DDirection,Grid3DConstrainedEnvironment> > astar;
   MultiAgentEnvironment<std::pair<xyztLoc,xyztLoc>,t3DDirection,Grid3DConstrainedEnvironment>::MultiAgentState start;
   start.emplace_back(xyztLoc(50,45,0),xyztLoc(50,45,0));
@@ -200,9 +200,10 @@ TEST(MAAStar, search){
   goal.emplace_back(xyztLoc(45,50,0),xyztLoc(54,50,0));
   std::vector<MultiAgentEnvironment<std::pair<xyztLoc,xyztLoc>,t3DDirection,Grid3DConstrainedEnvironment>::MultiAgentState> path;
   astar.GetPath(&mae,start,goal,path);
+  
   for(auto const& s:path){
     std::cout << s << "\n";
-  }
+  }*/
 }
 
 

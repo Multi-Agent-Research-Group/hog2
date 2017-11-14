@@ -955,7 +955,7 @@ double MapEnvironment::GCost(const xyLoc &l1, const xyLoc &l2) const
 {
   static double multiplier = 1.0;
   static double waitcost(1.0);
-  if(l1.sameLoc(l2)) return multiplier*waitcost;
+  if(l1.sameLoc(l2)) return l1.sameLoc(getGoal())?0.0:multiplier*waitcost; // No cost for waiting at goal
   //	if (map->GetTerrainType(l1.x, l1.y) == kSwamp)
   //	{
   //		multiplier = 3.0;
