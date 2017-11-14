@@ -552,11 +552,11 @@ double Grid3DEnvironment::GCost(const xyztLoc &l1, const xyztLoc &l2) const
   static const float SQRT_22(sqrt(22));
   static const float SQRT_27(sqrt(27));
   switch(connectedness){
-    case 0:{return 1;}
+    case 0:{return l1.sameLoc(getGoal()) && l1.sameLoc(l2)?0:multiplier;}
     case 1:{
              unsigned v(abs(l1.x-l2.x)+abs(l1.y-l2.y)+abs(l1.z-l2.z));
              switch(v){
-               case 0: return multiplier;
+               case 0: return l1.sameLoc(getGoal()) && l1.sameLoc(l2)?0:multiplier;
                case 1: return multiplier;
                case 2: return multiplier*SQRT_2;
                case 3: return multiplier*SQRT_3;
@@ -582,7 +582,7 @@ double Grid3DEnvironment::GCost(const xyztLoc &l1, const xyztLoc &l2) const
              }else if(v==2){
                if(dx==2||dy==2||dz==2) return multiplier*2.0;
                else return multiplier*SQRT_2;
-             }else{return 1;}
+             }else{return l1.sameLoc(getGoal()) && l1.sameLoc(l2)?0:multiplier;}
            }
     case 3:{
              unsigned dx(abs(l1.x-l2.x));
@@ -616,7 +616,7 @@ double Grid3DEnvironment::GCost(const xyztLoc &l1, const xyztLoc &l2) const
              }else if(v==2){
                if(dx==2||dy==2||dz==2) return multiplier*2.0;
                else return multiplier*SQRT_2;
-             }else{return 1;}
+             }else{return l1.sameLoc(getGoal()) && l1.sameLoc(l2)?0:multiplier;}
            }
   }
 }

@@ -66,7 +66,7 @@ public:
 	virtual void GLLabelState(const xytLoc &s, const char *str, double scale) const{mapEnv->GLLabelState(s,str,scale);}
         void GLDrawPath(const std::vector<xytLoc> &p, const std::vector<xytLoc> &waypoints) const;
         virtual Map* GetMap()const{return mapEnv->GetMap();}
-        bool LineOfSight(const xytLoc &x, const xytLoc &y)const{return mapEnv->LineOfSight(x,y) && !ViolatesConstraint(x,y);}
+        virtual bool LineOfSight(const xytLoc &x, const xytLoc &y)const{return mapEnv->LineOfSight(x,y) && !ViolatesConstraint(x,y);}
         void SetIgnoreTime(bool i){ignoreTime=i;}
         bool GetIgnoreTime()const{return ignoreTime;}
         void SetIgnoreHeading(bool i){ignoreHeading=i;}
@@ -75,6 +75,7 @@ public:
         uint16_t maxTurnAzimuth=0;
         static const float HDG_RESOLUTON;
         MapEnvironment* GetEnv()const{return mapEnv;}
+        MapEnvironment* GetMapEnv()const{return mapEnv;}
         void SetConnectedness(int c){ mapEnv->SetConnectedness(c); }
         uint8_t GetConnectedness()const{ return mapEnv->GetConnectedness(); }
 

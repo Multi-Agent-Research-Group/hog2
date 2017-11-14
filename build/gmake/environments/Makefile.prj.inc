@@ -33,7 +33,6 @@ default : all
 
 SRC_CPP = \
 	environments/Airplane.cpp \
-	environments/AirplaneMultiAgent.cpp \
 	environments/AirplaneSimple.cpp \
 	environments/AirplaneGrid3DCardinal.cpp \
 	environments/AirplaneGrid3DOctile.cpp \

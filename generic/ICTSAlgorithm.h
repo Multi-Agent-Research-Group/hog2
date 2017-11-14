@@ -41,7 +41,7 @@ extern double agentRadius;
 
 #define INFTY 999999999
 // for agents to stay at goal
-const uint32_t MAXTIME(1000000);
+const uint32_t MAXTIME(0xfffff);
 
 template<typename T, typename C>
 class custom_priority_queue : public std::priority_queue<T, std::vector<T>, C>
@@ -205,9 +205,9 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
         Node* parent(&dag[hash]);
         uint32_t d(parent->Depth());
         //int d(maxDepth-depth);
-        while(d+state::TIME_RESOLUTION_U<=maxDepth){ // Increment depth by 1 for wait actions
+        while(d+envs[agent]->WaitTime()<=maxDepth){ // Increment depth by 1 for wait actions
           // Wait at goal
-          d+=state::TIME_RESOLUTION_U;
+          d+=envs[agent]->WaitTime();
           state tmp(start,d);
           Node current(tmp,GetHash(tmp,agent));
           uint64_t chash(current.Hash());

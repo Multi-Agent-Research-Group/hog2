@@ -50,13 +50,11 @@ public:
 		ApplyAction(s2, a);
 	};
 
-        virtual void setGoal(state const& s){}; // Do nothing
-
 	virtual bool InvertAction(action &a) const = 0;
         virtual MapInterface* GetMap()const{return 0;}
 
 	/** Stores the goal for use by single-state HCost. **/
-	virtual void StoreGoal(state &s)
+	virtual void StoreGoal(state const& s)
 	{ bValidSearchGoal = true; searchGoal = s; }
 
 	/** Clears the goal from memory. **/
@@ -66,6 +64,10 @@ public:
 	/** Returns true if the goal is stored and false otherwise. **/
 	virtual bool IsGoalStored() const
 	{ return bValidSearchGoal; }
+
+        virtual void setGoal(state const& s){StoreGoal(s);};
+        virtual state const& getGoal()const{assert(bValidSearchGoal); return searchGoal;}
+
 
 	/** Heuristic value between two arbitrary nodes. **/
 	virtual double HCost(const state &node1, const state &node2) const = 0;
