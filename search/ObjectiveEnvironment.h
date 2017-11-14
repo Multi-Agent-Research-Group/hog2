@@ -36,6 +36,11 @@ public:
         virtual std::string name() const=0;
 	virtual double GCost(state const& node1, state const& node2) const=0;
         virtual void OpenGLDraw(Map*)const{}
+        virtual bool LineOfSight(const state &node, const state &goal) const{return true;}
+        virtual double WaitTime()const{return waitTime;}
+        virtual void WaitTime(double w){waitTime=w;}
+protected:
+  double waitTime; // Length of a wait action (in the resolution of "state")
 };
 
 #endif

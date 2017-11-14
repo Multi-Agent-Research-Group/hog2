@@ -56,7 +56,7 @@ public:
 	virtual void GLDrawLine(const xyztLoc &x, const xyztLoc &y) const;
         void GLDrawPath(const std::vector<xyztLoc> &p, const std::vector<xyztLoc> &waypoints) const;
         virtual Map3D* GetMap()const{return mapEnv->GetMap();}
-        bool LineOfSight(const xyztLoc &x, const xyztLoc &y)const{return mapEnv->LineOfSight(x,y) && !ViolatesConstraint(x,y);}
+        virtual bool LineOfSight(const xyztLoc &x, const xyztLoc &y)const{return mapEnv->LineOfSight(x,y) && !ViolatesConstraint(x,y);}
         void SetIgnoreTime(bool i){ignoreTime=i;}
         bool GetIgnoreTime()const{return ignoreTime;}
         void SetIgnoreHeading(bool i){ignoreHeading=i;}

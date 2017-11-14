@@ -340,7 +340,7 @@ struct ClearablePQ:public std::priority_queue<T,C,Cmp>{
   }
 };
 
-template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class searchalgo=TemporalAStar<state, action, ConstrainedEnvironment<state,action>, AStarOpenClosed<state, comparison>,1000>>
+template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class searchalgo=TemporalAStar<state, action, ConstrainedEnvironment<state,action>, AStarOpenClosed<state, comparison>>>
 class CBSGroup : public UnitGroup<state, action, ConstrainedEnvironment<state,action>>
 {
   public:

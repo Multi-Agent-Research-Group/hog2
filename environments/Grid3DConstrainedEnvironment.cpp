@@ -47,7 +47,7 @@ void Grid3DConstrainedEnvironment::GetSuccessors(const xyztLoc &nodeID, std::vec
   for (unsigned int x = 0; x < n.size(); x++)
   {
     unsigned inc(mapEnv->GetConnectedness()?(Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y))*xyztLoc::TIME_RESOLUTION_D:xyztLoc::TIME_RESOLUTION);
-    if(!inc)inc=xyztLoc::TIME_RESOLUTION_U; // Wait action
+    if(!inc)inc=WaitTime(); // Wait action
     n[x].t=nodeID.t+inc;
     //xyztLoc newLoc(n[x],
         //Util::heading<USHRT_MAX>(nodeID.x,nodeID.y,n[x].x,n[x].y), // hdg

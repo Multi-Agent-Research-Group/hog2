@@ -135,11 +135,11 @@ struct xyztLoc {
   bool operator==(xyztLoc const& other)const{return sameLoc(other)&&t==other.t;}
   bool operator!=(xyztLoc const& other)const{return x!=other.x||y!=other.y||z!=other.z||t!=other.t;}
   void print(std::ostream& os)const{os<<"("<<x<<","<<y<<","<<z<<","<<float(t)/TIME_RESOLUTION<<")";}
-  static const float HDG_RESOLUTION;
-  static const float PITCH_RESOLUTION;
-  static const float TIME_RESOLUTION;
-  static const unsigned TIME_RESOLUTION_U;
-  static const double TIME_RESOLUTION_D;
+  static float HDG_RESOLUTION;
+  static float PITCH_RESOLUTION;
+  static float TIME_RESOLUTION;
+  static unsigned TIME_RESOLUTION_U;
+  static double TIME_RESOLUTION_D;
 };
 
 struct AANode : xyLoc {

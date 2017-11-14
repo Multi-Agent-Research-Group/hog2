@@ -134,7 +134,25 @@ class CollisionDetector : public ConflictDetector<State> {
 template<typename State>
 class AllLOS : public ConflictDetector<State> {
   public:
-    AllLOS(std::vector<unsigned> const& agents, double dist):ConflictDetector<State>(),agentNumbers(agents),maxDistanceSq(dist*dist){} // Squared distance
+    AllLOS(std::vector<unsigned> const& agents, ObjectiveEnvironment<State> const*const e):ConflictDetector<State>(),agentNumbers(agents),env(e){}
+    inline virtual bool HasConflict(unsigned agentA, State const& A1, State const& A2, unsigned agentB, State const& B1, State const& B2)const{
+      return std::find(agentNumbers.begin(),agentNumbers.end(),agentA)!=agentNumbers.end() &&
+        std::find(agentNumbers.begin(),agentNumbers.end(),agentB)!=agentNumbers.end() &&
+        env->LineOfSight(A1,B1);
+    }
+    inline virtual Constraint<State>* GetConstraint(State const& A1, State const& A2, State const& B1, State const& B2)const{
+      return new Identical<State>(A1,A2);
+    }
+    virtual void OpenGLDraw()const{}
+    std::vector<unsigned> agentNumbers; // List of agent numbers that must maintain tether
+    ObjectiveEnvironment<State> const*const env;
+};
+
+// Require MinDist between all agents
+template<typename State>
+class AllMinDist : public ConflictDetector<State> {
+  public:
+    AllMinDist(std::vector<unsigned> const& agents, double dist):ConflictDetector<State>(),agentNumbers(agents),maxDistanceSq(dist*dist){} // Squared distance
     inline virtual bool HasConflict(unsigned agentA, State const& A1, State const& A2, unsigned agentB, State const& B1, State const& B2)const{
       return std::find(agentNumbers.begin(),agentNumbers.end(),agentA)!=agentNumbers.end() &&
         std::find(agentNumbers.begin(),agentNumbers.end(),agentB)!=agentNumbers.end() &&
@@ -170,7 +188,132 @@ class GroupConflictDetector{
 template<typename State>
 class AnyLOS: public GroupConflictDetector<State> {
   public:
-    AnyLOS(unsigned agentA, std::vector<unsigned> const& a, double dist):GroupConflictDetector<State>(agentA,a),maxDistanceSq(dist*dist){} // Squared distance
+    AnyLOS(unsigned agentA, std::vector<unsigned> const& a, ObjectiveEnvironment<State> const*const e):GroupConflictDetector<State>(agentA,a),env(e){}
+    // Assume a violation until we find one in the set that is within line of sight (if none are found, a violation has occurred)
+    inline virtual bool HasConflict(std::vector<std::pair<State,State>> const& states)const{
+      for(auto const& i:this->agentNumbers){
+        if(!env->LineOfSight(states[this->agent1].first,states[i].first)){
+          return false;
+        }
+      }
+      return true;
+    }
+
+    inline virtual bool ShouldMerge(std::vector<std::vector<State>> const& solution, std::set<unsigned>& toMerge)const{
+      std::vector<unsigned> indices(this->agentNumbers.size()); // Defaults to zero
+      unsigned index(0);
+
+      unsigned minTime(solution[this->agent1][index].t);
+      // Move other agents forward in time if necessary (we don't assume all paths start at t=0)
+      for(int i(0); i<this->agentNumbers.size(); ++i){
+        while(indices[i]<solution[this->agentNumbers[i]].size()-1 && solution[this->agentNumbers[i]][indices[i]].t<minTime){indices[i]++;}
+      }
+      this->agent2=-1;
+      while(index<solution[this->agent1].size()-1){
+        double closest(999999999);
+        double dist(999999999);
+        for(int i(0); i<this->agentNumbers.size(); ++i){
+          dist=distanceSquared(solution[this->agent1][index],solution[this->agent1][index+1],solution[this->agentNumbers[i]][indices[i]],solution[this->agentNumbers[i]][indices[i]+1]);
+          if(dist<closest){
+            closest=dist;
+            this->agent2=this->agentNumbers[i];
+          }
+        }
+        toMerge.insert(this->agent2);
+        minTime=solution[this->agent1][++index].t;
+        // Move other agents forward in time if necessary
+        for(int i(0); i<this->agentNumbers.size(); ++i){
+          while(indices[i]<solution[this->agentNumbers[i]].size()-2 && solution[this->agentNumbers[i]][indices[i]].t<minTime){indices[i]++;}
+        }
+      }
+      toMerge.insert(this->agent1);
+      return toMerge.size()>1;
+    }
+
+    inline virtual bool HasConflict(std::vector<std::vector<State>> const& solution)const{
+      Constraint<State>* c1;
+      Constraint<State>* c2;
+      std::pair<unsigned,unsigned> conflict;
+      return HasConflict(solution,c1,c2,conflict);
+    }
+
+    inline virtual bool HasConflict(std::vector<std::vector<State>> const& solution, Constraint<State>*& c1, Constraint<State>*& c2, std::pair<unsigned,unsigned>& conflict)const{
+      // Step through time, checking for group-wise conflicts
+      std::vector<unsigned> indices(this->agentNumbers.size()); // Defaults to zero
+      unsigned index(0);
+      bool foundConflict(false);
+      unsigned minTime(solution[this->agent1][index].t);
+      // Move other agents forward in time if necessary (we don't assume all paths start at t=0)
+      for(int i(0); i<this->agentNumbers.size(); ++i){
+        while(indices[i]<solution[this->agentNumbers[i]].size()-1 && solution[this->agentNumbers[i]][indices[i]].t<minTime){indices[i]++;}
+      }
+      double closest(999999999);
+      this->agent2=-1;
+      unsigned i1(index);
+      unsigned i2(index);
+      while(index<solution[this->agent1].size()-1){
+        double dist(999999999);
+        bool violation(true);
+        for(int i(0); i<this->agentNumbers.size(); ++i){
+          if(!env->LineOfSight(solution[this->agent1][index],solution[this->agentNumbers[i]][indices[i]])){
+            if(dist<closest){
+              closest=dist;
+              this->agent2=this->agentNumbers[i];
+              i1=index;
+              i2=indices[i];
+            }
+          }else{
+            violation=false;
+            break;
+          }
+        }
+        if(violation){ // No agents are in LOS of the main agent
+          conflict.first++;
+          foundConflict=true;
+        }
+        minTime=solution[this->agent1][++index].t;
+        // Move other agents forward in time if necessary
+        for(int i(0); i<this->agentNumbers.size(); ++i){
+          while(indices[i]<solution[this->agentNumbers[i]].size()-2 && solution[this->agentNumbers[i]][indices[i]].t<minTime){indices[i]++;}
+        }
+      }
+      if(foundConflict){
+        c1=GetConstraint(solution[this->agent1][i1],solution[this->agent1][i1+1],solution[this->agent2][i2],solution[this->agent2][i2+1]);
+        c2=GetConstraint(solution[this->agent2][i2],solution[this->agent2][i2+1],solution[this->agent1][i1],solution[this->agent1][i1+1]);
+      }
+      return foundConflict;
+    }
+
+    inline virtual Constraint<State>* GetConstraint(State const& A1, State const& A2, State const& B1, State const& B2)const{
+      return new Identical<State>(A1,A2);
+    }
+    virtual void OpenGLDraw(std::vector<State> const& states, MapInterface const& map)const{
+      for(auto const& a:this->agentNumbers){
+        if(!env->LineOfSight(states[this->agent1],states[a])){
+          glColor4f(0,0,0,0);
+
+        }else{
+          glColor4f(1,0,0,0);
+        }
+        GLdouble xx1, yy1, zz1, rad, xx2, yy2, zz2;
+        map.GetOpenGLCoord(states[this->agent1].x, states[this->agent1].y, states[this->agent1].z, xx1, yy1, zz1, rad);
+        map.GetOpenGLCoord(states[a].x, states[a].y, states[a].z, xx2, yy2, zz2, rad);
+        glBegin(GL_LINES);
+        glVertex3f(xx1, yy1, zz1-rad/2);
+        glVertex3f(xx2, yy2, zz2-rad/2);
+        glEnd();
+
+      }
+    }
+    ObjectiveEnvironment<State> const*const env=nullptr;
+    virtual GroupConflictDetector<State>* clone(){return new AnyLOS(*this);}
+};
+
+// Require MinDist between agent A and at least one other agent in the set
+template<typename State>
+class AnyMinDist: public GroupConflictDetector<State> {
+  public:
+    AnyMinDist(unsigned agentA, std::vector<unsigned> const& a, double dist):GroupConflictDetector<State>(agentA,a),maxDistanceSq(dist*dist){} // Squared distance
     // Assume a violation until we find one in the set that is within line of sight (if none are found, a violation has occurred)
     inline virtual bool HasConflict(std::vector<std::pair<State,State>> const& states)const{
       bool violation(true);
@@ -250,7 +393,7 @@ class AnyLOS: public GroupConflictDetector<State> {
             break;
           }
         }
-        if(violation){ // No agents are in LOS of the main agent
+        if(violation){ // No agents are in MinDist of the main agent
           conflict.first++;
           foundConflict=true;
         }
@@ -289,7 +432,7 @@ glBegin(GL_LINES);
       }
     }
     double maxDistanceSq;
-    virtual GroupConflictDetector<State>* clone(){return new AnyLOS(*this);}
+    virtual GroupConflictDetector<State>* clone(){return new AnyMinDist(*this);}
 };
 
 template<typename State, typename Action>
