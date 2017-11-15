@@ -99,7 +99,7 @@ class Map3D : public MapInterface{
     }
   }
   bool Visible(unsigned x, unsigned y, unsigned z)const{
-    return InMap(x,y,z) && elev[x][y]<z;
+    return InMap(x,y,z) && elev[x][y]<=z;
       
   }
   bool HasObstacle(unsigned x, unsigned y, unsigned z)const{return !IsTraversable(x,y,z,air);}

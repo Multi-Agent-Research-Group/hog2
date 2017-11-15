@@ -256,6 +256,7 @@ class AnyLOS: public GroupConflictDetector<State> {
         bool violation(true);
         for(int i(0); i<this->agentNumbers.size(); ++i){
           if(!env->LineOfSight(solution[this->agent1][index],solution[this->agentNumbers[i]][indices[i]])){
+            dist=distanceSquared(solution[this->agent1][index],solution[this->agent1][index+1],solution[this->agentNumbers[i]][indices[i]],solution[this->agentNumbers[i]][indices[i]+1]);
             if(dist<closest){
               closest=dist;
               this->agent2=this->agentNumbers[i];
