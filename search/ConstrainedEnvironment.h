@@ -14,6 +14,7 @@
 #include <vector>
 #include <set>
 #include <algorithm>
+#include <unordered_map>
 #include "MapInterface.h"
 #include "SearchEnvironment.h"
 #include "PositionalUtils.h"
@@ -55,7 +56,7 @@ class SoftConstraint : public DrawableConstraint {
     SoftConstraint() {}
     SoftConstraint(State const& c, double r) : center(c),radius(r),logr(log(r)){}
 
-    virtual double cost(State const& other, double scale) const{
+    inline virtual double cost(State const& other, double scale) const{
       double d(Util::distance(center.x,center.y,center.height,other.x,other.y,other.height)/scale);
       return std::max(0.0,logr/d-logr/radius);
     }
@@ -170,7 +171,9 @@ template<typename State>
 class GroupConflictDetector{
   public:
     GroupConflictDetector(unsigned mainAgent, std::vector<unsigned> const& a):agent1(mainAgent),agentNumbers(a),agent2(-1){}
-    inline virtual bool HasConflict(std::vector<std::pair<State,State>> const& states)const=0;
+    inline virtual bool HasIndividualConflict(State const& src, State const& cand) const=0;
+
+    inline virtual bool HasConflict(std::vector<std::pair<State,State>> const& states, std::unordered_map<unsigned,unsigned> const& translation, std::vector<std::vector<State>> const& staticpaths, std::vector<unsigned> const& staticAgents)const=0;
     virtual bool HasConflict(std::vector<std::vector<State>> const& solution)const=0;
     virtual bool HasConflict(std::vector<std::vector<State>> const& solution, Constraint<State>*& c1, Constraint<State>*& c2, std::pair<unsigned,unsigned>& conflict)const=0;
     virtual bool ShouldMerge(std::vector<std::vector<State>> const& solution, std::set<unsigned>& toMerge)const=0;
@@ -189,11 +192,26 @@ template<typename State>
 class AnyLOS: public GroupConflictDetector<State> {
   public:
     AnyLOS(unsigned agentA, std::vector<unsigned> const& a, ObjectiveEnvironment<State> const*const e):GroupConflictDetector<State>(agentA,a),env(e){}
-    // Assume a violation until we find one in the set that is within line of sight (if none are found, a violation has occurred)
-    inline virtual bool HasConflict(std::vector<std::pair<State,State>> const& states)const{
+
+    inline virtual bool HasIndividualConflict(State const& src, State const& cand)const{
+      return !env->LineOfSight(src,cand);
+    }
+
+    inline virtual bool HasConflict(std::vector<std::pair<State,State>> const& states, std::unordered_map<unsigned,unsigned> const& translation, std::vector<std::vector<State>> const& staticpaths, std::vector<unsigned> const& staticAgents)const{
+      State const& mainState(states[translation.find(this->agent1)->second].first);
+      State const& succState(states[translation.find(this->agent1)->second].second);
       for(auto const& i:this->agentNumbers){
-        if(!env->LineOfSight(states[this->agent1].first,states[i].first)){
+        if(env->LineOfSight(mainState,states[translation.find(i)->second].first)){
           return false;
+        }
+      }
+      for(auto const& a:staticAgents){
+        if(std::find(this->agentNumbers.begin(),this->agentNumbers.end(),a)!=this->agentNumbers.end()){
+          for(auto const& s:staticpaths[a]){
+            if(mainState.t<=s.t && succState.t>=s.t && env->LineOfSight(mainState,s)){
+              return false;
+            }
+          }
         }
       }
       return true;
@@ -256,8 +274,9 @@ class AnyLOS: public GroupConflictDetector<State> {
         bool violation(true);
         for(int i(0); i<this->agentNumbers.size(); ++i){
           if(!env->LineOfSight(solution[this->agent1][index],solution[this->agentNumbers[i]][indices[i]])){
-            dist=distanceSquared(solution[this->agent1][index],solution[this->agent1][index+1],solution[this->agentNumbers[i]][indices[i]],solution[this->agentNumbers[i]][indices[i]+1]);
-            if(dist<closest){
+            //dist=distanceSquared(solution[this->agent1][index],solution[this->agentNumbers[i]][indices[i]]);
+            //if(dist<closest){
+            if(this->agent2==-1||rand()%2){
               closest=dist;
               this->agent2=this->agentNumbers[i];
               i1=index;
@@ -271,6 +290,7 @@ class AnyLOS: public GroupConflictDetector<State> {
         if(violation){ // No agents are in LOS of the main agent
           conflict.first++;
           foundConflict=true;
+          break;
         }
         minTime=solution[this->agent1][++index].t;
         // Move other agents forward in time if necessary
@@ -315,12 +335,28 @@ template<typename State>
 class AnyMinDist: public GroupConflictDetector<State> {
   public:
     AnyMinDist(unsigned agentA, std::vector<unsigned> const& a, double dist):GroupConflictDetector<State>(agentA,a),maxDistanceSq(dist*dist){} // Squared distance
-    // Assume a violation until we find one in the set that is within line of sight (if none are found, a violation has occurred)
-    inline virtual bool HasConflict(std::vector<std::pair<State,State>> const& states)const{
-      bool violation(true);
+
+    inline virtual bool HasIndividualConflict(State const& src, State const& cand)const{
+      return fleq(maxDistanceSq,distanceSquared(src,cand));
+    }
+
+    inline virtual bool HasConflict(std::vector<std::pair<State,State>> const& states, std::unordered_map<unsigned,unsigned> const& translation, std::vector<std::vector<State>> const& staticpaths, std::vector<unsigned> const& staticAgents)const{
+      State const& mainState(states[translation.find(this->agent1)->second].first);
+      State const& succState(states[translation.find(this->agent1)->second].second);
       for(auto const& i:this->agentNumbers){
-        if(fgreater(maxDistanceSq,distanceSquared(states[this->agent1].first,states[this->agent1].second,states[i].first,states[i].second))){
+        if(fgreater(maxDistanceSq,distanceSquared(mainState,succState,states[translation.find(i)->second].first,states[translation.find(i)->second].second))){
           return false;
+        }
+      }
+      for(auto const& a:staticAgents){
+        if(std::find(this->agentNumbers.begin(),this->agentNumbers.end(),a)!=this->agentNumbers.end()){
+          for(auto const& s:staticpaths[a]){
+            if(mainState.t<=s.t && succState.t>=s.t &&
+                (fgreater(maxDistanceSq,distanceSquared(mainState,s))||
+                 fgreater(maxDistanceSq,distanceSquared(succState,s)))){
+              return false;
+            }
+          }
         }
       }
       return true;
