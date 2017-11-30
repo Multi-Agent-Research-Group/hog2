@@ -480,4 +480,10 @@ TEST(Grid3DEnvironment, LineOfSight){
   ASSERT_TRUE(env.LineOfSight({1,1,1},{7,7,7}));
 }
 
+TEST(Grid3DEnvironment, LineOfSight2){
+  Map3D map(16,16,1);
+  map.SetGrid(6,5,1,Map3D::kGround); // Set height to 8
+  Grid3DEnvironment env(&map);
+  ASSERT_TRUE(env.LineOfSight({2,5,0},{13,3,0}));
+}
 #endif
