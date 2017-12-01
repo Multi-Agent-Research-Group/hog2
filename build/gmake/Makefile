@@ -25,41 +25,15 @@ PROJECTS = \
   mapalgorithms \
   shared \
   utils \
-  apps/arm \
   apps/airplane \
-  apps/localsensingsearch \
-  apps/cpdb \
-  apps/pathsample \
-  apps/puzzlesample \
-  apps/inconsistency \
-  apps/dynamicsearch \
-  apps/directional \
-  apps/dragonage \
   apps/icts \
   apps/mapUtils \
-  apps/prediction \
-  apps/emotion \
-  apps/sfbds \
   apps/3dmaps \
-  apps/rubik \
-  apps/bidirectional \
-  apps/voxel \
-  apps/fling \
-  apps/topspin \
-  apps/stp \
-  apps/pancake \
-  apps/roads \
-  apps/canonicalGrids \
-  apps/delta \
   apps/MACBS \
   apps/MAPF \
   apps/MAAStar \
   apps/aacbs \
   apps/MO \
-  demos/DFID \
-  demos/dijkstra \
-  demos/astar \
-  demos/idastar \
   test/airplane \
   test/mapf \
   test/utils \
@@ -79,6 +53,32 @@ PROJECTS = \
 # Include projects with broken compilation
 PROJECTS_ALL = \
   gui/GL \
+  demos/DFID \
+  demos/dijkstra \
+  demos/astar \
+  demos/idastar \
+  apps/rubik \
+  apps/bidirectional \
+  apps/voxel \
+  apps/fling \
+  apps/topspin \
+  apps/stp \
+  apps/pancake \
+  apps/roads \
+  apps/canonicalGrids \
+  apps/delta \
+  apps/prediction \
+  apps/emotion \
+  apps/sfbds \
+  apps/arm \
+  apps/localsensingsearch \
+  apps/cpdb \
+  apps/pathsample \
+  apps/puzzlesample \
+  apps/inconsistency \
+  apps/dynamicsearch \
+  apps/directional \
+  apps/dragonage \
   absmapalgorithms \
   abstraction \
   abstractionalgorithms \

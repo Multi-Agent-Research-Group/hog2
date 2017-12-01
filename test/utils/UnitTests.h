@@ -28,6 +28,7 @@
 #include "TemporalAStar.h"
 #include "Map2DEnvironment.h"
 #include "Map2DConstrainedEnvironment.h"
+#include "Hungarian.h"
 
 TEST(util, dtedreader){
   float** array;
@@ -139,4 +140,80 @@ TEST(generic, GetFurthestPoint){
   std::cout << "depth " << env.GetPathLength(path) << "\n";
   
 }
+
+TEST(algorithms, hungarian){
+  std::vector<xyztLoc> goals = {{1,1,1,0.0f},{60,3,7,0.0f},{12,36,9,0.0f},{18,22,32,0.0f}};
+  std::vector<xyztLoc> starts = {{3,1,9,0.0f},{41,16,2,0.0f}};
+  std::vector<std::vector<int>> costs(starts.size(),std::vector<int>(goals.size()));
+  // Represent costs using distances
+  int x(0);
+  for(auto const& s:starts){
+    int y(0);
+    for(auto const& g:goals){
+      costs[x][y++] = Util::distance(s,g)*xyztLoc::TIME_RESOLUTION;
+    }
+    ++x;
+  }
+
+  Hungarian::hungarian_print_matrix(costs);
+  Hungarian h(costs);
+  std::vector<std::vector<unsigned>> assignments;
+  h.solve(assignments,2);
+  h.print_status();
+  
+  ASSERT_EQ(assignments[0][0],0U);
+  ASSERT_EQ(assignments[0][1],3U);
+  ASSERT_EQ(assignments[1][0],1U);
+  ASSERT_EQ(assignments[1][1],2U);
+}
+
+TEST(algorithms, hungarian2){
+  std::vector<xyztLoc> goals = {{1,1,1,0.0f},{60,3,7,0.0f},{12,36,9,0.0f}};
+  std::vector<xyztLoc> starts = {{3,1,9,0.0f},{41,16,2,0.0f}};
+  std::vector<std::vector<int>> costs(starts.size(),std::vector<int>(goals.size()));
+  // Represent costs using distances
+  int x(0);
+  for(auto const& s:starts){
+    int y(0);
+    for(auto const& g:goals){
+      costs[x][y++] = Util::distance(s,g)*xyztLoc::TIME_RESOLUTION;
+    }
+    ++x;
+  }
+
+  Hungarian::hungarian_print_matrix(costs);
+  Hungarian h(costs);
+  std::vector<std::vector<unsigned>> assignments;
+  h.solve(assignments,2);
+  h.print_status();
+  
+  ASSERT_EQ(assignments[0][0],0U);
+  ASSERT_EQ(assignments[1][0],1U);
+  ASSERT_EQ(assignments[1][1],2U);
+}
+
+TEST(algorithms, hungarian3){
+  std::vector<xyztLoc> starts = {{1,1,1,0.0f},{60,3,7,0.0f},{12,36,9,0.0f},{18,22,32,0.0f}};
+  std::vector<xyztLoc> goals = {{3,1,9,0.0f},{41,16,2,0.0f}};
+  std::vector<std::vector<int>> costs(starts.size(),std::vector<int>(goals.size()));
+  // Represent costs using distances
+  int x(0);
+  for(auto const& s:starts){
+    int y(0);
+    for(auto const& g:goals){
+      costs[x][y++] = Util::distance(s,g)*xyztLoc::TIME_RESOLUTION;
+    }
+    ++x;
+  }
+
+  Hungarian::hungarian_print_matrix(costs);
+  Hungarian h(costs);
+  std::vector<std::vector<unsigned>> assignments;
+  h.solve(assignments,2);
+  h.print_status();
+  
+  ASSERT_EQ(assignments[0][0],0U);
+  ASSERT_EQ(assignments[1][0],1U);
+}
+
 #endif
