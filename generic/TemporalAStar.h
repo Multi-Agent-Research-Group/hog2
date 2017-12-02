@@ -53,7 +53,7 @@ struct TemporalAStarCompare {
  * A templated version of A*, based on HOG genericAStar
  * This version makes sure that the goal state has at least time >= minTime
  */
-template <class state, class action, class environment, class openList=AStarOpenClosed<state, TemporalAStarCompare<state>>, unsigned TIME_RESOLUTION=1>
+template <class state, class action, class environment, class openList=AStarOpenClosed<state, TemporalAStarCompare<state>>>
 class TemporalAStar : public GenericSearchAlgorithm<state,action,environment> {
 public:
 	TemporalAStar():env(0),totalExternalNodesExpanded(nullptr),externalExpansionLimit(INT_MAX),useBPMX(0),radius(4.0),stopAfterGoal(true),doPartialExpansion(false),verbose(false),weight(1),useRadius(false),useOccupancyInfo(false),radEnv(0),reopenNodes(false),theHeuristic(0),directed(false),noncritical(false),SuccessorFunc(&environment::GetSuccessors),ActionFunc(&environment::GetAction),GCostFunc(&environment::GCost){ResetNodeCount();}
@@ -177,6 +177,7 @@ private:
         double (environment::*GCostFunc)(const state&, const state&) const;
         void (environment::*SuccessorFunc)(const state&, std::vector<state>&) const;
         action (environment::*ActionFunc)(const state&, const state&) const;
+        double timeStep;
 };
 
 //static const bool verbose = false;
@@ -189,8 +190,8 @@ private:
  * @return The name of the algorithm
  */
 
-template <class state, class action, class environment, class openList, unsigned TIME_RESOLUTION>
-const char *TemporalAStar<state,action,environment,openList,TIME_RESOLUTION>::GetName()
+template <class state, class action, class environment, class openList>
+const char *TemporalAStar<state,action,environment,openList>::GetName()
 {
 	static char name[32];
 	sprintf(name, "TemporalAStar[]");
@@ -200,8 +201,8 @@ const char *TemporalAStar<state,action,environment,openList,TIME_RESOLUTION>::Ge
 /**
  * Perform an A* search between two states.  
  */
-template <class state, class action, class environment, class openList, unsigned TIME_RESOLUTION>
-void TemporalAStar<state,action,environment,openList,TIME_RESOLUTION>::GetPath(environment *_env, const state& from, const state& to, std::vector<state> &thePath, unsigned minTime)
+template <class state, class action, class environment, class openList>
+void TemporalAStar<state,action,environment,openList>::GetPath(environment *_env, const state& from, const state& to, std::vector<state> &thePath, unsigned minTime)
 {
   	if (!InitializeSearch(_env, from, to, thePath,minTime))
   	{	
@@ -215,8 +216,8 @@ void TemporalAStar<state,action,environment,openList,TIME_RESOLUTION>::GetPath(e
 /*
  * Get a set of paths in range of optimality
  */
-template <class state, class action, class environment, class openList, unsigned TIME_RESOLUTION>
-void TemporalAStar<state,action,environment,openList,TIME_RESOLUTION>::GetPaths(environment *_env, const state& from, const state& to, std::vector<std::vector<state>> &paths, double window, double bestf, unsigned minTime)
+template <class state, class action, class environment, class openList>
+void TemporalAStar<state,action,environment,openList>::GetPaths(environment *_env, const state& from, const state& to, std::vector<std::vector<state>> &paths, double window, double bestf, unsigned minTime)
 {
   double nextbestf(0);
   if(openClosedList.OpenSize() == 0){
@@ -242,8 +243,8 @@ void TemporalAStar<state,action,environment,openList,TIME_RESOLUTION>::GetPaths(
 /**
  * Retrieve the next path found in the OPEN list
  */
-template <class state, class action, class environment, class openList, unsigned TIME_RESOLUTION>
-double TemporalAStar<state,action,environment,openList,TIME_RESOLUTION>::GetNextPath(environment *env, const state& from, const state& to, std::vector<state> &thePath, unsigned minTime)
+template <class state, class action, class environment, class openList>
+double TemporalAStar<state,action,environment,openList>::GetNextPath(environment *env, const state& from, const state& to, std::vector<state> &thePath, unsigned minTime)
 {
   if(openClosedList.OpenSize() == 0){
     GetPath(env,from,to,thePath,minTime);
@@ -261,8 +262,8 @@ double TemporalAStar<state,action,environment,openList,TIME_RESOLUTION>::GetNext
   }
 }
 
-template <class state, class action, class environment, class openList, unsigned TIME_RESOLUTION>
-void TemporalAStar<state,action,environment,openList,TIME_RESOLUTION>::GetPath(environment *_env, const state& from, const state& to, std::vector<action> &path)
+template <class state, class action, class environment, class openList>
+void TemporalAStar<state,action,environment,openList>::GetPath(environment *_env, const state& from, const state& to, std::vector<action> &path)
 {
 	std::vector<state> thePath;
 	if (!InitializeSearch(_env, from, to, thePath))
@@ -283,8 +284,8 @@ void TemporalAStar<state,action,environment,openList,TIME_RESOLUTION>::GetPath(e
 /**
  * Initialize the A* search
  */
-template <class state, class action, class environment, class openList, unsigned TIME_RESOLUTION>
-bool TemporalAStar<state,action,environment,openList,TIME_RESOLUTION>::InitializeSearch(environment *_env, const state& from, const state& to, std::vector<state> &thePath, unsigned minTime)
+template <class state, class action, class environment, class openList>
+bool TemporalAStar<state,action,environment,openList>::InitializeSearch(environment *_env, const state& from, const state& to, std::vector<state> &thePath, unsigned minTime)
 {
 	//lastF = 0;
 	
@@ -321,8 +322,8 @@ bool TemporalAStar<state,action,environment,openList,TIME_RESOLUTION>::Initializ
  * @author Nathan Sturtevant
  * @date 01/06/08
  */
-template <class state, class action, class environment, class openList, unsigned TIME_RESOLUTION>
-void TemporalAStar<state,action,environment,openList,TIME_RESOLUTION>::AddAdditionalStartState(state const& newState)
+template <class state, class action, class environment, class openList>
+void TemporalAStar<state,action,environment,openList>::AddAdditionalStartState(state const& newState)
 {
 	openClosedList.AddOpenNode(newState, env->GetStateHash(newState), 0, weight*theHeuristic->HCost(start, goal));
 }
@@ -332,8 +333,8 @@ void TemporalAStar<state,action,environment,openList,TIME_RESOLUTION>::AddAdditi
  * @author Nathan Sturtevant
  * @date 09/25/10
  */
-template <class state, class action, class environment, class openList, unsigned TIME_RESOLUTION>
-void TemporalAStar<state,action,environment,openList,TIME_RESOLUTION>::AddAdditionalStartState(state const& newState, double cost)
+template <class state, class action, class environment, class openList>
+void TemporalAStar<state,action,environment,openList>::AddAdditionalStartState(state const& newState, double cost)
 {
 	openClosedList.AddOpenNode(newState, env->GetStateHash(newState), cost, weight*theHeuristic->HCost(start, goal));
 }
@@ -348,8 +349,8 @@ void TemporalAStar<state,action,environment,openList,TIME_RESOLUTION>::AddAdditi
  * @return TRUE if there is no path or if we have found the goal, FALSE
  * otherwise
  */
-template <class state, class action, class environment, class openList, unsigned TIME_RESOLUTION>
-bool TemporalAStar<state,action,environment,openList,TIME_RESOLUTION>::DoSingleSearchStep(std::vector<state> &thePath, unsigned minTime)
+template <class state, class action, class environment, class openList>
+bool TemporalAStar<state,action,environment,openList>::DoSingleSearchStep(std::vector<state> &thePath, unsigned minTime)
 {
 	if(openClosedList.OpenSize() == 0)
 	{
@@ -403,7 +404,7 @@ bool TemporalAStar<state,action,environment,openList,TIME_RESOLUTION>::DoSingleS
               n.t=minTime;
               neighbors.insert(neighbors.begin(),n);
             }else{
-              n.t-=TIME_RESOLUTION;
+              n.t-=env->WaitTime();
               if(fgreater(n.t,openClosedList.Lookup(nodeid).data.t)){
                 neighbors.insert(neighbors.begin(),n);
               }
@@ -605,8 +606,8 @@ bool TemporalAStar<state,action,environment,openList,TIME_RESOLUTION>::DoSingleS
  * 
  * @return The first state in the open list. 
  */
-template <class state, class action, class environment, class openList, unsigned TIME_RESOLUTION>
-state TemporalAStar<state, action,environment,openList,TIME_RESOLUTION>::CheckNextNode()
+template <class state, class action, class environment, class openList>
+state TemporalAStar<state, action,environment,openList>::CheckNextNode()
 {
 	uint64_t key = openClosedList.Peek();
 	return openClosedList.Lookup(key).data;
@@ -621,8 +622,8 @@ state TemporalAStar<state, action,environment,openList,TIME_RESOLUTION>::CheckNe
  * 
  * @return The first state in the open list. 
  */
-template <class state, class action, class environment, class openList, unsigned TIME_RESOLUTION>
-void TemporalAStar<state, action,environment,openList,TIME_RESOLUTION>::FullBPMX(uint64_t nodeID, int distance)
+template <class state, class action, class environment, class openList>
+void TemporalAStar<state, action,environment,openList>::FullBPMX(uint64_t nodeID, int distance)
 {
 	if (distance <= 0)
 		return;
@@ -672,8 +673,8 @@ void TemporalAStar<state, action,environment,openList,TIME_RESOLUTION>::FullBPMX
  * @param goalNode the goal state
  * @param thePath will contain the path from goalNode to the start state
  */
-template <class state, class action,class environment,class openList, unsigned TIME_RESOLUTION>
-void TemporalAStar<state, action,environment,openList,TIME_RESOLUTION>::ExtractPathToStartFromID(uint64_t node,
+template <class state, class action,class environment,class openList>
+void TemporalAStar<state, action,environment,openList>::ExtractPathToStartFromID(uint64_t node,
 																	 std::vector<state> &thePath)
 {
 	do {
@@ -683,8 +684,8 @@ void TemporalAStar<state, action,environment,openList,TIME_RESOLUTION>::ExtractP
 	thePath.push_back(openClosedList.Lookup(node).data);
 }
 
-template <class state, class action,class environment,class openList, unsigned TIME_RESOLUTION>
-const state &TemporalAStar<state, action,environment,openList,TIME_RESOLUTION>::GetParent(const state &s)
+template <class state, class action,class environment,class openList>
+const state &TemporalAStar<state, action,environment,openList>::GetParent(const state &s)
 {
 	uint64_t theID;
 	openClosedList.Lookup(env->GetStateHash(s), theID);
@@ -698,8 +699,8 @@ const state &TemporalAStar<state, action,environment,openList,TIME_RESOLUTION>::
  * @author Nathan Sturtevant
  * @date 03/22/06
  */
-template <class state, class action, class environment, class openList, unsigned TIME_RESOLUTION>
-void TemporalAStar<state, action,environment,openList,TIME_RESOLUTION>::PrintStats()
+template <class state, class action, class environment, class openList>
+void TemporalAStar<state, action,environment,openList>::PrintStats()
 {
 	printf("%u items in closed list\n", (unsigned int)openClosedList.ClosedSize());
 	printf("%u items in open queue\n", (unsigned int)openClosedList.OpenSize());
@@ -712,8 +713,8 @@ void TemporalAStar<state, action,environment,openList,TIME_RESOLUTION>::PrintSta
  * 
  * @return The combined number of elements in the closed list and open queue
  */
-template <class state, class action, class environment, class openList, unsigned TIME_RESOLUTION>
-int TemporalAStar<state, action,environment,openList,TIME_RESOLUTION>::GetMemoryUsage()
+template <class state, class action, class environment, class openList>
+int TemporalAStar<state, action,environment,openList>::GetMemoryUsage()
 {
 	return openClosedList.size();
 }
@@ -728,8 +729,8 @@ int TemporalAStar<state, action,environment,openList,TIME_RESOLUTION>::GetMemory
  * @return success Whether we found the value or not
  * the states
  */
-template <class state, class action, class environment, class openList, unsigned TIME_RESOLUTION>
-bool TemporalAStar<state, action,environment,openList,TIME_RESOLUTION>::GetClosedListGCost(const state &val, double &gCost) const
+template <class state, class action, class environment, class openList>
+bool TemporalAStar<state, action,environment,openList>::GetClosedListGCost(const state &val, double &gCost) const
 {
 	uint64_t theID;
 	dataLocation loc = openClosedList.Lookup(env->GetStateHash(val), theID);
@@ -741,8 +742,8 @@ bool TemporalAStar<state, action,environment,openList,TIME_RESOLUTION>::GetClose
 	return false;
 }
 
-template <class state, class action, class environment, class openList, unsigned TIME_RESOLUTION>
-bool TemporalAStar<state, action,environment,openList,TIME_RESOLUTION>::GetOpenListGCost(const state &val, double &gCost) const
+template <class state, class action, class environment, class openList>
+bool TemporalAStar<state, action,environment,openList>::GetOpenListGCost(const state &val, double &gCost) const
 {
 	uint64_t theID;
 	dataLocation loc = openClosedList.Lookup(env->GetStateHash(val), theID);
@@ -754,8 +755,8 @@ bool TemporalAStar<state, action,environment,openList,TIME_RESOLUTION>::GetOpenL
 	return false;
 }
 
-template <class state, class action, class environment, class openList, unsigned TIME_RESOLUTION>
-bool TemporalAStar<state, action,environment,openList,TIME_RESOLUTION>::GetClosedItem(const state &s, AStarOpenClosedData<state> &result)
+template <class state, class action, class environment, class openList>
+bool TemporalAStar<state, action,environment,openList>::GetClosedItem(const state &s, AStarOpenClosedData<state> &result)
 {
 	uint64_t theID;
 	dataLocation loc = openClosedList.Lookup(env->GetStateHash(s), theID);
@@ -775,8 +776,8 @@ bool TemporalAStar<state, action,environment,openList,TIME_RESOLUTION>::GetClose
  * @date 03/12/09
  * 
  */
-template <class state, class action, class environment, class openList, unsigned TIME_RESOLUTION>
-void TemporalAStar<state, action,environment,openList,TIME_RESOLUTION>::OpenGLDraw() const
+template <class state, class action, class environment, class openList>
+void TemporalAStar<state, action,environment,openList>::OpenGLDraw() const
 {
 	double transparency = 1.0;
 	if (openClosedList.size() == 0)
@@ -844,8 +845,8 @@ void TemporalAStar<state, action,environment,openList,TIME_RESOLUTION>::OpenGLDr
  * @date 7/12/16
  *
  */
-template <class state, class action, class environment, class openList, unsigned TIME_RESOLUTION>
-void TemporalAStar<state, action,environment,openList,TIME_RESOLUTION>::Draw() const
+template <class state, class action, class environment, class openList>
+void TemporalAStar<state, action,environment,openList>::Draw() const
 {
 	double transparency = 1.0;
 	if (openClosedList.size() == 0)
@@ -898,8 +899,8 @@ void TemporalAStar<state, action,environment,openList,TIME_RESOLUTION>::Draw() c
 	env->Draw(goal);
 }
 
-template <class state, class action, class environment, class openList, unsigned TIME_RESOLUTION>
-std::string TemporalAStar<state, action,environment,openList,TIME_RESOLUTION>::SVGDraw() const
+template <class state, class action, class environment, class openList>
+std::string TemporalAStar<state, action,environment,openList>::SVGDraw() const
 {
 	std::string s;
 	double transparency = 1.0;

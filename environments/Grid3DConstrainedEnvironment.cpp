@@ -47,7 +47,7 @@ void Grid3DConstrainedEnvironment::GetSuccessors(const xyztLoc &nodeID, std::vec
   for (unsigned int x = 0; x < n.size(); x++)
   {
     unsigned inc(mapEnv->GetConnectedness()?(Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y))*xyztLoc::TIME_RESOLUTION_D:xyztLoc::TIME_RESOLUTION);
-    if(!inc)inc=xyztLoc::TIME_RESOLUTION_U; // Wait action
+    if(!inc)inc=WaitTime(); // Wait action
     n[x].t=nodeID.t+inc;
     //xyztLoc newLoc(n[x],
         //Util::heading<USHRT_MAX>(nodeID.x,nodeID.y,n[x].x,n[x].y), // hdg
@@ -136,37 +136,39 @@ bool Grid3DConstrainedEnvironment::GoalTest(const xyztLoc &node, const xyztLoc &
 
 uint64_t Grid3DConstrainedEnvironment::GetStateHash(const xyztLoc &node) const
 {
-  uint64_t h1(node.x);
   if(ignoreHeading){
     if(ignoreTime){
-    h1 = node.x;
+      uint64_t h1(node.x);
+    //h1 = node.x;
     h1 <<= 16;
     h1 |= node.y;
     h1 <<= 16;
     h1 |= node.z;
     return h1;
     }
-    h1 = node.x;
-    h1 <<= 16;
-    h1 |= node.y;
-    h1 <<= 12;
-    h1 |= node.z; // up to 4096
-    h1 <<= 20;
-    h1 |= node.t&0xfffff; // Allow up to 1,048,576 milliseconds (20 bits)
-    return h1;
+    return *((uint64_t*)&node);
+    //h1 = node.x;
+    //h1 <<= 16;
+    //h1 |= node.y;
+    //h1 <<= 12;
+    //h1 |= node.z; // up to 4096
+    //h1 <<= 20;
+    //h1 |= node.t&0xfffff; // Allow up to 1,048,576 milliseconds (20 bits)
+    //return h1;
   }
+  return *((uint64_t*)&node);
   
-  h1 = node.x; // up to 4096
-  h1 <<= 12;
-  h1 |= node.y&0xfff; // up to 4096;
-  h1 <<= 10;
-  h1 |= node.z&0x3ff; // up to 1024
-  h1 <<= 10;
-  h1 |= node.h&0x3ff; // up to 1024
-  h1 <<= 20;
+  //h1 = node.x; // up to 4096
+  //h1 <<= 12;
+  //h1 |= node.y&0xfff; // up to 4096;
+  //h1 <<= 10;
+  //h1 |= node.z&0x3ff; // up to 1024
+  //h1 <<= 10;
+  //h1 |= node.h&0x3ff; // up to 1024
+  //h1 <<= 20;
   //h2 |= node.p; // Ignore pitch for now :(
-  h1 |= node.t&0xfffff; // Allow up to 1,048,576 milliseconds (20 bits)
-  return h1;
+  //h1 |= node.t&0xfffff; // Allow up to 1,048,576 milliseconds (20 bits)
+  //return h1;
 }
 
 void Grid3DConstrainedEnvironment::GetStateFromHash(uint64_t hash, xyztLoc &s) const
@@ -220,7 +222,7 @@ void Grid3DConstrainedEnvironment::OpenGLDraw(const xyztLoc& s, const xyztLoc& e
   GetColor(r, g, b, t);
   Map3D *map = mapEnv->GetMap();
   GLdouble xx, yy, zz, rad;
-  map->GetOpenGLCoord((1-perc)*s.x+perc*e.x, (1-perc)*s.y+perc*e.y, xx, yy, zz, rad);
+  map->GetOpenGLCoord((1-perc)*s.x+perc*e.x, (1-perc)*s.y+perc*e.y, (1-perc)*s.z+perc*e.z, xx, yy, zz, rad);
   glColor4f(r, g, b, t);
   DrawSphere(xx, yy, zz, rad/2.0); // zz-s.t*2*rad
 }
@@ -231,7 +233,7 @@ void Grid3DConstrainedEnvironment::OpenGLDraw(const xyztLoc& l) const
   GetColor(r, g, b, t);
   Map3D *map = mapEnv->GetMap();
   GLdouble xx, yy, zz, rad;
-  map->GetOpenGLCoord(l.x, l.y, xx, yy, zz, rad);
+  map->GetOpenGLCoord(l.x, l.y, l.z, xx, yy, zz, rad);
   glColor4f(r, g, b, t);
   DrawSphere(xx, yy, zz-l.t*rad, rad/2.0); // zz-l.t*2*rad
 }
@@ -289,9 +291,9 @@ void Constraint<xyztLoc>::OpenGLDraw(MapInterface* map) const
   glColor3f(1, 0, 0);
   glLineWidth(12.0);
   glBegin(GL_LINES);
-  map->GetOpenGLCoord(start_state.x, start_state.y, xx, yy, zz, rad);
+  map->GetOpenGLCoord(start_state.x, start_state.y, start_state.z, xx, yy, zz, rad);
   glVertex3f(xx, yy, -rad);
-  map->GetOpenGLCoord(end_state.x, end_state.y, xx, yy, zz, rad);
+  map->GetOpenGLCoord(end_state.x, end_state.y, end_state.z, xx, yy, zz, rad);
   glVertex3f(xx, yy, -rad);
   glEnd();
 }
@@ -301,7 +303,7 @@ void Constraint<TemporalVector3D>::OpenGLDraw(MapInterface* map) const
 {
 	GLdouble xx, yy, zz, rad;
 	glColor3f(1, 0, 0);
-	map->GetOpenGLCoord(start_state.x, start_state.y, xx, yy, zz, rad);
+	map->GetOpenGLCoord(start_state.x, start_state.y, start_state.z, xx, yy, zz, rad);
 	//DrawSphere(xx, yy, zz, rad/2.0); // zz-l.t*2*rad
 	
         glLineWidth(12.0);
@@ -309,7 +311,7 @@ void Constraint<TemporalVector3D>::OpenGLDraw(MapInterface* map) const
 	glBegin(GL_LINES);
 	glVertex3f(xx, yy, zz-.1);
         //std::cout << "Line from " << xx <<"("<<start_state.x << ")," << yy<<"("<<start_state.y << ")," << zz;
-	map->GetOpenGLCoord(end_state.x, end_state.y, xx, yy, zz, rad);
+	map->GetOpenGLCoord(end_state.x, end_state.y, end_state.z, xx, yy, zz, rad);
 	glVertex3f(xx, yy, zz-.1);
         //std::cout << " to " << xx <<"("<<end_state.x << ")," << yy<<"("<<end_state.y << ")," << zz << "\n";
 	glEnd();

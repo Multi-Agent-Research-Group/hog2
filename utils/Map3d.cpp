@@ -36,7 +36,7 @@ using namespace std;
 * A map is an array of tiles according to the height and width of the map.
 */
 Map3D::Map3D(long _width, long _height, long _depth)
-:width(_width), height(_height), depth(_depth), dList(0)
+:width(_width), height(_height), depth(_depth), maxDepth(_depth), dList(0)
 {
   elev = new uint8_t *[width];
   for (int x = 0; x < width; x++){
@@ -579,53 +579,56 @@ bool Map3D::LineOfSight(int x1, int y1, int z1, int const x2, int const y2, int 
   if ((l >= m) && (l >= n)) {
     int err_1 = dy2 - l;
     int err_2 = dz2 - l;
-    for (int i = 0; i < l; i++) {
-      if(HasObstacle(x1, y1, z1)){return false;}
+    for(;;){
+      if(!Visible(x1, y1, z1)){return false;}
+      if(x1==x2 && y1==y2 && z1==z2){return true;}
       if (err_1 > 0) {
         y1 += y_inc;
         err_1 -= dx2;
-      }
-      if (err_2 > 0) {
+      }else if (err_2 > 0) {
         z1 += z_inc;
         err_2 -= dx2;
+      }else{
+        err_1 += dy2;
+        err_2 += dz2;
+        x1 += x_inc;
       }
-      err_1 += dy2;
-      err_2 += dz2;
-      x1 += x_inc;
     }
   } else if ((m >= l) && (m >= n)) {
     int err_1 = dx2 - m;
     int err_2 = dz2 - m;
-    for (int i = 0; i < m; i++) {
-      if(HasObstacle(x1, y1, z1)){return false;}
+    for(;;){
+      if(!Visible(x1, y1, z1)){return false;}
+      if(x1==x2 && y1==y2 && z1==z2){return true;}
       if (err_1 > 0) {
         x1 += x_inc;
         err_1 -= dy2;
-      }
-      if (err_2 > 0) {
+      }else if (err_2 > 0) {
         z1 += z_inc;
         err_2 -= dy2;
+      }else{
+        err_1 += dx2;
+        err_2 += dz2;
+        y1 += y_inc;
       }
-      err_1 += dx2;
-      err_2 += dz2;
-      y1 += y_inc;
     }
   } else {
     int err_1 = dy2 - n;
     int err_2 = dx2 - n;
-    for (int i = 0; i < n; i++) {
-      if(HasObstacle(x1, y1, z1)){return false;}
+    for(;;){
+      if(!Visible(x1, y1, z1)){return false;}
+      if(x1==x2 && y1==y2 && z1==z2){return true;}
       if (err_1 > 0) {
         y1 += y_inc;
         err_1 -= dz2;
-      }
-      if (err_2 > 0) {
+      } else if (err_2 > 0) {
         x1 += x_inc;
         err_2 -= dz2;
+      }else{
+        err_1 += dy2;
+        err_2 += dx2;
+        z1 += z_inc;
       }
-      err_1 += dy2;
-      err_2 += dx2;
-      z1 += z_inc;
     }
   }
   return true;

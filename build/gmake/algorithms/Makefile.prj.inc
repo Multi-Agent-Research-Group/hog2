@@ -37,6 +37,7 @@ SRC_CPP = \
 	algorithms/OpenClosedList.cpp \
 	algorithms/AStarOpenClosed.cpp \
 	algorithms/OpenListB.cpp \
+        algorithms/Hungarian.cpp \
         algorithms/NonUnitTimeCAT.cpp
 #	algorithms/SearchEnvironment.cpp
 

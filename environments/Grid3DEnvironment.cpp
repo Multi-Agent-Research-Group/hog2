@@ -655,7 +655,7 @@ void Grid3DEnvironment::OpenGLDraw() const
 void Grid3DEnvironment::OpenGLDraw(const xyztLoc &l) const
 {
 	GLdouble xx, yy, zz, rad;
-	map->GetOpenGLCoord(l.x, l.y, xx, yy, zz, rad);
+	map->GetOpenGLCoord(l.x, l.y, l.z, xx, yy, zz, rad);
 	GLfloat r, g, b, t;
 	GetColor(r, g, b, t);
 	glColor4f(r, g, b, t);
@@ -670,8 +670,8 @@ void Grid3DEnvironment::OpenGLDraw(const xyztLoc &l1, const xyztLoc &l2, float v
 //	map->GetOpenGLCoord((float)((1-v)*l1.x+v*l2.x),
 //						(float)((1-v)*l1.y+v*l2.y), xx, yy, zz, rad);
 //	printf("%f between (%d, %d) and (%d, %d)\n", v, l1.x, l1.y, l2.x, l2.y);
-	map->GetOpenGLCoord(l1.x, l1.y, xx, yy, zz, rad);
-	map->GetOpenGLCoord(l2.x, l2.y, xx2, yy2, zz2, rad);
+	map->GetOpenGLCoord(l1.x, l1.y, l1.z, xx, yy, zz, rad);
+	map->GetOpenGLCoord(l2.x, l2.y, l2.z, xx2, yy2, zz2, rad);
 	//	map->GetOpenGLCoord(perc*newState.x + (1-perc)*oldState.x, perc*newState.y + (1-perc)*oldState.y, xx, yy, zz, rad);
 	xx = (1-v)*xx+v*xx2;
 	yy = (1-v)*yy+v*yy2;

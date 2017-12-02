@@ -20,6 +20,9 @@
  *
  */
 
+#ifndef AnonMAAlgorithm_h_
+#define AnonMAAlgorithm_h_
+
 #include "Common.h"
 #include <memory>
 #include <iostream>
@@ -67,9 +70,9 @@ namespace std
 }
 
 template<typename state, typename action>
-class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
+class AnonMAAlgorithm: public MAPFAlgorithm<state,action>{
   public:
-    ICTSAlgorithm():jointTime(0),pairwiseTime(0),mddTime(0),nogoodTime(0),epp(false),verbose(false),quiet(false),verify(false),jointnodes(0),step(state::TIME_RESOLUTION_U),suboptimal(false),pairwise(true){}
+    AnonMAAlgorithm():jointTime(0),pairwiseTime(0),mddTime(0),nogoodTime(0),epp(false),verbose(false),quiet(false),verify(false),jointnodes(0),step(state::TIME_RESOLUTION_U),suboptimal(false),pairwise(true){}
     float jointTime;
     float pairwiseTime;
     float mddTime;
@@ -565,8 +568,8 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       return heuristics[agent]?round(heuristics[agent]->HCost(a,b)*state::TIME_RESOLUTION_D):round(envs[agent]->HCost(a,b)*state::TIME_RESOLUTION_D);
     }
 
-    struct ICTSNode{
-      ICTSNode(ICTSAlgorithm* alg, ICTSNode* parent,int agent, uint32_t size):ictsalg(alg),instance(parent->instance),dag(parent->dag.size()),best(parent->best),dagsize(parent->dagsize),bestSeen(0),sizes(parent->sizes),root(parent->root){
+    struct AnonMANode{
+      AnonMANode(AnonMAAlgorithm* alg, AnonMANode* parent,int agent, uint32_t size):ictsalg(alg),instance(parent->instance),dag(parent->dag.size()),best(parent->best),dagsize(parent->dagsize),bestSeen(0),sizes(parent->sizes),root(parent->root){
         count++;
         sizes[agent]=size;
         best[agent]=INFTY;
@@ -583,7 +586,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
         //if(verbose)std::cout << agent << ":\n" << root[agent] << "\n";
       }
 
-      ICTSNode(ICTSAlgorithm* alg, Instance const& inst, std::vector<uint32_t> const& s):ictsalg(alg),instance(inst),dag(s.size()),best(s.size()),dagsize(s.size()),bestSeen(0),sizes(s),root(s.size()){
+      AnonMANode(AnonMAAlgorithm* alg, Instance const& inst, std::vector<uint32_t> const& s):ictsalg(alg),instance(inst),dag(s.size()),best(s.size()),dagsize(s.size()),bestSeen(0),sizes(s),root(s.size()){
         count++;
         replanned.resize(s.size());
         for(int i(0); i<instance.first.size(); ++i){
@@ -602,20 +605,20 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
         bestSeen=std::accumulate(best.begin(),best.end(),0);
       }
 
-      virtual ~ICTSNode(){for(auto d:toDelete){delete d;}}
+      virtual ~AnonMANode(){for(auto d:toDelete){delete d;}}
 
       // Get unique identifier for this node
       std::string key()const{
         return join(sizes);
       }
 
-      ICTSAlgorithm* ictsalg;
+      AnonMAAlgorithm* ictsalg;
       Instance instance;
       std::vector<DAG> dag;
       std::vector<uint32_t> sizes;
       std::vector<uint32_t> best;
       std::vector<uint32_t> dagsize;
-      ICTSNode* p;
+      AnonMANode* p;
       uint64_t bestSeen;
       MultiState root;
       Instance points;
@@ -700,7 +703,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
         return false;
       }
 
-      bool operator<(ICTSNode const& other)const{
+      bool operator<(AnonMANode const& other)const{
         uint32_t sic1(lb());
         uint32_t sic2(other.lb());
         if(sic1==sic2){
@@ -727,9 +730,9 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       uint64_t lb()const{ return bestSeen; }
     };
 
-    struct ICTSNodePtrComp
+    struct AnonMANodePtrComp
     {
-      bool operator()(std::unique_ptr<ICTSNode> const& lhs, std::unique_ptr<ICTSNode> const& rhs) const  { return *lhs<*rhs; }
+      bool operator()(std::unique_ptr<AnonMANode> const& lhs, std::unique_ptr<AnonMANode> const& rhs) const  { return *lhs<*rhs; }
     };
 
     void SetVerbose(bool v){verbose=v;}
@@ -741,10 +744,57 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
         heuristics.push_back(env[i]->heuristic);
       }
 
-      custom_priority_queue<std::unique_ptr<ICTSNode>,ICTSNodePtrComp> q;
+      std::vector<std::vector<int>> costmatrix(start.size(),std::vector<int>(goal.size()));
+      std::vector<std::vector<std::vector<state>>> paths(start.size(),std::vector<std::vector<state>>(goal.size()));
+      TemplateAStar<state,action,SearchEnvironment<state,action>> astar;
+      int i(0);
+      for(auto const& s:start){
+        int j(0);
+        for(auto const& g:goal){
+          std::vector<state> path;
+          astar.GetPath(envs[i],s,g,path);
+          costmatrix[i][j++]=path.back().t;
+          costmatrix[i][j]=path;
+        }
+        ++i;
+      }
+      
+      Hungarian h(costmatrix);
+      std::vector<std::vector<unsigned>> assignments;
+      h.solve(assignments,start.size());
+      MultiAgentState<state> newgoal(goal.size());
+      DAG dag;
+      state r(goal[0]);
+      r.t=MAXTIME;
+      Node root(r,GetHash(r,0));
+      uint64_t hash(root.Hash());
+      dag[hash]=root;
+
+      i=0;
+      for(auto const& a:assignments()){
+
+        // Insert all vertices into DAG
+        for(auto const& tmp:paths[i][a.back()]){
+          uint64_t chash(GetHash(tmp,agent));
+          if(dag.find(chash)==dag.end()){
+            dag[chash]=Node(tmp,chash);
+          }
+        }
+        // link goal to root node
+        dag[hash].successors.insert(&dag[GetHash(paths[i][a.back()].back(),i)]);
+
+        // Add all edges to DAG
+        for(auto const& tmp(paths[i][a.back()].rbegin()+1); tmp != paths[i][a.back()].rend(); ++tmp){
+          dag[GetHash(*(tmp-1),i)].successors.insert(&dag[GetHash(*tmp,i)]);
+        }
+      }
+
+      // Now perform a BFS on the DAG...
+
+      custom_priority_queue<std::unique_ptr<AnonMANode>,AnonMANodePtrComp> q;
       std::unordered_set<std::string> deconf;
       std::vector<std::set<Node*,NodePtrComp>> answer;
-      std::vector<std::unique_ptr<ICTSNode>> toDelete;
+      std::vector<std::unique_ptr<AnonMANode>> toDelete;
       uint64_t bestCost(0xffffffffffffffff);
       Instance inst(start,goal);
       std::string answerkey;
@@ -760,11 +810,11 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
         for(auto h:Util::split(stuff[1],';')){
           parse(h,sizes);
           if(i++){
-            q.emplace(new ICTSNode(this,inst,sizes));
+            q.emplace(new AnonMANode(this,inst,sizes));
           }else{
             // The first seed in the queue is the one most likely to yield an answer
             std::vector<MDDSolution> answers;
-            ICTSNode* node(new ICTSNode(this,inst,sizes));
+            AnonMANode* node(new AnonMANode(this,inst,sizes));
             toDelete.emplace_back(node);
             if(node->isValid(answers)){
               for(auto const& a:answers){
@@ -788,7 +838,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
               sz[i]+=step;
               std::string sv(join(sz));
               if(deconf.find(sv)==deconf.end()){
-                q.emplace(new ICTSNode(this,node,i,sz[i]));
+                q.emplace(new AnonMANode(this,node,i,sz[i]));
                 deconf.insert(sv);
               }
             }
@@ -798,7 +848,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
           deconf.insert(h);
         }
       }else{
-        q.emplace(new ICTSNode(this,inst,sizes));
+        q.emplace(new AnonMANode(this,inst,sizes));
       }
 
       //clearNoGoods();
@@ -829,7 +879,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
         }
         // This node could contain a solution since its lb is <=
         toDelete.push_back(q.popTop());
-        ICTSNode* parent(toDelete.back().get());
+        AnonMANode* parent(toDelete.back().get());
         if(!quiet){
           std::cout << "pop ";
           for(auto const& a: parent->sizes){
@@ -885,13 +935,13 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
           }
         }
 
-        // Split the ICTS node
+        // Split the AnonMA node
         for(int i(0); i<parent->sizes.size(); ++i){
           std::vector<uint32_t> sz(parent->sizes);
           sz[i]+=step;
           std::string sv(join(sz));
           if(deconf.find(sv)==deconf.end()){
-            ICTSNode* tmp(new ICTSNode(this,parent,i,sz[i]));
+            AnonMANode* tmp(new AnonMANode(this,parent,i,sz[i]));
             if(verbose){
               std::cout << "push ";
               for(auto const& a: tmp->sizes){
@@ -953,7 +1003,8 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
 
 
 template<typename state, typename action>
-uint64_t ICTSAlgorithm<state,action>::Node::count(0);
+uint64_t AnonMAAlgorithm<state,action>::Node::count(0);
 template<typename state, typename action>
-uint64_t ICTSAlgorithm<state,action>::ICTSNode::count(0);
+uint64_t AnonMAAlgorithm<state,action>::AnonMANode::count(0);
 
+#endif

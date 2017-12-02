@@ -45,10 +45,11 @@
 #include "Utilities.h"
 
 // for agents to stay at goal
-#define MAXTIME 1000000
+double MAXTIME=0xfffff; // 20 bits worth
 // for inflation of floats to avoid rounding errors
-#define INFLATION 1000
-#define TOMSECS 0.001
+double INFLATION=1000;
+double TOMSECS=0.001;
+double waitTime=1;
 
 MapEnvironment* env;
 SearchEnvironment<xyLoc,tDirection>* senv;
@@ -193,6 +194,8 @@ void InstallHandlers()
   InstallCommandLineHandler(MyCLHandler, "-quiet", "-quiet", "Turn off trace output");
   InstallCommandLineHandler(MyCLHandler, "-verbose", "-verbose", "Turn on verbose output");
   InstallCommandLineHandler(MyCLHandler, "-verify", "-verify", "Verify results");
+  InstallCommandLineHandler(MyCLHandler, "-timeRes", "-timeRes", "Time resolution (size of one unit of time)");
+  InstallCommandLineHandler(MyCLHandler, "-waitTime", "-waitTime", "Time duration for wait actions");
   InstallCommandLineHandler(MyCLHandler, "-noID", "-noID", "No Independence Dection (ID) framework");
   InstallCommandLineHandler(MyCLHandler, "-noprecheck", "-noprecheck", "Perform simplified collision check before trying the expensive one");
   InstallCommandLineHandler(MyCLHandler, "-mode", "-mode s,b,p,a", "s=sub-optimal,p=pairwise,b=pairwise,sub-optimal,a=astar");
@@ -401,9 +404,9 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, uin
     Node* parent(&dag[hash]);
     int d(maxDepth-depth);
     //if(d+INFLATION<=maxDepth){ // Insert one long wait action at goal
-    while(d+INFLATION<=maxDepth){ // Increment depth by 1 for wait actions
+    while(d+waitTime*INFLATION<=maxDepth){ // Increment depth by 1 for wait actions
       // Wait at goal
-      Node current(start,(d+=INFLATION));
+      Node current(start,(d+=waitTime*INFLATION));
       uint64_t chash(current.Hash());
       //std::cout << current<<"\n";
       current.id=dag.size()+1;
@@ -824,8 +827,15 @@ bool jointDFS(MultiEdge const& s, uint32_t d, Solution solution, std::vector<Sol
 
   // Find minimum depth of current edges
   uint32_t sd(INF);
+  unsigned minindex(0);
+  k=0;
   for(auto const& a: s){
-    sd=min(sd,a.second->depth);
+    if(a.second->depth<sd){
+      sd=a.second->depth;
+      minindex=k;
+    }
+    k++;
+    //sd=min(sd,a.second->depth);
   }
   //std::cout << "min-depth: " << sd << "\n";
 
@@ -848,7 +858,8 @@ bool jointDFS(MultiEdge const& s, uint32_t d, Solution solution, std::vector<Sol
       //}
     //}
     MultiEdge output;
-    if(a.second->depth<=sd){
+    if(k==minindex || sd==0){
+    //if(a.second->depth<=sd){
       //std::cout << "Keep Successors of " << *a.second << "\n";
       for(auto const& b: a.second->successors){
         if(epp&&!get(good[k]->data(),b->id)){
@@ -1398,6 +1409,7 @@ int main(int argc, char ** argv){
     smap = map = new Map(mapfile.c_str());
   }
   senv = env = new MapEnvironment(map);
+  env->WaitTime(waitTime);
   
   switch(agentType){
     case 4:
@@ -1518,6 +1530,7 @@ int main(int argc, char ** argv){
       }else{
         astar.SetVerbose(verbose);
         astar.SetHeuristic(heuristics[i]);
+        env->setGoal(waypoints[i][0]);
         astar.GetPath(env,waypoints[i][0],waypoints[i][1],path);
         if(!quiet)std::cout<<"Planned agent "<<i<<"\n";
       }
@@ -1724,6 +1737,17 @@ int MyCLHandler(char *argument[], int maxNumArgs)
   {
     verify = true;
     return 1;
+  }
+  if(strcmp(argument[0], "-waitTime") == 0)
+  {
+    waitTime=atof(argument[1]);
+    return 2;
+  }
+  if(strcmp(argument[0], "-timeRes") == 0)
+  {
+    INFLATION = atof(argument[1]);
+    TOMSECS=1/INFLATION;
+    return 2;
   }
   if(strcmp(argument[0], "-seed") == 0)
   {

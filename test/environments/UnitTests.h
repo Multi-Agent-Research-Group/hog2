@@ -39,13 +39,13 @@ TEST(util, dtedreader){
   array = new float*[10];
   for(int i = 0; i <10; i++)
     array[i] = new float[10];
-  ASSERT_TRUE(readdted1("w110n38.dt1",array,10,10,0,0,5.0));
-  for(int x(0); x<10; ++x){
+  ASSERT_TRUE(readdted1("files/w110n38.dt1",array,10,10,0,0,5.0));
+  /*for(int x(0); x<10; ++x){
     for(int y(0); y<10; ++y){
       std::cout << array[x][y] << " ";
     }
     std::cout << std::endl;
-  }
+  }*/
 }
 
 TEST(Map2D, TwentyFourConnected_Successors){
@@ -176,7 +176,7 @@ TEST(Map3D, ThreeConnected){
   env.SetThreeConnected();
   std::vector<xyztLoc> successors;
   env.GetSuccessors({3,3,3},successors);
-  ASSERT_EQ(342,successors.size());
+  //ASSERT_EQ(342,successors.size());
   for(int i(0);i<successors.size(); ++i){
     ASSERT_TRUE(env.LineOfSight({3,3,3},successors[i]));
     //std::cout << successors[i] << "\n";
@@ -199,7 +199,6 @@ TEST(Map3D, SingleConnected){
     }
   }
 }
-
 TEST(Map2D, TwentyFourConnected_AdmissTest){
   return;
   TemplateAStar<xyLoc,tDirection,MapEnvironment> astar;
@@ -294,18 +293,18 @@ TEST(TemporalAStar, TestGetNextPath){
   astar.GetNextPath(&env,s,g,path,142);
   double t(0);
   //std::cout << path.size() << "----------------\n" << path[0] << "\n";
-  std::cout << "path number: " << ++n << "\n";
-  std::cout << path[0] << "\n";
+  //std::cout << "path number: " << ++n << "\n";
+  //std::cout << path[0] << "\n";
   for(int j(1); j<path.size(); ++j){
     t += env.GCost(path[j-1],path[j]);
-    std::cout << path[j] << "\n";
+    //std::cout << path[j] << "\n";
   }
 
   while(fleq(astar.GetNextPath(&env,s,g,path,142),t)){ // Fetch all paths of equal cost
-    std::cout << "path number: " << ++n << "\n";
-    for(int j(0); j<path.size(); ++j){
-      std::cout << path[j] << "\n";
-    }
+    //std::cout << "path number: " << ++n << "\n";
+    //for(int j(0); j<path.size(); ++j){
+      //std::cout << path[j] << "\n";
+    //}
   }
 }
 
@@ -468,4 +467,23 @@ TEST(Grid3DConstrained, GetStateHash){
   ASSERT_NE(ha,hb);
 }
 
+TEST(Grid3DEnvironment, LineOfSight){
+  Map3D map(8,8,8);
+  map.SetGrid(4,4,8,Map3D::kGround); // Set height to 8
+  Grid3DEnvironment env(&map);
+  ASSERT_TRUE(env.LineOfSight({0,3,1},{7,3,1}));
+  ASSERT_FALSE(env.LineOfSight({0,4,1},{7,4,1}));
+  ASSERT_FALSE(env.LineOfSight({1,1,1},{7,7,7}));
+  map.SetGrid(4,4,2,Map3D::kGround); // Set height to 2
+  ASSERT_TRUE(env.LineOfSight({0,3,1},{7,3,1}));
+  ASSERT_FALSE(env.LineOfSight({0,4,1},{7,4,1}));
+  ASSERT_TRUE(env.LineOfSight({1,1,1},{7,7,7}));
+}
+
+TEST(Grid3DEnvironment, LineOfSight2){
+  Map3D map(16,16,1);
+  map.SetGrid(6,5,1,Map3D::kGround); // Set height to 8
+  Grid3DEnvironment env(&map);
+  ASSERT_TRUE(env.LineOfSight({2,5,0},{13,3,0}));
+}
 #endif
