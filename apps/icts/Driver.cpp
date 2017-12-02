@@ -738,7 +738,7 @@ bool jointDFS2(MultiEdge const& r, uint32_t d, Solution solution, std::vector<So
 }
 
 // Return true if we get to the desired depth
-bool jointDFS(MultiEdge const& s, uint32_t d, Solution solution, std::vector<Solution>& solutions, std::vector<Node*>& toDelete, uint32_t& best, uint32_t bestSeen, std::vector<std::vector<uint64_t>*>& good, std::vector<std::vector<uint64_t>>& unified, unsigned recursions=1, bool suboptimal=false, bool checkOnly=false){
+bool jointDFS(MultiEdge const& s, uint32_t d, Solution solution, std::vector<Solution>& solutions, std::vector<Node*>& toDelete, uint32_t& best, uint32_t& bestSeen, std::vector<std::vector<uint64_t>*>& good, std::vector<std::vector<uint64_t>>& unified, unsigned recursions=1, bool suboptimal=false, bool checkOnly=false){
   // Compute hash for transposition table
   std::string hash(s.size()*sizeof(uint64_t),1);
   int k(0);
@@ -782,6 +782,11 @@ bool jointDFS(MultiEdge const& s, uint32_t d, Solution solution, std::vector<Sol
     }
   }
   
+  uint32_t cost(INF);
+  if(!checkOnly){
+    cost=computeSolutionCost(solution);
+    if(best<cost) return false;
+  }
   bool done(true);
   for(auto const& g:s){
     if(g.second->depth!=MAXTIME){
@@ -791,7 +796,7 @@ bool jointDFS(MultiEdge const& s, uint32_t d, Solution solution, std::vector<Sol
     //maxCost=std::max(maxCost,g.second->depth);
   }
   if(done){
-    uint32_t cost(computeSolutionCost(solution));
+    //uint32_t cost(computeSolutionCost(solution));
     if(cost<best){
       best=cost;
       if(verbose)std::cout << "BEST="<<best<<std::endl;
@@ -907,7 +912,7 @@ bool jointDFS(MultiEdge const& s, uint32_t d, Solution solution, std::vector<Sol
   return value;
 }
 
-bool jointDFS(MultiState const& s, std::vector<Solution>& solutions, std::vector<Node*>& toDelete, uint32_t bestSeen, std::vector<std::vector<uint64_t>*>& good, std::vector<std::vector<uint64_t>>& unified, bool suboptimal=false, bool checkOnly=false){
+bool jointDFS(MultiState const& s, std::vector<Solution>& solutions, std::vector<Node*>& toDelete, uint32_t bestSeen, uint32_t& best, std::vector<std::vector<uint64_t>*>& good, std::vector<std::vector<uint64_t>>& unified, bool suboptimal=false, bool checkOnly=false){
   if(verbose)std::cout << "JointDFS\n";
   MultiEdge act;
   Solution solution;
@@ -920,8 +925,6 @@ bool jointDFS(MultiState const& s, std::vector<Solution>& solutions, std::vector
       solution.push_back({n});
     }
   }
-  uint32_t best(INF);
-
   transTable.clear();
   return jointDFS(act,0.0,solution,solutions,toDelete,best,bestSeen,good,unified,1,suboptimal,checkOnly);
 }
@@ -977,7 +980,7 @@ void join(std::stringstream& s, std::vector<uint32_t> const& x){
 }
 
 struct ICTSNode{
-  ICTSNode(ICTSNode* parent,int agent, uint32_t size):instance(parent->instance),dag(parent->dag.size()),best(parent->best),dagsize(parent->dagsize),bestSeen(0),sizes(parent->sizes),root(parent->root),ids(parent->ids){
+  ICTSNode(ICTSNode* parent,int agent, uint32_t size):instance(parent->instance),dag(parent->dag.size()),best(parent->best),dagsize(parent->dagsize),bestSeen(0),sizes(parent->sizes),root(parent->root),ids(parent->ids),incumbent(parent->incumbent){
     count++;
     sizes[agent]=size;
     best[agent]=INF;
@@ -995,7 +998,7 @@ struct ICTSNode{
     //if(verbose)std::cout << agent << ":\n" << root[agent] << "\n";
   }
 
-  ICTSNode(Instance const& inst, std::vector<uint32_t> const& s, std::vector<int> const& id):instance(inst),dag(s.size()),best(s.size()),dagsize(s.size()),bestSeen(0),sizes(s),root(s.size()),ids(id){
+  ICTSNode(Instance const& inst, std::vector<uint32_t> const& s, std::vector<int> const& id, uint32_t* bestCost):instance(inst),dag(s.size()),best(s.size()),dagsize(s.size()),bestSeen(0),sizes(s),root(s.size()),ids(id),incumbent(bestCost){
     count++;
     root.reserve(s.size());
     replanned.resize(s.size());
@@ -1031,6 +1034,7 @@ struct ICTSNode{
   std::vector<uint32_t> dagsize;
   ICTSNode* p;
   uint32_t bestSeen;
+  uint32_t* incumbent;
   MultiState root;
   std::vector<int> ids;
   Instance points;
@@ -1077,9 +1081,10 @@ struct ICTSNode{
           std::vector<std::vector<uint64_t>*> tmpgood(2);
           tmpgood[0]=&goods[i];
           tmpgood[1]=&goods[j];
+          uint32_t dummy(INF);
           // This is a satisficing search, thus we only need do a sub-optimal check
           if(!quiet)std::cout<<"pairwise for " << i << ","<<j<<"\n";
-          if(!jointDFS(tmproot,answers,toDeleteTmp,INF,tmpgood,unified,true,true)){
+          if(!jointDFS(tmproot,answers,toDeleteTmp,INF,dummy,tmpgood,unified,true,true)){
             if(!quiet)std::cout << "Pairwise failed\n";
             cardinal.push_back(i);
             cardinal.push_back(j);
@@ -1135,7 +1140,7 @@ struct ICTSNode{
       tmpgood[i]=&goods[i];
       //std::cout << "MDD for agent " << i << ": " << std::bitset<64>(goods[i][0]) << "\n";
     }
-    if(jointDFS(root,answers,toDelete,lb(),tmpgood,unified,suboptimal)){
+    if(jointDFS(root,answers,toDelete,lb(),*incumbent,tmpgood,unified,suboptimal)){
       jointTime+=timer.EndTimer();
       if(verbose){
         std::cout << "Answer:\n";
@@ -1421,6 +1426,7 @@ int main(int argc, char ** argv){
       env->SetFiveConnected();
       break;
   }
+  env->setGoal({2000,2000});
   //env->SetFullBranching(true);
 
   if(false){
@@ -1576,12 +1582,12 @@ int main(int argc, char ** argv){
         custom_priority_queue<ICTSNode*,ICTSNodePtrComp> q;
         std::unordered_set<std::string> deconf;
 
-        q.push(new ICTSNode(g,sizes,Gid[j]));
+        uint32_t bestCost(INF);
+        q.push(new ICTSNode(g,sizes,Gid[j],&bestCost));
 
         std::vector<std::set<Node*,NodePtrComp>> answer;
         std::vector<ICTSNode*> toDelete;
         uint32_t lastPlateau(q.top()->lb());
-        uint32_t bestCost(INF);
         uint32_t bestMergedCost(INF);
         uint32_t delta(0.0);
         bool findOptimal(false);
