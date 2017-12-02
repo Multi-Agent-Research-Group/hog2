@@ -822,8 +822,15 @@ bool jointDFS(MultiEdge const& s, uint32_t d, Solution solution, std::vector<Sol
 
   // Find minimum depth of current edges
   uint32_t sd(INF);
+  unsigned minindex(0);
+  k=0;
   for(auto const& a: s){
-    sd=min(sd,a.second->depth);
+    if(a.second->depth<sd){
+      sd=a.second->depth;
+      minindex=k;
+    }
+    k++;
+    //sd=min(sd,a.second->depth);
   }
   //std::cout << "min-depth: " << sd << "\n";
 
@@ -846,7 +853,8 @@ bool jointDFS(MultiEdge const& s, uint32_t d, Solution solution, std::vector<Sol
       //}
     //}
     MultiEdge output;
-    if(a.second->depth<=sd){
+    if(k==minindex || sd==0){
+    //if(a.second->depth<=sd){
       //std::cout << "Keep Successors of " << *a.second << "\n";
       for(auto const& b: a.second->successors){
         if(epp&&!get(good[k]->data(),b->id)){
@@ -1516,6 +1524,7 @@ int main(int argc, char ** argv){
       }else{
         astar.SetVerbose(verbose);
         astar.SetHeuristic(heuristics[i]);
+        env->setGoal(waypoints[i][0]);
         astar.GetPath(env,waypoints[i][0],waypoints[i][1],path);
         if(!quiet)std::cout<<"Planned agent "<<i<<"\n";
       }
