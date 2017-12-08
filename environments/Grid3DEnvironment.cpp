@@ -625,6 +625,51 @@ bool Grid3DEnvironment::LineOfSight(const xyztLoc &node, const xyztLoc &goal) co
   return map->LineOfSight(node.x,node.y,node.z,goal.x,goal.y,goal.z);
 }
 
+bool Grid3DEnvironment::LineOfSight(const std::pair<xyztLoc,xyztLoc> &node, const std::pair<xyztLoc,xyztLoc> &goal)const{
+  TemporalVector3D V1(node.first);
+  TemporalVector3D V2(goal.first);
+  if(node.first.t>goal.first.t){
+    // Translate V2 forward in time
+    TemporalVector3D vec(goal.second);
+    vec-=V2;
+    vec.Normalize();
+    V2+=vec*(V1.t-V2.t);
+  }else if(node.first.t<goal.first.t){
+    // Translate V1 forward in time
+    TemporalVector3D vec(node.second);
+    vec-=V1;
+    vec.Normalize();
+    V1+=vec*(V2.t-V1.t);
+  }
+  if(map->LineOfSight(V1,V2)){
+    if(node.second.t>goal.second.t){
+      TemporalVector3D vec(node.second);
+      V1=TemporalVector3D(node.first);
+      V2=TemporalVector3D(goal.second);
+      vec-=V1;
+      vec.Normalize();
+      V1+=vec*(V2.t-V1.t);
+    }else if(node.second.t<goal.second.t){
+      TemporalVector3D vec(goal.second);
+      V1=TemporalVector3D(node.second);
+      V2=TemporalVector3D(goal.first);
+      vec-=V2;
+      vec.Normalize();
+      V2+=vec*(V1.t-V2.t);
+    }else{
+      V1=TemporalVector3D(node.second);
+      V2=TemporalVector3D(goal.second);
+    }
+    if(!map->LineOfSight(V1,V2))
+      std::cout << "No LOS: " << V1 << "-->" << V2 << "\n";
+    return map->LineOfSight(V1,V2);
+  }else{
+    std::cout << "No LOS: " << V1 << "-->" << V2 << "\n";
+    return false;
+  }
+  return true;
+}
+
 bool Grid3DEnvironment::GoalTest(const xyztLoc &node, const xyztLoc &goal) const
 {
 	return ((node.x == goal.x) && (node.y == goal.y));

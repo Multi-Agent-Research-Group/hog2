@@ -136,10 +136,9 @@ TEST(MinDistConstraint, Chain){
   ASSERT_EQ(-1,tether.agent2);
   ASSERT_EQ(0,tether.agent1);
   std::vector<std::vector<xyztLoc>> sln = {{a1,a2},{b1,b2},{c1,c2}};
-  Constraint<xyztLoc>* a(nullptr);
-  Constraint<xyztLoc>* b(nullptr);
+  std::vector<Constraint<xyztLoc> const*> b;
   std::pair<unsigned,unsigned> c;
-  ASSERT_FALSE(tether.HasConflict(sln,a,b,c));
+  ASSERT_FALSE(tether.HasConflict(sln,b,c));
   //ASSERT_EQ(-1,tether.agent2);
 }
 
@@ -155,10 +154,9 @@ TEST(MinDistConstraint, ChainWithViolation){
   ASSERT_EQ(-1,tether.agent2);
   ASSERT_EQ(0,tether.agent1);
   std::vector<std::vector<xyztLoc>> sln = {{a1,a2},{b1,b2},{c1,c2}};
-  Constraint<xyztLoc>* a(nullptr);
-  Constraint<xyztLoc>* b(nullptr);
+  std::vector<Constraint<xyztLoc> const*> b;
   std::pair<unsigned,unsigned> c;
-  ASSERT_FALSE(tether.HasConflict(sln,a,b,c));
+  ASSERT_FALSE(tether.HasConflict(sln,b,c));
   ASSERT_EQ(1,tether.agent2);
   ASSERT_EQ(0,c.first);
 }

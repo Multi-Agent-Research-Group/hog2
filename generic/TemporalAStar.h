@@ -386,6 +386,7 @@ bool TemporalAStar<state,action,environment,openList>::DoSingleSearchStep(std::v
 	neighborID.resize(0);
 	neighborLoc.resize(0);
 
+	if(verbose)std::cout << "Expanding: " << openClosedList.Lookup(nodeid).data << " with f:" << openClosedList.Lookup(nodeid).g+openClosedList.Lookup(nodeid).h << std::endl;
  	(env->*SuccessorFunc)(openClosedList.Lookup(nodeid).data, neighbors);
         if((stopAfterGoal) && (env->GoalTest(openClosedList.Lookup(nodeid).data, goal))){
           if(openClosedList.Lookup(nodeid).data.t>=minTime)
@@ -412,7 +413,6 @@ bool TemporalAStar<state,action,environment,openList>::DoSingleSearchStep(std::v
           }
         }
 	
-	if(verbose)std::cout << "Expanding: " << openClosedList.Lookup(nodeid).data << " with f:" << openClosedList.Lookup(nodeid).g+openClosedList.Lookup(nodeid).h << std::endl;
 	
         //std::cout << openClosedList.Lookup(nodeid).data << "("<<G<<"+"<<H<<")="<<(G+H)<<", "<<neighbors.size()<<" succ.\n";
 	double bestH = 0;

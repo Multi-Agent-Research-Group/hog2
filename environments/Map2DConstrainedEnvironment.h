@@ -28,8 +28,8 @@ class Map2DConstrainedEnvironment : public ConstrainedEnvironment<xytLoc, tDirec
 public:
 	Map2DConstrainedEnvironment(Map *m);
 	Map2DConstrainedEnvironment(MapEnvironment *m);
-	virtual void AddConstraint(Constraint<TemporalVector3D>* c);
-	virtual void AddConstraint(Constraint<xytLoc>* c);
+	virtual void AddConstraint(Constraint<TemporalVector3D> const* c);
+	virtual void AddConstraint(Constraint<xytLoc> const* c);
 	void ClearConstraints();
         virtual std::string name()const{return mapEnv->name();}
 	bool GetNextSuccessor(const xytLoc &currOpenNode, const xytLoc &goal, xytLoc &next, double &currHCost, uint64_t &special, bool &validMove);
@@ -83,7 +83,7 @@ private:
         bool ignoreTime;
         bool ignoreHeading;
 
-	std::vector<Constraint<TemporalVector3D>*> vconstraints;
+	std::vector<Constraint<TemporalVector3D> const*> vconstraints;
 	MapEnvironment *mapEnv;
 };
 #define HASH_INTERVAL 1.0
