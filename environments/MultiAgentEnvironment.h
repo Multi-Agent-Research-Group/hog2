@@ -153,18 +153,26 @@ void MultiAgentEnvironment<state,action,environment>::GetSuccessors(const MAStat
 
   // Find minimum depth of current edges
   uint32_t sd(0xffffffff);
+  unsigned  minindex(0);
+  unsigned k(0);
   for(auto const& a: s){
-    sd=min(sd,a.second.t);
+    if(a.second.t<sd){
+      minindex=k;
+      sd=a.second.t;
+    }
+    ++k;
+    //sd=min(sd,a.second.t);
   }
   //std::cout << "min-depth: " << sd << "\n";
 
   uint32_t md(0xffffffff); // Min depth of successors
   //Add in successors for parents who are equal to the min
-  unsigned k(0);
+  k=0;
   bool first(true);
   for(auto const& a: s){
     std::vector<state> output;
-    if(first && a.second.t<=sd){
+    if(sd==0 || k==minindex){
+    //if(first && a.second.t<=sd){
       first=false;
       std::vector<typename state::first_type> n;
       env[k++]->GetSuccessors(a.second,n);
