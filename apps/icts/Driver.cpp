@@ -67,6 +67,7 @@ unsigned minsingle(INF);
 unsigned maxjoint(0);
 unsigned minjoint(INF);
 size_t maxnagents(0);
+unsigned collChecks(0);
 
 extern double agentRadius;
 bool epp(false);
@@ -78,7 +79,7 @@ bool precheck(true);
 bool mouseTracking;
 unsigned agentType(5);
 unsigned killtime(300);
-unsigned killmem(1024); // 1GB
+unsigned killmem(2048); // 1GB
 int width = 64;
 int length = 64;
 int height = 0;
