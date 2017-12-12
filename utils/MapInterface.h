@@ -24,6 +24,7 @@
 #define MAPInterface_H
 
 #include "GLUtil.h"
+#include "Vector3D.h"
 
 class MapInterface{
 public:
@@ -33,6 +34,7 @@ public:
   virtual inline long GetMapHeight() const=0;
   virtual inline long GetMapDepth() const{return 0;}
   virtual inline bool IsTraversable(long x, long y)const{return x>=0&&x<GetMapWidth()&&y>=0&&y<GetMapHeight();}
+  virtual bool LineOfSight(Vector3D const&,Vector3D const&)const{return true;}
 };
 
 #endif

@@ -35,6 +35,7 @@
 #include <unordered_map>
 #include "GLUtil.h"
 #include "MapInterface.h"
+#include "Vector3D.h"
 
 /**
  * A 3D grid-based representation of the world.
@@ -76,6 +77,7 @@ class Map3D : public MapInterface{
   bool GetOpenGLCoord(float _x, float _y, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const{return GetOpenGLCoord(_x,_y,0,x,y,z,radius);}
   bool LineOfSight2D(int x, int y, int _x, int _y, AgentType agentType) const;
   bool LineOfSight(int x, int y, int z, int _x, int _y, int _z) const;
+  bool LineOfSight(Vector3D const& start, Vector3D const& end)const;
   void SetGrid(int x, int y, uint8_t elevation, tTerrain terrain){type[x][y]=terrain;elev[x][y]=std::min(maxDepth,elevation);}
   bool CanStep(long x1, long y1, long x2, long y2, AgentType atype) const;
   bool IsTraversable(unsigned x, unsigned y, AgentType atype)const{

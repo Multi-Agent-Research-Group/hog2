@@ -57,6 +57,7 @@ class Vector3D {
     inline Vector3D operator+(const Vector3D& v2)const{return Vector3D(x+v2.x, y+v2.y, z+v2.z);}
 
     inline void operator+=(const Vector3D& v2){x+=v2.x; y+=v2.y;z+=v2.z;}
+    inline bool operator<(const Vector3D& other){return x==other.x?y==other.y?other.z<z:y<other.y:x<other.x;}
     inline void operator *=(double s) { x*=s; y*=s; z*=s; }
     inline void operator /=(double s) { x/=s; y/=s; z/=s; }
 
@@ -76,6 +77,7 @@ struct TemporalVector3D : Vector3D {
   TemporalVector3D(double _x, double _y, double _z, float time):Vector3D(_x,_y,_z), t(time){}
   TemporalVector3D():Vector3D(),t(0){}
   inline TemporalVector3D operator+(const TemporalVector3D& v2)const{return TemporalVector3D(x+v2.x, y+v2.y, z+v2.z, t+v2.t);}
+  inline TemporalVector3D operator-(const TemporalVector3D& v2)const{return TemporalVector3D(x-v2.x, y-v2.y, z-v2.z, t-v2.t);}
   inline TemporalVector3D operator*(const double num)const{return TemporalVector3D(x*num, y*num, z*num, t*num);}
   float t;
 };

@@ -563,6 +563,8 @@ bool Map3D::LineOfSight2D(int x, int y, int x2, int y2, AgentType agentType) con
 
 
 bool Map3D::LineOfSight(int x1, int y1, int z1, int const x2, int const y2, int const z2) const{
+  return LineOfSight(Vector3D(x1,y1,z1),Vector3D(x2,y2,z2));
+  /*
   int dx = x2 - x1;
   int dy = y2 - y1;
   int dz = z2 - z1;
@@ -630,6 +632,64 @@ bool Map3D::LineOfSight(int x1, int y1, int z1, int const x2, int const y2, int 
         z1 += z_inc;
       }
     }
+  }
+  return true;
+  */
+}
+
+double FRAC(double x) {return x>=0?x-floor(x):1.0-x+floor(x);}
+
+// Using "voxel" implementation from http://www.cse.yorku.ca/~amana/research/grid.pdf
+// This accounts for xyz coordinates "off the grid"
+bool Map3D::LineOfSight(Vector3D const& a, Vector3D const& b)const{
+  // Make sure that permuting the order does not give different results
+  Vector3D const& ray_start(a<b?a:b);
+  Vector3D const& ray_end(a<b?b:a);
+  static double offset(-0.5); // Voxel boundaries actually occur .5 before the center
+  int x(round(ray_start.x));
+  int y(round(ray_start.y));
+  int z(round(ray_start.z));
+  int const X(round(ray_end.x));
+  int const Y(round(ray_end.y));
+  int const Z(round(ray_end.z));
+  Vector3D ray=ray_end-ray_start;
+
+  double stepX(ray.x >= 0 ?1.0:-1.0);
+  double stepY(ray.y >= 0 ?1.0:-1.0);
+  double stepZ(ray.z >= 0 ?1.0:-1.0);
+
+  double tDeltaX(ray.x ? stepX/ray.x : DBL_MAX);
+  double tDeltaY(ray.y ? stepY/ray.y : DBL_MAX);
+  double tDeltaZ(ray.z ? stepZ/ray.z : DBL_MAX);
+
+  //double tMaxX(ray.x!=0 ? ((x+stepX) - ray_start.x)/ray.x : DBL_MAX);
+  //double tMaxY(ray.y!=0 ? ((y+stepY) - ray_start.y)/ray.y : DBL_MAX);
+  //double tMaxZ(ray.z!=0 ? ((z+stepZ) - ray_start.z)/ray.z : DBL_MAX);
+
+  double tMaxX(ray.x ? ray.x>0 ? (tDeltaX*(1.0-FRAC(ray_start.x+offset))):(tDeltaX*(FRAC(ray_start.x+offset))) : DBL_MAX);
+  double tMaxY(ray.y ? ray.y>0 ? (tDeltaY*(1.0-FRAC(ray_start.y+offset))):(tDeltaY*(FRAC(ray_start.y+offset))) : DBL_MAX);
+  double tMaxZ(ray.z ? ray.z>0 ? (tDeltaZ*(1.0-FRAC(ray_start.z+offset))):(tDeltaZ*(FRAC(ray_start.z+offset))) : DBL_MAX);
+
+
+  while(X!=x || Y!=y || Z!=z){
+    if (tMaxX < tMaxY) {
+      if (tMaxX < tMaxZ) {
+        x += stepX;
+        tMaxX += tDeltaX;
+      } else {
+        z += stepZ;
+        tMaxZ += tDeltaZ;
+      }
+    } else {
+      if (tMaxY < tMaxZ) {
+        y += stepY;
+        tMaxY += tDeltaY;
+      } else {
+        z += stepZ;
+        tMaxZ += tDeltaZ;
+      }
+    }
+    if(!Visible(x,y,z)){return false;}
   }
   return true;
 }

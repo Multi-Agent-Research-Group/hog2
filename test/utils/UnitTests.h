@@ -29,6 +29,7 @@
 #include "Map2DEnvironment.h"
 #include "Map2DConstrainedEnvironment.h"
 #include "Hungarian.h"
+#include "Map3d.h"
 
 TEST(util, dtedreader){
   float** array;
@@ -215,5 +216,8 @@ TEST(algorithms, hungarian3){
   ASSERT_EQ(assignments[0][0],0U);
   ASSERT_EQ(assignments[1][0],1U);
 }
+
+
+
 
 #endif

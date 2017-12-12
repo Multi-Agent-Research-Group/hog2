@@ -149,12 +149,12 @@ void Map2DConstrainedEnvironment::UndoAction(xytLoc &s, tDirection a) const
 	s.t-=1;
 }
 
-void Map2DConstrainedEnvironment::AddConstraint(Constraint<TemporalVector3D>* c)
+void Map2DConstrainedEnvironment::AddConstraint(Constraint<TemporalVector3D> const* c)
 {
 	vconstraints.push_back(c);
 }
 
-void Map2DConstrainedEnvironment::AddConstraint(Constraint<xytLoc>* c)
+void Map2DConstrainedEnvironment::AddConstraint(Constraint<xytLoc> const* c)
 {
 	constraints.push_back(c);
 }

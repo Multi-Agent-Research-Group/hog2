@@ -37,6 +37,7 @@ public:
 	virtual double GCost(state const& node1, state const& node2) const=0;
         virtual void OpenGLDraw(Map*)const{}
         virtual bool LineOfSight(const state &node, const state &goal) const{return true;}
+        virtual bool LineOfSight(const std::pair<state,state> &node, const std::pair<state,state> &goal) const{return true;}
         virtual double WaitTime()const{return waitTime;}
         virtual void WaitTime(double w){waitTime=w;}
 protected:
