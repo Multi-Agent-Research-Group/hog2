@@ -75,6 +75,7 @@ bool verbose(false);
 bool quiet(false);
 bool verify(false);
 bool ID(true);
+bool OD(true);
 bool precheck(true);
 bool mouseTracking;
 unsigned agentType(5);
@@ -90,7 +91,7 @@ double frameIncrement = 1.0/10000.0;
 bool paused = false;
 bool gui=true;
 uint64_t jointnodes(0);
-uint64_t branchingfactor(0);
+uint64_t jointexpansions(0);
 uint64_t largestbranch(0);
 float largestJoint(0);
 uint32_t step(INFLATION);
@@ -198,6 +199,7 @@ void InstallHandlers()
   InstallCommandLineHandler(MyCLHandler, "-timeRes", "-timeRes", "Time resolution (size of one unit of time)");
   InstallCommandLineHandler(MyCLHandler, "-waitTime", "-waitTime", "Time duration for wait actions");
   InstallCommandLineHandler(MyCLHandler, "-noID", "-noID", "No Independence Dection (ID) framework");
+  InstallCommandLineHandler(MyCLHandler, "-noOD", "-noOD", "No Operator Decomposition (OD)");
   InstallCommandLineHandler(MyCLHandler, "-noprecheck", "-noprecheck", "Perform simplified collision check before trying the expensive one");
   InstallCommandLineHandler(MyCLHandler, "-mode", "-mode s,b,p,a", "s=sub-optimal,p=pairwise,b=pairwise,sub-optimal,a=astar");
   InstallCommandLineHandler(MyCLHandler, "-increment", "-increment [value]", "High-level increment");
@@ -532,6 +534,7 @@ void generatePermutations(std::vector<MultiEdge>& positions, std::vector<MultiEd
       Vector2D VB(current[j].second->n.x-current[j].first->n.x,current[j].second->n.y-current[j].first->n.y);
       VB.Normalize();
       //std::cout << "Test for collision: " << *positions[agent][i].first << "-->" << *positions[agent][i].second << " " << *current[j].first << "-->" << *current[j].second << "\n";
+      collChecks++;
       if(collisionImminent(A,VA,agentRadius,positions[agent][i].first->depth*TOMSECS,positions[agent][i].second->depth*TOMSECS,B,VB,agentRadius,current[j].first->depth*TOMSECS,current[j].second->depth*TOMSECS)){
         if(verbose)std::cout << "Collision averted: " << *positions[agent][i].first << "-->" << *positions[agent][i].second << " " << *current[j].first << "-->" << *current[j].second << "\n";
         found=true;
@@ -854,8 +857,7 @@ bool jointDFS(MultiEdge const& s, uint32_t d, Solution solution, std::vector<Sol
       //}
     //}
     MultiEdge output;
-    if(k==minindex || sd==0){
-    //if(a.second->depth<=sd){
+    if((OD && (k==minindex || sd==0)) || (!OD && a.second->depth<=sd)){
       //std::cout << "Keep Successors of " << *a.second << "\n";
       for(auto const& b: a.second->successors){
         if(epp&&!get(good[k]->data(),b->id)){
@@ -894,7 +896,7 @@ bool jointDFS(MultiEdge const& s, uint32_t d, Solution solution, std::vector<Sol
   MultiEdge tmp;
   generatePermutations(successors,crossProduct,0,tmp,sd);
   if(crossProduct.size()){
-    branchingfactor+=crossProduct.size();
+    jointexpansions++;
     largestbranch=std::max(largestbranch,crossProduct.size());
   }
   bool value(false);
@@ -952,6 +954,7 @@ bool checkPair(Path const& p1, Path const& p2,bool loud=false){
       VA.Normalize();
       Vector2D VB((*b)->n.x-(*bp)->n.x,(*b)->n.y-(*bp)->n.y);
       VB.Normalize();
+      collChecks++;
       if(collisionImminent(A,VA,agentRadius,(*ap)->depth*TOMSECS,(*a)->depth*TOMSECS,B,VB,agentRadius,(*bp)->depth*TOMSECS,(*b)->depth*TOMSECS)){
         if(loud)std::cout << "Collision: " << **ap << "-->" << **a << "," << **bp << "-->" << **b;
         return false;
@@ -1229,6 +1232,7 @@ bool detectIndependence(Solution& solution, std::vector<Group*>& group, std::uno
             VA.Normalize();
             Vector2D VB(solution[j][b]->n.x-solution[j][b-1]->n.x,solution[j][b]->n.y-solution[j][b-1]->n.y);
             VB.Normalize();
+            collChecks++;
             if(collisionImminent(A,VA,agentRadius,solution[i][a-1]->depth*TOMSECS,solution[i][a]->depth*TOMSECS,B,VB,agentRadius,solution[j][b-1]->depth*TOMSECS,solution[j][b]->depth*TOMSECS)){
               if(!quiet)std::cout << i << " and " << j << " collide at " << solution[i][a-1]->depth << "~" << solution[i][a]->depth << solution[i][a-1]->n << "-->" << solution[i][a]->n << " X " << solution[j][b-1]->n << "-->" << solution[j][b]->n << "\n";
               independent=false;
@@ -1304,8 +1308,8 @@ void printResults(){
   //std::cout << elapsed << " elapsed";
   //std::cout << std::endl;
   //total += elapsed;
-  if(!quiet)std::cout << "seed:filepath,Connectedness,ICTSNode::count,jointnodes,largestJoint,largestbranch,branchingfactor,Node::count,maxnagents,minsingle,maxsingle,minjoint,maxjoint,total,mddTime,pairwiseTime,jointTime,nogoodTime,certifyTime,nacts,cost\n";
-  std::cout << seed << ":" << filepath << "," << int(env->GetConnectedness()) << "," << ICTSNode::count << "," << jointnodes << "," <<largestJoint << "," << largestbranch << "," << branchingfactor << " " <<(double(branchingfactor)/double(jointnodes)) << "," << Node::count << "," << maxnagents << "," << minsingle << "," << maxsingle << "," << minjoint << "," << maxjoint << "," << total << "," << mddTime << "," << pairwiseTime << "," << jointTime << "," << nogoodTime << "," << certifyTime << "," << nacts << "," << cost;
+  std::cout << "seed:filepath,Connectedness,ICTSNode::count,jointnodes,largestJoint,largestbranch,branchingfactor,Node::count,maxnagents,minsingle,maxsingle,minjoint,maxjoint,collChecks,total,mddTime,pairwiseTime,jointTime,nogoodTime,certifyTime,nacts,cost\n";
+  std::cout << seed << ":" << filepath << "," << int(env->GetConnectedness()) << "," << ICTSNode::count << "," << jointnodes << "," <<largestJoint << "," << largestbranch << "," << (double(jointnodes)/double(jointexpansions)) << "," << Node::count << "," << maxnagents << "," << minsingle << "," << maxsingle << "," << minjoint << "," << maxjoint << "," << collChecks << "," << total << "," << mddTime << "," << pairwiseTime << "," << jointTime << "," << nogoodTime << "," << certifyTime << "," << nacts << "," << cost;
   if(total >= killtime)std::cout << " failure";
   std::cout << std::endl;
   if(total>=killtime)exit(1);
@@ -1346,6 +1350,14 @@ std::pair<uint32_t,uint32_t> mergeSolution(std::vector<Solution>& answers, Solut
   }
   // Check all answers against current paths in solution outside of the group
   for(auto index:sorted){
+    if(outsiders.empty()){
+      for(unsigned i(0); i<answers[index].size(); ++i){
+        s[i].resize(answers[index][i].size());
+        for(unsigned j(0); j<answers[index][i].size(); ++j){
+          s[i][j]=new Node(*answers[index][i][j]);
+        }
+      }
+    }
     if(costs[index]>=maxMergedCost){
       break; // Nothing else will be good to merge (because of sorting)
     }
@@ -1721,6 +1733,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
   if(strcmp(argument[0], "-noprecheck") == 0)
   {
     precheck = false;
+    return 1;
+  }
+  if(strcmp(argument[0], "-noOD") == 0)
+  {
+    OD = false;
     return 1;
   }
   if(strcmp(argument[0], "-noID") == 0)
