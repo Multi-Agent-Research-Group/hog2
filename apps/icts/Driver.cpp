@@ -67,6 +67,7 @@ unsigned minsingle(INF);
 unsigned maxjoint(0);
 unsigned minjoint(INF);
 size_t maxnagents(0);
+unsigned collChecks(0);
 
 extern double agentRadius;
 bool epp(false);
@@ -74,11 +75,12 @@ bool verbose(false);
 bool quiet(false);
 bool verify(false);
 bool ID(true);
+bool OD(true);
 bool precheck(true);
 bool mouseTracking;
 unsigned agentType(5);
 unsigned killtime(300);
-unsigned killmem(1024); // 1GB
+unsigned killmem(2048); // 1GB
 int width = 64;
 int length = 64;
 int height = 0;
@@ -89,7 +91,7 @@ double frameIncrement = 1.0/10000.0;
 bool paused = false;
 bool gui=true;
 uint64_t jointnodes(0);
-uint64_t branchingfactor(0);
+uint64_t jointexpansions(0);
 uint64_t largestbranch(0);
 float largestJoint(0);
 uint32_t step(INFLATION);
@@ -197,6 +199,7 @@ void InstallHandlers()
   InstallCommandLineHandler(MyCLHandler, "-timeRes", "-timeRes", "Time resolution (size of one unit of time)");
   InstallCommandLineHandler(MyCLHandler, "-waitTime", "-waitTime", "Time duration for wait actions");
   InstallCommandLineHandler(MyCLHandler, "-noID", "-noID", "No Independence Dection (ID) framework");
+  InstallCommandLineHandler(MyCLHandler, "-noOD", "-noOD", "No Operator Decomposition (OD)");
   InstallCommandLineHandler(MyCLHandler, "-noprecheck", "-noprecheck", "Perform simplified collision check before trying the expensive one");
   InstallCommandLineHandler(MyCLHandler, "-mode", "-mode s,b,p,a", "s=sub-optimal,p=pairwise,b=pairwise,sub-optimal,a=astar");
   InstallCommandLineHandler(MyCLHandler, "-increment", "-increment [value]", "High-level increment");
@@ -531,6 +534,7 @@ void generatePermutations(std::vector<MultiEdge>& positions, std::vector<MultiEd
       Vector2D VB(current[j].second->n.x-current[j].first->n.x,current[j].second->n.y-current[j].first->n.y);
       VB.Normalize();
       //std::cout << "Test for collision: " << *positions[agent][i].first << "-->" << *positions[agent][i].second << " " << *current[j].first << "-->" << *current[j].second << "\n";
+      collChecks++;
       if(collisionImminent(A,VA,agentRadius,positions[agent][i].first->depth*TOMSECS,positions[agent][i].second->depth*TOMSECS,B,VB,agentRadius,current[j].first->depth*TOMSECS,current[j].second->depth*TOMSECS)){
         if(verbose)std::cout << "Collision averted: " << *positions[agent][i].first << "-->" << *positions[agent][i].second << " " << *current[j].first << "-->" << *current[j].second << "\n";
         found=true;
@@ -741,7 +745,7 @@ bool jointDFS2(MultiEdge const& r, uint32_t d, Solution solution, std::vector<So
 }
 
 // Return true if we get to the desired depth
-bool jointDFS(MultiEdge const& s, uint32_t d, Solution solution, std::vector<Solution>& solutions, std::vector<Node*>& toDelete, uint32_t& best, uint32_t bestSeen, std::vector<std::vector<uint64_t>*>& good, std::vector<std::vector<uint64_t>>& unified, unsigned recursions=1, bool suboptimal=false, bool checkOnly=false){
+bool jointDFS(MultiEdge const& s, uint32_t d, Solution solution, std::vector<Solution>& solutions, std::vector<Node*>& toDelete, uint32_t& best, uint32_t& bestSeen, std::vector<std::vector<uint64_t>*>& good, std::vector<std::vector<uint64_t>>& unified, unsigned recursions=1, bool suboptimal=false, bool checkOnly=false){
   // Compute hash for transposition table
   std::string hash(s.size()*sizeof(uint64_t),1);
   int k(0);
@@ -785,6 +789,11 @@ bool jointDFS(MultiEdge const& s, uint32_t d, Solution solution, std::vector<Sol
     }
   }
   
+  uint32_t cost(INF);
+  if(!checkOnly){
+    cost=computeSolutionCost(solution);
+    if(best<cost) return false;
+  }
   bool done(true);
   for(auto const& g:s){
     if(g.second->depth!=MAXTIME){
@@ -794,7 +803,7 @@ bool jointDFS(MultiEdge const& s, uint32_t d, Solution solution, std::vector<Sol
     //maxCost=std::max(maxCost,g.second->depth);
   }
   if(done){
-    uint32_t cost(computeSolutionCost(solution));
+    //uint32_t cost(computeSolutionCost(solution));
     if(cost<best){
       best=cost;
       if(verbose)std::cout << "BEST="<<best<<std::endl;
@@ -853,8 +862,7 @@ bool jointDFS(MultiEdge const& s, uint32_t d, Solution solution, std::vector<Sol
       //}
     //}
     MultiEdge output;
-    if(k==minindex || sd==0){
-    //if(a.second->depth<=sd){
+    if((OD && (k==minindex || sd==0)) || (!OD && a.second->depth<=sd)){
       //std::cout << "Keep Successors of " << *a.second << "\n";
       for(auto const& b: a.second->successors){
         if(epp&&!get(good[k]->data(),b->id)){
@@ -893,7 +901,7 @@ bool jointDFS(MultiEdge const& s, uint32_t d, Solution solution, std::vector<Sol
   MultiEdge tmp;
   generatePermutations(successors,crossProduct,0,tmp,sd);
   if(crossProduct.size()){
-    branchingfactor+=crossProduct.size();
+    jointexpansions++;
     largestbranch=std::max(largestbranch,crossProduct.size());
   }
   bool value(false);
@@ -918,7 +926,7 @@ bool jointDFS(MultiEdge const& s, uint32_t d, Solution solution, std::vector<Sol
   return value;
 }
 
-bool jointDFS(MultiState const& s, std::vector<Solution>& solutions, std::vector<Node*>& toDelete, uint32_t bestSeen, std::vector<std::vector<uint64_t>*>& good, std::vector<std::vector<uint64_t>>& unified, bool suboptimal=false, bool checkOnly=false){
+bool jointDFS(MultiState const& s, std::vector<Solution>& solutions, std::vector<Node*>& toDelete, uint32_t bestSeen, uint32_t& best, std::vector<std::vector<uint64_t>*>& good, std::vector<std::vector<uint64_t>>& unified, bool suboptimal=false, bool checkOnly=false){
   if(verbose)std::cout << "JointDFS\n";
   MultiEdge act;
   Solution solution;
@@ -931,8 +939,6 @@ bool jointDFS(MultiState const& s, std::vector<Solution>& solutions, std::vector
       solution.push_back({n});
     }
   }
-  uint32_t best(INF);
-
   transTable.clear();
   return jointDFS(act,0.0,solution,solutions,toDelete,best,bestSeen,good,unified,1,suboptimal,checkOnly);
 }
@@ -951,6 +957,7 @@ bool checkPair(Path const& p1, Path const& p2,bool loud=false){
       VA.Normalize();
       Vector2D VB((*b)->n.x-(*bp)->n.x,(*b)->n.y-(*bp)->n.y);
       VB.Normalize();
+      collChecks++;
       if(collisionImminent(A,VA,agentRadius,(*ap)->depth*TOMSECS,(*a)->depth*TOMSECS,B,VB,agentRadius,(*bp)->depth*TOMSECS,(*b)->depth*TOMSECS)){
         if(loud)std::cout << "Collision: " << **ap << "-->" << **a << "," << **bp << "-->" << **b;
         return false;
@@ -988,7 +995,7 @@ void join(std::stringstream& s, std::vector<uint32_t> const& x){
 }
 
 struct ICTSNode{
-  ICTSNode(ICTSNode* parent,int agent, uint32_t size):instance(parent->instance),dag(parent->dag.size()),best(parent->best),dagsize(parent->dagsize),bestSeen(0),sizes(parent->sizes),root(parent->root),ids(parent->ids){
+  ICTSNode(ICTSNode* parent,int agent, uint32_t size):instance(parent->instance),dag(parent->dag.size()),best(parent->best),dagsize(parent->dagsize),bestSeen(0),sizes(parent->sizes),root(parent->root),ids(parent->ids),incumbent(parent->incumbent){
     count++;
     sizes[agent]=size;
     best[agent]=INF;
@@ -1006,7 +1013,7 @@ struct ICTSNode{
     //if(verbose)std::cout << agent << ":\n" << root[agent] << "\n";
   }
 
-  ICTSNode(Instance const& inst, std::vector<uint32_t> const& s, std::vector<int> const& id):instance(inst),dag(s.size()),best(s.size()),dagsize(s.size()),bestSeen(0),sizes(s),root(s.size()),ids(id){
+  ICTSNode(Instance const& inst, std::vector<uint32_t> const& s, std::vector<int> const& id, uint32_t* bestCost):instance(inst),dag(s.size()),best(s.size()),dagsize(s.size()),bestSeen(0),sizes(s),root(s.size()),ids(id),incumbent(bestCost){
     count++;
     root.reserve(s.size());
     replanned.resize(s.size());
@@ -1042,6 +1049,7 @@ struct ICTSNode{
   std::vector<uint32_t> dagsize;
   ICTSNode* p;
   uint32_t bestSeen;
+  uint32_t* incumbent;
   MultiState root;
   std::vector<int> ids;
   Instance points;
@@ -1088,9 +1096,10 @@ struct ICTSNode{
           std::vector<std::vector<uint64_t>*> tmpgood(2);
           tmpgood[0]=&goods[i];
           tmpgood[1]=&goods[j];
+          uint32_t dummy(INF);
           // This is a satisficing search, thus we only need do a sub-optimal check
           if(!quiet)std::cout<<"pairwise for " << i << ","<<j<<"\n";
-          if(!jointDFS(tmproot,answers,toDeleteTmp,INF,tmpgood,unified,true,true)){
+          if(!jointDFS(tmproot,answers,toDeleteTmp,INF,dummy,tmpgood,unified,true,true)){
             if(!quiet)std::cout << "Pairwise failed\n";
             cardinal.push_back(i);
             cardinal.push_back(j);
@@ -1146,7 +1155,7 @@ struct ICTSNode{
       tmpgood[i]=&goods[i];
       //std::cout << "MDD for agent " << i << ": " << std::bitset<64>(goods[i][0]) << "\n";
     }
-    if(jointDFS(root,answers,toDelete,lb(),tmpgood,unified,suboptimal)){
+    if(jointDFS(root,answers,toDelete,lb(),*incumbent,tmpgood,unified,suboptimal)){
       jointTime+=timer.EndTimer();
       if(verbose){
         std::cout << "Answer:\n";
@@ -1228,6 +1237,7 @@ bool detectIndependence(Solution& solution, std::vector<Group*>& group, std::uno
             VA.Normalize();
             Vector2D VB(solution[j][b]->n.x-solution[j][b-1]->n.x,solution[j][b]->n.y-solution[j][b-1]->n.y);
             VB.Normalize();
+            collChecks++;
             if(collisionImminent(A,VA,agentRadius,solution[i][a-1]->depth*TOMSECS,solution[i][a]->depth*TOMSECS,B,VB,agentRadius,solution[j][b-1]->depth*TOMSECS,solution[j][b]->depth*TOMSECS)){
               if(!quiet)std::cout << i << " and " << j << " collide at " << solution[i][a-1]->depth << "~" << solution[i][a]->depth << solution[i][a-1]->n << "-->" << solution[i][a]->n << " X " << solution[j][b-1]->n << "-->" << solution[j][b]->n << "\n";
               independent=false;
@@ -1303,8 +1313,8 @@ void printResults(){
   //std::cout << elapsed << " elapsed";
   //std::cout << std::endl;
   //total += elapsed;
-  if(!quiet)std::cout << "seed:filepath,Connectedness,ICTSNode::count,jointnodes,largestJoint,largestbranch,branchingfactor,Node::count,maxnagents,minsingle,maxsingle,minjoint,maxjoint,total,mddTime,pairwiseTime,jointTime,nogoodTime,certifyTime,nacts,cost\n";
-  std::cout << seed << ":" << filepath << "," << int(env->GetConnectedness()) << "," << ICTSNode::count << "," << jointnodes << "," <<largestJoint << "," << largestbranch << "," << branchingfactor << " " <<(double(branchingfactor)/double(jointnodes)) << "," << Node::count << "," << maxnagents << "," << minsingle << "," << maxsingle << "," << minjoint << "," << maxjoint << "," << total << "," << mddTime << "," << pairwiseTime << "," << jointTime << "," << nogoodTime << "," << certifyTime << "," << nacts << "," << cost;
+  std::cout << "seed:filepath,Connectedness,ICTSNode::count,jointnodes,largestJoint,largestbranch,branchingfactor,Node::count,maxnagents,minsingle,maxsingle,minjoint,maxjoint,collChecks,total,mddTime,pairwiseTime,jointTime,nogoodTime,certifyTime,nacts,cost\n";
+  std::cout << seed << ":" << filepath << "," << int(env->GetConnectedness()) << "," << ICTSNode::count << "," << jointnodes << "," <<largestJoint << "," << largestbranch << "," << (double(jointnodes)/double(jointexpansions)) << "," << Node::count << "," << maxnagents << "," << minsingle << "," << maxsingle << "," << minjoint << "," << maxjoint << "," << collChecks << "," << total << "," << mddTime << "," << pairwiseTime << "," << jointTime << "," << nogoodTime << "," << certifyTime << "," << nacts << "," << cost;
   if(total >= killtime)std::cout << " failure";
   std::cout << std::endl;
   if(total>=killtime)exit(1);
@@ -1345,6 +1355,14 @@ std::pair<uint32_t,uint32_t> mergeSolution(std::vector<Solution>& answers, Solut
   }
   // Check all answers against current paths in solution outside of the group
   for(auto index:sorted){
+    if(outsiders.empty()){
+      for(unsigned i(0); i<answers[index].size(); ++i){
+        s[i].resize(answers[index][i].size());
+        for(unsigned j(0); j<answers[index][i].size(); ++j){
+          s[i][j]=new Node(*answers[index][i][j]);
+        }
+      }
+    }
     if(costs[index]>=maxMergedCost){
       break; // Nothing else will be good to merge (because of sorting)
     }
@@ -1433,6 +1451,7 @@ int main(int argc, char ** argv){
       env->SetFiveConnected();
       break;
   }
+  env->setGoal({2000,2000});
   //env->SetFullBranching(true);
 
   if(false){
@@ -1589,12 +1608,12 @@ int main(int argc, char ** argv){
         custom_priority_queue<ICTSNode*,ICTSNodePtrComp> q;
         std::unordered_set<std::string> deconf;
 
-        q.push(new ICTSNode(g,sizes,Gid[j]));
+        uint32_t bestCost(INF);
+        q.push(new ICTSNode(g,sizes,Gid[j],&bestCost));
 
         std::vector<std::set<Node*,NodePtrComp>> answer;
         std::vector<ICTSNode*> toDelete;
         uint32_t lastPlateau(q.top()->lb());
-        uint32_t bestCost(INF);
         uint32_t bestMergedCost(INF);
         uint32_t delta(0.0);
         bool findOptimal(false);
@@ -1720,6 +1739,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
   if(strcmp(argument[0], "-noprecheck") == 0)
   {
     precheck = false;
+    return 1;
+  }
+  if(strcmp(argument[0], "-noOD") == 0)
+  {
+    OD = false;
     return 1;
   }
   if(strcmp(argument[0], "-noID") == 0)
