@@ -61,7 +61,7 @@ void RunHOGGUI(int argc, char** argv, int windowDimension)
 void RunHOGGUI(int argc, char* argv[], int xDimension, int yDimension)
 {
   // Init traj global
-  startTrajRecap = false;
+  //startTrajRecap = false;
 
 	srandom(unsigned(time(0)));
 	

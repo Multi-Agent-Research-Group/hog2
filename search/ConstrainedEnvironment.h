@@ -145,25 +145,25 @@ class ChainLOSConstraint : public GroupConstraint<State> {
       unsigned ctime(from.t);
       for(auto const& s:this->constraints){
         if(from.t > s.second.t || to.t < s.first.t){
-          std::cout << "OK-time:" << from << to << " wrt " << s.first << s.second << "\n";
+          //std::cout << "OK-time:" << from << to << " wrt " << s.first << s.second << "\n";
           return 0; // No overlap so no collision
         }
         ctime=std::min(ctime,s.first.t);
       }
       ctime=std::max(ctime,from.t); // Time of collision cannot be before from.t
 
-      std::cout << "Check " << from << to << " versus :\n";
-      for(auto const& s:this->constraints){
-        std::cout << s.first << s.second << "\n";
-      }
+      //std::cout << "Check " << from << to << " versus :\n";
+      //for(auto const& s:this->constraints){
+        //std::cout << s.first << s.second << "\n";
+      //}
       this->constraints.emplace_back(from,to);
       if(detector->HasConflict(this->constraints)){
         this->constraints.pop_back();
-        std::cout << "BAD:" << from << to << "\n";
+        //std::cout << "BAD:" << from << to << "\n";
         return ctime;
       }
       this->constraints.pop_back();
-          std::cout << "OK:" << from << to << "\n";
+      //std::cout << "OK:" << from << to << "\n";
       return 0; // No collision
     }
     virtual double ConflictsWith(State const& s) const {return ConflictsWith(s,s);} // Vertex collisions are ignored
@@ -324,16 +324,16 @@ class ChainLOS: public GroupConflictDetector<State> {
     inline virtual bool HasConflict(std::vector<std::pair<State,State>> const& states)const{
       std::unordered_map<unsigned,std::vector<unsigned>> conn(states.size()); // Connectivity graph
       // Compute adjacency
-      std::cout << "checking actions:\n";
+      //std::cout << "checking actions:\n";
       for(int i(0); i<states.size(); ++i){
         for(int j(i+1); j<states.size(); ++j){
           if(env->LineOfSight(states[i],states[j])){
             conn[i].push_back(j);
             conn[j].push_back(i);
-            std::cout << "Actions have LOS: " << states[i].first << states[i].second << " - " << states[j].first << states[j].second << "\n";
+            //std::cout << "Actions have LOS: " << states[i].first << states[i].second << " - " << states[j].first << states[j].second << "\n";
           }
-          else
-            std::cout << "Actions NO LOS: " << states[i].first << states[i].second << " - " << states[j].first << states[j].second << "\n";
+          //else
+            //std::cout << "Actions NO LOS: " << states[i].first << states[i].second << " - " << states[j].first << states[j].second << "\n";
         }
       }
 
@@ -385,9 +385,9 @@ class ChainLOS: public GroupConflictDetector<State> {
       unsigned maxTime(0);
       std::unordered_map<unsigned,std::vector<unsigned>> conn(this->agentNumbers.size()); // Connectivity graph
       // Compute adjacency for all non-static agents vs. all agents
-      for(auto const& i:translation){
-        State const& mainState(states[i.second].first);
-        State const& succState(states[i.second].second);
+      for(auto i(translation.begin()); i!=translation.end(); ++i){
+        State const& mainState(states[i->second].first);
+        State const& succState(states[i->second].second);
         if(!statics){
           minTime=std::min(minTime,mainState.t);
           maxTime=std::max(maxTime,mainState.t);
@@ -397,11 +397,11 @@ class ChainLOS: public GroupConflictDetector<State> {
           }
         }
         // Check vs. agents in the translation map (agents being actively planned)
-        for(auto const& j:translation){
-          if(i.first==j.first)continue;
-          if(env->LineOfSight(std::make_pair(mainState,succState),states[j.second])){
-            conn[i.second].push_back(j.second);
-            conn[j.second].push_back(i.second);
+        for(auto j(i); ++j!=translation.end(); /**/){
+          if(i->first==j->first)continue;
+          if(env->LineOfSight(std::make_pair(mainState,succState),states[j->second])){
+            conn[i->second].push_back(j->second);
+            conn[j->second].push_back(i->second);
           }
         }
         // Check vs. static agents (agents not being actively planned)
@@ -412,17 +412,17 @@ class ChainLOS: public GroupConflictDetector<State> {
           for(auto s2(staticpaths[a].begin()+1); s2!=staticpaths[a].end(); ++s2,++s1){
             if(s2->t<mainState.t)continue;
             if(s1->t>succState.t)break;
-            if(env->LineOfSight(std::make_pair(mainState,succState),std::make_pair(*s1,*s2))){
+            if(!env->LineOfSight(std::make_pair(mainState,succState),std::make_pair(*s1,*s2))){
               ok=false;
               break;
             }
           }
           if(ok){
-            conn[i.second].push_back(a);
-            conn[a].push_back(i.second);
+            conn[i->second].push_back(a);
+            conn[a].push_back(i->second);
           }
         }
-        if(conn[i.second].size()==0){
+        if(conn[i->second].size()==0){
           return true; // Nothing is in LOS
         }
       }
@@ -435,8 +435,10 @@ class ChainLOS: public GroupConflictDetector<State> {
           statics=&s.second;
         }
       }
-      for(auto const& a:staticAgents){
-        conn[a]=(*statics)[a];
+      if(statics){
+        for(auto const& a:staticAgents){
+          conn[a]=(*statics)[a];
+        }
       }
 
       // Now search the graph for connectivity to all agents
@@ -500,12 +502,12 @@ class ChainLOS: public GroupConflictDetector<State> {
           for(int j(i+1); j<this->agentNumbers.size(); ++j){
             if(env->LineOfSight(std::make_pair(solution[this->agentNumbers[i]][indices[i]],solution[this->agentNumbers[i]][indices[i]+1]),
                 std::make_pair(solution[this->agentNumbers[j]][indices[j]],solution[this->agentNumbers[j]][indices[j]+1]))){
-              std::cout << "LOS: " << solution[this->agentNumbers[i]][indices[i]] << solution[this->agentNumbers[i]][indices[i]+1] << " - " << solution[this->agentNumbers[j]][indices[j]] << solution[this->agentNumbers[j]][indices[j]+1] << "\n";
+              //std::cout << "LOS: " << solution[this->agentNumbers[i]][indices[i]] << solution[this->agentNumbers[i]][indices[i]+1] << " - " << solution[this->agentNumbers[j]][indices[j]] << solution[this->agentNumbers[j]][indices[j]+1] << "\n";
               conn[i].push_back(j);
               conn[j].push_back(i);
             }
-            else
-              std::cout << "NO LOS: " << solution[this->agentNumbers[i]][indices[i]] << solution[this->agentNumbers[i]][indices[i]+1] << " - " << solution[this->agentNumbers[j]][indices[j]] << solution[this->agentNumbers[j]][indices[j]+1] << "\n";
+            //else
+              //std::cout << "NO LOS: " << solution[this->agentNumbers[i]][indices[i]] << solution[this->agentNumbers[i]][indices[i]+1] << " - " << solution[this->agentNumbers[j]][indices[j]] << solution[this->agentNumbers[j]][indices[j]+1] << "\n";
           }
         }
         std::unordered_set<unsigned> agents;
@@ -515,6 +517,7 @@ class ChainLOS: public GroupConflictDetector<State> {
           //auto a(agents.begin());
           //std::advance(a,rand()%agents.size());
           //this->agent1=*a;
+          /*
           std::vector<unsigned> disconnected;
           for(int i(0); i<this->agentNumbers.size(); ++i){
             if(agents.find(this->agentNumbers[i])==agents.end()){
@@ -522,8 +525,6 @@ class ChainLOS: public GroupConflictDetector<State> {
             }
           }
           //this->agent2=disconnected[rand()%disconnected.size()];
-          conflict.first++;
-          foundConflict=true;
           std::cout << "agents ";
           for(auto const& a:agents){
             std::cout << a << ",";
@@ -533,6 +534,9 @@ class ChainLOS: public GroupConflictDetector<State> {
             std::cout << a << ",";
           }
           std::cout << "at t=" << minTime << "\n";
+          */
+          conflict.first++;
+          foundConflict=true;
           break;
         }
         // Increment to next time step, check for finish criteria
@@ -578,11 +582,14 @@ class ChainLOS: public GroupConflictDetector<State> {
       for(int i(0); i<s.size(); ++i){
         for(int j(i+1); j<s.size(); ++j){
           if(!map->LineOfSight(s[i],s[j])){
-            glColor4f(0,0,0,0);
-
-          }else{
-            glColor4f(1,0,0,0);
+            //glColor4f(0,0,0,0);
+            continue;
           }
+
+          glEnable(GL_BLEND);
+          //}else{
+            //glColor4f(1,0,0,.2);
+          //}
           GLdouble xx1, yy1, zz1, rad, xx2, yy2, zz2;
           map->GetOpenGLCoord(s[i].x, s[i].y, s[i].z, xx1, yy1, zz1, rad);
           map->GetOpenGLCoord(s[j].x, s[j].y, s[j].z, xx2, yy2, zz2, rad);
@@ -590,7 +597,7 @@ class ChainLOS: public GroupConflictDetector<State> {
           glVertex3f(xx1, yy1, zz1-rad/2);
           glVertex3f(xx2, yy2, zz2-rad/2);
           glEnd();
-
+          glDisable(GL_BLEND);
         }
       }
     }
@@ -745,11 +752,11 @@ class AnyLOS: public GroupConflictDetector<State> {
       }
       for(int i(1); i<s.size(); ++i){
         if(!map->LineOfSight(s[0],s[i])){
-          glColor4f(0,0,0,0);
-
-        }else{
-          glColor4f(1,0,0,0);
-        }
+          //glColor4f(0,0,0,0);
+          continue;
+        }//else{
+          //glColor4f(1,0,0,0);
+        //}
         GLdouble xx1, yy1, zz1, rad, xx2, yy2, zz2;
         map->GetOpenGLCoord(s[0].x, s[0].y, s[0].z, xx1, yy1, zz1, rad);
         map->GetOpenGLCoord(s[i].x, s[i].y, s[i].z, xx2, yy2, zz2, rad);
@@ -772,19 +779,57 @@ class AnyMinDist: public GroupConflictDetector<State> {
     AnyMinDist(unsigned agentA, std::vector<unsigned> const& a, double dist):GroupConflictDetector<State>(agentA,a),maxDistanceSq(dist*dist){} // Squared distance
 
     inline virtual bool HasConflict(std::vector<std::pair<State,State>> const& states, std::unordered_map<unsigned,unsigned> const& translation, std::vector<std::vector<State>> const& staticpaths, std::vector<unsigned> const& staticAgents)const{
-      State const& mainState(states[translation.find(this->agent1)->second].first);
-      State const& succState(states[translation.find(this->agent1)->second].second);
+      auto const& a1(translation.find(this->agent1));
+
+      State const* mainState(nullptr);
+      State const* succState(nullptr);
+      unsigned minTime(states[0].first.t);
+      unsigned maxTime(states[0].second.t);
+      for(auto s(states.begin()+1); s!=states.end(); ++s){
+        minTime = std::min(s->first.t,minTime);
+        maxTime = std::max(s->second.t,maxTime);
+      }
+      if(a1==translation.end()){
+        bool found(false);
+        for(auto s(staticpaths[this->agent1].begin()); s!=staticpaths[this->agent1].end()-1; ++s){
+          if(minTime<=s->t && maxTime>=s->t){
+            mainState = &*s;
+            succState = &*(s+1);
+            found=true;
+            break;
+          }
+        }
+        if(!found){
+          mainState=&*(staticpaths[this->agent1].rbegin()+1);
+          succState=&*(staticpaths[this->agent1].rbegin());
+        }
+      }else{
+        mainState=&states[a1->second].first;
+        succState=&states[a1->second].second;
+      }
+
       for(auto const& i:this->agentNumbers){
-        if(fgreater(maxDistanceSq,distanceSquared(mainState,succState,states[translation.find(i)->second].first,states[translation.find(i)->second].second))){
-          return false;
+        auto const& trans(translation.find(i));
+        if(trans!=translation.end()){
+          if(fgreater(this->maxDistanceSq,distanceSquared(*mainState,*succState,states[trans->second].first,states[trans->second].second))){
+            return false;
+          }
+        }else{
+          for(auto const& s:staticpaths[i]){
+            if(mainState->t<=s.t && succState->t>=s.t &&
+                (fgreater(this->maxDistanceSq,distanceSquared(*mainState,s))||
+                 fgreater(this->maxDistanceSq,distanceSquared(*succState,s)))){
+              return false;
+            }
+          }
         }
       }
       for(auto const& a:staticAgents){
         if(std::find(this->agentNumbers.begin(),this->agentNumbers.end(),a)!=this->agentNumbers.end()){
           for(auto const& s:staticpaths[a]){
-            if(mainState.t<=s.t && succState.t>=s.t &&
-                (fgreater(maxDistanceSq,distanceSquared(mainState,s))||
-                 fgreater(maxDistanceSq,distanceSquared(succState,s)))){
+            if(mainState->t<=s.t && succState->t>=s.t &&
+                (fgreater(this->maxDistanceSq,distanceSquared(*mainState,s))||
+                 fgreater(this->maxDistanceSq,distanceSquared(*succState,s)))){
               return false;
             }
           }
@@ -863,6 +908,7 @@ class AnyMinDist: public GroupConflictDetector<State> {
         if(violation){ // No agents are in MinDist of the main agent
           conflict.first++;
           foundConflict=true;
+          break;
         }
         minTime=solution[this->agent1][++index].t;
         // Move other agents forward in time if necessary
@@ -899,12 +945,13 @@ class AnyMinDist: public GroupConflictDetector<State> {
         s.push_back(s1);
       }
       for(int i(1); i<s.size(); ++i){
-        if(Util::distance(s[0].x,s[0].y,s[0].z,s[i].x,s[i].y,s[i].z)<=sqrt(maxDistanceSq)){
-          glColor4f(0,0,0,0);
-
-        }else{
-          glColor4f(1,0,0,0);
-        }
+        double distSq((s[0].x-s[i].x)*(s[0].x-s[i].x)+(s[0].y-s[i].y)*(s[0].y-s[i].y)+(s[0].z-s[i].z)*(s[0].z-s[i].z));
+        if(distSq>maxDistanceSq){
+          //glColor4f(0,0,0,0);
+          continue;
+        }//else{
+          //glColor4f(1,0,0,0);
+        //}
         GLdouble xx1, yy1, zz1, rad, xx2, yy2, zz2;
         map->GetOpenGLCoord(s[0].x, s[0].y, s[0].z, xx1, yy1, zz1, rad);
         map->GetOpenGLCoord(s[i].x, s[i].y, s[i].z, xx2, yy2, zz2, rad);

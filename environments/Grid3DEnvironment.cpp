@@ -660,11 +660,11 @@ bool Grid3DEnvironment::LineOfSight(const std::pair<xyztLoc,xyztLoc> &node, cons
       V1=TemporalVector3D(node.second);
       V2=TemporalVector3D(goal.second);
     }
-    if(!map->LineOfSight(V1,V2))
-      std::cout << "No LOS: " << V1 << "-->" << V2 << "\n";
+    //if(!map->LineOfSight(V1,V2))
+      //std::cout << "No LOS: " << V1 << "-->" << V2 << "\n";
     return map->LineOfSight(V1,V2);
   }else{
-    std::cout << "No LOS: " << V1 << "-->" << V2 << "\n";
+    //std::cout << "No LOS: " << V1 << "-->" << V2 << "\n";
     return false;
   }
   return true;

@@ -35,6 +35,7 @@
 #include <ext/hash_map>
 #include <stdint.h>
 #include "OpenClosedInterface.h"
+#include <iostream>
 
 struct AHash64 {
 	size_t operator()(const uint64_t &x) const
@@ -158,6 +159,9 @@ uint64_t AStarOpenClosed<state, CmpKey, dataStructure>::AddOpenNode(dataStructur
 	// should do lookup here...
 	if (table.find(hash) != table.end())
 	{
+	  uint64_t id;
+	  Lookup(hash,id);
+	  std::cout << "Hash for " << val.data << " conflicts with " << Lookup(id).data << "\n";
 		//return -1; // TODO: find correct id and return
 		assert(false &&  "Found the hash in the table already!");
 	}

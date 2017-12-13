@@ -415,7 +415,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
               std::vector<EnvData> ev;
               for(int j(0); j<sizeof(cutoffs)/sizeof(cutoffs[0]); ++j){
                 if(cutoffs[j]<9999)
-                  ev.emplace_back(envnames[j],'G',cutoffs[j],weights[j]);
+                  ev.emplace_back(j,envnames[j],'G',cutoffs[j],weights[j]);
               }
               envdata.push_back(ev);
             }
@@ -728,18 +728,19 @@ int MyCLHandler(char *argument[], int maxNumArgs)
           std::string line;
           while(std::getline(ss, line)){
             auto ln(Util::split(line,' '));
-            int agent(atoi(ln[0].c_str()));
-            char agentType(ln[1].c_str()[0]);
+            unsigned group(atoi(ln[0].c_str()));
+            int agent(atoi(ln[1].c_str()));
+            char agentType(ln[2].c_str()[0]);
             while(agent>agentNumber){
               envdata.push_back(envdata.back()); // make copies
               agentNumber++;
             }
             agentNumber++;
-            auto envs(Util::split(ln[2],','));
+            auto envs(Util::split(ln[3],','));
             std::vector<EnvData> envinfo;
             for(auto e:envs){
               auto info(Util::split(e,':'));
-              envinfo.emplace_back(info[0],agentType,atoi(info[1].c_str()),atof(info[2].c_str()));
+              envinfo.emplace_back(group,info[0],agentType,atoi(info[1].c_str()),atof(info[2].c_str()));
             }
             envdata.push_back(envinfo);
           }
@@ -764,7 +765,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
             std::vector<EnvData> envinfo;
             for(auto e:envs){
               auto info(Util::split(e,':'));
-              envinfo.emplace_back(info[0],agentType,atoi(info[1].c_str()),atof(info[2].c_str()));
+              envinfo.emplace_back(agentNumber,info[0],agentType,atoi(info[1].c_str()),atof(info[2].c_str()));
             }
             envdata.push_back(envinfo);
           }
