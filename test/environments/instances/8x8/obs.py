@@ -87,9 +87,10 @@ for i in range(100):
           raise
 
     with open("./%d/%d.map"%(size,i), "w") as f:
-      for j in range(size):
-        f.write("type octile\nheight 8\nwidth 8\nmap\n")
-        f.write(mapToStr([],[],obs))
+      f.write("type octile\nheight 8\nwidth 8\nmap\n")
+      f.write(mapToStr([],[],obs))
+      f.write("# This line and below is ignored\n")
+      f.write(mapToStr(start,goal,obs))
 
     with open("./%d/%d.map.scen"%(size,i), "w") as f:
       f.write("version 1\n")

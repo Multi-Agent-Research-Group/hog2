@@ -1,6 +1,6 @@
 version 1
-0	test/environments/instances/8x8/5/17.map	8	8	2	7	2	6	0.0
-1	test/environments/instances/8x8/5/17.map	8	8	1	2	6	7	0.0
-2	test/environments/instances/8x8/5/17.map	8	8	5	4	4	6	0.0
-3	test/environments/instances/8x8/5/17.map	8	8	0	0	7	1	0.0
-4	test/environments/instances/8x8/5/17.map	8	8	4	6	4	5	0.0
+0	test/environments/instances/8x8/5/17.map	8	8	1	2	1	2	0.0
+1	test/environments/instances/8x8/5/17.map	8	8	6	4	3	2	0.0
+2	test/environments/instances/8x8/5/17.map	8	8	3	2	0	0	0.0
+3	test/environments/instances/8x8/5/17.map	8	8	0	0	6	7	0.0
+4	test/environments/instances/8x8/5/17.map	8	8	3	1	5	5	0.0

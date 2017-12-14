@@ -1,4 +1,4 @@
 version 1
-0	test/environments/instances/8x8/3/49.map	8	8	4	3	0	1	0.0
-1	test/environments/instances/8x8/3/49.map	8	8	4	7	3	2	0.0
-2	test/environments/instances/8x8/3/49.map	8	8	4	4	4	4	0.0
+0	test/environments/instances/8x8/3/49.map	8	8	7	3	2	7	0.0
+1	test/environments/instances/8x8/3/49.map	8	8	3	2	6	4	0.0
+2	test/environments/instances/8x8/3/49.map	8	8	5	7	4	7	0.0
