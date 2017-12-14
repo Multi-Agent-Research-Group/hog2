@@ -92,7 +92,7 @@ for i in range(100):
         f.write(mapToStr([],[],obs))
 
     with open("./%d/%d.map.scen"%(size,i), "w") as f:
+      f.write("version 1\n")
       for j in range(size):
-        f.write("version 1\n")
         f.write("%d\ttest/environments/instances/8x8/%d/%d.map\t8\t8\t%d\t%d\t%d\t%d\t0.0\n"%(j,size,i,start[j][0],start[j][1],goal[j][0],goal[j][1]))
     
