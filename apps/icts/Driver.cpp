@@ -171,7 +171,7 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 {
   if(sim){sim->OpenGLDraw();}
   if (!paused) {sim->StepTime(stepsPerFrame);}
-  if (recording) {
+  if (recording && !paused) {
     static int index = 0;
     char fname[255];
     sprintf(fname, "movies/cbs-%05d", index);
@@ -862,7 +862,7 @@ bool jointDFS(MultiEdge const& s, uint32_t d, Solution solution, std::vector<Sol
       //}
     //}
     MultiEdge output;
-    if((OD && (k==minindex || sd==0)) || (!OD && a.second->depth<=sd)){
+    if((OD && (k==minindex || a.second->depth==0)) || (!OD && a.second->depth<=sd)){
       //std::cout << "Keep Successors of " << *a.second << "\n";
       for(auto const& b: a.second->successors){
         if(epp&&!get(good[k]->data(),b->id)){
