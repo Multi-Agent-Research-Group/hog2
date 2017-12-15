@@ -376,7 +376,9 @@ class ChainLOS: public GroupConflictDetector<State> {
                 this->staticConn[t][staticAgents[j]].push_back(staticAgents[i]);
               }
             }
-            newt=std::min(newt,staticpaths[staticAgents[i]][indices[i]+1].t);
+            if(indices[i]!=staticpaths[staticAgents[i]].size()-2 && staticpaths[staticAgents[i]][indices[i]+1].t<newt){
+              newt=staticpaths[staticAgents[i]][indices[i]+1].t;
+            }
           }
           t=newt;
           // Increment to next time step, check for finish criteria
@@ -404,11 +406,16 @@ class ChainLOS: public GroupConflictDetector<State> {
         statics=&list->second;
       }else{
         unsigned diff(INT32_MAX);
+        std::unordered_map<unsigned,std::vector<unsigned>>* last(nullptr);
         for(auto& s:this->staticConn){
-          if(s.first>minTime && s.first<minTime){
+          if(s.first>=minTime){
             statics=&s.second;
             break;
           }
+          last=&s.second;
+        }
+        if(!statics){
+          statics=last;
         }
       }
       std::unordered_map<unsigned,std::vector<unsigned>> conn(this->agentNumbers.size()); // Connectivity graph

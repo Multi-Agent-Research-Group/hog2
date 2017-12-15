@@ -81,6 +81,10 @@ void Grid3DEnvironment::GetSuccessors(const xyztLoc &loc, std::vector<xyztLoc> &
       }
     }
   }else{
+    if(waitAllowed) // Is waiting allowed?
+    {
+      neighbors.push_back(loc);
+    }
     bool u=false, d=false, /*l=false, r=false,*/ u2=false, d2=false, l2=false, r2=false, /*ur=false, ul=false, dr=false, dl=false,*/ u2l=false, d2l=false, u2r=false, d2r=false, ul2=false, ur2=false, dl2=false, dr2=false, u2r2=false, u2l2=false, d2r2=false, d2l2=false;
     // 
     if ((map->CanStep(loc.x, loc.y, loc.x, loc.y+1,agentType)))
@@ -295,10 +299,6 @@ void Grid3DEnvironment::GetSuccessors(const xyztLoc &loc, std::vector<xyztLoc> &
         if(d2r2 && map->IsTraversable(loc.x+2,loc.y+3,agentType) && map->IsTraversable(loc.x+3,loc.y+2,agentType) && map->IsTraversable(loc.x+3, loc.y+3,agentType))
           neighbors.emplace_back(loc.x+3, loc.y+3);
       }
-    }
-    if(waitAllowed) // Is waiting allowed?
-    {
-      neighbors.push_back(loc);
     }
   }
 }
