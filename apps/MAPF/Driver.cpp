@@ -630,7 +630,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
               envdata.push_back(envdata.back()); // make copies
               agentNumber++;
             }
-            auto envs(Util::split(ln[1],','));
+            auto envs(Util::split(ln[2],','));
             std::vector<EnvData> envinfo;
             for(auto e:envs){
               auto info(Util::split(e,':'));

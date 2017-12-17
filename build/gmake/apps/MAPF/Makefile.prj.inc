@@ -69,4 +69,4 @@ endif
 default : all
 
 SRC_CPP = \
-	apps/MAAStar/Driver.cpp
+	apps/MAPF/Driver.cpp
