@@ -43,3 +43,27 @@ OpenGL (optional -- code can be compiled with OpenGL turned off using **OPENGL=S
 * MACBS - Meta-Agent Conflict-Based-Search with ICTS as the meta-agent solver
 
 ### Test instances
+#### There are 2 ways to set up a map:
+1. Using map dimensions
+  The `-dimensions` flag must be used followed by width, depth and height. For 2D maps height defaults to 1.
+2. Using a map file
+  The `-mapfile` flag must be followed by the path to a map relative to the root directory of hog2. See [this](https://github.com/thaynewalker/hog2/blob/conf-avoidance/test/environments/instances/8x8/10/0.map) example.
+  
+#### There are 3 ways to set up agent waypoints:
+1. With an environment file and a problem file
+  The environment file indicates the environment to use for sets of agents. See [https://github.com/thaynewalker/hog2/blob/conf-avoidance/apps/MAPF/Driver.cpp#L612](https://github.com/thaynewalker/hog2/blob/conf-avoidance/apps/MAPF/Driver.cpp#L612)
+  The problem file indicates space-delimited waypoints in x,y,z coordinates, one agent per line. See [here](https://raw.githubusercontent.com/thaynewalker/hog2/conf-avoidance/test/environments/instances/8x8/10/0.csv) for an example.
+2. With a configuration file
+  The configuration file indicates the environment and waypoints for agents individually.
+3. With a scenario file
+  The scenario file is always linked to a map and indicates the map name and a single start/goal per agent. See [here](https://github.com/thaynewalker/hog2/blob/conf-avoidance/test/environments/instances/8x8/10/0.map.scen).
+  
+### Examples
+#### Unobstructed map with gui soved with CBS
+```
+cd build/gmake && make -j4 release && ../../bin/release/MAPF -probfile ../../test/environments/instances/8x8/10/0.csv -envfile env9.csv -dimensions 8,8,1 -radius .25 
+```
+#### Map with obstacles icts
+```
+cd build/gmake && make -j4 release && ../../bin/release/icts -nagents 10 -scenfile ../../test/environments/instances/8x8/10/2.map.scen -mode b -agentType 9 -radius .25
+```
