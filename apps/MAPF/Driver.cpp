@@ -401,7 +401,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
               std::vector<EnvData> ev;
               for(int j(0); j<sizeof(cutoffs)/sizeof(cutoffs[0]); ++j){
                 if(cutoffs[j]<9999)
-                  ev.emplace_back(envnames[j],'G',cutoffs[j],weights[j]);
+                  ev.emplace_back(0,envnames[j],'G',cutoffs[j],weights[j]);
               }
               envdata.push_back(ev);
             }
@@ -634,7 +634,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
             std::vector<EnvData> envinfo;
             for(auto e:envs){
               auto info(Util::split(e,':'));
-              envinfo.emplace_back(info[0],agentType,atoi(info[1].c_str()),atof(info[2].c_str()));
+              envinfo.emplace_back(0,info[0],agentType,atoi(info[1].c_str()),atof(info[2].c_str()));
             }
             envdata.push_back(envinfo);
           }
