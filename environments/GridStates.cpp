@@ -191,11 +191,11 @@ bool BaseMapOccupancyInterface::CanMove(const xyLoc &, const xyLoc &l2)
 	
 }
 
-//float xyztLoc::TIME_RESOLUTION=10.0f;
-//unsigned xyztLoc::TIME_RESOLUTION_U=10u;
-//double xyztLoc::TIME_RESOLUTION_D=10.0;
-float xyztLoc::TIME_RESOLUTION=1000.0f;
-unsigned xyztLoc::TIME_RESOLUTION_U=1000u;
-double xyztLoc::TIME_RESOLUTION_D=1000.0;
+float xyztLoc::TIME_RESOLUTION=10.0f;
+unsigned xyztLoc::TIME_RESOLUTION_U=10u;
+double xyztLoc::TIME_RESOLUTION_D=10.0;
+//float xyztLoc::TIME_RESOLUTION=1000.0f;
+//unsigned xyztLoc::TIME_RESOLUTION_U=1000u;
+//double xyztLoc::TIME_RESOLUTION_D=1000.0;
 float xyztLoc::HDG_RESOLUTION=1024.0/360.0;
 float xyztLoc::PITCH_RESOLUTION=1024.0/90.0;

@@ -14,6 +14,7 @@
 #include <vector>
 #include <set>
 #include <map>
+#include <memory>
 #include <typeinfo>
 #include <algorithm>
 #include <iostream>
@@ -357,9 +358,25 @@ class ChainLOS: public GroupConflictDetector<State> {
     }
 
 
-    inline virtual bool HasConflict(std::vector<std::pair<State,State>> const& states, std::unordered_map<unsigned,unsigned> const& translation, std::vector<std::vector<State>> const& staticpaths, std::vector<unsigned> const& staticAgents)const{
+    inline virtual bool HasConflict(std::vector<std::pair<State,State>> const& states, std::unordered_map<unsigned,unsigned> const& agentTranslation, std::vector<std::vector<State>> const& staticpaths, std::vector<unsigned> const& staticagents)const{
       // Compute adjacency for static paths at all times
       // (this only needs to happen once since static paths don't change)
+      std::vector<unsigned> staticAgents(staticagents);
+      for(auto a(staticAgents.begin()); a!=staticAgents.end(); /**/){
+        if(std::find(this->agentNumbers.begin(),this->agentNumbers.end(),*a)==this->agentNumbers.end()){
+          a=staticAgents.erase(a);
+        }else{
+          ++a;
+        }
+      }
+      std::unordered_map<unsigned,unsigned> translation(agentTranslation);
+      for(auto a(translation.begin()); a!=translation.end(); /**/){
+        if(std::find(this->agentNumbers.begin(),this->agentNumbers.end(),a->first)==this->agentNumbers.end()){
+          a=translation.erase(a);
+        }else{
+          ++a;
+        }
+      }
       if(this->staticConn.empty()&&staticAgents.size()>1){
         unsigned t(0);
         std::vector<unsigned> indices(staticAgents.size());
@@ -424,11 +441,12 @@ class ChainLOS: public GroupConflictDetector<State> {
         State const& mainState(states[i->second].first);
         State const& succState(states[i->second].second);
         // Check vs. agents in the translation map (agents being actively planned)
-        for(auto j(i); ++j!=translation.end(); /**/){
-          if(i->first==j->first)continue;
+        for(auto j(i); ++j!=translation.end(); /*++j*/){
           if(env->LineOfSight(std::make_pair(mainState,succState),states[j->second])){
             conn[i->first].push_back(j->first);
             conn[j->first].push_back(i->first);
+          }else{
+            //std::cout << "NO LOS between agents " << i->first << " and " << j->first << "@" << minTime << "\n";
           }
         }
         // Check vs. static agents (agents not being actively planned)
@@ -440,9 +458,12 @@ class ChainLOS: public GroupConflictDetector<State> {
           if(s2 == staticpaths[a].end() || env->LineOfSight(std::make_pair(mainState,succState),std::make_pair(*s1,*s2))){
             conn[i->first].push_back(a);
             conn[a].push_back(i->first);
+          }else{
+            //std::cout << "NO LOS to static agent " << a << " vs " << i->first << "@" << *s1 << "-->" << *s2 << "\n";
           }
         }
         if(conn[i->first].size()==0){
+          //std::cout << "Nothing in LOS for agent: " << i->first << " at " << minTime << "\n";
           return true; // Nothing is in LOS
         }
       }
@@ -459,7 +480,18 @@ class ChainLOS: public GroupConflictDetector<State> {
       // Now search the graph for connectivity to all agents
       std::unordered_set<unsigned> agents;
       connCheck(translation.begin()->first,conn,agents);
-      return agents.size()!=this->agentNumbers.size();
+      // there may be some staticAgents unrelated to this constraint...
+
+      if(agents.size()!=this->agentNumbers.size()){
+        //std::cout << "NO Conn: ";
+        //for(auto const& s:states){
+          //std::cout << s.first << " --> " << s.second << ", ";
+        //}
+        //std::cout <<"\n";
+        return true;
+      }else{
+        return false;
+      }
     }
 
 
@@ -598,14 +630,10 @@ class ChainLOS: public GroupConflictDetector<State> {
       for(int i(0); i<s.size(); ++i){
         for(int j(i+1); j<s.size(); ++j){
           if(!map->LineOfSight(s[i],s[j])){
-            //glColor4f(0,0,0,0);
             continue;
           }
 
           glEnable(GL_BLEND);
-          //}else{
-            //glColor4f(1,0,0,.2);
-          //}
           GLdouble xx1, yy1, zz1, rad, xx2, yy2, zz2;
           map->GetOpenGLCoord(s[i].x, s[i].y, s[i].z, xx1, yy1, zz1, rad);
           map->GetOpenGLCoord(s[j].x, s[j].y, s[j].z, xx2, yy2, zz2, rad);
@@ -988,6 +1016,7 @@ class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
   public:
     /** Add a constraint to the model */
     virtual void AddConstraint(Constraint<State> const* c){constraints.emplace_back(c);}
+    virtual void AddConstraints(std::vector<std::unique_ptr<Constraint<State> const>> const& cs){for(auto const& c:cs)constraints.push_back(c.get());}
     /** Clear the constraints */
     virtual void ClearConstraints(){constraints.resize(0);}
     /** Get the possible actions from a state */
