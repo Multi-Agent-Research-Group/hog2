@@ -407,10 +407,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
             }
           }
 
+          unsigned agent(0);
           for(auto a: envdata){
             // Add start/goal location
             std::vector<xytLoc> wpts;
-            Experiment e(sl.GetRandomExperiment());
+            Experiment e(sl.GetNthExperiment(agent));
             while(true){
               bool bad(false);
               for(auto const& w:waypoints){
@@ -420,7 +421,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
                 }
               }
               if(!bad)break;
-              e=sl.GetRandomExperiment();
+              e=sl.GetNthExperiment(agent);
             }
             wpts.emplace_back(e.GetStartX(),e.GetStartY());
             wpts.emplace_back(e.GetGoalX(),e.GetGoalY());
@@ -497,6 +498,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
               }
             }
             environs.push_back(ev);
+            ++agent;
           }
           
           return 2;

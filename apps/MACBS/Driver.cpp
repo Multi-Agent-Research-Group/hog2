@@ -336,7 +336,11 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
   if (sim){
     sim->OpenGLDraw();
     if (!paused) {
+      if(group->donePlanning()){
       sim->StepTime2(stepsPerFrame);
+      }else{
+        sim->StepTime2(.00001);
+      }
 
       /*std::cout << "Printing locations at time: " << sim->GetSimulationTime() << std::endl;
         for (int x = 0; x < group->GetNumMembers(); x ++) {
@@ -353,10 +357,12 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
   if (recording)
   {
     static int index = 0;
+    if(index%10==0){
     char fname[255];
-    sprintf(fname, "movies/cbs-%05d", index);
+    sprintf(fname, "movies/cbs-%05d", index/10);
     SaveScreenshot(windowID, fname);
     printf("Saving '%s'\n", fname);
+    }
     index++;
   }
 }
@@ -421,10 +427,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
             }
           }
 
+          unsigned agent(0);
           for(auto a: envdata){
             // Add start/goal location
             std::vector<xyztLoc> wpts;
-            Experiment e(sl.GetRandomExperiment());
+            Experiment e(sl.GetNthExperiment(agent));
             unsigned sx(e.GetStartX());
             unsigned sy(e.GetStartY());
             unsigned ex(e.GetGoalX());
@@ -450,7 +457,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
                 }
               }
               if(!bad)break;
-              e=sl.GetRandomExperiment();
+              e=sl.GetNthExperiment(agent);
               sx=e.GetStartX();
               sy=e.GetStartY();
               ex=e.GetGoalX();
@@ -513,9 +520,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
                 std::cout << "Unknown environment " << e.name << "\n";
                 assert(!"Unknown environment encountered");
               }
+              newEnv->GetMapEnv()->setGoal(waypoints[ev.size()].back());
               ev.emplace_back(e.name,newEnv,new Map3dPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),e.threshold,e.weight);
             }
             environs.push_back(ev);
+            ++agent;
           }
           
           return 2;
