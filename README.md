@@ -24,8 +24,11 @@ or **flowspan** (sum of costs for all agents). The algorithms herein are targete
 usable for makespan with minimal changes.
 
 ## Dependencies
+
 C++11 or newer
-make
+
+Google Test
+
 OpenGL (optional -- code can be compiled with OpenGL turned off using **OPENGL=STUB**)
 
 ## Building
