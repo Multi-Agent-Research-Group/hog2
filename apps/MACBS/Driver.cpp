@@ -357,9 +357,12 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
   if (recording)
   {
     static int index = 0;
-    if(index%10==0){
+    if(group->donePlanning() || index%10==0){
     char fname[255];
-    sprintf(fname, "movies/cbs-%05d", index/10);
+    if(group->donePlanning())
+      sprintf(fname, "movies/cbs-%05d", index);
+    else
+      sprintf(fname, "movies/cbs-%05d", index/10);
     SaveScreenshot(windowID, fname);
     printf("Saving '%s'\n", fname);
     }
