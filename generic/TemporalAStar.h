@@ -402,11 +402,14 @@ bool TemporalAStar<state,action,environment,openList>::DoSingleSearchStep(std::v
             // Returns 0 if no violation, otherwise the minimum safe time (minus epsilon)
             n.t=env->ViolatesConstraint(openClosedList.Lookup(nodeid).data,n);
             if(!n.t){
-              n.t=minTime;
-              neighbors.insert(neighbors.begin(),n);
+                n.t=minTime;
+              if(std::find(neighbors.begin(),neighbors.end(),n)==neighbors.end()){
+                neighbors.insert(neighbors.begin(),n);
+              }
             }else{
               n.t-=env->WaitTime();
-              if(fgreater(n.t,openClosedList.Lookup(nodeid).data.t)){
+              if(fgreater(n.t,openClosedList.Lookup(nodeid).data.t)
+                  && std::find(neighbors.begin(),neighbors.end(),n)==neighbors.end()){
                 neighbors.insert(neighbors.begin(),n);
               }
             }

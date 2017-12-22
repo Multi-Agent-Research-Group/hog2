@@ -336,7 +336,11 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
   if (sim){
     sim->OpenGLDraw();
     if (!paused) {
+      if(group->donePlanning()){
       sim->StepTime2(stepsPerFrame);
+      }else{
+        sim->StepTime2(.00001);
+      }
 
       /*std::cout << "Printing locations at time: " << sim->GetSimulationTime() << std::endl;
         for (int x = 0; x < group->GetNumMembers(); x ++) {
@@ -353,10 +357,15 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
   if (recording)
   {
     static int index = 0;
+    if(group->donePlanning() || index%10==0){
     char fname[255];
-    sprintf(fname, "movies/cbs-%05d", index);
+    if(group->donePlanning())
+      sprintf(fname, "movies/cbs-%05d", index);
+    else
+      sprintf(fname, "movies/cbs-%05d", index/10);
     SaveScreenshot(windowID, fname);
     printf("Saving '%s'\n", fname);
+    }
     index++;
   }
 }
@@ -415,16 +424,17 @@ int MyCLHandler(char *argument[], int maxNumArgs)
               std::vector<EnvData> ev;
               for(int j(0); j<sizeof(cutoffs)/sizeof(cutoffs[0]); ++j){
                 if(cutoffs[j]<9999)
-                  ev.emplace_back(envnames[j],'G',cutoffs[j],weights[j]);
+                  ev.emplace_back(j,envnames[j],'G',cutoffs[j],weights[j]);
               }
               envdata.push_back(ev);
             }
           }
 
+          unsigned agent(0);
           for(auto a: envdata){
             // Add start/goal location
             std::vector<xyztLoc> wpts;
-            Experiment e(sl.GetRandomExperiment());
+            Experiment e(sl.GetNthExperiment(agent));
             unsigned sx(e.GetStartX());
             unsigned sy(e.GetStartY());
             unsigned ex(e.GetGoalX());
@@ -450,7 +460,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
                 }
               }
               if(!bad)break;
-              e=sl.GetRandomExperiment();
+              e=sl.GetNthExperiment(agent);
               sx=e.GetStartX();
               sy=e.GetStartY();
               ex=e.GetGoalX();
@@ -513,9 +523,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
                 std::cout << "Unknown environment " << e.name << "\n";
                 assert(!"Unknown environment encountered");
               }
+              newEnv->GetMapEnv()->setGoal(waypoints[ev.size()].back());
               ev.emplace_back(e.name,newEnv,new Map3dPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),e.threshold,e.weight);
             }
             environs.push_back(ev);
+            ++agent;
           }
           
           return 2;
@@ -728,18 +740,19 @@ int MyCLHandler(char *argument[], int maxNumArgs)
           std::string line;
           while(std::getline(ss, line)){
             auto ln(Util::split(line,' '));
-            int agent(atoi(ln[0].c_str()));
-            char agentType(ln[1].c_str()[0]);
+            unsigned group(atoi(ln[0].c_str()));
+            int agent(atoi(ln[1].c_str()));
+            char agentType(ln[2].c_str()[0]);
             while(agent>agentNumber){
               envdata.push_back(envdata.back()); // make copies
               agentNumber++;
             }
             agentNumber++;
-            auto envs(Util::split(ln[2],','));
+            auto envs(Util::split(ln[3],','));
             std::vector<EnvData> envinfo;
             for(auto e:envs){
               auto info(Util::split(e,':'));
-              envinfo.emplace_back(info[0],agentType,atoi(info[1].c_str()),atof(info[2].c_str()));
+              envinfo.emplace_back(group,info[0],agentType,atoi(info[1].c_str()),atof(info[2].c_str()));
             }
             envdata.push_back(envinfo);
           }
@@ -764,7 +777,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
             std::vector<EnvData> envinfo;
             for(auto e:envs){
               auto info(Util::split(e,':'));
-              envinfo.emplace_back(info[0],agentType,atoi(info[1].c_str()),atof(info[2].c_str()));
+              envinfo.emplace_back(agentNumber,info[0],agentType,atoi(info[1].c_str()),atof(info[2].c_str()));
             }
             envdata.push_back(envinfo);
           }

@@ -98,7 +98,7 @@ void Map3D::Load(const char *filename, const char *dtedfile)
     memset(elevation[i],0,height); // Set to zero for now...
   }
 
-  if(!readdted1(dtedfile,elevation,width,height,0,0,depth-2)){
+  if(!readdted1(dtedfile,elevation,width,height,0,0,depth)){
     printf("Dted not loaded\n");
   }
 

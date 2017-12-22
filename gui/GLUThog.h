@@ -19,6 +19,9 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+#ifndef GLUTHOG_H
+#define GLUTHOG_H
+
 #ifndef OS_MAC
 
 /* Apple CGSize */
@@ -70,4 +73,5 @@ int processFramesPerSecond(char *argument[], int maxNumArgs);
 pRecContext getCurrentContext();
 //static void drawCaps (pRecContext pContextInfo) {}
 
-bool startTrajRecap;
+//bool startTrajRecap;
+#endif

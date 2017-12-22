@@ -304,6 +304,18 @@ TEST(Quadratic, IsInsideFail){
   ASSERT_FALSE(collisionImminent(A-A,VA,radius,0,5,B,VB,radius,0,5));
 }
 
+TEST(Quadratic, CloseCall){
+  Vector2D A(26,2);
+  Vector2D VA(1,-1);
+  VA.Normalize();
+  double radius(.25);
+  Vector2D B(26,1);
+  Vector2D VB(1,0);
+  VB.Normalize();
+
+  ASSERT_FALSE(collisionImminent(A,VA,radius,12.4,13.8,B,VB,radius,12,13));
+}
+
 TEST(Quadratic3D, DetectCollisionWhenExists){
   Vector3D A(5,1,1);
   Vector3D VA(0,1,1);
@@ -1330,7 +1342,7 @@ TEST(PolygonalIntersection, test1){
 }
 
 
-TEST(PreCollision, generate9Conn_25Rad){
+TEST(DISABLED_PreCollision, generate9Conn_25Rad){
   //9*(9*9)=729
   unsigned bitarray[9*9*9/WORD_BITS+1];
   unsigned bitarray1[9*9*9/WORD_BITS+1];
@@ -1461,7 +1473,7 @@ TEST(PreCollision, generate9Conn_25Rad){
   std::cout << "helped " << wasHelpful << " missed " << missedOpportunities << " total " << total << "\n";
 }
 
-TEST(PreCollision, generate9Conn_5Rad){
+TEST(DISABLED_PreCollision, generate9Conn_5Rad){
   //9*(9*9)=729
   unsigned bitarray[9*9*9/WORD_BITS+1];
   memset(bitarray,0,sizeof(bitarray));
@@ -1576,7 +1588,7 @@ TEST(PreCollision, generate9Conn_5Rad){
   std::cout << "size " << sizeof(bitarray) << " helped " << wasHelpful << " missed " << missedOpportunities << " total " << total << "\n";
 }
 
-TEST(PreCollision, generate25Conn_5Rad){
+TEST(DISABLED_PreCollision, generate25Conn_5Rad){
   //9*(9*9)=729
   unsigned bitarray[25*25*25/WORD_BITS+1];
   memset(bitarray,0,sizeof(bitarray));
@@ -1645,7 +1657,7 @@ TEST(PreCollision, generate25Conn_5Rad){
   std::cout << "size " << sizeof(bitarray) << " helped " << wasHelpful << " missed " << missedOpportunities << " total " << total << "\n";
 }
 
-TEST(PreCollision, generate25Conn_25Rad){
+TEST(DISABLED_PreCollision, generate25Conn_25Rad){
   //9*(9*9)=729
   unsigned bitarray[25*25*25/WORD_BITS+1];
   memset(bitarray,0,sizeof(bitarray));
@@ -1710,7 +1722,7 @@ TEST(PreCollision, generate25Conn_25Rad){
   std::cout << "size " << sizeof(bitarray) << " helped " << wasHelpful << " missed " << missedOpportunities << " total " << total << "\n";
 }
 
-TEST(PreCollision, generate49Conn_5Rad){
+TEST(DISABLED_PreCollision, generate49Conn_5Rad){
   //9*(9*9)=729
   unsigned bitarray[49*49*49/WORD_BITS+1];
   memset(bitarray,0,sizeof(bitarray));
@@ -1775,7 +1787,7 @@ TEST(PreCollision, generate49Conn_5Rad){
   std::cout << "size " << sizeof(bitarray) << " helped " << wasHelpful << " missed " << missedOpportunities << " total " << total << "\n";
 }
 
-TEST(PreCollision, generate49Conn_25Rad){
+TEST(DISABLED_PreCollision, generate49Conn_25Rad){
   //9*(9*9)=729
   unsigned bitarray[49*49*49/WORD_BITS+1];
   memset(bitarray,0,sizeof(bitarray));
@@ -1840,7 +1852,7 @@ TEST(PreCollision, generate49Conn_25Rad){
   std::cout << "size " << sizeof(bitarray) << " helped " << wasHelpful << " missed " << missedOpportunities << " total " << total << "\n";
 }
 
-TEST(PreCollision, generate27Conn_25Rad){
+TEST(DISABLED_PreCollision, generate27Conn_25Rad){
   //27*(27*27)=19683
   unsigned bitarray[27*27*27/WORD_BITS+1];
   memset(bitarray,0,sizeof(bitarray));
@@ -1946,7 +1958,7 @@ TEST(PreCollision, generate27Conn_25Rad){
   std::cout << "helped " << wasHelpful << " missed " << missedOpportunities << " total " << total << "\n";
 }
 
-TEST(PreCollision, generate27Conn_5Rad){
+TEST(DISABLED_PreCollision, generate27Conn_5Rad){
   //27*(27*27)=19683
   unsigned bitarray[27*27*27/WORD_BITS+1];
   memset(bitarray,0,sizeof(bitarray));
@@ -2052,7 +2064,7 @@ TEST(PreCollision, generate27Conn_5Rad){
   std::cout << "helped " << wasHelpful << " missed " << missedOpportunities << " total " << total << "\n";
 }
 
-TEST(PreCollision, generate125Conn_25Rad){
+TEST(DISABLED_PreCollision, generate125Conn_25Rad){
   //125*(125*125)=19683
   unsigned bitarray[125*125*125/WORD_BITS+1];
   memset(bitarray,0,sizeof(bitarray));
@@ -2116,7 +2128,7 @@ TEST(PreCollision, generate125Conn_25Rad){
   std::cout << "helped " << wasHelpful << " missed " << missedOpportunities << " total " << total << "\n";
 }
 
-TEST(PreCollision, generate125Conn_5Rad){
+TEST(DISABLED_PreCollision, generate125Conn_5Rad){
   //125*(125*125)=19683
   unsigned bitarray[125*125*125/WORD_BITS+1];
   memset(bitarray,0,sizeof(bitarray));

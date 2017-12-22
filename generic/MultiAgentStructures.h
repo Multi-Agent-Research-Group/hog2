@@ -51,12 +51,13 @@ struct EnvironmentContainer {
 
 // Struct for parsing config files
 struct EnvData{
-  EnvData():name(),agentType('A'),threshold(0),weight(1.0){}
-  EnvData(std::string const& n, char a, unsigned t, double w):name(n),agentType(a),threshold(t),weight(w){}
+  EnvData():name(),agentType('A'),threshold(0),weight(1.0),group(){}
+  EnvData(unsigned g,std::string const& n, char a, unsigned t, double w):name(n),agentType(a),threshold(t),weight(w),group(g){}
   std::string name;
   char agentType; // 'A'=Air, 'G'=Ground, 'S'=Surface
   unsigned threshold;
   double weight;
+  unsigned group;
 };
 
 template<typename state, typename action>

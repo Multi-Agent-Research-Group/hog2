@@ -401,16 +401,17 @@ int MyCLHandler(char *argument[], int maxNumArgs)
               std::vector<EnvData> ev;
               for(int j(0); j<sizeof(cutoffs)/sizeof(cutoffs[0]); ++j){
                 if(cutoffs[j]<9999)
-                  ev.emplace_back(envnames[j],'G',cutoffs[j],weights[j]);
+                  ev.emplace_back(0,envnames[j],'G',cutoffs[j],weights[j]);
               }
               envdata.push_back(ev);
             }
           }
 
+          unsigned agent(0);
           for(auto a: envdata){
             // Add start/goal location
             std::vector<xytLoc> wpts;
-            Experiment e(sl.GetRandomExperiment());
+            Experiment e(sl.GetNthExperiment(agent));
             while(true){
               bool bad(false);
               for(auto const& w:waypoints){
@@ -420,7 +421,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
                 }
               }
               if(!bad)break;
-              e=sl.GetRandomExperiment();
+              e=sl.GetNthExperiment(agent);
             }
             wpts.emplace_back(e.GetStartX(),e.GetStartY());
             wpts.emplace_back(e.GetGoalX(),e.GetGoalY());
@@ -497,6 +498,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
               }
             }
             environs.push_back(ev);
+            ++agent;
           }
           
           return 2;
@@ -630,11 +632,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
               envdata.push_back(envdata.back()); // make copies
               agentNumber++;
             }
-            auto envs(Util::split(ln[1],','));
+            auto envs(Util::split(ln[2],','));
             std::vector<EnvData> envinfo;
             for(auto e:envs){
               auto info(Util::split(e,':'));
-              envinfo.emplace_back(info[0],agentType,atoi(info[1].c_str()),atof(info[2].c_str()));
+              envinfo.emplace_back(0,info[0],agentType,atoi(info[1].c_str()),atof(info[2].c_str()));
             }
             envdata.push_back(envinfo);
           }

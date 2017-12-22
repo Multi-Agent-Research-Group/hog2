@@ -58,13 +58,13 @@ TEST(Heuristic, CardinalHighway){
   AirplaneHighway4CardinalEnvironment env;
   env.setGoal(airtimeState());
   env.loadPerimeterDB();
-  AdmissibilityChecker<airplaneState,airplaneAction,AirplaneEnvironment> checker;
-  std::vector<airplaneState> states;
-  states.emplace_back(40,40,10,3,0);
+  //AdmissibilityChecker<airplaneState,airplaneAction,AirplaneEnvironment> checker;
+  //std::vector<airplaneState> states;
+  //states.emplace_back(40,40,10,3,0);
   //states.emplace_back(40,40,10,2,0);
   //states.emplace_back(40,40,10,3,1);
-  ASSERT_TRUE(checker.check(env,states,100.,9));
-  ASSERT_TRUE(checker.checkReverse(env,states,100.,9));
+  //ASSERT_TRUE(checker.check(env,states,100.,9));
+  //ASSERT_TRUE(checker.checkReverse(env,states,100.,9));
 }
 /*
 TEST(Heuristic, Admissibile) { 
