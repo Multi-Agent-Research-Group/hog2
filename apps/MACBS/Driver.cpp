@@ -898,6 +898,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
           height = i;
 
           Map3D* map(new Map3D(width,length,height));
+          int agent(0);
           for(auto a: envdata){
             // Add environments
             std::vector<EnvironmentContainer<xyztLoc,t3DDirection>> ev;
@@ -941,8 +942,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
                 assert(!"Unknown environment encountered");
               }
               ev.emplace_back(e.name,newEnv,new Map3dPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),e.threshold,e.weight);
+              newEnv->setGoal(waypoints[agent][1]);
+              newEnv->GetMapEnv()->setGoal(waypoints[agent][1]);
             }
             environs.push_back(ev);
+            agent++;
           }
           return 2;
         }
