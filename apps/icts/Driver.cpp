@@ -56,12 +56,34 @@ SearchEnvironment<xyLoc,tDirection>* senv;
 std::vector<Heuristic<xyLoc>*> heuristics;
 std::string mapfile;
 
+struct MDDStats{
+  unsigned depth;
+  unsigned count;
+  double branchingfactor;
+};
+
+struct JointStats{
+  std::vector<MDDStats> mdds;
+  unsigned depth;
+  unsigned count;
+  double branchingfactor;
+};
+
+std::string currentICT;
+std::vector<JointStats> jointstats;
+
 float jointTime(0);
 float pairwiseTime(0);
 float mddTime(0);
 float nogoodTime(0);
 float certifyTime(0);
 Timer certtimer;
+unsigned mdddepth(0);
+unsigned mddbranchingfactor(0);
+unsigned mddnonleaf(0);
+unsigned jointdepth(0);
+unsigned jointbranchingfactor(0);
+unsigned jointnonleaf(0);
 unsigned maxsingle(0);
 unsigned minsingle(INF);
 unsigned maxjoint(0);
@@ -76,6 +98,8 @@ bool quiet(false);
 bool verify(false);
 bool ID(true);
 bool OD(true);
+bool fulljoint(false);
+bool crazystats(false);
 bool precheck(true);
 bool mouseTracking;
 unsigned agentType(5);
@@ -200,6 +224,8 @@ void InstallHandlers()
   InstallCommandLineHandler(MyCLHandler, "-waitTime", "-waitTime", "Time duration for wait actions");
   InstallCommandLineHandler(MyCLHandler, "-noID", "-noID", "No Independence Dection (ID) framework");
   InstallCommandLineHandler(MyCLHandler, "-noOD", "-noOD", "No Operator Decomposition (OD)");
+  InstallCommandLineHandler(MyCLHandler, "-fulljoint", "-fulljoint", "Turn off early exit from jointDFS");
+  InstallCommandLineHandler(MyCLHandler, "-stats", "-stats", "Turn off early exit from jointDFS");
   InstallCommandLineHandler(MyCLHandler, "-noprecheck", "-noprecheck", "Perform simplified collision check before trying the expensive one");
   InstallCommandLineHandler(MyCLHandler, "-mode", "-mode s,b,p,a", "s=sub-optimal,p=pairwise,b=pairwise,sub-optimal,a=astar");
   InstallCommandLineHandler(MyCLHandler, "-increment", "-increment [value]", "High-level increment");
@@ -428,6 +454,10 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, uin
 
   Points successors;
   env->GetSuccessors(start,successors);
+  if(crazystats&&successors.size()){
+    mddnonleaf++;
+    mddbranchingfactor+=successors.size();
+  }
   bool result(false);
   for(auto const& node: successors){
     int ddiff(std::max(Util::distance(node.x,node.y,start.x,start.y),1.0)*INFLATION);
@@ -437,6 +467,7 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, uin
     //}
     if(LimitedDFS(node,end,dag,root,depth-ddiff,maxDepth,best,agent,id,recursions+1)){
       singleTransTable[hash]=true;
+      mdddepth=std::max(recursions,mdddepth);
       maxsingle=std::max(recursions,maxsingle);
       minsingle=std::min(recursions,minsingle);
       if(dag.find(hash)==dag.end()){
@@ -491,6 +522,9 @@ void GetMDD(unsigned agent,unsigned id,xyLoc const& start, xyLoc const& end, DAG
   bool found(mddcache.find(hash)!=mddcache.end());
   if(verbose)std::cout << "lookup "<< (found?"found":"missed") << "\n";
   if(!found){
+    mdddepth=0;
+    mddnonleaf=0;
+    mddbranchingfactor=0;
     LimitedDFS(start,end,dag,root[agent],depth,depth,best,agent,id);
     singleTransTable.clear();
     mddcache[hash]=root[agent];
@@ -574,6 +608,7 @@ struct stackObj{
 // Return true if we get to the desired depth
 // Check goal inside loop
 bool jointDFS2(MultiEdge const& r, uint32_t d, Solution solution, std::vector<Solution>& solutions, std::vector<Node*>& toDelete, uint32_t& best, uint32_t bestSeen, unsigned recursions=1, bool suboptimal=false, bool checkOnly=false){
+  jointnodes++;
 
   std::unordered_map<std::string,std::pair<std::string,MultiEdge>> parentTable;
   std::unordered_map<std::string,bool> transpositionTable;
@@ -746,6 +781,7 @@ bool jointDFS2(MultiEdge const& r, uint32_t d, Solution solution, std::vector<So
 
 // Return true if we get to the desired depth
 bool jointDFS(MultiEdge const& s, uint32_t d, Solution solution, std::vector<Solution>& solutions, std::vector<Node*>& toDelete, uint32_t& best, uint32_t& bestSeen, std::vector<std::vector<uint64_t>*>& good, std::vector<std::vector<uint64_t>>& unified, unsigned recursions=1, bool suboptimal=false, bool checkOnly=false){
+  jointdepth=std::max(recursions,jointdepth);
   // Compute hash for transposition table
   std::string hash(s.size()*sizeof(uint64_t),1);
   int k(0);
@@ -903,6 +939,7 @@ bool jointDFS(MultiEdge const& s, uint32_t d, Solution solution, std::vector<Sol
   if(crossProduct.size()){
     jointexpansions++;
     largestbranch=std::max(largestbranch,crossProduct.size());
+    jointbranchingfactor+=crossProduct.size();
   }
   bool value(false);
   for(auto& a: crossProduct){
@@ -919,7 +956,7 @@ bool jointDFS(MultiEdge const& s, uint32_t d, Solution solution, std::vector<Sol
       if(!checkOnly&&!certifyTime)certtimer.StartTimer();
       if(suboptimal&&!(epp&&checkOnly)) return true;
       // Return if solution is as good as any MDD
-      if(!(epp&&checkOnly)&&best==bestSeen)return true;
+      if(!(epp&&checkOnly)&&!fulljoint&&best==bestSeen)return true;
     }
   }
   transTable[hash]=value;
@@ -940,6 +977,8 @@ bool jointDFS(MultiState const& s, std::vector<Solution>& solutions, std::vector
     }
   }
   transTable.clear();
+  jointdepth=0;
+  jointbranchingfactor=0;
   return jointDFS(act,0.0,solution,solutions,toDelete,best,bestSeen,good,unified,1,suboptimal,checkOnly);
 }
 
@@ -995,16 +1034,21 @@ void join(std::stringstream& s, std::vector<uint32_t> const& x){
 }
 
 struct ICTSNode{
-  ICTSNode(ICTSNode* parent,int agent, uint32_t size):instance(parent->instance),dag(parent->dag.size()),best(parent->best),dagsize(parent->dagsize),bestSeen(0),sizes(parent->sizes),root(parent->root),ids(parent->ids),incumbent(parent->incumbent){
+  ICTSNode(ICTSNode* parent,int agent, uint32_t size):instance(parent->instance),dag(parent->dag.size()),best(parent->best),dagsize(parent->dagsize),costs(parent->costs),bestSeen(0),sizes(parent->sizes),root(parent->root),ids(parent->ids),incumbent(parent->incumbent){
     count++;
     sizes[agent]=size;
     best[agent]=INF;
-    if(verbose)std::cout << "rebuild MDD for agent " << agent << " GetMDD("<<(heuristics[ids[agent]]->HCost(instance.first[agent],instance.second[agent])+sizes[agent]/1000.)<<")\n";
+    stats=parent->stats;
+    if(verbose)std::cout << "rebuild MDD for agent " << agent << " GetMDD("<<((costs[agent]+sizes[agent])/1000.)<<")\n";
     //dag[agent].clear();
     replanned.push_back(agent);
     Timer timer;
     timer.StartTimer();
-    GetMDD(agent,ids[agent],instance.first[agent],instance.second[agent],dag[agent],root,(int)(heuristics[ids[agent]]->HCost(instance.first[agent],instance.second[agent])*INFLATION)+(int)(sizes[agent]),best[agent],dagsize[agent]);
+    unsigned p(Node::count);
+    GetMDD(agent,ids[agent],instance.first[agent],instance.second[agent],dag[agent],root,costs[agent]+sizes[agent],best[agent],dagsize[agent]);
+    if(crazystats){
+      stats.mdds[agent]={mdddepth,Node::count-p,((double)mddbranchingfactor)/((double)mddnonleaf)};
+    }
     mddTime+=timer.EndTimer();
     bestSeen=std::accumulate(best.begin(),best.end(),0.0f);
     // Replace new root node on top of old.
@@ -1013,20 +1057,26 @@ struct ICTSNode{
     //if(verbose)std::cout << agent << ":\n" << root[agent] << "\n";
   }
 
-  ICTSNode(Instance const& inst, std::vector<uint32_t> const& s, std::vector<int> const& id, uint32_t* bestCost):instance(inst),dag(s.size()),best(s.size()),dagsize(s.size()),bestSeen(0),sizes(s),root(s.size()),ids(id),incumbent(bestCost){
+  ICTSNode(Instance const& inst, std::vector<uint32_t> const& s, std::vector<int> const& id, uint32_t* bestCost):instance(inst),dag(s.size()),best(s.size()),dagsize(s.size()),costs(s.size()),bestSeen(0),sizes(s),root(s.size()),ids(id),incumbent(bestCost){
     count++;
     root.reserve(s.size());
     replanned.resize(s.size());
+    stats.mdds.resize(s.size());
     for(int i(0); i<instance.first.size(); ++i){
       best[i]=INF;
       replanned[i]=i;
-      if(!quiet)std::cout << "build MDD for agent " << i << " GetMDD("<<(heuristics[ids[i]]->HCost(instance.first[i],instance.second[i])+sizes[i]/1000.)<<")\n";
+      costs[i]=(uint32_t)(heuristics[ids[i]]->HCost(instance.first[i],instance.second[i])*INFLATION);
+      if(!quiet)std::cout << "build MDD for agent " << i << " GetMDD("<<((costs[i]+sizes[i])/1000.)<<")\n";
       //std::cout.precision(17);
       std::cout.precision(6);
 
       Timer timer;
       timer.StartTimer();
-      GetMDD(i,ids[i],instance.first[i],instance.second[i],dag[i],root,(int)(heuristics[ids[i]]->HCost(instance.first[i],instance.second[i])*INFLATION)+(int)(sizes[i]),best[i],dagsize[i]);
+      unsigned p(Node::count);
+      GetMDD(i,ids[i],instance.first[i],instance.second[i],dag[i],root,costs[i]+sizes[i],best[i],dagsize[i]);
+      if(crazystats){
+        stats.mdds[i]={mdddepth,Node::count-p,((double)mddbranchingfactor)/((double)mddnonleaf)};
+      }
       mddTime+=timer.EndTimer();
       //if(verbose)std::cout << i << ":\n" << root[i] << "\n";
     }
@@ -1047,6 +1097,8 @@ struct ICTSNode{
   std::vector<uint32_t> sizes;
   std::vector<uint32_t> best;
   std::vector<uint32_t> dagsize;
+  std::vector<uint32_t> costs;
+  JointStats stats;
   ICTSNode* p;
   uint32_t bestSeen;
   uint32_t* incumbent;
@@ -1146,7 +1198,7 @@ struct ICTSNode{
       pairwiseTime+=timer.EndTimer();
     }
     // Do a depth-first search; if the search terminates at a goal, its valid.
-    if(!quiet)std::cout<<"Pairwise passed\nFull check, max joint MDD depth: " << maxjoint << "\n";
+    if(!quiet&&ICTSNode::pairwise)std::cout<<"Pairwise passed\nFull check, max joint MDD depth: " << maxjoint << "\n";
     Timer timer;
     timer.StartTimer();
     std::vector<std::vector<uint64_t>> unified(root.size());
@@ -1155,6 +1207,8 @@ struct ICTSNode{
       tmpgood[i]=&goods[i];
       //std::cout << "MDD for agent " << i << ": " << std::bitset<64>(goods[i][0]) << "\n";
     }
+    unsigned p(jointexpansions);
+    unsigned q(jointnodes);
     if(jointDFS(root,answers,toDelete,lb(),*incumbent,tmpgood,unified,suboptimal)){
       jointTime+=timer.EndTimer();
       if(verbose){
@@ -1172,10 +1226,18 @@ struct ICTSNode{
           if(verify&&!checkAnswer(answers[num]))std::cout<< "Failed in ICT node\n";
         }
       }
+      stats.depth=jointdepth;
+      stats.count=jointnodes-q;
+      stats.branchingfactor=((double)jointbranchingfactor)/((double)(jointexpansions-p));
+      jointstats.push_back(stats);
       if(verbose)std::cout << "Full check passed\n";
       return true;
     }
     
+    stats.depth=jointdepth;
+    stats.count=jointnodes-q;
+    stats.branchingfactor=((double)jointbranchingfactor)/((double)(jointexpansions-p));
+    jointstats.push_back(stats);
     if(verbose)std::cout << "Full check failed\n";
     return false;
   }
@@ -1287,6 +1349,14 @@ void printResults(){
         // Print solution
         std::cout << t->n << "," << t->depth/1000. << "\n";
       }
+    }
+  }
+  if(crazystats){
+    for(s:jointstats){
+      std::cout << s.depth << "," << s.count << "," << s.branchingfactor << "(";
+      for(u:s.mdds)
+        std::cout << u.depth << "," << u.count << "," << u.branchingfactor << ";";
+      std::cout << ")\n";
     }
   }
   for(auto const& path:solution){
@@ -1629,6 +1699,13 @@ int main(int argc, char ** argv){
           }
           // This node could contain a solution since its lb is <=
           ICTSNode* parent(q.popTop());
+          if(crazystats){
+            std::stringstream sv;
+            auto sz(parent->sizes);
+            std::sort(sz.begin(),sz.end());
+            join(sv,sz);
+            currentICT=sv.str();
+          }
           if(!quiet){
             std::cout << "pop ";
             for(auto const& a: parent->sizes){
@@ -1741,6 +1818,16 @@ int MyCLHandler(char *argument[], int maxNumArgs)
     precheck = false;
     return 1;
   }
+  if(strcmp(argument[0], "-stats") == 0)
+  {
+    crazystats = true;
+    return 1;
+  }
+  if(strcmp(argument[0], "-fulljoint") == 0)
+  {
+    fulljoint = false;
+    return 1;
+  }
   if(strcmp(argument[0], "-noOD") == 0)
   {
     OD = false;
@@ -1839,6 +1926,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
     else if(argument[1][0]=='p'){
       ICTSNode::pairwise=true;
       if(!quiet)std::cout << "pairwise\n";
+    }
+    else if(argument[1][0]=='n'){
+      ICTSNode::pairwise=false;
+      ICTSNode::suboptimal=false;
+      if(!quiet)std::cout << "no enhancements\n";
     }
     else if(argument[1][0]=='b'){
       ICTSNode::pairwise=true;
