@@ -59,6 +59,7 @@ std::string mapfile;
 struct MDDStats{
   unsigned depth;
   unsigned count;
+  unsigned goals;
   double branchingfactor;
 };
 
@@ -66,6 +67,7 @@ struct JointStats{
   std::vector<MDDStats> mdds;
   unsigned depth;
   unsigned count;
+  unsigned goals;
   double branchingfactor;
 };
 
@@ -81,9 +83,11 @@ Timer certtimer;
 unsigned mdddepth(0);
 unsigned mddbranchingfactor(0);
 unsigned mddnonleaf(0);
+unsigned mddgoals(0);
 unsigned jointdepth(0);
 unsigned jointbranchingfactor(0);
 unsigned jointnonleaf(0);
+unsigned jointgoals(0);
 unsigned maxsingle(0);
 unsigned minsingle(INF);
 unsigned maxjoint(0);
@@ -421,6 +425,7 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, uin
   //std::cout << "\n";
 
   if(env->GoalTest(start,end)){
+    mddgoals++;
     singleTransTable[hash]=true;
       //std::cout << n<<"\n";
     n.id=dag.size()+1;
@@ -454,10 +459,6 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, uin
 
   Points successors;
   env->GetSuccessors(start,successors);
-  if(crazystats&&successors.size()){
-    mddnonleaf++;
-    mddbranchingfactor+=successors.size();
-  }
   bool result(false);
   for(auto const& node: successors){
     int ddiff(std::max(Util::distance(node.x,node.y,start.x,start.y),1.0)*INFLATION);
@@ -514,6 +515,16 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, uin
   return result;
 }
 
+void countMDDStats(Node* s){
+  if(s->successors.size()){
+    mddnonleaf++;
+    mddbranchingfactor+=s->successors.size();
+    for(auto const& k:s->successors){
+      countMDDStats(k);
+    }
+  }
+}
+
 // Perform conflict check by moving forward in time at increments of the smallest time step
 // Test the efficiency of VO vs. time-vector approach
 void GetMDD(unsigned agent,unsigned id,xyLoc const& start, xyLoc const& end, DAG& dag, MultiState& root, int depth, uint32_t& best, uint32_t& dagsize){
@@ -524,8 +535,12 @@ void GetMDD(unsigned agent,unsigned id,xyLoc const& start, xyLoc const& end, DAG
   if(!found){
     mdddepth=0;
     mddnonleaf=0;
+    mddgoals=0;
     mddbranchingfactor=0;
     LimitedDFS(start,end,dag,root[agent],depth,depth,best,agent,id);
+    if(crazystats){
+      countMDDStats(root[agent]);
+    }
     singleTransTable.clear();
     mddcache[hash]=root[agent];
     lbcache[hash]=best;
@@ -839,6 +854,7 @@ bool jointDFS(MultiEdge const& s, uint32_t d, Solution solution, std::vector<Sol
     //maxCost=std::max(maxCost,g.second->depth);
   }
   if(done){
+    jointgoals++;
     //uint32_t cost(computeSolutionCost(solution));
     if(cost<best){
       best=cost;
@@ -979,6 +995,7 @@ bool jointDFS(MultiState const& s, std::vector<Solution>& solutions, std::vector
   transTable.clear();
   jointdepth=0;
   jointbranchingfactor=0;
+  jointgoals=0;
   return jointDFS(act,0.0,solution,solutions,toDelete,best,bestSeen,good,unified,1,suboptimal,checkOnly);
 }
 
@@ -1044,10 +1061,9 @@ struct ICTSNode{
     replanned.push_back(agent);
     Timer timer;
     timer.StartTimer();
-    unsigned p(Node::count);
     GetMDD(agent,ids[agent],instance.first[agent],instance.second[agent],dag[agent],root,costs[agent]+sizes[agent],best[agent],dagsize[agent]);
     if(crazystats){
-      stats.mdds[agent]={mdddepth,Node::count-p,((double)mddbranchingfactor)/((double)mddnonleaf)};
+      stats.mdds[agent]={mdddepth,dag[agent].size(),mddgoals,((double)mddbranchingfactor)/((double)mddnonleaf)};
     }
     mddTime+=timer.EndTimer();
     bestSeen=std::accumulate(best.begin(),best.end(),0.0f);
@@ -1075,7 +1091,7 @@ struct ICTSNode{
       unsigned p(Node::count);
       GetMDD(i,ids[i],instance.first[i],instance.second[i],dag[i],root,costs[i]+sizes[i],best[i],dagsize[i]);
       if(crazystats){
-        stats.mdds[i]={mdddepth,Node::count-p,((double)mddbranchingfactor)/((double)mddnonleaf)};
+        stats.mdds[i]={mdddepth,dag[i].size(),mddgoals,((double)mddbranchingfactor)/((double)mddnonleaf)};
       }
       mddTime+=timer.EndTimer();
       //if(verbose)std::cout << i << ":\n" << root[i] << "\n";
@@ -1228,6 +1244,7 @@ struct ICTSNode{
       }
       stats.depth=jointdepth;
       stats.count=jointnodes-q;
+      stats.goals=jointgoals;
       stats.branchingfactor=((double)jointbranchingfactor)/((double)(jointexpansions-p));
       jointstats.push_back(stats);
       if(verbose)std::cout << "Full check passed\n";
@@ -1236,6 +1253,7 @@ struct ICTSNode{
     
     stats.depth=jointdepth;
     stats.count=jointnodes-q;
+    stats.goals=jointgoals;
     stats.branchingfactor=((double)jointbranchingfactor)/((double)(jointexpansions-p));
     jointstats.push_back(stats);
     if(verbose)std::cout << "Full check failed\n";
@@ -1353,9 +1371,9 @@ void printResults(){
   }
   if(crazystats){
     for(s:jointstats){
-      std::cout << s.depth << "," << s.count << "," << s.branchingfactor << "(";
+      std::cout << s.depth << "," << s.count << "," << s.goals << "," << s.branchingfactor << "(";
       for(u:s.mdds)
-        std::cout << u.depth << "," << u.count << "," << u.branchingfactor << ";";
+        std::cout << u.depth << "," << u.count << "," << u.goals  << "," << u.branchingfactor << ";";
       std::cout << ")\n";
     }
   }
