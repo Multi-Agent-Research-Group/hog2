@@ -1370,9 +1370,9 @@ void printResults(){
     }
   }
   if(crazystats){
-    for(s:jointstats){
+    for(auto const& s:jointstats){
       std::cout << s.depth << "," << s.count << "," << s.goals << "," << s.branchingfactor << "(";
-      for(u:s.mdds)
+      for(auto const& u:s.mdds)
         std::cout << u.depth << "," << u.count << "," << u.goals  << "," << u.branchingfactor << ";";
       std::cout << ")\n";
     }
