@@ -9,7 +9,7 @@
 //
 
 #include "AirplaneConstrained.h"
-#include <freeglut.h>
+#include <glut.h>
 #include <iostream>
 #include <algorithm>
  

@@ -37,3 +37,5 @@ int glutBitmapLength(void *font, const unsigned char *string) { return 0; }
 int glutStrokeLength(void *font, const unsigned char *string) { return 0; }
 
 void gluOrtho2D (GLdouble left, GLdouble right, GLdouble bottom, GLdouble top) {}
+void glMultMatrixf(const GLfloat * m ){}
+void glutWireSphere(GLdouble radius, GLint slices, GLint stacks){}

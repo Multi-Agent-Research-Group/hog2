@@ -27,6 +27,7 @@ PROJECTS = \
   utils \
   apps/airplane \
   apps/icts \
+  apps/experimental \
   apps/mapUtils \
   apps/3dmaps \
   apps/MACBS \

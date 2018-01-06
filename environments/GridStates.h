@@ -121,6 +121,7 @@ struct xyztLoc {
   xyztLoc(unsigned _x, unsigned _y, unsigned _z, float time):x(_x),y(_y),z(_z),t(round(time*TIME_RESOLUTION)),h(0){}
   xyztLoc(unsigned _x, unsigned _y, unsigned _z):x(_x),y(_y),z(_z),t(0),h(0){}
   xyztLoc(unsigned _x, unsigned _y, unsigned _z, unsigned time):x(_x),y(_y),z(_z),t(time),h(0){}
+  xyztLoc(unsigned _x, unsigned _y, unsigned _z, int time):x(_x),y(_y),z(_z),t(time),h(0){}
   operator TemporalVector3D()const{return TemporalVector3D(x,y,z,t/TIME_RESOLUTION_D);}
   explicit operator TemporalVector()const{return TemporalVector(x,y,t/TIME_RESOLUTION_D);}
   operator Vector3D()const{return Vector3D(x,y,z);}

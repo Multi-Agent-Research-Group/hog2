@@ -16,7 +16,7 @@
 #else
 #include <gl.h>
 #endif
-#include <freeglut.h>
+#include <glut.h>
 
 #include "TemplateAStar.h"
 #include "Heuristic.h"
