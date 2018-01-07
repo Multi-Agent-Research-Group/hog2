@@ -1039,13 +1039,13 @@ class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
       //TODO Draw waypoints as cubes.
       for(auto a(p.begin()+1); a!=p.end(); ++a){ GLDrawLine(*(a-1),*a); }
     }
-    virtual State const& getGoal()const{}
     virtual void SetIgnoreTime(bool i){}
     virtual bool GetIgnoreTime()const{return false;}
     virtual void SetIgnoreHeading(bool i){}
     virtual bool GetIgnoreHeading()const{return false;}
     virtual bool collisionCheck(const State &s1, const State &d1, float r1, const State &s2, const State &d2, float r2)=0;
 
+    State theGoal;
     std::vector<Constraint<State> const*> constraints;
 };
 

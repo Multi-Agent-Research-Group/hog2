@@ -47,8 +47,8 @@
 // for agents to stay at goal
 double MAXTIME=0xfffff; // 20 bits worth
 // for inflation of floats to avoid rounding errors
-double INFLATION=1000;
-double TOMSECS=0.001;
+double INFLATION=xyztLoc::TIME_RESOLUTION_D;
+double TOMSECS=1.0/INFLATION;
 double waitTime=1;
 
 
@@ -363,9 +363,9 @@ unsigned jointFCost(MultiEdge const& node, std::vector<Heuristic<xyztLoc>*> cons
   int i(0);
   for(auto const& n:node){
     // G-cost + H-cost
-    total+=n.second.t+heuristic[i]->HCost(n.second,envs[i++]->getGoal());
+    total+=n.second.t+heuristic[i]->HCost(n.second,envs[i++]->getGoal())*INFLATION;
   }
-  return round(total*INFLATION);
+  return round(total);
 }
 
 // In order for this to work, we cannot generate sets of positions, we must generate sets of actions, since at time 1.0 an action from parent A at time 0.0 may have finished, while another action from the same parent A may still be in progress. 
@@ -624,7 +624,7 @@ void printResults(){
       std::cout << ii++ << "\n";
       for(auto const& t: p){
         // Print solution
-        std::cout << t << "," << t.t/1000. << "\n";
+        std::cout << t << "\n";
       }
     }
   }
@@ -848,6 +848,7 @@ int main(int argc, char ** argv){
     }
     me->setGoal(waypoints[i].back());
     me->SetGround();
+    newEnv->WaitTime(waitTime*xyztLoc::TIME_RESOLUTION);
     envs[i]=newEnv;
   }
 

@@ -151,10 +151,6 @@ class AirplaneHiFiGridlessEnvironment : public ConstrainedEnvironment<PlatformSt
     const unsigned minSpeed;
     const unsigned maxSpeed;
 
-    PlatformState const* goal;
-    PlatformState const& getGoal()const{return *goal;}
-    void setGoal(PlatformState const& g){goal=&g;}
-
     PlatformState const* start;
     PlatformState const& getStart()const{return *start;}
     void setStart(PlatformState const& s){start=&s;}

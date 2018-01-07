@@ -133,8 +133,6 @@ public:
 	/** Vector holding the current constraints */
 	std::vector<SoftConstraint<airtimeState>> sconstraints;
 
-        virtual airtimeState const& getGoal()const{return airtimeState(ae->getGoal(),0);}
-        void setGoal(airplaneState const& g){ae->setGoal(g);}
 	AirplaneEnvironment *ae;
 	void setSoftConstraintEffectiveness(float v){softConstraintEffectiveness=v;}
 	float getSoftConstraintEffectiveness()const{return softConstraintEffectiveness;}

@@ -140,10 +140,6 @@ public:
   const double maxSpeed;    // Meters per time step
   double const gridSize;    // 3 meters
 
-  airplaneState const* goal;
-  airplaneState const& getGoal()const{return *goal;}
-  void setGoal(airplaneState const& g){goal=&g;}
-
   airplaneState const* start;
   airplaneState const& getStart()const{return *start;}
   void setStart(airplaneState const& s){start=&s;}
