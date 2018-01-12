@@ -44,8 +44,10 @@
 #include "MapPerfectHeuristic.h"
 #include "Utilities.h"
 
+#define  INF 0xffffffff
+
 // for agents to stay at goal
-double MAXTIME=0xfffff; // 20 bits worth
+double MAXTIME=0xffffffff; // 20 bits worth
 // for inflation of floats to avoid rounding errors
 double INFLATION=1000;
 double TOMSECS=0.001;
@@ -374,7 +376,7 @@ std::ostream& operator << (std::ostream& ss, MultiEdge const& n){
 
 std::ostream& operator << (std::ostream& ss, Node const& n){
   //ss << n.n.x-10 << "," << n.n.y-10 << "," << float(n.depth)/1000.;
-  ss << n.n.x << "," << n.n.y << "," << float(n.depth)/1000.<<":"<<n.id;
+  ss << n.n.x << "," << n.n.y << "," << float(n.depth)/INFLATION<<":"<<n.id;
   return ss;
 }
 
@@ -1056,7 +1058,7 @@ struct ICTSNode{
     sizes[agent]=size;
     best[agent]=INF;
     stats=parent->stats;
-    if(verbose)std::cout << "rebuild MDD for agent " << agent << " GetMDD("<<((costs[agent]+sizes[agent])/1000.)<<")\n";
+    if(verbose)std::cout << "rebuild MDD for agent " << agent << " GetMDD("<<((costs[agent]+sizes[agent])/INFLATION)<<")\n";
     //dag[agent].clear();
     replanned.push_back(agent);
     Timer timer;
@@ -1082,7 +1084,7 @@ struct ICTSNode{
       best[i]=INF;
       replanned[i]=i;
       costs[i]=(uint32_t)(heuristics[ids[i]]->HCost(instance.first[i],instance.second[i])*INFLATION);
-      if(!quiet)std::cout << "build MDD for agent " << i << " GetMDD("<<((costs[i]+sizes[i])/1000.)<<")\n";
+      if(!quiet)std::cout << "build MDD for agent " << i << " GetMDD("<<((costs[i]+sizes[i])/INFLATION)<<")\n";
       //std::cout.precision(17);
       std::cout.precision(6);
 
@@ -1365,7 +1367,7 @@ void printResults(){
       std::cout << ii++ << "\n";
       for(auto const& t: p){
         // Print solution
-        std::cout << t->n << "," << t->depth/1000. << "\n";
+        std::cout << t->n << "," << t->depth/INFLATION << "\n";
       }
     }
   }
@@ -1870,6 +1872,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
   {
     INFLATION = atof(argument[1]);
     TOMSECS=1/INFLATION;
+    std::cout << "Time resolution:  " << INFLATION << "\n";
     return 2;
   }
   if(strcmp(argument[0], "-seed") == 0)

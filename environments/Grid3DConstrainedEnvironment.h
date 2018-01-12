@@ -68,6 +68,8 @@ public:
         int16_t maxPitch=0;
         virtual bool collisionCheck(const xyztLoc &s1, const xyztLoc &d1, float r1, const xyztLoc &s2, const xyztLoc &d2, float r2);
         inline Grid3DEnvironment* GetMapEnv()const{return mapEnv;}
+        virtual void setGoal(xyztLoc const& s){mapEnv->setGoal(s);};
+        virtual xyztLoc const& getGoal()const{return mapEnv->getGoal();}
 private:
         bool ignoreTime;
         bool ignoreHeading;

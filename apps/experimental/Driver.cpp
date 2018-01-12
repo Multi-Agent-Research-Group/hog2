@@ -432,6 +432,12 @@ bool jointDFS(MultiEdge const& s, Solution<xyztLoc> solution, std::vector<Soluti
       solutions.clear();
       solutions.push_back(solution);
     }
+    if(solutions.size()==0){solutions.resize(1);solutions[0].resize(s.size());}
+    int k(0);
+    for(auto const& b : s){
+      solutions[0][k].push_back(b.second);
+      solutions[0][k++].push_back(b.first);
+    }
     return true;
   }
   //Get successors into a vector
@@ -505,10 +511,14 @@ bool jointDFS(MultiEdge const& s, Solution<xyztLoc> solution, std::vector<Soluti
       if(jointDFS(a,solution,solutions,env,heuristic,flimit,checkOnly)){
         //maxjoint=std::max(recursions,maxjoint);
         //minjoint=std::min(recursions,minjoint);
+        std::cout << "** " << a << "\n";
+        if(solutions.size()==0){solutions.resize(1);solutions[0].resize(a.size());}
+        int k(0);
+        for(auto const& b : a){
+          solutions[0][k++].push_back(b.first);
+        }
         value=true;
         transTable[hash]=value;
-        // Return first solution... (unless this is a pairwise check with pruning)
-        if(!checkOnly&&!certifyTime)certtimer.StartTimer();
       }
     }else{
       // Put it on the open list
@@ -617,7 +627,7 @@ Timer tmr;
 
 void printResults(){
   certifyTime=certtimer.EndTimer();
-  if(verbose){
+  if(!quiet){
     std::cout << "Solution:\n";
     int ii=0;
     for(auto const& p:solution){
@@ -758,21 +768,49 @@ Solution<xyztLoc> getAnswer(Instance const& inst, std::vector<Grid3DConstrainedE
   unsigned flimit(jointFCost(root,heuristic,envs));
   open.insert(flimit);
   buckets[flimit].push_back(root);
-  
-  while(open.size()){
-    Solution<xyztLoc> solution;
-    std::vector<Solution<xyztLoc>> solutions;
-    flimit=*open.begin();
-    for(auto const& root: buckets[flimit]){
-      if(jointDFS(root,solution,solutions,envs,heuristic,flimit)){
-        return solutions[0];
-      }
-    }
-    // Next plateau
-    open.erase(open.begin());
-    buckets.erase(flimit);
-    transTable.clear();
+  // save off original goals
+  Points orig;
+  for(auto const& e:envs){
+    orig.push_back(e->getGoal());
   }
+
+  Solution<xyztLoc> solution;
+  std::vector<Solution<xyztLoc>> solutions;
+  bool redo(true);
+  while(redo==true){
+    redo=false;
+    while(open.size()){
+      flimit=*open.begin();
+      std::cout << "FLIMIT " << flimit << "\n";
+      for(auto const& root: buckets[flimit]){
+        if(jointDFS(root,solution,solutions,envs,heuristic,flimit)){
+          for(int i(0); i<solutions[0].size(); ++i){
+            if(root[i].second != solutions[0][i].back()){
+              redo=true;
+            }
+            std::cout << "change goal to " << solutions[0][i].back() << "\n";
+            envs[i]->setGoal(solutions[0][i].back());
+          }
+          if(!redo){
+            int k(0);
+            for(auto const& e:envs){
+              e->setGoal(orig[k++]);
+            }
+            return solutions[0];
+          }else{
+           buckets.clear();
+           open.clear();
+           break;
+          }
+        }
+      }
+      // Next plateau
+      open.erase(open.begin());
+      buckets.erase(flimit);
+      transTable.clear();
+    }
+  }
+  return solutions[0];
 }
 
 int main(int argc, char ** argv){
@@ -872,7 +910,7 @@ int main(int argc, char ** argv){
       }else{
         astar.SetVerbose(verbose);
         astar.SetHeuristic(heuristics[i]);
-        envs[i]->setGoal(waypoints[i][0]);
+        //envs[i]->setGoal(waypoints[i][0]);
         astar.GetPath(envs[i],waypoints[i][0],waypoints[i][1],path);
         if(!quiet)std::cout<<"Planned agent "<<i<<"\n";
       }
@@ -934,7 +972,7 @@ int main(int argc, char ** argv){
         }
 
         std::vector<Solution<xyztLoc>> answers(1);
-        answers[0]=getAnswer(g,envs,heuristic);
+        answers[0]=getAnswer(g,genv,heuristic);
         mergeSolution(answers,solution,Gid[j],INF);
       }
     }
@@ -1069,6 +1107,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
         wpts.emplace_back(x,y,t);
       }
       waypoints.push_back(wpts);
+      std::cout << "Agent " << n << ": " << wpts[0] << "-->" << wpts[1] << std::endl;
       n++;
     }
     return 2;
@@ -1128,6 +1167,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
       wpts.emplace_back(e.GetStartX(),e.GetStartY());
       wpts.emplace_back(e.GetGoalX(),e.GetGoalY());
       waypoints.push_back(wpts);
+      std::cout << "Agent " << n << ": " << wpts[0] << "-->" << wpts[1] << std::endl;
     }
 
     return 2;
