@@ -64,7 +64,7 @@ public:
 
         virtual state const& getGoal()const{return fixed[0];}
 
-	uint64_t GetStateHash(const xyztLoc &node) const{return base->GetStateHash(node);}
+	uint64_t GetStateHash(const xyztLoc &node) const{return *((uint64_t*)&node);}
 	virtual void OpenGLDraw() const{}
 	virtual void OpenGLDraw(const xyztLoc &l) const{}
 	virtual void OpenGLDraw(const xyztLoc &l1, const xyztLoc &l2, float v) const{}

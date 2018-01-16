@@ -779,6 +779,7 @@ Solution<xyztLoc> getAnswer(Instance const& inst, std::vector<Grid3DConstrainedE
   MultiEdge root;
   MultiEdge origin;
   std::vector<Grid3DConstrainedEnvironment*> origenvs(env);
+  std::vector<Heuristic<xyztLoc>*> origheuristic(heuristic);
   for(auto const& i:inst){
     root.emplace_back(i.first,i.first);
     origin.emplace_back(i.first,i.first);
@@ -812,7 +813,7 @@ Solution<xyztLoc> getAnswer(Instance const& inst, std::vector<Grid3DConstrainedE
             //env[i]->setGoal(solutions[0][i].back());
             // TODO: delete this...
           }
-          env[i] = new PartialSolutionEnvironment<Grid3DConstrainedEnvironment,xyztLoc>(env[i],solutions[0][i],heuristic[i]);
+          env[i] = new PartialSolutionEnvironment<Grid3DConstrainedEnvironment,xyztLoc>(origenvs[i],solutions[0][i],origheuristic[i]);
           heuristic[i] = env[i];
         }
         if(!redo){
