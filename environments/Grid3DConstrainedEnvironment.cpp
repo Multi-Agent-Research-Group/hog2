@@ -130,7 +130,8 @@ double Grid3DConstrainedEnvironment::HCost(const xyztLoc &node1, const xyztLoc &
 
 bool Grid3DConstrainedEnvironment::GoalTest(const xyztLoc &node, const xyztLoc &goal) const
 {
-	return (node.x == goal.x && node.y == goal.y && node.z == goal.z && node.t >= goal.t);
+  return mapEnv->GoalTest(node,goal);
+	//return (node.x == goal.x && node.y == goal.y && node.z == goal.z && node.t >= goal.t);
 }
 
 

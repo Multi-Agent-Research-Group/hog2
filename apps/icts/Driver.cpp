@@ -916,7 +916,7 @@ bool jointDFS(MultiEdge const& s, uint32_t d, Solution solution, std::vector<Sol
       //}
     //}
     MultiEdge output;
-    if((OD && (k==minindex || a.second->depth==0)) || (!OD && a.second->depth<=sd)){
+    if((OD && (k==minindex /* || a.second->depth==0*/)) || (!OD && a.second->depth<=sd)){
       //std::cout << "Keep Successors of " << *a.second << "\n";
       for(auto const& b: a.second->successors){
         if(epp&&!get(good[k]->data(),b->id)){
@@ -988,7 +988,7 @@ bool jointDFS(MultiState const& s, std::vector<Solution>& solutions, std::vector
   std::unordered_set<std::string> ttable;
   // Add null parents for the initial movements
   for(auto const& n:s){
-    act.emplace_back(nullptr,n);
+    act.emplace_back(n,n);
     if(!checkOnly){
       // Add initial state for solution
       solution.push_back({n});
@@ -1360,7 +1360,7 @@ Timer tmr;
 
 void printResults(){
   certifyTime=certtimer.EndTimer();
-  if(verbose){
+  if(!quiet){
     std::cout << "Solution:\n";
     int ii=0;
     for(auto const& p:solution){

@@ -43,6 +43,7 @@
 #include "ScenarioLoader.h"
 #include "Map3dPerfectHeuristic.h"
 #include "Utilities.h"
+#include "PartialSolutionEnvironment.h"
 
 // for agents to stay at goal
 double MAXTIME=0xfffff; // 20 bits worth
@@ -281,13 +282,19 @@ std::ostream& operator << (std::ostream& ss, MultiState const& n){
 std::ostream& operator << (std::ostream& ss, MultiEdge const& n){
   int i(0);
   for(auto const& a: n)
-    ss << " "<<++i<<"." << a.second;
-  ss << std::endl;
+    ss << " "<<++i<<"." << a.first << "-->" << a.second;
   /*
   for(auto const& m:n.successors)
     ss << "----"<<m;
   */
   //n.Print(ss,0);
+  return ss;
+}
+
+std::ostream& operator << (std::ostream& ss, Solution<xyztLoc> const& s){
+  for(auto const& y:s){
+    std::cout << y << "\n";
+  }
   return ss;
 }
 
@@ -317,10 +324,10 @@ uint32_t computeSolutionCost(Solution<xyztLoc> const& solution, bool ignoreWaitA
 void generatePermutations(std::vector<MultiEdge>& positions, std::vector<MultiEdge>& result, int agent, MultiEdge const& current, std::vector<Grid3DConstrainedEnvironment*> const& env) {
   if(agent == positions.size()) {
     result.push_back(current);
-    if(verbose)std::cout << "Generated joint move:\n";
-    if(verbose)for(auto edge:current){
-      std::cout << edge.first << "-->" << edge.second << "\n";
-    }
+    //if(verbose)std::cout << "Generated joint move:\n";
+    //if(verbose)for(auto edge:current){
+      //std::cout << edge.first << "-->" << edge.second << "\n";
+    //}
     jointnodes++;
     return;
   }
@@ -337,7 +344,7 @@ void generatePermutations(std::vector<MultiEdge>& positions, std::vector<MultiEd
         //checked.insert(hash);
         break;
       }
-      if(verbose)std::cout << "generating: " << positions[agent][i].first << "-->" << positions[agent][i].second << " " << current[j].first << "-->" << current[j].second << "\n";
+      //if(verbose)std::cout << "generating: " << positions[agent][i].first << "-->" << positions[agent][i].second << " " << current[j].first << "-->" << current[j].second << "\n";
     }
     if(found) continue;
     copy.push_back(positions[agent][i]);
@@ -363,8 +370,8 @@ unsigned jointFCost(MultiEdge const& node, std::vector<Heuristic<xyztLoc>*> cons
   int i(0);
   for(auto const& n:node){
     // G-cost + H-cost
-    std::cout << "hcost" << n.second << " " << env[i]->getGoal() << "\n";
-    total+=n.second.t+heuristic[i]->HCost(n.second,env[i]->getGoal())*INFLATION;
+    //std::cout << "hcost" << n.second << " " << env[i]->getGoal() << "\n";
+    total+=env[i]->GCost(n.first,n.second)+heuristic[i]->HCost(n.second,env[i]->getGoal())*INFLATION;
     ++i;
   }
   return round(total);
@@ -378,11 +385,11 @@ bool jointDFS(MultiEdge const& s, Solution<xyztLoc> solution, std::vector<Soluti
   std::string hash(s.size()*sizeof(uint64_t),1);
   getHash(s,hash);
 
-  if(verbose)std::cout << "saw " << s << " hash ";
-  if(verbose)for(unsigned int i(0); i<hash.size(); ++i){
-    std::cout << (unsigned)hash[i]<<" ";
-  }
-  if(verbose)std::cout <<"\n";
+  if(verbose)std::cout << "saw " << s << "\n";
+  //if(verbose)for(unsigned int i(0); i<hash.size(); ++i){
+    //std::cout << (unsigned)hash[i]<<" ";
+  //}
+  //if(verbose)std::cout <<"\n";
   if(transTable.find(hash)!=transTable.end()){
     //std::cout << "AGAIN!\n";
     return transTable[hash];
@@ -414,13 +421,14 @@ bool jointDFS(MultiEdge const& s, Solution<xyztLoc> solution, std::vector<Soluti
   bool done(true);
   unsigned i(0);
   for(auto const& g:s){
-    if(!env[i]->GoalTest(g.second,env[i]->getGoal())){
+    if(!env[i]->GoalTest(g.second,env[i++]->getGoal())){
       done=false;
       break;
     }
     //maxCost=std::max(maxCost,g.second.t);
   }
   if(done){
+
     jointgoals++;
     // This is a leaf node
     // Copy the solution into the answer set
@@ -434,11 +442,11 @@ bool jointDFS(MultiEdge const& s, Solution<xyztLoc> solution, std::vector<Soluti
       solutions.clear();
       solutions.push_back(solution);
     }
-    if(solutions.size()==0){solutions.resize(1);solutions[0].resize(s.size());}
-    int k(0);
-    for(auto const& b : s){
-      solutions[0][k].push_back(b.second);
-      solutions[0][k++].push_back(b.first);
+    if(solutions.size()==0){solutions.resize(1);solutions[0].resize(s.size());
+      int k(0);
+      for(auto const& b : s){
+        solutions[0][k++].push_back(b.second);
+      }
     }
     return true;
   }
@@ -465,7 +473,7 @@ bool jointDFS(MultiEdge const& s, Solution<xyztLoc> solution, std::vector<Soluti
   k=0;
   for(auto const& a: s){
     MultiEdge output;
-    if((OD && (k==minindex || a.second.t==0)) || (!OD && a.second.t<=sd)){
+    if((OD && (k==minindex/* || a.second.t==0*/)) || (!OD && a.second.t<=sd)){
       //std::cout << "Keep Successors of " << *a.second << "\n";
       MultiState succ;
       env[k]->GetSuccessors(a.second,succ);
@@ -509,22 +517,25 @@ bool jointDFS(MultiEdge const& s, Solution<xyztLoc> solution, std::vector<Soluti
   for(auto& a: crossProduct){
     unsigned fcost(jointFCost(a,heuristic,env));
     if(fcost <= flimit){
-      if(verbose)std::cout << "EVAL " << s << "-->" << a << "\n";
+      if(verbose)std::cout << "EVAL " << a << "("<<fcost<<")\n";
       if(jointDFS(a,solution,solutions,env,heuristic,flimit,checkOnly)){
         //maxjoint=std::max(recursions,maxjoint);
         //minjoint=std::min(recursions,minjoint);
         std::cout << "** " << a << "\n";
-        if(solutions.size()==0){solutions.resize(1);solutions[0].resize(a.size());}
+        //if(solutions.size()==0){solutions.resize(1);solutions[0].resize(a.size());}
         int k(0);
         for(auto const& b : a){
-          solutions[0][k++].push_back(b.first);
+          if(b.first != solutions[0][k].back())
+            solutions[0][k].push_back(b.first);
+          k++;
         }
         value=true;
         transTable[hash]=value;
+        return true;
       }
     }else{
       // Put it on the open list
-      if(verbose)std::cout << "OPEN " << s << "-->" << a << "\n";
+      if(verbose)std::cout << "OPEN " << a << "("<<fcost<<")\n";
       open.insert(fcost);
       buckets[fcost].push_back(a);
     }
@@ -762,10 +773,15 @@ std::pair<uint32_t,uint32_t> mergeSolution(std::vector<Solution<xyztLoc>>& answe
   return {0.0f,costs[sorted[0]]};
 }
 
-Solution<xyztLoc> getAnswer(Instance const& inst, std::vector<Grid3DConstrainedEnvironment*> const& env, std::vector<Heuristic<xyztLoc>*> const& heuristic){
+Solution<xyztLoc> getAnswer(Instance const& inst, std::vector<Grid3DConstrainedEnvironment*> env, std::vector<Heuristic<xyztLoc>*> heuristic){
+  buckets.clear();
+  open.clear();
   MultiEdge root;
+  MultiEdge origin;
+  std::vector<Grid3DConstrainedEnvironment*> origenvs(env);
   for(auto const& i:inst){
     root.emplace_back(i.first,i.first);
+    origin.emplace_back(i.first,i.first);
   }
   unsigned flimit(jointFCost(root,heuristic,env));
   open.insert(flimit);
@@ -779,38 +795,55 @@ Solution<xyztLoc> getAnswer(Instance const& inst, std::vector<Grid3DConstrainedE
   Solution<xyztLoc> solution;
   std::vector<Solution<xyztLoc>> solutions;
   bool redo(true);
-  while(redo==true){
+  while(open.size()){
     redo=false;
-    while(open.size()){
-      flimit=*open.begin();
-      std::cout << "FLIMIT " << flimit << "\n";
-      for(auto const& root: buckets[flimit]){
-        if(jointDFS(root,solution,solutions,env,heuristic,flimit)){
-          for(int i(0); i<solutions[0].size(); ++i){
-            if(root[i].second != solutions[0][i].back()){
-              redo=true;
-            }
-            std::cout << "change goal to " << solutions[0][i].back() << "\n";
-            env[i]->setGoal(solutions[0][i].back());
+    flimit=*open.begin();
+    if(verbose)std::cout << "FLIMIT " << flimit << "\n";
+    for(auto const& s: buckets[flimit]){
+      //for(auto const& a: s)
+      if(verbose)std::cout << s << "\n";
+    }
+    for(auto const& root: buckets[flimit]){
+      if(jointDFS(root,solution,solutions,env,heuristic,flimit)){
+        for(int i(0); i<solutions[0].size(); ++i){
+          if(inst[i].first != solutions[0][i].back()){
+            redo=true;
+            //std::cout << "change goal " << i << " to " << solutions[0][i].back() << "\n";
+            //env[i]->setGoal(solutions[0][i].back());
+            // TODO: delete this...
           }
-          if(!redo){
-            int k(0);
-            for(auto const& e:env){
-              e->setGoal(orig[k++]);
-            }
-            return solutions[0];
-          }else{
-           buckets.clear();
-           open.clear();
-           break;
+          env[i] = new PartialSolutionEnvironment<Grid3DConstrainedEnvironment,xyztLoc>(env[i],solutions[0][i],heuristic[i]);
+          heuristic[i] = env[i];
+        }
+        if(!redo){
+          // We can exit
+          int k(0);
+          /*for(auto const& e:env){
+            e->setGoal(orig[k++]);
+          }*/
+          for(auto& s:solutions[0]){
+            std::reverse(s.begin(),s.end());
           }
+          if(verbose)std::cout << "Final Solution " << solutions[0] << "\n";
+          return solutions[0];
+        }else{
+          if(verbose)std::cout << "Current Solution " << solutions[0] << "\n";
+          // We have to re-perform the search with the new goals
+          buckets.clear();
+          open.clear();
+          open.insert(jointFCost(origin,heuristic,env));
+          buckets[*open.begin()].push_back(origin);
+          break;
         }
       }
-      // Next plateau
+    }
+    // Next plateau
+    if(!redo){
       open.erase(open.begin());
       buckets.erase(flimit);
-      transTable.clear();
     }
+    // Trans table is reused for each plateau
+    transTable.clear();
   }
   return solutions[0];
 }

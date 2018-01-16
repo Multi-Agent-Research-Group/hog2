@@ -535,6 +535,8 @@ double Grid3DEnvironment::GCost(const xyztLoc &l, const t3DDirection &act) const
 
 double Grid3DEnvironment::GCost(const xyztLoc &l1, const xyztLoc &l2) const
 {
+  return l2.t;
+
   double multiplier = 1.0;
   static const float SQRT_2(sqrt(2));
   static const float SQRT_3(sqrt(3));
@@ -672,7 +674,8 @@ bool Grid3DEnvironment::LineOfSight(const std::pair<xyztLoc,xyztLoc> &node, cons
 
 bool Grid3DEnvironment::GoalTest(const xyztLoc &node, const xyztLoc &goal) const
 {
-	return ((node.x == goal.x) && (node.y == goal.y));
+// require goal time if specified
+	return ((node.x == goal.x) && (node.y == goal.y) && (node.z==goal.z) && (!goal.t || (node.t<=goal.t)));
 }
 
 uint64_t Grid3DEnvironment::GetMaxHash() const
