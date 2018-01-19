@@ -12,24 +12,19 @@
 
 #include <iostream>
 #include <functional>
-#include "SearchEnvironment.h"
-#include <ext/hash_map>
+#include <unordered_map>
 #include "FPUtil.h"
 #include "vectorCache.h"
 
 //#define DO_LOGGING
 
-typedef __gnu_cxx::hash_map<uint64_t, double> NodeHashTable;
-
-template <class state, class action>
+template <class state, class action, class environment>
 class IDAStar {
 public:
 	IDAStar() { useHashTable = usePathMax = false; storedHeuristic = false;}
 	virtual ~IDAStar() {}
-	void GetPath(SearchEnvironment<state, action> *env, state from, state to,
-							 std::vector<state> &thePath);
-	void GetPath(SearchEnvironment<state, action> *env, state from, state to,
-				 std::vector<action> &thePath);
+	void GetPath(environment *env, state const& from, state const& to, std::vector<state> &thePath);
+	void GetPath(environment *env, state from, state to, std::vector<action> &thePath);
 
 	uint64_t GetNodesExpanded() { return nodesExpanded; }
 	uint64_t GetNodesTouched() { return nodesTouched; }
@@ -39,11 +34,11 @@ public:
 private:
 	unsigned long long nodesExpanded, nodesTouched;
 	
-	double DoIteration(SearchEnvironment<state, action> *env,
+	double DoIteration(environment *env,
 					   state parent, state currState,
 					   std::vector<state> &thePath, double bound, double g,
 					   double maxH);
-	double DoIteration(SearchEnvironment<state, action> *env,
+	double DoIteration(environment *env,
 					   action forbiddenAction, state &currState,
 					   std::vector<action> &thePath, double bound, double g,
 					   double maxH, double parentH);
@@ -66,13 +61,13 @@ private:
 	void UpdateNextBound(double currBound, double fCost);
 	state goal;
 	double nextBound;
-	//NodeHashTable nodeTable;
 	bool usePathMax;
 	bool useHashTable;
 	vectorCache<action> actCache;
 	bool storedHeuristic;
 	Heuristic<state> *heuristic;
 	std::vector<uint64_t> gCostHistogram;
+	std::map<double,uint64_t> fCostHistogram;
 
 #ifdef DO_LOGGING
 public:
@@ -80,22 +75,31 @@ public:
 #endif
 };
 
-template <class state, class action>
-void IDAStar<state, action>::GetPath(SearchEnvironment<state, action> *env,
-									 state from, state to,
-									 std::vector<state> &thePath)
+template <class state, class action, class environment>
+void IDAStar<state, action, environment>::GetPath(environment *env,
+						 state const& from, state const& to,
+						 std::vector<state> &thePath)
 {
 	if (!storedHeuristic)
 		heuristic = env;
 	nextBound = 0;
 	nodesExpanded = nodesTouched = 0;
 	thePath.resize(0);
-	UpdateNextBound(0, heuristic->HCost(from, to));
+	//UpdateNextBound(0, heuristic->HCost(from, to));
+	fCostHistogram[heuristic->HCost(from, to)]=1;
 	goal = to;
 	thePath.push_back(from);
 	while (true) //thePath.size() == 0)
 	{
+                unsigned total(0);
+                auto cost(fCostHistogram.begin());
+                while(total<2 && cost!=fCostHistogram.end()){
+                  total+=cost->second;
+                  nextBound=cost->first;
+                  ++cost;
+                }
 		//nodeTable.clear();
+		fCostHistogram.clear();
 		gCostHistogram.clear();
 		gCostHistogram.resize(nextBound+1);
 		printf("Starting iteration with bound %f\n", nextBound);
@@ -106,8 +110,8 @@ void IDAStar<state, action>::GetPath(SearchEnvironment<state, action> *env,
 	PrintGHistogram();
 }
 
-template <class state, class action>
-void IDAStar<state, action>::GetPath(SearchEnvironment<state, action> *env,
+template <class state, class action, class environment>
+void IDAStar<state, action, environment>::GetPath(environment *env,
 									 state from, state to,
 									 std::vector<action> &thePath)
 {
@@ -137,22 +141,16 @@ void IDAStar<state, action>::GetPath(SearchEnvironment<state, action> *env,
 	}
 }
 
-template <class state, class action>
-double IDAStar<state, action>::DoIteration(SearchEnvironment<state, action> *env,
-										   state parent, state currState,
-										   std::vector<state> &thePath, double bound, double g,
-										   double maxH)
+template <class state, class action, class environment>
+double IDAStar<state, action, environment>::DoIteration(environment *env,
+    state parent, state currState,
+    std::vector<state> &thePath, double bound, double g,
+    double maxH)
 {
-	double h = heuristic->HCost(currState, goal);
 	// path max
-	if (usePathMax && fless(h, maxH))
-		h = maxH;
-	if (fgreater(g+h, bound))
-	{
-		UpdateNextBound(bound, g+h);
-		//printf("Stopping at (%d, %d). g=%f h=%f\n", currState>>16, currState&0xFFFF, g, h);
-		return h;
-	}
+	//if (usePathMax && fless(h, maxH))
+		//h = maxH;
+        std::cout << "EVAL " << currState << "\n";
 	if (env->GoalTest(currState, goal))
 		return 0;
 		
@@ -166,30 +164,36 @@ double IDAStar<state, action>::DoIteration(SearchEnvironment<state, action> *env
 	{
 		if (neighbors[x] == parent)
 			continue;
-		thePath.push_back(neighbors[x]);
+                double h = heuristic->HCost(neighbors[x], goal);
 		double edgeCost = env->GCost(currState, neighbors[x]);
-		double childH = DoIteration(env, currState, neighbors[x], thePath, bound,
-																g+edgeCost, maxH - edgeCost);
+                fCostHistogram[g+edgeCost+h]++;
+                if(fgreater(g+edgeCost+h, bound)){
+                  std::cout << "Ignore " << neighbors[x] << " " << g+edgeCost+h << "\n";
+                  continue;
+                }
+                std::cout << "Investigate " << neighbors[x] << " " << g+edgeCost+h << "\n";
+		thePath.push_back(neighbors[x]);
+		DoIteration(env, currState, neighbors[x], thePath, bound, g+edgeCost, maxH - edgeCost);
 		if (env->GoalTest(thePath.back(), goal))
 			return 0;
 		thePath.pop_back();
 		// pathmax
-		if (usePathMax && fgreater(childH-edgeCost, h))
-		{
+		//if (usePathMax && fgreater(childH-edgeCost, h))
+		//{
 //			nodeTable[currState] = g;//+h
-			h = childH-edgeCost;
-			if (fgreater(g+h, bound))
-			{
-				UpdateNextBound(bound, g+h);
-				return h;
-			}
-		}
+			//h = childH-edgeCost;
+			//if (fgreater(g+h, bound))
+			//{
+				//UpdateNextBound(bound, g+h);
+				//return h;
+			//}
+		//}
 	}
-	return h;
+	return 1;
 }
 
-template <class state, class action>
-double IDAStar<state, action>::DoIteration(SearchEnvironment<state, action> *env,
+template <class state, class action, class environment>
+double IDAStar<state, action, environment>::DoIteration(environment *env,
 										   action forbiddenAction, state &currState,
 										   std::vector<action> &thePath, double bound, double g,
 										   double maxH, double parentH)
@@ -259,8 +263,8 @@ double IDAStar<state, action>::DoIteration(SearchEnvironment<state, action> *env
 }
 
 
-template <class state, class action>
-void IDAStar<state, action>::UpdateNextBound(double currBound, double fCost)
+template <class state, class action, class environment>
+void IDAStar<state, action, environment>::UpdateNextBound(double currBound, double fCost)
 {
 	if (!fgreater(nextBound, currBound))
 	{
@@ -276,20 +280,3 @@ void IDAStar<state, action>::UpdateNextBound(double currBound, double fCost)
 
 
 #endif
-
-//template <class state, class action>
-//class SearchEnvironment {
-//public:
-//	virtual ~SearchEnvironment() {}
-//	virtual void GetSuccessors(const state &nodeID, std::vector<state> &neighbors) = 0;
-//	virtual void GetActions(const state &nodeID, std::vector<action> &actions) = 0;
-//	virtual action GetAction(state &s1, state &s2) = 0;
-//	virtual void ApplyAction(state &s, action a) = 0;
-//	
-//	virtual double HCost(state &node1, state &node2) = 0;
-//	virtual double GCost(state &node1, state &node2) = 0;
-//	virtual bool GoalTest(state &node, state &goal) = 0;
-//	
-//	virtual uint64_t GetStateHash(const state &node) = 0;
-//	virtual uint64_t GetActionHash(action act) = 0;
-//};

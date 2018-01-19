@@ -33,6 +33,7 @@ PROJECTS = \
   apps/MACBS \
   apps/MAPF \
   apps/MAAStar \
+  apps/MAIDAStar \
   apps/aacbs \
   apps/MO \
   test/airplane \

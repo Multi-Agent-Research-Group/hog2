@@ -49,7 +49,7 @@ public:
 	
 	/** Heuristic value between two arbitrary nodes. **/
 	virtual double HCost(const xytLoc &node1, const xytLoc &node2) const;
-	virtual double GCost(const xytLoc &node1, const xytLoc &node2) const { return node2.t-node1.t; }
+	virtual double GCost(const xytLoc &node1, const xytLoc &node2) const { return fequal(node1.t,node2.t)?0.0:mapEnv->GCost(node1,node2); }
 	virtual double GCost(const xytLoc &node, const tDirection &act) const { return  mapEnv->GCost(node,act); }
 	virtual bool GoalTest(const xytLoc &node, const xytLoc &goal) const;
 	

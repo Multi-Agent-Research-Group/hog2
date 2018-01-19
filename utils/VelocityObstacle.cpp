@@ -445,10 +445,10 @@ double collisionCheck3D(TemporalVector3D const& A1, TemporalVector3D const& A2, 
     case 0:
     case 1:
       if(std::max(radiusA,radiusB)>.25){
-        static unsigned bitarray27r_5[27*27*27/WORD_BITS+1];
-        if(!get(bitarray27r_5,CENTER_IDX27)){
-          fillArray(bitarray27r_5,*index27,1,.5);
-        }
+        //static unsigned bitarray27r_5[27*27*27/WORD_BITS+1];
+        //if(!get(bitarray27r_5,CENTER_IDX27)){
+          //fillArray(bitarray27r_5,*index27,1,.5);
+        //}
 
         if(ssx<2 && ssy<2 && ssz<2 && sdx<3 && sdy<3 && sdz<3){
           //if(!get(bitarray27r_5,index27(A1,A2,B1,B2)))
@@ -458,10 +458,10 @@ double collisionCheck3D(TemporalVector3D const& A1, TemporalVector3D const& A2, 
              //return 0;
         }else{return 0;}
       }else{
-        static unsigned bitarray27r_25[27*27*27/WORD_BITS+1];
-        if(!get(bitarray27r_25,CENTER_IDX27)){
-          fillArray(bitarray27r_25,*index27,1,.25);
-        }
+        //static unsigned bitarray27r_25[27*27*27/WORD_BITS+1];
+        //if(!get(bitarray27r_25,CENTER_IDX27)){
+          //fillArray(bitarray27r_25,*index27,1,.25);
+        //}
 
         if(ssx<2 && ssy<2 && ssz<2 && sdx<3 && sdy<3 && sdz<3){
           //if(!get(bitarray27r_25,index27(A1,A2,B1,B2)))
@@ -474,30 +474,30 @@ double collisionCheck3D(TemporalVector3D const& A1, TemporalVector3D const& A2, 
       break;
     case 2:
       if(std::max(radiusA,radiusB)>.25){
-        static unsigned bitarray125r_5[125*125*125/WORD_BITS+1];
-        if(!get(bitarray125r_5,CENTER_IDX125)){
-          fillArray(bitarray125r_5,*index125,2,.5);
-        }
+        //static unsigned bitarray125r_5[125*125*125/WORD_BITS+1];
+        //if(!get(bitarray125r_5,CENTER_IDX125)){
+          //fillArray(bitarray125r_5,*index125,2,.5);
+        //}
 
         if(ssx<3 && ssy<3 && ssz<3 && sdx<5 && sdy<5 && sdz<5){
-          if(!get(bitarray125r_5,index125(A1,A2,B1,B2)))
-             return 0;
+          //if(!get(bitarray125r_5,index125(A1,A2,B1,B2)))
+             //return 0;
         }else if(sdx<3 && sdy<3 && sdz<3 && ssx<5 && ssy<5 && ssz<5){
-          if(!get(bitarray125r_5,index125(A1,A2,B2,B1)))
-             return 0;
+          //if(!get(bitarray125r_5,index125(A1,A2,B2,B1)))
+             //return 0;
         }else{return 0;}
       }else{
-        static unsigned bitarray125r_25[125*125*125/WORD_BITS+1];
-        if(!get(bitarray125r_25,CENTER_IDX125)){
-          fillArray(bitarray125r_25,*index125,2,.25);
-        }
+        //static unsigned bitarray125r_25[125*125*125/WORD_BITS+1];
+        //if(!get(bitarray125r_25,CENTER_IDX125)){
+          //fillArray(bitarray125r_25,*index125,2,.25);
+        //}
 
         if(ssx<3 && ssy<3 && ssz<3 && sdx<5 && sdy<5 && sdz<5){
-          if(!get(bitarray125r_25,index125(A1,A2,B1,B2)))
-             return 0;
+          //if(!get(bitarray125r_25,index125(A1,A2,B1,B2)))
+             //return 0;
         }else if(sdx<3 && sdy<3 && sdz<3 && ssx<5 && ssy<5 && ssz<5){
-          if(!get(bitarray125r_25,index125(A1,A2,B2,B1)))
-             return 0;
+          //if(!get(bitarray125r_25,index125(A1,A2,B2,B1)))
+             //return 0;
         }else{return 0;}
       }
       break;

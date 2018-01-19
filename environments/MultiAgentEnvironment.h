@@ -171,7 +171,7 @@ void MultiAgentEnvironment<state,action,environment>::GetSuccessors(const MAStat
   bool first(true);
   for(auto const& a: s){
     std::vector<state> output;
-    if(sd==0 || k==minindex){
+    if(k==minindex){
     //if(first && a.second.t<=sd){
       first=false;
       std::vector<typename state::first_type> n;
