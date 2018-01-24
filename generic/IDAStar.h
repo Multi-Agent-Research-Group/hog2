@@ -93,7 +93,7 @@ void IDAStar<state, action, environment>::GetPath(environment *env,
 	{
                 unsigned total(0);
                 auto cost(fCostHistogram.begin());
-                while(total<2 && cost!=fCostHistogram.end()){
+                while(total<10 && cost!=fCostHistogram.end()){
                   total+=cost->second;
                   nextBound=cost->first;
                   ++cost;
@@ -150,7 +150,7 @@ double IDAStar<state, action, environment>::DoIteration(environment *env,
 	// path max
 	//if (usePathMax && fless(h, maxH))
 		//h = maxH;
-        std::cout << "EVAL " << currState << "\n";
+        //std::cout << "EVAL " << currState << "\n";
 	if (env->GoalTest(currState, goal))
 		return 0;
 		
@@ -159,6 +159,10 @@ double IDAStar<state, action, environment>::DoIteration(environment *env,
 	nodesTouched += neighbors.size();
 	nodesExpanded++;
 	gCostHistogram[g]++;
+        //std::cout << "Neightbors:\n";
+        //for(auto const& n:neighbors){
+          //std::cout << n << "\n";
+        //}
 
 	for (unsigned int x = 0; x < neighbors.size(); x++)
 	{
@@ -168,10 +172,10 @@ double IDAStar<state, action, environment>::DoIteration(environment *env,
 		double edgeCost = env->GCost(currState, neighbors[x]);
                 fCostHistogram[g+edgeCost+h]++;
                 if(fgreater(g+edgeCost+h, bound)){
-                  std::cout << "Ignore " << neighbors[x] << " " << g+edgeCost+h << "\n";
+                  //std::cout << "Ignore " << neighbors[x] << " " << g+edgeCost+h << "\n";
                   continue;
                 }
-                std::cout << "Investigate " << neighbors[x] << " " << g+edgeCost+h << "\n";
+                //std::cout << "Investigate " << neighbors[x] << " " << g+edgeCost+h << "\n";
 		thePath.push_back(neighbors[x]);
 		DoIteration(env, currState, neighbors[x], thePath, bound, g+edgeCost, maxH - edgeCost);
 		if (env->GoalTest(thePath.back(), goal))

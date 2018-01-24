@@ -175,7 +175,7 @@ void MultiAgentEnvironment<state,action,environment>::GetSuccessors(const MAStat
     //if(first && a.second.t<=sd){
       first=false;
       std::vector<typename state::first_type> n;
-      env[k++]->GetSuccessors(a.second,n);
+      env[k]->GetSuccessors(a.second,n);
       //std::cout << "Keep Successors of " << *a.second << "\n";
       for(auto const& b: n){
         output.emplace_back(a.second,b);
@@ -193,6 +193,7 @@ void MultiAgentEnvironment<state,action,environment>::GetSuccessors(const MAStat
     }
     //std::cout << "successor  of " << s << "gets("<<*a<< "): " << output << "\n";
     successors.push_back(output);
+    ++k;
   }
   MAState<state> tmp;
   generatePermutations(successors,neighbors,0,tmp,sd);

@@ -330,7 +330,7 @@ Solution<xytLoc> solution;
 double total(0.0);
 uint32_t nacts(0.0);
 int failed(0);
-uint32_t cost(0);
+double cost(0);
 Timer tmr;
 
 void printResults(){
@@ -469,6 +469,7 @@ int main(int argc, char ** argv){
     //menv.back()->SetWaitAllowed();
     env.push_back(new Map2DConstrainedEnvironment(menv.back()));
     env.back()->SetIgnoreHeading(true);
+    env.back()->WaitTime(1.0);
 
     switch(agentType){
       case 8:
