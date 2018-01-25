@@ -334,7 +334,7 @@ double cost(0);
 Timer tmr;
 
 void printResults(){
-  if(verbose){
+  if(!quiet){
     std::cout << "Solution:\n";
     int ii=0;
     for(auto const& p:solution){
@@ -423,7 +423,9 @@ std::pair<uint32_t,uint32_t> mergeSolution(std::vector<Solution<xytLoc>>& answer
           break;
         }
       }
-      if(!allValid) break;
+      if(!allValid){
+        break;
+      }
     }
     // If a conflict free set is found, merge it and return the cost
     if(allValid){
@@ -525,12 +527,14 @@ int main(int argc, char ** argv){
     // Initial individual paths.
     for(int i(0); i<n; ++i){
       std::vector<xytLoc> path;
+      env[i]->GetMapEnv()->setGoal(waypoints[i][1]); // For wait Actions
+      env[i]->setGoal(waypoints[i][1]); // For wait Actions
       if(waypoints[i][0]==waypoints[i][1]){ // Already at goal
         path.push_back(waypoints[i][0]);
       }else{
         astar.SetVerbose(verbose);
         astar.SetHeuristic(heuristics[i]);
-        env[i]->GetMapEnv()->setGoal(waypoints[i][1]); // For wait Actions
+        //env[i]->setGoal(waypoints[i][1]); // For wait Actions
         astar.GetPath(env[i],waypoints[i][0],waypoints[i][1],path);
         if(!quiet)std::cout<<"Planned agent "<<i<<"\n";
       }
@@ -627,14 +631,14 @@ int main(int argc, char ** argv){
         for(int i(0); i<Gid[j].size();++i){
           answers[0][i].reserve(path.size());
           for(auto const& a:path){
-            if(!answers[0][i].size() || (answers[0][i].size() && !answers[0][i].back().sameLoc(a[i].second))){
+            if(!answers[0][i].size() || (answers[0][i].size() && answers[0][i].back()!=a[i].second)){
               answers[0][i].push_back(a[i].second);
             }
           }
           //answers[0][i].push_back(xytLoc(answers[0][i].back(),MAXTIME)); // Add a final wait action that goes way out...
         }
           
-        double bestMergedCost(999999999.0);
+        double bestMergedCost(INF);
         mergeSolution(answers,solution,Gid[j],bestMergedCost);
       }
     }

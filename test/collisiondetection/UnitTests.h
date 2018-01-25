@@ -761,6 +761,10 @@ TEST(Quadratic, Contrived11){
   ASSERT_TRUE(collisionImminent(A,VA,radius,1,2,B,VB,radius,1.41421,2.41421));
 }
 
+TEST(collisionCheck3D, Test1){
+  ASSERT_TRUE(collisionCheck3D(xyztLoc(5,5,0,1.41421f),xyztLoc(6,6,0,2.82843f),xyztLoc(6,6,0,2.0f),xyztLoc(5,6,0,3.0f),.25));
+}
+
 void drawcircle(int x0, int y0, int r, std::map<int,int>& coords){
     int x = r;
     int y = 0;

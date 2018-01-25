@@ -84,6 +84,8 @@ class MultiAgentEnvironment : public SearchEnvironment<MAState<state>, std::vect
 
     // Hashing
     virtual uint64_t GetStateHash(MAState<state> const& node) const;
+    virtual uint64_t GetStateHash(state const& node) const{return env[0]->GetStateHash(node.second);}
+    virtual uint64_t GetStateHash(unsigned agent, state const& node) const{return env[agent]->GetStateHash(node.second);}
     virtual uint64_t GetActionHash(MultiAgentAction act) const{assert(false);}
 
     // Drawing
@@ -104,7 +106,7 @@ class MultiAgentEnvironment : public SearchEnvironment<MAState<state>, std::vect
 
     //mutable std::vector<MultiAgentAction> internalActions;
 
-    static void generatePermutations(std::vector<std::vector<state>>& positions, std::vector<MAState<state>>& result, int agent, MAState<state>& current, uint32_t lastTime);
+    static void generatePermutations(std::vector<std::vector<state>>& positions, std::vector<MAState<state>>& result, int agent, MAState<state>& current);
 
 
   private:
@@ -121,7 +123,7 @@ static std::ostream& operator <<(std::ostream& os, MAState<state> const& s){
 }
 
 template<typename state, typename action, typename environment>
-void MultiAgentEnvironment<state,action,environment>::generatePermutations(std::vector<std::vector<state>>& positions, std::vector<MAState<state>>& result, int agent, MAState<state>& current, uint32_t lastTime) {
+void MultiAgentEnvironment<state,action,environment>::generatePermutations(std::vector<std::vector<state>>& positions, std::vector<MAState<state>>& result, int agent, MAState<state>& current){
   static double agentRadius=.25;
   if(agent == positions.size()) {
     current.setT();
@@ -131,7 +133,6 @@ void MultiAgentEnvironment<state,action,environment>::generatePermutations(std::
 
   for(int i = 0; i < positions[agent].size(); ++i) {
     bool found(false);
-    MAState<state> copy(current);
     for(int j(0); j<current.size(); ++j){
       if(collisionCheck3D(positions[agent][i].first,positions[agent][i].second,current[j].first,current[j].second,agentRadius)){
         found=true;
@@ -139,8 +140,9 @@ void MultiAgentEnvironment<state,action,environment>::generatePermutations(std::
       }
     }
     if(found) continue;
+    MAState<state> copy(current);
     copy.push_back(positions[agent][i]);
-    generatePermutations(positions, result, agent + 1, copy,lastTime);
+    generatePermutations(positions, result, agent + 1, copy);
   }
 }
 
@@ -152,13 +154,13 @@ void MultiAgentEnvironment<state,action,environment>::GetSuccessors(const MAStat
   successors.reserve(s.size());
 
   // Find minimum depth of current edges
-  uint32_t sd(0xffffffff);
+  auto sd(s[0].second.t);
   unsigned  minindex(0);
   unsigned k(0);
   for(auto const& a: s){
     if(a.second.t<sd){
       minindex=k;
-      sd=a.second.t;
+      sd=a.second.t; // We only care down to the msec.
     }
     ++k;
     //sd=min(sd,a.second.t);
@@ -176,6 +178,12 @@ void MultiAgentEnvironment<state,action,environment>::GetSuccessors(const MAStat
       first=false;
       std::vector<typename state::first_type> n;
       env[k]->GetSuccessors(a.second,n);
+      if(env[k]->GoalTest(a.second,env[k]->getGoal())){
+        // Add a wait action that goes out a long time
+        auto longone(a.second);
+        longone.t=0xfffff;
+        n.push_back(longone);
+      }
       //std::cout << "Keep Successors of " << *a.second << "\n";
       for(auto const& b: n){
         output.emplace_back(a.second,b);
@@ -196,7 +204,7 @@ void MultiAgentEnvironment<state,action,environment>::GetSuccessors(const MAStat
     ++k;
   }
   MAState<state> tmp;
-  generatePermutations(successors,neighbors,0,tmp,sd);
+  generatePermutations(successors,neighbors,0,tmp);
 }
 
 template<typename state, typename action, typename environment>

@@ -91,6 +91,7 @@ struct xytLoc : xyLoc, tLoc {
   operator Vector2D()const{return Vector2D(x,y);}
   virtual bool sameLoc(xytLoc const& other)const{return x==other.x&&y==other.y;}
   virtual bool operator==(xytLoc const& other)const{return sameLoc(other)&&tLoc::operator==(other);}
+  virtual bool operator!=(xytLoc const& other)const{return !operator==(other);}
   virtual void print(std::ostream& os)const{os<<"("<<x<<","<<y<<","<<t<<")";}
   uint16_t h; // Heading quantized to epsilon=1/(2**16-1)... 0=north max=north-epsilon
   int16_t nc; // Number of conflicts, for conflict avoidance table

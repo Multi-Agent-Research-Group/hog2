@@ -67,7 +67,8 @@ private:
 	bool storedHeuristic;
 	Heuristic<state> *heuristic;
 	std::vector<uint64_t> gCostHistogram;
-	std::map<double,uint64_t> fCostHistogram;
+	std::map<uint32_t,uint64_t> fCostHistogram;
+        std::unordered_map<std::string,bool> transTable;
 
 #ifdef DO_LOGGING
 public:
@@ -86,16 +87,17 @@ void IDAStar<state, action, environment>::GetPath(environment *env,
 	nodesExpanded = nodesTouched = 0;
 	thePath.resize(0);
 	//UpdateNextBound(0, heuristic->HCost(from, to));
-	fCostHistogram[heuristic->HCost(from, to)]=1;
+	fCostHistogram[uint32_t(heuristic->HCost(from, to)*1000)]=1;
 	goal = to;
 	thePath.push_back(from);
 	while (true) //thePath.size() == 0)
 	{
                 unsigned total(0);
                 auto cost(fCostHistogram.begin());
-                while(total<10 && cost!=fCostHistogram.end()){
+                auto pBound(nextBound);
+                while((total<10 || fequal(nextBound,pBound)) && cost!=fCostHistogram.end()){
                   total+=cost->second;
-                  nextBound=cost->first;
+                  nextBound=cost->first/1000.0;
                   ++cost;
                 }
 		//nodeTable.clear();
@@ -147,11 +149,35 @@ double IDAStar<state, action, environment>::DoIteration(environment *env,
     std::vector<state> &thePath, double bound, double g,
     double maxH)
 {
-	// path max
-	//if (usePathMax && fless(h, maxH))
-		//h = maxH;
+        // Compute hash for transposition table
+        std::string hash(currState.size()*sizeof(uint64_t),1);
+        int k(0);
+        for(auto v:currState){
+          uint64_t h1(env->GetStateHash(v));
+          uint8_t c[sizeof(uint64_t)];
+          memcpy(c,&h1,sizeof(uint64_t));
+          for(unsigned j(0); j<sizeof(uint64_t); ++j){
+            hash[k*sizeof(uint64_t)+j]=((int)c[j])?c[j]:1; // Replace null-terminators in the middle of the string
+          }
+          ++k;
+        }
+
+        //if(verbose)std::cout << "saw " << s << " hash ";
+        //if(verbose)for(unsigned int i(0); i<hash.size(); ++i){
+        //std::cout << (unsigned)hash[i]<<" ";
+        //}
+        //if(verbose)std::cout <<"\n";
+        if(transTable.find(hash)!=transTable.end()){
+          //std::cout << "AGAIN!\n";
+          return 999999999.9;
+          //if(!transTable[hash]){return false;}
+        }
+
+        // path max
+        //if (usePathMax && fless(h, maxH))
+        //h = maxH;
         //std::cout << "EVAL " << currState << "\n";
-	if (env->GoalTest(currState, goal))
+        if (env->GoalTest(currState, goal))
 		return 0;
 		
 	std::vector<state> neighbors;
@@ -170,16 +196,22 @@ double IDAStar<state, action, environment>::DoIteration(environment *env,
 			continue;
                 double h = heuristic->HCost(neighbors[x], goal);
 		double edgeCost = env->GCost(currState, neighbors[x]);
-                fCostHistogram[g+edgeCost+h]++;
                 if(fgreater(g+edgeCost+h, bound)){
+                  fCostHistogram[uint32_t((g+edgeCost+h)*1000)]++;
                   //std::cout << "Ignore " << neighbors[x] << " " << g+edgeCost+h << "\n";
                   continue;
                 }
                 //std::cout << "Investigate " << neighbors[x] << " " << g+edgeCost+h << "\n";
 		thePath.push_back(neighbors[x]);
 		DoIteration(env, currState, neighbors[x], thePath, bound, g+edgeCost, maxH - edgeCost);
-		if (env->GoalTest(thePath.back(), goal))
-			return 0;
+                if (env->GoalTest(thePath.back(), goal)){
+                  //std::cout << "Found goal:\n";
+                  //for(auto const& r:thePath){
+                    //std::cout << r << "\n";
+                  //}
+                  return 0;
+                }
+                transTable[hash]=false;
 		thePath.pop_back();
 		// pathmax
 		//if (usePathMax && fgreater(childH-edgeCost, h))
