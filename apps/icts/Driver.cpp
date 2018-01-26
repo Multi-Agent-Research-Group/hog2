@@ -98,6 +98,7 @@ size_t maxnagents(0);
 unsigned collChecks(0);
 
 extern double agentRadius;
+double weight(1.0);
 bool epp(false);
 bool verbose(false);
 bool quiet(false);
@@ -220,6 +221,7 @@ void InstallHandlers()
   InstallCommandLineHandler(MyCLHandler, "-probfile", "-probfile", "Load MAPF instance from file");
   InstallCommandLineHandler(MyCLHandler, "-killtime", "-killtime [value]", "Kill after this many seconds");
   InstallCommandLineHandler(MyCLHandler, "-killmem", "-killmem [value megabytes]", "Kill if a process exceeds this size in memory");
+  InstallCommandLineHandler(MyCLHandler, "-w", "-w [value]", "weight for sub-optimality (>=1)");
   InstallCommandLineHandler(MyCLHandler, "-radius", "-radius [value]", "Radius in units of agent");
   InstallCommandLineHandler(MyCLHandler, "-nogui", "-nogui", "Turn off gui");
   InstallCommandLineHandler(MyCLHandler, "-epp", "-epp", "Nogood pruning enhancement");
@@ -1761,7 +1763,7 @@ int main(int argc, char ** argv){
           if(cardinal.size()){
             for(auto const& i:cardinal){
               std::vector<uint32_t> sz(parent->sizes);
-              sz[i]+=step;
+              sz[i]+=step*weight;
               std::stringstream sv;
               join(sv,sz);
               if(deconf.find(sv.str())==deconf.end()){
@@ -1922,6 +1924,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
     verbose = true;
     quiet=false;
     return 1;
+  }
+  if(strcmp(argument[0], "-w") == 0)
+  {
+    weight=atof(argument[1]);
+    return 2;
   }
   if(strcmp(argument[0], "-radius") == 0)
   {
