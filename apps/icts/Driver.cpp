@@ -98,7 +98,7 @@ size_t maxnagents(0);
 unsigned collChecks(0);
 
 extern double agentRadius;
-double weight(1.0);
+double weight(0.0);
 bool epp(false);
 bool verbose(false);
 bool quiet(false);
@@ -1759,11 +1759,12 @@ int main(int argc, char ** argv){
               }
             }
           }
-
           if(cardinal.size()){
             for(auto const& i:cardinal){
               std::vector<uint32_t> sz(parent->sizes);
-              sz[i]+=step*weight;
+              if(weight) step=std::max(INFLATION,(weight-1.0)*parent->lb()/double(n));
+              if(!quiet)std::cout << "step " << step << "\n";
+              sz[i]+=step;
               std::stringstream sv;
               join(sv,sz);
               if(deconf.find(sv.str())==deconf.end()){
@@ -1788,6 +1789,8 @@ int main(int argc, char ** argv){
           }else{
             for(int i(0); i<parent->sizes.size(); ++i){
               std::vector<uint32_t> sz(parent->sizes);
+              if(weight) step=std::max(INFLATION,(weight-1.0)*parent->lb()/double(n));
+              if(!quiet)std::cout << "step " << step << "\n";
               sz[i]+=step;
               std::stringstream sv;
               join(sv,sz);
