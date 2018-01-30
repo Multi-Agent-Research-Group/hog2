@@ -1698,7 +1698,7 @@ bool Map::CanStep(long x1, long y1, long x2, long y2) const
 		return false;
 	if (mapType == kOctile)
 	{
-		return ((GetTerrainType(x1, y1)>>terrainBits) == (GetTerrainType(x2, y2)>>terrainBits));
+		return ((GetTerrainType(x1, y1)>>terrainBits) && (GetTerrainType(x2, y2)>>terrainBits));
 	}
 	else {
 		switch (x1-x2) {

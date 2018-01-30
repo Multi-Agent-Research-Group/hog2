@@ -417,11 +417,12 @@ uint64_t Node::count(0);
 //std::unordered_map<int,std::set<uint64_t>> costt;
 
 bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, uint32_t depth, uint32_t maxDepth, uint32_t& best, unsigned agent, unsigned id, unsigned recursions=1){
-  //std::cout << std::string((int)(maxDepth-depth),' ') << start << "g:" << (maxDepth-depth) << " h:" << Node::env->HCost(start,end) << " f:" << ((maxDepth-depth)+Node::env->HCost(start,end));
+  if(verbose)std::cout << std::string(recursions,' ') << start << "g:" << (maxDepth-depth) << " h:" << (int)(heuristics[id]->HCost(start,end)*INFLATION) << " f:" << ((maxDepth-depth)+(int)(heuristics[id]->HCost(start,end)*INFLATION)) << "\n";
   if(depth<0 || maxDepth-depth+(int)(heuristics[id]->HCost(start,end)*INFLATION)>maxDepth){ // Note - this only works for a perfect heuristic.
-    //std::cout << " pruned " << depth <<" "<< (maxDepth-depth+(int)(Node::env->HCost(start,end)*INFLATION))<<">"<<maxDepth<<"\n";
+    //if(verbose)std::cout << "pruned " << start << depth <<" "<< (maxDepth-depth+(int)(heuristics[id]->HCost(start,end)*INFLATION))<<">"<<maxDepth<<"\n";
     return false;
   }
+    //if(verbose)std::cout << " OK " << start << depth <<" "<< (maxDepth-depth+(int)(heuristics[id]->HCost(start,end)*INFLATION))<<"!>"<<maxDepth<<"\n";
 
   Node n(start,(maxDepth-depth));
   uint64_t hash(n.Hash());
@@ -470,6 +471,7 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, uin
     //if(abs(node.x-start.x)>=1 && abs(node.y-start.y)>=1){
       //ddiff = M_SQRT2;
     //}
+    //if(verbose)std::cout<<node<<": --\n";
     if(LimitedDFS(node,end,dag,root,depth-ddiff,maxDepth,best,agent,id,recursions+1)){
       singleTransTable[hash]=true;
       mdddepth=std::max(recursions,mdddepth);
@@ -1085,7 +1087,7 @@ struct ICTSNode{
     for(int i(0); i<instance.first.size(); ++i){
       best[i]=INF;
       replanned[i]=i;
-      costs[i]=(uint32_t)(heuristics[ids[i]]->HCost(instance.first[i],instance.second[i])*INFLATION);
+      costs[i]=(uint32_t)(heuristics[ids[i]]->HCost(instance.first[i],instance.second[i])*INFLATION+1);
       if(!quiet)std::cout << "build MDD for agent " << i << " GetMDD("<<((costs[i]+sizes[i])/INFLATION)<<")\n";
       //std::cout.precision(17);
       std::cout.precision(6);
@@ -1144,8 +1146,10 @@ struct ICTSNode{
   // Set all nodes that were never unified as "no good"
   bool isValid(std::vector<Solution>& answers,std::vector<unsigned>& cardinal){
     std::vector<std::vector<uint64_t>> goods(root.size());
-    for(int i(0); i<root.size(); ++i){
-      goods[i]=std::vector<uint64_t>((dagsize[i]+1)/64+1,0xffffffffffffffff); // All "good"
+    if(epp){
+      for(int i(0); i<root.size(); ++i){
+        goods[i]=std::vector<uint64_t>((dagsize[i]+1)/64+1,0xffffffffffffffff); // All "good"
+      }
     }
     if(root.size()>2 && pairwise){
       Timer timer;
@@ -1159,15 +1163,17 @@ struct ICTSNode{
           tmproot[1]=root[j];
           std::vector<Node*> toDeleteTmp;
           std::vector<std::vector<uint64_t>> unified(2);
-          unified[0]=std::vector<uint64_t>(goods[i].size()); // All false
-          unified[1]=std::vector<uint64_t>(goods[j].size());
-          set(unified[0].data(),0); // Default to true for first bit
-          set(unified[1].data(),0); // Default to true for first bit
-          set(unified[0].data(),root[i]->id);
-          set(unified[1].data(),root[j]->id);
           std::vector<std::vector<uint64_t>*> tmpgood(2);
-          tmpgood[0]=&goods[i];
-          tmpgood[1]=&goods[j];
+          if(epp){
+            unified[0]=std::vector<uint64_t>(goods[i].size()); // All false
+            unified[1]=std::vector<uint64_t>(goods[j].size());
+            set(unified[0].data(),0); // Default to true for first bit
+            set(unified[1].data(),0); // Default to true for first bit
+            set(unified[0].data(),root[i]->id);
+            set(unified[1].data(),root[j]->id);
+            tmpgood[0]=&goods[i];
+            tmpgood[1]=&goods[j];
+          }
           uint32_t dummy(INF);
           // This is a satisficing search, thus we only need do a sub-optimal check
           if(!quiet)std::cout<<"pairwise for " << i << ","<<j<<"\n";
@@ -1185,6 +1191,7 @@ struct ICTSNode{
           //std::cout << "Update nogoods for " << i <<":"<<dag[i].size() << "," << j <<":"<<dag[j].size()<< "\n";
           //int sum(0);
           //int sum2(0);
+          if(epp)
           for(int k(0); k<goods[i].size(); ++k){
             goods[i][k]&=unified[0][k];
             //std::cout << std::bitset<64>(unified[0][k]);
@@ -1200,6 +1207,7 @@ struct ICTSNode{
           //std::cout << root[i] << "\n";
           //std::cout << (dagsize[i]-sum2) << " ==? " << sum  << "=" << ((dagsize[i]-sum2)-sum) << " diff\n";
           //sum=sum2=0;
+          if(epp)
           for(int k(0); k<goods[j].size(); ++k){
             goods[j][k]&=unified[1][k];
             //std::cout << std::bitset<64>(unified[1][k]);
@@ -1637,7 +1645,10 @@ int main(int argc, char ** argv){
         astar.SetHeuristic(heuristics[i]);
         env->setGoal(waypoints[i][0]);
         astar.GetPath(env,waypoints[i][0],waypoints[i][1],path);
-        if(!quiet)std::cout<<"Planned agent "<<i<<"\n";
+        if(!quiet)std::cout<<"Planned agent "<<i<<"("<<env->GetPathLength(path)<<")\n";
+        if(verbose)
+          for(auto const& p:path)
+            std::cout<<p<<"\n";
       }
       Path timePath;
       //std::cout << s[i] << "-->" << e[i] << std::endl;
@@ -1662,6 +1673,23 @@ int main(int argc, char ** argv){
       }
     }
   }else{
+    {
+      for(int i(0); i<n; ++i){
+        Points path;
+        if(waypoints[i][0]==waypoints[i][1]){ // Already at goal
+          path.push_back(waypoints[i][0]);
+        }else{
+          //astar.SetVerbose(verbose);
+          astar.SetHeuristic(heuristics[i]);
+          env->setGoal(waypoints[i][0]);
+          astar.GetPath(env,waypoints[i][0],waypoints[i][1],path);
+          if(!quiet)std::cout<<"Planned agent "<<i<<"("<<env->GetPathLength(path)<<")\n";
+          if(verbose)
+            for(auto const& p:path)
+              std::cout<<p<<"\n";
+        }
+      }
+    }
     Path path;
     path.emplace_back(new Node(xyLoc(0,0),0));
     path.emplace_back(new Node(xyLoc(0,1),1));

@@ -40,6 +40,7 @@ bool useCAT = false; // Use conflict avoidance table
 bool verify = false;
 bool mouseTracking;
 unsigned killtime(3600); // Kill after some number of seconds
+unsigned killmem(2048); // 1GB
 unsigned killex(INT_MAX); // Kill after some number of expansions
 bool disappearAtGoal(false);
 int px1, py1, px2, py2;
@@ -161,6 +162,7 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-envfile", "-envfile", "Load environment settings per agent");
 	InstallCommandLineHandler(MyCLHandler, "-constraints", "-constraints", "Load constraints from file");
 	InstallCommandLineHandler(MyCLHandler, "-killtime", "-killtime", "Kill after this many seconds");
+        InstallCommandLineHandler(MyCLHandler, "-killmem", "-killmem [value megabytes]", "Kill if a process exceeds this size in memory");
 	InstallCommandLineHandler(MyCLHandler, "-killex", "-killex", "Kill after this many expansions");
 	InstallCommandLineHandler(MyCLHandler, "-mapfile", "-mapfile", "Map file to use");
 	InstallCommandLineHandler(MyCLHandler, "-scenfile", "-scenfile", "Scenario file to use");
@@ -560,6 +562,12 @@ int MyCLHandler(char *argument[], int maxNumArgs)
                 killex = atoi(argument[1]);
 		return 2;
 	}
+        if(strcmp(argument[0], "-killmem") == 0)
+        {
+          killmem = atoi(argument[1]);
+          Util::setmemlimit(killmem);
+          return 2;
+        }
 	if(strcmp(argument[0], "-killtime") == 0)
 	{
                 killtime = atoi(argument[1]);
