@@ -52,8 +52,6 @@ SRC_CPP = \
 	environments/Grid3DConstrainedEnvironment.cpp \
 	environments/Grid3DEnvironment.cpp \
 	environments/GridStates.cpp \
-        environments/RadialSafety2DObjectiveEnvironment.cpp \
-        environments/Terrain2DObjectiveEnvironment.cpp \
 	environments/Map2DEnvironment.cpp \
 	environments/Map2DConstrainedEnvironment.cpp \
 	environments/PermutationPuzzleEnvironment.cpp \
