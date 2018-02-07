@@ -21,7 +21,7 @@
 template <class state, class action, class environment>
 class IDAStar {
 public:
-	IDAStar() { useHashTable = usePathMax = false; storedHeuristic = false;}
+	IDAStar():incumbentcost(9999999999.9){ useHashTable = usePathMax = false; storedHeuristic = false;}
 	virtual ~IDAStar() {}
 	void GetPath(environment *env, state const& from, state const& to, std::vector<state> &thePath);
 	void GetPath(environment *env, state from, state to, std::vector<action> &thePath);
@@ -32,6 +32,9 @@ public:
 	void SetUseBDPathMax(bool val) { usePathMax = val; }
 	void SetHeuristic(Heuristic<state> *heur) { heuristic = heur; if (heur != 0) storedHeuristic = true;}
 private:
+        std::vector<state> incumbent;
+        double best;
+        double incumbentcost;
 	unsigned long long nodesExpanded, nodesTouched;
 	
 	double DoIteration(environment *env,
@@ -95,18 +98,28 @@ void IDAStar<state, action, environment>::GetPath(environment *env,
                 unsigned total(0);
                 auto cost(fCostHistogram.begin());
                 auto pBound(nextBound);
-                while((total<10 || fequal(nextBound,pBound)) && cost!=fCostHistogram.end()){
+
+                best=0;
+                while((nextBound-pBound)<.99 && cost!=fCostHistogram.end()){
                   total+=cost->second;
                   nextBound=cost->first/1000.0;
+                  if(!best && fless(pBound,nextBound)){
+                    best=nextBound;
+                  }
                   ++cost;
                 }
 		//nodeTable.clear();
 		fCostHistogram.clear();
 		gCostHistogram.clear();
+                transTable.clear();
 		gCostHistogram.resize(nextBound+1);
-		printf("Starting iteration with bound %f\n", nextBound);
+		printf("Starting iteration with bound %f best=%f\n", nextBound,best);
 		if (DoIteration(env, from, from, thePath, nextBound, 0, 0) == 0)
 			break;
+                if(incumbent.size()){
+                  thePath=incumbent;
+                  break;
+                }
 		PrintGHistogram();
 	}
 	PrintGHistogram();
@@ -196,8 +209,9 @@ double IDAStar<state, action, environment>::DoIteration(environment *env,
 			continue;
                 double h = heuristic->HCost(neighbors[x], goal);
 		double edgeCost = env->GCost(currState, neighbors[x]);
-                if(fgreater(g+edgeCost+h, bound)){
-                  fCostHistogram[uint32_t((g+edgeCost+h)*1000)]++;
+                double f(g+edgeCost+h);
+                if(fgreater(f, bound)){
+                  fCostHistogram[uint32_t(f*1000)]++;
                   //std::cout << "Ignore " << neighbors[x] << " " << g+edgeCost+h << "\n";
                   continue;
                 }
@@ -209,7 +223,15 @@ double IDAStar<state, action, environment>::DoIteration(environment *env,
                   //for(auto const& r:thePath){
                     //std::cout << r << "\n";
                   //}
-                  return 0;
+                  if(fless(f,incumbentcost)){
+                    incumbent=thePath;
+                    incumbentcost=f;
+                    std::cout << "incumbent: " << incumbentcost << "\n";
+                  }
+                  // Return immediately if no better answer is possible
+                  if(fleq(f,best+1/1000.)){
+                    return 0;
+                  }
                 }
                 transTable[hash]=false;
 		thePath.pop_back();

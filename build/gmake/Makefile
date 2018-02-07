@@ -35,12 +35,12 @@ PROJECTS = \
   apps/MAAStar \
   apps/MAIDAStar \
   apps/aacbs \
-  apps/MO \
   test/airplane \
   test/mapf \
   test/utils \
   test/collisiondetection \
   test/environments \
+  #apps/MO \
 #  apps/multiagent \
 #  apps/measure_inconsistency 
 #  simulation \

@@ -1694,6 +1694,7 @@ bool Map::AdjacentCorners(long x, long y, tCorner corner) const
 
 bool Map::CanStep(long x1, long y1, long x2, long y2) const
 {
+        if(!IsTraversable(x2,y2))return false;
 	if ((abs(x1-x2) > 1) || (abs(y1-y2) > 1))
 		return false;
 	if (mapType == kOctile)
