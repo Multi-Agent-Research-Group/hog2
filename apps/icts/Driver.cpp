@@ -809,7 +809,7 @@ bool jointDFS2(MultiEdge const& r, uint32_t d, Solution solution, std::vector<So
 }
 
 // Return true if we get to the desired depth
-bool jointDFS(MultiEdge const& s, uint32_t d, std::vector<MultiEdge> solution, std::vector<std::vector<MultiEdge>>& solutions, std::vector<Node*>& toDelete, uint32_t& best, uint32_t& bestSeen, std::vector<std::vector<uint64_t>*>& good, std::vector<std::vector<uint64_t>>& unified, unsigned recursions=1, bool suboptimal=false, bool checkOnly=false){
+bool jointDFS(MultiEdge const& s, uint32_t d, std::vector<MultiEdge>& solution, std::vector<std::vector<MultiEdge>>& solutions, std::vector<Node*>& toDelete, uint32_t& best, uint32_t& bestSeen, Points const& goals, std::vector<std::vector<uint64_t>*>& good, std::vector<std::vector<uint64_t>>& unified, unsigned recursions=1, bool suboptimal=false, bool checkOnly=false){
   std::string hash(s.size()*sizeof(uint64_t),1);
   int k(0);
   for(auto v:s){
@@ -920,9 +920,39 @@ bool jointDFS(MultiEdge const& s, uint32_t d, std::vector<MultiEdge> solution, s
     if(epp&&checkOnly)for(int k(0); k<a.size(); ++k){
       set(unified[k].data(),a[k].second->id);
     }
-    solution.push_back(s);
+    solution.push_back(a);
+    uint32_t cost(INF);
+    if(!checkOnly){
+      cost=computeSolutionCost(solution);
+      if(best<cost) return false;
+    }
+    bool done(true);
+    int i(0);
+    for(auto const& g:a){
+      if(!env->GoalTest(g.second->n,goals[i++])){
+        done=false;
+        break;
+      }
+      //maxCost=std::max(maxCost,g.second->depth);
+    }
+    if(done){
+      jointgoals++;
+      //uint32_t cost(computeSolutionCost(solution));
+      if(cost<best){
+        best=cost;
+        if(verbose)std::cout << "BEST="<<best<<std::endl;
+        if(verbose)std::cout << "BS="<<bestSeen<<std::endl;
+
+        // This is a leaf node
+        // Copy the solution into the answer set
+        if(!checkOnly){
+          solutions.push_back(solution);
+        }
+      }
+      return true;
+    }
     if(verbose)std::cout << "EVAL " << s << "-->" << a << "\n";
-    if(jointDFS(a,md,solution,solutions,toDelete,best,bestSeen,good,unified,recursions+1,suboptimal,checkOnly)){
+    if(jointDFS(a,md,solution,solutions,toDelete,best,bestSeen,goals,good,unified,recursions+1,suboptimal,checkOnly)){
       //if(!checkOnly&&d>0){
         // Copy solution so far, but only copy components if they are
         // a valid successor
@@ -942,43 +972,6 @@ bool jointDFS(MultiEdge const& s, uint32_t d, std::vector<MultiEdge> solution, s
         //}
       //}
       
-      uint32_t cost(INF);
-      if(!checkOnly){
-        cost=computeSolutionCost(solution);
-        if(best<cost) return false;
-      }
-      bool done(true);
-      for(auto const& g:s){
-        if(!env->GoalTest(g.second->n)){
-          done=false;
-          break;
-        }
-        //maxCost=std::max(maxCost,g.second->depth);
-      }
-      if(done){
-        jointgoals++;
-        //uint32_t cost(computeSolutionCost(solution));
-        if(cost<best){
-          best=cost;
-          if(verbose)std::cout << "BEST="<<best<<std::endl;
-          if(verbose)std::cout << "BS="<<bestSeen<<std::endl;
-
-          // This is a leaf node
-          // Copy the solution into the answer set
-          if(!checkOnly){
-            // Shore up with wait actions
-            for(int i(0); i<solution.size(); ++i){
-              if(solution[i].back().second->depth<MAXTIME){
-                solution[i].emplace_back(solution[i].back().second,new Node(solution[i].back().second->n,MAXTIME));
-                toDelete.push_back(solution[i].back().second);
-              }
-            }
-            //solutions.clear();
-            solutions.push_back(solution);
-          }
-        }
-        return true;
-      }
       maxjoint=std::max(recursions,maxjoint);
       minjoint=std::min(recursions,minjoint);
       value=true;
@@ -995,7 +988,7 @@ bool jointDFS(MultiEdge const& s, uint32_t d, std::vector<MultiEdge> solution, s
   return value;
 }
 
-bool jointDFS(MultiState const& s, std::vector<Solution>& solutions, std::vector<Node*>& toDelete, uint32_t bestSeen, uint32_t& best, std::vector<std::vector<uint64_t>*>& good, std::vector<std::vector<uint64_t>>& unified, bool suboptimal=false, bool checkOnly=false){
+bool jointDFS(MultiState const& s, std::vector<Solution>& solutions, std::vector<Node*>& toDelete, uint32_t bestSeen, uint32_t& best, Points const& goals, std::vector<std::vector<uint64_t>*>& good, std::vector<std::vector<uint64_t>>& unified, bool suboptimal=false, bool checkOnly=false){
   if(verbose)std::cout << "JointDFS\n";
   MultiEdge act;
   std::vector<MultiEdge> solution;
@@ -1013,18 +1006,30 @@ bool jointDFS(MultiState const& s, std::vector<Solution>& solutions, std::vector
   jointdepth=0;
   jointbranchingfactor=0;
   jointgoals=0;
-  bool result(jointDFS(act,0.0,solution,all,toDelete,best,bestSeen,good,unified,1,suboptimal,checkOnly));
-  solutions.reserve(all.size());
-  for(auto const& soln:all){
-    Solution ss; ss.reserve(soln.size());
-    for(auto const& path:soln){
-      Path p;p.reserve(path.size());
-      for(auto const& a:path){
-        p.push_back(a.second);
-      }
-      ss.push_back(p);
+  bool result(jointDFS(act,0.0,solution,all,toDelete,best,bestSeen,goals,good,unified,1,suboptimal,checkOnly));
+  solutions.resize(all.size());
+  for(auto& s:solutions){
+    s.resize(act.size()); // k paths
+  }
+  for(int i(0); i<all.size(); ++i){ // Each solution
+    int k(0);
+    for(auto const& a:act){
+      solutions[i][k++].push_back(a.second);
     }
-    solutions.push_back(ss);
+    for(int j(0); j<all[i].size(); ++j){ // Each joint action
+      k=0;
+      for(auto const& a:all[i][j]){
+        if(a.second != solutions[i][k].back())
+          solutions[i][k++].push_back(a.second);
+      }
+    }
+    k=0;
+    for(auto& p:solutions[i]){
+      if(p.back()->depth<MAXTIME){
+        p.push_back(new Node(p.back()->n,MAXTIME));
+        toDelete.push_back(p.back());
+      }
+    }
   }
   return result;
 }
@@ -1183,8 +1188,11 @@ struct ICTSNode{
       for(int i(0); i<root.size(); ++i){
         for(int j(i+1); j<root.size(); ++j){
           MultiState tmproot(2);
+          Points tmpgoal(2);
           tmproot[0]=root[i];
           tmproot[1]=root[j];
+          tmpgoal[0]=instance.second[i];
+          tmpgoal[1]=instance.second[j];
           std::vector<Node*> toDeleteTmp;
           std::vector<std::vector<uint64_t>> unified(2);
           std::vector<std::vector<uint64_t>*> tmpgood(2);
@@ -1201,7 +1209,7 @@ struct ICTSNode{
           uint32_t dummy(INF);
           // This is a satisficing search, thus we only need do a sub-optimal check
           if(!quiet)std::cout<<"pairwise for " << i << ","<<j<<"\n";
-          if(!jointDFS(tmproot,answers,toDeleteTmp,INF,dummy,tmpgood,unified,true,true)){
+          if(!jointDFS(tmproot,answers,toDeleteTmp,INF,dummy,tmpgoal,tmpgood,unified,true,true)){
             if(!quiet)std::cout << "Pairwise failed\n";
             cardinal.push_back(i);
             cardinal.push_back(j);
@@ -1261,7 +1269,7 @@ struct ICTSNode{
     }
     unsigned p(jointexpansions);
     unsigned q(jointnodes);
-    if(jointDFS(root,answers,toDelete,lb(),*incumbent,tmpgood,unified,suboptimal)){
+    if(jointDFS(root,answers,toDelete,lb(),*incumbent,instance.second,tmpgood,unified,suboptimal)){
       jointTime+=timer.EndTimer();
       if(verbose){
         std::cout << "Answer:\n";
