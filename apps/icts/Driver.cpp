@@ -391,24 +391,16 @@ std::ostream& operator << (std::ostream& ss, Node const* n){
 }
 
 // Compute path cost, ignoring actions that wait at the goal
-uint32_t computeSolutionCost(std::vector<MultiEdge> const& solution, bool ignoreWaitAtGoal=true){
-  uint32_t cost(0);
-  for(auto const& path:solution){
-    for(auto const& action:path){
-      cost+=env->GCost(action.first->n,action.second->n);
-    }
-  }
-  return cost;
-}
-
-// Compute path cost, ignoring actions that wait at the goal
 uint32_t computeSolutionCost(Solution const& solution, bool ignoreWaitAtGoal=true){
   uint32_t cost(0);
   if(ignoreWaitAtGoal){
     for(auto const& path:solution){
-      if(path.size()){
-        for(int j(1); j<path.size(); ++j){
-          cost+=env->GCost(path[j-1]->n,path[j]->n); // accounts for staying at goal.
+      for(int j(path.size()-1); j>0; --j){
+        if(path[j-1]->n!=path[j]->n){
+          cost += path[j]->depth;
+          break;
+        }else if(j==1){
+          cost += path[0]->depth;
         }
       }
     }
@@ -809,7 +801,9 @@ bool jointDFS2(MultiEdge const& r, uint32_t d, Solution solution, std::vector<So
 }
 
 // Return true if we get to the desired depth
-bool jointDFS(MultiEdge const& s, uint32_t d, std::vector<MultiEdge> solution, std::vector<std::vector<MultiEdge>>& solutions, std::vector<Node*>& toDelete, uint32_t& best, uint32_t& bestSeen, std::vector<std::vector<uint64_t>*>& good, std::vector<std::vector<uint64_t>>& unified, unsigned recursions=1, bool suboptimal=false, bool checkOnly=false){
+bool jointDFS(MultiEdge const& s, uint32_t d, Solution solution, std::vector<Solution>& solutions, std::vector<Node*>& toDelete, uint32_t& best, uint32_t& bestSeen, std::vector<std::vector<uint64_t>*>& good, std::vector<std::vector<uint64_t>>& unified, unsigned recursions=1, bool suboptimal=false, bool checkOnly=false){
+  jointdepth=std::max(recursions,jointdepth);
+  // Compute hash for transposition table
   std::string hash(s.size()*sizeof(uint64_t),1);
   int k(0);
   for(auto v:s){
@@ -833,8 +827,62 @@ bool jointDFS(MultiEdge const& s, uint32_t d, std::vector<MultiEdge> solution, s
     //if(!transTable[hash]){return false;}
   }
 
-  jointdepth=std::max(recursions,jointdepth);
-  // Compute hash for transposition table
+  if(!checkOnly&&d>0){
+    // Copy solution so far, but only copy components if they are
+    // a valid successor
+    for(int i(0); i<solution.size(); ++i){
+      auto const& p = solution[i];
+      bool found(false);
+      for(auto const& suc:p.back()->successors){
+        // True successor or wait action...
+        if(*s[i].second==*suc){
+          found=true;
+          break;
+        }
+      }
+      if(found || (s[i].second->n.sameLoc(p.back()->n) && s[i].second->depth>p.back()->depth)){
+        solution[i].push_back(s[i].second);
+      }
+    }
+  }
+  
+  uint32_t cost(INF);
+  if(!checkOnly){
+    cost=computeSolutionCost(solution);
+    if(best<cost) return false;
+  }
+  bool done(true);
+  for(auto const& g:s){
+    if(g.second->depth!=MAXTIME){
+      done=false;
+      break;
+    }
+    //maxCost=std::max(maxCost,g.second->depth);
+  }
+  if(done){
+    jointgoals++;
+    //uint32_t cost(computeSolutionCost(solution));
+    if(cost<best){
+      best=cost;
+      if(verbose)std::cout << "BEST="<<best<<std::endl;
+      if(verbose)std::cout << "BS="<<bestSeen<<std::endl;
+
+      // This is a leaf node
+      // Copy the solution into the answer set
+      if(!checkOnly){
+        // Shore up with wait actions
+        for(int i(0); i<solution.size(); ++i){
+          if(solution[i].back()->depth<MAXTIME){
+            solution[i].emplace_back(new Node(solution[i].back()->n,MAXTIME));
+            toDelete.push_back(solution[i].back());
+          }
+        }
+        solutions.clear();
+        solutions.push_back(solution);
+      }
+    }
+    return true;
+  }
   //Get successors into a vector
   std::vector<MultiEdge> successors;
   successors.reserve(s.size());
@@ -920,65 +968,8 @@ bool jointDFS(MultiEdge const& s, uint32_t d, std::vector<MultiEdge> solution, s
     if(epp&&checkOnly)for(int k(0); k<a.size(); ++k){
       set(unified[k].data(),a[k].second->id);
     }
-    solution.push_back(s);
     if(verbose)std::cout << "EVAL " << s << "-->" << a << "\n";
     if(jointDFS(a,md,solution,solutions,toDelete,best,bestSeen,good,unified,recursions+1,suboptimal,checkOnly)){
-      //if(!checkOnly&&d>0){
-        // Copy solution so far, but only copy components if they are
-        // a valid successor
-        //for(int i(0); i<solution.size(); ++i){
-          //auto const& p = solution[i];
-          //bool found(false);
-          //for(auto const& suc:p.back()->successors){
-            //// True successor or wait action...
-            //if(*s[i].second==*suc){
-              //found=true;
-              //break;
-            //}
-          //}
-          //if(found || (s[i].second->n.sameLoc(p.back()->n) && s[i].second->depth>p.back()->depth)){
-            //solution[i].push_back(s[i].second);
-          //}
-        //}
-      //}
-      
-      uint32_t cost(INF);
-      if(!checkOnly){
-        cost=computeSolutionCost(solution);
-        if(best<cost) return false;
-      }
-      bool done(true);
-      for(auto const& g:s){
-        if(!env->GoalTest(g.second->n)){
-          done=false;
-          break;
-        }
-        //maxCost=std::max(maxCost,g.second->depth);
-      }
-      if(done){
-        jointgoals++;
-        //uint32_t cost(computeSolutionCost(solution));
-        if(cost<best){
-          best=cost;
-          if(verbose)std::cout << "BEST="<<best<<std::endl;
-          if(verbose)std::cout << "BS="<<bestSeen<<std::endl;
-
-          // This is a leaf node
-          // Copy the solution into the answer set
-          if(!checkOnly){
-            // Shore up with wait actions
-            for(int i(0); i<solution.size(); ++i){
-              if(solution[i].back().second->depth<MAXTIME){
-                solution[i].emplace_back(solution[i].back().second,new Node(solution[i].back().second->n,MAXTIME));
-                toDelete.push_back(solution[i].back().second);
-              }
-            }
-            //solutions.clear();
-            solutions.push_back(solution);
-          }
-        }
-        return true;
-      }
       maxjoint=std::max(recursions,maxjoint);
       minjoint=std::min(recursions,minjoint);
       value=true;
@@ -987,9 +978,8 @@ bool jointDFS(MultiEdge const& s, uint32_t d, std::vector<MultiEdge> solution, s
       if(!checkOnly&&!certifyTime)certtimer.StartTimer();
       if(suboptimal&&!(epp&&checkOnly)) return true;
       // Return if solution is as good as any MDD
-      if(!(epp&&checkOnly)&&!fulljoint&&best<=bestSeen)return true;
+      if(!(epp&&checkOnly)&&!fulljoint&&best==bestSeen)return true;
     }
-    solution.pop_back();
   }
   transTable[hash]=value;
   return value;
@@ -998,35 +988,21 @@ bool jointDFS(MultiEdge const& s, uint32_t d, std::vector<MultiEdge> solution, s
 bool jointDFS(MultiState const& s, std::vector<Solution>& solutions, std::vector<Node*>& toDelete, uint32_t bestSeen, uint32_t& best, std::vector<std::vector<uint64_t>*>& good, std::vector<std::vector<uint64_t>>& unified, bool suboptimal=false, bool checkOnly=false){
   if(verbose)std::cout << "JointDFS\n";
   MultiEdge act;
-  std::vector<MultiEdge> solution;
-  std::vector<std::vector<MultiEdge>> all;
+  Solution solution;
   std::unordered_set<std::string> ttable;
   // Add null parents for the initial movements
   for(auto const& n:s){
     act.emplace_back(n,n);
-    //if(!checkOnly){
+    if(!checkOnly){
       // Add initial state for solution
-      //solution.push_back({n});
-    //}
+      solution.push_back({n});
+    }
   }
   transTable.clear();
   jointdepth=0;
   jointbranchingfactor=0;
   jointgoals=0;
-  bool result(jointDFS(act,0.0,solution,all,toDelete,best,bestSeen,good,unified,1,suboptimal,checkOnly));
-  solutions.reserve(all.size());
-  for(auto const& soln:all){
-    Solution ss; ss.reserve(soln.size());
-    for(auto const& path:soln){
-      Path p;p.reserve(path.size());
-      for(auto const& a:path){
-        p.push_back(a.second);
-      }
-      ss.push_back(p);
-    }
-    solutions.push_back(ss);
-  }
-  return result;
+  return jointDFS(act,0.0,solution,solutions,toDelete,best,bestSeen,good,unified,1,suboptimal,checkOnly);
 }
 
 // Check that two paths have no collisions
@@ -1219,7 +1195,7 @@ struct ICTSNode{
           for(int k(0); k<goods[i].size(); ++k){
             goods[i][k]&=unified[0][k];
             //std::cout << std::bitset<64>(unified[0][k]);
-            //sum+= __builtin_opcount(unified[0][k]);
+            //sum+= __builtin_popcount(unified[0][k]);
             //sum2+= __builtin_popcount(goods[i][k]);
           }
           //std::cout << std::endl;
