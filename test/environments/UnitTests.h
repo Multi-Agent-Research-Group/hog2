@@ -31,7 +31,7 @@
 #include "Map3d.h"
 #include "TemplateAStar.h"
 #include "TemporalAStar.h"
-#include "RadialSafety2DObjectiveEnvironment.h"
+//#include "RadialSafety2DObjectiveEnvironment.h"
 #include "dtedreader.h"
 #include <algorithm>
 
@@ -366,7 +366,7 @@ TEST(RadiusEnv, EdgeDistance){
   ASSERT_DOUBLE_EQ(3.7359388247516234,Util::meanDistanceOfPointToLine(A,B,C));
 }
 
-TEST(RadiusEnv, GCostTest){
+/*TEST(RadiusEnv, GCostTest){
   Vector2D A(5,1);
   Vector2D B(4,1);
   Vector2D C(1,1);
@@ -402,7 +402,7 @@ TEST(RadiusEnv, HCostTest){
   std::cout << "GCOST " << renv.GCost(a,b) << "\n";
   std::cout << "HCOST " << renv.HCost(a,b) << "\n";
   ASSERT_DOUBLE_EQ(renv.HCost(a,b),renv.GCost(a,b));
-}
+}*/
 
 TEST(SecantLine, intersection){
   Vector2D c(4,3);

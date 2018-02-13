@@ -238,9 +238,6 @@ public:
 	//virtual void OpenGLDraw(const xyztLoc &l, GLfloat r, GLfloat g, GLfloat b) const;
 	Map3D* GetMap() const { return map; }
 
-	void StoreGoal(xyztLoc &) {} // stores the locations for the given goal state
-	void ClearGoal() {}
-	bool IsGoalStored() const {return false;}
 	void SetZeroConnected() { connectedness=0; }
 	void SetOneConnected() { connectedness=1; }
 	void SetTwoConnected() { connectedness=2; }

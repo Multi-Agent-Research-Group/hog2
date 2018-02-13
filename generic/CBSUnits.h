@@ -554,7 +554,7 @@ bool CBSGroup<state,action,comparison,conflicttable,searchalgo>::ExpandOneCBSNod
     //c1.unit1=c2.unit1;
     //c2.unit1=tmp;
     // Notify the user of the conflict
-    if(!quiet)std::cout << "TREE " << bestNode <<"("<<tree[bestNode].parent << ") " <<(numConflicts.second==7?"CARDINAL":(numConflicts.second==3?"LEFT-CARDINAL":(numConflicts.second==5?"RIGHT-CARDINAL":"NON-CARDIANL")))<< " conflict found between unit " << c1.unit1 << " and unit " << c2.unit1 << " @:" << c2.c->start() << "-->" << c2.c->end() <<  " and " << c1.c->start() << "-->" << c1.c->end() << " NC " << numConflicts.first << " prev-W " << c1.prevWpt << " " << c2.prevWpt << "\n";
+    if(!quiet)std::cout << "TREE " << bestNode <<"("<<tree[bestNode].parent << ") " <<(numConflicts.second==7?"CARDINAL":(numConflicts.second==3?"LEFT-CARDINAL":(numConflicts.second==5?"RIGHT-CARDINAL":"NON-CARDINAL")))<< " conflict found between unit " << c1.unit1 << " and unit " << c2.unit1 << " @:" << c2.c->start() << "-->" << c2.c->end() <<  " and " << c1.c->start() << "-->" << c1.c->end() << " NC " << numConflicts.first << " prev-W " << c1.prevWpt << " " << c2.prevWpt << "\n";
     if(verbose){
       std::cout << c1.unit1 << ":\n";
       for(auto const& a:tree[bestNode].paths[c1.unit1]){
@@ -988,6 +988,7 @@ bool CBSGroup<state,action,comparison,conflicttable,searchalgo>::Bypass(int best
   // Initialize A*, etc.
   Timer tmr;
   tmr.StartTimer();
+  SetEnvironment(numConflicts.first,c1.unit1);
   astar.GetPath(currentEnvironment[c1.unit1]->environment,start,goal,path,minTime); // Get the path with the new constraint
   bypassplanTime+=tmr.EndTimer();
   MergeLeg<state,action,comparison,conflicttable,searchalgo>(path,newPath,newWpts,c1.prevWpt, c1.prevWpt+1,minTime);
@@ -1236,6 +1237,9 @@ void CBSGroup<state,action,comparison,conflicttable,searchalgo>::HasConflict(std
 
             c1.prevWpt = pwptB;
             c2.prevWpt = pwptA;
+          }else{
+            // No conflict being set
+            int jjj=1;
           }
         }
       }

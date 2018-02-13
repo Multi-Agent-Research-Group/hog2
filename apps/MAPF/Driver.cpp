@@ -27,6 +27,7 @@
 #include "CBSUnits.h"
 #include "NonUnitTimeCAT.h"
 #include "MapPerfectHeuristic.h"
+#include "Map3dPerfectHeuristic.h"
 #include "AirplaneConstrained.h"
 #include "Grid3DConstrainedEnvironment.h"
 #include "Utilities.h"
@@ -261,20 +262,20 @@ void InitHeadless(){
               if(a==start){conflict=true;break;}
             }
             /*xytLoc a(start,1.0);
-            xytLoc b(a);
-            b.x++;
-            if(conflict=ace->ViolatesConstraint(a,b)){break;}*/
+              xytLoc b(a);
+              b.x++;
+              if(conflict=ace->ViolatesConstraint(a,b)){break;}*/
           }
           if(!conflict) s.push_back(start);
         }
       }
       waypoints.push_back(s);
-    }
-    for(auto w(waypoints.begin()+1); w!=waypoints.end();/*++w*/){
-      if(*(w-1) == *w)
-        waypoints.erase(w);
-      else
-        ++w;
+      for(auto w(waypoints.begin()+1); w!=waypoints.end();/*++w*/){
+        if(*(w-1) == *w)
+          waypoints.erase(w);
+        else
+          ++w;
+      }
     }
 
     if(!quiet){
@@ -433,71 +434,89 @@ int MyCLHandler(char *argument[], int maxNumArgs)
             std::vector<EnvironmentContainer<xytLoc,tDirection>> ev;
             for(auto e: a){
               ConstrainedEnvironment<xytLoc,tDirection>* newEnv(nullptr);
+              SearchEnvironment<xytLoc,tDirection>* me(nullptr);
               if(e.name=="fourconnected"){
                 MapInterface* map=new Map(mapfile.c_str());
                 MapEnvironment* w4 = new MapEnvironment((Map*)map); w4->SetFourConnected();
                 newEnv = new Map2DConstrainedEnvironment(w4);
+                w4->setGoal(wpts[1]);
                 ev.emplace_back(e.name,newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),e.threshold,e.weight);
               }else if(e.name=="fiveconnected"){
                 MapInterface* map=new Map(mapfile.c_str());
                 MapEnvironment* w5 = new MapEnvironment((Map*)map); w5->SetFiveConnected();
                 newEnv = new Map2DConstrainedEnvironment(w5);
+                w5->setGoal(wpts[1]);
                 ev.emplace_back(e.name,newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),e.threshold,e.weight);
               }else if(e.name=="eightconnected"){
                 MapInterface* map=new Map(mapfile.c_str());
                 MapEnvironment* w8 = new MapEnvironment((Map*)map); w8->SetEightConnected();
                 newEnv = new Map2DConstrainedEnvironment(w8);
+                w8->setGoal(wpts[1]);
                 ev.emplace_back(e.name,newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),e.threshold,e.weight);
               }else if(e.name=="nineconnected"){
                 MapInterface* map=new Map(mapfile.c_str());
                 MapEnvironment* w9 = new MapEnvironment((Map*)map); w9->SetNineConnected();
                 newEnv = new Map2DConstrainedEnvironment(w9);
+                w9->setGoal(wpts[1]);
                 ev.emplace_back(e.name,newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),e.threshold,e.weight);
               }else if(e.name=="twentyfourconnected"){
                 MapInterface* map=new Map(mapfile.c_str());
                 MapEnvironment* w24 = new MapEnvironment((Map*)map); w24->SetTwentyFourConnected();
                 newEnv = new Map2DConstrainedEnvironment(w24);
+                w24->setGoal(wpts[1]);
                 ev.emplace_back(e.name,newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),e.threshold,e.weight);
               }else if(e.name=="twentyfiveconnected"){
                 MapInterface* map=new Map(mapfile.c_str());
                 MapEnvironment* w25 = new MapEnvironment((Map*)map); w25->SetTwentyFiveConnected();
                 newEnv = new Map2DConstrainedEnvironment(w25);
+                w25->setGoal(wpts[1]);
                 ev.emplace_back(e.name,newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),e.threshold,e.weight);
               }else if(e.name=="fortyeightconnected"){
                 MapInterface* map=new Map(mapfile.c_str());
                 MapEnvironment* w48 = new MapEnvironment((Map*)map); w48->SetFortyEightConnected();
                 newEnv = new Map2DConstrainedEnvironment(w48);
                 ev.emplace_back(e.name,newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),e.threshold,e.weight);
+                w48->setGoal(wpts[1]);
               }else if(e.name=="fortynineconnected"){
                 MapInterface* map=new Map(mapfile.c_str());
                 MapEnvironment* w49 = new MapEnvironment((Map*)map); w49->SetFortyNineConnected();
                 newEnv = new Map2DConstrainedEnvironment(w49);
+                w49->setGoal(wpts[1]);
                 ev.emplace_back(e.name,newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),e.threshold,e.weight);
               }else if(e.name=="3dcardinal"){
                 MapInterface* map=new Map3D(mapfile.c_str(),0);
                 Grid3DEnvironment* me = new Grid3DEnvironment((Map3D*)map); me->SetZeroConnected();
                 ConstrainedEnvironment<xyztLoc,t3DDirection>* newE = new Grid3DConstrainedEnvironment(me);
-                //ev.emplace_back(e.name,newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newE),e.threshold,e.weight);
+                me->setGoal({wpts[1].x,wpts[1].y,0,wpts[1].t});
+                newE->setGoal({wpts[1].x,wpts[1].y,0,wpts[1].t});
+                //ev.emplace_back(e.name,newE,new Map3dPerfectHeuristic<xyztLoc,t3DDirection>(map,newE),e.threshold,e.weight);
               }else if(e.name=="3done"){
                 MapInterface* map=new Map3D(mapfile.c_str(),0);
                 Grid3DEnvironment* me = new Grid3DEnvironment((Map3D*)map); me->SetOneConnected();
                 ConstrainedEnvironment<xyztLoc,t3DDirection>* newE = new Grid3DConstrainedEnvironment(me);
-                //ev.emplace_back(e.name,newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newE),e.threshold,e.weight);
+                me->setGoal({wpts[1].x,wpts[1].y,0,wpts[1].t});
+                newE->setGoal({wpts[1].x,wpts[1].y,0,wpts[1].t});
+                //ev.emplace_back(e.name,newE,new Map3dPerfectHeuristic<xyztLoc,t3DDirection>(map,newE),e.threshold,e.weight);
               }else if(e.name=="3dtwo"){
                 MapInterface* map=new Map3D(mapfile.c_str(),0);
                 Grid3DEnvironment* me = new Grid3DEnvironment((Map3D*)map); me->SetTwoConnected();
                 ConstrainedEnvironment<xyztLoc,t3DDirection>* newE = new Grid3DConstrainedEnvironment(me);
-                //ev.emplace_back(e.name,newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newE),e.threshold,e.weight);
+                me->setGoal({wpts[1].x,wpts[1].y,0,wpts[1].t});
+                newE->setGoal({wpts[1].x,wpts[1].y,0,wpts[1].t});
+                //ev.emplace_back(e.name,newEnv,new Map3dPerfectHeuristic<xyztLoc,t3DDirection>(map,newE),e.threshold,e.weight);
               }else if(e.name=="airplane"){
                 MapInterface* map=new Map3D(mapfile.c_str(),0);
                 //TODO: Have airplane env accept a map
                 AirplaneEnvironment* me(new AirplaneEnvironment(map->GetMapWidth(),map->GetMapHeight(),map->GetMapDepth()));//map));
                 ConstrainedEnvironment<airtimeState,airplaneAction>* newE = new AirplaneConstrainedEnvironment(me);
+                //newE->setGoal({wpts[1].x,wpts[1].y,0,wpts[1].t});
+                //me->setGoal({wpts[1].x,wpts[1].y,0,wpts[1].t});
                 //ev.emplace_back(e.name,newE,nullptr,e.threshold,e.weight);
               }else{
                 std::cout << "Unknown environment " << e.name << "\n";
                 assert(!"Unknown environment encountered");
               }
+              newEnv->setGoal(wpts[1]);
             }
             environs.push_back(ev);
             ++agent;
@@ -516,37 +535,54 @@ int MyCLHandler(char *argument[], int maxNumArgs)
           for(int i(0); i<num_agents; ++i){
             std::vector<EnvironmentContainer<xytLoc,tDirection>> ev;
 
+            SearchEnvironment<xytLoc,tDirection>* me(nullptr);
             MapEnvironment* w4 = new MapEnvironment(map); w4->SetFourConnected();
             ConstrainedEnvironment<xytLoc,tDirection>* newEnv = new Map2DConstrainedEnvironment(w4);
             ev.emplace_back("fourconnected",newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),cutoffs[0],weights[0]);
+            newEnv->setGoal(waypoints[i][1]);
+            w4->setGoal(waypoints[i][1]);
 
             MapEnvironment* w5 = new MapEnvironment(map); w5->SetFiveConnected();
             newEnv = new Map2DConstrainedEnvironment(w5);
             ev.emplace_back("fiveconnected",newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),cutoffs[1],weights[1]);
+            newEnv->setGoal(waypoints[i][1]);
+            w5->setGoal(waypoints[i][1]);
 
             MapEnvironment* w8 = new MapEnvironment(map); w8->SetEightConnected();
             newEnv = new Map2DConstrainedEnvironment(w8);
             ev.emplace_back("eightconnected",newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),cutoffs[2],weights[2]);
+            newEnv->setGoal(waypoints[i][1]);
+            w8->setGoal(waypoints[i][1]);
 
             MapEnvironment* w9 = new MapEnvironment(map); w9->SetNineConnected();
             newEnv = new Map2DConstrainedEnvironment(w9);
             ev.emplace_back("nineconnected",newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),cutoffs[3],weights[3]);
+            newEnv->setGoal(waypoints[i][1]);
+            w9->setGoal(waypoints[i][1]);
 
             MapEnvironment* w24 = new MapEnvironment(map); w24->SetTwentyFourConnected();
             newEnv = new Map2DConstrainedEnvironment(w24);
             ev.emplace_back("twentyfourconnected",newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),cutoffs[4],weights[4]);
+            newEnv->setGoal(waypoints[i][1]);
+            w24->setGoal(waypoints[i][1]);
 
             MapEnvironment* w25 = new MapEnvironment(map); w25->SetTwentyFiveConnected();
             newEnv = new Map2DConstrainedEnvironment(w25);
             ev.emplace_back("twentyfiveconnected",newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),cutoffs[5],weights[5]);
+            newEnv->setGoal(waypoints[i][1]);
+            w25->setGoal(waypoints[i][1]);
 
             MapEnvironment* w48 = new MapEnvironment(map); w48->SetFortyEightConnected();
             newEnv = new Map2DConstrainedEnvironment(w48);
             ev.emplace_back("fortyeightconnected",newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),cutoffs[6],weights[6]);
+            newEnv->setGoal(waypoints[i][1]);
+            w48->setGoal(waypoints[i][1]);
 
             MapEnvironment* w49 = new MapEnvironment(map); w49->SetFortyNineConnected();
             newEnv = new Map2DConstrainedEnvironment(w49);
             ev.emplace_back("fortynineconnected",newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),cutoffs[7],weights[7]);
+            newEnv->setGoal(waypoints[i][1]);
+            w49->setGoal(waypoints[i][1]);
 
             environs.push_back(ev);
           }
@@ -781,34 +817,50 @@ int MyCLHandler(char *argument[], int maxNumArgs)
             MapEnvironment* w4 = new MapEnvironment((Map*)map); w4->SetFourConnected();
             ConstrainedEnvironment<xytLoc,tDirection>* newEnv = new Map2DConstrainedEnvironment(w4);
             ev.emplace_back("fourconnected",newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),cutoffs[0],weights[0]);
+            newEnv->setGoal(waypoints[i][1]);
+            w4->setGoal(waypoints[i][1]);
 
             MapEnvironment* w5 = new MapEnvironment((Map*)map); w5->SetFiveConnected();
             newEnv = new Map2DConstrainedEnvironment(w5);
             ev.emplace_back("fiveconnected",newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),cutoffs[1],weights[1]);
+            newEnv->setGoal(waypoints[i][1]);
+            w5->setGoal(waypoints[i][1]);
 
             MapEnvironment* w8 = new MapEnvironment((Map*)map); w8->SetEightConnected();
             newEnv = new Map2DConstrainedEnvironment(w8);
             ev.emplace_back("eightconnected",newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),cutoffs[2],weights[2]);
+            newEnv->setGoal(waypoints[i][1]);
+            w8->setGoal(waypoints[i][1]);
 
             MapEnvironment* w9 = new MapEnvironment((Map*)map); w9->SetNineConnected();
             newEnv = new Map2DConstrainedEnvironment(w9);
             ev.emplace_back("nineconnected",newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),cutoffs[3],weights[3]);
+            newEnv->setGoal(waypoints[i][1]);
+            w9->setGoal(waypoints[i][1]);
 
             MapEnvironment* w24 = new MapEnvironment((Map*)map); w24->SetTwentyFourConnected();
             newEnv = new Map2DConstrainedEnvironment(w24);
             ev.emplace_back("twentyfourconnected",newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),cutoffs[4],weights[4]);
+            newEnv->setGoal(waypoints[i][1]);
+            w24->setGoal(waypoints[i][1]);
 
             MapEnvironment* w25 = new MapEnvironment((Map*)map); w25->SetTwentyFiveConnected();
             newEnv = new Map2DConstrainedEnvironment(w25);
             ev.emplace_back("twentyfiveconnected",newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),cutoffs[5],weights[5]);
+            newEnv->setGoal(waypoints[i][1]);
+            w25->setGoal(waypoints[i][1]);
 
             MapEnvironment* w48 = new MapEnvironment((Map*)map); w48->SetFortyEightConnected();
             newEnv = new Map2DConstrainedEnvironment(w48);
             ev.emplace_back("fortyeightconnected",newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),cutoffs[6],weights[6]);
+            newEnv->setGoal(waypoints[i][1]);
+            w48->setGoal(waypoints[i][1]);
 
             MapEnvironment* w49 = new MapEnvironment((Map*)map); w49->SetFortyNineConnected();
             newEnv = new Map2DConstrainedEnvironment(w49);
             ev.emplace_back("fortynineconnected",newEnv,new MapPerfectHeuristic<xytLoc,tDirection>(map,newEnv),cutoffs[7],weights[7]);
+            newEnv->setGoal(waypoints[i][1]);
+            w49->setGoal(waypoints[i][1]);
 
             environs.push_back(ev);
           }
