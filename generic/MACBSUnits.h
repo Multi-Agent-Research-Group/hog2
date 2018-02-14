@@ -53,6 +53,7 @@
 #define RIGHT_CARDINAL 4
 #define BOTH_CARDINAL  (LEFT_CARDINAL|RIGHT_CARDINAL)
 
+unsigned collchecks(0);
 float collisionTime(0);
 float planTime(0);
 float replanTime(0);
@@ -1006,7 +1007,7 @@ void CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::proce
     }
   }
   fflush(stdout);
-  std::cout<<"elapsed,planTime,replanTime,bypassplanTime,maplanTime,collisionTime,expansions,collisions,cost,actions\n";
+  std::cout<<"elapsed,planTime,replanTime,bypassplanTime,maplanTime,collisionTime,expansions,collchecks,collisions,cost,actions\n";
   if(verify&&elapsed>0)std::cout << (valid?"VALID":"INVALID")<<std::endl;
   if(elapsed<0){
     //std::cout << seed<<":FAILED\n";
@@ -1020,6 +1021,7 @@ void CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::proce
   std::cout << maplanTime << ",";
   std::cout << collisionTime << ",";
   std::cout << TOTAL_EXPANSIONS << ",";
+  std::cout << collchecks << ",";
   std::cout << tree.size() << ",";
   std::cout << cost/state::TIME_RESOLUTION_D << ","; 
   std::cout << total << std::endl;
@@ -1485,6 +1487,7 @@ unsigned CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::H
 
       state const& aGoal(a[wa[pwptA+1]]);
       state const& bGoal(b[wb[pwptB+1]]);
+      collchecks++;
       if(collisionCheck3D(a[xTime],a[xNextTime],b[yTime],b[yNextTime],agentRadius)){
         ++conflict.first;
         if(verbose)std::cout<<conflict.first<<" conflicts; #"<<x<<":" << a[xTime]<<"-->"<<a[xNextTime]<<" #"<<y<<":"<<b[yTime]<<"-->"<<b[yNextTime]<<"\n";
