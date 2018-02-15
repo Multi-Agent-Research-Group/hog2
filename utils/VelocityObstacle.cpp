@@ -144,7 +144,7 @@ double collisionImminent(Vector2D A, Vector2D const& VA, double radiusA, double 
     B+=VB*(startTimeA-startTimeB);
     startTimeB=startTimeA;
   }
-  if(fequal(startTimeA,endTimeA)||fequal(startTimeB,endTimeB)){return 0;}
+  //if(fequal(startTimeA,endTimeA)||fequal(startTimeB,endTimeB)){return 0;}
 
   // Assume an open interval just at the edge of the agents...
   double r(radiusA+radiusB-2*TOLERANCE); // Combined radius
@@ -407,7 +407,7 @@ double collisionImminent(Vector3D A, Vector3D const& VA, double radiusA, double 
     B+=VB*(startTimeA-startTimeB);
     startTimeB=startTimeA;
   }
-  if(fequal(startTimeA,endTimeA)||fequal(startTimeB,endTimeB)){return 0;}
+  //if(fequal(startTimeA,endTimeA)||fequal(startTimeB,endTimeB)){return 0;}
 
   // Assume an open interval just at the edge of the agents...
   double r(radiusA+radiusB-2*TOLERANCE); // Combined radius
