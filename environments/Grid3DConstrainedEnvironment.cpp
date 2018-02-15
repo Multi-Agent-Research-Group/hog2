@@ -137,28 +137,30 @@ bool Grid3DConstrainedEnvironment::GoalTest(const xyztLoc &node, const xyztLoc &
 
 uint64_t Grid3DConstrainedEnvironment::GetStateHash(const xyztLoc &node) const
 {
-  if(ignoreHeading){
-    if(ignoreTime){
-      uint64_t h1(node.x);
-    //h1 = node.x;
-    h1 <<= 16;
-    h1 |= node.y;
-    h1 <<= 16;
-    h1 |= node.z;
+  //if(ignoreHeading){
+  uint64_t h1(node.x);
+  h1 <<= 12;
+  h1 |= node.y;
+  h1 <<= 10;
+  h1 |= node.z;
+  if(ignoreTime){
     return h1;
-    }
-    return *((uint64_t*)&node);
-    //h1 = node.x;
-    //h1 <<= 16;
-    //h1 |= node.y;
-    //h1 <<= 12;
-    //h1 |= node.z; // up to 4096
-    //h1 <<= 20;
-    //h1 |= node.t&0xfffff; // Allow up to 1,048,576 milliseconds (20 bits)
-    //return h1;
   }
+  h1 <<= 20;
+  h1 |= node.t;
+  return h1;
   return *((uint64_t*)&node);
-  
+  //h1 = node.x;
+  //h1 <<= 16;
+  //h1 |= node.y;
+  //h1 <<= 12;
+  //h1 |= node.z; // up to 4096
+  //h1 <<= 20;
+  //h1 |= node.t&0xfffff; // Allow up to 1,048,576 milliseconds (20 bits)
+  //return h1;
+  //}
+  //return *((uint64_t*)&node);
+
   //h1 = node.x; // up to 4096
   //h1 <<= 12;
   //h1 |= node.y&0xfff; // up to 4096;
@@ -176,15 +178,15 @@ void Grid3DConstrainedEnvironment::GetStateFromHash(uint64_t hash, xyztLoc &s) c
 {
   if(ignoreHeading){
     if(ignoreTime){
-      s.z=(hash)&0xffff;
-      s.y=(hash>>16)&0xffff;
-      s.x=(hash>>32)&0xffff;
+      s.z=(hash)&0x3ff; // 10 bits
+      s.y=(hash>>10)&0xfff; // 12 bits
+      s.x=(hash>>22)&0xfff; // 12 bits
       return;
     }
-    s.t=hash&0xfffff;
-    s.z=(hash>>32)&(0x400-1);
-    s.y=(hash>>42)&(0x800-1);
-    s.x=(hash>>53)&(0x800-1);
+    s.t=hash&0xfffff;  // 20 bits
+    s.z=(hash>>20)&0x3ff;
+    s.y=(hash>>30)&0xfff;
+    s.x=(hash>>42)&0xfff;
     return;
   }
   assert(!"Hash is irreversible...");

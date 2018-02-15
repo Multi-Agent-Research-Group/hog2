@@ -407,7 +407,7 @@ bool TemporalAStar<state,action,environment,openList>::DoSingleSearchStep(std::v
                 neighbors.insert(neighbors.begin(),n);
               }
             }else{
-              n.t-=env->WaitTime();
+              //n.t-=env->WaitTime();
               if(fgreater(n.t,openClosedList.Lookup(nodeid).data.t)
                   && std::find(neighbors.begin(),neighbors.end(),n)==neighbors.end()){
                 neighbors.insert(neighbors.begin(),n);

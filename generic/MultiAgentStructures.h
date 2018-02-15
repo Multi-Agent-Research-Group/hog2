@@ -25,6 +25,7 @@
 #include "GenericSearchAlgorithm.h"
 #include "VelocityObstacle.h"
 #include "NonUnitTimeCAT.h"
+#include "UnitTimeCAT.h"
 #include <set>
 
 template<typename state>

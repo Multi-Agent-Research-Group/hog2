@@ -116,13 +116,13 @@ struct xyzLoc {
 };
 
 struct xyztLoc {
-  xyztLoc():x(0),y(0),z(0),t(0),h(0){}
-  xyztLoc(xyztLoc const& v, unsigned time):x(v.x),y(v.y),z(v.z),t(time),h(0){}
-  xyztLoc(unsigned _x, unsigned _y):x(_x),y(_y),z(0),t(0),h(0){}
-  xyztLoc(unsigned _x, unsigned _y, unsigned _z, float time):x(_x),y(_y),z(_z),t(round(time*TIME_RESOLUTION)),h(0){}
-  xyztLoc(unsigned _x, unsigned _y, unsigned _z):x(_x),y(_y),z(_z),t(0),h(0){}
-  xyztLoc(unsigned _x, unsigned _y, unsigned _z, unsigned time):x(_x),y(_y),z(_z),t(time),h(0){}
-  xyztLoc(unsigned _x, unsigned _y, unsigned _z, int time):x(_x),y(_y),z(_z),t(time),h(0){}
+  xyztLoc():x(0),y(0),z(0),t(0),nc(-1){}
+  xyztLoc(xyztLoc const& v, unsigned time):x(v.x),y(v.y),z(v.z),t(time),nc(-1){}
+  xyztLoc(unsigned _x, unsigned _y):x(_x),y(_y),z(0),t(0),nc(-1){}
+  xyztLoc(unsigned _x, unsigned _y, unsigned _z, float time):x(_x),y(_y),z(_z),t(round(time*TIME_RESOLUTION)),nc(-1){}
+  xyztLoc(unsigned _x, unsigned _y, unsigned _z):x(_x),y(_y),z(_z),t(0),nc(-1){}
+  xyztLoc(unsigned _x, unsigned _y, unsigned _z, unsigned time):x(_x),y(_y),z(_z),t(time),nc(-1){}
+  xyztLoc(unsigned _x, unsigned _y, unsigned _z, int time):x(_x),y(_y),z(_z),t(time),nc(-1){}
   operator TemporalVector3D()const{return TemporalVector3D(x,y,z,t/TIME_RESOLUTION_D);}
   explicit operator TemporalVector()const{return TemporalVector(x,y,t/TIME_RESOLUTION_D);}
   operator Vector3D()const{return Vector3D(x,y,z);}
@@ -131,7 +131,7 @@ struct xyztLoc {
   unsigned x : 12;
   unsigned y : 12;
   unsigned z : 10;
-  unsigned h : 10; // Heading
+  signed nc : 10;
   //int16_t p; // Pitch
   bool sameLoc(xyztLoc const& other)const{return x==other.x&&y==other.y&&z==other.z;}
   bool operator==(xyztLoc const& other)const{return sameLoc(other)&&t==other.t;}

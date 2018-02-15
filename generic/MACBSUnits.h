@@ -1017,7 +1017,7 @@ void CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::proce
     }
   }
   fflush(stdout);
-  std::cout<<"elapsed,planTime,replanTime,bypassplanTime,maplanTime,collisionTime,expansions,collchecks,collisions,cost,actions\n";
+  std::cout<<"elapsed,planTime,replanTime,bypassplanTime,maplanTime,collisionTime,expansions,CATcollchecks,collchecks,collisions,cost,actions\n";
   if(verify&&elapsed>0)std::cout << (valid?"VALID":"INVALID")<<std::endl;
   if(elapsed<0){
     //std::cout << seed<<":FAILED\n";
@@ -1031,6 +1031,7 @@ void CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::proce
   std::cout << maplanTime << ",";
   std::cout << collisionTime << ",";
   std::cout << TOTAL_EXPANSIONS << ",";
+  std::cout << comparison::collchecks << ",";
   std::cout << collchecks << ",";
   std::cout << tree.size() << ",";
   std::cout << cost/state::TIME_RESOLUTION_D << ","; 
@@ -1162,6 +1163,7 @@ void CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::StayA
   for(auto const& n:tree[location].paths){
     maxDuration=std::max(maxDuration,n.back().t);
   }
+  if(maxDuration<state::TIME_RESOLUTION_U)return;
 
   // Add wait actions (of 1 second) to goal states less than max
   for(auto& n:tree[location].paths){

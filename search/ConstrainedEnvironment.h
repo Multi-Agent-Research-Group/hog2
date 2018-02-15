@@ -119,7 +119,7 @@ template<typename State>
 class ConflictDetector{
   public:
     ConflictDetector(){}
-    virtual bool HasConflict(unsigned agentA, State const& A1, State const& A2, unsigned agentB, State const& B1, State const& B2)const=0;
+    virtual bool HasConflict(State const& A1, State const& A2, State const& B1, State const& B2)const=0;
     // Returns a newly allocated pointer to a constraint representing the conflict or zero
     // The caller is responsible for managing the memory
     virtual Constraint<State>* GetConstraint(State const& A1, State const& A2, State const& B1, State const& B2)const=0;
@@ -130,7 +130,7 @@ template<typename State>
 class CollisionDetector : public ConflictDetector<State> {
   public:
     CollisionDetector(double radius):ConflictDetector<State>(),agentRadius(radius){}
-    inline virtual bool HasConflict(unsigned agentA, State const& A1, State const& A2, unsigned agentB, State const& B1, State const& B2)const{
+    inline virtual bool HasConflict(State const& A1, State const& A2, State const& B1, State const& B2)const{
       return collisionCheck3D(A1,A2,B1,B2,agentRadius);
     }
     inline virtual Constraint<State>* GetConstraint(State const& A1, State const& A2, State const& B1, State const& B2)const{

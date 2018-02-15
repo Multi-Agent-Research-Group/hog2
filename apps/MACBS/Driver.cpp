@@ -25,6 +25,7 @@
 #include "ScenarioLoader.h"
 #include "MACBSUnits.h"
 #include "NonUnitTimeCAT.h"
+#include "UnitTimeCAT.h"
 #include "ICTSAlgorithm.h"
 #include "MapPerfectHeuristic.h"
 #include "Map3dPerfectHeuristic.h"
@@ -73,15 +74,17 @@ std::vector<std::vector<xyztLoc> > waypoints;
   int num_agents = 0;
   int minsubgoals(1);
   int maxsubgoals(1);
-  bool use_wait = false;
+  int wait = xyztLoc::TIME_RESOLUTION_U;
   bool nobypass = false;
 
   bool paused = false;
 
   Grid3DConstrainedEnvironment *ace = 0;
   UnitSimulation<xyztLoc, t3DDirection, ConstrainedEnvironment<xyztLoc,t3DDirection>> *sim = 0;
-  typedef CBSUnit<xyztLoc,t3DDirection,TieBreaking3D<xyztLoc,t3DDirection>,NonUnitTimeCAT<xyztLoc,t3DDirection,GRID3D_HASH_INTERVAL_HUNDREDTHS>> MACBSUnit;
-  typedef CBSGroup<xyztLoc,t3DDirection,TieBreaking3D<xyztLoc,t3DDirection>,NonUnitTimeCAT<xyztLoc,t3DDirection,GRID3D_HASH_INTERVAL_HUNDREDTHS>,ICTSAlgorithm<xyztLoc,t3DDirection>> MACBSGroup;
+  typedef CBSUnit<xyztLoc,t3DDirection,UnitTieBreaking3D<xyztLoc,t3DDirection>,UnitTimeCAT<xyztLoc,t3DDirection>> MACBSUnit;
+  typedef CBSGroup<xyztLoc,t3DDirection,UnitTieBreaking3D<xyztLoc,t3DDirection>,UnitTimeCAT<xyztLoc,t3DDirection>,ICTSAlgorithm<xyztLoc,t3DDirection>> MACBSGroup;
+  //typedef CBSUnit<xyztLoc,t3DDirection,TieBreaking3D<xyztLoc,t3DDirection>,NonUnitTimeCAT<xyztLoc,t3DDirection,GRID3D_HASH_INTERVAL_HUNDREDTHS>> MACBSUnit;
+  //typedef CBSGroup<xyztLoc,t3DDirection,TieBreaking3D<xyztLoc,t3DDirection>,NonUnitTimeCAT<xyztLoc,t3DDirection,GRID3D_HASH_INTERVAL_HUNDREDTHS>,ICTSAlgorithm<xyztLoc,t3DDirection>> MACBSGroup;
   MACBSGroup* group(nullptr);
 
   bool gui=true;
@@ -153,7 +156,7 @@ void InstallHandlers()
 	InstallKeyboardHandler(MyRandomUnitKeyHandler, "Add simple Unit", "Deploys a randomly moving unit", kShiftDown, 'a');
 	InstallKeyboardHandler(MyRandomUnitKeyHandler, "Add simple Unit", "Deploys a right-hand-rule unit", kControlDown, '1');
 
-	InstallCommandLineHandler(MyCLHandler, "-uwait", "-uwait", "Choose if the wait action is used.");
+	InstallCommandLineHandler(MyCLHandler, "-wait", "-wait <time units>", "The duration of wait actions");
 	InstallCommandLineHandler(MyCLHandler, "-dimensions", "-dimensions width,length,height", "Set the length,width and height of the environment (max 65K,65K,1024).");
 	InstallCommandLineHandler(MyCLHandler, "-nagents", "-nagents <number>", "Select the number of agents.");
 	InstallCommandLineHandler(MyCLHandler, "-nsubgoals", "-nsubgoals <number>,<number>", "Select the min,max number of subgoals per agent.");
@@ -226,6 +229,8 @@ void InitHeadless(){
   group->verify=verify;
   MACBSGroup::greedyCT=suboptimal;
   group->quiet=quiet;
+  UnitTieBreaking3D<xyztLoc,t3DDirection>::randomalg=randomalg;
+  UnitTieBreaking3D<xyztLoc,t3DDirection>::useCAT=useCAT;
   TieBreaking3D<xyztLoc,t3DDirection>::randomalg=randomalg;
   TieBreaking3D<xyztLoc,t3DDirection>::useCAT=useCAT;
   if(gui){
@@ -524,6 +529,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
                 assert(!"Unknown environment encountered");
               }
               newEnv->GetMapEnv()->setGoal(waypoints[ev.size()].back());
+              newEnv->WaitTime(wait);
               ev.emplace_back(e.name,newEnv,new Map3dPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),e.threshold,e.weight);
             }
             environs.push_back(ev);
@@ -728,9 +734,9 @@ int MyCLHandler(char *argument[], int maxNumArgs)
                 recording = true;
                 return 1;
         }
-	if(strcmp(argument[0], "-uwait") == 0)
+	if(strcmp(argument[0], "-wait") == 0)
 	{
-		use_wait = true;
+		wait = atoi(argument[1]);
 		return 1;
 	}
         if(strcmp(argument[0], "-cfgfile") == 0){
@@ -956,6 +962,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
               }
               ev.emplace_back(e.name,newEnv,new Map3dPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),e.threshold,e.weight);
               newEnv->setGoal(waypoints[agent][1]);
+              newEnv->WaitTime(wait);
               newEnv->GetMapEnv()->setGoal(waypoints[agent][1]);
             }
             environs.push_back(ev);
