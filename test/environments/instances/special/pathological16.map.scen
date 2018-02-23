@@ -1,5 +1,6 @@
 version 1
 0	test/environments/instances/special/pathological.map	14	13	2	7	9	0	0.0
+1	test/environments/instances/special/pathological.map	14	13	0	11	10	1	0.0
 1	test/environments/instances/special/pathological.map	14	13	0	10	11	1	0.0
 2	test/environments/instances/special/pathological.map	14	13	0	9	12	1	0.0
 3	test/environments/instances/special/pathological.map	14	13	0	8	13	1	0.0

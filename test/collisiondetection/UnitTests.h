@@ -1049,7 +1049,7 @@ TEST(PETheta, GetPath){
   for(auto const& ss: solution){
     std::cout << ss.x << "," << ss.y << "\n";
   }
-  std::cout << std::endl;
+  std::cout << "\n";
 }*/
 
 TEST(Theta, GetObstructedPath){
@@ -1070,7 +1070,7 @@ TEST(Theta, GetObstructedPath){
   for(auto const& ss: solution){
     std::cout << ss.x << "," << ss.y << "\n";
   }
-  std::cout << std::endl;
+  std::cout << "\n";
   for(int i(1);i<solution.size(); ++i){
     ASSERT_TRUE(env.LineOfSight(solution[i-1],solution[i]));
   }
@@ -1097,7 +1097,7 @@ TEST(Theta1, GetObstructedPath1){
   for(int i(1);i<solution.size(); ++i){
     ASSERT_TRUE(env.LineOfSight(solution[i-1],solution[i]));
   }
-  std::cout << std::endl;
+  std::cout << "\n";
 }
 
 TEST(Theta1, TestAnomaly){
@@ -1118,7 +1118,7 @@ TEST(Theta1, TestAnomaly){
   for(int i(1);i<solution.size(); ++i){
     ASSERT_TRUE(env.LineOfSight(solution[i-1],solution[i]));
   }
-  std::cout << std::endl;
+  std::cout << "\n";
 }
 
 TEST(Theta1, TestStepAside){
@@ -1176,7 +1176,7 @@ TEST(Theta1, TestStepAside){
   for(int i(1);i<solution.size(); ++i){
     ASSERT_TRUE(env.LineOfSight(solution[i-1],solution[i]));
   }
-  std::cout << "with obstacle" << std::endl;
+  std::cout << "with obstacle\n";
   env.AddConstraint((Constraint<TemporalVector3D>*)new Collision<TemporalVector3D>({6,1,0,0},{1,1,0,.6}));
   agentRadius=.25;
   tstar.GetPath(&env,{1,1,0},{6,1,0},solution);
@@ -1191,7 +1191,7 @@ TEST(Theta1, TestStepAside){
     ASSERT_TRUE(env.LineOfSight(solution[i-1],solution[i]));
   }
   agentRadius=.5;
-  std::cout << std::endl;
+  std::cout << "\n";
 }
 
 TEST(Theta1, TestDodging){
@@ -1244,7 +1244,7 @@ TEST(Theta1, TestDodging){
   for(int i(1);i<solution.size(); ++i){
     ASSERT_TRUE(env.LineOfSight(solution[i-1],solution[i]));
   }
-  std::cout << std::endl;
+  std::cout << "\n";
 }
 
 TEST(DISABLED_Theta, TestMotionConstrained3D){
@@ -1265,7 +1265,7 @@ TEST(DISABLED_Theta, TestMotionConstrained3D){
   for(int i(1);i<solution.size(); ++i){
     ASSERT_TRUE(env.LineOfSight(solution[i-1],solution[i]));
   }
-  std::cout << std::endl;
+  std::cout << "\n";
 }
 
 TEST(DISABLED_Theta, Test3D){
@@ -1288,7 +1288,7 @@ TEST(DISABLED_Theta, Test3D){
   }
   std::cout << Util::heading<360>(0,0,0,-1) << "\n";
   std::cout << Util::angle<360>(0,0,0,-1) << "\n";
-  std::cout << std::endl;
+  std::cout << "\n";
 }
 
 #define WORD_BITS (8 * sizeof(unsigned))
@@ -2196,8 +2196,8 @@ TEST(DISABLED_PreCollision, generate125Conn_5Rad){
   std::cout << "helped " << wasHelpful << " missed " << missedOpportunities << " total " << total << "\n";
 }
 
-bool checkForCollision(xytLoc const& s1, xytLoc const& d1, xytLoc const& s2, xytLoc const& d2,float radius, MapEnvironment* env=nullptr){
-  if(env && !env->collisionPreCheck(s1,d1,radius,s2,d2,radius)) return false;
+bool checkForCollision(xytLoc const& s1, xytLoc const& d1, xytLoc const& s2, xytLoc const& d2,float radius, MapEnvironment* env=nullptr,bool simple=false){
+  if(env && !env->collisionPreCheck(s1,d1,radius,s2,d2,radius,simple)) return false;
   Vector2D A(s1);
   Vector2D B(s2);
   Vector2D VA(d1);
@@ -2206,25 +2206,29 @@ bool checkForCollision(xytLoc const& s1, xytLoc const& d1, xytLoc const& s2, xyt
   Vector2D VB(d2);
   VB-=B;
   VB.Normalize();
-  return collisionImminent(A,VA,radius,s1.t,d1.t,B,VB,radius,s2.t,d2.t);
+  if(collisionImminent(A,VA,radius,s1.t,d1.t,B,VB,radius,s2.t,d2.t)){
+    //std::cout << "Collision at: " << s1 << "-->" << d1 << " " << s2 << "-->" << d2 << "\n";
+    return true;
+  }
+  return false;
 }
 
-unsigned countCollisions(std::vector<xytLoc> const& p1, std::vector<xytLoc> const& p2, float radius,MapEnvironment* env=nullptr){
-  unsigned count(0);
+void countCollisions(std::vector<xytLoc> const& p1, std::vector<xytLoc> const& p2, float radius, unsigned& collisions, unsigned& total, MapEnvironment* env=nullptr,bool simple=false){
   auto ap(p1.begin());
   auto a(ap+1);
   auto bp(p2.begin());
   auto b(bp+1);
   while(a!=p1.end() && b!=p2.end()){
+    ++total;
     /*if(checkForCollision(*ap,*a,*bp,*b,radius,nullptr) && !checkForCollision(*ap,*a,*bp,*b,radius,env)){
       std::cout << "Missed collision for " << *ap << "-->" << *a << " "  << *bp << "-->" << *b << "\n";
       checkForCollision(*ap,*a,*bp,*b,radius,env);
     }*/
-    if(checkForCollision(*ap,*a,*bp,*b,radius,env)){count++;}
-    if(fless(a->t,b->t)){
+    if(checkForCollision(*ap,*a,*bp,*b,radius,env,simple)){collisions++;}
+    if(fless(a->t,b->t+radius)){
       ++a;
       ++ap;
-    }else if(fgreater(a->t,b->t)){
+    }else if(fgreater(a->t+radius,b->t)){
       ++b;
       ++bp;
     }else{
@@ -2232,7 +2236,6 @@ unsigned countCollisions(std::vector<xytLoc> const& p1, std::vector<xytLoc> cons
       ++ap;++bp;
     }
   }
-  return count;
 }
 
 unsigned getKey(int i, int j, int depth){
@@ -2440,15 +2443,15 @@ void createSortedLists(std::vector<std::vector<xytLoc>>const& paths, std::vector
     std::cout << "collisions " << pairs.size();
   }
 }
-
-TEST(AABB, BVHTreeTest){
-  const int nagents(50);
+void broadphaseTest(unsigned nagents, unsigned tnum){
   const int depth(1024); // Limit on path length...
   std::vector<std::vector<xytLoc>> waypoints;
 
   // Load problems from file
   {
-    std::ifstream ss("../../test/environments/instances/64x64/50/22.csv");
+    std::stringstream filename;
+    filename << "../../test/environments/instances/64x64/" << nagents << "/" << tnum << ".csv";
+    std::ifstream ss(filename.str());
     int x,y;
     float t(0.0);
     std::string line;
@@ -2498,15 +2501,16 @@ TEST(AABB, BVHTreeTest){
   aabb::Tree<xytLoc> tree(nagents*100);
 
   // To load precheck bit-vector
-  checkForCollision(p[0][0],p[0][1],p[0][0],p[0][1],radius,&menv);
+  checkForCollision(p[0][0],p[0][0],p[0][0],p[0][0],radius,&menv);
 
   // Insert particles and count collisions using BVH
   unsigned count1(0);
+  unsigned total1(0);
   Timer tmr1;
   tmr1.StartTimer();
   for(int i(0); i<nagents; ++i){
     for(int j(1); j<p[i].size(); ++j){
-      tree.insertParticle(i*depth+j,p[i][j-1],p[i][j],radius);
+      tree.insertParticle(i*depth+j,p[i][j-1],p[i][j],.0);
     }
   }
 
@@ -2522,35 +2526,64 @@ TEST(AABB, BVHTreeTest){
         unsigned key(v<mykey?v+mykey*nagents*depth:mykey+v*nagents*depth);
         auto a(unravelKey(v,depth));
         if((a.first == i) || seen.find(key)!=seen.end()){continue;}
+        total1++;
         seen.insert(key);
-        count1 += checkForCollision(p[i][j-1],p[i][j],p[a.first][a.second],p[a.first][a.second+1],radius,&menv);
+        count1 += checkForCollision(p[i][j-1],p[i][j],p[a.first][a.second-1],p[a.first][a.second],radius,&menv);
       }
     }
   }
-  std::cout << "BVH test on " << nagents << " with " << count1 << " collisions took " << tmr1.EndTimer() << "(" << tmr3.EndTimer() << ")\n";
+  std::cout << "BVH test on " << nagents << " with " << total1 << " checks, " << count1 << " collisions took " << tmr1.EndTimer() << "(" << tmr3.EndTimer() << ")\n";
 
 
   unsigned count2(0);
+  unsigned total2(0);
   Timer tmr2;
   tmr2.StartTimer();
   // Count collisions brute force
   for(int i(0); i<nagents; ++i){
     for(int j(i+1); j<nagents; ++j){
-      count2+=countCollisions(p[i],p[j],radius);
+      //std::cout << i << " VS " << j << "\n";
+      countCollisions(p[i],p[j],radius,count2,total2);
     }
   }
-  std::cout << "Brute force test on " << nagents << " with " << count2 << " collisions took " << tmr2.EndTimer() << "\n";
+  std::cout << "Brute force test on " << nagents << " with " << total2 << " checks, " << count2 << " collisions took " << tmr2.EndTimer() << "\n";
 
   unsigned count4(0);
+  unsigned total4(0);
   Timer tmr4;
   tmr4.StartTimer();
   // Count collisions brute force
   for(int i(0); i<nagents; ++i){
     for(int j(i+1); j<nagents; ++j){
-      count4 +=countCollisions(p[i],p[j],radius,&menv);
+      //std::cout << i << " VS " << j << "\n";
+      countCollisions(p[i],p[j],radius,count4,total4,&menv);
     }
   }
-  std::cout << "Brute force with precheck on " << nagents << " with " << count4 << " collisions took " << tmr4.EndTimer() << "\n";
+  std::cout << "Brute force with precheck on " << nagents << " with " << total4 << " checks, " << count4 << " collisions took " << tmr4.EndTimer() << "\n";
+
+  unsigned count5(0);
+  unsigned total5(0);
+  Timer tmr5;
+  tmr5.StartTimer();
+  // Count collisions brute force
+  for(int i(0); i<nagents; ++i){
+    for(int j(i+1); j<nagents; ++j){
+      //std::cout << i << " VS " << j << "\n";
+      countCollisions(p[i],p[j],radius,count5,total5,&menv,true);
+    }
+  }
+  std::cout << "Brute force with simple precheck on " << nagents << " with " << total4 << " checks, " << count5 << " collisions took " << tmr5.EndTimer() << "\n";
+}
+
+TEST(AABB, BVHTreeTest){
+  for(int nagents(5); nagents<301; nagents+=5){
+    for(int i(0); i<100; ++i){
+std::cout << "===========================================================\n";
+std::cout << nagents << " AGENTS, Test " << i << "\n";
+std::cout << "===========================================================\n";
+      broadphaseTest(nagents,i);
+    }
+  }
 }
 
 /*TEST(Theta1, GetObstructedPath2){
@@ -2574,7 +2607,7 @@ TEST(AABB, BVHTreeTest){
   for(int i(1);i<solution.size(); ++i){
     ASSERT_TRUE(env.LineOfSight(solution[i-1],solution[i]));
   }
-  std::cout << std::endl;
+  std::cout << "\n";
 }
 
 TEST(EPETheta, GetObstructedPath){
@@ -2598,7 +2631,7 @@ TEST(EPETheta, GetObstructedPath){
   for(int i(1);i<solution.size(); ++i){
     ASSERT_TRUE(env.LineOfSight(solution[i-1],solution[i]));
   }
-  std::cout << std::endl;
+  std::cout << "\n";
 }
 
 TEST(EPETheta, GetObstructedPathComp){
@@ -2670,6 +2703,6 @@ TEST(EPETheta, GetObstructedPathComp){
       ASSERT_TRUE(solution1[i]==solution[i]);
     }
   }
-  std::cout << std::endl;
+  std::cout << "\n";
 }*/
 #endif

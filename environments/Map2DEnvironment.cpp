@@ -1694,7 +1694,7 @@ double MapEnvironment::GetPathLength(std::vector<xyLoc> &neighbors)
 }
 
 
-const unsigned MapEnvironment::M_CENTER_IDX9 = 544;
+const unsigned MapEnvironment::M_CENTER_IDX9 = 123;
 const unsigned MapEnvironment::M_CENTER_IDX25 = 7812;
 const unsigned MapEnvironment::M_CENTER_IDX49 = 58824;
 // Initialize these to zero
@@ -1705,7 +1705,7 @@ unsigned MapEnvironment::bitarray9r_5[9*9*9/WORD_BITS+1]={};
 unsigned MapEnvironment::bitarray25r_5[25*25*25/WORD_BITS+1]={};
 unsigned MapEnvironment::bitarray49r_5[49*49*49/WORD_BITS+1]={};
 
-bool MapEnvironment::collisionPreCheck(xyLoc const& s1, xyLoc const& d1, double r1, xyLoc const& s2, xyLoc const& d2, double r2){
+bool MapEnvironment::collisionPreCheck(xyLoc const& s1, xyLoc const& d1, double r1, xyLoc const& s2, xyLoc const& d2, double r2, bool simple){
   uint16_t ssx(abs(s1.x-s2.x));
   uint16_t sdx(abs(s1.x-d2.x));
   uint16_t ssy(abs(s1.y-s2.y));
@@ -1716,26 +1716,44 @@ bool MapEnvironment::collisionPreCheck(xyLoc const& s1, xyLoc const& d1, double 
     case 5:
     case 8:
     case 9:
-      if(ssx<2 && ssy<2 && sdx <3 && sdy<3)
+      if(ssx<2 && ssy<2 && sdx <3 && sdy<3){
+        if(simple)
+          return true;
         return getPreCheck9(index9(s1,d1,s2,d2),std::max(r1,r2));
-      if(sdx<2 && sdy<2 && ssx <3 && ssy<3)
+      }
+      if(sdx<2 && sdy<2 && ssx <3 && ssy<3){
+        if(simple)
+          return true;
         return getPreCheck9(index9(s1,d1,d2,s2),std::max(r1,r2));
+      }
       return false;
       break;
     case 24:
     case 25:
-      if(ssx<3 && ssy<3 && sdx <5 && sdy<5)
+      if(ssx<3 && ssy<3 && sdx <5 && sdy<5){
+        if(simple)
+          return true;
         return getPreCheck25(index25(s1,d1,s2,d2),std::max(r1,r2));
-      if(sdx<3 && sdy<3 && ssx <5 && ssy<5)
+      }
+      if(sdx<3 && sdy<3 && ssx <5 && ssy<5){
+        if(simple)
+          return true;
         return getPreCheck25(index25(s1,d1,d2,s2),std::max(r1,r2));
+      }
       return false;
       break;
     case 48:
     case 49:
-      if(ssx<4 && ssy<4 && sdx <7 && sdy<7)
+      if(ssx<4 && ssy<4 && sdx <7 && sdy<7){
+        if(simple)
+          return true;
         return getPreCheck49(index49(s1,d1,s2,d2),std::max(r1,r2));
-      if(sdx<4 && sdy<4 && ssx <7 && ssy<7)
+      }
+      if(sdx<4 && sdy<4 && ssx <7 && ssy<7){
+        if(simple)
+          return true;
         return getPreCheck49(index49(s1,d1,d2,s2),std::max(r1,r2));
+      }
       return false;
       break;
     default:
@@ -1747,7 +1765,7 @@ bool MapEnvironment::collisionPreCheck(xyLoc const& s1, xyLoc const& d1, double 
 bool MapEnvironment::getPreCheck9(size_t idx, double radius){
   // Initialize if not already done
   if(fgreater(radius,.25)){
-    if(!get(bitarray9r_5,M_CENTER_IDX9)){ // Center bit should always be 1 if initialized
+    if(!bitarray9r_5[0]){ // Center bit should always be 1 if initialized
       bool orig(fullBranching);
       fullBranching=true;
       Map* origMap(map);

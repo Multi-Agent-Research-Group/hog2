@@ -181,7 +181,7 @@ public:
           return d1.y*7+d1.x + 49*(s2.y*7+s2.x) + 2401*(d2.y*7+d2.x);
         }
 
-        bool collisionPreCheck(xyLoc const& s1, xyLoc const& d1, double r1, xyLoc const& s2, xyLoc const& d2, double r2);
+        bool collisionPreCheck(xyLoc const& s1, xyLoc const& d1, double r1, xyLoc const& s2, xyLoc const& d2, double r2, bool simple=false);
 
   protected:
         bool getPreCheck9(size_t idx, double radius);
