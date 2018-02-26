@@ -1255,8 +1255,8 @@ TEST(DISABLED_Theta, TestMotionConstrained3D){
   tstar.SetHeuristic(new StraightLineHeuristic3D());
   //tstar.SetVerbose(true);
   std::vector<xyztLoc> solution;
-  env.SetMaxTurnAzimuth(45.0); //(only 45 deg turns allowed)
-  env.SetMaxPitch(30.0); //(only 30 deg pitch change allowed)
+  //env.SetMaxTurnAzimuth(45.0); //(only 45 deg turns allowed)
+  //env.SetMaxPitch(30.0); //(only 30 deg pitch change allowed)
   tstar.GetPath(&env,{4,4,0,0.0f},{4,4,2,0.0f},solution); // Turn around
   for(auto const& ss: solution){
     std::cout << ss.x << "," << ss.y << "," << ss.z << "\n";
@@ -2197,6 +2197,7 @@ TEST(DISABLED_PreCollision, generate125Conn_5Rad){
 }
 
 bool checkForCollision(xytLoc const& s1, xytLoc const& d1, xytLoc const& s2, xytLoc const& d2,float radius, MapEnvironment* env=nullptr,bool simple=false){
+  if(s1==s2||d1==d2||s1.sameLoc(d2)&&s2.sameLoc(d1)){return false;}
   if(env && !env->collisionPreCheck(s1,d1,radius,s2,d2,radius,simple)) return false;
   Vector2D A(s1);
   Vector2D B(s2);
@@ -2443,7 +2444,7 @@ void createSortedLists(std::vector<std::vector<xytLoc>>const& paths, std::vector
     std::cout << "collisions " << pairs.size();
   }
 }
-void broadphaseTest(unsigned nagents, unsigned tnum){
+void broadphaseTest(int type, unsigned nagents, unsigned tnum){
   const int depth(1024); // Limit on path length...
   std::vector<std::vector<xytLoc>> waypoints;
 
@@ -2478,7 +2479,7 @@ void broadphaseTest(unsigned nagents, unsigned tnum){
   TemplateAStar<xytLoc,tDirection,Map2DConstrainedEnvironment> astar;
   Map map(64,64);
   MapEnvironment menv(&map);
-  menv.SetNineConnected();
+  menv.SetConnectedness(type);
   Map2DConstrainedEnvironment env(&menv);
   std::vector<std::vector<xytLoc>> p;
   for(int i(0); i<nagents; ++i){
@@ -2498,7 +2499,7 @@ void broadphaseTest(unsigned nagents, unsigned tnum){
   //createSortedLists(p,sorted,&menv,radius);
   //std::cout << "Took " << tmr.EndTimer() << " to get sorted lists\n";
   // Create the AABB tree
-  aabb::Tree<xytLoc> tree(nagents*100);
+  aabb::Tree<xytLoc> tree(nagents*132);
 
   // To load precheck bit-vector
   checkForCollision(p[0][0],p[0][0],p[0][0],p[0][0],radius,&menv);
@@ -2510,7 +2511,7 @@ void broadphaseTest(unsigned nagents, unsigned tnum){
   tmr1.StartTimer();
   for(int i(0); i<nagents; ++i){
     for(int j(1); j<p[i].size(); ++j){
-      tree.insertParticle(i*depth+j,p[i][j-1],p[i][j],.0);
+      tree.insertParticle(i*depth+j,p[i][j-1],p[i][j]);
     }
   }
 
@@ -2576,12 +2577,16 @@ void broadphaseTest(unsigned nagents, unsigned tnum){
 }
 
 TEST(AABB, BVHTreeTest){
-  for(int nagents(5); nagents<301; nagents+=5){
-    for(int i(0); i<100; ++i){
-std::cout << "===========================================================\n";
-std::cout << nagents << " AGENTS, Test " << i << "\n";
-std::cout << "===========================================================\n";
-      broadphaseTest(nagents,i);
+  int types[]={5,9,25,49};
+  //int types[]={9,25,49};
+  for(int type:types){
+    for(int nagents(5); nagents<201; nagents+=5){
+      for(int i(0); i<100; ++i){
+        std::cout << "===========================================================\n";
+        std::cout << type << "Connected, " << nagents << " AGENTS, Test " << i << "\n";
+        std::cout << "===========================================================\n";
+        broadphaseTest(type,nagents,i);
+      }
     }
   }
 }

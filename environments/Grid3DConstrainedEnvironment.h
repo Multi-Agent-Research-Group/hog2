@@ -66,8 +66,6 @@ public:
         void SetIgnoreHeading(bool i){ignoreHeading=i;}
         bool GetIgnoreHeading()const{return ignoreHeading;}
 
-        void SetMaxTurnAzimuth(float val){maxTurnAzimuth=val*xyztLoc::HDG_RESOLUTION;}
-        void SetMaxPitch(float val){maxPitch=val*xyztLoc::PITCH_RESOLUTION;}
         uint16_t maxTurnAzimuth=0; // 0 means "turn off"
         int16_t maxPitch=0;
         virtual bool collisionCheck(const xyztLoc &s1, const xyztLoc &d1, float r1, const xyztLoc &s2, const xyztLoc &d2, float r2);

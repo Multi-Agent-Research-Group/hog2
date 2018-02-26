@@ -41,12 +41,6 @@ const unsigned NULL_NODE = 0xffffffff;
 
 namespace aabb
 {
-    struct endpoint{
-      union{
-        float value;
-        uint32_t cvalue;
-      };
-    };
     /*! \brief The axis-aligned bounding box object.
 
         Axis-aligned bounding boxes (AABBs) store information for the minimum
@@ -56,7 +50,7 @@ namespace aabb
         Class member functions provide functionality for merging AABB objects
         and testing overlap with other AABBs.
      */
-    template<typename state>
+    template<typename state, unsigned dim>
     class AABB
     {
     public:
@@ -74,10 +68,10 @@ namespace aabb
         AABB(AABB const& one, AABB const& two);
 
         /// Compute the surface area of the box.
-        float computeSurfaceArea() const;
+        unsigned computeSurfaceArea() const;
 
         /// Get the surface area of the box.
-        inline float getSurfaceArea() const { return surfaceArea; }
+        inline unsigned getSurfaceArea() const { return surfaceArea; }
 
         //! Merge two AABBs into this one.
         /*! \param aabb1
@@ -104,14 +98,12 @@ namespace aabb
             \return
                 Whether the AABB overlaps.
          */
-        inline bool overlaps(const AABB<state>& aabb) const{
-          return !(   aabb.upperBound[0].cvalue < lowerBound[0].cvalue
-              || aabb.lowerBound[0].cvalue > upperBound[0].cvalue
-              || aabb.upperBound[1].cvalue < lowerBound[1].cvalue
-              || aabb.lowerBound[1].cvalue > upperBound[1].cvalue
-              || aabb.upperBound[2].cvalue < lowerBound[2].cvalue
-              || aabb.lowerBound[2].cvalue > upperBound[2].cvalue
-              );
+        inline bool overlaps(const AABB<state,dim>& aabb) const{
+          for(unsigned i(0); i<dim; ++i){
+            if(aabb.upperBound[i] < lowerBound[i] || aabb.lowerBound[i] > upperBound[i])
+              return false;
+          }
+          return true;
         }
 
         //! Compute the centre of the AABB.
@@ -119,23 +111,23 @@ namespace aabb
                 The position vector of the AABB centre.
          */
 
-        inline void computeCentre(endpoint* position){
-          position[0].value=0.5 * (lowerBound[0].value + upperBound[0].value);
-          position[1].value=0.5 * (lowerBound[1].value + upperBound[1].value);
-          position[2].value=0.5 * (lowerBound[2].value + upperBound[2].value);
-        }
+        /*inline void computeCentre(unsigned* position){
+          position[0]=0.5 * (lowerBound[0] + upperBound[0]);
+          position[1]=0.5 * (lowerBound[1] + upperBound[1]);
+          position[2]=0.5 * (lowerBound[2] + upperBound[2]);
+        }*/
 
         /// Lower bound of AABB in each dimension.
-        endpoint lowerBound[3];
+        unsigned lowerBound[dim];
 
         /// Upper bound of AABB in each dimension.
-        endpoint upperBound[3];
+        unsigned upperBound[dim];
 
         /// The position of the AABB centre.
-        //endpoint centre[3];
+        //unsigned centre[dim];
 
         /// The AABB's surface area.
-        float surfaceArea;
+        unsigned surfaceArea;
     };
 
     /*! \brief A node of the AABB tree.
@@ -147,11 +139,11 @@ namespace aabb
         function allows the tree to query whether the node is a leaf, i.e. to
         determine whether it holds a single particle.
      */
-    template<typename state>
+    template<typename state, unsigned dim>
     struct Node
     {
         /// The fattened axis-aligned bounding box.
-        AABB<state> aabb;
+        AABB<state,dim> aabb;
 
         /// Index of the parent node.
         unsigned parent;
@@ -186,7 +178,7 @@ namespace aabb
         to efficiently query overlaps between objects of arbitrary shape and
         size that lie inside of a simulation box.
      */
-    template<typename state>
+    template<typename state, unsigned dim>
     class Tree
     {
     public:
@@ -201,7 +193,7 @@ namespace aabb
         /*! \param boxSize_
                 The size of the simulation box in each dimension.
          */
-        void setBoxSize(const std::vector<float>&);
+        void setBoxSize(const std::vector<unsigned>&);
 
         //! Insert a particle into the tree (arbitrary shape with bounding box).
         /*! \param index
@@ -252,7 +244,7 @@ namespace aabb
             \return particles
                 A vector of particle indices.
          */
-        void query(unsigned, const AABB<state>&, std::vector<unsigned>& ids);
+        void query(unsigned, const AABB<state,dim>&, std::vector<unsigned>& ids);
 
         //! Query the tree to find candidate interactions for an AABB.
         /*! \param aabb
@@ -261,13 +253,13 @@ namespace aabb
             \return particles
                 A vector of particle indices.
          */
-        void query(const AABB<state>&,std::vector<unsigned>& ids);
+        void query(const AABB<state,dim>&,std::vector<unsigned>& ids);
 
         //! Get a particle AABB.
         /*! \param particle
                 The particle index.
          */
-        const AABB<state>& getAABB(unsigned);
+        const AABB<state,dim>& getAABB(unsigned);
 
         //! Get the height of the tree.
         /*! \return
@@ -300,7 +292,7 @@ namespace aabb
                 The ratio of the sum of the node surface area to the surface
                 area of the root node.
          */
-        float computeSurfaceAreaRatio() const;
+        //float computeSurfaceAreaRatio() const;
 
         /// Validate the tree.
         void validate() const;
@@ -313,7 +305,7 @@ namespace aabb
         unsigned root;
 
         /// The dynamic tree.
-        std::vector<Node<state>> nodes;
+        std::vector<Node<state,dim>> nodes;
 
         /// The current number of nodes in the tree.
         unsigned nodeCount;
@@ -386,57 +378,66 @@ namespace aabb
 
     };
 
-    template<typename state>
-    AABB<state>::AABB(state const& start, state const& end){
-        lowerBound[0].value=std::min(start.x,end.x);
-        lowerBound[1].value=std::min(start.y,end.y);
-        lowerBound[2].value=std::min(start.t,end.t);
-        upperBound[0].value=std::max(start.x,end.x);
-        upperBound[1].value=std::max(start.y,end.y);
-        upperBound[2].value=std::max(start.t,end.t);
-        surfaceArea = computeSurfaceArea();
-        //computeCentre(centre);
+    template<typename state, unsigned dim>
+    AABB<state,dim>::AABB(state const& start, state const& end){
+      for(unsigned i(0); i<dim; ++i){
+        lowerBound[i]=std::min(start[i],end[i]);
+        upperBound[i]=std::max(start[i],end[i]);
+      }
+      surfaceArea = computeSurfaceArea();
+      //computeCentre(centre);
     }
 
     // Create merged node from two nodes
-    template<typename state>
-    AABB<state>::AABB(const AABB<state>& aabb1, const AABB<state>& aabb2){
+    template<typename state, unsigned dim>
+    AABB<state,dim>::AABB(const AABB<state,dim>& aabb1, const AABB<state,dim>& aabb2){
         merge(aabb1,aabb2);
     }
 
-    template<typename state>
-    float AABB<state>::computeSurfaceArea() const{
-      float wx(upperBound[0].value - lowerBound[0].value);
-      float wy(upperBound[1].value - lowerBound[1].value);
-      float wz(upperBound[2].value - lowerBound[2].value);
-      return 2.0 * (wx*wy + wx*wz + wy*wz);
+    template<typename state, unsigned dim>
+    unsigned AABB<state,dim>::computeSurfaceArea() const{
+      unsigned wx(upperBound[0] - lowerBound[0]);
+      unsigned wy(upperBound[1] - lowerBound[1]);
+      switch(dim){
+        case 2:
+          return 2 * (wx*wy);
+        case 3:{
+                 unsigned wz(upperBound[2] - lowerBound[2]);
+                 return 2 * (wx*wy + wx*wz + wy*wz);
+               }
+        case 4:{
+                 unsigned ww(upperBound[2] - lowerBound[2]);
+                 unsigned wt(upperBound[3] - lowerBound[3]);
+                 return 2 * (wx*wy + wx*ww + wy*ww + wx*wt + wy*wt + ww*wt);
+               }
+      }
+      assert(!"surface area for higher dimensions is not yet implemented");
     }
 
-
-    template<typename state>
-    void AABB<state>::merge(const AABB<state>& aabb1, const AABB<state>& aabb2){
-        for (unsigned i=0;i<3;i++){
-            lowerBound[i].value = std::min(aabb1.lowerBound[i].value, aabb2.lowerBound[i].value);
-            upperBound[i].value = std::max(aabb1.upperBound[i].value, aabb2.upperBound[i].value);
+    template<typename state, unsigned dim>
+    void AABB<state,dim>::merge(const AABB<state,dim>& aabb1, const AABB<state,dim>& aabb2){
+        for (unsigned i=0;i<dim;i++){
+            lowerBound[i] = std::min(aabb1.lowerBound[i], aabb2.lowerBound[i]);
+            upperBound[i] = std::max(aabb1.upperBound[i], aabb2.upperBound[i]);
         }
 
         surfaceArea = computeSurfaceArea();
         //computeCentre(centre);
     }
 
-    template<typename state>
-    bool AABB<state>::contains(AABB<state> const& aabb) const{
-        for (unsigned i=0;i<3;i++){
-            if (lowerBound[i].cvalue < aabb.lowerBound[i].cvalue) return false;
-            if (upperBound[i].cvalue > aabb.upperBound[i].cvalue) return false;
+    template<typename state, unsigned dim>
+    bool AABB<state,dim>::contains(AABB<state,dim> const& aabb) const{
+        for (unsigned i=0;i<dim;i++){
+            if (lowerBound[i] < aabb.lowerBound[i]) return false;
+            if (upperBound[i] > aabb.upperBound[i]) return false;
         }
         return true;
     }
 
 
 
-    template<typename state>
-    Tree<state>::Tree(unsigned nParticles) {
+    template<typename state, unsigned dim>
+    Tree<state,dim>::Tree(unsigned nParticles) {
         // Initialise the tree.
         root = NULL_NODE;
         nodeCount = 0;
@@ -455,8 +456,8 @@ namespace aabb
         freeList = 0;
     }
 
-    template<typename state>
-    unsigned Tree<state>::allocateNode()
+    template<typename state, unsigned dim>
+    unsigned Tree<state,dim>::allocateNode()
     {
         // Expand the node pool as needed.
         if (freeList == NULL_NODE)
@@ -490,8 +491,8 @@ namespace aabb
         return node;
     }
 
-    template<typename state>
-    void Tree<state>::freeNode(unsigned node)
+    template<typename state, unsigned dim>
+    void Tree<state,dim>::freeNode(unsigned node)
     {
         assert(0 <= node && node < nodeCapacity);
         assert(0 < nodeCount);
@@ -502,12 +503,12 @@ namespace aabb
         nodeCount--;
     }
 
-    template<typename state>
-    void Tree<state>::insertParticle(unsigned particle, state const& start, state const& end)
+    template<typename state, unsigned dim>
+    void Tree<state,dim>::insertParticle(unsigned particle, state const& start, state const& end)
     {
         // Allocate a new node for the particle.
         unsigned node = allocateNode();
-        nodes[node].aabb=AABB<state>(start,end);
+        nodes[node].aabb=AABB<state,dim>(start,end);
 
         // Zero the height.
         nodes[node].height = 0;
@@ -522,8 +523,8 @@ namespace aabb
         nodes[node].particle = particle;
     }
 
-    template<typename state>
-    void Tree<state>::removeParticle(unsigned particle)
+    template<typename state, unsigned dim>
+    void Tree<state,dim>::removeParticle(unsigned particle)
     {
         // Map iterator.
         std::map<unsigned, unsigned>::iterator it;
@@ -544,8 +545,8 @@ namespace aabb
         freeNode(node);
     }
 
-    template<typename state>
-    bool Tree<state>::updateParticle(unsigned particle, state const& start, state const& end)
+    template<typename state, unsigned dim>
+    bool Tree<state,dim>::updateParticle(unsigned particle, state const& start, state const& end)
     {
         // Extract the node index.
         unsigned node(particleMap.find(particle)->second);
@@ -554,7 +555,7 @@ namespace aabb
         assert(nodes[node].isLeaf());
 
         // Create the new AABB.
-        AABB<state> aabb(start,end);
+        AABB<state,dim> aabb(start,end);
 
         // Remove the current leaf.
         removeLeaf(node);
@@ -568,8 +569,8 @@ namespace aabb
         return true;
     }
 
-    template<typename state>
-    void Tree<state>::query(unsigned particle, std::vector<unsigned>& result)
+    template<typename state, unsigned dim>
+    void Tree<state,dim>::query(unsigned particle, std::vector<unsigned>& result)
     {
         assert(particleMap.count(particle));
 
@@ -577,8 +578,8 @@ namespace aabb
         query(particle, nodes[particleMap.find(particle)->second].aabb,result);
     }
 
-    template<typename state>
-    void Tree<state>::query(unsigned particle, const AABB<state>& aabb,std::vector<unsigned>& particles)
+    template<typename state, unsigned dim>
+    void Tree<state,dim>::query(unsigned particle, const AABB<state,dim>& aabb,std::vector<unsigned>& particles)
     {
         std::vector<unsigned> stack;
         stack.reserve(256);
@@ -590,7 +591,7 @@ namespace aabb
             stack.pop_back();
 
             // Copy the AABB.
-            AABB<state> nodeAABB = nodes[node].aabb;
+            AABB<state,dim> nodeAABB = nodes[node].aabb;
 
             if (node == NULL_NODE) continue;
 
@@ -613,21 +614,21 @@ namespace aabb
         }
     }
 
-    template<typename state>
-    void Tree<state>::query(const AABB<state>& aabb,std::vector<unsigned>& result)
+    template<typename state, unsigned dim>
+    void Tree<state,dim>::query(const AABB<state,dim>& aabb,std::vector<unsigned>& result)
     {
         // Test overlap of AABB against all particles.
         query(std::numeric_limits<unsigned>::max(), aabb, result);
     }
 
-    template<typename state>
-    const AABB<state>& Tree<state>::getAABB(unsigned particle)
+    template<typename state, unsigned dim>
+    const AABB<state,dim>& Tree<state,dim>::getAABB(unsigned particle)
     {
         return nodes[particleMap[particle]].aabb;
     }
 
-    template<typename state>
-    void Tree<state>::insertLeaf(unsigned leaf)
+    template<typename state, unsigned dim>
+    void Tree<state,dim>::insertLeaf(unsigned leaf)
     {
         if (root == NULL_NODE)
         {
@@ -638,7 +639,7 @@ namespace aabb
 
         // Find the best sibling for the node.
 
-        AABB<state> leafAABB = nodes[leaf].aabb;
+        AABB<state,dim>& leafAABB = nodes[leaf].aabb;
         unsigned index(root);
 
         while (!nodes[index].isLeaf())
@@ -647,38 +648,38 @@ namespace aabb
             unsigned left(nodes[index].left);
             unsigned right(nodes[index].right);
 
-            AABB<state> combinedAABB(nodes[index].aabb, leafAABB);
-            float combinedSurfaceArea = combinedAABB.getSurfaceArea();
+            AABB<state,dim> combinedAABB(nodes[index].aabb, leafAABB);
+            unsigned combinedSurfaceArea = combinedAABB.getSurfaceArea();
 
             // Cost of creating a new parent for this node and the new leaf.
-            float cost = 2.0 * combinedSurfaceArea;
+            unsigned cost = 2.0 * combinedSurfaceArea;
 
             // Minimum cost of pushing the leaf further down the tree.
-            float inheritanceCost = 2.0 * (combinedSurfaceArea - nodes[index].aabb.getSurfaceArea());
+            signed inheritanceCost = 2.0 * (combinedSurfaceArea - nodes[index].aabb.getSurfaceArea());
 
             // Cost of descending to the left.
-            float costLeft;
+            unsigned costLeft;
             if (nodes[left].isLeaf())
             {
-                AABB<state> aabb(leafAABB, nodes[left].aabb);
+                AABB<state,dim> aabb(leafAABB, nodes[left].aabb);
                 costLeft = aabb.getSurfaceArea() + inheritanceCost;
             }
             else
             {
-                AABB<state> aabb(leafAABB, nodes[left].aabb);
+                AABB<state,dim> aabb(leafAABB, nodes[left].aabb);
                 costLeft = (aabb.getSurfaceArea() - nodes[left].aabb.getSurfaceArea()) + inheritanceCost;
             }
 
             // Cost of descending to the right.
-            float costRight;
+            unsigned costRight;
             if (nodes[right].isLeaf())
             {
-                AABB<state> aabb(leafAABB, nodes[right].aabb);
+                AABB<state,dim> aabb(leafAABB, nodes[right].aabb);
                 costRight = aabb.getSurfaceArea() + inheritanceCost;
             }
             else
             {
-                AABB<state> aabb(leafAABB, nodes[right].aabb);
+                AABB<state,dim> aabb(leafAABB, nodes[right].aabb);
                 costRight = (aabb.getSurfaceArea() - nodes[right].aabb.getSurfaceArea()) + inheritanceCost;
             }
 
@@ -739,8 +740,8 @@ namespace aabb
         }
     }
 
-    template<typename state>
-    void Tree<state>::removeLeaf(unsigned leaf)
+    template<typename state, unsigned dim>
+    void Tree<state,dim>::removeLeaf(unsigned leaf)
     {
         if (leaf == root)
         {
@@ -787,8 +788,8 @@ namespace aabb
         }
     }
 
-    template<typename state>
-    unsigned Tree<state>::balance(unsigned node)
+    template<typename state, unsigned dim>
+    unsigned Tree<state,dim>::balance(unsigned node)
     {
         assert(node != NULL_NODE);
 
@@ -912,14 +913,14 @@ namespace aabb
         return node;
     }
 
-    template<typename state>
-    unsigned Tree<state>::computeHeight() const
+    template<typename state, unsigned dim>
+    unsigned Tree<state,dim>::computeHeight() const
     {
         return computeHeight(root);
     }
 
-    template<typename state>
-    unsigned Tree<state>::computeHeight(unsigned node) const
+    template<typename state, unsigned dim>
+    unsigned Tree<state,dim>::computeHeight(unsigned node) const
     {
         assert((0 <= node) && (node < nodeCapacity));
 
@@ -931,8 +932,8 @@ namespace aabb
         return 1 + std::max(height1, height2);
     }
 
-    template<typename state>
-    unsigned Tree<state>::computeMaximumBalance() const
+    template<typename state, unsigned dim>
+    unsigned Tree<state,dim>::computeMaximumBalance() const
     {
         unsigned maxBalance = 0;
         for (unsigned i=0; i<nodeCapacity; i++)
@@ -949,8 +950,8 @@ namespace aabb
         return maxBalance;
     }
 
-    template<typename state>
-    float Tree<state>::computeSurfaceAreaRatio() const
+    /*template<typename state, unsigned dim>
+    float Tree<state,dim>::computeSurfaceAreaRatio() const
     {
         if (root == NULL_NODE) return 0.0;
 
@@ -965,10 +966,10 @@ namespace aabb
         }
 
         return totalArea / rootArea;
-    }
+    }*/
 
-    template<typename state>
-    void Tree<state>::validate() const
+    template<typename state, unsigned dim>
+    void Tree<state,dim>::validate() const
     {
 #ifndef NDEBUG
         validateStructure(root);
@@ -989,8 +990,8 @@ namespace aabb
 #endif
     }
 
-    template<typename state>
-    void Tree<state>::rebuild()
+    template<typename state, unsigned dim>
+    void Tree<state,dim>::rebuild()
     {
         unsigned nodeIndices[nodeCount];
         unsigned count = 0;
@@ -1011,18 +1012,18 @@ namespace aabb
 
         while (count > 1)
         {
-            float minCost = std::numeric_limits<float>::max();
+            unsigned minCost = std::numeric_limits<unsigned>::max();
             int iMin = -1, jMin = -1;
 
             for (unsigned i=0;i<count;i++)
             {
-                AABB<state> aabbi = nodes[nodeIndices[i]].aabb;
+                AABB<state,dim> aabbi = nodes[nodeIndices[i]].aabb;
 
                 for (unsigned j=i+1;j<count;j++)
                 {
-                    AABB<state> aabbj = nodes[nodeIndices[j]].aabb;
-                    AABB<state> aabb(aabbi, aabbj);
-                    float cost = aabb.getSurfaceArea();
+                    AABB<state,dim> aabbj = nodes[nodeIndices[j]].aabb;
+                    AABB<state,dim> aabb(aabbi, aabbj);
+                    unsigned cost = aabb.getSurfaceArea();
 
                     if (cost < minCost)
                     {
@@ -1056,8 +1057,8 @@ namespace aabb
         //validate();
     }
 
-    template<typename state>
-    void Tree<state>::validateStructure(unsigned node) const
+    template<typename state, unsigned dim>
+    void Tree<state,dim>::validateStructure(unsigned node) const
     {
         if (node == NULL_NODE) return;
 
@@ -1084,8 +1085,8 @@ namespace aabb
         validateStructure(right);
     }
 
-    template<typename state>
-    void Tree<state>::validateMetrics(unsigned node) const
+    template<typename state, unsigned dim>
+    void Tree<state,dim>::validateMetrics(unsigned node) const
     {
         if (node == NULL_NODE) return;
 
@@ -1108,12 +1109,11 @@ namespace aabb
         int height = 1 + std::max(height1, height2);
         assert(nodes[node].height == height);
 
-        AABB<state> aabb(nodes[left].aabb, nodes[right].aabb);
+        AABB<state,dim> aabb(nodes[left].aabb, nodes[right].aabb);
 
-        for (unsigned i=0;i<3;i++)
-        {
-            assert(aabb.lowerBound[i].cvalue == nodes[node].aabb.lowerBound[i].cvalue);
-            assert(aabb.upperBound[i].cvalue == nodes[node].aabb.upperBound[i].cvalue);
+        for(unsigned i=0;i<dim;i++){
+            assert(aabb.lowerBound[i] == nodes[node].aabb.lowerBound[i]);
+            assert(aabb.upperBound[i] == nodes[node].aabb.upperBound[i]);
         }
 
         validateMetrics(left);

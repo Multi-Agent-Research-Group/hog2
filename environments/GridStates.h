@@ -92,11 +92,15 @@ struct xytLoc : xyLoc, tLoc {
   virtual bool sameLoc(xytLoc const& other)const{return x==other.x&&y==other.y;}
   virtual bool operator==(xytLoc const& other)const{return sameLoc(other)&&tLoc::operator==(other);}
   virtual bool operator!=(xytLoc const& other)const{return !operator==(other);}
+  virtual unsigned operator[](unsigned i)const{switch(i){case 0: return x; case 1: return y;}return t*TIME_RESOLUTION;}
   virtual void print(std::ostream& os)const{os<<"("<<x<<","<<y<<","<<t<<")";}
   uint16_t h; // Heading quantized to epsilon=1/(2**16-1)... 0=north max=north-epsilon
   int16_t nc; // Number of conflicts, for conflict avoidance table
   virtual uint16_t X()const{return x;}
   virtual uint16_t Y()const{return y;}
+  static float TIME_RESOLUTION;
+  static unsigned TIME_RESOLUTION_U;
+  static double TIME_RESOLUTION_D;
 };
 
 struct xyzLoc {
@@ -127,6 +131,7 @@ struct xyztLoc {
   explicit operator TemporalVector()const{return TemporalVector(x,y,t/TIME_RESOLUTION_D);}
   operator Vector3D()const{return Vector3D(x,y,z);}
   explicit operator Vector2D()const{return Vector2D(x,y);}
+  virtual unsigned operator[](unsigned i)const{switch(i){case 0: return x; case 1: return y; case 2: return z;}return t;}
   unsigned t : 20; // Time (milliseconds)
   unsigned x : 12;
   unsigned y : 12;
@@ -138,8 +143,6 @@ struct xyztLoc {
   bool operator!=(xyztLoc const& other)const{return x!=other.x||y!=other.y||z!=other.z||t!=other.t;}
   void print(std::ostream& os)const{os<<"("<<x<<","<<y<<","<<z<<","<<float(t)/TIME_RESOLUTION<<")";}
   bool operator<(xyztLoc const& other)const{return t==other.t?x==other.x?y==other.y?other.z<z:y<other.y:x<other.x:t<other.t;}
-  static float HDG_RESOLUTION;
-  static float PITCH_RESOLUTION;
   static float TIME_RESOLUTION;
   static unsigned TIME_RESOLUTION_U;
   static double TIME_RESOLUTION_D;

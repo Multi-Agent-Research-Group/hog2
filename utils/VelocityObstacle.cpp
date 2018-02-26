@@ -294,7 +294,7 @@ bool collisionCheck(TemporalVector const& A1, TemporalVector const& A2, Temporal
     case 1:
       if(std::max(radiusA,radiusB)>.25){
         static unsigned bitarray9r_5[9*9*9/WORD_BITS+1];
-        if(!get(bitarray9r_5,CENTER_IDX9)){
+        if(!bitarray9r_5[0]){
           fillArray(bitarray9r_5,*index9,1,.5);
         }
 
@@ -307,7 +307,7 @@ bool collisionCheck(TemporalVector const& A1, TemporalVector const& A2, Temporal
         }else{return false;}
       }else{
         static unsigned bitarray9r_25[9*9*9/WORD_BITS+1];
-        if(!get(bitarray9r_25,CENTER_IDX9)){
+        if(!bitarray9r_25[0]){
           fillArray(bitarray9r_25,*index9,1,.25);
         }
 
@@ -323,7 +323,7 @@ bool collisionCheck(TemporalVector const& A1, TemporalVector const& A2, Temporal
     case 2:
       if(std::max(radiusA,radiusB)>.25){
         static unsigned bitarray25r_5[25*25*25/WORD_BITS+1];
-        if(!get(bitarray25r_5,CENTER_IDX25)){
+        if(!bitarray25r_5[0]){
           fillArray(bitarray25r_5,*index25,2,.5);
         }
 
@@ -336,7 +336,7 @@ bool collisionCheck(TemporalVector const& A1, TemporalVector const& A2, Temporal
         }else{return false;}
       }else{
         static unsigned bitarray25r_25[25*25*25/WORD_BITS+1];
-        if(!get(bitarray25r_25,CENTER_IDX25)){
+        if(!bitarray25r_25[0]){
           fillArray(bitarray25r_25,*index25,2,.25);
         }
 
@@ -352,7 +352,7 @@ bool collisionCheck(TemporalVector const& A1, TemporalVector const& A2, Temporal
     case 3:
       if(std::max(radiusA,radiusB)>.25){
         static unsigned bitarray49r_5[49*49*49/WORD_BITS+1];
-        if(!get(bitarray49r_5,CENTER_IDX49)){
+        if(!bitarray49r_5[0]){
           fillArray(bitarray49r_5,*index49,3,.5);
         }
 
@@ -432,21 +432,36 @@ double collisionImminent(Vector3D A, Vector3D const& VA, double radiusA, double 
 
 // Check for collision between entities moving from A1 to A2 and B1 to B2
 // Speed is optional. If provided, should be in grids per unit time; time should also be pre adjusted to reflect speed.
+/*template<typename state>
+double collisionCheck3D(state const& A1, state const& A2, state const& B1, state const& B2, double radiusA, double radiusB, double speedA, double speedB){
+  if(A1==B1){return std::min(A1.t,B1.t);}
+  if(A2==B2){return std::min(A2.t,B2.t);}
+  if(A1.sameLoc(B2)&&B1.sameLoc(A2)){return std::min(A1.t,B1.t);}
+}*/
+
 double collisionCheck3D(TemporalVector3D const& A1, TemporalVector3D const& A2, TemporalVector3D const& B1, TemporalVector3D const& B2, double radiusA, double radiusB, double speedA, double speedB){
-  unsigned dim(std::max(std::max(std::max(fabs(A1.x-A2.x),fabs(B1.x-B2.x)),std::max(fabs(A1.y-A2.y),fabs(B1.y-B2.y))),std::max(fabs(A1.z-A2.z),fabs(B1.z-B2.z))));
-  unsigned ssx(fabs(A1.x-B1.x));
   unsigned sdx(fabs(A1.x-B2.x));
-  unsigned ssy(fabs(A1.y-B1.y));
   unsigned sdy(fabs(A1.y-B2.y));
-  unsigned ssz(fabs(A1.z-B1.z));
   unsigned sdz(fabs(A1.z-B2.z));
+  // Same edge in reverse?
+  if(sdx==0&&sdy==0&&sdz==0&&B1.x==A2.x&&B1.y==A2.y&&B1.z==A2.z){return std::min(A1.t,B1.t);}
+  // Same start?
+  if(A1==B1){return std::min(A1.t,B1.t);}
+  // Same end?
+  if(A2==B2){return std::min(A2.t,B2.t);}
+
+  unsigned ssx(fabs(A1.x-B1.x));
+  unsigned ssy(fabs(A1.y-B1.y));
+  unsigned ssz(fabs(A1.z-B1.z));
+
+  unsigned dim(std::max(std::max(std::max(fabs(A1.x-A2.x),fabs(B1.x-B2.x)),std::max(fabs(A1.y-A2.y),fabs(B1.y-B2.y))),std::max(fabs(A1.z-A2.z),fabs(B1.z-B2.z))));
 
   switch(dim){
     case 0:
     case 1:
       if(std::max(radiusA,radiusB)>.25){
         //static unsigned bitarray27r_5[27*27*27/WORD_BITS+1];
-        //if(!get(bitarray27r_5,CENTER_IDX27)){
+        //if(!bitarray27r_5[0]){
           //fillArray(bitarray27r_5,*index27,1,.5);
         //}
 
