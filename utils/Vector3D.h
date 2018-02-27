@@ -79,6 +79,7 @@ struct TemporalVector3D : Vector3D {
   inline TemporalVector3D operator+(const TemporalVector3D& v2)const{return TemporalVector3D(x+v2.x, y+v2.y, z+v2.z, t+v2.t);}
   inline TemporalVector3D operator-(const TemporalVector3D& v2)const{return TemporalVector3D(x-v2.x, y-v2.y, z-v2.z, t-v2.t);}
   inline TemporalVector3D operator*(const double num)const{return TemporalVector3D(x*num, y*num, z*num, t*num);}
+  inline bool operator==(TemporalVector3D const& other)const{return Vector3D::operator==(other)&&fequal(t,other.t);}
   float t;
 };
 

@@ -446,9 +446,9 @@ double collisionCheck3D(TemporalVector3D const& A1, TemporalVector3D const& A2, 
   // Same edge in reverse?
   if(sdx==0&&sdy==0&&sdz==0&&B1.x==A2.x&&B1.y==A2.y&&B1.z==A2.z){return std::min(A1.t,B1.t);}
   // Same start?
-  if(A1==B1){return std::min(A1.t,B1.t);}
+  if(A1==B1){return A1.t?A1.t:1e-10;}
   // Same end?
-  if(A2==B2){return std::min(A2.t,B2.t);}
+  if(A2==B2){return radiusA*radiusB;}//A1.t?A1.t:THRESHOLD;} // A more accurate time could be calculated possibly
 
   unsigned ssx(fabs(A1.x-B1.x));
   unsigned ssy(fabs(A1.y-B1.y));

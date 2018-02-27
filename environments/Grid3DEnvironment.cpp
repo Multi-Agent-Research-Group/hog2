@@ -515,15 +515,15 @@ double Grid3DEnvironment::HCost(const xyztLoc &l1, const xyztLoc &l2)const{
   //if(l1.sameLoc(l2))return 1.0;
   switch(connectedness){
     case 0:
-      return h6(l1,l2);
+      return h6(l1,l2)*xyztLoc::TIME_RESOLUTION_D;
     case 1:
-      return h26(l1,l2);
+      return h26(l1,l2)*xyztLoc::TIME_RESOLUTION_D;
     case 2:
-      return h124(l1,l2);
+      return h124(l1,l2)*xyztLoc::TIME_RESOLUTION_D;
     case 3:
-      return h48(l1,l2);
+      return h48(l1,l2)*xyztLoc::TIME_RESOLUTION_D;
     default:
-      return Util::distance(l1.x,l1.y,l1.z,l2.x,l2.y,l2.z);
+      return Util::distance(l1.x,l1.y,l1.z,l2.x,l2.y,l2.z)*xyztLoc::TIME_RESOLUTION_D;
   }
 }
 
@@ -535,9 +535,7 @@ double Grid3DEnvironment::GCost(const xyztLoc &l, const t3DDirection &act) const
 
 double Grid3DEnvironment::GCost(const xyztLoc &l1, const xyztLoc &l2) const
 {
-  return l2.t;
-
-  double multiplier = 1.0;
+  double multiplier = xyztLoc::TIME_RESOLUTION_D;
   static const float SQRT_2(sqrt(2));
   static const float SQRT_3(sqrt(3));
   static const float SQRT_5(sqrt(5));
