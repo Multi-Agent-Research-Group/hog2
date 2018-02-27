@@ -87,8 +87,6 @@ private:
 	MapEnvironment *mapEnv;
 };
 #define HASH_INTERVAL 1.0
-#define HASH_INTERVAL_HUNDREDTHS 100
-
 template <typename state, typename action>
 class TieBreaking {
   public:
@@ -173,7 +171,7 @@ class TieBreaking {
     static uint8_t currentAgent;
     static bool randomalg;
     static bool useCAT;
-    static NonUnitTimeCAT<state,action,HASH_INTERVAL_HUNDREDTHS>* CAT; // Conflict Avoidance Table
+    static NonUnitTimeCAT<state,action>* CAT; // Conflict Avoidance Table
 };
 
 template <typename state, typename action>
@@ -187,6 +185,6 @@ bool TieBreaking<state,action>::randomalg=false;
 template <typename state, typename action>
 bool TieBreaking<state,action>::useCAT=false;
 template <typename state, typename action>
-NonUnitTimeCAT<state,action,HASH_INTERVAL_HUNDREDTHS>* TieBreaking<state,action>::CAT=0;
+NonUnitTimeCAT<state,action>* TieBreaking<state,action>::CAT=0;
 
 #endif /* defined(__hog2_glut__Map2DConstrainedEnvironment__) */

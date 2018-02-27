@@ -78,9 +78,12 @@ std::vector<std::vector<xytLoc> > waypoints;
 
   ConstrainedEnvironment<xytLoc,tDirection> *ace = 0;
   UnitSimulation<xytLoc, tDirection, ConstrainedEnvironment<xytLoc,tDirection>> *sim = 0;
-  typedef CBSUnit<xytLoc,tDirection,TieBreaking<xytLoc,tDirection>,NonUnitTimeCAT<xytLoc,tDirection,HASH_INTERVAL_HUNDREDTHS>> AUnit;
-  typedef CBSGroup<xytLoc,tDirection,TieBreaking<xytLoc,tDirection>,NonUnitTimeCAT<xytLoc,tDirection,HASH_INTERVAL_HUNDREDTHS>> Group;
+  typedef CBSUnit<xytLoc,tDirection,TieBreaking<xytLoc,tDirection>,NonUnitTimeCAT<xytLoc,tDirection>> AUnit;
+  typedef CBSGroup<xytLoc,tDirection,TieBreaking<xytLoc,tDirection>,NonUnitTimeCAT<xytLoc,tDirection>> Group;
   Group* group(nullptr);
+
+  template<>
+  double NonUnitTimeCAT<xytLoc, tDirection>::bucketWidth=1.0;
 
   bool gui=true;
   int animate(0);

@@ -33,6 +33,7 @@
 #include "PositionalUtils.h"
 #include "AABB.h"
 #include <unordered_set>
+#include <sstream>
 //#include "EPEThetaStar.h"
 //#include "PEThetaStar.h"
 
@@ -811,7 +812,7 @@ void drawcircle(int x0, int y0, int r, std::map<int,int>& coords){
 
 float rfloat(float low=-5, float high=5){
     float width(high-low);
-    float(rand()%int(width*1000))/(width*100.0) + low;
+    return float(rand()%int(width*1000))/(width*100.0) + low;
 }
 
 TEST(VelocityObstacle, PerfTest){
@@ -2239,6 +2240,67 @@ void countCollisions(std::vector<xytLoc> const& p1, std::vector<xytLoc> const& p
   }
 }
 
+bool checkForCollisionWithBBox(xytLoc const& A1, xytLoc const& A2, xytLoc const& B1, xytLoc const& B2, float radius){
+  unsigned dim(std::max(std::max(fabs(A1.x-A2.x),fabs(B1.x-B2.x)),std::max(fabs(A1.y-A2.y),fabs(B1.y-B2.y))));
+  unsigned ssx(fabs(A1.x-B1.x));
+  unsigned sdx(fabs(A1.x-B2.x));
+  unsigned ssy(fabs(A1.y-B1.y));
+  unsigned sdy(fabs(A1.y-B2.y));
+
+  switch(dim){
+    case 0:
+    case 1:
+        if(ssx<2 && ssy<2 && sdx <3 && sdy<3){
+        }else if(sdx<2 && sdy<2 && ssx <3 && ssy<3){
+        }else{return false;}
+      break;
+    case 2:
+        if(ssx<3 && ssy<3 && sdx <5 && sdy<5){
+        }else if(sdx<3 && sdy<3 && ssx <5 && ssy<5){
+        }else{return false;}
+      break;
+    case 3:
+        if(ssx<4 && ssy<4 && sdx <7 && sdy<7){
+        }else if(sdx<4 && sdy<4 && ssx <7 && ssy<7){
+        }else{return false;}
+      break;
+    default:
+      break;
+  };
+  Vector2D A(A1);
+  Vector2D B(B1);
+  Vector2D VA(A2);
+  VA-=A;
+  VA.Normalize();
+  Vector2D VB(B2);
+  VB-=B;
+  VB.Normalize();
+  return collisionImminent(A,VA,radius,A1.t,A2.t,B,VB,radius,B1.t,B2.t);
+}
+
+
+unsigned countCollisionsWithBBox(std::vector<xytLoc> const& p1, std::vector<xytLoc> const& p2, float radius){
+  unsigned count(0);
+  auto ap(p1.begin());
+  auto a(ap+1);
+  auto bp(p2.begin());
+  auto b(bp+1);
+  while(a!=p1.end() && b!=p2.end()){
+    if(checkForCollisionWithBBox(*ap,*a,*bp,*b,radius)){count++;}
+    if(fless(a->t,b->t)){
+      ++a;
+      ++ap;
+    }else if(fgreater(a->t,b->t)){
+      ++b;
+      ++bp;
+    }else{
+      ++a;++b;
+      ++ap;++bp;
+    }
+  }
+  return count;
+}
+
 unsigned getKey(int i, int j, int depth){
   return i*depth+j;
 }
@@ -2253,9 +2315,9 @@ struct pathpointid{
   unsigned agentid : 10; // Up to 1024 agents (high-order bits)
 };
 
-struct endpoint{
-  endpoint():id(0,0),cvalue(0){}
-  endpoint(unsigned agent, unsigned point, unsigned dimension, xytLoc const& val):id(agent,point){
+struct endpoint1{
+  endpoint1():id(0,0),cvalue(0){}
+  endpoint1(unsigned agent, unsigned point, unsigned dimension, xytLoc const& val):id(agent,point){
     if(dimension==0)
       value=val.t;
     else if(dimension==1)
@@ -2263,7 +2325,7 @@ struct endpoint{
     else
       cvalue=val.y;
   }
-  inline bool operator>(endpoint const& rhs)const{return cvalue==rhs.cvalue?id.agentid>rhs.id.agentid:cvalue>rhs.cvalue;}
+  inline bool operator>(endpoint1 const& rhs)const{return cvalue==rhs.cvalue?id.agentid>rhs.id.agentid:cvalue>rhs.cvalue;}
   union{
     pathpointid id;
     uint32_t key;
@@ -2273,10 +2335,10 @@ struct endpoint{
     uint32_t cvalue; // comparison value (As long as value>0, this is safe to use as a comparison for floats
   };
 };
-static inline std::ostream& operator<<(std::ostream& os, endpoint const& v){os << v.cvalue; return os;}
-struct cmp{ inline bool operator()(std::vector<endpoint>::const_iterator& lhs, std::vector<endpoint>::const_iterator& rhs)const{return lhs->cvalue==rhs->cvalue?lhs->key>rhs->key:lhs->cvalue>rhs->cvalue;} };
+static inline std::ostream& operator<<(std::ostream& os, endpoint1 const& v){os << v.cvalue; return os;}
+struct cmp{ inline bool operator()(std::vector<endpoint1>::const_iterator& lhs, std::vector<endpoint1>::const_iterator& rhs)const{return lhs->cvalue==rhs->cvalue?lhs->key>rhs->key:lhs->cvalue>rhs->cvalue;} };
 
-void mergeKSortedArrays(std::vector<std::vector<endpoint>::const_iterator>& paths, std::vector<std::vector<endpoint>::const_iterator> const& ends, std::vector<endpoint>& sorted){
+void mergeKSortedArrays(std::vector<std::vector<endpoint1>::const_iterator>& paths, std::vector<std::vector<endpoint1>::const_iterator> const& ends, std::vector<endpoint1>& sorted){
   std::make_heap(paths.begin(),paths.end(),cmp());
   size_t ix(0);
   while(paths.size()){
@@ -2289,8 +2351,8 @@ void mergeKSortedArrays(std::vector<std::vector<endpoint>::const_iterator>& path
   }
 }
 
-void insertionSort(std::vector<endpoint>& A){
-  endpoint key(A[0]);
+void insertionSort(std::vector<endpoint1>& A){
+  endpoint1 key(A[0]);
   int j(0);
   for (int i(1); i < A.size(); ++i){
     key = A[i];
@@ -2327,7 +2389,7 @@ struct ID{
   operator uint64_t(){return hash;}
 };
 
-void FindCollisions(std::vector<std::vector<endpoint>> const& temp, std::vector<std::vector<xytLoc>> const& paths, std::vector<endpoint>& axis, std::unordered_set<uint64_t>&pairs, std::vector<bool> const& reversed, MapEnvironment* env,float radius){
+void FindCollisions(std::vector<std::vector<endpoint1>> const& temp, std::vector<std::vector<xytLoc>> const& paths, std::vector<endpoint1>& axis, std::unordered_set<uint64_t>&pairs, std::vector<bool> const& reversed, MapEnvironment* env,float radius){
   std::unordered_set<uint32_t> active;
   active.emplace(axis[0].key);
   for(int i(1); i<axis.size(); ++i){
@@ -2348,14 +2410,14 @@ void FindCollisions(std::vector<std::vector<endpoint>> const& temp, std::vector<
   }
 }
 
-void Update(std::vector<std::vector<endpoint>> const& temp, std::vector<std::vector<xytLoc>> const& paths, std::vector<endpoint>& axis, std::unordered_set<uint64_t>&pairs, std::vector<bool> const& reversed, MapEnvironment* env,float radius){
+void Update(std::vector<std::vector<endpoint1>> const& temp, std::vector<std::vector<xytLoc>> const& paths, std::vector<endpoint1>& axis, std::unordered_set<uint64_t>&pairs, std::vector<bool> const& reversed, MapEnvironment* env,float radius){
   for (int j = 1; j < axis.size(); j++){
-    endpoint keyelement(axis[j]);
+    endpoint1 keyelement(axis[j]);
     int i(j - 1);
     while(i >= 0 && axis[i].cvalue > keyelement.cvalue){
-      if(keyelement.id.pointid+2>temp[keyelement.id.agentid].size()){continue;} // This is an endpoint
-      endpoint swapper = axis[i];
-      if(swapper.id.pointid+2>temp[keyelement.id.agentid].size()){continue;} // This is an endpoint
+      if(keyelement.id.pointid+2>temp[keyelement.id.agentid].size()){continue;} // This is an endpoint1
+      endpoint1 swapper = axis[i];
+      if(swapper.id.pointid+2>temp[keyelement.id.agentid].size()){continue;} // This is an endpoint1
 
       if(temp[swapper.id.agentid].size()<swapper.id.pointid+1 && keyelement.cvalue<=temp[swapper.id.agentid][swapper.id.pointid+1].cvalue){
         if(env->collisionPreCheck(
@@ -2381,7 +2443,7 @@ void Update(std::vector<std::vector<endpoint>> const& temp, std::vector<std::vec
 
 // Take k semi-sorted arrays of paths in sorted time-order
 // output d arrays, of sorted points, one for each dimension
-void createSortedLists(std::vector<std::vector<xytLoc>>const& paths, std::vector<std::vector<endpoint>>& sorted, MapEnvironment* env, float radius=.25){
+void createSortedLists(std::vector<std::vector<xytLoc>>const& paths, std::vector<std::vector<endpoint1>>& sorted, MapEnvironment* env, float radius=.25){
   //Assume 'sorted' has been initialized for the correct number of dimensions
   // Dimension 1 should always be time since it is always in sorted order
   size_t totalpoints(0);
@@ -2389,20 +2451,20 @@ void createSortedLists(std::vector<std::vector<xytLoc>>const& paths, std::vector
     totalpoints+=path.size();
   }
   for(auto& s:sorted){
-    s=std::vector<endpoint>(totalpoints);
+    s=std::vector<endpoint1>(totalpoints);
   }
-  std::vector<std::vector<std::vector<endpoint>>> temp(sorted.size());
+  std::vector<std::vector<std::vector<endpoint1>>> temp(sorted.size());
   for(int d(0); d<sorted.size(); ++d){
-    temp[d]=std::vector<std::vector<endpoint>>(paths.size());
+    temp[d]=std::vector<std::vector<endpoint1>>(paths.size());
     for(int a(0); a<paths.size(); ++a){
-      temp[d][a]=std::vector<endpoint>(paths[a].size());
+      temp[d][a]=std::vector<endpoint1>(paths[a].size());
       for(int p(0); p<paths[a].size(); ++p){
-        temp[d][a][p]=endpoint(a,p,d,paths[a][p]);
+        temp[d][a][p]=endpoint1(a,p,d,paths[a][p]);
       }
     }
   }
-  std::vector<std::vector<endpoint>::const_iterator> pts(paths.size());
-  std::vector<std::vector<endpoint>::const_iterator> ends(paths.size());
+  std::vector<std::vector<endpoint1>::const_iterator> pts(paths.size());
+  std::vector<std::vector<endpoint1>::const_iterator> ends(paths.size());
   std::vector<bool> reversed(paths.size());
 
   size_t i(0);
@@ -2444,8 +2506,108 @@ void createSortedLists(std::vector<std::vector<xytLoc>>const& paths, std::vector
     std::cout << "collisions " << pairs.size();
   }
 }
+
+// To copy pointers of an object into the destination array...
+template<typename state, typename aabb>
+void makeAABBs(std::vector<state> const& v,
+    std::vector<aabb>& d, uint32_t agent)
+{
+    d.reserve(v.size()-1);
+    auto first(v.cbegin());
+    while (first+1 != v.end()) {
+        d.emplace_back(&*first,&*first+1,agent);
+        ++first;
+    }
+}
+
+TEST(UTIL, CopyToPairs){
+  std::vector<xytLoc> values={{1,1,1},{2,2,2},{3,3,3},{4,4,4},{5,5,5},{6,6,6},{7,7,7},{8,8,8},{9,9,9},{0,0,0}};
+  std::vector<xytAABB> aabbs;
+  aabbs.reserve(values.size()-1);
+  makeAABBs(values,aabbs,0);
+  ASSERT_EQ(9,aabbs.size());
+  ASSERT_EQ(0,aabbs.back().end->x);
+  ASSERT_EQ(1,aabbs.front().start->x);
+}
+
+
+// Merge two sorted arrays of pointers
+template<class InputIt1, class InputIt2, class OutputIt>
+OutputIt mergePtrs(InputIt1 first1, InputIt1 last1,
+               InputIt2 first2, InputIt2 last2,
+               OutputIt d_first)
+{
+    for (; first1 != last1; ++d_first) {
+        if (first2 == last2) {
+            return std::copy(first1, last1, d_first);
+        }
+        if (*first2 < *first1) {
+            *d_first = *first2;
+            ++first2;
+        } else {
+            *d_first = *first1;
+            ++first1;
+        }
+    }
+    return std::copy(first2, last2, d_first);
+}
+
+template<typename aabb>
+void mergeVecs(std::vector<std::vector<aabb>>& tosort, std::vector<aabb>& sorted){
+  if(tosort.size()==2){
+    mergePtrs(tosort.front().begin(),tosort.front().end(),tosort.back().begin(),tosort.back().end(),sorted.begin());
+  }else{
+    // Get merged sets of 2
+    std::vector<std::vector<aabb>> temp(tosort.size()/2);
+    for(int i(0); i<temp.size(); ++i){
+      temp[i].resize(tosort[i*2].size()+tosort[i*2+1].size());
+      mergePtrs(tosort[i*2].begin(),tosort[i*2].end(),tosort[i*2+1].begin(),tosort[i*2+1].end(),temp[i].begin());
+    }
+    // Even out the number of sets
+    if(temp.size()%2){
+      temp.resize(temp.size()+1);
+    }
+    mergeVecs(temp,sorted);
+  }
+}
+
+template<typename state, typename aabb>
+void merge(std::vector<std::vector<state>> const& solution, std::vector<aabb>& sorted){
+  unsigned total(0);
+  std::vector<std::vector<aabb>> temp(solution.size());
+  std::vector<std::vector<aabb*>> ptrs(solution.size());
+  for(int i(0); i<solution.size(); ++i){
+    temp[i].reserve(solution[i].size());
+    //ptrs[i].reserve(solution[i].size());
+    makeAABBs(solution[i],temp[i],i);
+    total+=temp[i].size();
+  }
+  sorted.resize(total);
+
+  // Even out the number of sets
+  if(solution.size()%2){
+    temp.resize(temp.size()+1);
+  }
+  mergeVecs(temp,sorted);
+}
+
+template<typename aabb>
+void getAllPairs(std::vector<aabb> const& sorted, std::vector<std::pair<aabb,aabb>>& pairs){
+  auto a(sorted.cbegin());
+  auto b(sorted.cbegin()+1);
+  while(a!=sorted.end()){
+    while(b!=sorted.end() && a->overlaps1D(*b)){
+      if(a->overlaps(*b) && a->agent!=b->agent)
+        pairs.emplace_back(*a,*b);
+      ++b;
+    }
+    b=++a;
+    ++b;
+  }
+}
+
 void broadphaseTest(int type, unsigned nagents, unsigned tnum){
-  const int depth(1024); // Limit on path length...
+  const int depth(1000); // Limit on path length...
   std::vector<std::vector<xytLoc>> waypoints;
 
   // Load problems from file
@@ -2493,7 +2655,10 @@ void broadphaseTest(int type, unsigned nagents, unsigned tnum){
   }
 
   float radius(.25);
-  std::vector<std::vector<endpoint>> sorted(3);
+
+  //for(auto const& a:sorted)
+    //std::cout << *(a.start) << "\n";
+  //std::vector<std::vector<endpoint1>> sorted(3);
   //Timer tmr;
   //tmr.StartTimer();
   //createSortedLists(p,sorted,&menv,radius);
@@ -2515,6 +2680,7 @@ void broadphaseTest(int type, unsigned nagents, unsigned tnum){
     }
   }
 
+  std::vector<std::pair<std::pair<unsigned,unsigned>,std::pair<unsigned,unsigned>>> collisions1;
   Timer tmr3;
   tmr3.StartTimer();
   std::unordered_set<unsigned> seen;
@@ -2574,14 +2740,29 @@ void broadphaseTest(int type, unsigned nagents, unsigned tnum){
     }
   }
   std::cout << "Brute force with simple precheck on " << nagents << " with " << total4 << " checks, " << count5 << " collisions took " << tmr5.EndTimer() << "\n";
+
+  std::vector<xytAABB> sorted;
+  Timer tmr0;
+  Timer tmrz;
+  unsigned count0(0);
+  tmr0.StartTimer();
+  merge(p,sorted);
+  tmrz.StartTimer();
+  std::vector<std::pair<xytAABB,xytAABB>> pairs;
+  getAllPairs(sorted,pairs);
+  for(auto const& pp:pairs){
+    count0 += checkForCollision(*pp.first.start,*pp.first.end,*pp.second.start,*pp.second.end,radius,&menv);
+  }
+  std::cout << "Sort test on " << nagents << " with " << pairs.size() << " checks, " << count0 << " collisions took " << tmrz.EndTimer() << "(" << tmr0.EndTimer() << ")\n";
 }
 
 TEST(AABB, BVHTreeTest){
   int types[]={5,9,25,49};
   //int types[]={9,25,49};
   for(int type:types){
+    //for(int nagents(5); nagents<201; nagents+=5){
     for(int nagents(5); nagents<201; nagents+=5){
-      for(int i(0); i<100; ++i){
+      for(int i(0); i<99; ++i){
         std::cout << "===========================================================\n";
         std::cout << type << "Connected, " << nagents << " AGENTS, Test " << i << "\n";
         std::cout << "===========================================================\n";

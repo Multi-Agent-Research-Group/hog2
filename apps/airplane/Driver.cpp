@@ -75,9 +75,12 @@ std::vector<SoftConstraint<airtimeState> > sconstraints;
 
   ConstrainedEnvironment<airtimeState,airplaneAction> *ace = 0;
   UnitSimulation<airtimeState, airplaneAction, ConstrainedEnvironment<airtimeState,airplaneAction>> *sim = 0;
-  typedef CBSGroup<airtimeState,airplaneAction,RandomTieBreaking<airtimeState,airplaneAction>,NonUnitTimeCAT<airtimeState,airplaneAction,AIR_HASH_INTERVAL_HUNDREDTHS>> AirplaneGroup;
-  typedef CBSUnit<airtimeState,airplaneAction,RandomTieBreaking<airtimeState,airplaneAction>,NonUnitTimeCAT<airtimeState,airplaneAction,AIR_HASH_INTERVAL_HUNDREDTHS>> AirplaneUnit;
+  typedef CBSGroup<airtimeState,airplaneAction,RandomTieBreaking<airtimeState,airplaneAction>,NonUnitTimeCAT<airtimeState,airplaneAction>> AirplaneGroup;
+  typedef CBSUnit<airtimeState,airplaneAction,RandomTieBreaking<airtimeState,airplaneAction>,NonUnitTimeCAT<airtimeState,airplaneAction>> AirplaneUnit;
   AirplaneGroup* group = 0;
+
+  template<>
+  double NonUnitTimeCAT<airtimeState, airplaneAction>::bucketWidth=0.09;
 
   bool gui=true;
   void InitHeadless();

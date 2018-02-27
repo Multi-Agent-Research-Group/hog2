@@ -70,9 +70,12 @@ bool paused = false;
 
 Map2DConstrainedEnvironment *ace = 0;
 UnitSimulation<xytLoc, tDirection, Map2DConstrainedEnvironment> *sim = 0;
-typedef CBSGroup<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection>,NonUnitTimeCAT<xytLoc,tDirection,HASH_INTERVAL_HUNDREDTHS>,ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection>>>> Group;
-typedef CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection>,NonUnitTimeCAT<xytLoc,tDirection,HASH_INTERVAL_HUNDREDTHS>,ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection>>>> AUnit;
+typedef CBSGroup<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection>,NonUnitTimeCAT<xytLoc,tDirection>,ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection>>>> Group;
+typedef CBSUnit<xytLoc,tDirection,Map2DConstrainedEnvironment,TieBreaking<xytLoc,tDirection>,NonUnitTimeCAT<xytLoc,tDirection>,ThetaStar<xytLoc,tDirection,Map2DConstrainedEnvironment,AStarOpenClosed<xytLoc,TieBreaking<xytLoc,tDirection>>>> AUnit;
 Group* group = 0;
+
+  template<>
+  double NonUnitTimeCAT<xytLoc, tDirection>::bucketWidth=1.0;
 
 bool gui=true;
 int animate(0);

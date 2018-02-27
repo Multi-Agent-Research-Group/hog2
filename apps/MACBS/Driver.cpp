@@ -87,6 +87,9 @@ std::vector<std::vector<xyztLoc> > waypoints;
   //typedef CBSGroup<xyztLoc,t3DDirection,TieBreaking3D<xyztLoc,t3DDirection>,NonUnitTimeCAT<xyztLoc,t3DDirection,GRID3D_HASH_INTERVAL_HUNDREDTHS>,ICTSAlgorithm<xyztLoc,t3DDirection>> MACBSGroup;
   MACBSGroup* group(nullptr);
 
+  template<>
+  double NonUnitTimeCAT<xyztLoc, t3DDirection>::bucketWidth=xyztLoc::TIME_RESOLUTION_D;
+
   bool gui=true;
   int animate(0);
   void InitHeadless();
@@ -176,7 +179,8 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-dtedfile", "-dtedfile", "Map file to use");
 	InstallCommandLineHandler(MyCLHandler, "-scenfile", "-scenfile", "Scenario file to use");
 	InstallCommandLineHandler(MyCLHandler, "-mergeThreshold", "-mergeThreshold", "Number of conflicts to tolerate between meta-agents before merging");
-	InstallCommandLineHandler(MyCLHandler, "-radius", "-radius", "Radius in units of agent");
+	InstallCommandLineHandler(MyCLHandler, "-radius", "-radius <value>", "Radius in units of agent");
+	InstallCommandLineHandler(MyCLHandler, "-resolution", "-resolution <value>", "Inverse resolution of time/cost");
 	InstallCommandLineHandler(MyCLHandler, "-disappear", "-disappear", "Agents disappear at goal");
 	InstallCommandLineHandler(MyCLHandler, "-nogui", "-nogui", "Turn off gui");
 	InstallCommandLineHandler(MyCLHandler, "-verbose", "-verbose", "Turn on verbose output");
@@ -718,6 +722,12 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 	{
 		disappearAtGoal = true;
 		return 1;
+	}
+	if(strcmp(argument[0], "-resolution") == 0)
+	{
+		xyztLoc::TIME_RESOLUTION_U=xyztLoc::TIME_RESOLUTION=xyztLoc::TIME_RESOLUTION=atof(argument[1]);
+                NonUnitTimeCAT<xyztLoc, t3DDirection>::bucketWidth=xyztLoc::TIME_RESOLUTION_D;
+		return 2;
 	}
 	if(strcmp(argument[0], "-radius") == 0)
 	{

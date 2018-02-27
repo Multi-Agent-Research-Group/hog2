@@ -46,7 +46,7 @@ TEST(util, dtedreader){
 }
 
 TEST(util, BucketHash){
-  BucketHash<std::vector<double>,100> hash;
+  BucketHash<std::vector<double>> hash(1.0);
   hash.insert(0,1,{1,2,1});
   hash.insert(0,2,{4,6,2});
   hash.insert(1,3,{3,5,3});
@@ -61,7 +61,7 @@ TEST(util, BucketHash){
   ASSERT_EQ(2,result.size());
 }
 TEST(util, 3DBucketHash){
-  KDBucketHash<std::vector<double>,100,3> hash;
+  KDBucketHash<std::vector<double>,3> hash(1.0);
   std::cout << "insert: {{0,0,0},{1,2,1}}\n";
   hash.insert({{0,0,0},{1,2,1}});
   std::cout << "insert: {{1,3,0},{4,6,2}}\n";

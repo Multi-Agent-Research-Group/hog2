@@ -248,7 +248,6 @@ class UnitTieBreaking {
 };
 
 #define AIR_HASH_INTERVAL 0.09
-#define AIR_HASH_INTERVAL_HUNDREDTHS 9
 
 template <typename state, typename action>
 class RandomTieBreaking {
@@ -351,7 +350,7 @@ class RandomTieBreaking {
     static uint8_t currentAgent;
     static bool randomalg;
     static bool useCAT;
-    static NonUnitTimeCAT<state,action,AIR_HASH_INTERVAL_HUNDREDTHS>* CAT; // Conflict Avoidance Table
+    static NonUnitTimeCAT<state,action>* CAT; // Conflict Avoidance Table
 };
 
 template <typename state, typename action>
@@ -365,6 +364,6 @@ bool RandomTieBreaking<state,action>::randomalg=false;
 template <typename state, typename action>
 bool RandomTieBreaking<state,action>::useCAT=false;
 template <typename state, typename action>
-NonUnitTimeCAT<state,action,AIR_HASH_INTERVAL_HUNDREDTHS>* RandomTieBreaking<state,action>::CAT=0;
+NonUnitTimeCAT<state,action>* RandomTieBreaking<state,action>::CAT=0;
 
 #endif /* defined(__hog2_glut__AirplaneConstrainedEnvironment__) */

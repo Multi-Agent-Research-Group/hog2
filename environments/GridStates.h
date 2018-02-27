@@ -103,6 +103,73 @@ struct xytLoc : xyLoc, tLoc {
   static double TIME_RESOLUTION_D;
 };
 
+struct endpoint{
+  union{
+    float value;
+    uint32_t cvalue;
+  };
+};
+
+struct xytAABB{
+  xytAABB():start(nullptr),end(nullptr){}
+  xytAABB(xytLoc const* a, xytLoc const* b, uint32_t n):start(a),end(b),agent(n){
+    lowerBound[2].cvalue=std::min(start->x,end->x);
+    lowerBound[1].cvalue=std::min(start->y,end->y);
+    lowerBound[0].value=std::min(start->t,end->t);
+    upperBound[2].cvalue=std::max(start->x,end->x);
+    upperBound[1].cvalue=std::max(start->y,end->y);
+    upperBound[0].value=std::max(start->t,end->t);
+  }
+
+  inline bool overlaps1D(const xytAABB& aabb) const{
+    return !(   aabb.upperBound[0].cvalue < lowerBound[0].cvalue
+        || aabb.lowerBound[0].cvalue > upperBound[0].cvalue
+        );
+  }
+
+  inline bool overlaps(const xytAABB& aabb) const{
+    return !(   aabb.upperBound[0].cvalue < lowerBound[0].cvalue
+        || aabb.lowerBound[0].cvalue > upperBound[0].cvalue
+        || aabb.upperBound[1].cvalue < lowerBound[1].cvalue
+        || aabb.lowerBound[1].cvalue > upperBound[1].cvalue
+        || aabb.upperBound[2].cvalue < lowerBound[2].cvalue
+        || aabb.lowerBound[2].cvalue > upperBound[2].cvalue
+        );
+  }
+
+  inline bool operator<(const xytAABB& aabb) const{
+    return lowerBound[0].cvalue==aabb.lowerBound[0].cvalue?
+           lowerBound[1].cvalue==aabb.lowerBound[1].cvalue?
+           lowerBound[2].cvalue==aabb.lowerBound[2].cvalue?false:
+           lowerBound[2].cvalue<aabb.lowerBound[2].cvalue:
+           lowerBound[1].cvalue<aabb.lowerBound[1].cvalue:
+           lowerBound[0].cvalue<aabb.lowerBound[0].cvalue;
+  }
+
+  inline void operator=(const xytAABB& aabb){
+    start=aabb.start;
+    end=aabb.end;
+    agent=aabb.agent;
+    lowerBound[0].cvalue=aabb.lowerBound[0].cvalue;
+    lowerBound[1].cvalue=aabb.lowerBound[1].cvalue;
+    lowerBound[2].cvalue=aabb.lowerBound[2].cvalue;
+    upperBound[0].cvalue=aabb.upperBound[0].cvalue;
+    upperBound[1].cvalue=aabb.upperBound[1].cvalue;
+    upperBound[2].cvalue=aabb.upperBound[2].cvalue;
+  }
+
+  /// Lower bound of AABB in each dimension.
+  endpoint lowerBound[3];
+
+  /// Upper bound of AABB in each dimension.
+  endpoint upperBound[3];
+
+  xytLoc const* start;
+  xytLoc const* end;
+
+  uint32_t agent;
+};
+
 struct xyzLoc {
   public:
     xyzLoc():x(0),y(0),z(0){}

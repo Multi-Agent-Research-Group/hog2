@@ -35,12 +35,13 @@ struct IntervalData{
   bool operator<(IntervalData const& other)const{return other.hash1==hash1?(other.hash2==hash2?(other.agent==agent?false:agent<other.agent):hash2<other.hash2):hash1<other.hash1;}
 };
 
-template <typename state, typename action, unsigned hashIntervalHundredths>
+template <typename state, typename action>
 class NonUnitTimeCAT : public ConflictAvoidanceTable<state,action>{
 public:
   typedef std::set<IntervalData> ConflictSet;
+  static double bucketWidth;
 
-  NonUnitTimeCAT():ConflictAvoidanceTable<state,action>(){}
+  NonUnitTimeCAT():ConflictAvoidanceTable<state,action>(),cat(bucketWidth){}
   virtual void remove(std::vector<state> const& thePath, SearchEnvironment<state,action> const* env, unsigned agent){
     for(int i(0); i<thePath.size(); ++i) {
       // Populate the interval tree
@@ -66,7 +67,7 @@ public:
   } 
   
 private:
-  BucketHash<IntervalData,hashIntervalHundredths> cat;
+  BucketHash<IntervalData> cat;
 };
 
 #endif

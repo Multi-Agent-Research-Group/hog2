@@ -90,9 +90,6 @@ unsigned checkForTheConflict(state const*const parent, state const*const node, s
 }
 
 
-#define GRID3D_HASH_INTERVAL 1.0
-#define GRID3D_HASH_INTERVAL_HUNDREDTHS 100
-
 template <typename state, typename action>
 class TieBreaking3D {
   public:
@@ -110,7 +107,7 @@ class TieBreaking3D {
         ConflictSet matches;
         if(i1.data.nc ==-1){
           //std::cout << "Getting NC for " << i1.data << ":\n";
-          CAT->get(i1.data.t,i1.data.t+GRID3D_HASH_INTERVAL,matches);
+          CAT->get(i1.data.t,i1.data.t+xyztLoc::TIME_RESOLUTION_U,matches);
 
           // Get number of conflicts in the parent
           state const*const parent1(i1.parentID?&(openList->Lookat(i1.parentID).data):nullptr);
@@ -136,7 +133,7 @@ class TieBreaking3D {
         }
         if(i2.data.nc ==-1){
           //std::cout << "Getting NC for " << i2.data << ":\n";
-          CAT->get(i2.data.t,i2.data.t+GRID3D_HASH_INTERVAL,matches);
+          CAT->get(i2.data.t,i2.data.t+xyztLoc::TIME_RESOLUTION_U,matches);
 
           // Get number of conflicts in the parent
           state const*const parent2(i2.parentID?&(openList->Lookat(i2.parentID).data):nullptr);
@@ -162,24 +159,20 @@ class TieBreaking3D {
         }
         if(fequal(i1.data.nc,i2.data.nc)){
           if(fequal(ci1.g,ci2.g)){
-            uint32_t t1(ci1.data.t*xyztLoc::TIME_RESOLUTION_U);
-            uint32_t t2(ci2.data.t*xyztLoc::TIME_RESOLUTION_U);
-            if(randomalg && t1==t2){
+            if(randomalg && ci1.data.t==ci2.data.t){
               return rand()%2;
             }
-            return t1<t2;  // Tie-break toward greater time (relevant for waiting at goal)
+            return ci1.data.t<ci2.data.t;  // Tie-break toward greater time (relevant for waiting at goal)
           }
           return (fless(ci1.g, ci2.g));  // Tie-break toward greater g-cost
         }
         return fgreater(i1.data.nc,i2.data.nc);
       }else{
         if(fequal(ci1.g,ci2.g)){
-          uint32_t t1(ci1.data.t*xyztLoc::TIME_RESOLUTION_U);
-          uint32_t t2(ci2.data.t*xyztLoc::TIME_RESOLUTION_U);
-          if(randomalg && t1==t2){
+          if(randomalg && ci1.data.t==ci2.data.t){
             return rand()%2;
           }
-          return t1<t2;  // Tie-break toward greater time (relevant for waiting at goal)
+          return ci1.data.t<ci2.data.t;  // Tie-break toward greater time (relevant for waiting at goal)
         }
         return (fless(ci1.g, ci2.g));  // Tie-break toward greater g-cost
       }
@@ -192,7 +185,7 @@ class TieBreaking3D {
     static unsigned collchecks;
     static bool randomalg;
     static bool useCAT;
-    static NonUnitTimeCAT<state,action,GRID3D_HASH_INTERVAL_HUNDREDTHS>* CAT; // Conflict Avoidance Table
+    static NonUnitTimeCAT<state,action>* CAT; // Conflict Avoidance Table
 };
 
 template <typename state, typename action>
@@ -208,7 +201,7 @@ bool TieBreaking3D<state,action>::randomalg=false;
 template <typename state, typename action>
 bool TieBreaking3D<state,action>::useCAT=false;
 template <typename state, typename action>
-NonUnitTimeCAT<state,action,GRID3D_HASH_INTERVAL_HUNDREDTHS>* TieBreaking3D<state,action>::CAT=0;
+NonUnitTimeCAT<state,action>* TieBreaking3D<state,action>::CAT=0;
 
 template <typename state, typename action>
 class UnitTieBreaking3D {
@@ -236,8 +229,8 @@ class UnitTieBreaking3D {
               if(currentAgent == agent) continue;
               state const* p(0);
               if(i1.data.t!=0)
-                p=&(CAT->get(agent,i1.data.t-1));
-              state const& n=CAT->get(agent,i1.data.t);
+                p=&(CAT->get(agent,(i1.data.t-xyztLoc::TIME_RESOLUTION_U)/xyztLoc::TIME_RESOLUTION_D));
+              state const& n=CAT->get(agent,i1.data.t/xyztLoc::TIME_RESOLUTION_D);
               collchecks++;
               nc1+=checkForTheConflict(parent1,&i1.data,p,&n);
             }
@@ -257,8 +250,8 @@ class UnitTieBreaking3D {
               if(currentAgent == agent) continue;
               state const* p(0);
               if(i2.data.t!=0)
-                p=&(CAT->get(agent,i2.data.t-1));
-              state const& n=CAT->get(agent,i2.data.t);
+                p=&(CAT->get(agent,(i2.data.t-xyztLoc::TIME_RESOLUTION_U)/xyztLoc::TIME_RESOLUTION_D));
+              state const& n=CAT->get(agent,i2.data.t/xyztLoc::TIME_RESOLUTION_D);
               collchecks++;
               nc2+=checkForTheConflict(parent2,&i2.data,p,&n);
             }
