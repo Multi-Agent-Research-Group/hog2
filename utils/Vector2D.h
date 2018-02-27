@@ -98,6 +98,7 @@ struct TemporalVector : Vector2D {
   TemporalVector(Vector2D const& loc, double time):Vector2D(loc), t(time){}
   TemporalVector(double _x, double _y, float time):Vector2D(_x,_y), t(time){}
   TemporalVector():Vector2D(),t(0){}
+  inline bool operator==(TemporalVector const& other)const{return Vector2D::operator==(other)&&fequal(t,other.t);}
   double t;
 };
 

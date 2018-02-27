@@ -960,7 +960,9 @@ int MyCLHandler(char *argument[], int maxNumArgs)
                 std::cout << "Unknown environment " << e.name << "\n";
                 assert(!"Unknown environment encountered");
               }
-              ev.emplace_back(e.name,newEnv,new Map3dPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),e.threshold,e.weight);
+              // If -dimensions is specified, there is no map
+              ev.emplace_back(e.name,newEnv,nullptr,e.threshold,e.weight);
+              //ev.emplace_back(e.name,newEnv,nullptr,new Map3dPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),e.threshold,e.weight);
               newEnv->setGoal(waypoints[agent][1]);
               newEnv->WaitTime(wait);
               newEnv->GetMapEnv()->setGoal(waypoints[agent][1]);
