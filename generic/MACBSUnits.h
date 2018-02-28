@@ -1005,12 +1005,24 @@ void CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::proce
     // Only verify the solution if the run didn't time out
     if(verify&&elapsed>0){
       for(unsigned int y = x+1; y < tree[bestNode].paths.size(); y++){
-        for(unsigned i(1); i<tree[bestNode].paths[x].size(); ++i){
-          for(unsigned j(1); j<tree[bestNode].paths[y].size(); ++j){
-            if(collisionCheck3D(tree[bestNode].paths[x][i-1],tree[bestNode].paths[x][i],tree[bestNode].paths[y][j-1],tree[bestNode].paths[y][j],agentRadius)){
+        auto ap(tree[bestNode].paths[x].begin());
+        auto a(ap+1);
+        auto bp(tree[bestNode].paths[y].begin());
+        auto b(bp+1);
+        while(a!=tree[bestNode].paths[x].end() && b!=tree[bestNode].paths[y].end()){
+          if(collisionCheck3D(*ap,*a,*bp,*b,agentRadius)){
               valid=false;
-              std::cout << "ERROR: Solution invalid; collision at: " << x <<":" << tree[bestNode].paths[x][i-1] << "-->" << tree[bestNode].paths[x][i] << ", " << y <<":" << tree[bestNode].paths[y][j-1] << "-->" << tree[bestNode].paths[y][j] << std::endl;
-            }
+              std::cout << "ERROR: Solution invalid; collision at: " << x <<":" << *ap << "-->" << *a << ", " << y <<":" << *bp << "-->" << *b << std::endl;
+          }
+          if(a->t<b->t){
+            ++a;
+            ++ap;
+          }else if(a->t>b->t){
+            ++b;
+            ++bp;
+          }else{
+            ++a;++b;
+            ++ap;++bp;
           }
         }
       }
