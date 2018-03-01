@@ -34,6 +34,7 @@
 #include "AABB.h"
 #include <unordered_set>
 #include <sstream>
+#include <algorithm>
 //#include "EPEThetaStar.h"
 //#include "PEThetaStar.h"
 
@@ -2440,70 +2441,39 @@ void Update(std::vector<std::vector<endpoint1>> const& temp, std::vector<std::ve
   }
 }
 
+template<typename state, typename aabb>
+void makeAABBs(std::vector<state> const& v,
+    std::vector<aabb>& d, uint32_t agent, uint32_t dim)
+{
+    d.reserve(v.size()-1);
+    auto first(v.cbegin());
+    while (first+1 != v.end()) {
+        d.emplace_back(&*first,&*first+1,agent,dim);
+        ++first;
+    }
+}
+
 
 // Take k semi-sorted arrays of paths in sorted time-order
 // output d arrays, of sorted points, one for each dimension
-void createSortedLists(std::vector<std::vector<xytLoc>>const& paths, std::vector<std::vector<endpoint1>>& sorted, MapEnvironment* env, float radius=.25){
+template<typename aabb>
+void createSortedLists(std::vector<std::vector<xytLoc>>const& paths, std::vector<std::vector<aabb>>& sorted, MapEnvironment* env, float radius=.25){
   //Assume 'sorted' has been initialized for the correct number of dimensions
-  // Dimension 1 should always be time since it is always in sorted order
-  size_t totalpoints(0);
-  for(auto const& path:paths){
-    totalpoints+=path.size();
-  }
-  for(auto& s:sorted){
-    s=std::vector<endpoint1>(totalpoints);
-  }
-  std::vector<std::vector<std::vector<endpoint1>>> temp(sorted.size());
-  for(int d(0); d<sorted.size(); ++d){
-    temp[d]=std::vector<std::vector<endpoint1>>(paths.size());
-    for(int a(0); a<paths.size(); ++a){
-      temp[d][a]=std::vector<endpoint1>(paths[a].size());
-      for(int p(0); p<paths[a].size(); ++p){
-        temp[d][a][p]=endpoint1(a,p,d,paths[a][p]);
-      }
-    }
-  }
-  std::vector<std::vector<endpoint1>::const_iterator> pts(paths.size());
-  std::vector<std::vector<endpoint1>::const_iterator> ends(paths.size());
-  std::vector<bool> reversed(paths.size());
 
-  size_t i(0);
-  for(auto const& path:temp[0]){
-    reversed[i]=false;
-    pts[i]=path.begin();
-    ends[i++]=path.end();
-  }
-  mergeKSortedArrays(pts,ends,sorted[0]);
-  // Make the assumption that arrays are *mostly* sorted, but may be in reverse order
-  std::unordered_set<uint64_t> pairs;
-  for(int dim(1); dim<sorted.size(); ++dim){
-    pts.resize(ends.size());
-    i=0;
-    for(auto& path:temp[dim]){
-    //std::cout << i+1 <<"---------\n";
-      //for(auto const& e:path){
-      //std::cout << e << "\n";
-      //}
-      reversed[i]=false;
-      if(path.front().cvalue>path.back().cvalue){
-        reversed[i]=true;
-        std::reverse(path.begin(),path.end());
-      }
-      insertionSort(path);
-      pts[i]=path.begin();
-      ends[i++]=path.end();
-    //std::cout << i <<"<<---------\n";
-      //for(auto const& e:path){
-      //std::cout << e << "\n";
-      //}
+  // Create D 1D AABBs
+  // Append them to D vectors
+  size_t total(0);
+  std::vector<std::vector<std::vector<aabb>>> temp(sorted.size());
+  for(int d(0); d<temp.size(); ++d){
+    temp[d].resize(paths.size());
+    for(int i(0); i<paths.size(); ++i){
+      temp[d][i].reserve(paths[i].size());
+      makeAABBs(paths[i],temp[d][i],i,d);
+      if(d==0)
+        total+=temp[i].size();
+      sorted[d].insert(sorted[d].end(), temp[d][i].begin(), temp[d][i].end());
     }
-    mergeKSortedArrays(pts,ends,sorted[dim]);
-    //std::cout << "=================---------\n";
-    //for(auto const& e:sorted[dim]){
-      //std::cout << e << "\n";
-    //}
-    //FindCollisions(temp[dim], paths, sorted[dim], pairs, reversed, env, radius);
-    std::cout << "collisions " << pairs.size();
+    std::sort(sorted[d].begin(),sorted[d].end());
   }
 }
 
@@ -2595,15 +2565,32 @@ template<typename aabb>
 void getAllPairs(std::vector<aabb> const& sorted, std::vector<std::pair<aabb,aabb>>& pairs){
   auto a(sorted.cbegin());
   auto b(sorted.cbegin()+1);
+  unsigned touched(0);
+  unsigned compared(0);
+  unsigned npairs(0);
   while(a!=sorted.end()){
-    while(b!=sorted.end() && a->overlaps1D(*b)){
-      if(a->overlaps(*b) && a->agent!=b->agent)
-        pairs.emplace_back(*a,*b);
+    touched++;
+    //std::cout << "<"<<a->lowerBound[0].value<<"~"<<a->upperBound[0].value<<","<<a->lowerBound[1].cvalue<<"~"<<a->upperBound[1].cvalue<<","<<a->lowerBound[2].cvalue<<"~"<<a->upperBound[2].cvalue<<">\n";
+    while(b!=sorted.end() && a->upperBound[0].cvalue>=b->lowerBound[0].cvalue){
+      compared++;
+        //std::cout<<"  <"<<b->lowerBound[0].value<<"~"<<b->upperBound[0].value<<","<<b->lowerBound[1].cvalue<<"~"<<b->upperBound[1].cvalue<<","<<b->lowerBound[2].cvalue<<"~"<<b->upperBound[2].cvalue<<">\n";
+        if(a->agent!=b->agent &&
+            a->upperBound[1].cvalue>=b->lowerBound[1].cvalue &&
+            a->lowerBound[1].cvalue<=b->upperBound[1].cvalue &&
+            a->lowerBound[2].cvalue<=b->upperBound[2].cvalue &&
+            a->upperBound[2].cvalue>=b->lowerBound[2].cvalue){
+          pairs.emplace_back(*a,*b);
+          //std::cout << "***\n";
+        }
       ++b;
     }
+    //std::cout << "-------\n";
     b=++a;
     ++b;
   }
+  std::cout << "touched " << touched << "\n";
+  std::cout << "compared " << compared << "\n";
+  std::cout << "pairs " << pairs.size() << "\n";
 }
 
 void broadphaseTest(int type, unsigned nagents, unsigned tnum){
@@ -2658,11 +2645,15 @@ void broadphaseTest(int type, unsigned nagents, unsigned tnum){
 
   //for(auto const& a:sorted)
     //std::cout << *(a.start) << "\n";
-  //std::vector<std::vector<endpoint1>> sorted(3);
-  //Timer tmr;
-  //tmr.StartTimer();
-  //createSortedLists(p,sorted,&menv,radius);
-  //std::cout << "Took " << tmr.EndTimer() << " to get sorted lists\n";
+  std::vector<std::vector<AABB>> sweepPrune(3);
+  Timer tmr;
+  tmr.StartTimer();
+  createSortedLists(p,sweepPrune,&menv,radius);
+  std::cout << "Took " << tmr.EndTimer() << " to get sorted lists\n";
+
+
+
+
   // Create the AABB tree
   aabb::Tree<xytLoc> tree(nagents*132);
 
@@ -2747,6 +2738,8 @@ void broadphaseTest(int type, unsigned nagents, unsigned tnum){
   unsigned count0(0);
   tmr0.StartTimer();
   merge(p,sorted);
+  //for(auto const& s:sorted)
+    //std::cout << "<"<<s.lowerBound[0].value<<"~"<<s.upperBound[0].value<<","<<s.lowerBound[1].cvalue<<"~"<<s.upperBound[1].cvalue<<","<<s.lowerBound[2].cvalue<<"~"<<s.upperBound[2].cvalue<<">\n";
   tmrz.StartTimer();
   std::vector<std::pair<xytAABB,xytAABB>> pairs;
   getAllPairs(sorted,pairs);
@@ -2757,12 +2750,13 @@ void broadphaseTest(int type, unsigned nagents, unsigned tnum){
 }
 
 TEST(AABB, BVHTreeTest){
-  int types[]={5,9,25,49};
+  //int types[]={5,9,25,49};
+  int types[]={9};
   //int types[]={9,25,49};
   for(int type:types){
     //for(int nagents(5); nagents<201; nagents+=5){
-    for(int nagents(5); nagents<201; nagents+=5){
-      for(int i(0); i<99; ++i){
+    for(int nagents(200); nagents<201; nagents+=5){
+      for(int i(4); i<5; ++i){
         std::cout << "===========================================================\n";
         std::cout << type << "Connected, " << nagents << " AGENTS, Test " << i << "\n";
         std::cout << "===========================================================\n";

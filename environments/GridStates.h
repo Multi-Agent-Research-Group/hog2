@@ -110,6 +110,57 @@ struct endpoint{
   };
 };
 
+struct AABB{
+  AABB():start(nullptr),end(nullptr){}
+  AABB(xytLoc const* a, xytLoc const* b, uint32_t n, uint32_t d):start(a),end(b),agent(n){
+    switch(d){
+      case 0:
+        lowerBound.value=std::min(start->t,end->t);
+        upperBound.value=std::max(start->t,end->t);
+      break;
+      case 1:
+        lowerBound.cvalue=std::min(start->x,end->x);
+        upperBound.cvalue=std::max(start->x,end->x);
+      break;
+      case 2:
+        lowerBound.cvalue=std::min(start->y,end->y);
+        upperBound.cvalue=std::max(start->y,end->y);
+      break;
+    }
+  }
+
+  inline bool overlaps(const AABB& aabb) const{
+    return !(aabb.upperBound.cvalue < lowerBound.cvalue
+        || aabb.lowerBound.cvalue > upperBound.cvalue
+        );
+  }
+
+  inline bool operator<(const AABB& aabb) const{
+    return lowerBound.cvalue==aabb.lowerBound.cvalue?
+           upperBound.cvalue<aabb.upperBound.cvalue:
+           lowerBound.cvalue<aabb.lowerBound.cvalue;
+  }
+
+  inline void operator=(const AABB& aabb){
+    start=aabb.start;
+    end=aabb.end;
+    agent=aabb.agent;
+    lowerBound.cvalue=aabb.lowerBound.cvalue;
+    upperBound.cvalue=aabb.upperBound.cvalue;
+  }
+
+  /// Lower bound of AABB in one dimension.
+  endpoint lowerBound;
+
+  /// Upper bound of AABB in one dimension.
+  endpoint upperBound;
+
+  xytLoc const* start;
+  xytLoc const* end;
+
+  uint32_t agent;
+};
+
 struct xytAABB{
   xytAABB():start(nullptr),end(nullptr){}
   xytAABB(xytLoc const* a, xytLoc const* b, uint32_t n):start(a),end(b),agent(n){
