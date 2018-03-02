@@ -575,6 +575,10 @@ void generatePermutations(std::vector<MultiEdge>& positions, std::vector<MultiEd
     MultiEdge copy(current);
     bool found(false);
     for(int j(0); j<current.size(); ++j){
+      if(positions[agent][i].first->n==current[j].first->n||positions[agent][i].second->n==current[j].second->n||positions[agent][i].first->n.sameLoc(current[j].second->n)&&current[j].first->n.sameLoc(positions[agent][i].second->n)){
+        found=true;
+        break;
+      }
       if(precheck && !env->collisionPreCheck(positions[agent][i].first->n,positions[agent][i].second->n,agentRadius,current[j].first->n,current[j].second->n,agentRadius)) continue;
       // Make sure we don't do any checks that were already done
       //if(positions[agent][i].first->depth==lastTime&&current[j].first->depth==lastTime)continue;
@@ -1238,6 +1242,7 @@ struct ICTSNode{
     unsigned p(jointexpansions);
     unsigned q(jointnodes);
     if(jointDFS(root,answers,toDelete,lb(),*incumbent,tmpgood,unified,suboptimal)){
+      if(!answers.size()){return false;}
       jointTime+=timer.EndTimer();
       if(verbose){
         std::cout << "Answer:\n";

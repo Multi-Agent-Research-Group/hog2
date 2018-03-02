@@ -197,6 +197,13 @@ struct xytAABB{
            lowerBound[0].cvalue<aabb.lowerBound[0].cvalue;
   }
 
+  inline bool operator==(const xytAABB& aabb) const{
+    return lowerBound[0].cvalue==aabb.lowerBound[0].cvalue &&
+           lowerBound[1].cvalue==aabb.lowerBound[1].cvalue &&
+           lowerBound[2].cvalue==aabb.lowerBound[2].cvalue &&
+           agent==aabb.agent;
+  }
+
   inline void operator=(const xytAABB& aabb){
     start=aabb.start;
     end=aabb.end;
@@ -265,6 +272,77 @@ struct xyztLoc {
   static unsigned TIME_RESOLUTION_U;
   static double TIME_RESOLUTION_D;
 };
+
+struct xyztAABB{
+  xyztAABB():start(nullptr),end(nullptr){}
+  xyztAABB(xyztLoc const* a, xyztLoc const* b, uint32_t n):start(a),end(b),agent(n){
+    lowerBound.x=std::min(start->x,end->x);
+    upperBound.x=std::max(start->x,end->x);
+    lowerBound.y=std::min(start->y,end->y);
+    upperBound.y=std::max(start->y,end->y);
+    lowerBound.z=std::min(start->z,end->z);
+    upperBound.z=std::max(start->z,end->z);
+    lowerBound.t=std::min(start->t,end->t);
+    upperBound.t=std::max(start->t,end->t);
+  }
+
+  inline bool overlaps(const xyztAABB& aabb) const{
+    return !(   aabb.upperBound.t < lowerBound.t
+        || aabb.lowerBound.t > upperBound.t
+        || aabb.upperBound.x < lowerBound.x
+        || aabb.lowerBound.x > upperBound.x
+        || aabb.upperBound.y < lowerBound.y
+        || aabb.lowerBound.y > upperBound.y
+        || aabb.upperBound.z < lowerBound.z
+        || aabb.lowerBound.z > upperBound.z
+        );
+  }
+
+  inline bool operator==(const xyztAABB& aabb) const{
+    return lowerBound.t==aabb.lowerBound.t &&
+           lowerBound.x==aabb.lowerBound.x &&
+           lowerBound.y==aabb.lowerBound.y &&
+           lowerBound.z==aabb.lowerBound.z &&
+           agent==aabb.agent;
+  }
+
+  inline bool operator<(const xyztAABB& aabb) const{
+    return lowerBound.t==aabb.lowerBound.t?
+           lowerBound.x==aabb.lowerBound.x?
+           lowerBound.y==aabb.lowerBound.y?
+           lowerBound.z==aabb.lowerBound.z?false:
+           lowerBound.z<aabb.lowerBound.z:
+           lowerBound.y<aabb.lowerBound.y:
+           lowerBound.x<aabb.lowerBound.x:
+           lowerBound.t<aabb.lowerBound.t;
+  }
+
+  inline void operator=(const xyztAABB& aabb){
+    start=aabb.start;
+    end=aabb.end;
+    agent=aabb.agent;
+    lowerBound.t=aabb.lowerBound.t;
+    lowerBound.x=aabb.lowerBound.x;
+    lowerBound.y=aabb.lowerBound.y;
+    lowerBound.z=aabb.lowerBound.z;
+    upperBound.t=aabb.upperBound.t;
+    upperBound.x=aabb.upperBound.x;
+    upperBound.y=aabb.upperBound.y;
+    upperBound.z=aabb.upperBound.z;
+  }
+
+  /// Lower bound of AABB in each dimension.
+  xyztLoc lowerBound;
+
+  /// Upper bound of AABB in each dimension.
+  xyztLoc upperBound;
+
+  xyztLoc const* start;
+  xyztLoc const* end;
+
+  uint32_t agent;
+};
+
 
 struct AANode : xyLoc {
   AANode(uint16_t _x, uint16_t _y):xyLoc(_x,_y),F(0),g(0),Parent(nullptr){}

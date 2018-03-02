@@ -78,6 +78,19 @@ struct CompareLowGCost {
   }
 };
 
+// To copy pointers of an object into the destination array...
+template<typename state, typename aabb>
+void makeAABBs(std::vector<state> const& v,
+    std::vector<aabb>& d, uint32_t agent)
+{
+    d.reserve(v.size()-1);
+    auto first(v.cbegin());
+    while (first+1 != v.end()) {
+        d.emplace_back(&*first,&*first+1,agent);
+        ++first;
+    }
+}
+
 // Helper functions
 
 // Merge path between waypoints
@@ -327,6 +340,7 @@ struct CBSTreeNode {
         }
 	std::vector< std::vector<int> > wpts;
 	Solution<state> paths;
+	//Solution<aabb> paths;
 	Conflict<state> con;
 	unsigned int parent;
 	bool satisfiable;
