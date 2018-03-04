@@ -191,7 +191,8 @@ struct xytAABB{
   inline bool operator<(const xytAABB& aabb) const{
     return lowerBound[0].cvalue==aabb.lowerBound[0].cvalue?
            lowerBound[1].cvalue==aabb.lowerBound[1].cvalue?
-           lowerBound[2].cvalue==aabb.lowerBound[2].cvalue?false:
+           lowerBound[2].cvalue==aabb.lowerBound[2].cvalue?
+           agent<aabb.agent:
            lowerBound[2].cvalue<aabb.lowerBound[2].cvalue:
            lowerBound[1].cvalue<aabb.lowerBound[1].cvalue:
            lowerBound[0].cvalue<aabb.lowerBound[0].cvalue;
@@ -310,7 +311,8 @@ struct xyztAABB{
     return lowerBound.t==aabb.lowerBound.t?
            lowerBound.x==aabb.lowerBound.x?
            lowerBound.y==aabb.lowerBound.y?
-           lowerBound.z==aabb.lowerBound.z?false:
+           lowerBound.z==aabb.lowerBound.z?
+           agent<aabb.agent:
            lowerBound.z<aabb.lowerBound.z:
            lowerBound.y<aabb.lowerBound.y:
            lowerBound.x<aabb.lowerBound.x:

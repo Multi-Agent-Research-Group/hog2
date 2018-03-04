@@ -2680,12 +2680,26 @@ void getAllPairs(std::vector<aabb> const& sorted, std::vector<std::pair<aabb,aab
   std::cout << "pairs " << pairs.size() << "\n";
 }
 
-void replaceAABBs(std::vector<xytAABB> const& o, std::vector<xytAABB> const& n, std::vector<xytAABB>& sorted, int k){
+void replaceAABBs(std::vector<xytAABB> const& o, std::vector<xytAABB> const& n, std::vector<xytAABB>& sorted){
+  if(false){
+    // Verify that sorting property is still good
+    auto mm(sorted.begin());
+    for(auto nn(mm+1); nn!=sorted.end(); ++nn){
+      if(!(*mm<*nn || *mm==*nn)){
+        std::cout << "!<" << mm->lowerBound[0].value << "," << mm->lowerBound[1].cvalue << "," << mm->lowerBound[2].cvalue << "> > "<<nn->lowerBound[0].value << "," << nn->lowerBound[1].cvalue << "," << nn->lowerBound[2].cvalue << ">\n";
+      }else{
+        std::cout << "-<" << mm->lowerBound[0].value << "," << mm->lowerBound[1].cvalue << "," << mm->lowerBound[2].cvalue << "> > "<<nn->lowerBound[0].value << "," << nn->lowerBound[1].cvalue << "," << nn->lowerBound[2].cvalue << ">\n";
+      }
+      //ASSERT_LE(*mm,*nn);
+      //ASSERT_TRUE(*mm<*nn || *mm==*nn);
+      ++mm;
+    }
+  }
   auto oi(o.begin()); // New
   auto ni(n.begin()); // New
   auto beforen(sorted.begin());
   auto ato(std::lower_bound(sorted.begin(),sorted.end(),*oi)); // Old
-  while(oi!=o.end()||ni!=n.end()){
+  while(oi!=o.end()&&ni!=n.end()){
     if(*oi<*ni){
       beforen=std::lower_bound(ato,sorted.end(),*ni);
       std::rotate(ato,ato+1,beforen); // Move element o to the new index
@@ -2705,6 +2719,18 @@ void replaceAABBs(std::vector<xytAABB> const& o, std::vector<xytAABB> const& n, 
   }
   while(ni!=n.end()){
     sorted.insert(std::lower_bound(ato++,sorted.end(),*ni),*ni++);
+  }
+  if(false){
+    // Verify that sorting property is still good
+    auto mm(sorted.begin());
+    for(auto nn(mm+1); nn!=sorted.end(); ++nn){
+      if(!(*mm<*nn || *mm==*nn)){
+        std::cout << "<" << mm->lowerBound[0].value << "," << mm->lowerBound[1].cvalue << "," << mm->lowerBound[2].cvalue << "> >= "<<nn->lowerBound[0].value << "," << nn->lowerBound[1].cvalue << "," << nn->lowerBound[2].cvalue << ">\n";
+      }
+      ++mm;
+      //ASSERT_LE(*mm,*nn);
+      //ASSERT_TRUE(*mm<*nn || *mm==*nn);
+    }
   }
 }
 
@@ -2759,26 +2785,71 @@ TEST(AABB, insertTest){
   }
 
   float radius(.25);
-
+  std::vector<std::vector<xytAABB>> temp(p.size());
+  std::vector<xytAABB> sorted;
+  for(int i(0); i<p.size(); ++i){
+    //temp[i].reserve(p[i].size());
+    makeAABBs(p[i],temp[i],i);
+    sorted.insert(sorted.end(), temp[i].begin(), temp[i].end());
+  }
+  std::sort(sorted.begin(),sorted.end());
   {
-    std::vector<xytAABB> sorted;
+    // Verify that sorting property is still good
+    auto mm(sorted.begin());
+    for(auto nn(mm+1); nn!=sorted.end(); ++nn){
+      if(!(*mm<*nn || *mm==*nn)){
+        std::cout << "!!<" << mm->lowerBound[0].value << "," << mm->lowerBound[1].cvalue << "," << mm->lowerBound[2].cvalue << "> > "<<nn->lowerBound[0].value << "," << nn->lowerBound[1].cvalue << "," << nn->lowerBound[2].cvalue << ">\n";
+      }else{
+        //std::cout << "-<" << mm->lowerBound[0].value << "," << mm->lowerBound[1].cvalue << "," << mm->lowerBound[2].cvalue << "> > "<<nn->lowerBound[0].value << "," << nn->lowerBound[1].cvalue << "," << nn->lowerBound[2].cvalue << ">\n";
+      }
+      //ASSERT_LE(*mm,*nn);
+      //ASSERT_TRUE(*mm<*nn || *mm==*nn);
+      ++mm;
+    }
+  }
+  {
     Timer tmr0;
     Timer tmrz;
     unsigned count0(0);
     tmr0.StartTimer();
-    merge(p,sorted);
     //for(auto const& s:sorted)
     //std::cout << "<"<<s.lowerBound[0].value<<"~"<<s.upperBound[0].value<<","<<s.lowerBound[1].cvalue<<"~"<<s.upperBound[1].cvalue<<","<<s.lowerBound[2].cvalue<<"~"<<s.upperBound[2].cvalue<<">\n";
     tmrz.StartTimer();
     std::vector<std::pair<xytAABB,xytAABB>> pairs;
     getAllPairs(sorted,pairs);
+    {
+      // Verify that sorting property is still good
+      auto mm(sorted.begin());
+      for(auto nn(mm+1); nn!=sorted.end(); ++nn){
+        if(!(*mm<*nn || *mm==*nn)){
+          std::cout << "!<" << mm->lowerBound[0].value << "," << mm->lowerBound[1].cvalue << "," << mm->lowerBound[2].cvalue << "> > "<<nn->lowerBound[0].value << "," << nn->lowerBound[1].cvalue << "," << nn->lowerBound[2].cvalue << ">\n";
+        }else{
+          //std::cout << "-<" << mm->lowerBound[0].value << "," << mm->lowerBound[1].cvalue << "," << mm->lowerBound[2].cvalue << "> > "<<nn->lowerBound[0].value << "," << nn->lowerBound[1].cvalue << "," << nn->lowerBound[2].cvalue << ">\n";
+        }
+        //ASSERT_LE(*mm,*nn);
+        //ASSERT_TRUE(*mm<*nn || *mm==*nn);
+        ++mm;
+      }
+    }
     for(auto pp(pairs.begin()); pp!=pairs.end(); /*pp++*/){
       if(checkForCollision(*pp->first.start,*pp->first.end,*pp->second.start,*pp->second.end,radius,&menv)){
-      ++pp;
+        ++pp;
       }
       pairs.erase(pp);
-      
     }
+    for(auto pp(pairs.begin()); pp!=pairs.end(); pp++){
+      unsigned i(pp->first.agent);
+      Constraint<xytLoc>* c = new Collision<xytLoc>(*pp->second.start,*pp->second.end);
+      env.AddConstraint(c);
+      std::vector<xytLoc> path;
+      astar.GetPath(&env,waypoints[i][0],waypoints[i][1],path);
+      std::vector<xytAABB> aabbs;
+      makeAABBs(path,aabbs,i);
+      
+      replaceAABBs(temp[i],aabbs,sorted);
+      std::cout << "Replaced some\n";
+    }
+    
     std::cout << "Sort test (t) on " << nagents << " with " << pairs.size() << " checks, " << count0 << " collisions took " << tmrz.EndTimer() << "(" << tmr0.EndTimer() << ")\n";
   }
 
@@ -3029,7 +3100,7 @@ TEST(AABB, BVHTreeTest){
   //int types[]={9,25,49};
   for(int type:types){
     //for(int nagents(5); nagents<201; nagents+=5){
-    for(int nagents(200); nagents<201; nagents+=5){
+    for(int nagents(202); nagents<201; nagents+=5){
       for(int i(0); i<100; ++i){
         std::cout << "===========================================================\n";
         std::cout << type << "Connected, " << nagents << " AGENTS, Test " << i << "\n";
