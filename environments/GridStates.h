@@ -191,7 +191,14 @@ struct xytAABB{
   inline bool operator<(const xytAABB& aabb) const{
     return lowerBound[0].cvalue==aabb.lowerBound[0].cvalue?
            lowerBound[1].cvalue==aabb.lowerBound[1].cvalue?
-           lowerBound[2].cvalue==aabb.lowerBound[2].cvalue?false:
+           lowerBound[2].cvalue==aabb.lowerBound[2].cvalue?
+           upperBound[0].cvalue==aabb.upperBound[0].cvalue?
+           upperBound[1].cvalue==aabb.upperBound[1].cvalue?
+           upperBound[2].cvalue==aabb.upperBound[2].cvalue?
+           agent<aabb.agent:
+           upperBound[2].cvalue<aabb.upperBound[2].cvalue:
+           upperBound[1].cvalue<aabb.upperBound[1].cvalue:
+           upperBound[0].cvalue<aabb.upperBound[0].cvalue:
            lowerBound[2].cvalue<aabb.lowerBound[2].cvalue:
            lowerBound[1].cvalue<aabb.lowerBound[1].cvalue:
            lowerBound[0].cvalue<aabb.lowerBound[0].cvalue;
@@ -201,6 +208,9 @@ struct xytAABB{
     return lowerBound[0].cvalue==aabb.lowerBound[0].cvalue &&
            lowerBound[1].cvalue==aabb.lowerBound[1].cvalue &&
            lowerBound[2].cvalue==aabb.lowerBound[2].cvalue &&
+           upperBound[0].cvalue==aabb.upperBound[0].cvalue &&
+           upperBound[1].cvalue==aabb.upperBound[1].cvalue &&
+           upperBound[2].cvalue==aabb.upperBound[2].cvalue &&
            agent==aabb.agent;
   }
 
@@ -303,6 +313,10 @@ struct xyztAABB{
            lowerBound.x==aabb.lowerBound.x &&
            lowerBound.y==aabb.lowerBound.y &&
            lowerBound.z==aabb.lowerBound.z &&
+           upperBound.t==aabb.upperBound.t &&
+           upperBound.x==aabb.upperBound.x &&
+           upperBound.y==aabb.upperBound.y &&
+           upperBound.z==aabb.upperBound.z &&
            agent==aabb.agent;
   }
 
@@ -310,7 +324,16 @@ struct xyztAABB{
     return lowerBound.t==aabb.lowerBound.t?
            lowerBound.x==aabb.lowerBound.x?
            lowerBound.y==aabb.lowerBound.y?
-           lowerBound.z==aabb.lowerBound.z?false:
+           lowerBound.z==aabb.lowerBound.z?
+           upperBound.t==aabb.upperBound.t?
+           upperBound.x==aabb.upperBound.x?
+           upperBound.y==aabb.upperBound.y?
+           upperBound.z==aabb.upperBound.z?
+           agent<aabb.agent:
+           upperBound.z<aabb.upperBound.z:
+           upperBound.y<aabb.upperBound.y:
+           upperBound.x<aabb.upperBound.x:
+           upperBound.t<aabb.upperBound.t:
            lowerBound.z<aabb.lowerBound.z:
            lowerBound.y<aabb.lowerBound.y:
            lowerBound.x<aabb.lowerBound.x:
