@@ -32,21 +32,6 @@ PROJ_REL_LIB =
 default : all
 
 SRC_CPP = \
-	environments/Airplane.cpp \
-	environments/AirplaneSimple.cpp \
-	environments/AirplaneGrid3DCardinal.cpp \
-	environments/AirplaneGrid3DOctile.cpp \
-	environments/AirplaneGridCardinal.cpp \
-	environments/AirplaneGridless.cpp \
-	environments/AirplaneHiFiGridless.cpp \
-	environments/AirplaneNaiveHiFiGridless.cpp \
-	environments/AirplaneGridOctile.cpp \
-	environments/AirplaneHighway.cpp \
-	environments/AirplaneHighway4.cpp \
-	environments/AirplaneHighway4Cardinal.cpp \
-	environments/AirplaneCardinal.cpp \
-	environments/AirplaneConstrained.cpp \
-	environments/AirStates.cpp \
 	environments/GraphEnvironment.cpp \
 	environments/GraphRefinementEnvironment.cpp \
 	environments/Grid3DConstrainedEnvironment.cpp \
@@ -74,4 +59,19 @@ SRC_CPP = \
 	environments/CanonicalGrid.cpp \
 	environments/Fling.cpp \
 	environments/Voxels.cpp \
-	environments/NaryTree.cpp \
+	environments/NaryTree.cpp 
+	#environments/Airplane.cpp \
+	#environments/AirplaneSimple.cpp \
+	#environments/AirplaneGrid3DCardinal.cpp \
+	#environments/AirplaneGrid3DOctile.cpp \
+	#environments/AirplaneGridCardinal.cpp \
+	#environments/AirplaneGridless.cpp \
+	#environments/AirplaneHiFiGridless.cpp \
+	#environments/AirplaneNaiveHiFiGridless.cpp \
+	#environments/AirplaneGridOctile.cpp \
+	#environments/AirplaneHighway.cpp \
+	#environments/AirplaneHighway4.cpp \
+	#environments/AirplaneHighway4Cardinal.cpp \
+	#environments/AirplaneCardinal.cpp \
+	#environments/AirplaneConstrained.cpp \
+	#environments/AirStates.cpp \

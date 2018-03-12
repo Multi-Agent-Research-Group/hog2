@@ -28,12 +28,12 @@
 	return fequal(l1.t,l2.t) && (l1.x == l2.x) && (l1.y==l2.y);
 }*/
 
-Grid3DConstrainedEnvironment::Grid3DConstrainedEnvironment(Map3D *m):ignoreTime(false)
+Grid3DConstrainedEnvironment::Grid3DConstrainedEnvironment(Map3D *m,unsigned agent):ConstrainedEnvironment(agent),ignoreTime(false)
 {
 	mapEnv = new Grid3DEnvironment(m);
 }
 
-Grid3DConstrainedEnvironment::Grid3DConstrainedEnvironment(Grid3DEnvironment *m):ignoreTime(false)
+Grid3DConstrainedEnvironment::Grid3DConstrainedEnvironment(Grid3DEnvironment *m, unsigned agent):ConstrainedEnvironment(agent),ignoreTime(false)
 {
 	mapEnv = m;
 }
@@ -192,19 +192,14 @@ void Grid3DConstrainedEnvironment::GetStateFromHash(uint64_t hash, xyztLoc &s) c
   assert(!"Hash is irreversible...");
 }
 
-double Grid3DConstrainedEnvironment::GetPathLength(std::vector<xyztLoc> &neighbors)
+double Grid3DConstrainedEnvironment::GetPathLength(std::vector<xyztAABB> &neighbors)
 {
-  // There is no cost for waiting at the goal
-  double cost(0);
-  for(int j(neighbors.size()-1); j>0; --j){
-    if(!neighbors[j-1].sameLoc(neighbors[j])){
-      cost += neighbors[j].t;
-      break;
-    }else if(j==1){
-      cost += neighbors[0].t;
-    }
+  double total(0);
+  for(auto const& n:neighbors){
+    if(GoalTest(n.start,getGoal()) && n.start.sameLoc(n.end)){ break; }
+    total+=n.end.t;
   }
-  return cost;
+  return total;
 }
 
 
@@ -288,20 +283,20 @@ bool Grid3DConstrainedEnvironment::collisionCheck(const xyztLoc &s1, const xyztL
 
 
 template<>
-void Constraint<xyztLoc>::OpenGLDraw(MapInterface* map) const 
+void Constraint<xyztAABB>::OpenGLDraw(MapInterface* map) const 
 {
   GLdouble xx, yy, zz, rad;
   glColor3f(1, 0, 0);
   glLineWidth(12.0);
   glBegin(GL_LINES);
-  map->GetOpenGLCoord(start_state.x, start_state.y, start_state.z, xx, yy, zz, rad);
+  map->GetOpenGLCoord(this->start.x, this->start.y, this->start.z, xx, yy, zz, rad);
   glVertex3f(xx, yy, -rad);
-  map->GetOpenGLCoord(end_state.x, end_state.y, end_state.z, xx, yy, zz, rad);
+  map->GetOpenGLCoord(this->end.x, this->end.y, this->end.z, xx, yy, zz, rad);
   glVertex3f(xx, yy, -rad);
   glEnd();
 }
 
-template<>
+/*template<>
 void Constraint<TemporalVector3D>::OpenGLDraw(MapInterface* map) const 
 {
 	GLdouble xx, yy, zz, rad;
@@ -320,5 +315,5 @@ void Constraint<TemporalVector3D>::OpenGLDraw(MapInterface* map) const
 	glEnd();
         //glDrawCircle(xx,yy,.5/map->GetMapWidth());
 	//DrawSphere(xx, yy, zz, rad/2.0); // zz-l.t*2*rad
-}
+}*/
 

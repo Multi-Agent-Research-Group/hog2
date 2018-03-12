@@ -26,13 +26,13 @@
 #include "SearchEnvironment.h"
 
 // Stores paths for agents, indexed by time
-template <typename state, typename action>
+template <typename BB, typename action>
 class ConflictAvoidanceTable{
 public:
   ConflictAvoidanceTable(){}
-  virtual void set(std::vector<std::vector<state> > const*const ref){};
-  virtual void remove(std::vector<state> const& values, SearchEnvironment<state,action> const*, unsigned agent)=0;
-  virtual void insert(std::vector<state> const& values, SearchEnvironment<state,action> const*, unsigned agent)=0;
+  virtual void set(std::vector<std::vector<typename BB::State>*> const*const ref){};
+  virtual void remove(std::vector<typename BB::State> const& values, SearchEnvironment<typename BB::State,action> const*, unsigned agent)=0;
+  virtual void insert(std::vector<typename BB::State> const& values, SearchEnvironment<typename BB::State,action> const*, unsigned agent)=0;
 };
 
 #endif

@@ -22,11 +22,11 @@
 	
 //bool operator==(const xyztLoc &l1, const xyztLoc &l2);
 
-class Grid3DConstrainedEnvironment : public ConstrainedEnvironment<xyztLoc, t3DDirection>
+class Grid3DConstrainedEnvironment : public ConstrainedEnvironment<xyztAABB, t3DDirection>
 {
 public:
-	Grid3DConstrainedEnvironment(Map3D *m);
-	Grid3DConstrainedEnvironment(Grid3DEnvironment *m);
+	Grid3DConstrainedEnvironment(Map3D *m, unsigned agent);
+	Grid3DConstrainedEnvironment(Grid3DEnvironment *m, unsigned agent);
         virtual std::string name()const{return mapEnv->name();}
 	virtual void GetSuccessors(const xyztLoc &nodeID, std::vector<xyztLoc> &neighbors) const;
 	virtual void GetAllSuccessors(const xyztLoc &nodeID, std::vector<xyztLoc> &neighbors) const;
@@ -47,10 +47,10 @@ public:
 	virtual uint64_t GetStateHash(const xyztLoc &node) const;
         virtual void GetStateFromHash(uint64_t hash, xyztLoc &s) const;
 	virtual uint64_t GetActionHash(t3DDirection act) const;
-	virtual double GetPathLength(std::vector<xyztLoc> &neighbors);
+	virtual double GetPathLength(std::vector<xyztAABB> &neighbors);
 
-        virtual inline double ViolatesConstraint(const xyztLoc &from, const xyztLoc &to) const {
-          return ConstrainedEnvironment<xyztLoc, t3DDirection>::ViolatesConstraint(from,to)*xyztLoc::TIME_RESOLUTION_D;
+        virtual inline double ViolatesConstraint(xyztLoc const& from, xyztLoc const& to) const {
+          return ConstrainedEnvironment<xyztAABB, t3DDirection>::ViolatesConstraint(from,to)*xyztLoc::TIME_RESOLUTION_D;
         }
 
 	virtual void OpenGLDraw() const;
@@ -60,7 +60,7 @@ public:
 	virtual void GLDrawLine(const xyztLoc &x, const xyztLoc &y) const;
         void GLDrawPath(const std::vector<xyztLoc> &p, const std::vector<xyztLoc> &waypoints) const;
         virtual Map3D* GetMap()const{return mapEnv->GetMap();}
-        virtual bool LineOfSight(const xyztLoc &x, const xyztLoc &y)const{return mapEnv->LineOfSight(x,y) && !ViolatesConstraint(x,y);}
+        virtual bool LineOfSight(const xyztLoc &x, const xyztLoc &y)const{return mapEnv->LineOfSight(x,y);}// && !ViolatesConstraint(x,y);}
         void SetIgnoreTime(bool i){ignoreTime=i;}
         bool GetIgnoreTime()const{return ignoreTime;}
         void SetIgnoreHeading(bool i){ignoreHeading=i;}
@@ -69,6 +69,7 @@ public:
         uint16_t maxTurnAzimuth=0; // 0 means "turn off"
         int16_t maxPitch=0;
         virtual bool collisionCheck(const xyztLoc &s1, const xyztLoc &d1, float r1, const xyztLoc &s2, const xyztLoc &d2, float r2);
+        virtual bool collisionCheck(const xyztAABB &s1, float r1, const xyztAABB &s2, float r2);
         inline Grid3DEnvironment* GetMapEnv()const{return mapEnv;}
         virtual void setGoal(xyztLoc const& s){mapEnv->setGoal(s);};
         virtual xyztLoc const& getGoal()const{return mapEnv->getGoal();}
@@ -80,29 +81,28 @@ private:
 };
 
 // Check if an openlist node conflicts with a node from an existing path
-template<typename state>
-unsigned checkForTheConflict(state const*const parent, state const*const node, state const*const pathParent, state const*const pathNode){
+unsigned checkForTheConflict(xyztLoc const*const parent, xyztLoc const*const node, xyztLoc const*const pathParent, xyztLoc const*const pathNode){
   if(parent && pathParent){
-    CollisionDetector<state> e1(.25);
+    CollisionDetector<xyztAABB> e1(.25);
     if(e1.HasConflict(*parent,*node,*pathParent,*pathNode)){return 1;}
   }
   return 0;
 }
 
 
-template <typename state, typename action>
+template <typename BB, typename action>
 class TieBreaking3D {
   public:
 
-  bool operator()(const AStarOpenClosedData<state> &ci1, const AStarOpenClosedData<state> &ci2) const
+  bool operator()(const AStarOpenClosedData<typename BB::State> &ci1, const AStarOpenClosedData<typename BB::State> &ci2) const
   {
     if (fequal(ci1.g+ci1.h, ci2.g+ci2.h)) // F-cost equal
     {
 
       if(useCAT && CAT){
         // Make them non-const :)
-        AStarOpenClosedData<state>& i1(const_cast<AStarOpenClosedData<state>&>(ci1));
-        AStarOpenClosedData<state>& i2(const_cast<AStarOpenClosedData<state>&>(ci2));
+        AStarOpenClosedData<typename BB::State>& i1(const_cast<AStarOpenClosedData<typename BB::State>&>(ci1));
+        AStarOpenClosedData<typename BB::State>& i2(const_cast<AStarOpenClosedData<typename BB::State>&>(ci2));
         // Compute cumulative conflicts (if not already done)
         ConflictSet matches;
         if(i1.data.nc ==-1){
@@ -110,17 +110,17 @@ class TieBreaking3D {
           CAT->get(i1.data.t,i1.data.t+xyztLoc::TIME_RESOLUTION_U,matches);
 
           // Get number of conflicts in the parent
-          state const*const parent1(i1.parentID?&(openList->Lookat(i1.parentID).data):nullptr);
+          typename BB::State const*const parent1(i1.parentID?&(openList->Lookat(i1.parentID).data):nullptr);
           unsigned nc1(parent1?parent1->nc:0);
           //std::cout << "  matches " << matches.size() << "\n";
 
           // Count number of conflicts
           for(auto const& m: matches){
             if(currentAgent == m.agent) continue;
-            state p;
+            typename BB::State p;
             currentEnv->GetStateFromHash(m.hash1,p);
             //p.t=m.start;
-            state n;
+            typename BB::State n;
             currentEnv->GetStateFromHash(m.hash2,n);
             //n.t=m.stop;
             collchecks++;
@@ -136,17 +136,17 @@ class TieBreaking3D {
           CAT->get(i2.data.t,i2.data.t+xyztLoc::TIME_RESOLUTION_U,matches);
 
           // Get number of conflicts in the parent
-          state const*const parent2(i2.parentID?&(openList->Lookat(i2.parentID).data):nullptr);
+          typename BB::State const*const parent2(i2.parentID?&(openList->Lookat(i2.parentID).data):nullptr);
           unsigned nc2(parent2?parent2->nc:0);
           //std::cout << "  matches " << matches.size() << "\n";
 
           // Count number of conflicts
           for(auto const& m: matches){
             if(currentAgent == m.agent) continue;
-            state p;
+            typename BB::State p;
             currentEnv->GetStateFromHash(m.hash2,p);
             //p.t=m.start;
-            state n;
+            typename BB::State n;
             currentEnv->GetStateFromHash(m.hash2,n);
             //n.t=m.stop;
             collchecks++;
@@ -179,58 +179,58 @@ class TieBreaking3D {
     }
     return (fgreater(ci1.g+ci1.h, ci2.g+ci2.h));
   }
-    static OpenClosedInterface<state,AStarOpenClosedData<state>>* openList;
-    static ConstrainedEnvironment<state,action>* currentEnv;
+    static OpenClosedInterface<typename BB::State,AStarOpenClosedData<typename BB::State>>* openList;
+    static ConstrainedEnvironment<BB,action>* currentEnv;
     static uint8_t currentAgent;
     static unsigned collchecks;
     static bool randomalg;
     static bool useCAT;
-    static NonUnitTimeCAT<state,action>* CAT; // Conflict Avoidance Table
+    static NonUnitTimeCAT<BB,action>* CAT; // Conflict Avoidance Table
 };
 
-template <typename state, typename action>
-OpenClosedInterface<state,AStarOpenClosedData<state>>* TieBreaking3D<state,action>::openList=0;
-template <typename state, typename action>
-ConstrainedEnvironment<state,action>* TieBreaking3D<state,action>::currentEnv=0;
-template <typename state, typename action>
-uint8_t TieBreaking3D<state,action>::currentAgent=0;
-template <typename state, typename action>
-unsigned TieBreaking3D<state,action>::collchecks=0;
-template <typename state, typename action>
-bool TieBreaking3D<state,action>::randomalg=false;
-template <typename state, typename action>
-bool TieBreaking3D<state,action>::useCAT=false;
-template <typename state, typename action>
-NonUnitTimeCAT<state,action>* TieBreaking3D<state,action>::CAT=0;
+template <typename BB, typename action>
+OpenClosedInterface<typename BB::State,AStarOpenClosedData<typename BB::State>>* TieBreaking3D<BB,action>::openList=0;
+template <typename BB, typename action>
+ConstrainedEnvironment<BB,action>* TieBreaking3D<BB,action>::currentEnv=0;
+template <typename BB, typename action>
+uint8_t TieBreaking3D<BB,action>::currentAgent=0;
+template <typename BB, typename action>
+unsigned TieBreaking3D<BB,action>::collchecks=0;
+template <typename BB, typename action>
+bool TieBreaking3D<BB,action>::randomalg=false;
+template <typename BB, typename action>
+bool TieBreaking3D<BB,action>::useCAT=false;
+template <typename BB, typename action>
+NonUnitTimeCAT<BB,action>* TieBreaking3D<BB,action>::CAT=0;
 
-template <typename state, typename action>
+template <typename BB, typename action>
 class UnitTieBreaking3D {
   public:
-    bool operator()(const AStarOpenClosedData<state> &ci1, const AStarOpenClosedData<state> &ci2) const
+    bool operator()(const AStarOpenClosedData<typename BB::State> &ci1, const AStarOpenClosedData<typename BB::State> &ci2) const
     {
       if (fequal(ci1.g+ci1.h, ci2.g+ci2.h)) // F-cost equal
       {
         if(useCAT && CAT){
           // Make them non-const :)
-          AStarOpenClosedData<state>& i1(const_cast<AStarOpenClosedData<state>&>(ci1));
-          AStarOpenClosedData<state>& i2(const_cast<AStarOpenClosedData<state>&>(ci2));
+          AStarOpenClosedData<typename BB::State>& i1(const_cast<AStarOpenClosedData<typename BB::State>&>(ci1));
+          AStarOpenClosedData<typename BB::State>& i2(const_cast<AStarOpenClosedData<typename BB::State>&>(ci2));
 
           // Compute cumulative conflicts (if not already done)
           if(i1.data.nc ==-1){
             //std::cout << "Getting NC for " << i1.data << ":\n";
 
             // Get number of conflicts in the parent
-            state const*const parent1(i1.parentID?&(openList->Lookat(i1.parentID).data):nullptr);
+            typename BB::State const*const parent1(i1.parentID?&(openList->Lookat(i1.parentID).data):nullptr);
             unsigned nc1(parent1?parent1->nc:0);
             //std::cout << "  matches " << matches.size() << "\n";
 
             // Count number of conflicts
             for(int agent(0); agent<CAT->numAgents(); ++agent){
               if(currentAgent == agent) continue;
-              state const* p(0);
+              typename BB::State const* p(0);
               if(i1.data.t!=0)
                 p=&(CAT->get(agent,(i1.data.t-xyztLoc::TIME_RESOLUTION_U)/xyztLoc::TIME_RESOLUTION_D));
-              state const& n=CAT->get(agent,i1.data.t/xyztLoc::TIME_RESOLUTION_D);
+              typename BB::State const& n=CAT->get(agent,i1.data.t/xyztLoc::TIME_RESOLUTION_D);
               collchecks++;
               nc1+=checkForTheConflict(parent1,&i1.data,p,&n);
             }
@@ -241,17 +241,17 @@ class UnitTieBreaking3D {
             //std::cout << "Getting NC for " << i2.data << ":\n";
 
             // Get number of conflicts in the parent
-            state const*const parent2(i2.parentID?&(openList->Lookat(i2.parentID).data):nullptr);
+            typename BB::State const*const parent2(i2.parentID?&(openList->Lookat(i2.parentID).data):nullptr);
             unsigned nc2(parent2?parent2->nc:0);
             //std::cout << "  matches " << matches.size() << "\n";
 
             // Count number of conflicts
             for(int agent(0); agent<CAT->numAgents(); ++agent){
               if(currentAgent == agent) continue;
-              state const* p(0);
+              typename BB::State const* p(0);
               if(i2.data.t!=0)
                 p=&(CAT->get(agent,(i2.data.t-xyztLoc::TIME_RESOLUTION_U)/xyztLoc::TIME_RESOLUTION_D));
-              state const& n=CAT->get(agent,i2.data.t/xyztLoc::TIME_RESOLUTION_D);
+              typename BB::State const& n=CAT->get(agent,i2.data.t/xyztLoc::TIME_RESOLUTION_D);
               collchecks++;
               nc2+=checkForTheConflict(parent2,&i2.data,p,&n);
             }
@@ -274,28 +274,28 @@ class UnitTieBreaking3D {
       }
       return (fgreater(ci1.g+ci1.h, ci2.g+ci2.h));
     }
-    static OpenClosedInterface<state,AStarOpenClosedData<state>>* openList;
-    static ConstrainedEnvironment<state,action>* currentEnv;
+    static OpenClosedInterface<typename BB::State,AStarOpenClosedData<typename BB::State>>* openList;
+    static ConstrainedEnvironment<typename BB::State,action>* currentEnv;
     static uint8_t currentAgent;
     static unsigned collchecks;
     static bool randomalg;
     static bool useCAT;
-    static UnitTimeCAT<state,action>* CAT; // Conflict Avoidance Table
+    static UnitTimeCAT<BB,action>* CAT; // Conflict Avoidance Table
 };
 
-template <typename state, typename action>
-OpenClosedInterface<state,AStarOpenClosedData<state>>* UnitTieBreaking3D<state,action>::openList=0;
-template <typename state, typename action>
-ConstrainedEnvironment<state,action>* UnitTieBreaking3D<state,action>::currentEnv=0;
-template <typename state, typename action>
-uint8_t UnitTieBreaking3D<state,action>::currentAgent=0;
-template <typename state, typename action>
-unsigned UnitTieBreaking3D<state,action>::collchecks=0;
-template <typename state, typename action>
-bool UnitTieBreaking3D<state,action>::randomalg=false;
-template <typename state, typename action>
-bool UnitTieBreaking3D<state,action>::useCAT=false;
-template <typename state, typename action>
-UnitTimeCAT<state,action>* UnitTieBreaking3D<state,action>::CAT=0;
+template <typename BB, typename action>
+OpenClosedInterface<typename BB::State,AStarOpenClosedData<typename BB::State>>* UnitTieBreaking3D<BB,action>::openList=0;
+template <typename BB, typename action>
+ConstrainedEnvironment<BB,action>* UnitTieBreaking3D<BB,action>::currentEnv=0;
+template <typename BB, typename action>
+uint8_t UnitTieBreaking3D<BB,action>::currentAgent=0;
+template <typename BB, typename action>
+unsigned UnitTieBreaking3D<BB,action>::collchecks=0;
+template <typename BB, typename action>
+bool UnitTieBreaking3D<BB,action>::randomalg=false;
+template <typename BB, typename action>
+bool UnitTieBreaking3D<BB,action>::useCAT=false;
+template <typename BB, typename action>
+UnitTimeCAT<BB,action>* UnitTieBreaking3D<BB,action>::CAT=0;
 
 #endif /* defined(__hog2_glut__Grid3DConstrainedEnvironment__) */

@@ -66,10 +66,10 @@ namespace std
     };
 }
 
-template<typename state, typename action>
-class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
+template<typename BB, typename action>
+class ICTSAlgorithm: public MAPFAlgorithm<typename BB::State,action>{
   public:
-    ICTSAlgorithm():jointTime(0),pairwiseTime(0),mddTime(0),nogoodTime(0),epp(false),verbose(false),quiet(false),verify(false),jointnodes(0),step(state::TIME_RESOLUTION_U),suboptimal(false),pairwise(true){}
+    ICTSAlgorithm():jointTime(0),pairwiseTime(0),mddTime(0),nogoodTime(0),epp(false),verbose(false),quiet(false),verify(false),jointnodes(0),step(BB::State::TIME_RESOLUTION_U),suboptimal(false),pairwise(true){}
     float jointTime;
     float pairwiseTime;
     float mddTime;
@@ -88,8 +88,8 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
     std::unordered_map<std::string,bool> transTable;
     std::unordered_map<uint64_t,bool> singleTransTable;
 
-    std::vector<SearchEnvironment<state,action>*> envs;
-    std::vector<Heuristic<state>*> heuristics;
+    std::vector<SearchEnvironment<typename BB::State,action>*> envs;
+    std::vector<Heuristic<typename BB::State>*> heuristics;
 
 
     // Used for std::set
@@ -102,9 +102,9 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       static uint64_t count;
 
       Node(){}
-      Node(state a, uint64_t h):n(a),hash(h),id(0),optimal(false){count++;}
+      Node(typename BB::State a, uint64_t h):n(a),hash(h),id(0),optimal(false){count++;}
       virtual ~Node(){}
-      state n;
+      typename BB::State n;
       //uint32_t depth;
       uint64_t hash;
       uint32_t id;
@@ -112,17 +112,17 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       //bool connected()const{return parents.size()+successors.size();}
       //std::unordered_set<Node*> parents;
       std::unordered_set<Node*> successors;
-      virtual uint64_t Hash()const{return hash;}//(env->GetStateHash(n)<<32) | ((uint32_t)(depth*state::TIME_RESOLUTION_U));}
+      virtual uint64_t Hash()const{return hash;}//(env->GetStateHash(n)<<32) | ((uint32_t)(depth*BB::State::TIME_RESOLUTION_U));}
       virtual uint32_t Depth()const{return n.t;}
       virtual void Print(std::ostream& ss, int d=0) const {
-        ss << std::string(d/state::TIME_RESOLUTION_U,' ')<<n << std::endl;
+        ss << std::string(d/BB::State::TIME_RESOLUTION_U,' ')<<n << std::endl;
         //for(auto const& m: successors)
           //m->Print(ss,d+1);
       }
       bool operator==(Node const& other)const{return n==other.n;}
     };
 
-    typedef std::pair<MultiAgentState<state>,MultiAgentState<state>> Instance;
+    typedef std::pair<MultiAgentState<typename BB::State>,MultiAgentState<typename BB::State>> Instance;
     typedef std::vector<Node*> Path;
     typedef std::vector<std::vector<Node*>> MDDSolution;
 
@@ -180,10 +180,10 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
     }
 
     // Big caveat - this implementation assumes that time IS a component of the state hash
-    uint64_t GetHash(state const& n, unsigned agent){
+    uint64_t GetHash(typename BB::State const& n, unsigned agent){
       return (envs[agent]->GetStateHash(n));}
 
-    bool LimitedDFS(state const& start, state const& end, DAG& dag, Node*& root, uint32_t depth, uint32_t maxDepth, uint32_t& best, SearchEnvironment<state,action>* env, unsigned agent){
+    bool LimitedDFS(typename BB::State const& start, typename BB::State const& end, DAG& dag, Node*& root, uint32_t depth, uint32_t maxDepth, uint32_t& best, SearchEnvironment<typename BB::State,action>* env, unsigned agent){
       if(depth<0 || maxDepth-depth+(int)(HCost(start,end,agent))>maxDepth){ // Note - this only works for a perfect heuristic.
         //std::cout << " pruned " << depth <<" "<< (maxDepth-depth+(int)(env->HCost(start,end)))<<">"<<maxDepth<<"\n";
         return false;
@@ -208,7 +208,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
         while(d+envs[agent]->WaitTime()<=maxDepth){ // Increment depth by 1 for wait actions
           // Wait at goal
           d+=envs[agent]->WaitTime();
-          state tmp(start,d);
+          typename BB::State tmp(start,d);
           Node current(tmp,GetHash(tmp,agent));
           uint64_t chash(current.Hash());
           current.id=dag.size();
@@ -224,7 +224,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
         return true;
       }
 
-      MultiAgentState<state> successors;
+      MultiAgentState<typename BB::State> successors;
       env->GetSuccessors(start,successors);
       bool result(false);
       for(auto const& node: successors){
@@ -249,7 +249,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
 
           //std::cout << "found " << start << "\n";
           uint32_t newDepth(maxDepth-depth+ddiff);
-          state tmp(node,newDepth);
+          typename BB::State tmp(node,newDepth);
           uint64_t chash(GetHash(tmp,agent));
           if(dag.find(chash)==dag.end()&&dag.find(chash+1)==dag.end()&&dag.find(chash-1)==dag.end()){
             std::cout << "Expected " << Node(tmp,GetHash(tmp,agent)) << " " << chash << " to be in the dag\n";
@@ -277,7 +277,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
 
     // Perform conflict check by moving forward in time at increments of the smallest time step
     // Test the efficiency of VO vs. time-vector approach
-    void GetMDD(unsigned agent,state const& start, state const& end, DAG& dag, MultiState& root, int depth, uint32_t& best, uint32_t& dagsize, SearchEnvironment<state,action>* env){
+    void GetMDD(unsigned agent,typename BB::State const& start, typename BB::State const& end, DAG& dag, MultiState& root, int depth, uint32_t& best, uint32_t& dagsize, SearchEnvironment<typename BB::State,action>* env){
       root[agent]=nullptr;
       if(verbose)std::cout << "MDD up to depth: " << depth << start << "-->" << end << "\n";
       uint64_t hash(((uint32_t) depth)<<8|agent);
@@ -401,7 +401,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
             // Shore up with wait actions
             for(int i(0); i<solution.size(); ++i){
               if(solution[i].back()->Depth()<MAXTIME){
-                state tmp(solution[i].back()->n,MAXTIME);
+                typename BB::State tmp(solution[i].back()->n,MAXTIME);
                 solution[i].emplace_back(new Node(tmp,GetHash(tmp,i)));
                 toDelete.push_back(solution[i].back());
               }
@@ -450,7 +450,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
         }
         if(output.empty()){
           // Stay at state...
-            state tmp(a.second->n,MAXTIME);
+            typename BB::State tmp(a.second->n,MAXTIME);
           output.emplace_back(a.second,new Node(tmp,GetHash(tmp,successors.size())));
           //if(verbose)std::cout << "Wait " << *output.back().second << "\n";
           toDelete.push_back(output.back().second);
@@ -561,8 +561,8 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       return s.str().substr(0,s.str().size()-1);
     }
 
-    uint32_t HCost(state const& a, state const& b, unsigned agent)const{
-      return heuristics[agent]?round(heuristics[agent]->HCost(a,b)*state::TIME_RESOLUTION_D):round(envs[agent]->HCost(a,b)*state::TIME_RESOLUTION_D);
+    uint32_t HCost(typename BB::State const& a, typename BB::State const& b, unsigned agent)const{
+      return heuristics[agent]?round(heuristics[agent]->HCost(a,b)*BB::State::TIME_RESOLUTION_D):round(envs[agent]->HCost(a,b)*BB::State::TIME_RESOLUTION_D);
     }
 
     struct ICTSNode{
@@ -682,7 +682,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
               for(int agent(0); agent<answers[num].size(); ++agent){
                 std::cout << "  " << agent << ":\n";
                 for(auto a(answers[num][agent].begin()); a!=answers[num][agent].end(); ++a){
-                  std::cout  << "  " << std::string((*a)->Depth()/state::TIME_RESOLUTION_U,' ') << **a << "\n";
+                  std::cout  << "  " << std::string((*a)->Depth()/BB::State::TIME_RESOLUTION_U,' ') << **a << "\n";
                 }
                 std::cout << "\n";
               }
@@ -735,7 +735,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
     void SetVerbose(bool v){verbose=v;}
     virtual unsigned GetNodesExpanded()const{return Node::count;}
 
-    void GetSolution(std::vector<EnvironmentContainer<state,action>*> const& env, MultiAgentState<state> const& start, MultiAgentState<state> const& goal, Solution<state>& solution, std::string& hint){
+    void GetSolution(std::vector<EnvironmentContainer<BB,action>*> const& env, MultiAgentState<typename BB::State> const& start, MultiAgentState<typename BB::State> const& goal, Solution<BB>& solution, std::string& hint){
       for(int i(0);i<env.size(); ++i){
         envs.push_back(env[i]->environment);
         heuristics.push_back(env[i]->heuristic);
@@ -770,12 +770,14 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
               for(auto const& a:answers){
                 auto cost(computeSolutionCost(a));
                 solution.resize(0);
+                unsigned agent(0);
                 for(auto const& path:a){
-                  std::vector<state> p;
-                  for(auto const& s:path){
-                    p.push_back(s->n);
+                  std::vector<BB> p;
+                  for(auto s(path.begin()+1); s!=path.end(); ++s){
+                    p.emplace_back((*s-1)->n,(*s)->n,agent);
                   }
                   solution.push_back(p);
+                  ++agent;
                 }
                 bestCost=std::min(bestCost,cost);
                 answerkey=node->key();
@@ -854,12 +856,14 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
             if(cost<=bestCost){
               bestCost=cost;
               solution.resize(0);
+              unsigned agent(0);
               for(auto const& path:a){
-                std::vector<state> p;
-                for(auto const& s:path){
-                  p.push_back(s->n);
+                std::vector<BB> p;
+                for(auto s(path.begin()+1); s!=path.end(); ++s){
+                  p.emplace_back((*s-1)->n,(*s)->n,agent);
                 }
                 solution.push_back(p);
+                ++agent;
               }
               answerkey=parent->key();
             }
@@ -952,8 +956,8 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
 };
 
 
-template<typename state, typename action>
-uint64_t ICTSAlgorithm<state,action>::Node::count(0);
-template<typename state, typename action>
-uint64_t ICTSAlgorithm<state,action>::ICTSNode::count(0);
+template<typename BB, typename action>
+uint64_t ICTSAlgorithm<typename BB::State,action>::Node::count(0);
+template<typename BB, typename action>
+uint64_t ICTSAlgorithm<typename BB::State,action>::ICTSNode::count(0);
 

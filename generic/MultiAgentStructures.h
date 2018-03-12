@@ -22,6 +22,8 @@
 #ifndef MultiAgentStructures_H
 #define MultiAgentStructures_H
 
+#include "ConstrainedEnvironment.h"
+#include "Heuristic.h"
 #include "GenericSearchAlgorithm.h"
 #include "VelocityObstacle.h"
 #include "NonUnitTimeCAT.h"
@@ -36,16 +38,15 @@ using Solution = std::vector<std::vector<state>>;
 
 typedef std::set<IntervalData> ConflictSet;
 
-template<typename state, typename action>
+template<typename BB, typename action>
 struct EnvironmentContainer {
-  EnvironmentContainer() : name("NULL ENV"), environment(nullptr), heuristic(nullptr), threshold(0), astar_weight(1.0f) {
-    std::cout << "stuff\n";
-  }
-  EnvironmentContainer(std::string n, ConstrainedEnvironment<state,action>* e, Heuristic<state>* h, uint32_t conf, float a) : name(n), environment(e), heuristic(h), threshold(conf), astar_weight(a) {}
-  void SetupSearch(GenericSearchAlgorithm<state,action,ConstrainedEnvironment<state,action>>& srch){if(heuristic)srch.SetHeuristic(heuristic); srch.SetWeight(astar_weight);}
+  EnvironmentContainer() : name("NULL ENV"), environment(nullptr), heuristic(nullptr), threshold(0), astar_weight(1.0f) {}
+  
+  EnvironmentContainer(std::string const& n, ConstrainedEnvironment<BB,action>* e, Heuristic<typename BB::State>* h, uint32_t conf, float a) : name(n), environment(e), heuristic(h), threshold(conf), astar_weight(a) {}
+  void SetupSearch(GenericSearchAlgorithm<typename BB::State,action,ConstrainedEnvironment<BB,action>>& srch){if(heuristic)srch.SetHeuristic(heuristic); srch.SetWeight(astar_weight);}
   std::string name;
-  ConstrainedEnvironment<state,action>* environment;
-  Heuristic<state>* heuristic; // This could be an array if we are planning for multiple legs
+  ConstrainedEnvironment<BB,action>* environment;
+  Heuristic<typename BB::State>* heuristic; // This could be an array if we are planning for multiple legs
   unsigned threshold;
   float astar_weight;
 };
@@ -61,11 +62,11 @@ struct EnvData{
   unsigned group;
 };
 
-template<typename state, typename action>
+template<typename BB, typename action>
 class MAPFAlgorithm{
   public:
-  virtual void GetSolution(std::vector<EnvironmentContainer<state,action>*> const& env, MultiAgentState<state> const& start, MultiAgentState<state> const& goal, Solution<state>& solution, std::string& hint){}
-  virtual void GetSolution(std::vector<EnvironmentContainer<state,action>*> const& env, MultiAgentState<state> const& start, MultiAgentState<state> const& goal, Solution<state>& solution, std::string& hint, std::vector<GroupConflictDetector<state>*> const& detectors){}
+  virtual void GetSolution(std::vector<EnvironmentContainer<BB,action>*> const& env, MultiAgentState<typename BB::State> const& start, MultiAgentState<typename BB::State> const& goal, Solution<BB>& solution, std::string& hint){}
+  virtual void GetSolution(std::vector<EnvironmentContainer<BB,action>*> const& env, MultiAgentState<typename BB::State> const& start, MultiAgentState<typename BB::State> const& goal, Solution<BB>& solution, std::string& hint, std::vector<GroupConflictDetector<BB>*> const& detectors){}
   virtual unsigned GetNodesExpanded()const=0;
 };
 
