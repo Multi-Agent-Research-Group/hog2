@@ -575,7 +575,12 @@ void generatePermutations(std::vector<MultiEdge>& positions, std::vector<MultiEd
     MultiEdge copy(current);
     bool found(false);
     for(int j(0); j<current.size(); ++j){
-      if(positions[agent][i].first->n==current[j].first->n||positions[agent][i].second->n==current[j].second->n||positions[agent][i].first->n.sameLoc(current[j].second->n)&&current[j].first->n.sameLoc(positions[agent][i].second->n)){
+      if((positions[agent][i].first->depth==current[j].first->depth &&
+            positions[agent][i].first->n==current[j].first->n)||
+          (positions[agent][i].second->depth==current[j].second->depth &&
+           positions[agent][i].second->n==current[j].second->n)||
+          (positions[agent][i].first->n.sameLoc(current[j].second->n)&&
+           current[j].first->n.sameLoc(positions[agent][i].second->n))){
         found=true;
         break;
       }
