@@ -67,7 +67,7 @@ namespace std
 }
 
 template<typename BB, typename action>
-class ICTSAlgorithm: public MAPFAlgorithm<typename BB::State,action>{
+class ICTSAlgorithm: public MAPFAlgorithm<BB,action>{
   public:
     ICTSAlgorithm():jointTime(0),pairwiseTime(0),mddTime(0),nogoodTime(0),epp(false),verbose(false),quiet(false),verify(false),jointnodes(0),step(BB::State::TIME_RESOLUTION_U),suboptimal(false),pairwise(true){}
     float jointTime;
@@ -957,7 +957,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<typename BB::State,action>{
 
 
 template<typename BB, typename action>
-uint64_t ICTSAlgorithm<typename BB::State,action>::Node::count(0);
+uint64_t ICTSAlgorithm<BB,action>::Node::count(0);
 template<typename BB, typename action>
-uint64_t ICTSAlgorithm<typename BB::State,action>::ICTSNode::count(0);
+uint64_t ICTSAlgorithm<BB,action>::ICTSNode::count(0);
 

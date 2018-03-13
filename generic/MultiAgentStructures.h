@@ -43,7 +43,7 @@ struct EnvironmentContainer {
   EnvironmentContainer() : name("NULL ENV"), environment(nullptr), heuristic(nullptr), threshold(0), astar_weight(1.0f) {}
   
   EnvironmentContainer(std::string const& n, ConstrainedEnvironment<BB,action>* e, Heuristic<typename BB::State>* h, uint32_t conf, float a) : name(n), environment(e), heuristic(h), threshold(conf), astar_weight(a) {}
-  void SetupSearch(GenericSearchAlgorithm<typename BB::State,action,ConstrainedEnvironment<BB,action>>& srch){if(heuristic)srch.SetHeuristic(heuristic); srch.SetWeight(astar_weight);}
+  void SetupSearch(GenericSearchAlgorithm<typename BB::State,ConstrainedEnvironment<BB,action>>& srch){if(heuristic)srch.SetHeuristic(heuristic); srch.SetWeight(astar_weight);}
   std::string name;
   ConstrainedEnvironment<BB,action>* environment;
   Heuristic<typename BB::State>* heuristic; // This could be an array if we are planning for multiple legs

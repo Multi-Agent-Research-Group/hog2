@@ -18,13 +18,13 @@ public:
     // Do nothing
   }
   typename BB::State const& get(unsigned agent, unsigned t)const{
-    return (*(*cat)[agent])[t];
+    return (*(*cat)[agent])[t].start;
   } 
 
   unsigned numAgents()const{return cat->size();}
   
 private:
-  std::vector<std::vector<typename BB::State>*> const* cat;
+  std::vector<std::vector<BB>*> const* cat;
 };
 
 #endif

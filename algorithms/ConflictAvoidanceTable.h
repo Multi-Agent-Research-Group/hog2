@@ -30,9 +30,9 @@ template <typename BB, typename action>
 class ConflictAvoidanceTable{
 public:
   ConflictAvoidanceTable(){}
-  virtual void set(std::vector<std::vector<typename BB::State>*> const*const ref){};
-  virtual void remove(std::vector<typename BB::State> const& values, SearchEnvironment<typename BB::State,action> const*, unsigned agent)=0;
-  virtual void insert(std::vector<typename BB::State> const& values, SearchEnvironment<typename BB::State,action> const*, unsigned agent)=0;
+  virtual void set(std::vector<std::vector<BB>*> const*const ref){};
+  virtual void remove(std::vector<BB> const& values, SearchEnvironment<typename BB::State,action> const*, unsigned agent)=0;
+  virtual void insert(std::vector<BB> const& values, SearchEnvironment<typename BB::State,action> const*, unsigned agent)=0;
 };
 
 #endif

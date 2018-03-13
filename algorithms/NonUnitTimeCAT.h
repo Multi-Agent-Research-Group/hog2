@@ -42,7 +42,7 @@ public:
   static double bucketWidth;
 
   NonUnitTimeCAT():ConflictAvoidanceTable<BB,action>(),cat(bucketWidth){}
-  virtual void remove(std::vector<typename BB::State> const& thePath, SearchEnvironment<typename BB::State,action> const* env, unsigned agent){
+  virtual void remove(std::vector<BB> const& thePath, SearchEnvironment<typename BB::State,action> const* env, unsigned agent){
     for(int i(0); i<thePath.size(); ++i) {
       // Populate the interval tree
         cat.remove(thePath[i].start.t, thePath[i].end.t, IntervalData(env->GetStateHash(thePath[i].start), env->GetStateHash(thePath[i].end), agent));

@@ -57,7 +57,7 @@ template <class BB, class environment, class openList=AStarOpenClosed<typename B
 class TemporalAStar : public GenericSearchAlgorithm<typename BB::State,environment> {
 public:
         typedef openList OpenList;
-	TemporalAStar():env(0),totalExternalNodesExpanded(nullptr),externalExpansionLimit(INT_MAX),radius(4.0),stopAfterGoal(true),doPartialExpansion(false),verbose(false),weight(1),radEnv(0),reopenNodes(false),theHeuristic(0),directed(false),noncritical(false),SuccessorFunc(&environment::GetSuccessors),ActionFunc(&environment::GetAction),GCostFunc(&environment::GCost){ResetNodeCount();}
+	TemporalAStar():env(0),totalExternalNodesExpanded(nullptr),externalExpansionLimit(INT_MAX),radius(4.0),stopAfterGoal(true),doPartialExpansion(false),verbose(false),weight(1),radEnv(0),reopenNodes(false),theHeuristic(0),directed(false),noncritical(false),SuccessorFunc(&environment::GetSuccessors),GCostFunc(&environment::GCost){ResetNodeCount();}
 	virtual ~TemporalAStar() {}
         template<typename SVal>
 	void GetPath(environment *env, const typename BB::State& from, const typename BB::State& to, std::vector<SVal> &thePath, unsigned minTime=0);
@@ -81,6 +81,8 @@ public:
 	void AddAdditionalStartState(typename BB::State const& newState, double cost);
 	
 	typename BB::State CheckNextNode();
+	void finalize(std::vector<typename BB::State> &thePath, uint64_t nodeid);
+	void finalize(std::vector<BB> &thePath, uint64_t nodeid);
 	void ExtractPathToStart(typename BB::State &node, std::vector<typename BB::State> &thePath)
 	{ uint64_t theID; openClosedList.Lookup(env->GetStateHash(node), theID); ExtractPathToStartFromID(theID, thePath); }
 	void ExtractPathToStart(typename BB::State &node, std::vector<BB> &thePath)
@@ -144,6 +146,7 @@ public:
         void SetSuccessorFunc(void (environment::*sf)(const typename BB::State&, std::vector<typename BB::State>&) const){SuccessorFunc=sf;}
         void SetExternalExpansionsPtr(uint* ptr){totalExternalNodesExpanded=ptr;}
         void SetExternalExpansionLimit(uint limit){externalExpansionLimit=limit;}// std::cout << "Expansion limit set to: " << limit << "\n";}
+        void SetAgent(unsigned a){agent=a;}
 private:
 	uint64_t nodesTouched, nodesExpanded;
 //	bool GetNextNode(typename BB::State &next);
@@ -175,6 +178,7 @@ private:
         double (environment::*GCostFunc)(const typename BB::State&, const typename BB::State&) const;
         void (environment::*SuccessorFunc)(const typename BB::State&, std::vector<typename BB::State>&) const;
         double timeStep;
+        unsigned agent;
 };
 
 //static const bool verbose = false;
@@ -249,7 +253,7 @@ double TemporalAStar<BB,environment,openList>::GetNextPath(environment *env, con
   if(openClosedList.OpenSize() == 0){
     GetPath(env,from,to,thePath,minTime);
     double val(0.0);
-    GetClosedListGCost(thePath.back(),val);
+    GetClosedListGCost(thePath.back().start,val);
     return val;
   }else{
     thePath.resize(0);
@@ -516,13 +520,28 @@ bool TemporalAStar<BB,environment,openList>::DoSingleSearchStep(std::vector<SVal
 		}
 	}
 		
-	if(!stopAfterGoal && openClosedList.OpenSize() == 0)
-	{
-          // We have reached the end of the search.
-          // Return the last state
-          thePath.push_back(openClosedList.Lookup(nodeid).data);
-        }
+        finalize(thePath,nodeid);
 	return false;
+}
+
+template <class BB, class environment, class openList>
+void TemporalAStar<BB,environment,openList>::finalize(std::vector<BB>& thePath, uint64_t nodeid){
+  if(!stopAfterGoal && openClosedList.OpenSize() == 0)
+  {
+    // We have reached the end of the search.
+    // Return the last state
+    thePath.emplace_back(openClosedList.Lookup(openClosedList.Lookup(nodeid).parentID).data,openClosedList.Lookup(nodeid).data,agent);
+  }
+}
+
+template <class BB, class environment, class openList>
+void TemporalAStar<BB,environment,openList>::finalize(std::vector<typename BB::State>& thePath, uint64_t nodeid){
+  if(!stopAfterGoal && openClosedList.OpenSize() == 0)
+  {
+    // We have reached the end of the search.
+    // Return the last state
+    thePath.emplace_back(openClosedList.Lookup(nodeid).data);
+  }
 }
 
 /**
@@ -565,9 +584,9 @@ template <class BB, class environment,class openList>
 void TemporalAStar<BB,environment,openList>::ExtractPathToStartFromID(uint64_t node,
     std::vector<BB> &thePath) {
   typename BB::State const& parent(openClosedList.Lookup(node).data);
-  while(parent.parentID!=node){
+  while(openClosedList.Lookup(node).parentID!=node){
     node = openClosedList.Lookup(node).parentID;
-    BB const& val(openClosedList.Lookup(node).data);
+    typename BB::State const& val(openClosedList.Lookup(node).data);
     thePath.emplace_back(val,parent,agent); // This is backwards because we are traversing from g to s
   }
 }
