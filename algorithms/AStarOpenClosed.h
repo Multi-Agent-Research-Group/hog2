@@ -49,6 +49,7 @@ template<typename state, typename CmpKey, class dataStructure = AStarOpenClosedD
 class AStarOpenClosed : public OpenClosedInterface<state, dataStructure> {
   friend class cmp_t<state, CmpKey, dataStructure>;
 public:
+        typedef CmpKey Compare;
 	AStarOpenClosed();
 	AStarOpenClosed(char const* filename);
 	~AStarOpenClosed();
