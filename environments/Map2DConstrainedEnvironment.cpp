@@ -31,12 +31,15 @@ bool Map2DConstrainedEnvironment::GetNextSuccessor(const xytLoc &currOpenNode, c
   return mapEnv->GetNextSuccessor(currOpenNode,goal,next,currHCost,special,validMove);
 }
   
-double Map2DConstrainedEnvironment::GetPathLength(std::vector<xytAABB> &neighbors)
+double Map2DConstrainedEnvironment::GetPathLength(std::vector<xytAABB> const& neighbors)const
 {
-  double total(0);
-  for(auto const& n:neighbors){
-    if(GoalTest(n.start,getGoal()) && n.start.sameLoc(n.end)){ break; }
-    total+=n.end.t;
+  double total(0.0);
+  for(auto n(neighbors.rbegin()); n!=neighbors.rend(); ++n){
+    if(GoalTest(n->end,getGoal())){
+      total = n->end.t;
+    }else{
+      break;
+    }
   }
   return total;
 }

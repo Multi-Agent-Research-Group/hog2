@@ -35,6 +35,8 @@ public:
 	virtual void ApplyAction(xyztLoc &s, t3DDirection a) const;
 	virtual void UndoAction(xyztLoc &s, t3DDirection a) const;
 	virtual void GetReverseActions(const xyztLoc &nodeID, std::vector<t3DDirection> &actions) const;
+        virtual void AddConstraint(Constraint<xyztAABB> const* c);
+        virtual void AddConstraints(std::vector<std::unique_ptr<Constraint<xyztAABB> const>> const& cs);
 	
 	virtual bool InvertAction(t3DDirection &a) const;
 	
@@ -47,7 +49,7 @@ public:
 	virtual uint64_t GetStateHash(const xyztLoc &node) const;
         virtual void GetStateFromHash(uint64_t hash, xyztLoc &s) const;
 	virtual uint64_t GetActionHash(t3DDirection act) const;
-	virtual double GetPathLength(std::vector<xyztAABB> &neighbors);
+	virtual double GetPathLength(std::vector<xyztAABB> const& neighbors)const;
 
         virtual inline double ViolatesConstraint(xyztLoc const& from, xyztLoc const& to) const {
           return ConstrainedEnvironment<xyztAABB, t3DDirection>::ViolatesConstraint(from,to)*xyztLoc::TIME_RESOLUTION_D;
@@ -79,16 +81,6 @@ private:
 
 	Grid3DEnvironment *mapEnv;
 };
-
-// Check if an openlist node conflicts with a node from an existing path
-unsigned checkForTheConflict(xyztLoc const*const parent, xyztLoc const*const node, xyztLoc const*const pathParent, xyztLoc const*const pathNode){
-  if(parent && pathParent){
-    CollisionDetector<xyztAABB> e1(.25);
-    if(e1.HasConflict(*parent,*node,*pathParent,*pathNode)){return 1;}
-  }
-  return 0;
-}
-
 
 template <typename BB, typename action>
 class TieBreaking3D {
@@ -206,6 +198,16 @@ NonUnitTimeCAT<BB,action>* TieBreaking3D<BB,action>::CAT=0;
 template <typename BB, typename action>
 class UnitTieBreaking3D {
   public:
+    // Check if an openlist node conflicts with a node from an existing path
+    unsigned checkForAConflict(typename BB::State const*const parent, typename BB::State const*const node, typename BB::State const*const pathParent, typename BB::State const*const pathNode)const{
+      if(parent && pathParent){
+        CollisionDetector<xyztAABB> e1(.25);
+        if(e1.HasConflict(*parent,*node,*pathParent,*pathNode)){return 1;}
+      }
+      return 0;
+    }
+
+
     bool operator()(const AStarOpenClosedData<typename BB::State> &ci1, const AStarOpenClosedData<typename BB::State> &ci2) const
     {
       if (fequal(ci1.g+ci1.h, ci2.g+ci2.h)) // F-cost equal
@@ -232,7 +234,7 @@ class UnitTieBreaking3D {
                 p=&(CAT->get(agent,(i1.data.t-xyztLoc::TIME_RESOLUTION_U)/xyztLoc::TIME_RESOLUTION_D));
               typename BB::State const& n=CAT->get(agent,i1.data.t/xyztLoc::TIME_RESOLUTION_D);
               collchecks++;
-              nc1+=checkForTheConflict(parent1,&i1.data,p,&n);
+              nc1+=checkForAConflict(parent1,&i1.data,p,&n);
             }
             // Set the number of conflicts in the data object
             i1.data.nc=nc1;
@@ -253,7 +255,7 @@ class UnitTieBreaking3D {
                 p=&(CAT->get(agent,(i2.data.t-xyztLoc::TIME_RESOLUTION_U)/xyztLoc::TIME_RESOLUTION_D));
               typename BB::State const& n=CAT->get(agent,i2.data.t/xyztLoc::TIME_RESOLUTION_D);
               collchecks++;
-              nc2+=checkForTheConflict(parent2,&i2.data,p,&n);
+              nc2+=checkForAConflict(parent2,&i2.data,p,&n);
             }
             // Set the number of conflicts in the data object
             i2.data.nc=nc2;

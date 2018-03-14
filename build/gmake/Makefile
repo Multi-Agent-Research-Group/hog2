@@ -27,12 +27,12 @@ PROJECTS = \
   utils \
   apps/icts \
   apps/MACBS \
-  apps/MAAStar \
-  apps/MAIDAStar \
   test/mapf \
   test/utils \
   test/collisiondetection \
   test/environments \
+  #apps/MAAStar \
+  #apps/MAIDAStar \
   #apps/MAPF \
   #apps/airplane \
   #apps/experimental \

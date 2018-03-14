@@ -166,8 +166,8 @@ class ConstrainedEnvironment : public SearchEnvironment<typename BB::State, Acti
   public:
     ConstrainedEnvironment(unsigned a):agent(a){}
     /** Add a constraint to the model */
-    virtual void AddConstraint(Constraint<BB> const* c);
-    virtual void AddConstraints(std::vector<std::unique_ptr<Constraint<BB> const>> const& cs);
+    inline virtual void AddConstraint(Constraint<BB> const* c){constraints->insert(c);}
+    inline virtual void AddConstraints(std::vector<std::unique_ptr<Constraint<BB> const>> const& cs){for(auto const& c:cs)constraints->insert(c.get());}
     /** Clear the constraints */
     virtual void ClearConstraints(){constraints->clear();}
     /** Get the possible actions from a state */
@@ -180,7 +180,7 @@ class ConstrainedEnvironment : public SearchEnvironment<typename BB::State, Acti
       //Check if the action violates any of the constraints that are in the constraints list
       return constraints->hasConflict(BB(from,to,agent));
     }
-    virtual double GetPathLength(std::vector<BB> const&);
+    virtual double GetPathLength(std::vector<BB> const&)const=0;
     virtual void GLDrawLine(const typename BB::State &x, const typename BB::State &y) const{}
     virtual void GLDrawPath(const std::vector<typename BB::State> &p, const std::vector<typename BB::State> &waypoints) const{
       if(p.size()<2) return;

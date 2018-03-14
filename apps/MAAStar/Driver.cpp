@@ -468,7 +468,7 @@ int main(int argc, char ** argv){
     menv.push_back(new MapEnvironment(map));
     //menv.back()->SetGround();
     //menv.back()->SetWaitAllowed();
-    env.push_back(new Map2DConstrainedEnvironment(menv.back()));
+    env.push_back(new Map2DConstrainedEnvironment(menv.back(),i));
     env.back()->SetIgnoreHeading(true);
 
     switch(agentType){
