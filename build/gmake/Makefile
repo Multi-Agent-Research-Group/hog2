@@ -12,14 +12,12 @@
 PROJECTS = \
   gui/GL \
   search \
-  absmapalgorithms \
   abstraction \
   abstractionalgorithms \
   algorithms \
   environments \
   generic \
   graph \
-  grids \
   graphalgorithms \
   gui \
   mapalgorithms \
@@ -31,6 +29,8 @@ PROJECTS = \
   test/utils \
   test/collisiondetection \
   test/environments \
+  #grids \
+  #absmapalgorithms \
   #apps/MAAStar \
   #apps/MAIDAStar \
   #apps/MAPF \

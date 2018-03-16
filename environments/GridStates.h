@@ -110,8 +110,11 @@ struct endpoint{
   };
 };
 
+struct xytAABBPtrComp;
+
 struct xytAABB{
   typedef xytLoc State;
+  typedef xytAABBPtrComp PtrComp;
   xytAABB(){}
   xytAABB(xytLoc const& a, xytLoc const& b, unsigned n):start(a),end(b),agent(n){
     lowerBound[2].cvalue=std::min(start.x,end.x);
@@ -233,8 +236,11 @@ struct xyztLoc {
   static double TIME_RESOLUTION_D;
 };
 
+struct xyztAABBPtrComp;
+
 struct xyztAABB{
   typedef xyztLoc State;
+  typedef xyztAABBPtrComp PtrComp;
   xyztAABB(){}
   xyztAABB(xyztLoc const& a, xyztLoc const& b, unsigned n):start(a),end(b),agent(n){
     lowerBound.x=std::min(start.x,end.x);
@@ -396,6 +402,19 @@ static inline std::ostream& operator <<(std::ostream & out, const xyztLoc &loc)
   loc.print(out);
   return out;
 }
+
+
+struct xytAABBPtrComp{
+  inline bool operator ()(xytAABB const* a, xytAABB const* b){
+    return *a<*b;
+  }
+};
+
+struct xyztAABBPtrComp{
+  inline bool operator ()(xyztAABB const* a, xyztAABB const* b){
+    return *a<*b;
+  }
+};
 
 
 enum tDirection {

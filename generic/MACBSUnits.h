@@ -44,6 +44,8 @@
 #include "TemporalAStar.h"
 #include "Heuristic.h"
 #include "Timer.h"
+#include "SAP.h"
+#include "Pairwise.h"
 #include <string.h>
 #include <unordered_map>
 
@@ -327,9 +329,13 @@ struct Conflict {
 
 template<typename BB, typename conflicttable>
 struct CBSTreeNode {
-	CBSTreeNode():agent(0),parent(0),satisfiable(true),cat(){}
-	CBSTreeNode(CBSTreeNode<BB,conflicttable> const& from,unsigned a):wpts(from.wpts),paths(from.paths),con(from.con),parent(from.parent),satisfiable(from.satisfiable),cat(from.cat),agent(a){}
-        CBSTreeNode(CBSTreeNode<BB,conflicttable> const& node, Conflict<BB> const& c, unsigned p, bool s, unsigned a):wpts(node.wpts),agent(a),paths(node.paths),con(c),parent(p),satisfiable(s),cat(node.cat){}
+	CBSTreeNode():agent(9999999),parent(0),satisfiable(true),cat(){}
+	CBSTreeNode(CBSTreeNode<BB,conflicttable> const& from,unsigned a):wpts(from.wpts),paths(from.paths),con(from.con),parent(from.parent),satisfiable(from.satisfiable),cat(from.cat),agent(a){
+          paths[a]=&path;
+        }
+        CBSTreeNode(CBSTreeNode<BB,conflicttable> const& node, Conflict<BB> const& c, unsigned p, bool s, unsigned a):wpts(node.wpts),agent(a),paths(node.paths),con(c),parent(p),satisfiable(s),cat(node.cat){
+          paths[a]=&path;
+        }
         CBSTreeNode& operator=(CBSTreeNode<BB,conflicttable> const& from){
           wpts=from.wpts;
           paths=from.paths;
@@ -349,6 +355,7 @@ struct CBSTreeNode {
 	bool satisfiable;
         //IntervalTree cat; // Conflict avoidance table
         conflicttable cat; // Conflict avoidance table
+        BroadPhase<BB>* broadphase;
 };
 
 template<typename BB, typename conflicttable, class searchalgo>
@@ -397,6 +404,7 @@ class CBSGroup : public UnitGroup<typename BB::State, action, ConstrainedEnviron
     void processSolution(double);
     searchalgo astar;
     unsigned mergeThreshold;
+    //void InitializeCBSTree();
     
   private:    
 
@@ -467,10 +475,14 @@ public:
     bool verbose=false;
     bool quiet=false;
     bool disappearAtGoal=true;
+    bool broadphase=false;
 };
 
 template<typename BB, typename action,typename conflicttable, class maplanner, class searchalgo>
 bool CBSGroup<BB,action,conflicttable,maplanner,searchalgo>::greedyCT=false;
+
+template<typename BB, typename conflicttable>
+Solution<BB> CBSTreeNode<BB,conflicttable>::basepaths=Solution<BB>();
 
 /** AIR CBS UNIT DEFINITIONS */
 
@@ -527,6 +539,10 @@ void CBSUnit<BB,action,conflicttable,searchalgo>::OpenGLDraw(const ConstrainedEn
 
 /** CBS GROUP DEFINITIONS */
 
+//template<typename BB, typename action,typename conflicttable, class maplanner, class searchalgo>
+//void CBSGroup<BB,action,conflicttable,maplanner,searchalgo>::InitializeCBSTree(){
+  //CBSTreeNode<BB,conflicttable>::basepaths.resize(tree[0].paths.size());
+//}
 
 template<typename BB, typename action,typename conflicttable, class maplanner, class searchalgo>
 void CBSGroup<BB,action,conflicttable,maplanner,searchalgo>::ClearEnvironmentConstraints(unsigned metaagent){
@@ -569,12 +585,19 @@ CBSGroup<BB,action,conflicttable,maplanner,searchalgo>::CBSGroup(std::vector<std
         return a.threshold < b.threshold;
         }
         );
+    for(auto& environ:environs){
+      if(broadphase)
+        environ.environment->constraints=new SAP<Constraint<BB>>(environvec.size());
+      else
+        environ.environment->constraints=new Pairwise<Constraint<BB>>(environvec.size());
+    }
     environments.push_back(environs);
     // Set the current environment to that with 0 conflicts
     SetEnvironment(0,agent);
     ++agent;
   }
 
+  CBSTreeNode<BB,conflicttable>::basepaths.resize(environments.size());
   astar.SetVerbose(verbose);
 }
 
@@ -1132,6 +1155,7 @@ void CBSGroup<BB,action,conflicttable,maplanner,searchalgo>::AddUnit(Unit<typena
 
   // Resize the number of paths in the root of the tree
   tree[0].paths.resize(this->GetNumMembers());
+  tree[0].paths.back()=&CBSTreeNode<BB,conflicttable>::basepaths[this->GetNumMembers()-1];
   tree[0].wpts.resize(this->GetNumMembers());
   //agentEnvs.resize(this->GetNumMembers());
 
