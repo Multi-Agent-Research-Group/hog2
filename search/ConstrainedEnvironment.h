@@ -179,7 +179,7 @@ class ConstrainedEnvironment : public SearchEnvironment<typename BB::State, Acti
     virtual inline double ViolatesConstraint(typename BB::State const& from, typename BB::State const& to)const{
       //Check if the action violates any of the constraints that are in the constraints list
       std::vector<Constraint<BB> const*> bbConflicts;
-      Identical<BB> bb(from,to,agent);
+      Constraint<BB> bb(from,to,agent);
       constraints->getConflicts(&bb, bbConflicts);
       for(auto b:bbConflicts){
         double vtime(b->ConflictsWith(from,to));

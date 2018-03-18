@@ -584,11 +584,12 @@ void TemporalAStar<BB,environment,openList>::ExtractPathToStartFromID(uint64_t n
 template <class BB, class environment,class openList>
 void TemporalAStar<BB,environment,openList>::ExtractPathToStartFromID(uint64_t node,
     std::vector<BB> &thePath) {
-  typename BB::State const& parent(openClosedList.Lookup(node).data);
+  typename BB::State const* parent(&openClosedList.Lookup(node).data);
   while(openClosedList.Lookup(node).parentID!=node){
     node = openClosedList.Lookup(node).parentID;
-    typename BB::State const& val(openClosedList.Lookup(node).data);
-    thePath.emplace_back(val,parent,agent); // This is backwards because we are traversing from g to s
+    typename BB::State const* val(&openClosedList.Lookup(node).data);
+    thePath.emplace_back(*val,*parent,agent); // This is backwards because we are traversing from g to s
+    parent=val;
   }
 }
 

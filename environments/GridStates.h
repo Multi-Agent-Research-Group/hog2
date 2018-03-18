@@ -219,7 +219,7 @@ struct xyztLoc {
   explicit operator TemporalVector()const{return TemporalVector(x,y,t/TIME_RESOLUTION_D);}
   operator Vector3D()const{return Vector3D(x,y,z);}
   explicit operator Vector2D()const{return Vector2D(x,y);}
-  virtual unsigned operator[](unsigned i)const{switch(i){case 0: return x; case 1: return y; case 2: return z;}return t;}
+  unsigned operator[](unsigned i)const{switch(i){case 0: return x; case 1: return y; case 2: return z;}return t;}
   unsigned t : 20; // Time (milliseconds)
   unsigned x : 12;
   unsigned y : 12;
