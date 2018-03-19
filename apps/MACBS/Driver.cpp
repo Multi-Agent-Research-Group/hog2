@@ -313,6 +313,7 @@ void InitHeadless(){
     group->timer->StartTimeout(std::chrono::seconds(killtime),func);
   }
   //assert(false && "Exit early");
+  //group->InitializeCBSTree();
 }
 
 void InitSim(){

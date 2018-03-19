@@ -44,7 +44,7 @@ public:
           return ConstrainedEnvironment<xytAABB, tDirection>::ViolatesConstraint(from,to);
         }
         void setSoftConstraintEffectiveness(double){}
-	double GetPathLength(std::vector<xytAABB> &neighbors);
+	double GetPathLength(std::vector<xytAABB> const& neighbors)const;
         virtual bool collisionCheck(const xytAABB &s1, float r1, const xytAABB &s2, float r2);
 	
 	virtual bool InvertAction(tDirection &a) const;

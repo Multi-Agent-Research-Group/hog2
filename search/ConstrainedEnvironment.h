@@ -84,8 +84,8 @@ class Constraint : public DrawableConstraint, public BB{
     //typename BB::State start() const {return start;}
     //typename BB::State end() const {return end;}
 
-    virtual double ConflictsWith(typename BB::State const& s) const=0;
-    virtual double ConflictsWith(typename BB::State const& from, typename BB::State const& to) const=0;
+    virtual double ConflictsWith(typename BB::State const& s) const{return 0.0;}
+    virtual double ConflictsWith(typename BB::State const& from, typename BB::State const& to) const{return 0.0;}
     virtual double ConflictsWith(Constraint const& x) const {return ConflictsWith(x.start, x.end);}
     virtual void OpenGLDraw(MapInterface*) const {}
     virtual void print(std::ostream& os)const{
@@ -166,8 +166,8 @@ class ConstrainedEnvironment : public SearchEnvironment<typename BB::State, Acti
   public:
     ConstrainedEnvironment(unsigned a):agent(a){}
     /** Add a constraint to the model */
-    virtual void AddConstraint(Constraint<BB> const* c);
-    virtual void AddConstraints(std::vector<std::unique_ptr<Constraint<BB> const>> const& cs);
+    inline virtual void AddConstraint(Constraint<BB> const* c){constraints->insert(c);}
+    inline virtual void AddConstraints(std::vector<std::unique_ptr<Constraint<BB> const>> const& cs){for(auto const& c:cs)constraints->insert(c.get());}
     /** Clear the constraints */
     virtual void ClearConstraints(){constraints->clear();}
     /** Get the possible actions from a state */
@@ -178,9 +178,16 @@ class ConstrainedEnvironment : public SearchEnvironment<typename BB::State, Acti
     /** Checks to see if any constraint is violated, returning the time of violation, 0 otherwise */
     virtual inline double ViolatesConstraint(typename BB::State const& from, typename BB::State const& to)const{
       //Check if the action violates any of the constraints that are in the constraints list
-      return constraints->hasConflict(BB(from,to,agent));
+      std::vector<Constraint<BB> const*> bbConflicts;
+      Constraint<BB> bb(from,to,agent);
+      constraints->getConflicts(&bb, bbConflicts);
+      for(auto b:bbConflicts){
+        double vtime(b->ConflictsWith(from,to));
+        if(vtime)return vtime;
+      }
+      return 0.0;
     }
-    virtual double GetPathLength(std::vector<BB> const&);
+    virtual double GetPathLength(std::vector<BB> const&)const=0;
     virtual void GLDrawLine(const typename BB::State &x, const typename BB::State &y) const{}
     virtual void GLDrawPath(const std::vector<typename BB::State> &p, const std::vector<typename BB::State> &waypoints) const{
       if(p.size()<2) return;
@@ -195,7 +202,7 @@ class ConstrainedEnvironment : public SearchEnvironment<typename BB::State, Acti
 
     typename BB::State theGoal;
     unsigned agent;
-    BroadPhase<BB>* constraints;
+    BroadPhase<Constraint<BB>>* constraints;
 };
 
 // We initialize these here, but they can be changed at run-time

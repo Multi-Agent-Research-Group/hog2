@@ -98,6 +98,7 @@ public:
 	int GetMemoryUsage();
 	
 	bool GetClosedListGCost(const typename BB::State &val, double &gCost) const;
+	bool GetClosedListGCost(const BB& val, double &gCost) const;
 	bool GetOpenListGCost(const typename BB::State &val, double &gCost) const;
 	bool GetClosedItem(const typename BB::State &s, AStarOpenClosedData<typename BB::State> &);
 	unsigned int GetNumOpenItems() { return openClosedList.OpenSize(); }
@@ -253,7 +254,7 @@ double TemporalAStar<BB,environment,openList>::GetNextPath(environment *env, con
   if(openClosedList.OpenSize() == 0){
     GetPath(env,from,to,thePath,minTime);
     double val(0.0);
-    GetClosedListGCost(thePath.back().start,val);
+    GetClosedListGCost(thePath.back(),val);
     return val;
   }else{
     thePath.resize(0);
@@ -583,11 +584,12 @@ void TemporalAStar<BB,environment,openList>::ExtractPathToStartFromID(uint64_t n
 template <class BB, class environment,class openList>
 void TemporalAStar<BB,environment,openList>::ExtractPathToStartFromID(uint64_t node,
     std::vector<BB> &thePath) {
-  typename BB::State const& parent(openClosedList.Lookup(node).data);
+  typename BB::State const* parent(&openClosedList.Lookup(node).data);
   while(openClosedList.Lookup(node).parentID!=node){
     node = openClosedList.Lookup(node).parentID;
-    typename BB::State const& val(openClosedList.Lookup(node).data);
-    thePath.emplace_back(val,parent,agent); // This is backwards because we are traversing from g to s
+    typename BB::State const* val(&openClosedList.Lookup(node).data);
+    thePath.emplace_back(*val,*parent,agent); // This is backwards because we are traversing from g to s
+    parent=val;
   }
 }
 
@@ -641,6 +643,19 @@ bool TemporalAStar<BB,environment,openList>::GetClosedListGCost(const typename B
 {
 	uint64_t theID;
 	dataLocation loc = openClosedList.Lookup(env->GetStateHash(val), theID);
+	if (loc == kClosedList)
+	{
+		gCost = openClosedList.Lookat(theID).g;
+		return true;
+	}
+	return false;
+}
+
+template <class BB, class environment, class openList>
+bool TemporalAStar<BB,environment,openList>::GetClosedListGCost(const BB &val, double &gCost) const
+{
+	uint64_t theID;
+	dataLocation loc = openClosedList.Lookup(env->GetStateHash(val.start), theID);
 	if (loc == kClosedList)
 	{
 		gCost = openClosedList.Lookat(theID).g;

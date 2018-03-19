@@ -121,13 +121,13 @@ TEST(util, 3DBucketHash){
 }
 
 
-TEST(generic, GetFurthestPoint){
-  TemporalAStar<xytLoc,tDirection,Map2DConstrainedEnvironment> astar;
+/*TEST(generic, GetFurthestPoint){
+  TemporalAStar<xytAABB,tDirection,Map2DConstrainedEnvironment> astar;
   astar.SetHeuristic(new ZeroHeuristic<xytLoc>);
   Map map("../../maps/dao/den520d.map"); // Must be run from builds/gmake dir.
   MapEnvironment env1(&map);
   env1.SetNineConnected();
-  Map2DConstrainedEnvironment env(&env1);
+  Map2DConstrainedEnvironment env(&env1,0);
   env.SetIgnoreTime(true); // Otherwise the search would never terminate
   env.SetIgnoreHeading(true);  // Don't care about alternate paths to this state
   std::vector<xytLoc> path;
@@ -140,7 +140,7 @@ TEST(generic, GetFurthestPoint){
   std::cout << "furthest point " << path.back() << "\n";
   std::cout << "depth " << env.GetPathLength(path) << "\n";
   
-}
+}*/
 
 TEST(algorithms, hungarian){
   std::vector<xyztLoc> goals = {{1,1,1,0.0f},{60,3,7,0.0f},{12,36,9,0.0f},{18,22,32,0.0f}};

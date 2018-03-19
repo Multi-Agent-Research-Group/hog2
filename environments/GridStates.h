@@ -110,8 +110,11 @@ struct endpoint{
   };
 };
 
+struct xytAABBPtrComp;
+
 struct xytAABB{
   typedef xytLoc State;
+  typedef xytAABBPtrComp PtrComp;
   xytAABB(){}
   xytAABB(xytLoc const& a, xytLoc const& b, unsigned n):start(a),end(b),agent(n){
     lowerBound[2].cvalue=std::min(start.x,end.x);
@@ -216,7 +219,7 @@ struct xyztLoc {
   explicit operator TemporalVector()const{return TemporalVector(x,y,t/TIME_RESOLUTION_D);}
   operator Vector3D()const{return Vector3D(x,y,z);}
   explicit operator Vector2D()const{return Vector2D(x,y);}
-  virtual unsigned operator[](unsigned i)const{switch(i){case 0: return x; case 1: return y; case 2: return z;}return t;}
+  unsigned operator[](unsigned i)const{switch(i){case 0: return x; case 1: return y; case 2: return z;}return t;}
   unsigned t : 20; // Time (milliseconds)
   unsigned x : 12;
   unsigned y : 12;
@@ -233,8 +236,11 @@ struct xyztLoc {
   static double TIME_RESOLUTION_D;
 };
 
+struct xyztAABBPtrComp;
+
 struct xyztAABB{
   typedef xyztLoc State;
+  typedef xyztAABBPtrComp PtrComp;
   xyztAABB(){}
   xyztAABB(xyztLoc const& a, xyztLoc const& b, unsigned n):start(a),end(b),agent(n){
     lowerBound.x=std::min(start.x,end.x);
@@ -396,6 +402,19 @@ static inline std::ostream& operator <<(std::ostream & out, const xyztLoc &loc)
   loc.print(out);
   return out;
 }
+
+
+struct xytAABBPtrComp{
+  inline bool operator ()(xytAABB const* a, xytAABB const* b){
+    return *a<*b;
+  }
+};
+
+struct xyztAABBPtrComp{
+  inline bool operator ()(xyztAABB const* a, xyztAABB const* b){
+    return *a<*b;
+  }
+};
 
 
 enum tDirection {

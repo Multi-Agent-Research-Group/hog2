@@ -70,6 +70,44 @@ class MAPFAlgorithm{
   virtual unsigned GetNodesExpanded()const=0;
 };
 
+template<typename BB>
+bool checkBBCollision(std::vector<BB> const& p1, std::vector<BB> const& p2,float radius=.5,bool loud=false){
+  auto a(p1.begin());
+  auto b(p2.begin());
+  while(a!=p1.end() && b!=p2.end()){
+    Vector2D A(a->start);
+    Vector2D B(b->start);
+    Vector2D VA(a->end);
+    VA-=A;
+    VA.Normalize();
+    Vector2D VB(b->end);
+    VB-=B;
+    VB.Normalize();
+    if(collisionImminent(A,VA,radius,a->start.t,a->end.t,B,VB,radius,b->end.t,b->end.t)){
+      if(loud)std::cout << "Collision: " << *a << "," << *b << "\n";
+      return false;
+    }
+    if(fless(a->end.t,b->end.t)){
+      ++a;
+    }else if(fgreater(a->end.t,b->end.t)){
+      ++b;
+    }else{
+      ++a;++b;
+    }
+  }
+  return true;
+}
+
+template<typename BB>
+bool validateBBSolution(Solution<BB> const& sol, bool verbose=true){
+  for(auto a(sol.begin()); a!=sol.end(); ++a){
+    for(auto b(a+1); b!=sol.end(); ++b){
+      if(!checkBBCollision<BB>(*a,*b,.25,true)) return false;
+    }
+  }
+  return true;
+}
+
 template<typename state>
 bool checkCollision(std::vector<state> const& p1, std::vector<state> const& p2,float radius=.5,bool loud=false){
   auto ap(p1.begin());

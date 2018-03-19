@@ -37,6 +37,8 @@ Grid3DConstrainedEnvironment::Grid3DConstrainedEnvironment(Grid3DEnvironment *m,
 {
 	mapEnv = m;
 }
+void Grid3DConstrainedEnvironment::AddConstraint(Constraint<xyztAABB> const* c){constraints->insert(c);}
+void Grid3DConstrainedEnvironment::AddConstraints(std::vector<std::unique_ptr<Constraint<xyztAABB> const>> const& cs){for(auto const& c:cs)constraints->insert(c.get());}
 
 void Grid3DConstrainedEnvironment::GetSuccessors(const xyztLoc &nodeID, std::vector<xyztLoc> &neighbors) const
 {
@@ -192,12 +194,15 @@ void Grid3DConstrainedEnvironment::GetStateFromHash(uint64_t hash, xyztLoc &s) c
   assert(!"Hash is irreversible...");
 }
 
-double Grid3DConstrainedEnvironment::GetPathLength(std::vector<xyztAABB> &neighbors)
+double Grid3DConstrainedEnvironment::GetPathLength(std::vector<xyztAABB> const& neighbors)const
 {
-  double total(0);
-  for(auto const& n:neighbors){
-    if(GoalTest(n.start,getGoal()) && n.start.sameLoc(n.end)){ break; }
-    total+=n.end.t;
+  double total(0.0);
+  for(auto n(neighbors.rbegin()); n!=neighbors.rend(); ++n){
+    if(GoalTest(n->end,getGoal())){
+      total = n->end.t;
+    }else{
+      break;
+    }
   }
   return total;
 }
@@ -278,6 +283,19 @@ bool Grid3DConstrainedEnvironment::collisionCheck(const xyztLoc &s1, const xyztL
   VB-=B; // Direction vector
   VB.Normalize();
   return collisionImminent(A,VA,r1,s1.t,d1.t,B,VB,r2,s2.t,d2.t);
+  //return collisionCheck(s1,d1,s2,d2,double(r1),double(r2));
+}
+
+bool Grid3DConstrainedEnvironment::collisionCheck(const xyztAABB &s1, float r1, const xyztAABB &s2, float r2){
+  Vector3D A(s1.start);
+  Vector3D VA(s1.end);
+  VA-=A; // Direction vector
+  VA.Normalize();
+  Vector3D B(s2.start);
+  Vector3D VB(s2.end);
+  VB-=B; // Direction vector
+  VB.Normalize();
+  return collisionImminent(A,VA,r1,s1.start.t,s1.end.t,B,VB,r2,s2.start.t,s2.end.t);
   //return collisionCheck(s1,d1,s2,d2,double(r1),double(r2));
 }
 
