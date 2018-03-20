@@ -76,12 +76,14 @@ struct JointStats{
 std::string currentICT;
 std::vector<JointStats> jointstats;
 
+float collTime(0);
 float jointTime(0);
 float pairwiseTime(0);
 float mddTime(0);
 float nogoodTime(0);
 float certifyTime(0);
 Timer certtimer;
+Timer collTimer;
 unsigned mdddepth(0);
 unsigned mddbranchingfactor(0);
 unsigned mddnonleaf(0);
@@ -96,6 +98,7 @@ unsigned maxjoint(0);
 unsigned minjoint(INF);
 size_t maxnagents(0);
 unsigned collChecks(0);
+unsigned fullCollChecks(0);
 
 extern double agentRadius;
 double weight(0.0);
@@ -570,11 +573,13 @@ void generatePermutations(std::vector<MultiEdge>& positions, std::vector<MultiEd
     return;
   }
 
+  collTimer.StartTimer();
   for(int i = 0; i < positions[agent].size(); ++i) {
     //std::cout << "AGENT "<< i<<":\n";
     MultiEdge copy(current);
     bool found(false);
     for(int j(0); j<current.size(); ++j){
+      fullCollChecks++;
       if((positions[agent][i].first->depth==current[j].first->depth &&
             positions[agent][i].first->n==current[j].first->n)||
           (positions[agent][i].second->depth==current[j].second->depth &&
@@ -611,6 +616,7 @@ void generatePermutations(std::vector<MultiEdge>& positions, std::vector<MultiEd
     copy.push_back(positions[agent][i]);
     generatePermutations(positions, result, agent + 1, copy,lastTime);
   }
+  collTime+=collTimer.EndTimer();
 }
 
   // Compute hash for transposition table
@@ -1020,7 +1026,16 @@ bool checkPair(Path const& p1, Path const& p2,bool loud=false){
   auto a(ap+1);
   auto bp(p2.begin());
   auto b(bp+1);
+  collTimer.StartTimer();
   while(a!=p1.end() && b!=p2.end()){
+    fullCollChecks++;
+    if(((*ap)->depth==(*bp)->depth && (*ap)->n==(*bp)->n)||
+        ((*a)->depth==(*b)->depth && (*a)->n==(*b)->n)||
+        ((*ap)->n==(*b)->n && (*bp)->n==(*a)->n)){
+      if(loud)std::cout << "Collision: " << **ap << "-->" << **a << "," << **bp << "-->" << **b;
+      collTime+=collTimer.EndTimer();
+      return false;
+    }
     if(!precheck || env->collisionPreCheck((*ap)->n,(*a)->n,agentRadius,(*bp)->n,(*b)->n,agentRadius)){
       Vector2D A((*ap)->n.x,(*ap)->n.y);
       Vector2D B((*bp)->n.x,(*bp)->n.y);
@@ -1031,6 +1046,7 @@ bool checkPair(Path const& p1, Path const& p2,bool loud=false){
       collChecks++;
       if(collisionImminent(A,VA,agentRadius,(*ap)->depth*TOMSECS,(*a)->depth*TOMSECS,B,VB,agentRadius,(*bp)->depth*TOMSECS,(*b)->depth*TOMSECS)){
         if(loud)std::cout << "Collision: " << **ap << "-->" << **a << "," << **bp << "-->" << **b;
+        collTime+=collTimer.EndTimer();
         return false;
       }
     }
@@ -1045,6 +1061,7 @@ bool checkPair(Path const& p1, Path const& p2,bool loud=false){
       ++ap;++bp;
     }
   }
+  collTime+=collTimer.EndTimer();
   return true;
 }
 
@@ -1323,6 +1340,7 @@ bool detectIndependence(Solution& solution, std::vector<Group*>& group, std::uno
   bool independent(true);
   // Check all pairs for collision
   uint32_t minTime(-1);
+  collTimer.StartTimer();
   for(int i(0); i<solution.size(); ++i){
     for(int j(i+1); j<solution.size(); ++j){
       // check collision between i and j
@@ -1331,7 +1349,31 @@ bool detectIndependence(Solution& solution, std::vector<Group*>& group, std::uno
       if(solution[i].size() > a && solution[j].size() > b){
         //uint32_t t(min(solution[i][a]->depth,solution[j][b]->depth));
         while(1){
+          fullCollChecks++;
           if(a==solution[i].size() || b==solution[j].size()){break;}
+          if((solution[i][a-1]->depth==solution[j][b-1]->depth &&
+                solution[i][a-1]->n==solution[j][b-1]->n ) ||
+              (solution[i][a]->depth==solution[j][b]->depth &&
+               solution[i][a]->n==solution[j][b]->n) ||
+              (solution[i][a-1]->n==solution[j][b-1]->n &&
+               solution[i][a]->n==solution[j][b]->n)){
+            if(!quiet)std::cout << i << " and " << j << " collide at " << solution[i][a-1]->depth << "~" << solution[i][a]->depth << solution[i][a-1]->n << "-->" << solution[i][a]->n << " X " << solution[j][b-1]->n << "-->" << solution[j][b]->n << "\n";
+            independent=false;
+            if(group[i]==group[j]) break; // This can happen if both collide with a common agent
+            // Combine groups i and j
+
+            Group* toDelete(group[j]);
+            groups.erase(group[j]);
+            for(auto a:*group[j]){
+              if(verbose)std::cout << "Inserting agent " << a << " into group for agent " << i << "\n";
+              group[i]->insert(a);
+              group[a]=group[i];
+              maxnagents=std::max(group[i]->size(),maxnagents);
+            }
+            delete toDelete;
+
+            break;
+          }
           if(!precheck || env->collisionPreCheck(solution[i][a-1]->n,solution[i][a]->n,agentRadius,solution[j][b-1]->n,solution[j][b]->n,agentRadius)){
             Vector2D A(solution[i][a-1]->n.x,solution[i][a-1]->n.y);
             Vector2D B(solution[j][b-1]->n.x,solution[j][b-1]->n.y);
@@ -1367,6 +1409,7 @@ bool detectIndependence(Solution& solution, std::vector<Group*>& group, std::uno
         }
       }
     }
+    collTime+=collTimer.EndTimer();
   }
   return independent;
 }
@@ -1423,8 +1466,8 @@ void printResults(){
   //std::cout << elapsed << " elapsed";
   //std::cout << std::endl;
   //total += elapsed;
-  std::cout << "seed:filepath,Connectedness,ICTSNode::count,jointnodes,largestJoint,largestbranch,branchingfactor,Node::count,maxnagents,minsingle,maxsingle,minjoint,maxjoint,collChecks,total,mddTime,pairwiseTime,jointTime,nogoodTime,certifyTime,nacts,cost\n";
-  std::cout << seed << ":" << filepath << "," << int(env->GetConnectedness()) << "," << ICTSNode::count << "," << jointnodes << "," <<largestJoint << "," << largestbranch << "," << (double(jointnodes)/double(jointexpansions)) << "," << Node::count << "," << maxnagents << "," << minsingle << "," << maxsingle << "," << minjoint << "," << maxjoint << "," << collChecks << "," << total << "," << mddTime << "," << pairwiseTime << "," << jointTime << "," << nogoodTime << "," << certifyTime << "," << nacts << "," << cost;
+  std::cout << "seed:filepath,Connectedness,ICTSNode::count,jointnodes,largestJoint,largestbranch,branchingfactor,Node::count,maxnagents,minsingle,maxsingle,minjoint,maxjoint,fullCollChecks,collChecks,total,mddTime,pairwiseTime,jointTime,nogoodTime,certifyTime,collTime,nacts,cost\n";
+  std::cout << seed << ":" << filepath << "," << int(env->GetConnectedness()) << "," << ICTSNode::count << "," << jointnodes << "," <<largestJoint << "," << largestbranch << "," << (double(jointnodes)/double(jointexpansions)) << "," << Node::count << "," << maxnagents << "," << minsingle << "," << maxsingle << "," << minjoint << "," << maxjoint << "," << fullCollChecks << "," << collChecks << "," << total << "," << mddTime << "," << pairwiseTime << "," << jointTime << "," << nogoodTime << "," << certifyTime << "," << collTime << "," << nacts << "," << cost;
   if(total >= killtime)std::cout << " failure";
   std::cout << std::endl;
   if(total>=killtime)exit(1);
