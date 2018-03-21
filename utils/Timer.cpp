@@ -48,6 +48,17 @@ double Timer::EndTimer()
   return TimeCut();
 }
 
+uint64_t Timer::EndTimerNanos()
+{
+  if(running){
+    running = false;
+    //th.join();
+  }
+  auto stopTime =  std::chrono::high_resolution_clock::now();
+  auto difference = stopTime - startTime;
+  return std::chrono::duration_cast<std::chrono::nanoseconds>(difference).count();
+}
+
 double Timer::GetElapsedTime()
 {
   return elapsedTime;

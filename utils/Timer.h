@@ -40,6 +40,7 @@ public:
 	void StartTimer();
 	double TimeCut();
 	double EndTimer();
+	uint64_t EndTimerNanos();
 	double GetElapsedTime();
 private:
 	std::chrono::high_resolution_clock::time_point startTime;
