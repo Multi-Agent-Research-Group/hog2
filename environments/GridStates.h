@@ -297,6 +297,18 @@ struct xyztAABB{
            lowerBound.t<aabb.lowerBound.t;
   }
 
+  // Is the entire bbox less than other?
+  inline bool lessOverlap(const xyztAABB& aabb) const{
+    return upperBound.t==aabb.lowerBound.t?
+           upperBound.x==aabb.lowerBound.x?
+           upperBound.y==aabb.lowerBound.y?
+           upperBound.z<aabb.lowerBound.z:
+           upperBound.y<aabb.lowerBound.y:
+           upperBound.x<aabb.lowerBound.x:
+           upperBound.t<aabb.lowerBound.t;
+  }
+
+
   inline void operator=(const xyztAABB& aabb){
     start=aabb.start;
     end=aabb.end;

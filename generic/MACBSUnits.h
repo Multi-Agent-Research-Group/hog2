@@ -384,7 +384,7 @@ template<typename BB, typename action,typename conflicttable, class maplanner, c
 class CBSGroup : public UnitGroup<typename BB::State, action, ConstrainedEnvironment<BB,action>>
 {
   public:
-    CBSGroup(std::vector<std::vector<EnvironmentContainer<BB,action>>>&, bool v=false);
+    CBSGroup(std::vector<std::vector<EnvironmentContainer<BB,action>>>&, bool bp, bool v=false);
     bool MakeMove(Unit<typename BB::State,action,ConstrainedEnvironment<BB,action>> *u,
         ConstrainedEnvironment<BB,action> *e, 
         SimulationInfo<typename BB::State,action,ConstrainedEnvironment<BB,action>> *si,
@@ -573,10 +573,10 @@ void CBSGroup<BB,action,conflicttable,maplanner,searchalgo>::AddEnvironmentConst
 
 /** constructor **/
 template<typename BB, typename action,typename conflicttable, class maplanner, class searchalgo>
-CBSGroup<BB,action,conflicttable,maplanner,searchalgo>::CBSGroup(std::vector<std::vector<EnvironmentContainer<BB,action>>>& environvec, bool v)
+CBSGroup<BB,action,conflicttable,maplanner,searchalgo>::CBSGroup(std::vector<std::vector<EnvironmentContainer<BB,action>>>& environvec, bool bp, bool v)
 : time(0), bestNode(0), planFinished(false), verify(false), nobypass(false)
     , ECBSheuristic(false), killex(INT_MAX), keeprunning(false),animate(0),
-    seed(1234567), timer(0), verbose(v), mergeThreshold(5), quiet(true)
+    seed(1234567), timer(0), verbose(v), mergeThreshold(5), quiet(true), broadphase(bp)
 {
   //std::cout << "THRESHOLD " << threshold << "\n";
 
@@ -605,7 +605,7 @@ CBSGroup<BB,action,conflicttable,maplanner,searchalgo>::CBSGroup(std::vector<std
   }
 
   CBSTreeNode<BB,conflicttable>::basepaths.resize(environments.size());
-  //astar.SetVerbose(verbose);
+  astar.SetVerbose(verbose);
 }
 
 
@@ -1200,14 +1200,14 @@ void CBSGroup<BB,action,conflicttable,maplanner,searchalgo>::AddUnit(Unit<typena
 template<typename BB, typename action,typename conflicttable, class maplanner, class searchalgo>
 unsigned CBSGroup<BB,action,conflicttable,maplanner,searchalgo>::GetMaxTime(int location,int agent){
 
-  unsigned maxDuration(0);
-  if(disappearAtGoal)return 0;
+  unsigned maxDuration(1);
+  if(disappearAtGoal)return 1;
 
   int i(0);
   // Find max duration of all paths
   for(auto const& n:tree[location].paths){
     if(agent!=i++)
-      maxDuration=std::max(maxDuration,n->back().start.t);
+      maxDuration=std::max(maxDuration,n->back().end.t);
   }
   return maxDuration;
 }

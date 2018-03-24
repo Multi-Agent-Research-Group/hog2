@@ -46,6 +46,7 @@ unsigned killtime(300); // Kill after some number of seconds
 unsigned killmem(1024); // 1GB
 unsigned killex(INT_MAX); // Kill after some number of expansions
 bool disappearAtGoal(false);
+bool nobroadphase(false);
 int px1, py1, px2, py2;
 int absType = 0;
 int mapSize = 128;
@@ -183,6 +184,7 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-radius", "-radius <value>", "Radius in units of agent");
 	InstallCommandLineHandler(MyCLHandler, "-resolution", "-resolution <value>", "Inverse resolution of time/cost");
 	InstallCommandLineHandler(MyCLHandler, "-disappear", "-disappear", "Agents disappear at goal");
+	InstallCommandLineHandler(MyCLHandler, "-nobp", "-nobp", "Turn off broadphase collision detection");
 	InstallCommandLineHandler(MyCLHandler, "-nogui", "-nogui", "Turn off gui");
 	InstallCommandLineHandler(MyCLHandler, "-verbose", "-verbose", "Turn on verbose output");
 	InstallCommandLineHandler(MyCLHandler, "-quiet", "-quiet", "Extreme minimal output");
@@ -220,7 +222,7 @@ void MyWindowHandler(unsigned long windowID, tWindowEventType eType)
 void InitHeadless(){
   ace=(Grid3DConstrainedEnvironment*)environs[0].rbegin()->environment;
 
-  group = new MACBSGroup(environs,verbose); // Changed to 10,000 expansions from number of conflicts in the tree
+  group = new MACBSGroup(environs,!nobroadphase,verbose); // Changed to 10,000 expansions from number of conflicts in the tree
   MACBSGroup::greedyCT=greedyCT;
   group->disappearAtGoal=disappearAtGoal;
   group->timer=new Timer();
@@ -716,6 +718,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 	if(strcmp(argument[0], "-verbose") == 0)
 	{
 		verbose = true;
+		return 1;
+	}
+	if(strcmp(argument[0], "-nobp") == 0)
+	{
+		nobroadphase = true;
 		return 1;
 	}
 	if(strcmp(argument[0], "-disappear") == 0)

@@ -8,8 +8,11 @@
 
 template<typename BB>
 class SAP : public BroadPhase<BB>{
-  struct Compare{
+  struct InsertCompare{
     inline bool operator()(BB const* a, BB const* b){return *a<*b;}
+  };
+  struct OverlapCompare{
+    inline bool operator()(BB const* a, BB const* b){return a->lessOverlap(*b);}
   };
   public:
     SAP(unsigned n):BroadPhase<BB>(n){}
@@ -20,31 +23,45 @@ class SAP : public BroadPhase<BB>{
           sorted.push_back(&v);
         }
       }
-      std::sort(sorted.begin(),sorted.end(),Compare());
+      std::sort(sorted.begin(),sorted.end(),InsertCompare());
     }
 
     virtual void insert(BB const* v){
+      if(!sorted.size()){
+        sorted.push_back(v);
+        return;
+      }
+      if(sorted.size()<10){
+        auto loc=std::lower_bound(sorted.begin(),sorted.end(),v,InsertCompare());
+        sorted.insert(loc,v);
+        return;
+      }
       // Use interpolation search to insert...
       // Making the dangerous assumption that the range starts at zero!
       unsigned maxval(sorted.back()->start.t);
+      if(maxval<v->start.t){
+        sorted.push_back(v);
+        return;
+      }
       if(maxval){
         unsigned i(sorted.size()*(v->start.t/maxval));
+        if(i>=sorted.size())i=sorted.size()-1;
         auto loc(sorted.begin()+i);
         if((*v)<(**loc)){
           auto upper(loc);
           do{upper+=this->k;}while(upper<sorted.end()&&(*v)<(**upper));
           if(upper>sorted.end())upper=sorted.end();
-          loc=std::lower_bound(loc,upper,v,Compare());
+          loc=std::lower_bound(loc,upper,v,InsertCompare());
         }else if((**loc)<(*v)){
           auto lower(loc);
           do{lower-=this->k;}while(lower>sorted.begin()&&(**lower)<(*v));
           if(lower<sorted.begin())lower=sorted.begin();
-          loc=std::lower_bound(lower,loc,v,Compare());
+          loc=std::lower_bound(lower,loc,v,InsertCompare());
         }
         sorted.insert(loc,v);
       }else{
         // Binary search..
-        auto loc(std::lower_bound(sorted.begin(),sorted.end(),v,Compare()));
+        auto loc(std::lower_bound(sorted.begin(),sorted.end(),v,InsertCompare()));
         sorted.insert(loc,v);
       }
     }
@@ -52,20 +69,23 @@ class SAP : public BroadPhase<BB>{
     virtual void getConflicts(BB const* v, std::vector<BB const*>& conflicting)const{
       // Use interpolation to find range of BBs to compare with
       // Making the dangerous assumption that the range starts at zero!
-      unsigned maxval(sorted.back()->start.t);
+      if(!sorted.size())return;
+      unsigned maxval(sorted.back()->end.t);
+      if(maxval<v->start.t)return;
       if(maxval){
         unsigned i(sorted.size()*(v->start.t/maxval));
+        if(i>=sorted.size())i=sorted.size()-1;
         auto loc(sorted.begin()+i);
-        if((*v)<(**loc)){
+        if(v->lessOverlap(**loc)){
           auto upper(loc);
-          do{upper+=this->k;}while(upper<sorted.end()&&(*v)<(**upper));
+          do{upper+=this->k;}while(upper<sorted.end()&&v->lessOverlap(**upper));
           if(upper>sorted.end())upper=sorted.end();
-          loc=std::lower_bound(loc,upper,v,Compare());
-        }else if((**loc)<(*v)){
+          loc=std::lower_bound(loc,upper,v,OverlapCompare());
+        }else if((*loc)->lessOverlap(*v)){
           auto lower(loc);
-          do{lower-=this->k;}while(lower>sorted.begin()&&(**lower)<(*v));
+          do{lower-=this->k;}while(lower>sorted.begin()&&(*lower)->lessOverlap(*v));
           if(lower<sorted.begin())lower=sorted.begin();
-          loc=std::lower_bound(lower,loc,v,Compare());
+          loc=std::lower_bound(lower,loc,v,OverlapCompare());
         }
         while(loc!=sorted.end() && (*loc)->upperBound.t>=v->upperBound.t){
           if(v->agent!=(*loc)->agent &&
@@ -79,7 +99,7 @@ class SAP : public BroadPhase<BB>{
         }
       }else{
         // Binary search..
-        auto loc(std::lower_bound(sorted.begin(),sorted.end(),v,Compare()));
+        auto loc(std::lower_bound(sorted.begin(),sorted.end(),v,OverlapCompare()));
         while(loc!=sorted.end() && (*loc)->upperBound.t>=v->upperBound.t){
           if(v->agent!=(*loc)->agent &&
               v->upperBound.x>=(*loc)->lowerBound.x &&
@@ -97,12 +117,12 @@ class SAP : public BroadPhase<BB>{
       auto oi(o->begin()); // New
       auto ni(n->begin()); // New
       auto beforen(sorted.begin());
-      auto ato(std::lower_bound(sorted.begin(),sorted.end(),&*oi,Compare())); // Old
+      auto ato(std::lower_bound(sorted.begin(),sorted.end(),&*oi,InsertCompare())); // Old
       while(oi!=o->end()&&ni!=n->end()){
         if(*oi<*ni){
-          beforen=std::lower_bound(ato,sorted.end(),&*ni,Compare());
+          beforen=std::lower_bound(ato,sorted.end(),&*ni,InsertCompare());
         }else if(*ni<*oi){
-          beforen=std::lower_bound(beforen,ato,&*ni,Compare());
+          beforen=std::lower_bound(beforen,ato,&*ni,InsertCompare());
         }else{
           beforen=ato;
         }
@@ -115,14 +135,14 @@ class SAP : public BroadPhase<BB>{
         *beforen=&*ni; // replace value of o with n
         ++ni;
         if(++oi==o->end()){break;}
-        ato=std::lower_bound(ato,sorted.end(),&*oi,Compare()); // Old
+        ato=std::lower_bound(ato,sorted.end(),&*oi,InsertCompare()); // Old
       }
       while(oi!=o->end()){
         std::remove(ato++,sorted.end(),&*oi);
         ++oi;
       }
       while(ni!=n->end()){
-        sorted.insert(std::lower_bound(ato++,sorted.end(),&*ni,Compare()),&*ni);
+        sorted.insert(std::lower_bound(ato++,sorted.end(),&*ni,InsertCompare()),&*ni);
         ++ni;
       }
     }
