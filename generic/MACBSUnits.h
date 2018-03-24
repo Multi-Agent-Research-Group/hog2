@@ -144,7 +144,7 @@ template <typename BB, typename action, typename conflicttable, class searchalgo
 unsigned ReplanLeg(CBSUnit<BB,action,conflicttable,searchalgo>* c, searchalgo& astar, ConstrainedEnvironment<BB,action>* env, std::vector<BB>& thePath, std::vector<int>& wpts, unsigned s, unsigned g, double minTime, unsigned agent){
   if(thePath.empty()){
     searchalgo::OpenList::Compare::currentAgent=agent;
-    return GetFullPath(c, astar, env, thePath, wpts, agent);
+    return GetFullPath(c, astar, env, thePath, wpts, minTime, agent);
     //assert(false && "Expected a valid path for re-planning.");
   }
   int insertPoint(wpts[s]); // Starting index of this leg
@@ -214,7 +214,7 @@ unsigned ReplanLeg(CBSUnit<BB,action,conflicttable,searchalgo>* c, searchalgo& a
 
 // Plan path between waypoints
 template <typename BB, typename action, typename conflicttable, class searchalgo>
-unsigned GetFullPath(CBSUnit<BB,action,conflicttable,searchalgo>* c, searchalgo& astar, ConstrainedEnvironment<BB,action>* env, std::vector<BB>& thePath, std::vector<int>& wpts, unsigned agent)
+unsigned GetFullPath(CBSUnit<BB,action,conflicttable,searchalgo>* c, searchalgo& astar, ConstrainedEnvironment<BB,action>* env, std::vector<BB>& thePath, std::vector<int>& wpts, double minTime, unsigned agent)
 {
   unsigned expansions(0);
   // We should only call this function for initial empty paths.
@@ -240,7 +240,7 @@ unsigned GetFullPath(CBSUnit<BB,action,conflicttable,searchalgo>* c, searchalgo&
 
     Timer tmr;
     tmr.StartTimer();
-    astar.GetPath(env, start, goal, path);
+    astar.GetPath(env, start, goal, path, minTime);
     planTime+=tmr.EndTimer();
     //std::cout << start <<"-->"<<goal<<" took: " << tmr.EndTimer() << std::endl;
 
@@ -331,12 +331,16 @@ struct Conflict {
 
 template<typename BB, typename conflicttable>
 struct CBSTreeNode {
-	CBSTreeNode():agent(9999999),parent(0),satisfiable(true),cat(){}
-	CBSTreeNode(CBSTreeNode<BB,conflicttable> const& from,unsigned a):wpts(from.wpts),paths(from.paths),con(from.con),parent(from.parent),satisfiable(from.satisfiable),cat(from.cat),agent(a){
-          paths[a]=&path;
+	CBSTreeNode():agent(9999999),path(nullptr),parent(0),satisfiable(true),cat(){}
+        // Copy ctor takes over memory for path member
+	CBSTreeNode(CBSTreeNode<BB,conflicttable> const& from):wpts(from.wpts),path(from.path.release()),paths(from.paths),con(from.con),parent(from.parent),satisfiable(from.satisfiable),cat(from.cat),agent(from.agent){
+          if(agent<paths.size())paths[agent]=path.get();
         }
-        CBSTreeNode(CBSTreeNode<BB,conflicttable> const& node, Conflict<BB> const& c, unsigned p, bool s, unsigned a):wpts(node.wpts),agent(a),paths(node.paths),con(c),parent(p),satisfiable(s),cat(node.cat){
-          paths[a]=&path;
+	CBSTreeNode(CBSTreeNode<BB,conflicttable> const& from,unsigned a):wpts(from.wpts),path(new std::vector<BB>()),paths(from.paths),con(from.con),parent(from.parent),satisfiable(from.satisfiable),cat(from.cat),agent(a){
+          paths[a]=path.get();
+        }
+        CBSTreeNode(CBSTreeNode<BB,conflicttable> const& node, Conflict<BB> const& c, unsigned p, bool s, unsigned a):wpts(node.wpts),agent(a),path(new std::vector<BB>()),paths(node.paths),con(c),parent(p),satisfiable(s),cat(node.cat){
+          paths[a]=path.get();
         }
         CBSTreeNode& operator=(CBSTreeNode<BB,conflicttable> const& from){
           wpts=from.wpts;
@@ -348,7 +352,7 @@ struct CBSTreeNode {
         }
 	std::vector< std::vector<int> > wpts;
         unsigned agent;
-	std::vector<BB> path;
+	mutable std::unique_ptr<std::vector<BB>> path;
         std::vector<std::vector<BB>*> paths;
 	static Solution<BB> basepaths;
 	//Solution<aabb> paths;
@@ -819,7 +823,7 @@ bool CBSGroup<BB,action,conflicttable,maplanner,searchalgo>::ExpandOneCBSNode()
     //if(bestNode==0 || (activeMetaAgents[c1.unit1].units.size()==1 && tree[bestNode].con.prevWpt+1==tree[bestNode].wpts[activeMetaAgents[c1.unit1].units[0]].size()-1)){
       minTime=GetMaxTime(bestNode,c1.unit1)-1.0; // Take off a 1-second wait action, otherwise paths will grow over and over.
     //}
-    if((numConflicts.second&LEFT_CARDINAL) || !Bypass(bestNode,numConflicts,c1,c2.unit1,minTime)){
+    if((numConflicts.second&LEFT_CARDINAL) || !Bypass(bestNode,numConflicts,c1,c1.unit1,minTime)){
       last = tree.size();
       //tree.resize(last+1);
       tree.emplace_back(tree[bestNode],c1,bestNode,true,c1.unit1);
@@ -844,7 +848,7 @@ bool CBSGroup<BB,action,conflicttable,maplanner,searchalgo>::ExpandOneCBSNode()
     //if(tree[bestNode].con.prevWpt+1==tree[bestNode].wpts[c2.unit1].size()-1){
       minTime=GetMaxTime(bestNode,c2.unit1)-1.0; // Take off a 1-second wait action, otherwise paths will grow over and over.
     //}
-    if((numConflicts.second&RIGHT_CARDINAL) || !Bypass(bestNode,numConflicts,c2,c1.unit1,minTime)){
+    if((numConflicts.second&RIGHT_CARDINAL) || !Bypass(bestNode,numConflicts,c2,c2.unit1,minTime)){
       last = tree.size();
       //tree.resize(last+1);
       tree.emplace_back(tree[bestNode],c2,bestNode,true,c2.unit1);
@@ -1169,7 +1173,8 @@ void CBSGroup<BB,action,conflicttable,maplanner,searchalgo>::AddUnit(Unit<typena
   searchalgo::OpenList::Compare::CAT = &(tree[0].cat);
   searchalgo::OpenList::Compare::CAT->set(&tree[0].paths);
   astar.SetAgent(theUnit);
-  GetFullPath<BB,action,conflicttable,searchalgo>(c, astar, currentEnvironment[theUnit]->environment, *tree[0].paths.back(),tree[0].wpts.back(),theUnit);
+  double minTime(1); // So that the search will return at least one action
+  GetFullPath<BB,action,conflicttable,searchalgo>(c, astar, currentEnvironment[theUnit]->environment, *tree[0].paths.back(),tree[0].wpts.back(),minTime,theUnit);
   if(killex != INT_MAX && TOTAL_EXPANSIONS>killex)
       processSolution(-timer->EndTimer());
   //std::cout << "AddUnit agent: " << (theUnit) << " expansions: " << astar.GetNodesExpanded() << "\n";
@@ -1269,7 +1274,7 @@ bool CBSGroup<BB,action,conflicttable,maplanner,searchalgo>::Bypass(int best, st
 
   bool success(false);
   Conflict<BB> c3, c4;
-  std::vector<BB>* newPath(tree[best].paths[theUnit]);
+  std::vector<BB>* oldPath(tree[best].paths[theUnit]);
   std::vector<int> newWpts(tree[best].wpts[theUnit]);
   // Re-perform the search with the same constraints (since the start and goal are the same)
   CBSUnit<BB,action,conflicttable,searchalgo> *c = (CBSUnit<BB,action,conflicttable,searchalgo>*)this->GetMember(c1.unit1);
@@ -1281,16 +1286,16 @@ bool CBSGroup<BB,action,conflicttable,maplanner,searchalgo>::Bypass(int best, st
   typename BB::State start(c->GetWaypoint(c1.prevWpt));
   typename BB::State goal(c->GetWaypoint(c1.prevWpt+1));
   // Preserve proper start time
-  start.t = (*newPath)[newWpts[c1.prevWpt]].start.t;
+  start.t = (*oldPath)[newWpts[c1.prevWpt]].start.t;
   // Cost of the previous path
-  double cost(currentEnvironment[theUnit]->environment->GetPathLength(*newPath));
+  double cost(currentEnvironment[theUnit]->environment->GetPathLength(*oldPath));
   currentEnvironment[theUnit]->environment->setGoal(goal);
   std::vector<BB> path;
   
   Conflict<BB> t1,t2; // Temp variables
   // Perform search for the leg
   if(verbose)std::cout << "Bypass for unit " << theUnit << " on:\n";
-  if(verbose)for(auto const& a:*newPath){std::cout << a << "\n";}
+  if(verbose)for(auto const& a:*oldPath){std::cout << a << "\n";}
   if(verbose)std::cout << cost << " cost\n";
   if(verbose)std::cout << openList.top().nc << " conflicts\n";
   unsigned pnum(0);
@@ -1307,14 +1312,14 @@ bool CBSGroup<BB,action,conflicttable,maplanner,searchalgo>::Bypass(int best, st
   }
   // This construction takes over the pointer to c1.c
   CBSTreeNode<BB,conflicttable> newNode(tree[best],c1,best,true,c1.unit1);
+  std::vector<BB>* newPath(newNode.path.get());
+  newPath->insert(newPath->end(),oldPath->begin(),oldPath->end()); // Initialize with the old path
   MergeLeg<BB,action,conflicttable,searchalgo>(path,*newPath,newWpts,c1.prevWpt, c1.prevWpt+1,minTime);
   if(fleq(currentEnvironment[theUnit]->environment->GetPathLength(*newPath),cost)){
     do{
       pnum++;
       if(path.size()==0)continue;
       MergeLeg<BB,action,conflicttable,searchalgo>(path,*newPath,newWpts,c1.prevWpt, c1.prevWpt+1,minTime);
-      newNode.path = *newPath;
-      newNode.paths[theUnit] = &path;
       newNode.wpts[theUnit] = newWpts;
 
       if(verbose)for(auto const& a:*newPath){std::cout << a << "\n";}
@@ -1324,9 +1329,6 @@ bool CBSGroup<BB,action,conflicttable,maplanner,searchalgo>::Bypass(int best, st
       if(verbose)for(auto const& a:*newPath){std::cout << a << "\n";}
       if(verbose)std::cout << pconf.first << " conflicts\n";
       if(nc1>pconf.first){ // Is this bypass helpful?
-        tree[best].path = *newPath;
-        tree[best].paths[theUnit]=&tree[best].path;
-        tree[best].wpts[theUnit]=newWpts;
         nc1=pconf.first;
         success=true;
       }
@@ -1348,8 +1350,7 @@ bool CBSGroup<BB,action,conflicttable,maplanner,searchalgo>::Bypass(int best, st
   }
   // Add CT node with the "best" bypass
   unsigned last = tree.size();
-  tree.resize(last+1);
-  tree[last] = newNode;
+  tree.push_back(newNode);
   cost=0;
   for (int y = 0; y < tree[last].paths.size(); y++){
     if(verbose){
