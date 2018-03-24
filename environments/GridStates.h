@@ -110,66 +110,19 @@ struct endpoint{
   };
 };
 
-struct AABB{
-  AABB():start(nullptr),end(nullptr){}
-  AABB(xytLoc const* a, xytLoc const* b, uint32_t n, uint32_t d):start(a),end(b),agent(n){
-    switch(d){
-      case 0:
-        lowerBound.value=std::min(start->t,end->t);
-        upperBound.value=std::max(start->t,end->t);
-      break;
-      case 1:
-        lowerBound.cvalue=std::min(start->x,end->x);
-        upperBound.cvalue=std::max(start->x,end->x);
-      break;
-      case 2:
-        lowerBound.cvalue=std::min(start->y,end->y);
-        upperBound.cvalue=std::max(start->y,end->y);
-      break;
-    }
-  }
-
-  inline bool overlaps(const AABB& aabb) const{
-    return !(aabb.upperBound.cvalue < lowerBound.cvalue
-        || aabb.lowerBound.cvalue > upperBound.cvalue
-        );
-  }
-
-  inline bool operator<(const AABB& aabb) const{
-    return lowerBound.cvalue==aabb.lowerBound.cvalue?
-           upperBound.cvalue<aabb.upperBound.cvalue:
-           lowerBound.cvalue<aabb.lowerBound.cvalue;
-  }
-
-  inline void operator=(const AABB& aabb){
-    start=aabb.start;
-    end=aabb.end;
-    agent=aabb.agent;
-    lowerBound.cvalue=aabb.lowerBound.cvalue;
-    upperBound.cvalue=aabb.upperBound.cvalue;
-  }
-
-  /// Lower bound of AABB in one dimension.
-  endpoint lowerBound;
-
-  /// Upper bound of AABB in one dimension.
-  endpoint upperBound;
-
-  xytLoc const* start;
-  xytLoc const* end;
-
-  uint32_t agent;
-};
+struct xytAABBPtrComp;
 
 struct xytAABB{
-  xytAABB():start(nullptr),end(nullptr){}
-  xytAABB(xytLoc const* a, xytLoc const* b, uint32_t n):start(a),end(b),agent(n){
-    lowerBound[2].cvalue=std::min(start->x,end->x);
-    lowerBound[1].cvalue=std::min(start->y,end->y);
-    lowerBound[0].value=std::min(start->t,end->t);
-    upperBound[2].cvalue=std::max(start->x,end->x);
-    upperBound[1].cvalue=std::max(start->y,end->y);
-    upperBound[0].value=std::max(start->t,end->t);
+  typedef xytLoc State;
+  typedef xytAABBPtrComp PtrComp;
+  xytAABB(){}
+  xytAABB(xytLoc const& a, xytLoc const& b, unsigned n):start(a),end(b),agent(n){
+    lowerBound[2].cvalue=std::min(start.x,end.x);
+    lowerBound[1].cvalue=std::min(start.y,end.y);
+    lowerBound[0].value=std::min(start.t,end.t);
+    upperBound[2].cvalue=std::max(start.x,end.x);
+    upperBound[1].cvalue=std::max(start.y,end.y);
+    upperBound[0].value=std::max(start.t,end.t);
   }
 
   inline bool overlaps1D(const xytAABB& aabb) const{
@@ -232,10 +185,10 @@ struct xytAABB{
   /// Upper bound of AABB in each dimension.
   endpoint upperBound[3];
 
-  xytLoc const* start;
-  xytLoc const* end;
+  xytLoc start;
+  xytLoc end;
 
-  uint32_t agent;
+  unsigned agent;
 };
 
 struct xyzLoc {
@@ -266,7 +219,7 @@ struct xyztLoc {
   explicit operator TemporalVector()const{return TemporalVector(x,y,t/TIME_RESOLUTION_D);}
   operator Vector3D()const{return Vector3D(x,y,z);}
   explicit operator Vector2D()const{return Vector2D(x,y);}
-  virtual unsigned operator[](unsigned i)const{switch(i){case 0: return x; case 1: return y; case 2: return z;}return t;}
+  unsigned operator[](unsigned i)const{switch(i){case 0: return x; case 1: return y; case 2: return z;}return t;}
   unsigned t : 20; // Time (milliseconds)
   unsigned x : 12;
   unsigned y : 12;
@@ -283,17 +236,21 @@ struct xyztLoc {
   static double TIME_RESOLUTION_D;
 };
 
+struct xyztAABBPtrComp;
+
 struct xyztAABB{
-  xyztAABB():start(nullptr),end(nullptr){}
-  xyztAABB(xyztLoc const* a, xyztLoc const* b, uint32_t n):start(a),end(b),agent(n){
-    lowerBound.x=std::min(start->x,end->x);
-    upperBound.x=std::max(start->x,end->x);
-    lowerBound.y=std::min(start->y,end->y);
-    upperBound.y=std::max(start->y,end->y);
-    lowerBound.z=std::min(start->z,end->z);
-    upperBound.z=std::max(start->z,end->z);
-    lowerBound.t=std::min(start->t,end->t);
-    upperBound.t=std::max(start->t,end->t);
+  typedef xyztLoc State;
+  typedef xyztAABBPtrComp PtrComp;
+  xyztAABB(){}
+  xyztAABB(xyztLoc const& a, xyztLoc const& b, unsigned n):start(a),end(b),agent(n){
+    lowerBound.x=std::min(start.x,end.x);
+    upperBound.x=std::max(start.x,end.x);
+    lowerBound.y=std::min(start.y,end.y);
+    upperBound.y=std::max(start.y,end.y);
+    lowerBound.z=std::min(start.z,end.z);
+    upperBound.z=std::max(start.z,end.z);
+    lowerBound.t=std::min(start.t,end.t);
+    upperBound.t=std::max(start.t,end.t);
   }
 
   inline bool overlaps(const xyztAABB& aabb) const{
@@ -360,10 +317,10 @@ struct xyztAABB{
   /// Upper bound of AABB in each dimension.
   xyztLoc upperBound;
 
-  xyztLoc const* start;
-  xyztLoc const* end;
+  xyztLoc start;
+  xyztLoc end;
 
-  uint32_t agent;
+  unsigned agent;
 };
 
 
@@ -386,6 +343,34 @@ std::ostream& operator <<(std::ostream & out, const xytLoc &loc);
 std::ostream& operator <<(std::ostream & out, const xyLoc &loc);
 std::ostream& operator <<(std::ostream & out, const tLoc &loc);
 */
+
+static inline std::ostream& operator <<(std::ostream & out, const xyztAABB &loc) {
+  out << "[";
+  loc.start.print(out);
+  out <<",";
+  loc.end.print(out);
+  out <<"<";
+  loc.lowerBound.print(out);
+  out<<"~";
+  loc.upperBound.print(out);
+  out<<">:agent="<<loc.agent<<"]";
+  return out;
+}
+
+static inline std::ostream& operator <<(std::ostream & out, std::vector<xyztAABB> const& loc) {
+  for(auto const& v:loc)
+    v.start.print(out);
+    out<<"\n";
+  return out;
+}
+
+static inline std::ostream& operator <<(std::ostream & out, std::vector<xyztAABB> const* loc) {
+  for(auto const& v:*loc)
+    out<<v<<"\n";
+  return out;
+}
+
+
 static inline std::ostream& operator <<(std::ostream & out, const TemporalVector &loc) {
   out << "(" << loc.x << ", " << loc.y << ": " << loc.t << ")";
   return out;
@@ -417,6 +402,19 @@ static inline std::ostream& operator <<(std::ostream & out, const xyztLoc &loc)
   loc.print(out);
   return out;
 }
+
+
+struct xytAABBPtrComp{
+  inline bool operator ()(xytAABB const* a, xytAABB const* b){
+    return *a<*b;
+  }
+};
+
+struct xyztAABBPtrComp{
+  inline bool operator ()(xyztAABB const* a, xyztAABB const* b){
+    return *a<*b;
+  }
+};
 
 
 enum tDirection {

@@ -23,13 +23,13 @@
 
 extern double agentRadius;
 
-class Map2DConstrainedEnvironment : public ConstrainedEnvironment<xytLoc, tDirection>
+class Map2DConstrainedEnvironment : public ConstrainedEnvironment<xytAABB, tDirection>
 {
 public:
-	Map2DConstrainedEnvironment(Map *m);
-	Map2DConstrainedEnvironment(MapEnvironment *m);
-	virtual void AddConstraint(Constraint<TemporalVector3D> const* c);
-	virtual void AddConstraint(Constraint<xytLoc> const* c);
+	Map2DConstrainedEnvironment(Map *m, unsigned agent);
+	Map2DConstrainedEnvironment(MapEnvironment *m, unsigned agent);
+	//virtual void AddConstraint(Constraint<TemporalVector3D> const* c);
+	virtual void AddConstraint(Constraint<xytAABB> const* c){constraints->insert(c);}
 	void ClearConstraints();
         virtual std::string name()const{return mapEnv->name();}
 	bool GetNextSuccessor(const xytLoc &currOpenNode, const xytLoc &goal, xytLoc &next, double &currHCost, uint64_t &special, bool &validMove);
@@ -40,10 +40,12 @@ public:
 	virtual void ApplyAction(xytLoc &s, tDirection a) const;
 	virtual void UndoAction(xytLoc &s, tDirection a) const;
 	virtual void GetReverseActions(const xytLoc &nodeID, std::vector<tDirection> &actions) const;
-	double ViolatesConstraint(const xytLoc &from, const xytLoc &to) const;
+        virtual inline double ViolatesConstraint(xytLoc const& from, xytLoc const& to) const {
+          return ConstrainedEnvironment<xytAABB, tDirection>::ViolatesConstraint(from,to);
+        }
         void setSoftConstraintEffectiveness(double){}
-	double GetPathLength(std::vector<xytLoc> &neighbors);
-        virtual bool collisionCheck(const xytLoc &s1, const xytLoc &d1, float r1, const xytLoc &s2, const xytLoc &d2, float r2);
+	double GetPathLength(std::vector<xytAABB> const& neighbors)const;
+        virtual bool collisionCheck(const xytAABB &s1, float r1, const xytAABB &s2, float r2);
 	
 	virtual bool InvertAction(tDirection &a) const;
 	
@@ -83,7 +85,6 @@ private:
         bool ignoreTime;
         bool ignoreHeading;
 
-	std::vector<Constraint<TemporalVector3D> const*> vconstraints;
 	MapEnvironment *mapEnv;
 };
 #define HASH_INTERVAL 1.0

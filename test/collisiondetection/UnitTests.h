@@ -29,7 +29,7 @@
 #include "Map2DConstrainedEnvironment.h"
 #include "Grid3DConstrainedEnvironment.h"
 #include "AnyAngleSipp.h"
-#include "ThetaStar.h"
+//#include "ThetaStar.h"
 #include "PositionalUtils.h"
 #include "AABB.h"
 #include <unordered_set>
@@ -826,12 +826,12 @@ TEST(VelocityObstacle, PerfTest){
 }
 
 TEST(Quadratic, PerfTest){
-  //Timer t;
-  //t.StartTimer();
-  for(int i(0); i<10; ++i){
+  Timer t;
+  t.StartTimer();
+  for(int i(0); i<10000; ++i){
     collisionImminent(Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),.25,rfloat(0,10),rfloat(0,10),Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),.25,rfloat(0,10),rfloat(0,10));
   }
-  //std::cout << "Total time (Quadratic)" << t.EndTimer() << "\n";
+  std::cout << "Total time (Quadratic)" << t.EndTimer() << "\n";
 }
 
 TEST(RadialVisibility, ComputeVisibilityGrid){
@@ -986,7 +986,7 @@ class StraightLineHeuristic3D : public Heuristic<xyztLoc> {
   }
 };
 
-TEST(Theta, GetPath){
+/*TEST(Theta, GetPath){
   Map map(8,8);
   MapEnvironment menv(&map);
   Map2DConstrainedEnvironment env(&menv);
@@ -999,7 +999,7 @@ TEST(Theta, GetPath){
   tstar.GetPath(&env,{1,1,0},{7,3,0},solution);
   for(auto const& ss: solution)
     std::cout << ss << "\n";
-}
+}*/
 
 /*
 TEST(EPETheta, GetPath){
@@ -1054,7 +1054,7 @@ TEST(PETheta, GetPath){
   std::cout << "\n";
 }*/
 
-TEST(Theta, GetObstructedPath){
+/*TEST(Theta, GetObstructedPath){
   Map map(8,8);
   MapEnvironment menv(&map);
   Map2DConstrainedEnvironment env(&menv);
@@ -1292,6 +1292,7 @@ TEST(DISABLED_Theta, Test3D){
   std::cout << Util::angle<360>(0,0,0,-1) << "\n";
   std::cout << "\n";
 }
+*/
 
 #define WORD_BITS (8 * sizeof(unsigned))
 
@@ -2222,11 +2223,11 @@ void countCollisions(std::vector<xytAABB> const& p1, std::vector<xytAABB> const&
   while(a!=p1.end() && b!=p2.end()){
     ++total;
     if(a->overlaps(*b)){
-      if(checkForCollision(*a->start,*a->end,*b->start,*b->end,radius,env,simple)){collisions++;}
+      if(checkForCollision(a->start,a->end,b->start,b->end,radius,env,simple)){collisions++;}
     }
-    if(fless(a->end->t,b->end->t+radius)){
+    if(fless(a->end.t,b->end.t+radius)){
       ++a;
-    }else if(fgreater(a->end->t+radius,b->end->t)){
+    }else if(fgreater(a->end.t+radius,b->end.t)){
       ++b;
     }else{
       ++a;++b;
@@ -2498,13 +2499,13 @@ void createSortedLists(std::vector<std::vector<xytLoc>>const& paths, std::vector
 // To copy pointers of an object into the destination array...
 template<typename state, typename aabb>
 void makeAABBs(std::vector<state> const& v,
-    std::vector<aabb>& d, uint32_t agent)
+    std::vector<aabb>& d, unsigned agent)
 {
   //if(v.size()){
     d.reserve(v.size()-1);
     auto first(v.cbegin());
     while (first+1 != v.end()) {
-      d.emplace_back(&*first,&*first+1,agent);
+      d.emplace_back(*first,*(first+1),agent);
       ++first;
     }
   //}
@@ -2516,8 +2517,8 @@ TEST(UTIL, CopyToPairs){
   aabbs.reserve(values.size()-1);
   makeAABBs(values,aabbs,0);
   ASSERT_EQ(9,aabbs.size());
-  ASSERT_EQ(0,aabbs.back().end->x);
-  ASSERT_EQ(1,aabbs.front().start->x);
+  ASSERT_EQ(0,aabbs.back().end.x);
+  ASSERT_EQ(1,aabbs.front().start.x);
 }
 
 
@@ -2945,7 +2946,7 @@ TEST(AABB, insertTestLinear){
   Map map(64,64);
   MapEnvironment menv(&map);
   menv.SetConnectedness(type);
-  Map2DConstrainedEnvironment env(&menv);
+  Map2DConstrainedEnvironment env(&menv,0);
   std::vector<std::vector<xytLoc>> p;
   for(int i(0); i<nagents; ++i){
     std::vector<xytLoc> path;
@@ -3002,7 +3003,7 @@ TEST(AABB, insertTestLinear){
       }
     }
     for(auto pp(pairs.begin()); pp!=pairs.end(); /*pp++*/){
-      if(checkForCollision(*pp->first.start,*pp->first.end,*pp->second.start,*pp->second.end,radius,&menv)){
+      if(checkForCollision(pp->first.start,pp->first.end,pp->second.start,pp->second.end,radius,&menv)){
         ++pp;
       }
       pairs.erase(pp);
@@ -3010,7 +3011,7 @@ TEST(AABB, insertTestLinear){
     tmrz.StartTimer();
     for(auto pp(pairs.begin()); pp!=pairs.end(); pp++){
       unsigned i(pp->first.agent);
-      Constraint<xytLoc>* c = new Collision<xytLoc>(*pp->second.start,*pp->second.end);
+      Constraint<xytAABB>* c = new Collision<xytAABB>(pp->second.start,pp->second.end,i);
       env.AddConstraint(c);
       std::vector<xytLoc> path;
       astar.GetPath(&env,waypoints[i][0],waypoints[i][1],path);
@@ -3067,7 +3068,7 @@ TEST(AABB, insertTestLog){
   Map map(64,64);
   MapEnvironment menv(&map);
   menv.SetConnectedness(type);
-  Map2DConstrainedEnvironment env(&menv);
+  Map2DConstrainedEnvironment env(&menv,0);
   std::vector<std::vector<xytLoc>> p;
   for(int i(0); i<nagents; ++i){
     std::vector<xytLoc> path;
@@ -3124,7 +3125,7 @@ TEST(AABB, insertTestLog){
       }
     }
     for(auto pp(pairs.begin()); pp!=pairs.end(); /*pp++*/){
-      if(checkForCollision(*pp->first.start,*pp->first.end,*pp->second.start,*pp->second.end,radius,&menv)){
+      if(checkForCollision(pp->first.start,pp->first.end,pp->second.start,pp->second.end,radius,&menv)){
         ++pp;
       }
       pairs.erase(pp);
@@ -3132,7 +3133,7 @@ TEST(AABB, insertTestLog){
     tmrz.StartTimer();
     for(auto pp(pairs.begin()); pp!=pairs.end(); pp++){
       unsigned i(pp->first.agent);
-      Constraint<xytLoc>* c = new Collision<xytLoc>(*pp->second.start,*pp->second.end);
+      Constraint<xytAABB>* c = new Collision<xytAABB>(pp->second.start,pp->second.end,i);
       env.AddConstraint(c);
       std::vector<xytLoc> path;
       astar.GetPath(&env,waypoints[i][0],waypoints[i][1],path);
@@ -3187,7 +3188,7 @@ void broadphaseTest(int type, unsigned nagents, unsigned tnum){
   Map map(64,64);
   MapEnvironment menv(&map);
   menv.SetConnectedness(type);
-  Map2DConstrainedEnvironment env(&menv);
+  Map2DConstrainedEnvironment env(&menv,0);
   std::vector<std::vector<xytLoc>> p;
   for(int i(0); i<nagents; ++i){
     std::vector<xytLoc> path;
@@ -3203,11 +3204,11 @@ void broadphaseTest(int type, unsigned nagents, unsigned tnum){
 
   //for(auto const& a:sorted)
     //std::cout << *(a.start) << "\n";
-  std::vector<std::vector<AABB>> sweepPrune(3);
-  Timer tmr;
-  tmr.StartTimer();
-  createSortedLists(p,sweepPrune,&menv,radius);
-  std::cout << "Took " << tmr.EndTimer() << " to get sorted lists\n";
+  //std::vector<std::vector<AABB>> sweepPrune(3);
+  //Timer tmr;
+  //tmr.StartTimer();
+  //createSortedLists(p,sweepPrune,&menv,radius);
+  //std::cout << "Took " << tmr.EndTimer() << " to get sorted lists\n";
 
   // Create the AABB tree
   aabb::Tree<xytLoc> tree(nagents*132);
@@ -3340,7 +3341,7 @@ void broadphaseTest(int type, unsigned nagents, unsigned tnum){
     std::vector<std::pair<xytAABB,xytAABB>> pairs;
     getAllPairs(sorted,pairs);
     for(auto const& pp:pairs){
-      count0 += checkForCollision(*pp.first.start,*pp.first.end,*pp.second.start,*pp.second.end,radius,&menv);
+      count0 += checkForCollision(pp.first.start,pp.first.end,pp.second.start,pp.second.end,radius,&menv);
     }
     std::cout << "Replace test (t) on " << nagents << " with " << pairs.size() << " checks, " << count0 << " collisions took " << tmrz.EndTimer() << "(" << tmr0.EndTimer() << ")\n";
   }
@@ -3367,7 +3368,7 @@ void broadphaseTest(int type, unsigned nagents, unsigned tnum){
     std::vector<std::pair<xytAABB,xytAABB>> pairs;
     getAllPairsX(sorted,pairs);
     for(auto const& pp:pairs){
-      count0 += checkForCollision(*pp.first.start,*pp.first.end,*pp.second.start,*pp.second.end,radius,&menv);
+      count0 += checkForCollision(pp.first.start,pp.first.end,pp.second.start,pp.second.end,radius,&menv);
     }
     std::cout << "Sort test (x) on " << nagents << " with " << pairs.size() << " checks, " << count0 << " collisions took " << tmrz.EndTimer() << "(" << tmr0.EndTimer() << ")\n";
   }
@@ -3384,7 +3385,7 @@ void broadphaseTest(int type, unsigned nagents, unsigned tnum){
     std::vector<std::pair<xytAABB,xytAABB>> pairs;
     getAllPairs2(sorted,pairs);
     for(auto const& pp:pairs){
-      count0 += checkForCollision(*pp.first.start,*pp.first.end,*pp.second.start,*pp.second.end,radius,&menv);
+      count0 += checkForCollision(pp.first.start,pp.first.end,pp.second.start,pp.second.end,radius,&menv);
     }
     std::cout << "Sort test 2 on " << nagents << " with " << pairs.size() << " checks, " << count0 << " collisions took " << tmrz.EndTimer() << "(" << tmr0.EndTimer() << ")\n";
   }

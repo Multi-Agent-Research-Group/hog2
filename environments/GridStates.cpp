@@ -40,23 +40,23 @@ void GLDrawCircle(GLfloat x, GLfloat y, GLfloat radius){
 }
 
 template<>
-void Constraint<xytLoc>::OpenGLDraw(MapInterface* map) const 
+void Constraint<xytAABB>::OpenGLDraw(MapInterface* map) const 
 {
   GLdouble xx, yy, zz, rad;
   glColor3f(1, 0, 0);
   glLineWidth(12.0);
   glBegin(GL_LINES);
-  map->GetOpenGLCoord((float)start_state.x, (float)start_state.y, xx, yy, zz, rad);
+  map->GetOpenGLCoord((float)this->start.x, (float)this->start.y, xx, yy, zz, rad);
   glVertex3f(xx, yy, -rad);
-  map->GetOpenGLCoord((float)end_state.x, (float)end_state.y, xx, yy, zz, rad);
+  map->GetOpenGLCoord((float)this->end.x, (float)this->end.y, xx, yy, zz, rad);
   glVertex3f(xx, yy, -rad);
   glEnd();
 }
 
-template<>
+/*template<>
 void Constraint<TemporalVector>::OpenGLDraw(MapInterface* map) const 
 {
-        if(start_state.x<0 || start_state.x>map->GetMapWidth() || end_state.x<0 || end_state.x>map->GetMapWidth()){
+        if(start->x<0 || start_state.x>map->GetMapWidth() || end_state.x<0 || end_state.x>map->GetMapWidth()){
           int x = 2;
         }
 	GLdouble xx, yy, zz, rad;
@@ -75,7 +75,7 @@ void Constraint<TemporalVector>::OpenGLDraw(MapInterface* map) const
 	glEnd();
         //glDrawCircle(xx,yy,.5/map->GetMapWidth());
 	//DrawSphere(xx, yy, zz, rad/2.0); // zz-l.t*2*rad
-}
+}*/
 
 /************************************************************/
 

@@ -28,7 +28,7 @@
 #include "SearchEnvironment.h"
 #include "StatCollection.h"
 
-template <class state, class action, class environment>
+template <class state, class environment>
 class GenericSearchAlgorithm
 {
 public:
@@ -36,7 +36,7 @@ public:
 	virtual ~GenericSearchAlgorithm() {};
 	virtual void GetPath(environment *env, const state &from, const state &to, std::vector<state> &path, double minTime){}
 	virtual void GetPath(environment *env, const state &from, const state &to, std::vector<state> &path){GetPath(env,from,to,path,-1);}
-	virtual void GetPath(environment *env, const state &from, const state &to, std::vector<action> &path) = 0;
+	//virtual void GetPath(environment *env, const state &from, const state &to, std::vector<action> &path) = 0;
 	virtual const char *GetName() = 0;
 	virtual uint64_t GetNodesExpanded() const = 0;
 	virtual uint64_t GetNodesTouched() const = 0;

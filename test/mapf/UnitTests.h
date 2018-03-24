@@ -43,20 +43,20 @@ TEST(ICTSAlgorithm, SimpleTest){
   Grid3DEnvironment menv(&map);
   menv.SetOneConnected();
   menv.SetGround();
-  Grid3DConstrainedEnvironment env(&menv);
+  Grid3DConstrainedEnvironment env(&menv,0);
   env.SetIgnoreTime(true);
   env.SetIgnoreHeading(true);
   env.WaitTime(10);
 
-  std::vector<EnvironmentContainer<xyztLoc,t3DDirection>*> envs(4);
+  std::vector<EnvironmentContainer<xyztAABB,t3DDirection>*> envs(4);
   for(auto& e:envs){
-    e=new EnvironmentContainer<xyztLoc,t3DDirection>();
+    e=new EnvironmentContainer<xyztAABB,t3DDirection>();
     e->environment=&env;
   }
-  Solution<xyztLoc> solution;
+  Solution<xyztAABB> solution;
   MultiAgentState<xyztLoc> start = {{0,0},{7,7},{0,7},{7,0}};
   MultiAgentState<xyztLoc> goal = {{7,7},{0,0},{7,0},{0,7}};
-  ICTSAlgorithm<xyztLoc,t3DDirection> ia;
+  ICTSAlgorithm<xyztAABB,t3DDirection> ia;
   ia.verify=true;
   ia.verbose=false;
   std::string hint;
@@ -64,7 +64,7 @@ TEST(ICTSAlgorithm, SimpleTest){
   for(auto const& ss: solution)
     for(auto const& s:ss)
       std::cout << s << "\n";
-  ASSERT_TRUE(validateSolution(solution));
+  ASSERT_TRUE(validateBBSolution(solution));
 }
 
 /*TEST(ICTSAlgorithm, Funky){
@@ -101,7 +101,7 @@ TEST(MAAStar, search){
   Grid3DEnvironment menv(&map);
   menv.SetOneConnected();
   menv.SetGround();
-  Grid3DConstrainedEnvironment env(&menv);
+  Grid3DConstrainedEnvironment env(&menv,0);
   env.SetIgnoreTime(true);
   env.SetIgnoreHeading(true);
   std::vector<Grid3DConstrainedEnvironment const*> envs ={&env,&env};

@@ -33,6 +33,6 @@ default : all
 
 SRC_CPP = \
  generic/RandomUnit.cpp \
- generic/CBSUnits.cpp \
-# generic/IDAStar.cpp \
  generic/GraphCheck.cpp
+ #generic/CBSUnits.cpp \
+# generic/IDAStar.cpp \

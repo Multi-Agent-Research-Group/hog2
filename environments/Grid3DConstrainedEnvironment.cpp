@@ -28,15 +28,17 @@
 	return fequal(l1.t,l2.t) && (l1.x == l2.x) && (l1.y==l2.y);
 }*/
 
-Grid3DConstrainedEnvironment::Grid3DConstrainedEnvironment(Map3D *m):ignoreTime(false)
+Grid3DConstrainedEnvironment::Grid3DConstrainedEnvironment(Map3D *m,unsigned agent):ConstrainedEnvironment(agent),ignoreTime(false)
 {
 	mapEnv = new Grid3DEnvironment(m);
 }
 
-Grid3DConstrainedEnvironment::Grid3DConstrainedEnvironment(Grid3DEnvironment *m):ignoreTime(false)
+Grid3DConstrainedEnvironment::Grid3DConstrainedEnvironment(Grid3DEnvironment *m, unsigned agent):ConstrainedEnvironment(agent),ignoreTime(false)
 {
 	mapEnv = m;
 }
+void Grid3DConstrainedEnvironment::AddConstraint(Constraint<xyztAABB> const* c){constraints->insert(c);}
+void Grid3DConstrainedEnvironment::AddConstraints(std::vector<std::unique_ptr<Constraint<xyztAABB> const>> const& cs){for(auto const& c:cs)constraints->insert(c.get());}
 
 void Grid3DConstrainedEnvironment::GetSuccessors(const xyztLoc &nodeID, std::vector<xyztLoc> &neighbors) const
 {
@@ -192,19 +194,17 @@ void Grid3DConstrainedEnvironment::GetStateFromHash(uint64_t hash, xyztLoc &s) c
   assert(!"Hash is irreversible...");
 }
 
-double Grid3DConstrainedEnvironment::GetPathLength(std::vector<xyztLoc> &neighbors)
+double Grid3DConstrainedEnvironment::GetPathLength(std::vector<xyztAABB> const& neighbors)const
 {
-  // There is no cost for waiting at the goal
-  double cost(0);
-  for(int j(neighbors.size()-1); j>0; --j){
-    if(!neighbors[j-1].sameLoc(neighbors[j])){
-      cost += neighbors[j].t;
+  double total(0.0);
+  for(auto n(neighbors.rbegin()); n!=neighbors.rend(); ++n){
+    if(GoalTest(n->end,getGoal())){
+      total = n->end.t;
+    }else{
       break;
-    }else if(j==1){
-      cost += neighbors[0].t;
     }
   }
-  return cost;
+  return total;
 }
 
 
@@ -286,22 +286,35 @@ bool Grid3DConstrainedEnvironment::collisionCheck(const xyztLoc &s1, const xyztL
   //return collisionCheck(s1,d1,s2,d2,double(r1),double(r2));
 }
 
+bool Grid3DConstrainedEnvironment::collisionCheck(const xyztAABB &s1, float r1, const xyztAABB &s2, float r2){
+  Vector3D A(s1.start);
+  Vector3D VA(s1.end);
+  VA-=A; // Direction vector
+  VA.Normalize();
+  Vector3D B(s2.start);
+  Vector3D VB(s2.end);
+  VB-=B; // Direction vector
+  VB.Normalize();
+  return collisionImminent(A,VA,r1,s1.start.t,s1.end.t,B,VB,r2,s2.start.t,s2.end.t);
+  //return collisionCheck(s1,d1,s2,d2,double(r1),double(r2));
+}
+
 
 template<>
-void Constraint<xyztLoc>::OpenGLDraw(MapInterface* map) const 
+void Constraint<xyztAABB>::OpenGLDraw(MapInterface* map) const 
 {
   GLdouble xx, yy, zz, rad;
   glColor3f(1, 0, 0);
   glLineWidth(12.0);
   glBegin(GL_LINES);
-  map->GetOpenGLCoord(start_state.x, start_state.y, start_state.z, xx, yy, zz, rad);
+  map->GetOpenGLCoord(this->start.x, this->start.y, this->start.z, xx, yy, zz, rad);
   glVertex3f(xx, yy, -rad);
-  map->GetOpenGLCoord(end_state.x, end_state.y, end_state.z, xx, yy, zz, rad);
+  map->GetOpenGLCoord(this->end.x, this->end.y, this->end.z, xx, yy, zz, rad);
   glVertex3f(xx, yy, -rad);
   glEnd();
 }
 
-template<>
+/*template<>
 void Constraint<TemporalVector3D>::OpenGLDraw(MapInterface* map) const 
 {
 	GLdouble xx, yy, zz, rad;
@@ -320,5 +333,5 @@ void Constraint<TemporalVector3D>::OpenGLDraw(MapInterface* map) const
 	glEnd();
         //glDrawCircle(xx,yy,.5/map->GetMapWidth());
 	//DrawSphere(xx, yy, zz, rad/2.0); // zz-l.t*2*rad
-}
+}*/
 

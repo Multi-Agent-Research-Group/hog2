@@ -66,7 +66,7 @@ struct PEAStarCompare {
  * A templated version of A*, based on HOG genericAStar
  */
 template <class state, class action, class environment>
-class PEAStar : public GenericSearchAlgorithm<state,action,environment> {
+class PEAStar : public GenericSearchAlgorithm<state,environment> {
 public:
 	PEAStar() { ResetNodeCount(); env = 0; stopAfterGoal = true; weight=1; reopenNodes = false; }
 	virtual ~PEAStar() {}

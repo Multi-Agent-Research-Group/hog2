@@ -28,14 +28,14 @@
 // Note that this only works assuming that agents are
 // holonomic (otherwise a reverse search becomes imperative)
 
-template<typename state, typename action>
-class Map3dPerfectHeuristic: public Heuristic<state> {
+template<typename BB>
+class Map3dPerfectHeuristic: public Heuristic<typename BB::State> {
 
   public:
     // constructor
     Map3dPerfectHeuristic( Map3D *_m, Grid3DConstrainedEnvironment* _e): m(_m),e(_e),depth(e->GetMapEnv()->agentType==Map3D::air?m->GetMapDepth():1),elapsed(0.0),loaded(false),list(m->GetMapHeight()*m->GetMapWidth()*depth){}
 
-    double HCost( const state &s1, const state &s2 ) const {
+    double HCost( const typename BB::State &s1, const typename BB::State &s2 ) const {
       if(!loaded){
         goal=s2;
         Timer tmr;
@@ -45,15 +45,15 @@ class Map3dPerfectHeuristic: public Heuristic<state> {
         e->SetIgnoreTime(true); // Otherwise the search would never terminate
         e->SetIgnoreHeading(true);  // Don't care about alternate paths to this state
         //PEAStar<state,action,Grid3DConstrainedEnvironment> astar;
-        TemporalAStar<state,action,Grid3DConstrainedEnvironment> astar;
+        TemporalAStar<BB,Grid3DConstrainedEnvironment> astar;
         //std::cout << "Loading heuristic\n";
         //astar.SetVerbose(false);
-        astar.SetHeuristic(new ZeroHeuristic<state>);
+        astar.SetHeuristic(new ZeroHeuristic<typename BB::State>);
         astar.SetStopAfterGoal(false); // Search the entire space
         // Now perform a search to get all costs
         // NOTE: This should be a reverse-search, but our agents are holonomic
         // so the costs forward are the same as the costs backward
-        std::vector<state> path;
+        std::vector<typename BB::State> path;
         astar.GetPath(e,goal,s1,path);
         for(int w(0); w<m->GetMapWidth(); ++w){
           for(int h(0); h<m->GetMapHeight(); ++h){
@@ -83,7 +83,7 @@ class Map3dPerfectHeuristic: public Heuristic<state> {
     unsigned depth;
     mutable bool loaded;
     mutable std::vector<float> list;
-    mutable state goal;
+    mutable typename BB::State goal;
 
 };
 

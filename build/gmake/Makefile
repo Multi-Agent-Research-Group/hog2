@@ -12,34 +12,34 @@
 PROJECTS = \
   gui/GL \
   search \
-  absmapalgorithms \
   abstraction \
   abstractionalgorithms \
   algorithms \
   environments \
   generic \
   graph \
-  grids \
   graphalgorithms \
   gui \
   mapalgorithms \
   shared \
   utils \
-  apps/airplane \
   apps/icts \
-  apps/experimental \
-  apps/mapUtils \
-  apps/3dmaps \
   apps/MACBS \
-  apps/MAPF \
-  apps/MAAStar \
-  apps/MAIDAStar \
-  apps/aacbs \
-  test/airplane \
   test/mapf \
   test/utils \
   test/collisiondetection \
   test/environments \
+  #grids \
+  #absmapalgorithms \
+  #apps/MAAStar \
+  #apps/MAIDAStar \
+  #apps/MAPF \
+  #apps/airplane \
+  #apps/experimental \
+  #apps/mapUtils \
+  #apps/3dmaps \
+  #apps/aacbs \
+  #test/airplane \
   #apps/MO \
 #  apps/multiagent \
 #  apps/measure_inconsistency 

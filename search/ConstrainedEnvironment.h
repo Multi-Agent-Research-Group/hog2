@@ -24,6 +24,7 @@
 #include "SearchEnvironment.h"
 #include "PositionalUtils.h"
 #include "VelocityObstacle.h"
+#include "BroadPhase.h"
 
 /*
 struct Action{
@@ -72,87 +73,87 @@ class SoftConstraint : public DrawableConstraint {
     double logr;
 };
 
-template<typename State>
-class Constraint : public DrawableConstraint{
+template<typename BB>
+class Constraint : public DrawableConstraint, public BB{
   public:
     Constraint() {}
-    Constraint(State const& start) : start_state(start), end_state(start) {}
-    Constraint(State const& start, State const& end) : start_state(start), end_state(end) {}
+    //Constraint(State const& start): BB(start,start){}
+    Constraint(typename BB::State const& start, typename BB::State const& end, unsigned agent):BB(start,end,agent) {}
+    Constraint(BB const& v):BB(v) {}
 
-    State start() const {return start_state;}
-    State end() const {return end_state;}
+    //typename BB::State start() const {return start;}
+    //typename BB::State end() const {return end;}
 
-    virtual double ConflictsWith(State const& s) const=0;
-    virtual double ConflictsWith(State const& from, State const& to) const=0;
-    virtual double ConflictsWith(Constraint const& x) const {return ConflictsWith(x.start_state, x.end_state);}
+    virtual double ConflictsWith(typename BB::State const& s) const{return 0.0;}
+    virtual double ConflictsWith(typename BB::State const& from, typename BB::State const& to) const{return 0.0;}
+    virtual double ConflictsWith(Constraint const& x) const {return ConflictsWith(x.start, x.end);}
     virtual void OpenGLDraw(MapInterface*) const {}
     virtual void print(std::ostream& os)const{
-      os << "{" << start() << "-->" << end() << "}";
+      os << "{" << this->start << "-->" << this->end << "}";
     }
-
-    State start_state;
-    State end_state;
 };
 
-template<typename State>
-class Identical : public Constraint<State> {
+template<typename BB>
+class Identical : public Constraint<BB> {
   public:
-    Identical():Constraint<State>(){}
-    Identical(State const& start, State const& end):Constraint<State>(start,end) {}
-    virtual double ConflictsWith(State const& s) const {return 0;} // Vertex collisions are ignored
-    virtual double ConflictsWith(State const& from, State const& to) const {return (from.sameLoc(this->start_state) && to.sameLoc(this->end_state))?from.t:0;}
+    Identical():Constraint<BB>(){}
+    Identical(typename BB::State const& start, typename BB::State const& end, unsigned agent):Constraint<BB>(start,end,agent) {}
+    Identical(BB const& v):Constraint<BB>(v){}
+    virtual double ConflictsWith(typename BB::State const& s) const {return 0;} // Vertex collisions are ignored
+    virtual double ConflictsWith(typename BB::State const& from, typename BB::State const& to) const {return (from.sameLoc(this->start) && to.sameLoc(this->end))?from.t:0;}
 };
 
-template<typename State>
-class Collision : public Constraint<State> {
+template<typename BB>
+class Collision : public Constraint<BB> {
   public:
-    Collision(double radius=.25):Constraint<State>(),agentRadius(radius){}
-    Collision(State const& start, State const& end,double radius=.25):Constraint<State>(start,end),agentRadius(radius){}
-    virtual double ConflictsWith(State const& s) const {return 0;} // Vertex collisions are ignored
-    virtual double ConflictsWith(State const& from, State const& to) const {return collisionCheck3D(from,to,this->start_state,this->end_state,agentRadius);}
-    virtual double ConflictsWith(Collision<State> const& x) const {return collisionCheck3D(this->start_state,this->end_state,x.start_state,x.end_state,agentRadius,x.agentRadius);}
+    Collision(double radius=.25):Constraint<BB>(),agentRadius(radius){}
+    Collision(BB const& v,double radius=.25):Constraint<BB>(v),agentRadius(radius){}
+    Collision(typename BB::State const& start, typename BB::State const& end, unsigned agent, double radius=.25):Constraint<BB>(start,end,agent),agentRadius(radius){}
+    virtual double ConflictsWith(typename BB::State const& s) const {return 0;} // Vertex collisions are ignored
+    virtual double ConflictsWith(typename BB::State const& from, typename BB::State const& to) const {return collisionCheck3D(from,to,this->start,this->end,agentRadius);}
+    virtual double ConflictsWith(Collision<BB> const& x) const {return collisionCheck3D(this->start,this->end,x.start,x.end,agentRadius,x.agentRadius);}
     virtual void OpenGLDraw(MapInterface*) const {}
     double agentRadius;
 };
 
-template<typename State>
+template<typename BB>
 class ConflictDetector{
   public:
     ConflictDetector(){}
-    virtual bool HasConflict(State const& A1, State const& A2, State const& B1, State const& B2)const=0;
+    virtual bool HasConflict(typename BB::State const& A1, typename BB::State const& A2, typename BB::State const& B1, typename BB::State const& B2)const=0;
     // Returns a newly allocated pointer to a constraint representing the conflict or zero
     // The caller is responsible for managing the memory
-    virtual Constraint<State>* GetConstraint(State const& A1, State const& A2, State const& B1, State const& B2)const=0;
+    virtual Constraint<BB>* GetConstraint(typename BB::State const& A1, typename BB::State const& A2, typename BB::State const& B1, typename BB::State const& B2)const=0;
     virtual void OpenGLDraw()const{}
 };
 
-template<typename State>
-class CollisionDetector : public ConflictDetector<State> {
+template<typename BB>
+class CollisionDetector : public ConflictDetector<BB> {
   public:
-    CollisionDetector(double radius):ConflictDetector<State>(),agentRadius(radius){}
-    inline virtual bool HasConflict(State const& A1, State const& A2, State const& B1, State const& B2)const{
+    CollisionDetector(double radius):ConflictDetector<BB>(),agentRadius(radius){}
+    inline virtual bool HasConflict(typename BB::State const& A1, typename BB::State const& A2, typename BB::State const& B1, typename BB::State const& B2)const{
       return collisionCheck3D(A1,A2,B1,B2,agentRadius);
     }
-    inline virtual Constraint<State>* GetConstraint(State const& A1, State const& A2, State const& B1, State const& B2)const{
-       return new Collision<State>(B1,B2,agentRadius);
+    inline virtual Constraint<BB>* GetConstraint(typename BB::State const& A1, typename BB::State const& A2, typename BB::State const& B1, typename BB::State const& B2)const{
+       return new Collision<BB>(B1,B2,agentRadius);
     }
     double agentRadius;
 };
 
-template<typename State>
+template<typename BB>
 class GroupConflictDetector{
   public:
     GroupConflictDetector(unsigned mainAgent, std::vector<unsigned> const& a):agent1(mainAgent),agentNumbers(a),agent2(-1){}
-    inline virtual bool HasConflict(std::vector<std::pair<State,State>> const& states, std::unordered_map<unsigned,unsigned> const& translation, std::vector<std::vector<State>> const& staticpaths, std::vector<unsigned> const& staticAgents)const=0;
-    virtual bool HasConflict(std::vector<std::vector<State>> const& solution)const=0;
-    virtual bool HasConflict(std::vector<std::vector<State>> const& solution, std::vector<Constraint<State> const*>& c, std::pair<unsigned,unsigned>& conflict)const=0;
-    virtual bool ShouldMerge(std::vector<std::vector<State>> const& solution, std::set<unsigned>& toMerge)const=0;
+    inline virtual bool HasConflict(std::vector<std::pair<typename BB::State,typename BB::State>> const& states, std::unordered_map<unsigned,unsigned> const& translation, std::vector<std::vector<typename BB::State>> const& staticpaths, std::vector<unsigned> const& staticAgents)const=0;
+    virtual bool HasConflict(std::vector<std::vector<typename BB::State>> const& solution)const=0;
+    virtual bool HasConflict(std::vector<std::vector<typename BB::State>> const& solution, std::vector<Constraint<BB> const*>& c, std::pair<unsigned,unsigned>& conflict)const=0;
+    virtual bool ShouldMerge(std::vector<std::vector<typename BB::State>> const& solution, std::set<unsigned>& toMerge)const=0;
     // Returns a newly allocated pointer to a constraint representing the conflict or zero
     // The caller is responsible for managing the memory
-    //virtual Constraint<State>* GetConstraint(State const& A1, State const& A2, State const& B1, State const& B2)const=0;
-    virtual void OpenGLDraw(std::vector<std::pair<State,State>> const& states, double time, MapInterface* map)const=0;
-    virtual GroupConflictDetector<State>* clone()=0;
-    virtual bool operator==(GroupConflictDetector<State>* other)const=0;
+    //virtual Constraint<BB>* GetConstraint(typename BB::State const& A1, typename BB::State const& A2, typename BB::State const& B1, typename BB::State const& B2)const=0;
+    virtual void OpenGLDraw(std::vector<std::pair<typename BB::State,typename BB::State>> const& states, double time, MapInterface* map)const=0;
+    virtual GroupConflictDetector<BB>* clone()=0;
+    virtual bool operator==(GroupConflictDetector<BB>* other)const=0;
     mutable unsigned agent1;
     std::vector<unsigned> agentNumbers; // List of agent numbers that must maintain tether
     mutable signed agent2;
@@ -160,30 +161,35 @@ class GroupConflictDetector{
 };
 
 
-template<typename State, typename Action>
-class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
+template<typename BB, typename Action>
+class ConstrainedEnvironment : public SearchEnvironment<typename BB::State, Action> {
   public:
+    ConstrainedEnvironment(unsigned a):agent(a){}
     /** Add a constraint to the model */
-    virtual void AddConstraint(Constraint<State> const* c){constraints.emplace_back(c);}
-    virtual void AddConstraints(std::vector<std::unique_ptr<Constraint<State> const>> const& cs){for(auto const& c:cs)constraints.push_back(c.get());}
+    inline virtual void AddConstraint(Constraint<BB> const* c){constraints->insert(c);}
+    inline virtual void AddConstraints(std::vector<std::unique_ptr<Constraint<BB> const>> const& cs){for(auto const& c:cs)constraints->insert(c.get());}
     /** Clear the constraints */
-    virtual void ClearConstraints(){constraints.resize(0);}
+    virtual void ClearConstraints(){constraints->clear();}
     /** Get the possible actions from a state */
-    virtual void GetActions(const State &nodeID, std::vector<Action> &actions) const = 0;
-    virtual void GetReverseActions(const State &nodeID, std::vector<Action> &actions) const = 0;
+    virtual void GetActions(const typename BB::State &nodeID, std::vector<Action> &actions) const = 0;
+    virtual void GetReverseActions(const typename BB::State &nodeID, std::vector<Action> &actions) const = 0;
     /** Get the successor states not violating constraints */
-    virtual void GetSuccessors(const State &nodeID, std::vector<State> &neighbors) const = 0;
+    virtual void GetSuccessors(const typename BB::State &nodeID, std::vector<typename BB::State> &neighbors) const = 0;
     /** Checks to see if any constraint is violated, returning the time of violation, 0 otherwise */
-    virtual inline double ViolatesConstraint(const State &from, const State &to) const {
+    virtual inline double ViolatesConstraint(typename BB::State const& from, typename BB::State const& to)const{
       //Check if the action violates any of the constraints that are in the constraints list
-      for (auto const& c : constraints){
-        double vtime(c->ConflictsWith(from,to));
+      std::vector<Constraint<BB> const*> bbConflicts;
+      Constraint<BB> bb(from,to,agent);
+      constraints->getConflicts(&bb, bbConflicts);
+      for(auto b:bbConflicts){
+        double vtime(b->ConflictsWith(from,to));
         if(vtime)return vtime;
       }
-      return 0;
+      return 0.0;
     }
-    virtual void GLDrawLine(const State &x, const State &y) const{}
-    virtual void GLDrawPath(const std::vector<State> &p, const std::vector<State> &waypoints) const{
+    virtual double GetPathLength(std::vector<BB> const&)const=0;
+    virtual void GLDrawLine(const typename BB::State &x, const typename BB::State &y) const{}
+    virtual void GLDrawPath(const std::vector<typename BB::State> &p, const std::vector<typename BB::State> &waypoints) const{
       if(p.size()<2) return;
       //TODO Draw waypoints as cubes.
       for(auto a(p.begin()+1); a!=p.end(); ++a){ GLDrawLine(*(a-1),*a); }
@@ -192,10 +198,11 @@ class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
     virtual bool GetIgnoreTime()const{return false;}
     virtual void SetIgnoreHeading(bool i){}
     virtual bool GetIgnoreHeading()const{return false;}
-    virtual bool collisionCheck(const State &s1, const State &d1, float r1, const State &s2, const State &d2, float r2)=0;
+    virtual bool collisionCheck(const BB &s1, float r1, const BB &s2, float r2)=0;
 
-    State theGoal;
-    std::vector<Constraint<State> const*> constraints;
+    typename BB::State theGoal;
+    unsigned agent;
+    BroadPhase<Constraint<BB>>* constraints;
 };
 
 // We initialize these here, but they can be changed at run-time

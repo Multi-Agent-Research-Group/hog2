@@ -112,7 +112,7 @@ struct NAMOAStarCompare {
  * A templated version of A*, based on HOG genericAStar
  */
 template <class state, class action, class environment, unsigned dim, class openList = AStarOpenClosed<state, NAMOAStarCompare<state,dim>, NAMOAOpenClosedData<state,dim>>>
-class NAMOAStar : public GenericSearchAlgorithm<state,action,environment> {
+class NAMOAStar : public GenericSearchAlgorithm<state,environment> {
 public:
 	NAMOAStar():totalExternalNodesExpanded(nullptr),externalExpansionLimit(INT_MAX),verbose(false),noncritical(false),env(nullptr),stopAfterGoal(true),weight(1),reopenNodes(false),SuccessorFunc(&environment::GetSuccessors),ActionFunc(&environment::GetAction),GCostFunc(&environment::GCostVector),HCostFunc(&environment::HCostVector){ResetNodeCount();}
 	virtual ~NAMOAStar() {}

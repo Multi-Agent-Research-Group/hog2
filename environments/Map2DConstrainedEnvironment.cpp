@@ -11,53 +11,50 @@
 #include "Map2DConstrainedEnvironment.h"
 #include "PositionalUtils.h"
 
-Map2DConstrainedEnvironment::Map2DConstrainedEnvironment(Map *m):ignoreTime(false),ignoreHeading(false)
+Map2DConstrainedEnvironment::Map2DConstrainedEnvironment(Map *m, unsigned agent):ConstrainedEnvironment(agent),ignoreTime(false),ignoreHeading(false)
 {
 	mapEnv = new MapEnvironment(m);
 	mapEnv->SetFourConnected();
 }
 
-Map2DConstrainedEnvironment::Map2DConstrainedEnvironment(MapEnvironment *m):ignoreTime(false),ignoreHeading(false)
+Map2DConstrainedEnvironment::Map2DConstrainedEnvironment(MapEnvironment *m, unsigned agent):ConstrainedEnvironment(agent),ignoreTime(false),ignoreHeading(false)
 {
 	mapEnv = m;
 }
 
 void Map2DConstrainedEnvironment::ClearConstraints()
 {
-  ConstrainedEnvironment<xytLoc,tDirection>::ClearConstraints();
-  vconstraints.resize(0);
+  ConstrainedEnvironment<xytAABB,tDirection>::ClearConstraints();
 }
 
 bool Map2DConstrainedEnvironment::GetNextSuccessor(const xytLoc &currOpenNode, const xytLoc &goal, xytLoc &next, double &currHCost, uint64_t &special, bool &validMove){
   return mapEnv->GetNextSuccessor(currOpenNode,goal,next,currHCost,special,validMove);
 }
   
-double Map2DConstrainedEnvironment::GetPathLength(std::vector<xytLoc> &neighbors)
+double Map2DConstrainedEnvironment::GetPathLength(std::vector<xytAABB> const& neighbors)const
 {
-  // There is no cost for waiting at the goal
-  double cost(0);
-  for(int j(neighbors.size()-1); j>0; --j){
-    if(!neighbors[j-1].sameLoc(neighbors[j])){
-      cost += neighbors[j].t;
+  double total(0.0);
+  for(auto n(neighbors.rbegin()); n!=neighbors.rend(); ++n){
+    if(GoalTest(n->end,getGoal())){
+      total = n->end.t;
+    }else{
       break;
-    }else if(j==1){
-      cost += neighbors[0].t;
     }
   }
-  return cost;
+  return total;
 }
 
-bool Map2DConstrainedEnvironment::collisionCheck(xytLoc const& s1, xytLoc const& d1, float radius1, xytLoc const& s2, xytLoc const& d2,float radius2){
-  if(!mapEnv->collisionPreCheck(s1,d1,radius1,s2,d2,radius2)) return false;
-  Vector2D A(s1);
-  Vector2D B(s2);
-  Vector2D VA(d1);
+bool Map2DConstrainedEnvironment::collisionCheck(xytAABB const& s1, float radius1, xytAABB const& s2,float radius2){
+  if(!mapEnv->collisionPreCheck(s1.start,s1.end,radius1,s2.start,s2.end,radius2)) return false;
+  Vector2D A(s1.start);
+  Vector2D B(s2.start);
+  Vector2D VA(s1.end);
   VA-=A;
   VA.Normalize();
-  Vector2D VB(d2);
+  Vector2D VB(s2.end);
   VB-=B;
   VB.Normalize();
-  return collisionImminent(A,VA,radius1,s1.t,d1.t,B,VB,radius2,s2.t,d2.t);
+  return collisionImminent(A,VA,radius1,s1.start.t,s1.end.t,B,VB,radius2,s2.start.t,s2.end.t);
 }
 
 void Map2DConstrainedEnvironment::GetSuccessors(const xytLoc &nodeID, std::vector<xytLoc> &neighbors) const
@@ -94,37 +91,6 @@ void Map2DConstrainedEnvironment::GetAllSuccessors(const xytLoc &nodeID, std::ve
   }
 }
 
-double Map2DConstrainedEnvironment::ViolatesConstraint(const xytLoc &from, const xytLoc &to) const{
-  
-  // Check motion constraints first
-  //if(maxTurnAzimuth&&fless(maxTurnAzimuth,fabs(from.h-to.h))) return false;
-  double ctime(ConstrainedEnvironment<xytLoc,tDirection>::ViolatesConstraint(from,to));
-
-  if(ctime){return ctime;}
-
-  if(vconstraints.size()){
-    TemporalVector3D A(from);
-    TemporalVector3D VA(to);
-    VA-=A; // Direction vector
-    VA.Normalize();
-    double ctime(0);
-    for(unsigned int x = 0; x < vconstraints.size(); x++)
-    {
-      Vector3D B(vconstraints[x]->start_state);
-      Vector3D VB(vconstraints[x]->end_state);
-      VB-=B; // Direction vector
-      VB.Normalize();
-      if(ctime=collisionImminent(A,VA,agentRadius,from.t,to.t,B,VB,agentRadius,vconstraints[x]->start_state.t,vconstraints[x]->end_state.t)){
-        //std::cout << from << " --> " << to << " collides with " << vconstraints[x]->start_state << "-->" << vconstraints[x]->end_state << "\n";
-        return ctime;
-      }else{
-        //std::cout << from << " --> " << to << " does not collide with " << vconstraints[x]->start_state << "-->" << vconstraints[x]->end_state << "\n";
-      }
-    }
-  }
-  return 0;
-}
-
 void Map2DConstrainedEnvironment::GetActions(const xytLoc &nodeID, std::vector<tDirection> &actions) const
 {
 	mapEnv->GetActions(nodeID, actions);
@@ -147,16 +113,6 @@ void Map2DConstrainedEnvironment::UndoAction(xytLoc &s, tDirection a) const
 {
 	mapEnv->UndoAction(s, a);
 	s.t-=1;
-}
-
-void Map2DConstrainedEnvironment::AddConstraint(Constraint<TemporalVector3D> const* c)
-{
-	vconstraints.push_back(c);
-}
-
-void Map2DConstrainedEnvironment::AddConstraint(Constraint<xytLoc> const* c)
-{
-	constraints.push_back(c);
 }
 
 void Map2DConstrainedEnvironment::GetReverseActions(const xytLoc &nodeID, std::vector<tDirection> &actions) const

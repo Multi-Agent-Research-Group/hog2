@@ -22,6 +22,8 @@
 #ifndef MultiAgentStructures_H
 #define MultiAgentStructures_H
 
+#include "ConstrainedEnvironment.h"
+#include "Heuristic.h"
 #include "GenericSearchAlgorithm.h"
 #include "VelocityObstacle.h"
 #include "NonUnitTimeCAT.h"
@@ -36,16 +38,15 @@ using Solution = std::vector<std::vector<state>>;
 
 typedef std::set<IntervalData> ConflictSet;
 
-template<typename state, typename action>
+template<typename BB, typename action>
 struct EnvironmentContainer {
-  EnvironmentContainer() : name("NULL ENV"), environment(nullptr), heuristic(nullptr), threshold(0), astar_weight(1.0f) {
-    std::cout << "stuff\n";
-  }
-  EnvironmentContainer(std::string n, ConstrainedEnvironment<state,action>* e, Heuristic<state>* h, uint32_t conf, float a) : name(n), environment(e), heuristic(h), threshold(conf), astar_weight(a) {}
-  void SetupSearch(GenericSearchAlgorithm<state,action,ConstrainedEnvironment<state,action>>& srch){if(heuristic)srch.SetHeuristic(heuristic); srch.SetWeight(astar_weight);}
+  EnvironmentContainer() : name("NULL ENV"), environment(nullptr), heuristic(nullptr), threshold(0), astar_weight(1.0f) {}
+  
+  EnvironmentContainer(std::string const& n, ConstrainedEnvironment<BB,action>* e, Heuristic<typename BB::State>* h, uint32_t conf, float a) : name(n), environment(e), heuristic(h), threshold(conf), astar_weight(a) {}
+  void SetupSearch(GenericSearchAlgorithm<typename BB::State,ConstrainedEnvironment<BB,action>>& srch){if(heuristic)srch.SetHeuristic(heuristic); srch.SetWeight(astar_weight);}
   std::string name;
-  ConstrainedEnvironment<state,action>* environment;
-  Heuristic<state>* heuristic; // This could be an array if we are planning for multiple legs
+  ConstrainedEnvironment<BB,action>* environment;
+  Heuristic<typename BB::State>* heuristic; // This could be an array if we are planning for multiple legs
   unsigned threshold;
   float astar_weight;
 };
@@ -61,13 +62,51 @@ struct EnvData{
   unsigned group;
 };
 
-template<typename state, typename action>
+template<typename BB, typename action>
 class MAPFAlgorithm{
   public:
-  virtual void GetSolution(std::vector<EnvironmentContainer<state,action>*> const& env, MultiAgentState<state> const& start, MultiAgentState<state> const& goal, Solution<state>& solution, std::string& hint){}
-  virtual void GetSolution(std::vector<EnvironmentContainer<state,action>*> const& env, MultiAgentState<state> const& start, MultiAgentState<state> const& goal, Solution<state>& solution, std::string& hint, std::vector<GroupConflictDetector<state>*> const& detectors){}
+  virtual void GetSolution(std::vector<EnvironmentContainer<BB,action>*> const& env, MultiAgentState<typename BB::State> const& start, MultiAgentState<typename BB::State> const& goal, Solution<BB>& solution, std::string& hint){}
+  virtual void GetSolution(std::vector<EnvironmentContainer<BB,action>*> const& env, MultiAgentState<typename BB::State> const& start, MultiAgentState<typename BB::State> const& goal, Solution<BB>& solution, std::string& hint, std::vector<GroupConflictDetector<BB>*> const& detectors){}
   virtual unsigned GetNodesExpanded()const=0;
 };
+
+template<typename BB>
+bool checkBBCollision(std::vector<BB> const& p1, std::vector<BB> const& p2,float radius=.5,bool loud=false){
+  auto a(p1.begin());
+  auto b(p2.begin());
+  while(a!=p1.end() && b!=p2.end()){
+    Vector2D A(a->start);
+    Vector2D B(b->start);
+    Vector2D VA(a->end);
+    VA-=A;
+    VA.Normalize();
+    Vector2D VB(b->end);
+    VB-=B;
+    VB.Normalize();
+    if(collisionImminent(A,VA,radius,a->start.t,a->end.t,B,VB,radius,b->end.t,b->end.t)){
+      if(loud)std::cout << "Collision: " << *a << "," << *b << "\n";
+      return false;
+    }
+    if(fless(a->end.t,b->end.t)){
+      ++a;
+    }else if(fgreater(a->end.t,b->end.t)){
+      ++b;
+    }else{
+      ++a;++b;
+    }
+  }
+  return true;
+}
+
+template<typename BB>
+bool validateBBSolution(Solution<BB> const& sol, bool verbose=true){
+  for(auto a(sol.begin()); a!=sol.end(); ++a){
+    for(auto b(a+1); b!=sol.end(); ++b){
+      if(!checkBBCollision<BB>(*a,*b,.25,true)) return false;
+    }
+  }
+  return true;
+}
 
 template<typename state>
 bool checkCollision(std::vector<state> const& p1, std::vector<state> const& p2,float radius=.5,bool loud=false){

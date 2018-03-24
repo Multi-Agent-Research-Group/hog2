@@ -280,11 +280,11 @@ TEST(Map2D, FortyEightConnected_GCost){
 }
 
 TEST(TemporalAStar, TestGetNextPath){
-  TemporalAStar<xytLoc,tDirection,Map2DConstrainedEnvironment> astar;
+  TemporalAStar<xytAABB,Map2DConstrainedEnvironment> astar;
   Map map(100,100);
   MapEnvironment env1(&map);
   env1.SetNineConnected();
-  Map2DConstrainedEnvironment env(&env1);
+  Map2DConstrainedEnvironment env(&env1,0);
   std::vector<xytLoc> path;
   xytLoc s(0,1);
   xytLoc g(99,99);
@@ -310,11 +310,11 @@ TEST(TemporalAStar, TestGetNextPath){
 }
 
 TEST(TemporalAStar, TestGetPaths){
-  TemporalAStar<xytLoc,tDirection,Map2DConstrainedEnvironment> astar;
+  TemporalAStar<xytAABB,Map2DConstrainedEnvironment> astar;
   Map map(100,100);
   MapEnvironment env1(&map);
   env1.SetNineConnected();
-  Map2DConstrainedEnvironment env(&env1);
+  Map2DConstrainedEnvironment env(&env1,0);
   std::vector<std::vector<xytLoc>> paths;
   xytLoc s(0,1);
   xytLoc g(99,99);
@@ -461,7 +461,7 @@ TEST(Grid3DConstrained, GetStateHash){
   xyztLoc a={103,41,0,6.24264f};
   xyztLoc b={103,43,0,6.24264f};
   Map3D map(99,99,99);
-  Grid3DConstrainedEnvironment e(&map);
+  Grid3DConstrainedEnvironment e(&map,0);
   e.SetIgnoreHeading(true);
   uint64_t ha(e.GetStateHash(a));
   uint64_t hb(e.GetStateHash(b));

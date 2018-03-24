@@ -35,31 +35,24 @@ struct IntervalData{
   bool operator<(IntervalData const& other)const{return other.hash1==hash1?(other.hash2==hash2?(other.agent==agent?false:agent<other.agent):hash2<other.hash2):hash1<other.hash1;}
 };
 
-template <typename state, typename action>
-class NonUnitTimeCAT : public ConflictAvoidanceTable<state,action>{
+template <typename BB, typename action>
+class NonUnitTimeCAT : public ConflictAvoidanceTable<BB,action>{
 public:
   typedef std::set<IntervalData> ConflictSet;
   static double bucketWidth;
 
-  NonUnitTimeCAT():ConflictAvoidanceTable<state,action>(),cat(bucketWidth){}
-  virtual void remove(std::vector<state> const& thePath, SearchEnvironment<state,action> const* env, unsigned agent){
+  NonUnitTimeCAT():ConflictAvoidanceTable<BB,action>(),cat(bucketWidth){}
+  virtual void remove(std::vector<BB> const& thePath, SearchEnvironment<typename BB::State,action> const* env, unsigned agent){
     for(int i(0); i<thePath.size(); ++i) {
       // Populate the interval tree
-      if(i) //!=0
-        cat.remove(thePath[i-1].t, thePath[i].t, IntervalData(env->GetStateHash(thePath[i-1]), env->GetStateHash(thePath[i]), agent));
-      else
-        // No parent...
-        cat.remove(thePath[i].t, thePath[i].t+.001, IntervalData(0, env->GetStateHash(thePath[i]), agent));
+        cat.remove(thePath[i].start.t, thePath[i].end.t, IntervalData(env->GetStateHash(thePath[i].start), env->GetStateHash(thePath[i].end), agent));
     }
   }
-  virtual void insert(std::vector<state> const& thePath, SearchEnvironment<state,action> const* env, unsigned agent){
+  virtual void insert(std::vector<BB> const& thePath, SearchEnvironment<typename BB::State,action> const* env, unsigned agent){
     for(int i(0); i<thePath.size(); ++i) {
     // Populate the interval tree
       if(i) //!=0
-        cat.insert(thePath[i-1].t, thePath[i].t, IntervalData(env->GetStateHash(thePath[i-1]), env->GetStateHash(thePath[i]), agent));
-      else
-        // No parent...
-        cat.insert(thePath[i].t, thePath[i].t+.001, IntervalData(0, env->GetStateHash(thePath[i]), agent));
+        cat.insert(thePath[i].start.t, thePath[i].end.t, IntervalData(env->GetStateHash(thePath[i].start), env->GetStateHash(thePath[i].end), agent));
     }
   }
   void get(float t, float te, ConflictSet &result)const{
