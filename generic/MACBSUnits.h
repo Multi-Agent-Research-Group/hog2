@@ -333,23 +333,37 @@ template<typename BB, typename conflicttable>
 struct CBSTreeNode {
 	CBSTreeNode():agent(9999999),path(nullptr),parent(0),satisfiable(true),cat(){}
         // Copy ctor takes over memory for path member
-	CBSTreeNode(CBSTreeNode<BB,conflicttable> const& from):wpts(from.wpts),path(from.path.release()),paths(from.paths),con(from.con),parent(from.parent),satisfiable(from.satisfiable),cat(from.cat),agent(from.agent){
-          if(agent<paths.size())paths[agent]=path.get();
+        CBSTreeNode(CBSTreeNode<BB,conflicttable> const& from):wpts(from.wpts),path(from.path.release()),paths(from.paths),con(from.con),parent(from.parent),satisfiable(from.satisfiable),cat(from.cat),agent(from.agent),broadphase(from.broadphase.release()){
+int x=1;
         }
-	CBSTreeNode(CBSTreeNode<BB,conflicttable> const& from,unsigned a):wpts(from.wpts),path(new std::vector<BB>()),paths(from.paths),con(from.con),parent(from.parent),satisfiable(from.satisfiable),cat(from.cat),agent(a){
-          paths[a]=path.get();
+        CBSTreeNode(CBSTreeNode<BB,conflicttable> const& from,unsigned a):wpts(from.wpts),path(new std::vector<BB>()),paths(from.paths),con(from.con),parent(from.parent),satisfiable(from.satisfiable),cat(from.cat),agent(a){
+          if(bp){
+            broadphase.reset(new SAP<BB>((SAP<BB> const&)*from.broadphase.get()));
+          }else{
+            broadphase.reset(new Pairwise<BB>((Pairwise<BB> const&)*from.broadphase.get()));
+          }
+          broadphase->replace(paths[agent],path.get());
+          paths[agent]=path.get();
         }
-        CBSTreeNode(CBSTreeNode<BB,conflicttable> const& node, Conflict<BB> const& c, unsigned p, bool s, unsigned a):wpts(node.wpts),agent(a),path(new std::vector<BB>()),paths(node.paths),con(c),parent(p),satisfiable(s),cat(node.cat){
-          paths[a]=path.get();
+        CBSTreeNode(CBSTreeNode<BB,conflicttable> const& from, Conflict<BB> const& c, unsigned p, bool s, unsigned a):wpts(from.wpts),agent(a),path(new std::vector<BB>()),paths(from.paths),con(c),parent(p),satisfiable(s),cat(from.cat),broadphase((bp?(BroadPhase<BB>*)new SAP<BB>((SAP<BB> const&)*from.broadphase.get()):(BroadPhase<BB>*)new Pairwise<BB>((Pairwise<BB> const&)*from.broadphase.get()))){
+          broadphase->replace(paths[agent],path.get());
+          paths[agent]=path.get();
         }
-        CBSTreeNode& operator=(CBSTreeNode<BB,conflicttable> const& from){
+        void sort(){
+          if(bp){
+            broadphase.reset(new SAP<BB>(&paths,false));
+          }else{
+            broadphase.reset(new Pairwise<BB>(&paths));
+          }
+        }
+        /*CBSTreeNode& operator=(CBSTreeNode<BB,conflicttable> const& from){
           wpts=from.wpts;
           paths=from.paths;
           con=from.con;
           parent=from.parent;
           satisfiable=from.satisfiable;
           cat=from.cat;
-        }
+        }*/
 	std::vector< std::vector<int> > wpts;
         unsigned agent;
 	mutable std::unique_ptr<std::vector<BB>> path;
@@ -361,8 +375,16 @@ struct CBSTreeNode {
 	bool satisfiable;
         //IntervalTree cat; // Conflict avoidance table
         conflicttable cat; // Conflict avoidance table
-        BroadPhase<BB>* broadphase;
+        mutable std::unique_ptr<BroadPhase<BB>> broadphase;
+        static bool bp;
 };
+
+template<typename BB, typename conflicttable>
+bool CBSTreeNode<BB,conflicttable>::bp=true;
+
+template<typename BB, typename conflicttable>
+Solution<BB> CBSTreeNode<BB,conflicttable>::basepaths=Solution<BB>();
+
 
 template<typename BB, typename conflicttable, class searchalgo>
 static std::ostream& operator <<(std::ostream & out, const CBSTreeNode<BB,conflicttable> &act)
@@ -384,7 +406,7 @@ template<typename BB, typename action,typename conflicttable, class maplanner, c
 class CBSGroup : public UnitGroup<typename BB::State, action, ConstrainedEnvironment<BB,action>>
 {
   public:
-    CBSGroup(std::vector<std::vector<EnvironmentContainer<BB,action>>>&, bool bp, bool v=false);
+    CBSGroup(std::vector<std::vector<EnvironmentContainer<BB,action>>>&, bool bp, bool bpcon, bool v=false);
     bool MakeMove(Unit<typename BB::State,action,ConstrainedEnvironment<BB,action>> *u,
         ConstrainedEnvironment<BB,action> *e, 
         SimulationInfo<typename BB::State,action,ConstrainedEnvironment<BB,action>> *si,
@@ -481,15 +503,13 @@ public:
     bool verbose=false;
     bool quiet=false;
     bool disappearAtGoal=true;
-    bool broadphase=false;
+    bool broadphase=true;
+    bool broadphasecon=true;
     bool usecrossconstraints=true;
 };
 
 template<typename BB, typename action,typename conflicttable, class maplanner, class searchalgo>
 bool CBSGroup<BB,action,conflicttable,maplanner,searchalgo>::greedyCT=false;
-
-template<typename BB, typename conflicttable>
-Solution<BB> CBSTreeNode<BB,conflicttable>::basepaths=Solution<BB>();
 
 /** AIR CBS UNIT DEFINITIONS */
 
@@ -573,10 +593,10 @@ void CBSGroup<BB,action,conflicttable,maplanner,searchalgo>::AddEnvironmentConst
 
 /** constructor **/
 template<typename BB, typename action,typename conflicttable, class maplanner, class searchalgo>
-CBSGroup<BB,action,conflicttable,maplanner,searchalgo>::CBSGroup(std::vector<std::vector<EnvironmentContainer<BB,action>>>& environvec, bool bp, bool v)
+CBSGroup<BB,action,conflicttable,maplanner,searchalgo>::CBSGroup(std::vector<std::vector<EnvironmentContainer<BB,action>>>& environvec, bool bp, bool bpcon, bool v)
 : time(0), bestNode(0), planFinished(false), verify(false), nobypass(false)
     , ECBSheuristic(false), killex(INT_MAX), keeprunning(false),animate(0),
-    seed(1234567), timer(0), verbose(v), mergeThreshold(5), quiet(true), broadphase(bp)
+    seed(1234567), timer(0), verbose(v), mergeThreshold(5), quiet(true), broadphase(bp), broadphasecon(bpcon)
 {
   //std::cout << "THRESHOLD " << threshold << "\n";
 
@@ -593,7 +613,7 @@ CBSGroup<BB,action,conflicttable,maplanner,searchalgo>::CBSGroup(std::vector<std
         }
         );
     for(auto& environ:environs){
-      if(broadphase)
+      if(broadphasecon)
         environ.environment->constraints=new SAP<Constraint<BB>>(environvec.size());
       else
         environ.environment->constraints=new Pairwise<Constraint<BB>>(environvec.size());
@@ -605,6 +625,7 @@ CBSGroup<BB,action,conflicttable,maplanner,searchalgo>::CBSGroup(std::vector<std
   }
 
   CBSTreeNode<BB,conflicttable>::basepaths.resize(environments.size());
+  CBSTreeNode<BB,conflicttable>::bp=bp;
   astar.SetVerbose(verbose);
 }
 

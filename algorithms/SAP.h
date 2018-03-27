@@ -15,18 +15,22 @@ class SAP : public BroadPhase<BB>{
     inline bool operator()(BB const* a, BB const* b){return a->lessOverlap(*b);}
   };
   public:
-    SAP(unsigned n):BroadPhase<BB>(n){}
+    SAP(unsigned n):BroadPhase<BB>(n),maxend(0){}
 
-    SAP(std::vector<std::vector<BB>*> const* paths):BroadPhase<BB>(paths){
-      for(auto const& p:*paths){
-        for(auto const& v:*p){
-          sorted.push_back(&v);
+    SAP(std::vector<std::vector<BB>*>* paths,bool presorted=true):BroadPhase<BB>(paths),maxend(0){
+      if(!presorted){
+        for(auto const& p:*paths){
+          for(auto const& v:*p){
+            //maxend=std::max(maxend,v.end.t);
+            sorted.push_back(&v);
+          }
         }
+        std::sort(sorted.begin(),sorted.end(),InsertCompare());
       }
-      std::sort(sorted.begin(),sorted.end(),InsertCompare());
     }
 
     virtual void insert(BB const* v){
+      maxend=std::max(maxend,v->end.t);
       if(!sorted.size()){
         sorted.push_back(v);
         return;
@@ -70,9 +74,23 @@ class SAP : public BroadPhase<BB>{
       // Use interpolation to find range of BBs to compare with
       // Making the dangerous assumption that the range starts at zero!
       if(!sorted.size())return;
-      unsigned maxval(sorted.back()->end.t);
-      if(maxval<v->start.t)return;
-      if(maxval){
+      if(maxend<v->start.t)return;
+      {
+        auto loc(sorted.begin());
+        while(loc!=sorted.end() && v->upperBound.t>=(*loc)->lowerBound.t){
+          if(v->agent!=(*loc)->agent &&
+              v->lowerBound.t<=(*loc)->upperBound.t &&
+              v->upperBound.x>=(*loc)->lowerBound.x &&
+              v->lowerBound.x<=(*loc)->upperBound.x &&
+              v->lowerBound.y<=(*loc)->upperBound.y &&
+              v->upperBound.y>=(*loc)->lowerBound.y){
+            conflicting.push_back(*loc);
+          }
+          ++loc;
+        }
+        return;
+      }
+      /*if(maxval){
         unsigned i(sorted.size()*(v->start.t/maxval));
         if(i>=sorted.size())i=sorted.size()-1;
         auto loc(sorted.begin()+i);
@@ -87,7 +105,7 @@ class SAP : public BroadPhase<BB>{
           if(lower<sorted.begin())lower=sorted.begin();
           loc=std::lower_bound(lower,loc,v,OverlapCompare());
         }
-        while(loc!=sorted.end() && (*loc)->upperBound.t>=v->upperBound.t){
+        while(loc!=sorted.end() && v->lowerBound.t<(*loc)->lowerBound.t || v->lowerBound.t<(*loc)->upperBound.t){
           if(v->agent!=(*loc)->agent &&
               v->upperBound.x>=(*loc)->lowerBound.x &&
               v->lowerBound.x<=(*loc)->upperBound.x &&
@@ -100,7 +118,7 @@ class SAP : public BroadPhase<BB>{
       }else{
         // Binary search..
         auto loc(std::lower_bound(sorted.begin(),sorted.end(),v,OverlapCompare()));
-        while(loc!=sorted.end() && (*loc)->upperBound.t>=v->upperBound.t){
+        while(loc!=sorted.end() && v->lowerBound.t<(*loc)->lowerBound.t || v->lowerBound.t<(*loc)->upperBound.t){
           if(v->agent!=(*loc)->agent &&
               v->upperBound.x>=(*loc)->lowerBound.x &&
               v->lowerBound.x<=(*loc)->upperBound.x &&
@@ -110,7 +128,7 @@ class SAP : public BroadPhase<BB>{
           }
           ++loc;
         }
-      }
+      }*/
     }
 
     virtual void replace(std::vector<BB>* o, std::vector<BB>* n){
@@ -169,6 +187,7 @@ class SAP : public BroadPhase<BB>{
     virtual void clear(){sorted.resize(0);}
 
     std::vector<BB const*> sorted;
+    unsigned maxend;
 };
 
 #endif

@@ -10,7 +10,7 @@ class Pairwise : public BroadPhase<BB>{
   public:
     Pairwise(unsigned n):BroadPhase<BB>(n){}
 
-    Pairwise(std::vector<std::vector<BB>*> const* p):BroadPhase<BB>(p),paths(p){}
+    Pairwise(std::vector<std::vector<BB>*>* p):BroadPhase<BB>(p),paths(p){}
 
     virtual void insert(BB const* v){
       ppaths.push_back(v);
@@ -18,12 +18,14 @@ class Pairwise : public BroadPhase<BB>{
 
     virtual void getConflicts(BB const* v, std::vector<BB const*>& conflicting)const{
       for(auto const& p:ppaths){
-        conflicting.push_back(p);
+        if(v->start.t>p->end.t || v->end.t<p->start.t || v->end.t==v->start.t || v->end.t == v->start.t){}else{
+          conflicting.push_back(p);
+        }
       }
     }
 
     virtual void replace(std::vector<BB>* o, std::vector<BB>* n){
-      paths->at(n->at(0).agent)=n;
+      //paths->at(n->at(0).agent)=n;
     }
   
     virtual void getAllPairs(std::vector<std::pair<BB const*,BB const*>>& pairs)const{
@@ -43,6 +45,10 @@ class Pairwise : public BroadPhase<BB>{
               ++a;
             }else if(a->start.t>b->start.t){
               ++b;
+            }else if(a->end.t>b->end.t){
+              ++b;
+            }else if(a->end.t<b->end.t){
+              ++a;
             }else{
               ++a;++b;
             }

@@ -440,6 +440,7 @@ double collisionCheck3D(state const& A1, state const& A2, state const& B1, state
 }*/
 
 double collisionCheck3D(TemporalVector3D const& A1, TemporalVector3D const& A2, TemporalVector3D const& B1, TemporalVector3D const& B2, double radiusA, double radiusB, double speedA, double speedB){
+  if(fgreater(A1.t-radiusA,B2.t)||fgreater(B1.t-radiusB,A2.t)||fequal(A1.t,A2.t)||fequal(B1.t,B2.t)){return 0;}
   if(!radiusB)radiusB=radiusA;
   unsigned sdx(fabs(A1.x-B2.x));
   unsigned sdy(fabs(A1.y-B2.y));
