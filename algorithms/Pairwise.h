@@ -10,11 +10,14 @@ class Pairwise : public BroadPhase<BB>{
   public:
     Pairwise(unsigned n):BroadPhase<BB>(n){}
 
-    Pairwise(std::vector<std::vector<BB>*>* p):BroadPhase<BB>(p),paths(p){}
+    Pairwise(std::vector<std::vector<BB>*>* p):BroadPhase<BB>(p),paths(p){
+    }
 
     virtual void insert(BB const* v){
       ppaths.push_back(v);
     }
+
+    virtual void update(std::vector<std::vector<BB>*>* p){paths=p;}
 
     virtual void getConflicts(BB const* v, std::vector<BB const*>& conflicting)const{
       for(auto const& p:ppaths){

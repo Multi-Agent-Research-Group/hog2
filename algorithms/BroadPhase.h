@@ -14,6 +14,8 @@ class BroadPhase{
 
     virtual void insert(BB const* v)=0;
 
+    virtual void update(std::vector<std::vector<BB>*>* paths){}
+
     virtual void replace(std::vector<BB>* o, std::vector<BB>* n)=0;
   
     virtual void getAllPairs(std::vector<std::pair<BB const*,BB const*>>& pairs)const=0;
