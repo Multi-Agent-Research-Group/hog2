@@ -32,13 +32,14 @@ class Pairwise : public BroadPhase<BB>{
     }
   
     virtual void getAllPairs(std::vector<std::pair<BB const*,BB const*>>& pairs)const{
+      comparisons=0;
       for(unsigned i(0); i<paths->size(); ++i){
         for(unsigned j(i+1); j<paths->size(); ++j){
           auto a(paths->at(i)->begin());
           auto b(paths->at(j)->begin());
           while(a!=paths->at(i)->end() && b!=paths->at(j)->end()){
-            if(a->agent!=b->agent &&
-                a->upperBound.x>=b->lowerBound.x &&
+            ++comparisons;
+            if( a->upperBound.x>=b->lowerBound.x &&
                 a->lowerBound.x<=b->upperBound.x &&
                 a->lowerBound.y<=b->upperBound.y &&
                 a->upperBound.y>=b->lowerBound.y){
@@ -64,6 +65,7 @@ class Pairwise : public BroadPhase<BB>{
 
     std::vector<BB const*> ppaths;
     std::vector<std::vector<BB>*>* paths;
+    mutable unsigned comparisons;
 };
 
 #endif

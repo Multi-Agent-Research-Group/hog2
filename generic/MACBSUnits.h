@@ -19,8 +19,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
-#ifndef __hog2_glut__AirplaneCBSUnits__
-#define __hog2_glut__AirplaneCBSUnits__
+#ifndef __hog2_glut__MACBSUnits__
+#define __hog2_glut__MACBSUnits__
 
 #include <iostream>
 #include <limits> 
