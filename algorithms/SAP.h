@@ -25,7 +25,7 @@ class SAP : public BroadPhase<BB>{
       if(!presorted){
         for(auto const& p:*paths){
           for(auto const& v:*p){
-            this->sorted.emplace_back(v,v.start);
+            this->sorted.emplace_back(v,v.start,false);
             this->sorted.emplace_back(v,v.end);
           }
         }
@@ -43,6 +43,7 @@ class SAP : public BroadPhase<BB>{
       // Making the dangerous assumption that the range starts at zero!
       if(!this->sorted.size()){
         this->sorted.emplace_back(n,q,end);
+        return;
       }
       unsigned maxend(this->sorted.back().key->t);
       if(maxend<q.t){
@@ -51,7 +52,7 @@ class SAP : public BroadPhase<BB>{
       }
       if(maxend){
         Node v(n,q,end);
-        unsigned i(this->sorted.size()*(q.t/maxend));
+        unsigned i(this->sorted.size()*(q.t/(float)maxend));
         if(i>=this->sorted.size())i=this->sorted.size()-1;
         auto loc(this->sorted.begin()+i);
         if(v<(*loc)){
@@ -81,7 +82,7 @@ class SAP : public BroadPhase<BB>{
       unsigned maxval(this->sorted.back().key->t);
       if(maxval<v->start.t)return; // past the end
       if(maxval){
-        unsigned i(this->sorted.size()*(v->start.t/maxval));
+        unsigned i(this->sorted.size()*(v->start.t/(float)maxval));
         if(i>=this->sorted.size())i=this->sorted.size()-1;
         auto loc(this->sorted.begin()+i);
         if(v->start.t<loc->key->t){
@@ -200,8 +201,8 @@ class SAP : public BroadPhase<BB>{
         if(bb.end){
           active.erase(bb.value);
         }else{
+          this->comparisons++;
           for (auto val: active){
-            this->comparisons++;
             if(bb.value->agent!=val->agent &&
                 bb.value->upperBound.x>=val->lowerBound.x &&
                 bb.value->lowerBound.x<=val->upperBound.x &&

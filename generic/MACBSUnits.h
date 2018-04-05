@@ -45,6 +45,7 @@
 #include "Heuristic.h"
 #include "Timer.h"
 #include "SAP.h"
+#include "ITree.h"
 #include "Pairwise.h"
 #include <string.h>
 #include <unordered_map>
@@ -616,7 +617,7 @@ CBSGroup<BB,action,conflicttable,maplanner,searchalgo>::CBSGroup(std::vector<std
         );
     for(auto& environ:environs){
       if(broadphasecon)
-        environ.environment->constraints=new SAP<Constraint<BB>>(environvec.size());
+        environ.environment->constraints=new ITree<Constraint<BB>>(environvec.size());
       else
         environ.environment->constraints=new Pairwise<Constraint<BB>>(environvec.size());
     }

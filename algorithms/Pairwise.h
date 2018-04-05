@@ -45,11 +45,11 @@ class Pairwise : public BroadPhase<BB>{
                 a->upperBound.y>=b->lowerBound.y){
               pairs.emplace_back(&*a,&*b);
             }
-            if(a->start.t<b->start.t){
+            /*if(a->start.t<b->start.t){
               ++a;
             }else if(a->start.t>b->start.t){
               ++b;
-            }else if(a->end.t>b->end.t){
+            }else */if(a->end.t>b->end.t){
               ++b;
             }else if(a->end.t<b->end.t){
               ++a;

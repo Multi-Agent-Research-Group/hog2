@@ -230,7 +230,10 @@ struct xyztLoc {
   bool operator==(xyztLoc const& other)const{return sameLoc(other)&&t==other.t;}
   bool operator!=(xyztLoc const& other)const{return x!=other.x||y!=other.y||z!=other.z||t!=other.t;}
   void print(std::ostream& os)const{os<<"("<<x<<","<<y<<","<<z<<","<<float(t)/TIME_RESOLUTION<<")";}
-  bool operator<(xyztLoc const& other)const{return t==other.t?x==other.x?y==other.y?other.z<z:y<other.y:x<other.x:t<other.t;}
+  bool operator<(xyztLoc const& other)const{return t==other.t?x==other.x?y==other.y?z<other.z:y<other.y:x<other.x:t<other.t;}
+  bool operator<=(xyztLoc const& other)const{return t==other.t?x==other.x?y==other.y?z<=other.z:y<=other.y:x<=other.x:t<=other.t;}
+  bool operator>(xyztLoc const& other)const{return t==other.t?x==other.x?y==other.y?z>other.z:y>other.y:x>other.x:t>other.t;}
+  bool operator>=(xyztLoc const& other)const{return t==other.t?x==other.x?y==other.y?z>=other.z:y>=other.y:x>=other.x:t>=other.t;}
   static float TIME_RESOLUTION;
   static unsigned TIME_RESOLUTION_U;
   static double TIME_RESOLUTION_D;
