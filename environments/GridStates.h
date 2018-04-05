@@ -230,7 +230,10 @@ struct xyztLoc {
   bool operator==(xyztLoc const& other)const{return sameLoc(other)&&t==other.t;}
   bool operator!=(xyztLoc const& other)const{return x!=other.x||y!=other.y||z!=other.z||t!=other.t;}
   void print(std::ostream& os)const{os<<"("<<x<<","<<y<<","<<z<<","<<float(t)/TIME_RESOLUTION<<")";}
-  bool operator<(xyztLoc const& other)const{return t==other.t?x==other.x?y==other.y?other.z<z:y<other.y:x<other.x:t<other.t;}
+  bool operator<(xyztLoc const& other)const{return t==other.t?x==other.x?y==other.y?z<other.z:y<other.y:x<other.x:t<other.t;}
+  bool operator<=(xyztLoc const& other)const{return t==other.t?x==other.x?y==other.y?z<=other.z:y<=other.y:x<=other.x:t<=other.t;}
+  bool operator>(xyztLoc const& other)const{return t==other.t?x==other.x?y==other.y?z>other.z:y>other.y:x>other.x:t>other.t;}
+  bool operator>=(xyztLoc const& other)const{return t==other.t?x==other.x?y==other.y?z>=other.z:y>=other.y:x>=other.x:t>=other.t;}
   static float TIME_RESOLUTION;
   static unsigned TIME_RESOLUTION_U;
   static double TIME_RESOLUTION_D;
@@ -296,6 +299,18 @@ struct xyztAABB{
            lowerBound.x<aabb.lowerBound.x:
            lowerBound.t<aabb.lowerBound.t;
   }
+
+  // Is the entire bbox less than other?
+  inline bool lessOverlap(const xyztAABB& aabb) const{
+    return upperBound.t==aabb.lowerBound.t?
+           upperBound.x==aabb.lowerBound.x?
+           upperBound.y==aabb.lowerBound.y?
+           upperBound.z<aabb.lowerBound.z:
+           upperBound.y<aabb.lowerBound.y:
+           upperBound.x<aabb.lowerBound.x:
+           upperBound.t<aabb.lowerBound.t;
+  }
+
 
   inline void operator=(const xyztAABB& aabb){
     start=aabb.start;

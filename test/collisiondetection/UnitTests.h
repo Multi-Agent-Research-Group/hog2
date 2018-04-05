@@ -826,12 +826,12 @@ TEST(VelocityObstacle, PerfTest){
 }
 
 TEST(Quadratic, PerfTest){
-  //Timer t;
-  //t.StartTimer();
-  for(int i(0); i<10; ++i){
+  Timer t;
+  t.StartTimer();
+  for(int i(0); i<10000; ++i){
     collisionImminent(Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),.25,rfloat(0,10),rfloat(0,10),Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),.25,rfloat(0,10),rfloat(0,10));
   }
-  //std::cout << "Total time (Quadratic)" << t.EndTimer() << "\n";
+  std::cout << "Total time (Quadratic)" << t.EndTimer() << "\n";
 }
 
 TEST(RadialVisibility, ComputeVisibilityGrid){

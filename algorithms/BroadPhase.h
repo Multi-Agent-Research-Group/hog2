@@ -8,11 +8,13 @@ class BroadPhase{
   public:
     BroadPhase(unsigned n):k(n){}
 
-    BroadPhase(std::vector<std::vector<BB>*> const* paths):k(paths->size()){}
+    BroadPhase(std::vector<std::vector<BB>*>* paths):k(paths->size()){}
 
     virtual void getConflicts(BB const* v, std::vector<BB const*>& conflicting)const=0;
 
     virtual void insert(BB const* v)=0;
+
+    virtual void update(std::vector<std::vector<BB>*>* paths){}
 
     virtual void replace(std::vector<BB>* o, std::vector<BB>* n)=0;
   

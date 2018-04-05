@@ -76,12 +76,14 @@ struct JointStats{
 std::string currentICT;
 std::vector<JointStats> jointstats;
 
-float jointTime(0);
-float pairwiseTime(0);
-float mddTime(0);
-float nogoodTime(0);
-float certifyTime(0);
+double collTime(0);
+double jointTime(0);
+double pairwiseTime(0);
+double mddTime(0);
+double nogoodTime(0);
+double certifyTime(0);
 Timer certtimer;
+Timer collTimer;
 unsigned mdddepth(0);
 unsigned mddbranchingfactor(0);
 unsigned mddnonleaf(0);
@@ -96,6 +98,7 @@ unsigned maxjoint(0);
 unsigned minjoint(INF);
 size_t maxnagents(0);
 unsigned collChecks(0);
+unsigned fullCollChecks(0);
 
 extern double agentRadius;
 double weight(0.0);
@@ -124,7 +127,7 @@ bool gui=true;
 uint64_t jointnodes(0);
 uint64_t jointexpansions(0);
 uint64_t largestbranch(0);
-float largestJoint(0);
+double largestJoint(0);
 uint32_t step(INFLATION);
 int n(0);
 std::unordered_map<std::string,bool> transTable;
@@ -378,7 +381,7 @@ std::ostream& operator << (std::ostream& ss, MultiEdge const& n){
 
 std::ostream& operator << (std::ostream& ss, Node const& n){
   //ss << n.n.x-10 << "," << n.n.y-10 << "," << float(n.depth)/1000.;
-  ss << n.n.x << "," << n.n.y << "," << float(n.depth)/INFLATION<<":"<<n.id;
+  ss << n.n.x << "," << n.n.y << "," << double(n.depth)/INFLATION<<":"<<n.id;
   return ss;
 }
 
@@ -575,6 +578,8 @@ void generatePermutations(std::vector<MultiEdge>& positions, std::vector<MultiEd
     MultiEdge copy(current);
     bool found(false);
     for(int j(0); j<current.size(); ++j){
+      fullCollChecks++;
+      collTimer.StartTimer();
       if((positions[agent][i].first->depth==current[j].first->depth &&
             positions[agent][i].first->n==current[j].first->n)||
           (positions[agent][i].second->depth==current[j].second->depth &&
@@ -582,9 +587,13 @@ void generatePermutations(std::vector<MultiEdge>& positions, std::vector<MultiEd
           (positions[agent][i].first->n.sameLoc(current[j].second->n)&&
            current[j].first->n.sameLoc(positions[agent][i].second->n))){
         found=true;
+        collTime+=collTimer.EndTimer();
         break;
       }
-      if(precheck && !env->collisionPreCheck(positions[agent][i].first->n,positions[agent][i].second->n,agentRadius,current[j].first->n,current[j].second->n,agentRadius)) continue;
+      if(precheck && !env->collisionPreCheck(positions[agent][i].first->n,positions[agent][i].second->n,agentRadius,current[j].first->n,current[j].second->n,agentRadius)){
+        collTime+=collTimer.EndTimer();
+        continue;
+      }
       // Make sure we don't do any checks that were already done
       //if(positions[agent][i].first->depth==lastTime&&current[j].first->depth==lastTime)continue;
       //uint64_t hash(EdgePairHash(positions[agent][i],current[j]));
@@ -603,8 +612,10 @@ void generatePermutations(std::vector<MultiEdge>& positions, std::vector<MultiEd
         if(verbose)std::cout << "Collision averted: " << *positions[agent][i].first << "-->" << *positions[agent][i].second << " " << *current[j].first << "-->" << *current[j].second << "\n";
         found=true;
         //checked.insert(hash);
+        collTime+=collTimer.EndTimer();
         break;
       }
+      collTime+=collTimer.EndTimer();
       if(verbose)std::cout << "generating: " << *positions[agent][i].first << "-->" << *positions[agent][i].second << " " << *current[j].first << "-->" << *current[j].second << "\n";
     }
     if(found) continue;
@@ -1021,6 +1032,15 @@ bool checkPair(Path const& p1, Path const& p2,bool loud=false){
   auto bp(p2.begin());
   auto b(bp+1);
   while(a!=p1.end() && b!=p2.end()){
+    collTimer.StartTimer();
+    fullCollChecks++;
+    if(((*ap)->depth==(*bp)->depth && (*ap)->n==(*bp)->n)||
+        ((*a)->depth==(*b)->depth && (*a)->n==(*b)->n)||
+        ((*ap)->n==(*b)->n && (*bp)->n==(*a)->n)){
+      if(loud)std::cout << "Collision: " << **ap << "-->" << **a << "," << **bp << "-->" << **b;
+      collTime+=collTimer.EndTimer();
+      return false;
+    }
     if(!precheck || env->collisionPreCheck((*ap)->n,(*a)->n,agentRadius,(*bp)->n,(*b)->n,agentRadius)){
       Vector2D A((*ap)->n.x,(*ap)->n.y);
       Vector2D B((*bp)->n.x,(*bp)->n.y);
@@ -1031,6 +1051,7 @@ bool checkPair(Path const& p1, Path const& p2,bool loud=false){
       collChecks++;
       if(collisionImminent(A,VA,agentRadius,(*ap)->depth*TOMSECS,(*a)->depth*TOMSECS,B,VB,agentRadius,(*bp)->depth*TOMSECS,(*b)->depth*TOMSECS)){
         if(loud)std::cout << "Collision: " << **ap << "-->" << **a << "," << **bp << "-->" << **b;
+        collTime+=collTimer.EndTimer();
         return false;
       }
     }
@@ -1045,6 +1066,7 @@ bool checkPair(Path const& p1, Path const& p2,bool loud=false){
       ++ap;++bp;
     }
   }
+  collTime+=collTimer.EndTimer();
   return true;
 }
 
@@ -1331,7 +1353,37 @@ bool detectIndependence(Solution& solution, std::vector<Group*>& group, std::uno
       if(solution[i].size() > a && solution[j].size() > b){
         //uint32_t t(min(solution[i][a]->depth,solution[j][b]->depth));
         while(1){
-          if(a==solution[i].size() || b==solution[j].size()){break;}
+          if(a==solution[i].size() || b==solution[j].size()){
+            break;
+          }
+          fullCollChecks++;
+          collTimer.StartTimer();
+          if((solution[i][a-1]->depth==solution[j][b-1]->depth &&
+                solution[i][a-1]->n==solution[j][b-1]->n ) ||
+              (solution[i][a]->depth==solution[j][b]->depth &&
+               solution[i][a]->n==solution[j][b]->n) ||
+              (solution[i][a-1]->n==solution[j][b-1]->n &&
+               solution[i][a]->n==solution[j][b]->n)){
+            if(!quiet)std::cout << i << " and " << j << " collide at " << solution[i][a-1]->depth << "~" << solution[i][a]->depth << solution[i][a-1]->n << "-->" << solution[i][a]->n << " X " << solution[j][b-1]->n << "-->" << solution[j][b]->n << "\n";
+            independent=false;
+            if(group[i]==group[j]){
+              collTime+=collTimer.EndTimer();
+              break; // This can happen if both collide with a common agent
+            }
+
+            Group* toDelete(group[j]);
+            groups.erase(group[j]);
+            for(auto a:*group[j]){
+              if(verbose)std::cout << "Inserting agent " << a << " into group for agent " << i << "\n";
+              group[i]->insert(a);
+              group[a]=group[i];
+              maxnagents=std::max(group[i]->size(),maxnagents);
+            }
+            delete toDelete;
+
+            collTime+=collTimer.EndTimer();
+            break;
+          }
           if(!precheck || env->collisionPreCheck(solution[i][a-1]->n,solution[i][a]->n,agentRadius,solution[j][b-1]->n,solution[j][b]->n,agentRadius)){
             Vector2D A(solution[i][a-1]->n.x,solution[i][a-1]->n.y);
             Vector2D B(solution[j][b-1]->n.x,solution[j][b-1]->n.y);
@@ -1343,7 +1395,10 @@ bool detectIndependence(Solution& solution, std::vector<Group*>& group, std::uno
             if(collisionImminent(A,VA,agentRadius,solution[i][a-1]->depth*TOMSECS,solution[i][a]->depth*TOMSECS,B,VB,agentRadius,solution[j][b-1]->depth*TOMSECS,solution[j][b]->depth*TOMSECS)){
               if(!quiet)std::cout << i << " and " << j << " collide at " << solution[i][a-1]->depth << "~" << solution[i][a]->depth << solution[i][a-1]->n << "-->" << solution[i][a]->n << " X " << solution[j][b-1]->n << "-->" << solution[j][b]->n << "\n";
               independent=false;
-              if(group[i]==group[j]) break; // This can happen if both collide with a common agent
+              if(group[i]==group[j]){
+                collTime+=collTimer.EndTimer();
+                break; // This can happen if both collide with a common agent
+              }
               // Combine groups i and j
 
               Group* toDelete(group[j]);
@@ -1356,9 +1411,11 @@ bool detectIndependence(Solution& solution, std::vector<Group*>& group, std::uno
               }
               delete toDelete;
 
+              collTime+=collTimer.EndTimer();
               break;
             }
           }
+          collTime+=collTimer.EndTimer();
           if(solution[i][a]->depth==solution[j][b]->depth){
             ++a;++b;
           }else if(solution[i][a]->depth<solution[j][b]->depth){
@@ -1423,8 +1480,8 @@ void printResults(){
   //std::cout << elapsed << " elapsed";
   //std::cout << std::endl;
   //total += elapsed;
-  std::cout << "seed:filepath,Connectedness,ICTSNode::count,jointnodes,largestJoint,largestbranch,branchingfactor,Node::count,maxnagents,minsingle,maxsingle,minjoint,maxjoint,collChecks,total,mddTime,pairwiseTime,jointTime,nogoodTime,certifyTime,nacts,cost\n";
-  std::cout << seed << ":" << filepath << "," << int(env->GetConnectedness()) << "," << ICTSNode::count << "," << jointnodes << "," <<largestJoint << "," << largestbranch << "," << (double(jointnodes)/double(jointexpansions)) << "," << Node::count << "," << maxnagents << "," << minsingle << "," << maxsingle << "," << minjoint << "," << maxjoint << "," << collChecks << "," << total << "," << mddTime << "," << pairwiseTime << "," << jointTime << "," << nogoodTime << "," << certifyTime << "," << nacts << "," << cost;
+  std::cout << "seed:filepath,Connectedness,ICTSNode::count,jointnodes,largestJoint,largestbranch,branchingfactor,Node::count,maxnagents,minsingle,maxsingle,minjoint,maxjoint,fullCollChecks,collChecks,total,mddTime,pairwiseTime,jointTime,nogoodTime,certifyTime,collTime,nacts,cost\n";
+  std::cout << seed << ":" << filepath << "," << int(env->GetConnectedness()) << "," << ICTSNode::count << "," << jointnodes << "," <<largestJoint << "," << largestbranch << "," << (double(jointnodes)/double(jointexpansions)) << "," << Node::count << "," << maxnagents << "," << minsingle << "," << maxsingle << "," << minjoint << "," << maxjoint << "," << fullCollChecks << "," << collChecks << "," << total << "," << mddTime << "," << pairwiseTime << "," << jointTime << "," << nogoodTime << "," << certifyTime << "," << collTime << "," << nacts << "," << cost;
   if(total >= killtime)std::cout << " failure";
   std::cout << std::endl;
   if(total>=killtime)exit(1);
@@ -1867,7 +1924,7 @@ int main(int argc, char ** argv){
       }
     }
 
-    largestJoint = float(n)/float(groups.size());
+    largestJoint = double(n)/double(groups.size());
 
   }
   printResults();
