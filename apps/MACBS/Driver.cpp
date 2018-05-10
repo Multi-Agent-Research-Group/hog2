@@ -41,6 +41,7 @@ bool randomalg = false; // Randomize tiebreaking
 bool useCAT = false; // Use conflict avoidance table
 bool verify = false;
 bool suboptimal = false;
+bool skip=false;
 bool mouseTracking;
 unsigned killtime(300); // Kill after some number of seconds
 unsigned killmem(1024); // 1GB
@@ -185,6 +186,7 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-radius", "-radius <value>", "Radius in units of agent");
 	InstallCommandLineHandler(MyCLHandler, "-resolution", "-resolution <value>", "Inverse resolution of time/cost");
 	InstallCommandLineHandler(MyCLHandler, "-disappear", "-disappear", "Agents disappear at goal");
+	InstallCommandLineHandler(MyCLHandler, "-noskip", "-noskip", "Turn off skip logic in pairwise collision detection");
 	InstallCommandLineHandler(MyCLHandler, "-nobp", "-nobp", "Turn off broadphase collision detection");
 	InstallCommandLineHandler(MyCLHandler, "-nobpcon", "-nobpcon", "Turn off broadphase constraints organization");
 	InstallCommandLineHandler(MyCLHandler, "-nogui", "-nogui", "Turn off gui");
@@ -552,6 +554,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
             environs.push_back(ev);
             ++agent;
           }
+          if(skip)Params::conn=0;
           
           return 2;
         }
@@ -697,6 +700,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
               environs.push_back(ev);
             }
           }
+          if(skip)Params::conn=0;
           return 2;
         }
 	if(strcmp(argument[0], "-mergeThreshold") == 0)
@@ -747,6 +751,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 	if(strcmp(argument[0], "-nobp") == 0)
 	{
 		nobroadphase = true;
+		return 1;
+	}
+	if(strcmp(argument[0], "-noskip") == 0)
+	{
+		skip = false;
 		return 1;
 	}
 	if(strcmp(argument[0], "-disappear") == 0)
@@ -1019,6 +1028,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
             environs.push_back(ev);
             agent++;
           }
+          if(skip)Params::conn=0;
           return 2;
         }
 	if(strcmp(argument[0], "-nagents") == 0)
