@@ -501,27 +501,35 @@ int MyCLHandler(char *argument[], int maxNumArgs)
             for(auto e: a){
               Grid3DConstrainedEnvironment* newEnv(nullptr);
               if(e.name=="fourconnected"){
+                Params::conn=1;
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetZeroConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
                 newEnv = new Grid3DConstrainedEnvironment(me,agent); newEnv->SetIgnoreHeading(true);
               }else if(e.name=="fiveconnected"){
+                Params::conn=1;
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetZeroConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
                 newEnv = new Grid3DConstrainedEnvironment(me,agent); newEnv->SetIgnoreHeading(true);
               }else if(e.name=="eightconnected"){
+                Params::conn=1;
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetOneConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
                 newEnv = new Grid3DConstrainedEnvironment(me,agent); newEnv->SetIgnoreHeading(true);
               }else if(e.name=="nineconnected"){
+                Params::conn=1;
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetOneConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
                 newEnv = new Grid3DConstrainedEnvironment(me,agent); newEnv->SetIgnoreHeading(true);
               }else if(e.name=="twentyfourconnected"){
+                Params::conn=2;
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetTwoConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
                 newEnv = new Grid3DConstrainedEnvironment(me,agent); newEnv->SetIgnoreHeading(true);
               }else if(e.name=="twentyfiveconnected"){
+                Params::conn=2;
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetTwoConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
                 newEnv = new Grid3DConstrainedEnvironment(me,agent); newEnv->SetIgnoreHeading(true);
               }else if(e.name=="fortyeightconnected"){
+                Params::conn=3;
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetThreeConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
                 newEnv = new Grid3DConstrainedEnvironment(me,agent); newEnv->SetIgnoreHeading(true);
               }else if(e.name=="fortynineconnected"){
+                Params::conn=3;
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetThreeConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
                 newEnv = new Grid3DConstrainedEnvironment(me,agent); newEnv->SetIgnoreHeading(true);
               }else if(e.name=="3dcardinal"){
@@ -569,27 +577,35 @@ int MyCLHandler(char *argument[], int maxNumArgs)
               for(auto e: a){
                 Grid3DConstrainedEnvironment* newEnv(nullptr);
                 if(e.name=="fourconnected"){
+                Params::conn=1;
                   Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetZeroConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
                   newEnv = new Grid3DConstrainedEnvironment(me,agent); newEnv->SetIgnoreHeading(true);
                 }else if(e.name=="fiveconnected"){
+                Params::conn=1;
                   Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetZeroConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
                   newEnv = new Grid3DConstrainedEnvironment(me,agent); newEnv->SetIgnoreHeading(true);
                 }else if(e.name=="eightconnected"){
+                Params::conn=1;
                   Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetOneConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
                   newEnv = new Grid3DConstrainedEnvironment(me,agent); newEnv->SetIgnoreHeading(true);
                 }else if(e.name=="nineconnected"){
+                Params::conn=1;
                   Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetOneConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
                   newEnv = new Grid3DConstrainedEnvironment(me,agent); newEnv->SetIgnoreHeading(true);
                 }else if(e.name=="twentyfourconnected"){
+                Params::conn=2;
                   Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetTwoConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
                   newEnv = new Grid3DConstrainedEnvironment(me,agent); newEnv->SetIgnoreHeading(true);
                 }else if(e.name=="twentyfiveconnected"){
+                Params::conn=2;
                   Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetTwoConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
                   newEnv = new Grid3DConstrainedEnvironment(me,agent); newEnv->SetIgnoreHeading(true);
                 }else if(e.name=="fortyeightconnected"){
+                Params::conn=3;
                   Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetThreeConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
                   newEnv = new Grid3DConstrainedEnvironment(me,agent); newEnv->SetIgnoreHeading(true);
                 }else if(e.name=="fortynineconnected"){
+                Params::conn=3;
                   Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetThreeConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
                   newEnv = new Grid3DConstrainedEnvironment(me,agent); newEnv->SetIgnoreHeading(true);
                 }else if(e.name=="3dcardinal"){
@@ -949,27 +965,35 @@ int MyCLHandler(char *argument[], int maxNumArgs)
             for(auto e: a){
               Grid3DConstrainedEnvironment* newEnv(nullptr);
               if(e.name=="fourconnected"){
+                Params::conn=1;
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetZeroConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
                 newEnv = new Grid3DConstrainedEnvironment(me,agent); newEnv->SetIgnoreHeading(true);
               }else if(e.name=="fiveconnected"){
+                Params::conn=1;
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetZeroConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
                 newEnv = new Grid3DConstrainedEnvironment(me,agent); newEnv->SetIgnoreHeading(true);
               }else if(e.name=="eightconnected"){
+                Params::conn=1;
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetOneConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
                 newEnv = new Grid3DConstrainedEnvironment(me,agent); newEnv->SetIgnoreHeading(true);
               }else if(e.name=="nineconnected"){
+                Params::conn=1;
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetOneConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
                 newEnv = new Grid3DConstrainedEnvironment(me,agent); newEnv->SetIgnoreHeading(true);
               }else if(e.name=="twentyfourconnected"){
+                Params::conn=2;
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetTwoConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
                 newEnv = new Grid3DConstrainedEnvironment(me,agent); newEnv->SetIgnoreHeading(true);
               }else if(e.name=="twentyfiveconnected"){
+                Params::conn=2;
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetTwoConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
                 newEnv = new Grid3DConstrainedEnvironment(me,agent); newEnv->SetIgnoreHeading(true);
               }else if(e.name=="fortyeightconnected"){
+                Params::conn=3;
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetThreeConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
                 newEnv = new Grid3DConstrainedEnvironment(me,agent); newEnv->SetIgnoreHeading(true);
               }else if(e.name=="fortynineconnected"){
+                Params::conn=3;
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetThreeConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
                 newEnv = new Grid3DConstrainedEnvironment(me,agent); newEnv->SetIgnoreHeading(true);
               }else if(e.name=="3dcardinal"){

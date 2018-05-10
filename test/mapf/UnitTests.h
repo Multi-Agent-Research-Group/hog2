@@ -216,7 +216,7 @@ TEST(broadphase, comparison){
     tmr0.StartTimer();
     //for(auto const& s:sorted)
     //std::cout << "<"<<s.lowerBound[0].value<<"~"<<s.upperBound[0].value<<","<<s.lowerBound[1].cvalue<<"~"<<s.upperBound[1].cvalue<<","<<s.lowerBound[2].cvalue<<"~"<<s.upperBound[2].cvalue<<">\n";
-    Pairwise<xyztAABB> pw(&p2);
+    Pairwise<xyztAABB> pw(&p2,1);
     SAP<xyztAABB> sap(&p2,false);
     verifySorting(sap);
     std::vector<std::pair<xyztAABB const*,xyztAABB const*>> pairs;

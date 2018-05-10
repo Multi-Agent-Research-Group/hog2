@@ -262,6 +262,14 @@ unsigned GetFullPath(CBSUnit<BB,action,conflicttable,searchalgo>* c, searchalgo&
   return expansions;
 }
 
+struct Params {
+  static unsigned conn; // Max move length over all envs
+  static bool skip; // Use skip-ahead during collision check
+};
+
+unsigned Params::conn=1;
+bool Params::skip=false;
+
 template<typename BB, typename action, typename conflicttable,class searchalgo>
 class CBSUnit : public Unit<typename BB::State, action, ConstrainedEnvironment<BB,action>> {
 public:
@@ -346,7 +354,7 @@ struct CBSTreeNode {
           broadphase->replace(paths[agent],path.get());
           paths[agent]=path.get();
         }*/
-        CBSTreeNode(CBSTreeNode<BB,conflicttable> const& from, Conflict<BB> const& c, unsigned p, bool s, unsigned a):wpts(from.wpts),agent(a),path(new std::vector<BB>()),paths(from.paths),con(c),parent(p),satisfiable(s),cat(from.cat),broadphase((bp?(BroadPhase<BB>*)new SAP<BB>((SAP<BB> const&)*from.broadphase.get()):(BroadPhase<BB>*)new Pairwise<BB>(&paths))){
+        CBSTreeNode(CBSTreeNode<BB,conflicttable> const& from, Conflict<BB> const& c, unsigned p, bool s, unsigned a):wpts(from.wpts),agent(a),path(new std::vector<BB>()),paths(from.paths),con(c),parent(p),satisfiable(s),cat(from.cat),broadphase((bp?(BroadPhase<BB>*)new SAP<BB>((SAP<BB> const&)*from.broadphase.get()):(BroadPhase<BB>*)new Pairwise<BB>(&paths,Params::conn))){
           broadphase->replace(paths[agent],path.get());
           paths[agent]=path.get();
         }
@@ -355,7 +363,7 @@ struct CBSTreeNode {
           if(bp){
             broadphase.reset(new SAP<BB>(&paths,false));
           }else{
-            broadphase.reset(new Pairwise<BB>(&paths));
+            broadphase.reset(new Pairwise<BB>(&paths,Params::conn));
           }
         }
         /*CBSTreeNode& operator=(CBSTreeNode<BB,conflicttable> const& from){
@@ -386,7 +394,6 @@ bool CBSTreeNode<BB,conflicttable>::bp=true;
 
 template<typename BB, typename conflicttable>
 Solution<BB> CBSTreeNode<BB,conflicttable>::basepaths=Solution<BB>();
-
 
 template<typename BB, typename conflicttable, class searchalgo>
 static std::ostream& operator <<(std::ostream & out, const CBSTreeNode<BB,conflicttable> &act)
@@ -605,9 +612,6 @@ CBSGroup<BB,action,conflicttable,maplanner,searchalgo>::CBSGroup(std::vector<std
 
   tree.resize(1);
   tree[0].parent = 0;
-
-  // Sort the environment container by the number of conflicts
-  unsigned agent(0);
   for(auto& environs: environvec){
     std::sort(environs.begin(), environs.end(), 
         [](const EnvironmentContainer<BB,action>& a, const EnvironmentContainer<BB,action>& b) -> bool 
@@ -615,6 +619,13 @@ CBSGroup<BB,action,conflicttable,maplanner,searchalgo>::CBSGroup(std::vector<std
         return a.threshold < b.threshold;
         }
         );
+    //get max move length
+    //Params::conn=max(Params::conn,environs.begin()->environment->GetConnectedness());
+  }
+
+  // Sort the environment container by the number of conflicts
+  unsigned agent(0);
+  for(auto& environs: environvec){
     for(auto& environ:environs){
       if(broadphasecon)
         environ.environment->constraints=new ITree<Constraint<BB>>(environvec.size());
@@ -1515,21 +1526,21 @@ void CBSGroup<BB,action,conflicttable,maplanner,searchalgo>::Replan(int location
         MergeLeg<BB,action,conflicttable,searchalgo>(partial[i],*tree[location].paths[theUnit],tree[location].wpts[theUnit],0,1,minTime);
         ++i;
 
-      // Make sure that the current location is satisfiable
-      if (tree[location].paths[theUnit]->size() < 1){
-        tree[location].satisfiable = false;
-        break;
-      }
+        // Make sure that the current location is satisfiable
+        if (tree[location].paths[theUnit]->size() < 1){
+          tree[location].satisfiable = false;
+          break;
+        }
 
-      // Add the path back to the tree (new constraint included)
-      //tree[location].paths[theUnit].resize(0);
-      if(searchalgo::OpenList::Compare::useCAT)
-        searchalgo::OpenList::Compare::CAT->insert(*tree[location].paths[theUnit],currentEnvironment[theUnit]->environment,theUnit);
+        // Add the path back to the tree (new constraint included)
+        //tree[location].paths[theUnit].resize(0);
+        if(searchalgo::OpenList::Compare::useCAT)
+          searchalgo::OpenList::Compare::CAT->insert(*tree[location].paths[theUnit],currentEnvironment[theUnit]->environment,theUnit);
+      }
+    }else{
+      tree[location].satisfiable = false;
     }
-  }else{
-    tree[location].satisfiable = false;
   }
-}
 }
 
 // Returns a pair containing:
@@ -1566,6 +1577,13 @@ unsigned CBSGroup<BB,action,conflicttable,maplanner,searchalgo>::HasConflict(std
   for (int i = 0, j = 0; j < ymax && i < xmax;) // If we've reached the end of one of the paths, then time is up and 
     // no more conflicts could occur
   {
+    if(Params::skip){
+      unsigned onedDist=min(abs(a[i].start.x-b[j].start.x),abs(a[i].start.y-b[j].start.y));
+      if(onedDist>Params::conn){
+        i+=onedDist/2;
+        j+=onedDist/2;
+      }
+    }
     // I and J hold the current step in the path we are comparing. We need 
     // to check if the current I and J have a conflict, and if they do, then
     // we have to deal with it.
@@ -1573,6 +1591,7 @@ unsigned CBSGroup<BB,action,conflicttable,maplanner,searchalgo>::HasConflict(std
     // Figure out which indices we're comparing
     int xTime(max(0, min(i, xmax-1)));
     int yTime(max(0, min(j, ymax-1)));
+
 
     // Check if we're looking directly at a waypoint.
     // Increment so that we know we've passed it.
@@ -1679,6 +1698,7 @@ unsigned CBSGroup<BB,action,conflicttable,maplanner,searchalgo>::HasConflict(std
   } // End time loop
   return conflict.first-orig;
 }
+
 
 template<typename BB, typename action,typename conflicttable, class maplanner, class searchalgo>
 std::pair<unsigned,unsigned> CBSGroup<BB,action,conflicttable,maplanner,searchalgo>::FindHiPriConflict2(CBSTreeNode<BB,conflicttable> const& location, Conflict<BB> &c1, Conflict<BB> &c2, bool update)

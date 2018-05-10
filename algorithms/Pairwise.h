@@ -10,7 +10,7 @@ class Pairwise : public BroadPhase<BB>{
   public:
     Pairwise(unsigned n):BroadPhase<BB>(n){}
 
-    Pairwise(std::vector<std::vector<BB>*>* p):BroadPhase<BB>(p),paths(p){
+    Pairwise(std::vector<std::vector<BB>*>* p, unsigned m):BroadPhase<BB>(p),paths(p),movelen(m){
     }
 
     virtual void insert(BB const* v){
@@ -37,7 +37,12 @@ class Pairwise : public BroadPhase<BB>{
         for(unsigned j(i+1); j<paths->size(); ++j){
           auto a(paths->at(i)->begin());
           auto b(paths->at(j)->begin());
-          while(a!=paths->at(i)->end() && b!=paths->at(j)->end()){
+          while(a<paths->at(i)->end() && b<paths->at(j)->end()){
+            unsigned diff(std::min((a->end.x>b->end.x ? a->end.x-b->end.x : b->end.x-a->end.x),(a->end.y>b->end.y ? a->end.y-b->end.y : b->end.y-a->end.y))/(2*movelen));
+            if(diff){
+              a+=diff;
+              b+=diff;
+            }
             ++comparisons;
             if( a->upperBound.x>=b->lowerBound.x &&
                 a->lowerBound.x<=b->upperBound.x &&
@@ -66,6 +71,7 @@ class Pairwise : public BroadPhase<BB>{
     std::vector<BB const*> ppaths;
     std::vector<std::vector<BB>*>* paths;
     mutable unsigned comparisons;
+    unsigned movelen;
 };
 
 #endif

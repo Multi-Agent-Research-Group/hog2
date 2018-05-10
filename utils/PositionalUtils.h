@@ -72,7 +72,7 @@ inline signed angle(double x1, double y1, double x2, double y2){
 // Get the non-directional difference in angles
 template<unsigned steps360>
 inline unsigned angleDiff(unsigned a, unsigned b){
-  unsigned d(abs(a-b)%steps360);
+  unsigned d((a>b?a-b:b-a)%steps360);
   return d>(steps360/2)?steps360-d:d;
 }
 
