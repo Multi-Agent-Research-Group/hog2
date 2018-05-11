@@ -55,9 +55,9 @@ class Map3dPerfectHeuristic: public Heuristic<typename BB::State> {
         // so the costs forward are the same as the costs backward
         std::vector<typename BB::State> path;
         astar.GetPath(e,goal,s1,path);
-        for(int w(0); w<m->GetMapWidth(); ++w){
-          for(int h(0); h<m->GetMapHeight(); ++h){
-            for(int d(0); d<depth; ++d){
+        for(unsigned w(0); w<m->GetMapWidth(); ++w){
+          for(unsigned h(0); h<m->GetMapHeight(); ++h){
+            for(unsigned d(0); d<depth; ++d){
               uint64_t h1(e->GetStateHash({w,h,d}));
               uint64_t id1;
               if(kClosedList==astar.GetOpenList()->Lookup(h1,id1))

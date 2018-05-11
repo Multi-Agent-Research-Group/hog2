@@ -2,6 +2,7 @@
 #define INTERVALTREE_HPP
 
 #include <algorithm>
+#include <numeric>
 #include <string>
 #include <iostream>
 

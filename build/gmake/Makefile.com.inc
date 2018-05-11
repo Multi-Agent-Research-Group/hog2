@@ -5,7 +5,7 @@
 # $Source: /usr/cvsroot/project_hog/build/gmake/Makefile.com.inc,v $
 #-----------------------------------------------------------------------------
 
-CXX = g++ # clang++
+CXX = c++ # clang++
 COMMON_CXXFLAGS += -Wall -std=c++11 -fPIC # -stdlib=libc++
 
 #COMMON_CXXFLAGS += -ansi -pedantic
@@ -53,6 +53,11 @@ COMMON_CXXFLAGS += -I/usr/include/GL
 COMMON_LNFLAGS +=  -lGL -lGLU -lglut
 endif
 
+endif
+
+ifeq ("$(ASAN)", "go")
+COMMON_CXXFLAGS += -fsanitize=address -fno-omit-frame-pointer
+COMMON_LNFLAGS +=  -lasan
 endif
 
 ifeq ("$(CPU)", "G5")

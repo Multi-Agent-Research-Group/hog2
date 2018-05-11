@@ -23,6 +23,7 @@
 #include "Common.h"
 #include "Driver.h"
 #include <memory>
+#include <numeric>
 #include <iostream>
 #include <bitset>
 #include <iomanip>
@@ -60,7 +61,7 @@ std::string mapfile;
 
 struct MDDStats{
   unsigned depth;
-  unsigned count;
+  size_t count;
   unsigned goals;
   double branchingfactor;
 };
@@ -68,7 +69,7 @@ struct MDDStats{
 struct JointStats{
   std::vector<MDDStats> mdds;
   unsigned depth;
-  unsigned count;
+  size_t count;
   unsigned goals;
   double branchingfactor;
 };

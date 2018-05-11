@@ -22,6 +22,7 @@
 
 #include "Common.h"
 #include <memory>
+#include <numeric>
 #include <iostream>
 #include <iomanip>
 #include <unordered_set>
