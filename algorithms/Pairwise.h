@@ -38,11 +38,6 @@ class Pairwise : public BroadPhase<BB>{
           auto a(paths->at(i)->begin());
           auto b(paths->at(j)->begin());
           while(a<paths->at(i)->end() && b<paths->at(j)->end()){
-            unsigned diff(std::min((a->end.x>b->end.x ? a->end.x-b->end.x : b->end.x-a->end.x),(a->end.y>b->end.y ? a->end.y-b->end.y : b->end.y-a->end.y))/(2*movelen));
-            if(diff){
-              a+=diff;
-              b+=diff;
-            }
             ++comparisons;
             if( a->upperBound.x>=b->lowerBound.x &&
                 a->lowerBound.x<=b->upperBound.x &&
@@ -50,11 +45,11 @@ class Pairwise : public BroadPhase<BB>{
                 a->upperBound.y>=b->lowerBound.y){
               pairs.emplace_back(&*a,&*b);
             }
-            /*if(a->start.t<b->start.t){
-              ++a;
-            }else if(a->start.t>b->start.t){
-              ++b;
-            }else */if(a->end.t>b->end.t){
+            unsigned diff(std::max((a->end.x>b->end.x ? a->end.x-b->end.x : b->end.x-a->end.x),(a->end.y>b->end.y ? a->end.y-b->end.y : b->end.y-a->end.y))/(2*movelen));
+            if(diff){
+              a+=diff;
+              b+=diff;
+            }else if(a->end.t>b->end.t){
               ++b;
             }else if(a->end.t<b->end.t){
               ++a;

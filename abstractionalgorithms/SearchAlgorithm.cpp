@@ -40,7 +40,9 @@ static const int verbose = 0;
 
 void DoRandomPath(GraphAbstraction *aMap, SearchAlgorithm *sa, bool repeat)
 {
+#ifdef OS_MAC
 	static double lastLength, lastTime;
+#endif
 	static node *r1 = 0, *r2 = 0;
 	Graph *g = aMap->GetAbstractGraph(0);
 	//if (verbose) cout << "Clearing marked nodes" << endl;
@@ -50,8 +52,10 @@ void DoRandomPath(GraphAbstraction *aMap, SearchAlgorithm *sa, bool repeat)
 	//	r2 = ((MapAbstraction*)aMap)->GetNodeFromMap(319, 458);
 	if ((!repeat) || (r1 == 0) || (r2 == 0))
 	{
+#ifdef OS_MAC
 		lastLength = 0;
 		lastTime = 1;
+#endif
 		do {
 			//      do {
 			r1 = g->GetRandomNode();
