@@ -53,7 +53,7 @@ void Constraint<xytLoc>::OpenGLDraw(MapInterface* map) const
   glEnd();
 }
 
-template<>
+/*template<>
 void Constraint<TemporalVector>::OpenGLDraw(MapInterface* map) const 
 {
         if(start_state.x<0 || start_state.x>map->GetMapWidth() || end_state.x<0 || end_state.x>map->GetMapWidth()){
@@ -75,7 +75,7 @@ void Constraint<TemporalVector>::OpenGLDraw(MapInterface* map) const
 	glEnd();
         //glDrawCircle(xx,yy,.5/map->GetMapWidth());
 	//DrawSphere(xx, yy, zz, rad/2.0); // zz-l.t*2*rad
-}
+}*/
 
 /************************************************************/
 

@@ -80,7 +80,8 @@ std::vector<std::vector<xyztLoc> > waypoints;
   bool paused = false;
 
   Grid3DConstrainedEnvironment *ace = 0;
-  UnitSimulation<xyztLoc, t3DDirection, ConstrainedEnvironment<xyztLoc,t3DDirection>> *sim = 0;
+  typedef UnitSimulation<xyztLoc, t3DDirection, ConstrainedEnvironment<xyztLoc,t3DDirection>> UnitSim;
+  UnitSim *sim = 0;
   //typedef CBSUnit<xyztLoc,t3DDirection,UnitTieBreaking3D<xyztLoc,t3DDirection>,UnitTimeCAT<xyztLoc,t3DDirection>> MACBSUnit;
   //typedef CBSGroup<xyztLoc,t3DDirection,UnitTieBreaking3D<xyztLoc,t3DDirection>,UnitTimeCAT<xyztLoc,t3DDirection>,ICTSAlgorithm<xyztLoc,t3DDirection>> MACBSGroup;
   typedef CBSUnit<xyztLoc,t3DDirection,TieBreaking3D<xyztLoc,t3DDirection>,NonUnitTimeCAT<xyztLoc,t3DDirection>> MACBSUnit;
@@ -113,7 +114,7 @@ std::vector<std::vector<xyztLoc> > waypoints;
     }
     if(verbose)for(int i(0);i<group->GetNumMembers();++i){
       std::cout << "final path for agent " << i << ":\n";
-      for(auto const& n: group->tree.back().paths[i])
+      for(auto const& n: *group->tree.back().paths[i])
         std::cout << n << "\n";
     }
   }
@@ -238,13 +239,12 @@ void InitHeadless(){
   TieBreaking3D<xyztLoc,t3DDirection>::randomalg=randomalg;
   TieBreaking3D<xyztLoc,t3DDirection>::useCAT=useCAT;
   if(gui){
-    sim = new UnitSimulation<xyztLoc, t3DDirection, ConstrainedEnvironment<xyztLoc,t3DDirection>>(ace);
+    sim = new UnitSim(ace);
     sim->SetStepType(kLockStep);
     sim->SetLogStats(false);
 
     sim->AddUnitGroup(group);
   }
-
 
   if(verbose)std::cout << "Adding " << num_agents << "agents." << std::endl;
 
@@ -304,7 +304,7 @@ void InitHeadless(){
     unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
     group->AddUnit(unit); // Add to the group
     if(verbose)std::cout << "initial path for agent " << i << ":\n";
-    if(verbose)for(auto const& n: group->tree[0].paths[i])
+    if(verbose)for(auto const& n: *group->tree[0].paths[i])
       std::cout << n << "\n";
     if(gui){sim->AddUnit(unit);} // Add to the group
   }
@@ -725,7 +725,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 	}
 	if(strcmp(argument[0], "-resolution") == 0)
 	{
-		xyztLoc::TIME_RESOLUTION_U=xyztLoc::TIME_RESOLUTION=xyztLoc::TIME_RESOLUTION=atof(argument[1]);
+		xyztLoc::TIME_RESOLUTION_U=xyztLoc::TIME_RESOLUTION=xyztLoc::TIME_RESOLUTION_D=atof(argument[1]);
                 NonUnitTimeCAT<xyztLoc, t3DDirection>::bucketWidth=xyztLoc::TIME_RESOLUTION_D;
 		return 2;
 	}

@@ -192,7 +192,7 @@ void Grid3DConstrainedEnvironment::GetStateFromHash(uint64_t hash, xyztLoc &s) c
   assert(!"Hash is irreversible...");
 }
 
-double Grid3DConstrainedEnvironment::GetPathLength(std::vector<xyztLoc> &neighbors)
+double Grid3DConstrainedEnvironment::GetPathLength(std::vector<xyztLoc> const& neighbors) const
 {
   // There is no cost for waiting at the goal
   double cost(0);
@@ -200,8 +200,6 @@ double Grid3DConstrainedEnvironment::GetPathLength(std::vector<xyztLoc> &neighbo
     if(!neighbors[j-1].sameLoc(neighbors[j])){
       cost += neighbors[j].t;
       break;
-    }else if(j==1){
-      cost += neighbors[0].t;
     }
   }
   return cost;
@@ -301,7 +299,7 @@ void Constraint<xyztLoc>::OpenGLDraw(MapInterface* map) const
   glEnd();
 }
 
-template<>
+/*template<>
 void Constraint<TemporalVector3D>::OpenGLDraw(MapInterface* map) const 
 {
 	GLdouble xx, yy, zz, rad;
@@ -320,5 +318,5 @@ void Constraint<TemporalVector3D>::OpenGLDraw(MapInterface* map) const
 	glEnd();
         //glDrawCircle(xx,yy,.5/map->GetMapWidth());
 	//DrawSphere(xx, yy, zz, rad/2.0); // zz-l.t*2*rad
-}
+}*/
 

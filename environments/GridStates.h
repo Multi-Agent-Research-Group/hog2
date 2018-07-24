@@ -266,7 +266,7 @@ struct xyztLoc {
   explicit operator TemporalVector()const{return TemporalVector(x,y,t/TIME_RESOLUTION_D);}
   operator Vector3D()const{return Vector3D(x,y,z);}
   explicit operator Vector2D()const{return Vector2D(x,y);}
-  virtual unsigned operator[](unsigned i)const{switch(i){case 0: return x; case 1: return y; case 2: return z;}return t;}
+  unsigned operator[](unsigned i)const{switch(i){case 0: return x; case 1: return y; case 2: return z;}return t;}
   unsigned t : 20; // Time (milliseconds)
   unsigned x : 12;
   unsigned y : 12;
@@ -277,11 +277,16 @@ struct xyztLoc {
   bool operator==(xyztLoc const& other)const{return sameLoc(other)&&t==other.t;}
   bool operator!=(xyztLoc const& other)const{return x!=other.x||y!=other.y||z!=other.z||t!=other.t;}
   void print(std::ostream& os)const{os<<"("<<x<<","<<y<<","<<z<<","<<float(t)/TIME_RESOLUTION<<")";}
-  bool operator<(xyztLoc const& other)const{return t==other.t?x==other.x?y==other.y?other.z<z:y<other.y:x<other.x:t<other.t;}
+  bool operator<(xyztLoc const& other)const{return t==other.t?x==other.x?y==other.y?z<other.z:y<other.y:x<other.x:t<other.t;}
+  bool operator<=(xyztLoc const& other)const{return t==other.t?x==other.x?y==other.y?z<=other.z:y<=other.y:x<=other.x:t<=other.t;}
+  bool operator>(xyztLoc const& other)const{return t==other.t?x==other.x?y==other.y?z>other.z:y>other.y:x>other.x:t>other.t;}
+  bool operator>=(xyztLoc const& other)const{return t==other.t?x==other.x?y==other.y?z>=other.z:y>=other.y:x>=other.x:t>=other.t;}
   static float TIME_RESOLUTION;
   static unsigned TIME_RESOLUTION_U;
   static double TIME_RESOLUTION_D;
 };
+
+struct xyztAABBPtrComp;
 
 struct xyztAABB{
   xyztAABB():start(nullptr),end(nullptr){}

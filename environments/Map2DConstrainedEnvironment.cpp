@@ -40,8 +40,6 @@ double Map2DConstrainedEnvironment::GetPathLength(std::vector<xytLoc> &neighbors
     if(!neighbors[j-1].sameLoc(neighbors[j])){
       cost += neighbors[j].t;
       break;
-    }else if(j==1){
-      cost += neighbors[0].t;
     }
   }
   return cost;

@@ -10,6 +10,7 @@ public:
 
   UnitTimeCAT():ConflictAvoidanceTable<state,action>(),cat(0) {}
   virtual void set(std::vector<std::vector<state> > const*const ref){cat=ref;}
+  virtual void set(std::vector<std::vector<state>*> const*const ref){ptrCat=ref;}
 
   virtual void remove(std::vector<state> const& thePath, SearchEnvironment<state,action> const* env, unsigned agent){
     // Do nothing
@@ -18,13 +19,17 @@ public:
     // Do nothing
   }
   state const& get(unsigned agent, unsigned t)const{
-    return (*cat)[agent][t];
+    if(cat)
+      return (*cat)[agent][t];
+    else
+      return *(*ptrCat)[agent][t];
   } 
 
   unsigned numAgents()const{return cat->size();}
   
 private:
   std::vector<std::vector<state> > const* cat;
+  std::vector<std::vector<state>*> const* ptrCat;
 };
 
 #endif

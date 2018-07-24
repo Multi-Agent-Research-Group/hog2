@@ -47,7 +47,7 @@ public:
 	virtual uint64_t GetStateHash(const xyztLoc &node) const;
         virtual void GetStateFromHash(uint64_t hash, xyztLoc &s) const;
 	virtual uint64_t GetActionHash(t3DDirection act) const;
-	virtual double GetPathLength(std::vector<xyztLoc> &neighbors);
+	virtual double GetPathLength(std::vector<xyztLoc> const& neighbors)const;
 
         virtual inline double ViolatesConstraint(const xyztLoc &from, const xyztLoc &to) const {
           return ConstrainedEnvironment<xyztLoc, t3DDirection>::ViolatesConstraint(from,to)*xyztLoc::TIME_RESOLUTION_D;
