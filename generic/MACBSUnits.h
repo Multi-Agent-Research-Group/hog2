@@ -352,6 +352,9 @@ struct CBSTreeNode {
         conflicttable cat; // Conflict avoidance table
 };
 
+template<typename state, typename conflicttable>
+Solution<state> CBSTreeNode<state,conflicttable>::basepaths=Solution<state>();
+
 template<typename state, typename conflicttable, class searchalgo>
 static std::ostream& operator <<(std::ostream & out, const CBSTreeNode<state,conflicttable> &act)
 {
@@ -571,6 +574,7 @@ CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::CBSGroup(s
     ++agent;
   }
 
+  CBSTreeNode<state,conflicttable>::basepaths.resize(environments.size());
   astar.SetVerbose(verbose);
 }
 
@@ -1131,6 +1135,7 @@ void CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::AddUn
 
   // Resize the number of paths in the root of the tree
   tree[0].paths.resize(this->GetNumMembers());
+  tree[0].paths.back()=&CBSTreeNode<state,conflicttable>::basepaths[this->GetNumMembers()-1];
   tree[0].wpts.resize(this->GetNumMembers());
   //agentEnvs.resize(this->GetNumMembers());
 
