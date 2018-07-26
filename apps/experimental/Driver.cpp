@@ -29,6 +29,7 @@
 #include <unordered_set>
 #include <set>
 #include <stack>
+#include <numeric>
 #include <unordered_map>
 #include <sstream>
 #include <iterator>

@@ -28,6 +28,7 @@
 #include <iomanip>
 #include <unordered_set>
 #include <set>
+#include <numeric>
 #include <stack>
 #include <unordered_map>
 #include <sstream>

@@ -26,6 +26,7 @@
 #include <iomanip>
 #include <unordered_set>
 #include <set>
+#include <numeric>
 #include <unordered_map>
 #include <sstream>
 #include <iterator>

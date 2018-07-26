@@ -13,6 +13,7 @@
 #include <set>
 #include <algorithm>
 #include <assert.h>
+#include <math.h>
 
 
 template <typename T>

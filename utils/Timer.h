@@ -28,6 +28,7 @@
 #include <fstream>
 #include <chrono>
 #include <thread>
+#include <functional>
 
 class Timer {
 public:
