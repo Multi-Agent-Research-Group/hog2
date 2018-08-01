@@ -139,7 +139,11 @@ void MergeLeg(std::vector<state> const& path, std::vector<state>& thePath, std::
 
 // Plan path between waypoints
 template <typename state, typename action, typename comparison, typename conflicttable, class searchalgo>
-unsigned ReplanLeg(CBSUnit<state,action,comparison,conflicttable,searchalgo>* c, searchalgo& astar, ConstrainedEnvironment<state,action>* env, std::vector<state>& thePath, std::vector<int>& wpts, unsigned s, unsigned g, unsigned minTime){
+unsigned ReplanLeg(CBSUnit<state,action,comparison,conflicttable,searchalgo>* c, searchalgo& astar, ConstrainedEnvironment<state,action>* env, std::vector<state>& thePath, std::vector<int>& wpts, unsigned s, unsigned g, unsigned minTime, unsigned agent){
+  if(thePath.empty()){
+    return GetFullPath(c, astar, env, thePath, wpts, minTime, agent);
+    //assert(false && "Expected a valid path for re-planning.");
+  }
   int insertPoint(wpts[s]); // Starting index of this leg
   unsigned origTime(thePath[wpts[g]].t); // Original ending time of leg
   unsigned deletes(wpts[g]-wpts[s]+1); // Number of path points in this leg.
@@ -603,9 +607,9 @@ bool CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::Expan
     // if both children are cardinal, create children for both
 
     // Swap units
-    unsigned tmp(c1.unit1);
-    c1.unit1=c2.unit1;
-    c2.unit1=tmp;
+    //unsigned tmp(c1.unit1);
+    //c1.unit1=c2.unit1;
+    //c2.unit1=tmp;
     // Notify the user of the conflict
       if(!quiet)std::cout << "TREE " << bestNode <<"("<<tree[bestNode].parent << ") " <<(numConflicts.second==7?"CARDINAL":(numConflicts.second==3?"LEFT-CARDINAL":(numConflicts.second==5?"RIGHT-CARDINAL":"NON-CARDINAL")))<< " conflict found between MA " << c1.unit1 << " and MA " << c2.unit1 << " @:" << c2.c->start() << "-->" << c2.c->end() <<  " and " << c1.c->start() << "-->" << c1.c->end() << " NC " << numConflicts.first << " prev-W " << c1.prevWpt << " " << c2.prevWpt << "\n";
     //if(verbose){
@@ -1398,7 +1402,7 @@ void CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::Repla
 
   if(!quiet)std::cout << "Replan agent " << theUnit << "\n";
   //if(!quiet)std::cout << "re-planning path from " << start << " to " << goal << " on a path of len:" << thePath.size() << " out to time " << minTime <<"\n";
-  ReplanLeg<state,action,comparison,conflicttable,searchalgo>(c, astar, currentEnvironment[theUnit]->environment, *tree[location].paths[theUnit], tree[location].wpts[theUnit], tree[location].con.prevWpt, tree[location].con.prevWpt+1,minTime);
+  ReplanLeg<state,action,comparison,conflicttable,searchalgo>(c, astar, currentEnvironment[theUnit]->environment, *tree[location].paths[theUnit], tree[location].wpts[theUnit], tree[location].con.prevWpt, tree[location].con.prevWpt+1,minTime,theUnit);
   //for(int i(0); i<tree[location].paths.size(); ++i)
   //std::cout << "Replanned agent "<<i<<" path " << tree[location].paths[i]->size() << "\n";
 

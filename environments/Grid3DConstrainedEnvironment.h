@@ -50,7 +50,8 @@ public:
 	virtual double GetPathLength(std::vector<xyztLoc> const& neighbors)const;
 
         virtual inline double ViolatesConstraint(const xyztLoc &from, const xyztLoc &to) const {
-          return ConstrainedEnvironment<xyztLoc, t3DDirection>::ViolatesConstraint(from,to)*xyztLoc::TIME_RESOLUTION_D;
+          // Convert to ceiling of nearest resolution
+          return ceil(ConstrainedEnvironment<xyztLoc, t3DDirection>::ViolatesConstraint(from,to)*xyztLoc::TIME_RESOLUTION_D);
         }
 
 	virtual void OpenGLDraw() const;

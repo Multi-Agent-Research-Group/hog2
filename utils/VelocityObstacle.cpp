@@ -444,7 +444,10 @@ double collisionCheck3D(TemporalVector3D const& A1, TemporalVector3D const& A2, 
   unsigned sdy(fabs(A1.y-B2.y));
   unsigned sdz(fabs(A1.z-B2.z));
   // Same edge in reverse?
-  if(sdx==0&&sdy==0&&sdz==0&&B1.x==A2.x&&B1.y==A2.y&&B1.z==A2.z){return std::min(A1.t,B1.t);}
+  if(sdx==0&&sdy==0&&sdz==0&&B1.x==A2.x&&B1.y==A2.y&&B1.z==A2.z){
+    double ctime(std::min(A1.t,B1.t));
+    return ctime?ctime:TOLERANCE;
+  }
   // Same start?
   if(A1==B1){return A1.t?A1.t:1e-10;}
   // Same end?
