@@ -64,6 +64,10 @@ template<typename state, typename action, typename comparison, typename conflict
 class CBSUnit;
 
 extern double agentRadius;
+struct Params{
+    static unsigned precheck; // 0=none, 1=AABB, 2=convex hull
+};
+unsigned Params::precheck=0;
 
 template <class state>
 struct CompareLowGCost {
@@ -329,13 +333,55 @@ struct Conflict {
   unsigned prevWpt;
 };
 
+// populate vector aabb with (min),(max)
+template<typename state>
+void computeAABB(std::vector<state>& aabb, std::vector<state> const& path){
+  aabb.resize(2);
+  aabb[0].x=0xFFF; // INF...
+  aabb[0].y=0xFFF;
+  aabb[0].z=0x3FF;
+  for(auto const& p:path){
+    if(p.x<aabb[0].x){
+      aabb[0].x=p.x;
+    }
+    if(p.x>aabb[1].x){
+      aabb[1].x=p.x;
+    }
+    if(p.y<aabb[0].y){
+      aabb[0].y=p.y;
+    }
+    if(p.y>aabb[1].y){
+      aabb[1].y=p.y;
+    }
+    if(p.z<aabb[0].z){
+      aabb[0].z=p.z;
+    }
+    if(p.z>aabb[1].z){
+      aabb[1].z=p.z;
+    }
+  }
+}
+
 template<typename state, typename conflicttable>
 struct CBSTreeNode {
 	CBSTreeNode():path(nullptr),parent(0),satisfiable(true),cat(){}
 	// Copy ctor takes over memory for path member
-        CBSTreeNode(CBSTreeNode<state,conflicttable> const& from):wpts(from.wpts),path(from.path.release()),paths(from.paths),con(from.con),parent(from.parent),satisfiable(from.satisfiable),cat(from.cat){}
-        CBSTreeNode(CBSTreeNode<state,conflicttable> const& from, Conflict<state> const& c, unsigned p, bool s):wpts(from.wpts),path(new std::vector<state>()),paths(from.paths),con(c),parent(p),satisfiable(s),cat(from.cat){
+        CBSTreeNode(CBSTreeNode<state,conflicttable> const& from):wpts(from.wpts),path(from.path.release()),polygon(from.polygon.release()),paths(from.paths),polygons(from.polygons),con(from.con),parent(from.parent),satisfiable(from.satisfiable),cat(from.cat){}
+        CBSTreeNode(CBSTreeNode<state,conflicttable> const& from, Conflict<state> const& c, unsigned p, bool s):wpts(from.wpts),path(new std::vector<state>()),polygon(new std::vector<state>()),paths(from.paths),polygons(from.polygons),con(c),parent(p),satisfiable(s),cat(from.cat){
           paths[c.unit1]=path.get();
+          if(Params::precheck){
+            polygons[c.unit1]=polygon.get();
+          }
+        }
+        bool hasOverlap(unsigned a, unsigned b)const{
+         if(Params::precheck==1){
+           return (polygons[a]->at(0).x <= polygons[b]->at(1).x && polygons[a]->at(1).x >= polygons[b]->at(0).x) &&
+           (polygons[a]->at(0).y <= polygons[b]->at(1).y && polygons[a]->at(1).y >= polygons[b]->at(0).y) &&
+           (polygons[a]->at(0).z <= polygons[b]->at(1).z && polygons[a]->at(1).z >= polygons[b]->at(0).z);
+         }else if(Params::precheck==2){
+           // Detect polygonal overlap
+         }
+         return true; // default
         }
         /*CBSTreeNode& operator=(CBSTreeNode<state,conflicttable> const& from){
           wpts=from.wpts;
@@ -347,8 +393,11 @@ struct CBSTreeNode {
         }*/
 	std::vector< std::vector<int> > wpts;
 	mutable std::unique_ptr<std::vector<state>> path;
+	mutable std::unique_ptr<std::vector<state>> polygon;
         std::vector<std::vector<state>*> paths;
+        std::vector<std::vector<state>*> polygons;
 	static Solution<state> basepaths;
+	static Solution<state> basepolygons;
 	Conflict<state> con;
 	unsigned int parent;
 	bool satisfiable;
@@ -358,6 +407,8 @@ struct CBSTreeNode {
 
 template<typename state, typename conflicttable>
 Solution<state> CBSTreeNode<state,conflicttable>::basepaths=Solution<state>();
+template<typename state, typename conflicttable>
+Solution<state> CBSTreeNode<state,conflicttable>::basepolygons=Solution<state>();
 
 template<typename state, typename conflicttable, class searchalgo>
 static std::ostream& operator <<(std::ostream & out, const CBSTreeNode<state,conflicttable> &act)
@@ -579,6 +630,7 @@ CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::CBSGroup(s
   }
 
   CBSTreeNode<state,conflicttable>::basepaths.resize(environments.size());
+  CBSTreeNode<state,conflicttable>::basepolygons.resize(environments.size());
   astar.SetVerbose(verbose);
 }
 
@@ -1140,6 +1192,10 @@ void CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::AddUn
   // Resize the number of paths in the root of the tree
   tree[0].paths.resize(this->GetNumMembers());
   tree[0].paths.back()=&CBSTreeNode<state,conflicttable>::basepaths[this->GetNumMembers()-1];
+  if(Params::precheck){
+    tree[0].polygons.resize(this->GetNumMembers());
+    tree[0].polygons.back()=new std::vector<state>();
+  }
   tree[0].wpts.resize(this->GetNumMembers());
   //agentEnvs.resize(this->GetNumMembers());
 
@@ -1150,6 +1206,9 @@ void CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::AddUn
   comparison::CAT = &(tree[0].cat);
   comparison::CAT->set(&tree[0].paths);
   GetFullPath<state,action,comparison,conflicttable,searchalgo>(c, astar, currentEnvironment[theUnit]->environment,*tree[0].paths.back(),tree[0].wpts.back(),1,theUnit);
+  if(Params::precheck==1){
+    computeAABB(*tree[0].polygons.back(),*tree[0].paths.back());
+  }
   if(killex != INT_MAX && TOTAL_EXPANSIONS>killex)
       processSolution(-timer->EndTimer());
   //std::cout << "AddUnit agent: " << (theUnit) << " expansions: " << astar.GetNodesExpanded() << "\n";
@@ -1403,6 +1462,9 @@ void CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::Repla
   if(!quiet)std::cout << "Replan agent " << theUnit << "\n";
   //if(!quiet)std::cout << "re-planning path from " << start << " to " << goal << " on a path of len:" << thePath.size() << " out to time " << minTime <<"\n";
   ReplanLeg<state,action,comparison,conflicttable,searchalgo>(c, astar, currentEnvironment[theUnit]->environment, *tree[location].paths[theUnit], tree[location].wpts[theUnit], tree[location].con.prevWpt, tree[location].con.prevWpt+1,minTime,theUnit);
+  if(Params::precheck==1){
+    computeAABB(*tree[location].polygons[theUnit],*tree[location].paths[theUnit]);
+  }
   //for(int i(0); i<tree[location].paths.size(); ++i)
   //std::cout << "Replanned agent "<<i<<" path " << tree[location].paths[i]->size() << "\n";
 
@@ -1657,7 +1719,9 @@ std::pair<unsigned,unsigned> CBSGroup<state,action,comparison,conflicttable,mapl
         for(unsigned y : activeMetaAgents.at(b).units){
           // This call will update "best" with the number of conflicts and
           // with the *most* cardinal conflicts
-          intraConflicts+=HasConflict(*location.paths[x],location.wpts[x],*location.paths[y],location.wpts[y],x,y,best.second.first,best.second.second,best.first,update);
+          if(location.hasOverlap(x,y)){
+            intraConflicts+=HasConflict(*location.paths[x],location.wpts[x],*location.paths[y],location.wpts[y],x,y,best.second.first,best.second.second,best.first,update);
+          }
           /*if(requireLOS&&currentEnvironment[x]->agentType==Map3D::air||currentEnvironment[y]->agentType==Map3D::air){
             if(ViolatesProximity(location.paths[x],location.paths[y]
           }*/

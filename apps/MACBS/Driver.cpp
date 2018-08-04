@@ -98,6 +98,7 @@ std::vector<std::vector<xyztLoc> > waypoints;
   int main(int argc, char* argv[])
   {
   InstallHandlers();
+  Params::precheck=0; // No precheck (default)
   ProcessCommandLineArgs(argc, argv);
   Util::setmemlimit(killmem);
   
@@ -192,6 +193,7 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-suboptimal", "-suboptimal", "Sub-optimal answers");
 	InstallCommandLineHandler(MyCLHandler, "-random", "-random", "Randomize conflict resolution order");
 	InstallCommandLineHandler(MyCLHandler, "-greedyCT", "-greedyCT", "Greedy sort high-level search by number of conflicts (GCBS)");
+	InstallCommandLineHandler(MyCLHandler, "-precheck", "-precheck", "Pre-check for broadphase collision 0(default)=No precheck, 1=AABB precheck, 2=Convex hull intersection check");
 	InstallCommandLineHandler(MyCLHandler, "-ECBSheuristic", "-ECBSheuristic", "Use heuristic in low-level search");
 
     InstallWindowHandler(MyWindowHandler);
@@ -548,6 +550,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
           dtedfile=argument[1];
           return 2;
         }
+	if(strcmp(argument[0], "-precheck") == 0)
+	{
+                Params::precheck = atoi(argument[1]);
+		return 2;
+	}
 	if(strcmp(argument[0], "-mapfile") == 0)
         {
           // If this flag is used, assume there is no scenfile flag
