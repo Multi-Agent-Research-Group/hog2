@@ -35,8 +35,144 @@
 #include <unordered_set>
 #include <sstream>
 #include <algorithm>
+#include <stack>
 //#include "EPEThetaStar.h"
 //#include "PEThetaStar.h"
+
+// A globle point needed for  sorting points with reference
+// to  the first point Used in compare function of qsort()
+xyLoc p0;
+ 
+// A utility function to find next to top in a stack
+xyLoc nextToTop(std::stack<xyLoc> &S)
+{
+    xyLoc p = S.top();
+    S.pop();
+    xyLoc res = S.top();
+    S.push(p);
+    return res;
+}
+ 
+// A utility function to swap two points
+int swap(xyLoc &p1, xyLoc &p2)
+{
+    xyLoc temp = p1;
+    p1 = p2;
+    p2 = temp;
+}
+ 
+// A utility function to return square of distance
+// between p1 and p2
+int distSq(xyLoc const& p1, xyLoc const& p2)
+{
+    return (p1.x - p2.x)*(p1.x - p2.x) +
+          (p1.y - p2.y)*(p1.y - p2.y);
+}
+ 
+// To find orientation of ordered triplet (p, q, r).
+// The function returns following values
+// 0 --> p, q and r are colinear
+// 1 --> Clockwise
+// 2 --> Counterclockwise
+int orientation(xyLoc const& p, xyLoc const& q, xyLoc const& r)
+{
+    int val = (q.y - p.y) * (r.x - q.x) -
+              (q.x - p.x) * (r.y - q.y);
+ 
+    //if (val == 0) return 0;  // colinear
+    return val?((val > 0)? 1: 2):0; // clock or counterclock wise
+}
+ 
+// A function used by library function qsort() to sort an array of
+// points with respect to the first point
+bool compare(xyLoc const& p1, xyLoc const& p2){
+   // Find orientation
+   int o = orientation(p0, p1, p2);
+   if (o == 0)
+     return (distSq(p0, p2) >= distSq(p0, p1))? true : false;
+ 
+   return (o == 2)? true: false;
+}
+ 
+// Prints convex hull of a set of n points.
+void convexHull(std::vector<xyLoc> points)
+{
+   // Find the bottommost point
+   int ymin = points[0].y, min = 0;
+   for (int i = 1; i < points.size(); i++)
+   {
+     int y = points[i].y;
+ 
+     // Pick the bottom-most or chose the left
+     // most point in case of tie
+     if ((y < ymin) || (ymin == y &&
+         points[i].x < points[min].x))
+        ymin = points[i].y, min = i;
+   }
+ 
+   // Place the bottom-most point at first position
+   swap(points[0], points[min]);
+ 
+   // Sort n-1 points with respect to the first point.
+   // A point p1 comes before p2 in sorted ouput if p2
+   // has larger polar angle (in counterclockwise
+   // direction) than p1
+   p0 = points[0];
+   //qsort(&points[1], n-1, sizeof(xyLoc), compare);
+   std::sort(points.begin()+1,points.end(),
+       [](xyLoc const& a, xyLoc const& b) -> bool {
+       return compare(a,b);
+       });
+ 
+   // If two or more points make same angle with p0,
+   // Remove all but the one that is farthest from p0
+   // Remember that, in above sorting, our criteria was
+   // to keep the farthest point at the end when more than
+   // one points have same angle.
+   int m = 1; // Initialize size of modified array
+   for (int i=1; i<points.size(); i++)
+   {
+       // Keep removing i while angle of i and i+1 is same
+       // with respect to p0
+       while (i < points.size()-1 && orientation(p0, points[i],
+                                    points[i+1]) == 0)
+          i++;
+ 
+ 
+       points[m] = points[i];
+       m++;  // Update size of modified array
+   }
+ 
+   // If modified array of points has less than 3 points,
+   // convex hull is not possible
+   if (m < 3) return;
+ 
+   // Create an empty stack and push first three points
+   // to it.
+   std::stack<xyLoc> S;
+   S.push(points[0]);
+   S.push(points[1]);
+   S.push(points[2]);
+ 
+   // Process remaining n-3 points
+   for (int i = 3; i < m; i++)
+   {
+      // Keep removing top while the angle formed by
+      // points next-to-top, top, and points[i] makes
+      // a non-left turn
+      while (orientation(nextToTop(S), S.top(), points[i]) != 2)
+         S.pop();
+      S.push(points[i]);
+   }
+ 
+   // Now stack has the output points, print contents of stack
+   while (!S.empty())
+   {
+       xyLoc p = S.top();
+       std::cout << "(" << p.x << ", " << p.y <<")" << std::endl;
+       S.pop();
+   }
+}
 
 TEST(VelocityObstacle, IsInsidePass){
   Vector2D A(3,1);
@@ -2263,10 +2399,10 @@ void skipAndCountCollisions(std::vector<xytLoc> const& p1, std::vector<xytLoc> c
   unsigned a=1,b=1;
   while(a<p1.size() && b<p2.size()){
     ++total;
-    signed sdiff(std::min(abs(p1[a].x-p2[b].x),abs(p1[a].y-p2[b].y)));
-    if(sdiff>2){
-      a+=sdiff-2;
-      b+=sdiff-2;
+    unsigned sdiff(std::min(abs(p1[a].x-p2[b].x),abs(p1[a].y-p2[b].y))/2);
+    if(sdiff>1){
+      a+=sdiff-1;
+      b+=sdiff-1;
 
       //std::cout << "Skip ahead " << (sdiff-2) << "\n";
       if(a>=p1.size() || b>=p2.size()){continue;}
@@ -3394,6 +3530,73 @@ void broadphaseTest(int type, unsigned nagents, unsigned tnum){
       }
     }
     std::cout << "Brute force with skip on " << nagents << " with " << total4 << " checks, " << count4 << " collisions took " << tmr4.EndTimer() << "\n";
+  }
+  {
+    unsigned count4(0);
+    unsigned total4(0);
+    Timer tmr4;
+    std::vector<std::vector<xyLoc>> boxes(nagents);
+    for(int i(0); i<nagents; ++i){
+      boxes[i].resize(2);
+      boxes[i][0].x=0xffff;
+      boxes[i][0].y=0xffff;
+      for(unsigned ix(0); ix<p[i].size(); ++ix){
+        boxes[i][0].x=std::min(boxes[i][0].x,p[i][ix].x);
+        boxes[i][0].y=std::min(boxes[i][0].y,p[i][ix].y);
+        boxes[i][1].x=std::max(boxes[i][1].x,p[i][ix].x);
+        boxes[i][1].y=std::max(boxes[i][1].y,p[i][ix].y);
+      }
+    }
+    tmr4.StartTimer();
+    // Count collisions brute force
+    for(int i(0); i<nagents; ++i){
+      for(unsigned ix(0); ix<p[i].size(); ++ix){
+        boxes[i][0].x=std::min(boxes[i][0].x,p[i][ix].x);
+        boxes[i][0].y=std::min(boxes[i][0].y,p[i][ix].y);
+        boxes[i][1].x=std::max(boxes[i][1].x,p[i][ix].x);
+        boxes[i][1].y=std::max(boxes[i][1].y,p[i][ix].y);
+      }
+      for(int j(i+1); j<nagents; ++j){
+        if(boxes[i][0].x>boxes[j][1].x || boxes[i][1].x<boxes[j][0].x ||
+            boxes[i][0].y>boxes[j][1].y || boxes[i][1].y<boxes[j][0].y){}else{
+        skipAndCountCollisions(p[i],p[j],radius,count4,total4,0);}
+      }
+    }
+    std::cout << "Brute force with skip and bb on " << nagents << " with " << total4 << " checks, " << count4 << " collisions took " << tmr4.EndTimer() << "\n";
+  }
+  {
+    unsigned count4(0);
+    unsigned total4(0);
+    Timer tmr4;
+    std::vector<std::vector<xyLoc>> boxes(nagents);
+    for(int i(0); i<nagents; ++i){
+      boxes[i].resize(2);
+      boxes[i][0].x=0xffff;
+      boxes[i][0].y=0xffff;
+      for(unsigned ix(0); ix<p[i].size(); ++ix){
+        boxes[i][0].x=std::min(boxes[i][0].x,p[i][ix].x);
+        boxes[i][0].y=std::min(boxes[i][0].y,p[i][ix].y);
+        boxes[i][1].x=std::max(boxes[i][1].x,p[i][ix].x);
+        boxes[i][1].y=std::max(boxes[i][1].y,p[i][ix].y);
+      }
+    }
+    tmr4.StartTimer();
+    // Count collisions brute force
+    for(int i(0); i<nagents; ++i){
+      for(unsigned ix(0); ix<p[i].size(); ++ix){
+        boxes[i][0].x=std::min(boxes[i][0].x,p[i][ix].x);
+        boxes[i][0].y=std::min(boxes[i][0].y,p[i][ix].y);
+        boxes[i][1].x=std::max(boxes[i][1].x,p[i][ix].x);
+        boxes[i][1].y=std::max(boxes[i][1].y,p[i][ix].y);
+      }
+      for(int j(i+1); j<nagents; ++j){
+        if(boxes[i][0].x>boxes[j][1].x || boxes[i][1].x<boxes[j][0].x ||
+            boxes[i][0].y>boxes[j][1].y || boxes[i][1].y<boxes[j][0].y){}else{
+        skipAndCountCollisions(p[i],p[j],radius,count4,total4,0);}
+      }
+    }
+    // Note Graham Scan algorithm is better than Jarvis' march because these are paths
+    std::cout << "Brute force with skip and ch on " << nagents << " with " << total4 << " checks, " << count4 << " collisions took " << tmr4.EndTimer() << "\n";
   }
   {
     std::vector<xytAABB> sorted;
