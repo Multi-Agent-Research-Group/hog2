@@ -2234,7 +2234,7 @@ void countCollisions(std::vector<xytAABB> const& p1, std::vector<xytAABB> const&
   }
 }
 
-void countCollisions(std::vector<xytLoc> const& p1, std::vector<xytLoc> const& p2, float radius, unsigned& collisions, unsigned& total, MapEnvironment* env=nullptr,bool simple=false){
+void countCollisionsItr(std::vector<xytLoc> const& p1, std::vector<xytLoc> const& p2, float radius, unsigned& collisions, unsigned& total, MapEnvironment* env=nullptr,bool simple=false){
   auto ap(p1.begin());
   auto a(ap+1);
   auto bp(p2.begin());
@@ -2255,6 +2255,60 @@ void countCollisions(std::vector<xytLoc> const& p1, std::vector<xytLoc> const& p
     }else{
       ++a;++b;
       ++ap;++bp;
+    }
+  }
+}
+
+void skipAndCountCollisions(std::vector<xytLoc> const& p1, std::vector<xytLoc> const& p2, float radius, unsigned& collisions, unsigned& total, MapEnvironment* env=nullptr,bool simple=false){
+  unsigned a=1,b=1;
+  while(a<p1.size() && b<p2.size()){
+    ++total;
+    signed sdiff(std::min(abs(p1[a].x-p2[b].x),abs(p1[a].y-p2[b].y)));
+    if(sdiff>2){
+      a+=sdiff-2;
+      b+=sdiff-2;
+
+      //std::cout << "Skip ahead " << (sdiff-2) << "\n";
+      if(a>=p1.size() || b>=p2.size()){continue;}
+
+      while(fgreater(p1[a-1].t,p2[b].t)){
+        --a;
+      }
+      while(fgreater(p2[b-1].t,p1[a].t)){
+        --b;
+      }
+    }
+    if(std::min(p1[a-1].x,p1[a].x)>std::max(p2[b-1].x,p2[b].x)||
+      std::max(p1[a-1].x,p1[a].x)<std::min(p2[b-1].x,p2[b].x)||
+      std::min(p1[a-1].y,p1[a].y)>std::max(p2[b-1].y,p2[b].y)||
+      std::max(p1[a-1].y,p1[a].y)<std::min(p2[b-1].y,p2[b].y)){;}else if(
+    checkForCollision(p1[a-1],p1[a],p2[b-1],p2[b],radius,env,simple)){collisions++;}
+    if(fless(p1[a].t,p2[b].t+radius)){
+      ++a;
+    }else if(fgreater(p1[a].t+radius,p2[b].t)){
+      ++b;
+    }else{
+      ++a;++b;
+    }
+  }
+}
+
+
+void countCollisions(std::vector<xytLoc> const& p1, std::vector<xytLoc> const& p2, float radius, unsigned& collisions, unsigned& total, MapEnvironment* env=nullptr,bool simple=false){
+  unsigned a=1,b=1;
+  while(a<p1.size() && b<p2.size()){
+    ++total;
+    if(std::min(p1[a-1].x,p1[a].x)>std::max(p2[b-1].x,p2[b].x)||
+      std::max(p1[a-1].x,p1[a].x)<std::min(p2[b-1].x,p2[b].x)||
+      std::min(p1[a-1].y,p1[a].y)>std::max(p2[b-1].y,p2[b].y)||
+      std::max(p1[a-1].y,p1[a].y)<std::min(p2[b-1].y,p2[b].y)){;}else if(
+    checkForCollision(p1[a-1],p1[a],p2[b-1],p2[b],radius,env,simple)){collisions++;}
+    if(fless(p1[a].t,p2[b].t+radius)){
+      ++a;
+    }else if(fgreater(p1[a].t+radius,p2[b].t)){
+      ++b;
+    }else{
+      ++a;++b;
     }
   }
 }
@@ -3249,15 +3303,15 @@ void broadphaseTest(int type, unsigned nagents, unsigned tnum){
 
 
   {
+    unsigned count2(0);
+    unsigned total2(0);
+    Timer tmr2;
+    tmr2.StartTimer();
     std::vector<std::vector<xytAABB>> temp(p.size());
     for(int i(0); i<p.size(); ++i){
       temp[i].reserve(p[i].size());
       makeAABBs(p[i],temp[i],i);
     }
-    unsigned count2(0);
-    unsigned total2(0);
-    Timer tmr2;
-    tmr2.StartTimer();
     // Count collisions brute force
     for(int i(0); i<nagents; ++i){
       for(int j(i+1); j<nagents; ++j){
@@ -3269,15 +3323,15 @@ void broadphaseTest(int type, unsigned nagents, unsigned tnum){
   }
 
   {
+    unsigned count2(0);
+    unsigned total2(0);
+    Timer tmr2;
+    tmr2.StartTimer();
     std::vector<std::vector<xytAABB>> temp(p.size());
     for(int i(0); i<p.size(); ++i){
       temp[i].reserve(p[i].size());
       makeAABBs(p[i],temp[i],i);
     }
-    unsigned count2(0);
-    unsigned total2(0);
-    Timer tmr2;
-    tmr2.StartTimer();
     // Count collisions brute force
     for(int i(0); i<nagents; ++i){
       for(int j(i+1); j<nagents; ++j){
@@ -3327,6 +3381,20 @@ void broadphaseTest(int type, unsigned nagents, unsigned tnum){
   }
   std::cout << "Brute force with simple precheck on " << nagents << " with " << total4 << " checks, " << count5 << " collisions took " << tmr5.EndTimer() << "\n";
 
+  {
+    unsigned count4(0);
+    unsigned total4(0);
+    Timer tmr4;
+    tmr4.StartTimer();
+    // Count collisions brute force
+    for(int i(0); i<nagents; ++i){
+      for(int j(i+1); j<nagents; ++j){
+        //std::cout << i << " VS " << j << "\n";
+        skipAndCountCollisions(p[i],p[j],radius,count4,total4,0);
+      }
+    }
+    std::cout << "Brute force with skip on " << nagents << " with " << total4 << " checks, " << count4 << " collisions took " << tmr4.EndTimer() << "\n";
+  }
   {
     std::vector<xytAABB> sorted;
     Timer tmr0;
@@ -3396,8 +3464,8 @@ TEST(AABB, BVHTreeTest){
   //int types[]={9,25,49};
   for(int type:types){
     //for(int nagents(5); nagents<201; nagents+=5){
-    for(int nagents(202); nagents<201; nagents+=5){
-      for(int i(0); i<100; ++i){
+    for(int nagents(5); nagents<201; nagents+=5){
+      for(int i(0); i<1; ++i){
         std::cout << "===========================================================\n";
         std::cout << type << "Connected, " << nagents << " AGENTS, Test " << i << "\n";
         std::cout << "===========================================================\n";
