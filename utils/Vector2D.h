@@ -59,7 +59,7 @@ class Vector2D {
     inline Vector2D perp()const{return Vector2D(y,-x);}
 
     inline double min()const{return x<y?x:y;}
-    inline double max()const{return x<y?x:y;}
+    inline double max()const{return x>y?x:y;}
     // Project an (unclosed) polygon onto this line (a normalized axis)
     inline Vector2D projectPolyOntoSelf(std::vector<Vector2D> const& poly)const{
       double min(poly[0]*(*this));

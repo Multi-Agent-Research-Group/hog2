@@ -36,6 +36,15 @@
 #include <sstream>
 #include <algorithm>
 #include <stack>
+
+template<class T>
+class Stack:public std::stack<T>{
+  public:
+  T const& second()const{
+    return (this->c[1]);
+  }
+};
+
 //#include "EPEThetaStar.h"
 //#include "PEThetaStar.h"
 
@@ -44,13 +53,15 @@
 xytLoc p0;
  
 // A utility function to find next to top in a stack
-xytLoc nextToTop(std::stack<xytLoc> &S)
+xytLoc nextToTop(Stack<xytLoc> &S)
 {
-    xytLoc p = S.top();
-    S.pop();
-    xytLoc res = S.top();
-    S.push(p);
-    return res;
+    //return *(++S.begin());
+    return S.second();
+    //xytLoc p = S.top();
+    //S.pop();
+    //xytLoc res = S.top();
+    //S.push(p);
+    //return res;
 }
  
 // A utility function to swap two points
@@ -149,7 +160,7 @@ void convexHull(std::vector<xytLoc> points, std::vector<Vector2D>& hull){
  
    // Create an empty stack and push first three points
    // to it.
-   std::stack<xytLoc> S;
+   Stack<xytLoc> S;
    S.push(points[0]);
    S.push(points[1]);
    S.push(points[2]);
@@ -2500,7 +2511,10 @@ void skipAndCountCollisions(std::vector<xytLoc> const& p1, std::vector<xytLoc> c
       std::max(p1[a-1].x,p1[a].x)<std::min(p2[b-1].x,p2[b].x)||
       std::min(p1[a-1].y,p1[a].y)>std::max(p2[b-1].y,p2[b].y)||
       std::max(p1[a-1].y,p1[a].y)<std::min(p2[b-1].y,p2[b].y)){;}else if(
-    checkForCollision(p1[a-1],p1[a],p2[b-1],p2[b],radius,env,simple)){collisions++;}
+    checkForCollision(p1[a-1],p1[a],p2[b-1],p2[b],radius,env,simple)){
+      //std::cout << " " << a << "," << b << ";";
+      collisions++;
+    }
     if(fless(p1[a].t,p2[b].t+radius)){
       ++a;
     }else if(fgreater(p1[a].t+radius,p2[b].t)){
@@ -3639,9 +3653,11 @@ void broadphaseTest(int type, unsigned nagents, unsigned tnum){
         boxes[i][1].y=std::max(boxes[i][1].y,p[i][ix].y);
       }
       for(int j(i+1); j<nagents; ++j){
+        //std::cout << i << "," << j << ":";
         if(boxes[i][0].x>boxes[j][1].x || boxes[i][1].x<boxes[j][0].x ||
             boxes[i][0].y>boxes[j][1].y || boxes[i][1].y<boxes[j][0].y){}else{
         skipAndCountCollisions(p[i],p[j],radius,count4,total4,0);}
+        //std::cout << "\n";
       }
     }
     std::cout << "Brute force with skip and bb on " << nagents << " with " << total4 << " checks, " << count4 << " collisions took " << tmr4.EndTimer() << "\n";
@@ -3653,15 +3669,15 @@ void broadphaseTest(int type, unsigned nagents, unsigned tnum){
     std::vector<std::vector<Vector2D>> boxes(nagents);
     for(int i(0); i<nagents; ++i){
       convexHull(p[i],boxes[i]);
-      std::cout << "Hull " << i << "\n";
+      //std::cout << "Hull " << i << "\n";
       for(auto const& v:boxes[i]){
-        std::cout << v << "\n";
+        //std::cout << v << "\n";
       }
-      std::cout << "from :";
+      //std::cout << "from :";
       for(auto const& v:p[i]){
-        std::cout << v << " ";
+        //std::cout << v << " ";
       }
-        std::cout << "\n";
+        //std::cout << "\n";
       
     }
     tmr4.StartTimer();
@@ -3670,22 +3686,24 @@ void broadphaseTest(int type, unsigned nagents, unsigned tnum){
       boxes[i].clear();
       convexHull(p[i],boxes[i]);
       for(int j(i+1); j<nagents; ++j){
+        //std::cout << i << "," << j << ":";
         if(boxes[i].empty() || boxes[j].empty() || sat(boxes[i],boxes[j])) // check if convex hulls have overlap
         {
           skipAndCountCollisions(p[i],p[j],radius,count4,total4,0);}else{
           if(boxes[i].size() && boxes[j].size()){
-            std::cout << "Hull " << i << "\n";
+            //std::cout << "Hull " << i << "\n";
             for(auto const& v:boxes[i]){
-              std::cout << v << "\n";
+              //std::cout << v << "\n";
             }
-            std::cout << " and Hull " << j << "\n";
+            //std::cout << " and Hull " << j << "\n";
             for(auto const& v:boxes[j]){
-              std::cout << v << "\n";
+              //std::cout << v << "\n";
             }
-            std::cout << "have NO overlap\n";
+            //std::cout << "have NO overlap\n";
 
           }
           }
+        //std::cout << "\n";
       }
     }
     // Note Graham Scan algorithm is better than Jarvis' march because these are paths
@@ -3761,7 +3779,7 @@ TEST(AABB, BVHTreeTest){
   for(int type:types){
     //for(int nagents(5); nagents<201; nagents+=5){
     for(int nagents(5); nagents<201; nagents+=5){
-      for(int i(0); i<1; ++i){
+      for(int i(9); i<10; ++i){
         std::cout << "===========================================================\n";
         std::cout << type << "Connected, " << nagents << " AGENTS, Test " << i << "\n";
         std::cout << "===========================================================\n";
