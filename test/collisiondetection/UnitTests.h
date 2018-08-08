@@ -35,15 +35,7 @@
 #include <unordered_set>
 #include <sstream>
 #include <algorithm>
-#include <stack>
-
-template<class T>
-class Stack:public std::stack<T>{
-  public:
-  T const& second()const{
-    return (this->c[1]);
-  }
-};
+#include <deque>
 
 //#include "EPEThetaStar.h"
 //#include "PEThetaStar.h"
@@ -53,10 +45,9 @@ class Stack:public std::stack<T>{
 xytLoc p0;
  
 // A utility function to find next to top in a stack
-xytLoc nextToTop(Stack<xytLoc> &S)
+xytLoc nextToTop(std::deque<xytLoc> &S)
 {
-    //return *(++S.begin());
-    return S.second();
+    return S[S.size()-2];
     //xytLoc p = S.top();
     //S.pop();
     //xytLoc res = S.top();
@@ -93,6 +84,14 @@ int orientation(xytLoc const& p, xytLoc const& q, xytLoc const& r)
     //if (val == 0) return 0;  // colinear
     return val?((val > 0)? 1: 2):0; // clock or counterclock wise
 }
+int orientation(Vector2D const& p, Vector2D const& q, xytLoc const& r)
+{
+    int val = (q.y - p.y) * (r.x - q.x) -
+              (q.x - p.x) * (r.y - q.y);
+ 
+    //if (val == 0) return 0;  // colinear
+    return val?((val > 0)? 1: 2):0; // clock or counterclock wise
+}
  
 // A function used by library function qsort() to sort an array of
 // points with respect to the first point
@@ -105,6 +104,7 @@ bool compare(xytLoc const& p1, xytLoc const& p2){
    return (o == 2)? true: false;
 }
  
+// Graham Scan
 // Prints convex hull of a set of n points.
 void convexHull(std::vector<xytLoc> points, std::vector<Vector2D>& hull){
    // Find the bottommost point
@@ -160,10 +160,10 @@ void convexHull(std::vector<xytLoc> points, std::vector<Vector2D>& hull){
  
    // Create an empty stack and push first three points
    // to it.
-   Stack<xytLoc> S;
-   S.push(points[0]);
-   S.push(points[1]);
-   S.push(points[2]);
+   std::deque<xytLoc> S;
+   S.push_back(points[0]);
+   S.push_back(points[1]);
+   S.push_back(points[2]);
  
    // Process remaining n-3 points
    for (int i = 3; i < m; i++)
@@ -171,20 +171,73 @@ void convexHull(std::vector<xytLoc> points, std::vector<Vector2D>& hull){
       // Keep removing top while the angle formed by
       // points next-to-top, top, and points[i] makes
       // a non-left turn
-      while (orientation(nextToTop(S), S.top(), points[i]) != 2)
-         S.pop();
-      S.push(points[i]);
+      while (orientation(nextToTop(S), S.back(), points[i]) != 2)
+         S.pop_back();
+      S.push_back(points[i]);
    }
  
    //std::cout << "-----------\n";
    // Now stack has the output points, print contents of stack
    hull.reserve(S.size());
    while (!S.empty()){
-       xytLoc p = S.top();
-       hull.push_back(S.top());
+       //xytLoc p = S.back();
+       hull.push_back(S.back());
        //std::cout << "(" << p.x << ", " << p.y <<")" << std::endl;
-       S.pop();
+       S.pop_back();
    }
+}
+
+// Jarvis' march
+void convexHull2(std::vector<xytLoc> const& points, std::vector<Vector2D>& hull){
+    // There must be at least 3 points
+    if (points.size() < 3) return;
+ 
+    // Find the leftmost point
+    int l = 0;
+    for (int i = 1; i < points.size(); i++)
+        if (points[i].x < points[l].x)
+            l = i;
+ 
+    // Start from leftmost point, keep moving counterclockwise
+    // until reach the start point again.  This loop runs O(h)
+    // times where h is number of points in result or output.
+    int p = l, q;
+    do
+    {
+        // Add current point to result
+        if(hull.size()<2){
+          hull.push_back(points[p]);
+        }else if(orientation(hull[hull.size()-2],hull.back(),points[p])){
+          hull.push_back(points[p]);
+        }else{ // Collinear - replace
+          hull.back()=points[p];
+        }
+ 
+        // Search for a point 'q' such that orientation(p, x,
+        // q) is counterclockwise for all points 'x'. The idea
+        // is to keep track of last visited most counterclock-
+        // wise point in q. If any point 'i' is more counterclock-
+        // wise than q, then update q.
+        q = (p+1)%points.size();
+        for (int i = 0; i < points.size(); i++)
+        {
+           // If i is more counterclockwise than current q, then
+           // update q
+           if (orientation(points[p], points[i], points[q]) == 2)
+               q = i;
+        }
+ 
+        // Now q is the most counterclockwise with respect to p
+        // Set p as q for next iteration, so that q is added to
+        // result 'hull'
+        p = q;
+ 
+    } while (p != l);  // While we don't come to first point
+ 
+    // Print Result
+    //for (int i = 0; i < hull.size(); i++)
+        //std::cout << "(" << hull[i].x << ", "
+              //<< hull[i].y << ")\n";
 }
 
 typedef struct {float x, y;} vec;
@@ -265,6 +318,18 @@ bool sat(std::vector<Vector2D>const& a, std::vector<Vector2D>const& b){
   }
   if(!sat(a,b,b[b.size()-1],b[0])) return false;
   return true;
+}
+
+
+// Separating axis theorem for polygonal intersection test
+bool sat(std::vector<xytLoc>const& a, std::vector<xytLoc>const& b){
+  std::vector<Vector2D> aa;
+  std::vector<Vector2D> bb;
+  aa.reserve(a.size());
+  bb.reserve(b.size());
+  for(auto const& aaa:a)aa.push_back(aaa);
+  for(auto const& bbb:b)bb.push_back(bbb);
+  return sat(aa,bb);
 }
 
 TEST(VelocityObstacle, IsInsidePass){
@@ -2868,7 +2933,7 @@ void merge(std::vector<std::vector<state>> const& solution, std::vector<aabb>& s
 }
 
 template<typename aabb>
-void getAllPairs2(std::vector<aabb> const& sorted, std::vector<std::pair<aabb,aabb>>& pairs){
+void getAllPairsSAP(std::vector<aabb> const& sorted, std::vector<std::pair<aabb,aabb>>& pairs){
   auto a(sorted.begin()+1);
   unsigned touched(0);
   unsigned compared(0);
@@ -2899,9 +2964,9 @@ void getAllPairs2(std::vector<aabb> const& sorted, std::vector<std::pair<aabb,aa
     //std::cout << "-------\n";
     ++a;
   }
-  std::cout << "touched " << touched << "\n";
-  std::cout << "compared " << compared << "\n";
-  std::cout << "pairs " << pairs.size() << "\n";
+  //std::cout << "touched " << touched << "\n";
+  //std::cout << "compared " << compared << "\n";
+  //std::cout << "pairs " << pairs.size() << "\n";
 }
 
 template<typename aabb>
@@ -2931,10 +2996,76 @@ void getAllPairsX(std::vector<aabb> const& sorted, std::vector<std::pair<aabb,aa
     b=++a;
     ++b;
   }
-  std::cout << "touched " << touched << "\n";
-  std::cout << "compared " << compared << "\n";
-  std::cout << "pairs " << pairs.size() << "\n";
+  //std::cout << "touched " << touched << "\n";
+  //std::cout << "compared " << compared << "\n";
+  //std::cout << "pairs " << pairs.size() << "\n";
 }
+template<typename aabb>
+void getPathCollisionsAndReplaceSAPX(std::vector<aabb> const& path, std::vector<aabb>& sorted, std::vector<std::pair<aabb,aabb>>& pairs){
+  unsigned a(0);
+  unsigned b(0);
+  while(a<sorted.size() && b<path.size()){
+    if(sorted[a].agent==path[b].agent){
+      sorted.erase(sorted.begin()+a); // erase and skip
+      continue;
+    }else if(path[b].upperBound[1].cvalue<sorted[a].lowerBound[1].cvalue){
+      ++b;
+      continue;
+    }else if(path[b].lowerBound[1].cvalue>sorted[a].lowerBound[1].cvalue){
+      sorted.insert(sorted.begin()+a,path[b]);
+    }
+    if(
+        sorted[a].upperBound[0].cvalue>=path[b].lowerBound[0].cvalue &&
+        sorted[a].lowerBound[0].cvalue<=path[b].upperBound[0].cvalue &&
+        sorted[a].lowerBound[2].cvalue<=path[b].upperBound[2].cvalue &&
+        sorted[a].upperBound[2].cvalue>=path[b].lowerBound[2].cvalue){
+      pairs.emplace_back(sorted[a],path[b]);
+    }
+    ++a;
+  }
+  while(a==sorted.size() && b<path.size()){
+    sorted.push_back(path[b]);
+  }
+}
+
+
+template<typename aabb>
+void getAllPairsSAPX(std::vector<aabb> const& sorted, std::vector<std::pair<aabb,aabb>>& pairs){
+  auto a(sorted.begin()+1);
+  unsigned touched(0);
+  unsigned compared(0);
+  unsigned npairs(0);
+  std::vector<aabb const*> active;
+  active.push_back(&*sorted.begin());
+  while(a!=sorted.end()){
+    touched++;
+    //std::cout << "<"<<a->lowerBound[0].value<<"~"<<a->upperBound[0].value<<","<<a->lowerBound[1].cvalue<<"~"<<a->upperBound[1].cvalue<<","<<a->lowerBound[2].cvalue<<"~"<<a->upperBound[2].cvalue<<">\n";
+    for(auto b(active.begin()); b!=active.end(); /*++b*/){
+      compared++;
+        //std::cout<<"  <"<<b->lowerBound[0].value<<"~"<<b->upperBound[0].value<<","<<b->lowerBound[1].cvalue<<"~"<<b->upperBound[1].cvalue<<","<<b->lowerBound[2].cvalue<<"~"<<b->upperBound[2].cvalue<<">\n";
+      if((*b)->upperBound[1].cvalue<a->lowerBound[1].cvalue){
+        active.erase(b);
+        continue;
+      }
+      if(a->agent!=(*b)->agent &&
+            a->upperBound[0].cvalue>=(*b)->lowerBound[0].cvalue &&
+            a->lowerBound[0].cvalue<=(*b)->upperBound[0].cvalue &&
+            a->lowerBound[2].cvalue<=(*b)->upperBound[2].cvalue &&
+            a->upperBound[2].cvalue>=(*b)->lowerBound[2].cvalue){
+          pairs.emplace_back(*a,**b);
+          //std::cout << "***\n";
+      }
+      ++b;
+    }
+    active.push_back(&*a);
+    //std::cout << "-------\n";
+    ++a;
+  }
+  //std::cout << "touched " << touched << "\n";
+  //std::cout << "compared " << compared << "\n";
+  //std::cout << "pairs " << pairs.size() << "\n";
+}
+
 
 template<typename aabb>
 void getAllPairs(std::vector<aabb> const& sorted, std::vector<std::pair<aabb,aabb>>& pairs){
@@ -2963,9 +3094,9 @@ void getAllPairs(std::vector<aabb> const& sorted, std::vector<std::pair<aabb,aab
     b=++a;
     ++b;
   }
-  std::cout << "touched " << touched << "\n";
-  std::cout << "compared " << compared << "\n";
-  std::cout << "pairs " << pairs.size() << "\n";
+  //std::cout << "touched " << touched << "\n";
+  //std::cout << "compared " << compared << "\n";
+  //std::cout << "pairs " << pairs.size() << "\n";
 }
 
 void replaceAABBs(std::vector<xytAABB> const& n, std::vector<xytAABB>& sorted){
@@ -3264,7 +3395,7 @@ TEST(AABB, insertTestLinear){
     //}
     //std::cout << "\n";
   //}
-  if(false){
+  {
     Timer tmr0;
     Timer tmrz;
     unsigned count0(0);
@@ -3533,7 +3664,6 @@ void broadphaseTest(int type, unsigned nagents, unsigned tnum){
   }
   std::cout << "BVH test on " << nagents << " with " << total1 << " checks, " << count1 << " collisions took " << tmr1.EndTimer() << "(" << tmr3.EndTimer() << ")\n";
 
-
   {
     unsigned count2(0);
     unsigned total2(0);
@@ -3710,6 +3840,55 @@ void broadphaseTest(int type, unsigned nagents, unsigned tnum){
     std::cout << "Brute force with skip and ch on " << nagents << " with " << total4 << " checks, " << count4 << " collisions took " << tmr4.EndTimer() << "\n";
   }
   {
+    unsigned count4(0);
+    unsigned total4(0);
+    Timer tmr4;
+    std::vector<std::vector<Vector2D>> boxes(nagents);
+    for(int i(0); i<nagents; ++i){
+      /*for(auto const& v:p[i]){
+        std::cout << v.x << " " << v.y << "\n";
+      }*/
+      convexHull2(p[i],boxes[i]);
+      /*std::cout << "Hull " << i << "\n";
+      for(auto const& v:boxes[i]){
+        std::cout << v << "\n";
+      }
+      std::cout << "from :";
+      for(auto const& v:p[i]){
+        std::cout << v << " ";
+      }
+        std::cout << "\n";
+      */
+    }
+    tmr4.StartTimer();
+    // Count collisions brute force
+    for(int i(0); i<nagents; ++i){
+      boxes[i].clear();
+      convexHull2(p[i],boxes[i]);
+      for(int j(i+1); j<nagents; ++j){
+        //std::cout << i << "," << j << ":";
+        if(boxes[i].empty() || boxes[j].empty() || sat(boxes[i],boxes[j])) // check if convex hulls have overlap
+        {
+          skipAndCountCollisions(p[i],p[j],radius,count4,total4,0);}else{
+          if(boxes[i].size() && boxes[j].size()){
+            //std::cout << "Hull " << i << "\n";
+            for(auto const& v:boxes[i]){
+              //std::cout << v << "\n";
+            }
+            //std::cout << " and Hull " << j << "\n";
+            for(auto const& v:boxes[j]){
+              //std::cout << v << "\n";
+            }
+            //std::cout << "have NO overlap\n";
+
+          }
+          }
+        //std::cout << "\n";
+      }
+    }
+    std::cout << "Brute force with skip and ch2 on " << nagents << " with " << total4 << " checks, " << count4 << " collisions took " << tmr4.EndTimer() << "\n";
+  }
+  {
     std::vector<xytAABB> sorted;
     Timer tmr0;
     Timer tmrz;
@@ -3724,7 +3903,7 @@ void broadphaseTest(int type, unsigned nagents, unsigned tnum){
     for(auto const& pp:pairs){
       count0 += checkForCollision(*pp.first.start,*pp.first.end,*pp.second.start,*pp.second.end,radius,&menv);
     }
-    std::cout << "Replace test (t) on " << nagents << " with " << pairs.size() << " checks, " << count0 << " collisions took " << tmrz.EndTimer() << "(" << tmr0.EndTimer() << ")\n";
+    std::cout << "test with merge (t) on " << nagents << " with " << pairs.size() << " checks, " << count0 << " collisions took " << tmrz.EndTimer() << "(" << tmr0.EndTimer() << ")\n";
   }
   {
     std::vector<xytAABB> sorted;
@@ -3764,22 +3943,90 @@ void broadphaseTest(int type, unsigned nagents, unsigned tnum){
     //std::cout << "<"<<s.lowerBound[0].value<<"~"<<s.upperBound[0].value<<","<<s.lowerBound[1].cvalue<<"~"<<s.upperBound[1].cvalue<<","<<s.lowerBound[2].cvalue<<"~"<<s.upperBound[2].cvalue<<">\n";
     tmrz.StartTimer();
     std::vector<std::pair<xytAABB,xytAABB>> pairs;
-    getAllPairs2(sorted,pairs);
+    getAllPairsSAP(sorted,pairs);
     for(auto const& pp:pairs){
       count0 += checkForCollision(*pp.first.start,*pp.first.end,*pp.second.start,*pp.second.end,radius,&menv);
     }
-    std::cout << "Sort test 2 on " << nagents << " with " << pairs.size() << " checks, " << count0 << " collisions took " << tmrz.EndTimer() << "(" << tmr0.EndTimer() << ")\n";
+    std::cout << "SAP test (t) on " << nagents << " with " << pairs.size() << " checks, " << count0 << " collisions took " << tmrz.EndTimer() << "(" << tmr0.EndTimer() << ")\n";
+  }
+  {
+    std::vector<xytAABB> sorted;
+    Timer tmr0;
+    Timer tmrz;
+    unsigned count0(0);
+    tmr0.StartTimer();
+    std::vector<std::vector<xytAABB>> temp(p.size());
+    for(int i(0); i<p.size(); ++i){
+      temp[i].reserve(p[i].size());
+      makeAABBs(p[i],temp[i],i);
+      sorted.insert(sorted.end(), temp[i].begin(), temp[i].end());
+    }
+    // sort by "x" value
+    std::sort(sorted.begin(),sorted.end(),
+        [](xytAABB const& a, xytAABB const& b) -> bool {
+        return a.lowerBound[1].cvalue < b.lowerBound[1].cvalue;
+        });
+    //for(auto const& s:sorted)
+    //std::cout << "<"<<s.lowerBound[0].value<<"~"<<s.upperBound[0].value<<","<<s.lowerBound[1].cvalue<<"~"<<s.upperBound[1].cvalue<<","<<s.lowerBound[2].cvalue<<"~"<<s.upperBound[2].cvalue<<">\n";
+    tmrz.StartTimer();
+    std::vector<std::pair<xytAABB,xytAABB>> pairs;
+    getAllPairsSAPX(sorted,pairs);
+    for(auto const& pp:pairs){
+      count0 += checkForCollision(*pp.first.start,*pp.first.end,*pp.second.start,*pp.second.end,radius,&menv);
+    }
+    std::cout << "SAP test (x) on " << nagents << " with " << pairs.size() << " checks, " << count0 << " collisions took " << tmrz.EndTimer() << "(" << tmr0.EndTimer() << ")\n";
+  }
+  {
+    std::vector<xytAABB> sorted;
+    Timer tmr0;
+    Timer tmrz;
+    unsigned count0(0);
+    std::vector<std::vector<xytAABB>> temp(p.size());
+    for(int i(0); i<p.size(); ++i){
+      temp[i].reserve(p[i].size());
+      makeAABBs(p[i],temp[i],i);
+      sorted.insert(sorted.end(), temp[i].begin(), temp[i].end());
+    }
+    // sort by "x" value
+    std::sort(sorted.begin(),sorted.end(),
+        [](xytAABB const& a, xytAABB const& b) -> bool {
+        return a.lowerBound[1].cvalue < b.lowerBound[1].cvalue;
+        });
+    std::vector<xytAABB> path;
+    std::vector<xytLoc> newpath;
+    std::vector<std::pair<xytAABB,xytAABB>> pairs;
+    getAllPairsSAPX(sorted,pairs);
+    unsigned agent=pairs.front().first.agent;
+    Constraint<xytLoc>* c = new Collision<xytLoc>(*pairs.front().second.start,*pairs.front().second.end);
+    env.AddConstraint(c);
+    astar.GetPath(&env,waypoints[agent][0],waypoints[agent][1],newpath);
+    tmr0.StartTimer();
+    makeAABBs(newpath,path,agent);
+    std::sort(path.begin(),path.end(), // Sort by x
+        [](xytAABB const& a, xytAABB const& b) -> bool {
+        return a.lowerBound[1].cvalue < b.lowerBound[1].cvalue;
+        });
+
+    //for(auto const& s:sorted)
+    //std::cout << "<"<<s.lowerBound[0].value<<"~"<<s.upperBound[0].value<<","<<s.lowerBound[1].cvalue<<"~"<<s.upperBound[1].cvalue<<","<<s.lowerBound[2].cvalue<<"~"<<s.upperBound[2].cvalue<<">\n";
+    tmrz.StartTimer();
+    pairs.clear();
+    getPathCollisionsAndReplaceSAPX(sorted,path,pairs);
+    for(auto const& pp:pairs){
+      count0 += checkForCollision(*pp.first.start,*pp.first.end,*pp.second.start,*pp.second.end,radius,&menv);
+    }
+    std::cout << "linear replacement test (x) on " << nagents << " with " << pairs.size() << " checks, " << count0 << " collisions took " << tmrz.EndTimer() << "(" << tmr0.EndTimer() << ")\n";
   }
 }
 
 TEST(AABB, BVHTreeTest){
   //int types[]={5,9,25,49};
-  int types[]={9};
-  //int types[]={9,25,49};
+  //int types[]={9};
+  int types[]={9,25,49};
   for(int type:types){
     //for(int nagents(5); nagents<201; nagents+=5){
-    for(int nagents(5); nagents<201; nagents+=5){
-      for(int i(9); i<10; ++i){
+    for(int nagents(200); nagents<201; nagents+=10){
+      for(int i(0); i<1; ++i){
         std::cout << "===========================================================\n";
         std::cout << type << "Connected, " << nagents << " AGENTS, Test " << i << "\n";
         std::cout << "===========================================================\n";
