@@ -41,29 +41,29 @@
 
 // A globle point needed for  sorting points with reference
 // to  the first point Used in compare function of qsort()
-xyLoc p0;
+xytLoc p0;
  
 // A utility function to find next to top in a stack
-xyLoc nextToTop(std::stack<xyLoc> &S)
+xytLoc nextToTop(std::stack<xytLoc> &S)
 {
-    xyLoc p = S.top();
+    xytLoc p = S.top();
     S.pop();
-    xyLoc res = S.top();
+    xytLoc res = S.top();
     S.push(p);
     return res;
 }
  
 // A utility function to swap two points
-int swap(xyLoc &p1, xyLoc &p2)
+int swap(xytLoc &p1, xytLoc &p2)
 {
-    xyLoc temp = p1;
+    xytLoc temp = p1;
     p1 = p2;
     p2 = temp;
 }
  
 // A utility function to return square of distance
 // between p1 and p2
-int distSq(xyLoc const& p1, xyLoc const& p2)
+int distSq(xytLoc const& p1, xytLoc const& p2)
 {
     return (p1.x - p2.x)*(p1.x - p2.x) +
           (p1.y - p2.y)*(p1.y - p2.y);
@@ -74,7 +74,7 @@ int distSq(xyLoc const& p1, xyLoc const& p2)
 // 0 --> p, q and r are colinear
 // 1 --> Clockwise
 // 2 --> Counterclockwise
-int orientation(xyLoc const& p, xyLoc const& q, xyLoc const& r)
+int orientation(xytLoc const& p, xytLoc const& q, xytLoc const& r)
 {
     int val = (q.y - p.y) * (r.x - q.x) -
               (q.x - p.x) * (r.y - q.y);
@@ -85,7 +85,7 @@ int orientation(xyLoc const& p, xyLoc const& q, xyLoc const& r)
  
 // A function used by library function qsort() to sort an array of
 // points with respect to the first point
-bool compare(xyLoc const& p1, xyLoc const& p2){
+bool compare(xytLoc const& p1, xytLoc const& p2){
    // Find orientation
    int o = orientation(p0, p1, p2);
    if (o == 0)
@@ -95,12 +95,12 @@ bool compare(xyLoc const& p1, xyLoc const& p2){
 }
  
 // Prints convex hull of a set of n points.
-void convexHull(std::vector<xyLoc> points)
-{
+void convexHull(std::vector<xytLoc> points, std::vector<Vector2D>& hull){
    // Find the bottommost point
    int ymin = points[0].y, min = 0;
    for (int i = 1; i < points.size(); i++)
    {
+     //std::cout << points[i] << "\n";
      int y = points[i].y;
  
      // Pick the bottom-most or chose the left
@@ -118,9 +118,9 @@ void convexHull(std::vector<xyLoc> points)
    // has larger polar angle (in counterclockwise
    // direction) than p1
    p0 = points[0];
-   //qsort(&points[1], n-1, sizeof(xyLoc), compare);
+   //qsort(&points[1], n-1, sizeof(xytLoc), compare);
    std::sort(points.begin()+1,points.end(),
-       [](xyLoc const& a, xyLoc const& b) -> bool {
+       [](xytLoc const& a, xytLoc const& b) -> bool {
        return compare(a,b);
        });
  
@@ -149,7 +149,7 @@ void convexHull(std::vector<xyLoc> points)
  
    // Create an empty stack and push first three points
    // to it.
-   std::stack<xyLoc> S;
+   std::stack<xytLoc> S;
    S.push(points[0]);
    S.push(points[1]);
    S.push(points[2]);
@@ -165,13 +165,95 @@ void convexHull(std::vector<xyLoc> points)
       S.push(points[i]);
    }
  
+   //std::cout << "-----------\n";
    // Now stack has the output points, print contents of stack
-   while (!S.empty())
-   {
-       xyLoc p = S.top();
-       std::cout << "(" << p.x << ", " << p.y <<")" << std::endl;
+   hull.reserve(S.size());
+   while (!S.empty()){
+       xytLoc p = S.top();
+       hull.push_back(S.top());
+       //std::cout << "(" << p.x << ", " << p.y <<")" << std::endl;
        S.pop();
    }
+}
+
+typedef struct {float x, y;} vec;
+typedef struct {vec p0, dir;} ray;
+typedef struct {vec p0, p1, dir;} seg;
+typedef struct {int n; vec *vertices; seg *edges;} polygon; // Assumption: Simply connected => chain vertices together
+
+polygon new_polygon(int nvertices, vec *vertices){
+	seg *edges = (seg*)malloc(sizeof(seg)*(nvertices));
+	int i;
+	for (i = 0; i < nvertices-1; i++){
+		vec dir = {vertices[i+1].x-vertices[i].x, vertices[i+1].y-vertices[i].y};seg cur = {vertices[i], vertices[i+1], dir};
+		edges[i] = cur;
+	}
+	vec dir = {vertices[0].x-vertices[nvertices-1].x, vertices[0].y-vertices[nvertices-1].y};seg cur = {vertices[nvertices-1], vertices[0], dir};
+	edges[nvertices-1] = cur;
+	polygon shape = {nvertices, vertices, edges};
+	return shape;
+}
+
+vec v(float x, float y){
+	vec a = {x, y};
+	return a;
+}
+
+vec perp(vec v){
+	vec b = {v.y, -v.x};
+	return b;
+}
+
+seg segment(vec p0, vec p1){
+	vec dir = {p1.x-p0.x, p1.y-p0.y};
+	seg s = {p0, p1, dir};
+	return s;
+}
+
+polygon Polygon(int nvertices, ...){
+	va_list args;
+	va_start(args, nvertices);
+	vec *vertices = (vec*)malloc(sizeof(vec)*nvertices);
+	int i;
+	for (i = 0; i < nvertices; i++){
+		vertices[i] = va_arg(args, vec);
+	}
+	va_end(args);
+	return new_polygon(nvertices, vertices);
+}
+
+bool contains(double n, Vector2D const& range){
+  return (range.min() <= n && n <= range.max());
+}
+
+bool overlap(Vector2D const& a, Vector2D const& b){
+  if (contains(a.x,b)) return true;
+  if (contains(a.y,b)) return true;
+  if (contains(b.x,a)) return true;
+  if (contains(b.y,a)) return true;
+  return false;
+}
+
+bool sat(std::vector<Vector2D>const& pa, std::vector<Vector2D>const& pb, Vector2D const& a, Vector2D const& b){
+  Vector2D axis((b,a).perp());
+  axis.Normalize();
+  Vector2D ppa(axis.projectPolyOntoSelf(pa));
+  Vector2D ppb(axis.projectPolyOntoSelf(pb));
+  return overlap(ppa,ppb);
+}
+
+// Separating axis theorem for polygonal intersection test
+bool sat(std::vector<Vector2D>const& a, std::vector<Vector2D>const& b){
+  unsigned i;
+  for (i=1;i<a.size();i++){
+    if(!sat(a,b,a[i-1],a[i])) return false;
+  }
+  if(!sat(a,b,a[a.size()-1],a[0])) return false;
+  for (i=1;i<b.size();i++){
+    if(!sat(a,b,b[i-1],b[i])) return false;
+  }
+  if(!sat(a,b,b[b.size()-1],b[0])) return false;
+  return true;
 }
 
 TEST(VelocityObstacle, IsInsidePass){
@@ -3168,7 +3250,7 @@ TEST(AABB, insertTestLinear){
     //}
     //std::cout << "\n";
   //}
-  {
+  if(false){
     Timer tmr0;
     Timer tmrz;
     unsigned count0(0);
@@ -3568,31 +3650,42 @@ void broadphaseTest(int type, unsigned nagents, unsigned tnum){
     unsigned count4(0);
     unsigned total4(0);
     Timer tmr4;
-    std::vector<std::vector<xyLoc>> boxes(nagents);
+    std::vector<std::vector<Vector2D>> boxes(nagents);
     for(int i(0); i<nagents; ++i){
-      boxes[i].resize(2);
-      boxes[i][0].x=0xffff;
-      boxes[i][0].y=0xffff;
-      for(unsigned ix(0); ix<p[i].size(); ++ix){
-        boxes[i][0].x=std::min(boxes[i][0].x,p[i][ix].x);
-        boxes[i][0].y=std::min(boxes[i][0].y,p[i][ix].y);
-        boxes[i][1].x=std::max(boxes[i][1].x,p[i][ix].x);
-        boxes[i][1].y=std::max(boxes[i][1].y,p[i][ix].y);
+      convexHull(p[i],boxes[i]);
+      std::cout << "Hull " << i << "\n";
+      for(auto const& v:boxes[i]){
+        std::cout << v << "\n";
       }
+      std::cout << "from :";
+      for(auto const& v:p[i]){
+        std::cout << v << " ";
+      }
+        std::cout << "\n";
+      
     }
     tmr4.StartTimer();
     // Count collisions brute force
     for(int i(0); i<nagents; ++i){
-      for(unsigned ix(0); ix<p[i].size(); ++ix){
-        boxes[i][0].x=std::min(boxes[i][0].x,p[i][ix].x);
-        boxes[i][0].y=std::min(boxes[i][0].y,p[i][ix].y);
-        boxes[i][1].x=std::max(boxes[i][1].x,p[i][ix].x);
-        boxes[i][1].y=std::max(boxes[i][1].y,p[i][ix].y);
-      }
+      boxes[i].clear();
+      convexHull(p[i],boxes[i]);
       for(int j(i+1); j<nagents; ++j){
-        if(boxes[i][0].x>boxes[j][1].x || boxes[i][1].x<boxes[j][0].x ||
-            boxes[i][0].y>boxes[j][1].y || boxes[i][1].y<boxes[j][0].y){}else{
-        skipAndCountCollisions(p[i],p[j],radius,count4,total4,0);}
+        if(boxes[i].empty() || boxes[j].empty() || sat(boxes[i],boxes[j])) // check if convex hulls have overlap
+        {
+          skipAndCountCollisions(p[i],p[j],radius,count4,total4,0);}else{
+          if(boxes[i].size() && boxes[j].size()){
+            std::cout << "Hull " << i << "\n";
+            for(auto const& v:boxes[i]){
+              std::cout << v << "\n";
+            }
+            std::cout << " and Hull " << j << "\n";
+            for(auto const& v:boxes[j]){
+              std::cout << v << "\n";
+            }
+            std::cout << "have NO overlap\n";
+
+          }
+          }
       }
     }
     // Note Graham Scan algorithm is better than Jarvis' march because these are paths

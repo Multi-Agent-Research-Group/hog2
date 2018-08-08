@@ -25,6 +25,7 @@
 #include <math.h>
 #include "FPUtil.h"
 #include <ostream>
+#include <vector>
 
 class Vector2D {
   public:
@@ -42,17 +43,34 @@ class Vector2D {
     bool operator<(const Vector2D &rhs)const{return fequal(x,rhs.x)?fless(y,rhs.y):fless(x,rhs.x);}
 
     // Dot product
-    inline double operator *(Vector2D const& other){return x * other.x + y * other.y;}
+    inline double operator *(Vector2D const& other)const{return x * other.x + y * other.y;}
     inline Vector2D operator -(Vector2D const& other)const{return Vector2D(x-other.x,y-other.y);}
     inline Vector2D operator +(double s)const{return Vector2D(x+s,y+s);}
     inline void operator -=(Vector2D const& other){x-=other.x;y-=other.y;}
     // Negation
     inline Vector2D operator -()const{return Vector2D(-x,-y);}
     // Slope angle of this vector
-    inline double atan(){ return atan2(y,x); }
+    inline double atan()const{ return atan2(y,x); }
     // Square
-    inline double sq(){ return (*this) * (*this); }
-    inline double len(){ return sqrt(sq()); }
+    inline double sq()const{ return (*this) * (*this); }
+    inline double len()const{ return sqrt(sq()); }
+
+    // Vector that is perpendicular to this vector
+    inline Vector2D perp()const{return Vector2D(y,-x);}
+
+    inline double min()const{return x<y?x:y;}
+    inline double max()const{return x<y?x:y;}
+    // Project an (unclosed) polygon onto this line (a normalized axis)
+    inline Vector2D projectPolyOntoSelf(std::vector<Vector2D> const& poly)const{
+      double min(poly[0]*(*this));
+      double max=min;
+      for(unsigned i(1); i<poly.size(); ++i){
+        double proj(poly[i]*(*this));
+        if(fless(proj,min)) min = proj;
+        if(fgreater(proj,max)) max = proj;
+      }
+      return Vector2D(min,max);
+    }
 
     friend Vector2D operator /(const Vector2D& vec, const double num)
     {
