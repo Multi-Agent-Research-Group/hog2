@@ -30,9 +30,17 @@
 #include <limits.h>
 
 namespace Util {
+inline double distanceSquared(double dx, double dy){ // x and y differences
+  return dx*dx+dy*dy;
+}
+
 // Get the straight line distance from a to b
 inline double distance(double dx, double dy){ // x and y differences
   return sqrt(dx*dx+dy*dy);
+}
+
+inline double distanceSquared(double x1, double y1, double x2, double y2){
+  return distanceSquared(y1-y2,x1-x2);
 }
 
 // Get the straight line distance from a to b
@@ -40,9 +48,17 @@ inline double distance(double x1, double y1, double x2, double y2){
   return distance(y1-y2,x1-x2);
 }
 
+inline double distanceSquared(double dx, double dy, double dz){ // x, y and z differences
+  return dx*dx+dy*dy+dz*dz;
+}
+
 // Get the straight line distance from a to b
 inline double distance(double dx, double dy, double dz){ // x, y and z differences
   return sqrt(dx*dx+dy*dy+dz*dz);
+}
+
+inline double distanceSquared(double x1, double y1, double z1, double x2, double y2, double z2){
+  return distanceSquared(y1-y2,x1-x2,z1-z2);
 }
 
 // Get the straight line distance from a to b
@@ -50,12 +66,19 @@ inline double distance(double x1, double y1, double z1, double x2, double y2, do
   return distance(y1-y2,x1-x2,z1-z2);
 }
 
+inline double distanceSquared(Vector2D const& A, Vector2D const& B){
+  return distanceSquared(A.x,A.y,B.x,B.y);
+}
 inline double distance(Vector2D const& A, Vector2D const& B){
-  return distance(A.x,A.y,B.x,B.y);
+  return sqrt(distanceSquared(A.x,A.y,B.x,B.y));
+}
+
+inline double distanceSquared(Vector3D const& A, Vector3D const& B){
+  return distanceSquared(A.x,A.y,A.z,B.x,B.y,B.z);
 }
 
 inline double distance(Vector3D const& A, Vector3D const& B){
-  return distance(A.x,A.y,A.z,B.x,B.y,B.z);
+  return sqrt(distanceSquared(A.x,A.y,A.z,B.x,B.y,B.z));
 }
 
 // Get the heading from a to b (clockwise from north)
@@ -101,9 +124,9 @@ inline double steps2Rad(signed steps){return steps/double(steps360)*360.*M_PI/18
 template<unsigned steps360>
 inline double steps2deg(signed steps){return steps/double(steps360)*360.;}
 
-inline double distanceOfPointToLine(Vector2D v, Vector2D w, Vector2D const& p){
+inline double sqDistanceOfPointToLine(Vector2D v, Vector2D w, Vector2D const& p){
   const double l2((v-w).sq());  // i.e. |w-v|^2 -  avoid a sqrt
-  if (fequal(l2,0.0)) return distance(p, v);   // v == w case
+  if (fequal(l2,0.0)) return distanceSquared(p, v);   // v == w case
   // Consider the line extending the segment, parameterized as v + t (w - v).
   // We find projection of point p onto the line. 
   // It falls where t = [(p-v) . (w-v)] / |w-v|^2
@@ -114,10 +137,13 @@ inline double distanceOfPointToLine(Vector2D v, Vector2D w, Vector2D const& p){
   w-=v;
   w*=t;
   v+=w; // piecewise multiply
-  return distance(p, v);
+  return distanceSquared(p, v);
   //double dy(a.y-b.y);
   //double dx(a.x-b.x);
   //return fabs(dy*x.x-dx-x.y+a.x*b.y-a.y*b.x)/sqrt(dy*dy+dx*dx);
+}
+inline double distanceOfPointToLine(Vector2D v, Vector2D w, Vector2D const& p){
+  return sqrt(sqDistanceOfPointToLine(v,w,p));
 }
 
 // Get the coordinates of a secant line cut by a circle at center c with radius r
@@ -198,7 +224,8 @@ bool intersectionPoint(Vector2D const& A1, Vector2D const& A2, Vector2D const& B
 bool fatLinesIntersect(Vector2D const& A1, Vector2D const& A2, double r1, Vector2D const& B1, Vector2D const& B2, double r2);
 float closestDistanceBetweenLineSegments(Vector3D const& s1, Vector3D const& d1, Vector3D const& s2, Vector3D const& d2);
 bool fatLinesIntersect(Vector3D const& A1, Vector3D const& A2, double r1, Vector3D const& B1, Vector3D const& B2, double r2);
-
+bool pointInPoly(std::vector<Vector2D> const& poly, Vector2D const& p);
+bool lineIntersectsPoly(std::vector<Vector2D> const& poly, Vector2D const& p1, Vector2D const& p2);
 };
 
 #endif

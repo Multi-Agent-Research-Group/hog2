@@ -179,3 +179,22 @@ float Util::closestDistanceBetweenLineSegments(Vector3D const& s1, Vector3D cons
 bool Util::fatLinesIntersect(Vector3D const& A1, Vector3D const& A2, double r1, Vector3D const& B1, Vector3D const& B2, double r2){
   return fleq(closestDistanceBetweenLineSegments(A1,A2,B1,B2),r1+r2);
 }
+
+// For convex polygons only...
+// Also assumes that no polygon extends beyond 2^12 (4096) on the x axis
+bool Util::pointInPoly(std::vector<Vector2D> const& poly, Vector2D const& p1){
+  unsigned crossings(0);
+  Vector2D endpoint(Vector2D(p1.x+0xfff,p1.y));
+  crossings+=linesIntersect(poly.front(),poly.back(),p1,endpoint);
+  for(unsigned i(1); i<poly.size()&&crossings<2; ++i){
+    crossings+=linesIntersect(poly[i-1],poly[i],p1,endpoint);
+  }
+  return crossings%2;
+}
+bool Util::lineIntersectsPoly(std::vector<Vector2D> const& poly, Vector2D const& p1, Vector2D const& p2){
+  if(linesIntersect(poly.front(),poly.back(),p1,p2))return true;
+  for(unsigned i(1); i<poly.size(); ++i){
+    if(linesIntersect(poly[i-1],poly[i],p1,p2))return true;
+  }
+  return false;
+}

@@ -156,8 +156,13 @@ void convexHull(std::vector<xytLoc> points, std::vector<Vector2D>& hull){
    }
  
    // If modified array of points has less than 3 points,
-   // convex hull is not possible
-   if (m < 3) return;
+   // convex hull is not possible, but we may have a line
+   // or point... return whatever we have.
+   if (m < 3){
+     for(int i(0);i<m; ++i)
+       hull.push_back(points[i]);
+     return;
+   }
  
    // Create an empty stack and push first three points
    // to it.
@@ -309,6 +314,18 @@ bool sat(std::vector<Vector2D>const& pa, std::vector<Vector2D>const& pb, Vector2
 
 // Separating axis theorem for polygonal intersection test
 bool sat(std::vector<Vector2D>const& a, std::vector<Vector2D>const& b){
+  if(a.size()==1){
+    if(b.size()==1) return (a[0].x==b[0].x&&a[0].y==b[0].y);
+    if(b.size()==2) return fequal(Util::sqDistanceOfPointToLine(b[0],b[1],a[0]),0);
+    if(b.size()>=3) return Util::pointInPoly(b,a[0]);
+  }else if(a.size()==2){
+    if(b.size()==1) return fequal(Util::sqDistanceOfPointToLine(a[0],a[1],b[0]),0);
+    if(b.size()==2) return Util::linesIntersect(a[0],a[1],b[0],b[1]);
+    if(b.size()>=3) return Util::lineIntersectsPoly(b,a[0],a[1]);
+  }
+  if(b.size()==1) return Util::pointInPoly(a,b[0]);
+  if(b.size()==2) return Util::lineIntersectsPoly(a,b[0],b[1]);
+
   unsigned i;
   for (i=1;i<a.size();i++){
     if(!sat(a,b,a[i-1],a[i])) return false;
@@ -2872,6 +2889,16 @@ TEST(UTIL, CopyToPairs){
   ASSERT_EQ(1,aabbs.front().start->x);
 }
 
+TEST(UTIL, onvexHullLine){
+  std::vector<xytLoc> values={{1,1,1},{2,2,2},{3,3,3},{4,4,4},{5,5,5},{6,6,6},{7,7,7},{8,8,8},{9,9,9},{0,0,0}};
+  std::vector<Vector2D> result;
+  convexHull(values,result);
+  std::cout << "chull:\n";
+  for(auto const& r:result){
+    std::cout << r << "\n";
+  }
+}
+
 
 // Merge two sorted arrays of pointers
 template<class InputIt1, class InputIt2, class OutputIt>
@@ -3918,7 +3945,7 @@ void broadphaseTest(int type, unsigned nagents, unsigned tnum){
     // Note Graham Scan algorithm is better than Jarvis' march because these are paths
     std::cout << "Brute force with skip and ch on " << nagents << " with " << total4 << " checks, " << count4 << " collisions took " << tmr4.EndTimer() << "\n";
   }
-  {
+  if(false){
     unsigned count4(0);
     unsigned total4(0);
     Timer tmr4;
@@ -4364,7 +4391,7 @@ void broadphaseTest(int type, unsigned nagents, unsigned tnum){
     }
     std::cout << "Brute force single agent with ch on " << nagents << " with " << total4 << " checks, " << count4 << " collisions took " << tmr4.EndTimer() << "\n";
   }
-  {
+  if(false){
     std::vector<xytLoc> newpath;
     int av=0, agent=0;
     {
@@ -4732,7 +4759,7 @@ void broadphaseTest(int type, unsigned nagents, unsigned tnum){
     }
     std::cout << "Brute force single agent with skip and ch on " << nagents << " with " << total4 << " checks, " << count4 << " collisions took " << tmr4.EndTimer() << "\n";
   }
-  {
+  if(false){
     std::vector<xytLoc> newpath;
     int av=0, agent=0;
     {
