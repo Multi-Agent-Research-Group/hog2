@@ -107,7 +107,11 @@ bool compare(xytLoc const& p1, xytLoc const& p2){
 // Graham Scan
 // Prints convex hull of a set of n points.
 void convexHull(std::vector<xytLoc> points, std::vector<Vector2D>& hull){
-  if (points.size() < 3) return;
+  if (points.size() < 3){
+    hull.reserve(points.size());
+    hull.insert(hull.end(),points.begin(),points.end());
+    return;
+  }
    // Find the bottommost point
    int ymin = points[0].y, min = 0;
    for (int i = 1; i < points.size(); i++)
@@ -305,7 +309,7 @@ bool overlap(Vector2D const& a, Vector2D const& b){
 }
 
 bool sat(std::vector<Vector2D>const& pa, std::vector<Vector2D>const& pb, Vector2D const& a, Vector2D const& b){
-  Vector2D axis((b,a).perp());
+  Vector2D axis((b-a).perp());
   axis.Normalize();
   Vector2D ppa(axis.projectPolyOntoSelf(pa));
   Vector2D ppb(axis.projectPolyOntoSelf(pb));
@@ -2889,16 +2893,97 @@ TEST(UTIL, CopyToPairs){
   ASSERT_EQ(1,aabbs.front().start->x);
 }
 
-TEST(UTIL, onvexHullLine){
+TEST(UTIL, ConvexHullPoly){
+  std::vector<xytLoc> values={{1,1,1},{2,3,2},{5,5,5},{6,6,6},{7,7,7},{8,8,8},{9,9,9}};
+  std::vector<Vector2D> result;
+  convexHull(values,result);
+  ASSERT_EQ(3,result.size());
+  ASSERT_EQ(Vector2D(2,3),result.front());
+  ASSERT_EQ(Vector2D(9,9),result[1]);
+  ASSERT_EQ(Vector2D(1,1),result[2]);
+}
+
+TEST(UTIL, ConvexHullLine){
   std::vector<xytLoc> values={{1,1,1},{2,2,2},{3,3,3},{4,4,4},{5,5,5},{6,6,6},{7,7,7},{8,8,8},{9,9,9},{0,0,0}};
   std::vector<Vector2D> result;
   convexHull(values,result);
-  std::cout << "chull:\n";
-  for(auto const& r:result){
-    std::cout << r << "\n";
-  }
+  ASSERT_EQ(2,result.size());
+  ASSERT_EQ(Vector2D(0,0),result.front());
+  ASSERT_EQ(Vector2D(9,9),result.back());
 }
 
+TEST(UTIL, ConvexHullPoint){
+  std::vector<xytLoc> values={{1,1,1}};
+  std::vector<Vector2D> result;
+  convexHull(values,result);
+  ASSERT_EQ(1,result.size());
+  ASSERT_EQ(Vector2D(1,1),result.front());
+}
+
+TEST(UTIL, OverlapPolyPoly){
+  std::vector<xytLoc> values1={{1,1,1},{1,9,1},{4,4,1}}; // Triangle
+  std::vector<xytLoc> values2={{3,1,1},{3,9,1},{5,9,1},{5,1,1}}; // Rectangle
+  std::vector<Vector2D> result1;
+  std::vector<Vector2D> result2;
+  convexHull(values1,result1);
+  convexHull(values2,result2);
+  ASSERT_EQ(true,sat(result1,result2));
+  ASSERT_EQ(true,sat(result2,result1));
+}
+
+TEST(UTIL, OverlapPolyLine){
+  std::vector<xytLoc> values1={{1,1,1},{2,2,1},{8,8,1}}; // Line
+  std::vector<xytLoc> values2={{3,1,1},{3,9,1},{5,9,1},{5,1,1}}; // Rectangle
+  std::vector<Vector2D> result1;
+  std::vector<Vector2D> result2;
+  convexHull(values1,result1);
+  convexHull(values2,result2);
+  ASSERT_EQ(true,sat(result1,result2));
+  ASSERT_EQ(true,sat(result2,result1));
+}
+
+TEST(UTIL, OverlapPolyPoint){
+  std::vector<xytLoc> values1={{4,8,1}}; // Point
+  std::vector<xytLoc> values2={{3,1,1},{3,9,1},{5,9,1},{5,1,1}}; // Rectangle
+  std::vector<Vector2D> result1;
+  std::vector<Vector2D> result2;
+  convexHull(values1,result1);
+  convexHull(values2,result2);
+  ASSERT_EQ(true,sat(result1,result2));
+  ASSERT_EQ(true,sat(result2,result1));
+}
+
+/*
+void minmax_element(std::vector<xytLoc>::const_iterator& first, std::vector<xytLoc>::const_iterator& last, xytLoc& mn, xytLoc mx)
+{
+    mn=mx=*first;
+ 
+    if (first == last) return;
+    if (++first == last) return;
+ 
+    if (comp(first.x<mn, *result.first)) {
+        result.first = first;
+    } else {
+        result.second = first;
+    }
+    while (++first != last) {
+        ForwardIt i = first;
+        if (++first == last) {
+            if (comp(*i, *result.first)) result.first = i;
+            else if (!(comp(*i, *result.second))) result.second = i;
+            break;
+        } else {
+            if (comp(*first, *i)) {
+                if (comp(*first, *result.first)) result.first = first;
+                if (!(comp(*i, *result.second))) result.second = i;
+            } else {
+                if (comp(*i, *result.first)) result.first = i;
+                if (!(comp(*first, *result.second))) result.second = first;
+            }
+        }
+    }
+    return result;
+}*/
 
 // Merge two sorted arrays of pointers
 template<class InputIt1, class InputIt2, class OutputIt>
@@ -3868,25 +3953,22 @@ void broadphaseTest(int type, unsigned nagents, unsigned tnum){
     std::vector<std::vector<xyLoc>> boxes(nagents);
     for(int i(0); i<nagents; ++i){
       boxes[i].resize(2);
-      boxes[i][0].x=0xffff;
-      boxes[i][0].y=0xffff;
-      boxes[i][1].x=0;
-      boxes[i][1].y=0;
-      for(unsigned ix(0); ix<p[i].size(); ++ix){
-        boxes[i][0].x=std::min(boxes[i][0].x,p[i][ix].x);
-        boxes[i][0].y=std::min(boxes[i][0].y,p[i][ix].y);
-        boxes[i][1].x=std::max(boxes[i][1].x,p[i][ix].x);
-        boxes[i][1].y=std::max(boxes[i][1].y,p[i][ix].y);
+      boxes[i][0]=boxes[i][1]=p[i][0];
+      for(unsigned ix(1); ix<p[i].size(); ++ix){
+        if(p[i][ix].x<boxes[i][0].x){boxes[i][0].x=p[i][ix].x;}
+        if(p[i][ix].y<boxes[i][0].y){boxes[i][0].y=p[i][ix].y;}
+        if(p[i][ix].x>boxes[i][1].x){boxes[i][1].x=p[i][ix].x;}
+        if(p[i][ix].y>boxes[i][1].y){boxes[i][1].y=p[i][ix].y;}
       }
     }
     tmr4.StartTimer();
     // Count collisions brute force
     for(int i(0); i<nagents; ++i){
-      for(unsigned ix(0); ix<p[i].size(); ++ix){
-        boxes[i][0].x=std::min(boxes[i][0].x,p[i][ix].x);
-        boxes[i][0].y=std::min(boxes[i][0].y,p[i][ix].y);
-        boxes[i][1].x=std::max(boxes[i][1].x,p[i][ix].x);
-        boxes[i][1].y=std::max(boxes[i][1].y,p[i][ix].y);
+      for(unsigned ix(1); ix<p[i].size(); ++ix){
+        if(p[i][ix].x<boxes[i][0].x){boxes[i][0].x=p[i][ix].x;}
+        if(p[i][ix].y<boxes[i][0].y){boxes[i][0].y=p[i][ix].y;}
+        if(p[i][ix].x>boxes[i][1].x){boxes[i][1].x=p[i][ix].x;}
+        if(p[i][ix].y>boxes[i][1].y){boxes[i][1].y=p[i][ix].y;}
       }
       for(int j(i+1); j<nagents; ++j){
         //std::cout << i << "," << j << ":";
@@ -3945,6 +4027,46 @@ void broadphaseTest(int type, unsigned nagents, unsigned tnum){
     // Note Graham Scan algorithm is better than Jarvis' march because these are paths
     std::cout << "Brute force with skip and ch on " << nagents << " with " << total4 << " checks, " << count4 << " collisions took " << tmr4.EndTimer() << "\n";
   }
+  {
+    unsigned count4(0);
+    unsigned total4(0);
+    Timer tmr4;
+    std::vector<std::vector<xyLoc>> boxes(nagents);
+    std::vector<std::vector<Vector2D>> hull(nagents);
+    for(int i(0); i<nagents; ++i){
+      boxes[i].resize(2);
+      boxes[i][0]=boxes[i][1]=p[i][0];
+      for(unsigned ix(1); ix<p[i].size(); ++ix){
+        if(p[i][ix].x<boxes[i][0].x){boxes[i][0].x=p[i][ix].x;}
+        if(p[i][ix].y<boxes[i][0].y){boxes[i][0].y=p[i][ix].y;}
+        if(p[i][ix].x>boxes[i][1].x){boxes[i][1].x=p[i][ix].x;}
+        if(p[i][ix].y>boxes[i][1].y){boxes[i][1].y=p[i][ix].y;}
+      }
+      convexHull(p[i],hull[i]);
+    }
+    tmr4.StartTimer();
+    // Count collisions brute force
+    for(int i(0); i<nagents; ++i){
+      for(unsigned ix(1); ix<p[i].size(); ++ix){
+        if(p[i][ix].x<boxes[i][0].x){boxes[i][0].x=p[i][ix].x;}
+        if(p[i][ix].y<boxes[i][0].y){boxes[i][0].y=p[i][ix].y;}
+        if(p[i][ix].x>boxes[i][1].x){boxes[i][1].x=p[i][ix].x;}
+        if(p[i][ix].y>boxes[i][1].y){boxes[i][1].y=p[i][ix].y;}
+      }
+      convexHull(p[i],hull[i]);
+      for(int j(i+1); j<nagents; ++j){
+        //std::cout << i << "," << j << ":";
+        if(boxes[i][0].x>boxes[j][1].x || boxes[i][1].x<boxes[j][0].x ||
+            boxes[i][0].y>boxes[j][1].y || boxes[i][1].y<boxes[j][0].y){}else{
+          if(hull[i].empty() || hull[j].empty() || sat(hull[i],hull[j])) // check if convex hulls have overlap
+          {
+            skipAndCountCollisions(p[i],p[j],radius,count4,total4,skip,0);}
+        }
+        //std::cout << "\n";
+      }
+    }
+    std::cout << "Brute force with skip and bb and ch on " << nagents << " with " << total4 << " checks, " << count4 << " collisions took " << tmr4.EndTimer() << "\n";
+  }
   if(false){
     unsigned count4(0);
     unsigned total4(0);
@@ -3993,6 +4115,57 @@ void broadphaseTest(int type, unsigned nagents, unsigned tnum){
       }
     }
     std::cout << "Brute force with skip and ch2 on " << nagents << " with " << total4 << " checks, " << count4 << " collisions took " << tmr4.EndTimer() << "\n";
+  }
+  if(false){
+    std::vector<std::vector<xytLoc>> boxes(nagents);
+    std::vector<std::vector<Vector2D>> hull(nagents);
+    for(int i(0); i<nagents; ++i){
+      boxes[i].resize(2);
+      boxes[i][0]=boxes[i][1]=p[i][0];
+      for(unsigned ix(1); ix<p[i].size(); ++ix){
+        if(p[i][ix].x<boxes[i][0].x){boxes[i][0].x=p[i][ix].x;}
+        if(p[i][ix].y<boxes[i][0].y){boxes[i][0].y=p[i][ix].y;}
+        if(p[i][ix].x>boxes[i][1].x){boxes[i][1].x=p[i][ix].x;}
+        if(p[i][ix].y>boxes[i][1].y){boxes[i][1].y=p[i][ix].y;}
+      }
+      convexHull(p[i],hull[i]);
+    }
+    // If the convex hull has overlap, the bb will definitely have overlap
+    for(int i(0); i<nagents; ++i){
+      for(int j(0); j<nagents; ++j){
+        if(sat(hull[i],hull[j])){
+          if(boxes[i][0].x>boxes[j][1].x || boxes[i][1].x<boxes[j][0].x ||
+              boxes[i][0].y>boxes[j][1].y || boxes[i][1].y<boxes[j][0].y){
+            std::cout << "bbox has no overlap???\n";
+            std::cout << "path1\n";
+            for(auto const& r:p[i]){
+              std::cout << r << "\n";
+            }
+            std::cout << "path2\n";
+            for(auto const& r:p[j]){
+              std::cout << r << "\n";
+            }
+            std::cout << "BB1\n";
+            for(auto const& r:boxes[i]){
+              std::cout << r << "\n";
+            }
+            std::cout << "BB2\n";
+            for(auto const& r:boxes[j]){
+              std::cout << r << "\n";
+            }
+            std::cout << "hull1\n";
+            for(auto const& r:hull[i]){
+              std::cout << r << "\n";
+            }
+            std::cout << "hull2\n";
+            for(auto const& r:hull[j]){
+              std::cout << r << "\n";
+            }
+            ASSERT_TRUE(false);
+          }
+        }
+      }
+    }
   }
   {
     std::vector<xytAABB> sorted1;
@@ -4253,29 +4426,23 @@ void broadphaseTest(int type, unsigned nagents, unsigned tnum){
     std::vector<std::vector<xyLoc>> boxes(nagents);
     for(int i(0); i<nagents; ++i){
       boxes[i].resize(2);
-      boxes[i][0].x=0xffff;
-      boxes[i][0].y=0xffff;
-      boxes[i][1].x=0;
-      boxes[i][1].y=0;
-      for(unsigned ix(0); ix<p[i].size(); ++ix){
-        boxes[i][0].x=std::min(boxes[i][0].x,p[i][ix].x);
-        boxes[i][0].y=std::min(boxes[i][0].y,p[i][ix].y);
-        boxes[i][1].x=std::max(boxes[i][1].x,p[i][ix].x);
-        boxes[i][1].y=std::max(boxes[i][1].y,p[i][ix].y);
+      boxes[i][0]=boxes[i][1]=p[i][0];
+      for(unsigned ix(1); ix<p[i].size(); ++ix){
+        if(p[i][ix].x<boxes[i][0].x){boxes[i][0].x=p[i][ix].x;}
+        if(p[i][ix].y<boxes[i][0].y){boxes[i][0].y=p[i][ix].y;}
+        if(p[i][ix].x>boxes[i][1].x){boxes[i][1].x=p[i][ix].x;}
+        if(p[i][ix].y>boxes[i][1].y){boxes[i][1].y=p[i][ix].y;}
       }
     }
     tmr4.StartTimer();
     // Count collisions brute force
     for(int i(agent); i<agent+1; ++i){
-      boxes[i][0].x=0xffff;
-      boxes[i][0].y=0xffff;
-      boxes[i][1].x=0;
-      boxes[i][1].y=0;
-      for(unsigned ix(0); ix<p2[i].size(); ++ix){
-        boxes[i][0].x=std::min(boxes[i][0].x,p2[i][ix].x);
-        boxes[i][0].y=std::min(boxes[i][0].y,p2[i][ix].y);
-        boxes[i][1].x=std::max(boxes[i][1].x,p2[i][ix].x);
-        boxes[i][1].y=std::max(boxes[i][1].y,p2[i][ix].y);
+      boxes[i][0]=boxes[i][1]=p[i][0];
+      for(unsigned ix(1); ix<p2[i].size(); ++ix){
+        if(p2[i][ix].x<boxes[i][0].x){boxes[i][0].x=p2[i][ix].x;}
+        if(p2[i][ix].y<boxes[i][0].y){boxes[i][0].y=p2[i][ix].y;}
+        if(p2[i][ix].x>boxes[i][1].x){boxes[i][1].x=p2[i][ix].x;}
+        if(p2[i][ix].y>boxes[i][1].y){boxes[i][1].y=p2[i][ix].y;}
       }
       for(int j(0); j<nagents; ++j){
         if(j==i)continue;
@@ -4390,6 +4557,99 @@ void broadphaseTest(int type, unsigned nagents, unsigned tnum){
       }
     }
     std::cout << "Brute force single agent with ch on " << nagents << " with " << total4 << " checks, " << count4 << " collisions took " << tmr4.EndTimer() << "\n";
+  }
+  {
+    std::vector<xytLoc> newpath;
+    int av=0, agent=0;
+    {
+      // Find collisions and replan one path
+      std::vector<xytAABB> sorted;
+      std::vector<std::vector<xytAABB>> temp(p.size());
+      for(int i(0); i<p.size(); ++i){
+        temp[i].reserve(p[i].size());
+        makeAABBs(p[i],temp[i],i);
+        sorted.insert(sorted.end(), temp[i].begin(), temp[i].end());
+      }
+      // sort by "t" value
+      std::sort(sorted.begin(),sorted.end(),
+          [](xytAABB const& a, xytAABB const& b) -> bool {
+          return a.lowerBound[0].cvalue < b.lowerBound[0].cvalue;
+          });
+
+      std::vector<xytAABB> path;
+      std::vector<std::pair<xytAABB,xytAABB>> pairs;
+      getAllPairsSAP(sorted,pairs);
+
+      // find the agent with the most collisions and select a conflict for it
+      std::vector<int> cs(p.size());
+      for(auto const& pr:pairs){
+        cs[pr.first.agent]++;
+        cs[pr.second.agent]++;
+      }
+      for(int v(0);v<cs.size();++v){
+        if(cs[v]>av){
+          av=cs[v];
+          agent=v;
+        }
+      }
+      if(av>0){
+        Constraint<xytLoc>* c;
+        for(auto const& pr:pairs){
+          if(pr.first.agent==agent){
+            c = new Collision<xytLoc>(*pairs.front().second.start,*pairs.front().second.end);
+            break;
+          }
+        }
+
+        // Replan the path for the agent
+        env.AddConstraint(c);
+        astar.GetPath(&env,waypoints[agent][0],waypoints[agent][1],newpath);
+      }else{
+        newpath=p[agent];
+      }
+
+    }
+    std::vector<std::vector<xytLoc>> p2(p);
+    p2[agent]=newpath;
+    unsigned count4(0);
+    unsigned total4(0);
+    Timer tmr4;
+    std::vector<std::vector<xyLoc>> boxes(nagents);
+    std::vector<std::vector<Vector2D>> hull(nagents);
+    for(int i(0); i<nagents; ++i){
+      boxes[i].resize(2);
+      boxes[i][0]=boxes[i][1]=p[i][0];
+      for(unsigned ix(1); ix<p[i].size(); ++ix){
+        if(p[i][ix].x<boxes[i][0].x){boxes[i][0].x=p[i][ix].x;}
+        if(p[i][ix].y<boxes[i][0].y){boxes[i][0].y=p[i][ix].y;}
+        if(p[i][ix].x>boxes[i][1].x){boxes[i][1].x=p[i][ix].x;}
+        if(p[i][ix].y>boxes[i][1].y){boxes[i][1].y=p[i][ix].y;}
+      }
+      convexHull(p[i],hull[i]);
+    }
+    tmr4.StartTimer();
+    // Count collisions brute force
+    for(int i(agent); i<agent+1; ++i){
+      boxes[i][0]=boxes[i][1]=p[i][0];
+      for(unsigned ix(1); ix<p2[i].size(); ++ix){
+        if(p2[i][ix].x<boxes[i][0].x){boxes[i][0].x=p2[i][ix].x;}
+        if(p2[i][ix].y<boxes[i][0].y){boxes[i][0].y=p2[i][ix].y;}
+        if(p2[i][ix].x>boxes[i][1].x){boxes[i][1].x=p2[i][ix].x;}
+        if(p2[i][ix].y>boxes[i][1].y){boxes[i][1].y=p2[i][ix].y;}
+      }
+      convexHull(p2[i],hull[i]);
+      for(int j(0); j<nagents; ++j){
+        if(j==i)continue;
+        //std::cout << i << "," << j << ":";
+        if(boxes[i][0].x>boxes[j][1].x || boxes[i][1].x<boxes[j][0].x ||
+            boxes[i][0].y>boxes[j][1].y || boxes[i][1].y<boxes[j][0].y){
+        }else if(sat(hull[i],hull[j])){// check if convex hulls have overlap
+          countCollisions(p2[i],p2[j],radius,count4,total4,0);
+        }
+        //std::cout << "\n";
+      }
+    }
+    std::cout << "Brute force single agent and bb and ch on " << nagents << " with " << total4 << " checks, " << count4 << " collisions took " << tmr4.EndTimer() << "\n";
   }
   if(false){
     std::vector<xytLoc> newpath;
@@ -4621,29 +4881,23 @@ void broadphaseTest(int type, unsigned nagents, unsigned tnum){
     std::vector<std::vector<xyLoc>> boxes(nagents);
     for(int i(0); i<nagents; ++i){
       boxes[i].resize(2);
-      boxes[i][0].x=0xffff;
-      boxes[i][0].y=0xffff;
-      boxes[i][1].x=0;
-      boxes[i][1].y=0;
-      for(unsigned ix(0); ix<p[i].size(); ++ix){
-        boxes[i][0].x=std::min(boxes[i][0].x,p[i][ix].x);
-        boxes[i][0].y=std::min(boxes[i][0].y,p[i][ix].y);
-        boxes[i][1].x=std::max(boxes[i][1].x,p[i][ix].x);
-        boxes[i][1].y=std::max(boxes[i][1].y,p[i][ix].y);
+      boxes[i][0]=boxes[i][1]=p[i][0];
+      for(unsigned ix(1); ix<p[i].size(); ++ix){
+        if(p[i][ix].x<boxes[i][0].x){boxes[i][0].x=p[i][ix].x;}
+        if(p[i][ix].y<boxes[i][0].y){boxes[i][0].y=p[i][ix].y;}
+        if(p[i][ix].x>boxes[i][1].x){boxes[i][1].x=p[i][ix].x;}
+        if(p[i][ix].y>boxes[i][1].y){boxes[i][1].y=p[i][ix].y;}
       }
     }
     tmr4.StartTimer();
     // Count collisions brute force
     for(int i(agent); i<agent+1; ++i){
-      boxes[i][0].x=0xffff;
-      boxes[i][0].y=0xffff;
-      boxes[i][1].x=0;
-      boxes[i][1].y=0;
-      for(unsigned ix(0); ix<p2[i].size(); ++ix){
-        boxes[i][0].x=std::min(boxes[i][0].x,p2[i][ix].x);
-        boxes[i][0].y=std::min(boxes[i][0].y,p2[i][ix].y);
-        boxes[i][1].x=std::max(boxes[i][1].x,p2[i][ix].x);
-        boxes[i][1].y=std::max(boxes[i][1].y,p2[i][ix].y);
+      boxes[i][0]=boxes[i][1]=p[i][0];
+      for(unsigned ix(1); ix<p2[i].size(); ++ix){
+        if(p2[i][ix].x<boxes[i][0].x){boxes[i][0].x=p2[i][ix].x;}
+        if(p2[i][ix].y<boxes[i][0].y){boxes[i][0].y=p2[i][ix].y;}
+        if(p2[i][ix].x>boxes[i][1].x){boxes[i][1].x=p2[i][ix].x;}
+        if(p2[i][ix].y>boxes[i][1].y){boxes[i][1].y=p2[i][ix].y;}
       }
       for(int j(0); j<nagents; ++j){
         if(j==i)continue;
@@ -5008,8 +5262,8 @@ TEST(AABB, BVHTreeTest){
   int types[]={9,25,49};
   for(int type:types){
     //for(int nagents(5); nagents<201; nagents+=5){
-    for(int nagents(10); nagents<301; nagents+=10){
-      for(int i(0); i<100; ++i){
+    for(int nagents(10); nagents<201; nagents+=10){
+      for(int i(0); i<1; ++i){
         std::cout << "===========================================================\n";
         std::cout << type << "Connected, " << nagents << " AGENTS, Test " << i << "\n";
         std::cout << "===========================================================\n";
