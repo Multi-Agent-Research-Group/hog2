@@ -208,8 +208,8 @@ TEST(Map2D, TwentyFourConnected_AdmissTest){
   env.SetTwentyFourConnected();
   for(int i(0); i<1000; ++i){
     std::vector<xyLoc> path;
-    xyLoc s({rand()%100,rand()%100});
-    xyLoc g({rand()%100,rand()%100});
+    xyLoc s(rand()%100,rand()%100);
+    xyLoc g(rand()%100,rand()%100);
     astar.GetPath(&env,s,g,path);
     double t(0);
     std::cout << path.size() << "----------------\n" << path[0] << "\n";
@@ -229,8 +229,8 @@ TEST(Map2D, FortyEightConnected_AdmissTest){
   env.SetFortyEightConnected();
   for(int i(0); i<1000; ++i){
     std::vector<xyLoc> path;
-    xyLoc s({rand()%100,rand()%100});
-    xyLoc g({rand()%100,rand()%100});
+    xyLoc s(rand()%100,rand()%100);
+    xyLoc g(rand()%100,rand()%100);
     //std::cout << s << " " << g << "\n";
     astar.GetPath(&env,s,g,path);
     double t(0);
@@ -350,7 +350,7 @@ TEST(Map2D, HashUnhash){
   MapEnvironment env(&map);
   Map2DConstrainedEnvironment e2(&env);
   for(int i(0); i<1000; ++i){
-    xytLoc s({rand()%100,rand()%100},(rand()%100000)/1000.0);
+    xytLoc s(rand()%100,rand()%100,(rand()%100000)/1000.0);
     uint64_t hash=e2.GetStateHash(s);
     xytLoc x;
     e2.GetStateFromHash(hash,x);
