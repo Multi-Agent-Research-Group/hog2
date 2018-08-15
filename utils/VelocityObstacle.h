@@ -40,6 +40,9 @@ bool getTangentOfCircle(Vector2D const& center, double radius, Vector2D const& p
 
 bool detectCollision(Vector2D A, Vector2D const& VA, double radiusA, double startTimeA, double endTimeA,
 Vector2D B, Vector2D const& VB, double radiusB, double startTimeB, double endTimeB);
+
+bool detectCollisionPolygonalAgents(Vector2D A, Vector2D const& VA, std::vector<Vector2D>const& polyA, double startTimeA, double endTimeA,
+Vector2D B, Vector2D const& VB, std::vector<Vector2D>const& polyB, double startTimeB, double endTimeB);
 #define CENTER_IDX9 364
 #define CENTER_IDX25 7812
 #define CENTER_IDX49 58824

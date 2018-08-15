@@ -1128,22 +1128,154 @@ float rfloat(float low=-5, float high=5){
     return float(rand()%int(width*1000))/(width*100.0) + low;
 }
 
-TEST(VelocityObstacle, PerfTest){
-  //Timer t;
-  //t.StartTimer();
-  for(int i(0); i<10; ++i){
-    detectCollision(Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),.25,rfloat(0,10),rfloat(0,10),Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),.25,rfloat(0,10),rfloat(0,10));
+TEST(PerfTest, VOSquare){
+  Timer t;
+  t.StartTimer();
+  for(int i(0); i<100000; ++i){
+    if(detectCollision(Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),.25,rfloat(0,10),rfloat(0,10),Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),.25,rfloat(0,10),rfloat(0,10))){
+std::cout << "f";}
+else{std::cout << "p";}
   }
-  //std::cout << "Total time (VelocityObstacle)" << t.EndTimer() << "\n";
+  std::cout << "\nTotal time (VelocityObstacle)" << t.EndTimer() << "\n";
 }
 
-TEST(Quadratic, PerfTest){
-  //Timer t;
-  //t.StartTimer();
-  for(int i(0); i<10; ++i){
-    collisionImminent(Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),.25,rfloat(0,10),rfloat(0,10),Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),.25,rfloat(0,10),rfloat(0,10));
+TEST(PerfTest, VO){
+  Timer t;
+  t.StartTimer();
+  for(int i(0); i<100000; ++i){
+    if(detectCollision(Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),.25,rfloat(0,10),rfloat(0,10),Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),.25,rfloat(0,10),rfloat(0,10))){
+std::cout << "f";}
+else{std::cout << "p";}
   }
-  //std::cout << "Total time (Quadratic)" << t.EndTimer() << "\n";
+  std::cout << "\nTotal time (VelocityObstacle)" << t.EndTimer() << "\n";
+}
+
+TEST(PerfTest, Quadratic){
+  Timer t;
+  t.StartTimer();
+  for(int i(0); i<100000; ++i){
+    if(collisionImminent(Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),.25,rfloat(0,10),rfloat(0,10),Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),.25,rfloat(0,10),rfloat(0,10))){
+std::cout << "f";}
+else{std::cout << "p";}
+  }
+  std::cout << "\nTotal time (Quadratic)" << t.EndTimer() << "\n";
+}
+
+TEST(PerfTest, AABB){
+  Timer t;
+  t.StartTimer();
+  for(int i(0); i<100000; ++i){
+    float a1x(rfloat());
+    float a1y(rfloat());
+    float a1t(rfloat(0,10));
+    float a2x(rfloat());
+    float a2y(rfloat());
+    float a2t(rfloat(0,10));
+    float b1x(rfloat());
+    float b1y(rfloat());
+    float b1t(rfloat(0,10));
+    float b2x(rfloat());
+    float b2y(rfloat());
+    float b2t(rfloat(0,10));
+    float mnax(std::min(a1x,a2x));
+    float mxax(std::max(a1x,a2x));
+    float mnay(std::min(a1y,a2y));
+    float mxay(std::max(a1y,a2y));
+    float mnat(std::min(a1t,a2t));
+    float mxat(std::max(a1t,a2t));
+    float mnbx(std::min(b1x,b2x));
+    float mxbx(std::max(b1x,b2x));
+    float mnby(std::min(b1y,b2y));
+    float mxby(std::max(b1y,b2y));
+    float mnbt(std::min(b1t,b2t));
+    float mxbt(std::max(b1t,b2t));
+    if(mnax<=mxbx && mxax>=mnbx &&
+    mnay<=mxby && mxay>=mnby &&
+    mnat<=mxbt && mxat>=mnbt){
+std::cout << "f";}
+else{std::cout << "p";}
+  }
+  std::cout << "\nTotal time (AABB)" << t.EndTimer() << "\n";
+}
+
+TEST(PerfTest, Incremental){
+  Timer t;
+  t.StartTimer();
+  for(int i(0); i<100000; ++i){
+    float a1x(rfloat());
+    float a1y(rfloat());
+    float a1t(rfloat(0,10));
+    float a2x(rfloat());
+    float a2y(rfloat());
+    float a2t(rfloat(0,10));
+    float b1x(rfloat());
+    float b1y(rfloat());
+    float b1t(rfloat(0,10));
+    float b2x(rfloat());
+    float b2y(rfloat());
+    float b2t(rfloat(0,10));
+    float mnat(std::min(a1t,a2t));
+    float mxat(std::max(a1t,a2t));
+    float mnbt(std::min(b1t,b2t));
+    float mxbt(std::max(b1t,b2t));
+    if(mnat<=mxbt && mxat>=mnbt){
+      float start(std::max(mnbt,mnat));
+      float stop(std::min(mxbt,mxat));
+      float step((stop-start)/10.);
+      float transa((a1t-start));
+      float transb((b1t-start));
+      float dax((a1x-a2x));
+      float day((a1y-a2y));
+      float dat((a1t-a2t));
+      float dbx((b1x-b2x));
+      float dby((b1y-b2y));
+      float dbt((b1t-b2t));
+      a1x+=dax*(transa/dat); // Translate to start time
+      b1x+=dbx*(transb/dbt); // Translate to start time
+      a1y+=day*(transa/dat); // Translate to start time
+      b1y+=dby*(transb/dbt); // Translate to start time
+      dax*=.2;
+      day*=.2;
+      dbx*=.2;
+      dby*=.2;
+      bool pass(true);
+      for(int j(0); j<5; ++j){
+        float dx(a1x-b1x);
+        float dy(a1y-b1y);
+        if(dx*dx+dy*dy < .25)
+        {
+pass=false;
+std::cout << "f";
+          break;}
+        a1x+=dax;
+        a1y+=day;
+        b1x+=dbx;
+        b1y+=dby;
+      }
+      if(pass){std::cout << "p";}
+    }else{std::cout << "p";}
+  }
+  std::cout << "\nTotal time (Incremental)" << t.EndTimer() << "\n";
+}
+
+TEST(PerfTest, Gen){
+  Timer t;
+  t.StartTimer();
+  for(int i(0); i<100000; ++i){
+    float a1x(rfloat());
+    float a1y(rfloat());
+    float a1t(rfloat(0,5));
+    float a2x(rfloat());
+    float a2y(rfloat());
+    float a2t(rfloat(5,10));
+    float b1x(rfloat());
+    float b1y(rfloat());
+    float b1t(rfloat(0,5));
+    float b2x(rfloat());
+    float b2y(rfloat());
+    float b2t(rfloat(5,10));
+  }
+  std::cout << "Total time (Gen)" << t.EndTimer() << "\n";
 }
 
 TEST(RadialVisibility, ComputeVisibilityGrid){
@@ -5008,7 +5140,7 @@ TEST(AABB, BVHTreeTest){
   int types[]={9,25,49};
   for(int type:types){
     //for(int nagents(5); nagents<201; nagents+=5){
-    for(int nagents(10); nagents<301; nagents+=10){
+    for(int nagents(510); nagents<301; nagents+=10){
       for(int i(0); i<100; ++i){
         std::cout << "===========================================================\n";
         std::cout << type << "Connected, " << nagents << " AGENTS, Test " << i << "\n";

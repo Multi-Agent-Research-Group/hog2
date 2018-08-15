@@ -79,6 +79,42 @@ bool VelocityObstacle::IsInside(Vector2D const& point) const{
        ((VR.x - VO.x)*(apexDiff.y) > (VR.y - VO.y)*(apexDiff.x));
 }
 
+bool detectCollisionPolygonalAgents(Vector2D A, Vector2D const& VA, std::vector<Vector2D>const& polyA, double startTimeA, double endTimeA,
+Vector2D B, Vector2D const& VB, std::vector<Vector2D>const& polyB, double startTimeB, double endTimeB){
+
+  // check for time overlap
+  if(fgreater(startTimeA,endTimeB)||fgreater(startTimeB,endTimeA)){return false;}
+
+  if(fgreater(startTimeB,startTimeA)){
+    // Move A to the same time instant as B
+    A+=VA*(startTimeB-startTimeA);
+    startTimeA=startTimeB;
+  }else if(fless(startTimeB,startTimeA)){
+    B+=VB*(startTimeA-startTimeB);
+    startTimeB=startTimeA;
+  }
+
+  // Check for immediate collision
+  if(VelocityObstacle::AgentOverlap(A,B,radiusA,radiusB)){return true;}
+
+  // Check for collision in future
+  if(!VelocityObstacle(A,VA,B,VB,polyA,polyB).IsInside(A+VA)){return false;}
+  
+  // If we got here, we have established that a collision will occur
+  // if the agents continue indefinitely. However, we can now check
+  // the end of the overlapping interval to see if the collision is
+  // still in the future. If so, no collision has occurred in the interval.
+  double duration(std::min(endTimeB,endTimeA)-startTimeA);
+  A+=VA*duration;
+  B+=VB*duration;
+  
+  // Check for immediate collision at end of time interval
+  if(VelocityObstacle::AgentOverlap(A,B,polyA,polyB)){return true;}
+
+  // Finally, if the collision is still in the future we're ok.
+  return !VelocityObstacle(A,VA,B,VB,polyA,polyB).IsInside(A+VA);
+}
+
 // Detect whether a collision will occur between agent A and B inside the
 // given time intervals if they continue at constant velocity with no turns
 //
