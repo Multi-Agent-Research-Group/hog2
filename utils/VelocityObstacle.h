@@ -25,12 +25,17 @@
 #include "Vector2D.h"
 #include "Vector3D.h"
 #include "PositionalUtils.h"
+#include <CGAL/Polygon_2.h>
 #include <vector>
 
 class VelocityObstacle{
+  typedef std::vector<Point_2> Points;
+  typedef CGAL::Polygon_2<K> Polygon_2;
   public:
     VelocityObstacle(Vector2D const& a, Vector2D const& va, Vector2D const& b, Vector2D const& vb, double r1, double r2=DBL_MAX);
+    VelocityObstacle(Vector2D const& a, Vector2D const& va, Vector2D const& b, Vector2D const& vb, std::vector<Vector2D>const& polyA, std::vector<Vector2D>const& polyB);
     static bool AgentOverlap(Vector2D const& A,Vector2D const& B,double ar,double br);
+    static bool AgentOverlap(Vector2D const& A,Vector2D const& B,std::vector<Vector2D>const& polyA, std::vector<Vector2D>const& polyB);
     bool IsInside(Vector2D const& point) const;
   private:
     Vector2D VO,VL,VR; // Pos,vel,pos,vel,VO-apex,VO-left,VO-right

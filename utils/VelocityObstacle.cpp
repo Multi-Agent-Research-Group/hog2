@@ -22,6 +22,8 @@
 #include "VelocityObstacle.h"
 #include <assert.h>
 #include <iostream>
+#include <CGAL/Boolean_set_operations_2.h>
+#include <CGAL/Polygon_2.h>
 
 VelocityObstacle::VelocityObstacle(Vector2D const& a, Vector2D const& va, Vector2D const& b, Vector2D const& vb, double r1, double r2)
   : VO(a+vb), VL(0,0), VR(0,0)
@@ -35,6 +37,54 @@ VelocityObstacle::VelocityObstacle(Vector2D const& a, Vector2D const& va, Vector
   }else{ // Punt. This should *never* happen
     VL=normal(VO,b+vb);
     VR=-VL;
+  }
+}
+
+// Polygon points are relative to the center fo the body (a, b respectively)
+VelocityObstacle::VelocityObstacle(Vector2D const& a, Vector2D const& va, Vector2D const& b, Vector2D const& vb, std::vector<Vector2D>const& polyA, std::vector<Vector2D>const& polyB)
+  : VO(a+vb), VL(0,0), VR(0,0)
+{
+  // Compute points in minkowski sum
+  std::vector<Vector2D> points;
+  points.reserve(polyA.size()*polyB.size()+1);
+
+  Vector2D center(b+vb);
+  for(auto const& pa:polyA){
+    for(auto const& pb:polyB){
+      points.push_back(center+pa+pb);
+    }
+  }
+  
+  std::vector<Vector2D> result;
+  points.push_back(VO); // Add apex
+  Util::convexHull(points,result);
+
+  // Compute VL and VR
+  int i=0;
+  // Find the apex in the convex hull
+  for(; i<result.size(); ++i){
+    if(result[i] == VO){
+      break;
+    }
+  }
+  // VL and VR are on either side of the apex
+  if(i==0){
+    VL=result.back();
+    VR=result[1];
+  }
+  else if(i==result.size()-1){
+    VL=result[result.size()-2];
+    VR=result.front();
+  }else{
+    VL=result[i-1];
+    VR=result[i+1];
+  }
+
+  // If the center point is not between the tangents, swap them
+  if(!IsInside(center)){
+    Vector2D tmp(VL);
+    VR=tmp;
+    VL=VR;
   }
 }
 
@@ -61,6 +111,17 @@ bool getTangentOfCircle(Vector2D const& center, double radius, Vector2D const& p
   tangents[0].x=center.x+radius*tx0;
   tangents[1].x=center.x+radius*tx1;
   return true;
+}
+
+// Input is the two center points and their radiuses
+bool VelocityObstacle::AgentOverlap(Vector2D const& A,Vector2D const& B,std::vector<Vector2D>const& polyA,std::vector<Vector2D>const& polyB){
+  Points a;
+  a.reserve(polyA.size());
+  a.insert(a.begin(),polyA.begin(),polyA.end());
+  Points b;
+  b.reserve(polyB.size());
+  b.insert(b.begin(),polyB.begin(),polyB.end());
+  return CGAL::do_intersect(Polygon_2(a.begin(),a.end()),Polygon_2(b.begin(),b.end()));
 }
 
 // Input is the two center points and their radiuses
@@ -95,7 +156,7 @@ Vector2D B, Vector2D const& VB, std::vector<Vector2D>const& polyB, double startT
   }
 
   // Check for immediate collision
-  if(VelocityObstacle::AgentOverlap(A,B,radiusA,radiusB)){return true;}
+  if(VelocityObstacle::AgentOverlap(A,B,polyA,polyB)){return true;}
 
   // Check for collision in future
   if(!VelocityObstacle(A,VA,B,VB,polyA,polyB).IsInside(A+VA)){return false;}
