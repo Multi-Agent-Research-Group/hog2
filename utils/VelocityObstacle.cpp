@@ -117,10 +117,14 @@ bool getTangentOfCircle(Vector2D const& center, double radius, Vector2D const& p
 bool VelocityObstacle::AgentOverlap(Vector2D const& A,Vector2D const& B,std::vector<Vector2D>const& polyA,std::vector<Vector2D>const& polyB){
   Points a;
   a.reserve(polyA.size());
-  a.insert(a.begin(),polyA.begin(),polyA.end());
+  for(auto const& aa:polyA){
+    a.push_back(A+aa);
+  }
   Points b;
   b.reserve(polyB.size());
-  b.insert(b.begin(),polyB.begin(),polyB.end());
+  for(auto const& bb:polyB){
+    b.push_back(B+bb);
+  }
   return CGAL::do_intersect(Polygon_2(a.begin(),a.end()),Polygon_2(b.begin(),b.end()));
 }
 

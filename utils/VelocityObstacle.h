@@ -29,9 +29,9 @@
 #include <vector>
 
 class VelocityObstacle{
-  typedef std::vector<Point_2> Points;
-  typedef CGAL::Polygon_2<K> Polygon_2;
   public:
+    typedef std::vector<Point_2> Points;
+    typedef CGAL::Polygon_2<K> Polygon_2;
     VelocityObstacle(Vector2D const& a, Vector2D const& va, Vector2D const& b, Vector2D const& vb, double r1, double r2=DBL_MAX);
     VelocityObstacle(Vector2D const& a, Vector2D const& va, Vector2D const& b, Vector2D const& vb, std::vector<Vector2D>const& polyA, std::vector<Vector2D>const& polyB);
     static bool AgentOverlap(Vector2D const& A,Vector2D const& B,double ar,double br);

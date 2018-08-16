@@ -24,8 +24,8 @@
 
 #include <CGAL/convex_hull_2.h>
 #include <CGAL/ch_graham_andrew.h>
-#include <CGAL/convex_hull_2.h>
 #include <CGAL/intersections.h>
+#include <CGAL/Boolean_set_operations_2.h>
 #include "VelocityObstacle.h"
 #include "Timer.h"
 #include <gtest/gtest.h>
@@ -383,6 +383,13 @@ bool sat2(std::vector<Vector2D>const& a, std::vector<Vector2D>const& b){
   if(b.size()==1) return Util::pointInPoly(a,b[0]);
   if(b.size()==2) return Util::lineIntersectsPoly(a,b[0],b[1]);
 
+  Points A;
+  A.reserve(a.size());
+  A.insert(A.begin(),a.begin(),a.end());
+  Points B;
+  B.reserve(b.size());
+  B.insert(B.begin(),b.begin(),b.end());
+  return CGAL::do_intersect(VelocityObstacle::Polygon_2(A.begin(),A.end()),VelocityObstacle::Polygon_2(B.begin(),B.end()));
 }
 
 
@@ -1176,32 +1183,33 @@ float rfloat(float low=-5, float high=5){
 }
 
 TEST(PerfTest, VOSquare){
+  std::vector<Vector2D> square={{-.3,.3},{.3,.3},{.3,-.3},{-.3,-.3}};
   Timer t;
   t.StartTimer();
   for(int i(0); i<100000; ++i){
-    if(detectCollision(Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),.25,rfloat(0,10),rfloat(0,10),Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),.25,rfloat(0,10),rfloat(0,10))){
+    if(detectCollisionPolygonalAgents(Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),square,rfloat(0,5),rfloat(5,10),Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),square,rfloat(0,5),rfloat(5,10))){
 std::cout << "f";}
 else{std::cout << "p";}
   }
-  std::cout << "\nTotal time (VelocityObstacle)" << t.EndTimer() << "\n";
+  std::cout << "\nTotal time (VelocityObstacleSquare)" << t.EndTimer() << "\n";
 }
 
 TEST(PerfTest, VO){
   Timer t;
   t.StartTimer();
   for(int i(0); i<100000; ++i){
-    if(detectCollision(Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),.25,rfloat(0,10),rfloat(0,10),Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),.25,rfloat(0,10),rfloat(0,10))){
+    if(detectCollision(Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),.25,rfloat(0,5),rfloat(5,10),Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),.25,rfloat(0,5),rfloat(5,10))){
 std::cout << "f";}
 else{std::cout << "p";}
   }
-  std::cout << "\nTotal time (VelocityObstacle)" << t.EndTimer() << "\n";
+  std::cout << "\nTotal time (VelocityObstacleCircle)" << t.EndTimer() << "\n";
 }
 
 TEST(PerfTest, Quadratic){
   Timer t;
   t.StartTimer();
   for(int i(0); i<100000; ++i){
-    if(collisionImminent(Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),.25,rfloat(0,10),rfloat(0,10),Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),.25,rfloat(0,10),rfloat(0,10))){
+    if(collisionImminent(Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),.25,rfloat(0,5),rfloat(5,10),Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),.25,rfloat(0,5),rfloat(5,10))){
 std::cout << "f";}
 else{std::cout << "p";}
   }
@@ -1214,16 +1222,16 @@ TEST(PerfTest, AABB){
   for(int i(0); i<100000; ++i){
     float a1x(rfloat());
     float a1y(rfloat());
-    float a1t(rfloat(0,10));
+    float a1t(rfloat(0,5));
     float a2x(rfloat());
     float a2y(rfloat());
-    float a2t(rfloat(0,10));
+    float a2t(rfloat(5,10));
     float b1x(rfloat());
     float b1y(rfloat());
-    float b1t(rfloat(0,10));
+    float b1t(rfloat(0,5));
     float b2x(rfloat());
     float b2y(rfloat());
-    float b2t(rfloat(0,10));
+    float b2t(rfloat(5,10));
     float mnax(std::min(a1x,a2x));
     float mxax(std::max(a1x,a2x));
     float mnay(std::min(a1y,a2y));
@@ -1245,22 +1253,18 @@ else{std::cout << "p";}
   std::cout << "\nTotal time (AABB)" << t.EndTimer() << "\n";
 }
 
-TEST(PerfTest, Incremental){
+TEST(PerfTest, IncrementalCircular){
   Timer t;
   t.StartTimer();
   for(int i(0); i<100000; ++i){
-    float a1x(rfloat());
-    float a1y(rfloat());
-    float a1t(rfloat(0,10));
-    float a2x(rfloat());
-    float a2y(rfloat());
-    float a2t(rfloat(0,10));
-    float b1x(rfloat());
-    float b1y(rfloat());
-    float b1t(rfloat(0,10));
-    float b2x(rfloat());
-    float b2y(rfloat());
-    float b2t(rfloat(0,10));
+    Vector2D a1(rfloat(), rfloat());
+    float a1t(rfloat(0,5));
+    Vector2D a2(rfloat(),rfloat());
+    float a2t(rfloat(5,10));
+    Vector2D b1(rfloat(),rfloat());
+    float b1t(rfloat(0,5));
+    Vector2D b2(rfloat(),rfloat());
+    float b2t(rfloat(5,10));
     float mnat(std::min(a1t,a2t));
     float mxat(std::max(a1t,a2t));
     float mnbt(std::min(b1t,b2t));
@@ -1271,38 +1275,76 @@ TEST(PerfTest, Incremental){
       float step((stop-start)/10.);
       float transa((a1t-start));
       float transb((b1t-start));
-      float dax((a1x-a2x));
-      float day((a1y-a2y));
+      Vector2D da(a2-a1);
       float dat((a1t-a2t));
-      float dbx((b1x-b2x));
-      float dby((b1y-b2y));
+      Vector2D db(b2-b1);
       float dbt((b1t-b2t));
-      a1x+=dax*(transa/dat); // Translate to start time
-      b1x+=dbx*(transb/dbt); // Translate to start time
-      a1y+=day*(transa/dat); // Translate to start time
-      b1y+=dby*(transb/dbt); // Translate to start time
-      dax*=.2;
-      day*=.2;
-      dbx*=.2;
-      dby*=.2;
+      a1+=da*(transa/dat); // Translate to start time
+      b1+=db*(transb/dbt); // Translate to start time
+      da*=.2;
+      db*=.2;
       bool pass(true);
       for(int j(0); j<5; ++j){
-        float dx(a1x-b1x);
-        float dy(a1y-b1y);
-        if(dx*dx+dy*dy < .25)
-        {
-pass=false;
-std::cout << "f";
-          break;}
-        a1x+=dax;
-        a1y+=day;
-        b1x+=dbx;
-        b1y+=dby;
+        Vector2D d(a1-b1);
+        if(d.sq() < .25){
+          pass=false;
+          std::cout << "f";
+          break;
+        }
+        a1+=da;
+        b1+=db;
       }
       if(pass){std::cout << "p";}
     }else{std::cout << "p";}
   }
-  std::cout << "\nTotal time (Incremental)" << t.EndTimer() << "\n";
+  std::cout << "\nTotal time (Incremental Circular)" << t.EndTimer() << "\n";
+}
+
+TEST(PerfTest, IncrementalPoly){
+  std::vector<Vector2D> square={{-.3,.3},{.3,.3},{.3,-.3},{-.3,-.3}};
+  Timer t;
+  t.StartTimer();
+  for(int i(0); i<100000; ++i){
+    Vector2D a1(rfloat(), rfloat());
+    float a1t(rfloat(0,5));
+    Vector2D a2(rfloat(),rfloat());
+    float a2t(rfloat(5,10));
+    Vector2D b1(rfloat(),rfloat());
+    float b1t(rfloat(0,5));
+    Vector2D b2(rfloat(),rfloat());
+    float b2t(rfloat(5,10));
+    float mnat(std::min(a1t,a2t));
+    float mxat(std::max(a1t,a2t));
+    float mnbt(std::min(b1t,b2t));
+    float mxbt(std::max(b1t,b2t));
+    if(mnat<=mxbt && mxat>=mnbt){
+      float start(std::max(mnbt,mnat));
+      float stop(std::min(mxbt,mxat));
+      float step((stop-start)/10.);
+      float transa((a1t-start));
+      float transb((b1t-start));
+      Vector2D da(a2-a1);
+      float dat((a1t-a2t));
+      Vector2D db(b2-b1);
+      float dbt((b1t-b2t));
+      a1+=da*(transa/dat); // Translate to start time
+      b1+=db*(transb/dbt); // Translate to start time
+      da*=.2;
+      db*=.2;
+      bool pass(true);
+      for(int j(0); j<5; ++j){
+        if(VelocityObstacle::AgentOverlap(a1,b1,square,square)){
+          pass=false;
+          std::cout << "f";
+          break;
+        }
+        a1+=da;
+        b1+=db;
+      }
+      if(pass){std::cout << "p";}
+    }else{std::cout << "p";}
+  }
+  std::cout << "\nTotal time (Incremental Square)" << t.EndTimer() << "\n";
 }
 
 TEST(PerfTest, Gen){
