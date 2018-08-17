@@ -1177,13 +1177,13 @@ void drawcircle(int x0, int y0, int r, std::map<int,int>& coords){
     }
 }
 
-float rfloat(float low=-5, float high=5){
+float rfloat(float low=0, float high=10){
     float width(high-low);
-    return float(rand()%int(width*1000))/(width*100.0) + low;
+    return float(rand()%int(width*1000.0))/1000.0 + low;
 }
 
 TEST(PerfTest, VOSquare){
-  std::vector<Vector2D> square={{-.3,.3},{.3,.3},{.3,-.3},{-.3,-.3}};
+  std::vector<Vector2D> square={{-.3,.3},{-.3,-.3},{.3,-.3},{.3,.3}};
   Timer t;
   t.StartTimer();
   for(int i(0); i<100000; ++i){
@@ -1253,6 +1253,41 @@ else{std::cout << "p";}
   std::cout << "\nTotal time (AABB)" << t.EndTimer() << "\n";
 }
 
+TEST(PerfTest, StaticPoly){
+  std::vector<Vector2D> square={{-.3,0},{0,-.3},{.3,0},{0,.3}};
+  Timer t;
+  t.StartTimer();
+  for(int i(0); i<100000; ++i){
+    std::cout << i << "\n";
+    Vector2D a1(rfloat(), rfloat());
+    Vector2D a2(rfloat(),rfloat());
+    Vector2D b1(rfloat(),rfloat());
+    Vector2D b2(rfloat(),rfloat());
+    Points pointsa;
+    pointsa.reserve(square.size()*2);
+    for(auto const& pa:square){
+      pointsa.push_back(a1+pa);
+      pointsa.push_back(a2+pa);
+    }
+    Points pointsb;
+    pointsb.reserve(square.size()*2);
+    for(auto const& pb:square){
+      pointsb.push_back(b1+pb);
+      pointsb.push_back(b2+pb);
+    }
+    Points hulla;
+    Points hullb;
+    CGAL::convex_hull_2(pointsa.begin(),pointsa.end(), std::back_inserter(hulla));
+    CGAL::convex_hull_2(pointsb.begin(),pointsb.end(), std::back_inserter(hullb));
+    if(CGAL::do_intersect(VelocityObstacle::Polygon_2(hulla.begin(),hulla.end()),VelocityObstacle::Polygon_2(hullb.begin(),hullb.end()))){
+      std::cout << "f";
+    }else{
+      std::cout << "p";
+    }
+  }
+  std::cout << "\nTotal time (Static Square)" << t.EndTimer() << "\n";
+}
+
 TEST(PerfTest, IncrementalCircular){
   Timer t;
   t.StartTimer();
@@ -1301,10 +1336,11 @@ TEST(PerfTest, IncrementalCircular){
 }
 
 TEST(PerfTest, IncrementalPoly){
-  std::vector<Vector2D> square={{-.3,.3},{.3,.3},{.3,-.3},{-.3,-.3}};
+  std::vector<Vector2D> square={{-.3,.3},{-.3,-.3},{.3,-.3},{.3,.3}};
   Timer t;
   t.StartTimer();
   for(int i(0); i<100000; ++i){
+    //std::cout << i << "\n";
     Vector2D a1(rfloat(), rfloat());
     float a1t(rfloat(0,5));
     Vector2D a2(rfloat(),rfloat());
@@ -5517,7 +5553,7 @@ TEST(AABB, BVHTreeTest){
   int types[]={9,25,49};
   for(int type:types){
     //for(int nagents(5); nagents<201; nagents+=5){
-    for(int nagents(300); nagents<301; nagents+=10){
+    for(int nagents(500); nagents<301; nagents+=10){
       for(int i(0); i<100; ++i){
         std::cout << "===========================================================\n";
         std::cout << type << "Connected, " << nagents << " AGENTS, Test " << i << "\n";

@@ -208,7 +208,7 @@ namespace privateUtils{
   }
 
   // A utility function to swap two points
-  int swap(Vector2D &p1, Vector2D &p2)
+  void swap(Vector2D &p1, Vector2D &p2)
   {
     Vector2D temp = p1;
     p1 = p2;
@@ -217,7 +217,7 @@ namespace privateUtils{
 
   // A utility function to return square of distance
   // between p1 and p2
-  int distSq(Vector2D const& p1, Vector2D const& p2)
+  double distSq(Vector2D const& p1, Vector2D const& p2)
   {
     return (p1.x - p2.x)*(p1.x - p2.x) +
       (p1.y - p2.y)*(p1.y - p2.y);
@@ -230,7 +230,7 @@ namespace privateUtils{
   // 2 --> Counterclockwise
   int orientation(Vector2D const& p, Vector2D const& q, Vector2D const& r)
   {
-    int val = (q.y - p.y) * (r.x - q.x) -
+    double val = (q.y - p.y) * (r.x - q.x) -
       (q.x - p.x) * (r.y - q.y);
 
     //if (val == 0) return 0;  // collinear
