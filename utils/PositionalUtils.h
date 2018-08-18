@@ -226,6 +226,7 @@ float closestDistanceBetweenLineSegments(Vector3D const& s1, Vector3D const& d1,
 bool fatLinesIntersect(Vector3D const& A1, Vector3D const& A2, double r1, Vector3D const& B1, Vector3D const& B2, double r2);
 bool pointInPoly(std::vector<Vector2D> const& poly, Vector2D const& p);
 bool lineIntersectsPoly(std::vector<Vector2D> const& poly, Vector2D const& p1, Vector2D const& p2);
+void convexHull(std::vector<Vector2D> points, std::vector<Vector2D>& hull);
 };
 
 #endif

@@ -22,6 +22,8 @@
 #include "VelocityObstacle.h"
 #include <assert.h>
 #include <iostream>
+#include <CGAL/Boolean_set_operations_2.h>
+#include <CGAL/Polygon_2.h>
 
 VelocityObstacle::VelocityObstacle(Vector2D const& a, Vector2D const& va, Vector2D const& b, Vector2D const& vb, double r1, double r2)
   : VO(a+vb), VL(0,0), VR(0,0)
@@ -35,6 +37,54 @@ VelocityObstacle::VelocityObstacle(Vector2D const& a, Vector2D const& va, Vector
   }else{ // Punt. This should *never* happen
     VL=normal(VO,b+vb);
     VR=-VL;
+  }
+}
+
+// Polygon points are relative to the center fo the body (a, b respectively)
+VelocityObstacle::VelocityObstacle(Vector2D const& a, Vector2D const& va, Vector2D const& b, Vector2D const& vb, std::vector<Vector2D>const& polyA, std::vector<Vector2D>const& polyB)
+  : VO(a+vb), VL(0,0), VR(0,0)
+{
+  // Compute points in minkowski sum
+  std::vector<Vector2D> points;
+  points.reserve(polyA.size()*polyB.size()+1);
+
+  Vector2D center(b+vb);
+  for(auto const& pa:polyA){
+    for(auto const& pb:polyB){
+      points.push_back(center+pa+pb);
+    }
+  }
+  
+  std::vector<Vector2D> result;
+  points.push_back(VO); // Add apex
+  Util::convexHull(points,result);
+
+  // Compute VL and VR
+  int i=0;
+  // Find the apex in the convex hull
+  for(; i<result.size(); ++i){
+    if(result[i] == VO){
+      break;
+    }
+  }
+  // VL and VR are on either side of the apex
+  if(i==0){
+    VL=result.back();
+    VR=result[1];
+  }
+  else if(i==result.size()-1){
+    VL=result[result.size()-2];
+    VR=result.front();
+  }else{
+    VL=result[i-1];
+    VR=result[i+1];
+  }
+
+  // If the center point is not between the tangents, swap them
+  if(!IsInside(center)){
+    Vector2D tmp(VL);
+    VR=tmp;
+    VL=VR;
   }
 }
 
@@ -64,6 +114,21 @@ bool getTangentOfCircle(Vector2D const& center, double radius, Vector2D const& p
 }
 
 // Input is the two center points and their radiuses
+bool VelocityObstacle::AgentOverlap(Vector2D const& A,Vector2D const& B,std::vector<Vector2D>const& polyA,std::vector<Vector2D>const& polyB){
+  Points a;
+  a.reserve(polyA.size());
+  for(auto const& aa:polyA){
+    a.push_back(A+aa);
+  }
+  Points b;
+  b.reserve(polyB.size());
+  for(auto const& bb:polyB){
+    b.push_back(B+bb);
+  }
+  return CGAL::do_intersect(Polygon_2(a.begin(),a.end()),Polygon_2(b.begin(),b.end()));
+}
+
+// Input is the two center points and their radiuses
 bool VelocityObstacle::AgentOverlap(Vector2D const& A,Vector2D const& B,double ar,double br){
   return fless((B-A).sq(),(ar+br)*(ar+br));
 }
@@ -77,6 +142,42 @@ bool VelocityObstacle::IsInside(Vector2D const& point) const{
      return ((VL.x - VO.x)*(apexDiff.y) < (VL.y - VO.y)*(apexDiff.x)) &&
      // Check if it is strictly left of the right vector
        ((VR.x - VO.x)*(apexDiff.y) > (VR.y - VO.y)*(apexDiff.x));
+}
+
+bool detectCollisionPolygonalAgents(Vector2D A, Vector2D const& VA, std::vector<Vector2D>const& polyA, double startTimeA, double endTimeA,
+Vector2D B, Vector2D const& VB, std::vector<Vector2D>const& polyB, double startTimeB, double endTimeB){
+
+  // check for time overlap
+  if(fgreater(startTimeA,endTimeB)||fgreater(startTimeB,endTimeA)){return false;}
+
+  if(fgreater(startTimeB,startTimeA)){
+    // Move A to the same time instant as B
+    A+=VA*(startTimeB-startTimeA);
+    startTimeA=startTimeB;
+  }else if(fless(startTimeB,startTimeA)){
+    B+=VB*(startTimeA-startTimeB);
+    startTimeB=startTimeA;
+  }
+
+  // Check for immediate collision
+  if(VelocityObstacle::AgentOverlap(A,B,polyA,polyB)){return true;}
+
+  // Check for collision in future
+  if(!VelocityObstacle(A,VA,B,VB,polyA,polyB).IsInside(A+VA)){return false;}
+  
+  // If we got here, we have established that a collision will occur
+  // if the agents continue indefinitely. However, we can now check
+  // the end of the overlapping interval to see if the collision is
+  // still in the future. If so, no collision has occurred in the interval.
+  double duration(std::min(endTimeB,endTimeA)-startTimeA);
+  A+=VA*duration;
+  B+=VB*duration;
+  
+  // Check for immediate collision at end of time interval
+  if(VelocityObstacle::AgentOverlap(A,B,polyA,polyB)){return true;}
+
+  // Finally, if the collision is still in the future we're ok.
+  return !VelocityObstacle(A,VA,B,VB,polyA,polyB).IsInside(A+VA);
 }
 
 // Detect whether a collision will occur between agent A and B inside the

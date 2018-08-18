@@ -19,6 +19,7 @@
 * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 */
 #include "Vector2D.h"
+#include "GridStates.h"
 
 std::ostream& operator <<(std::ostream & out, Vector2D const& v)
 {
@@ -26,3 +27,4 @@ std::ostream& operator <<(std::ostream & out, Vector2D const& v)
   return out;
 }
 
+Vector2D::Vector2D(xyLoc const& v):Vector2D(v.x,v.y){}

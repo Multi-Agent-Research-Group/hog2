@@ -25,12 +25,17 @@
 #include "Vector2D.h"
 #include "Vector3D.h"
 #include "PositionalUtils.h"
+#include <CGAL/Polygon_2.h>
 #include <vector>
 
 class VelocityObstacle{
   public:
+    typedef std::vector<Point_2> Points;
+    typedef CGAL::Polygon_2<K> Polygon_2;
     VelocityObstacle(Vector2D const& a, Vector2D const& va, Vector2D const& b, Vector2D const& vb, double r1, double r2=DBL_MAX);
+    VelocityObstacle(Vector2D const& a, Vector2D const& va, Vector2D const& b, Vector2D const& vb, std::vector<Vector2D>const& polyA, std::vector<Vector2D>const& polyB);
     static bool AgentOverlap(Vector2D const& A,Vector2D const& B,double ar,double br);
+    static bool AgentOverlap(Vector2D const& A,Vector2D const& B,std::vector<Vector2D>const& polyA, std::vector<Vector2D>const& polyB);
     bool IsInside(Vector2D const& point) const;
   private:
     Vector2D VO,VL,VR; // Pos,vel,pos,vel,VO-apex,VO-left,VO-right
@@ -40,6 +45,9 @@ bool getTangentOfCircle(Vector2D const& center, double radius, Vector2D const& p
 
 bool detectCollision(Vector2D A, Vector2D const& VA, double radiusA, double startTimeA, double endTimeA,
 Vector2D B, Vector2D const& VB, double radiusB, double startTimeB, double endTimeB);
+
+bool detectCollisionPolygonalAgents(Vector2D A, Vector2D const& VA, std::vector<Vector2D>const& polyA, double startTimeA, double endTimeA,
+Vector2D B, Vector2D const& VB, std::vector<Vector2D>const& polyB, double startTimeB, double endTimeB);
 #define CENTER_IDX9 364
 #define CENTER_IDX25 7812
 #define CENTER_IDX49 58824
