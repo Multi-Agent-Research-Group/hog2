@@ -65,7 +65,7 @@ class CBSUnit;
 
 extern double agentRadius;
 struct Params{
-    static unsigned precheck; // 0=none, 1=AABB, 2=convex hull
+    static unsigned precheck; // 0=none, 1=AABB, 2=convex hull, 3=sweep and prune
 };
 unsigned Params::precheck=0;
 
@@ -403,6 +403,7 @@ struct CBSTreeNode {
 	bool satisfiable;
         //IntervalTree cat; // Conflict avoidance table
         conflicttable cat; // Conflict avoidance table
+        std::vector<state> sweep;
 };
 
 template<typename state, typename conflicttable>
@@ -448,6 +449,7 @@ class CBSGroup : public UnitGroup<state, action, ConstrainedEnvironment<state,ac
 
     std::vector<CBSTreeNode<state,conflicttable> > tree;
     void processSolution(double);
+    void Init();
     searchalgo astar;
     unsigned mergeThreshold;
     
@@ -1127,6 +1129,16 @@ void CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::proce
   if(!keeprunning)exit(0);
 }
 
+template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class searchalgo>
+void CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::Init(){
+  if(3==precheck){
+    for(auto const& a:tree[0].basepaths){
+      tree[0].sweep.insert(sweep.end(),a.begin(),a.end());
+    }
+    std::sort(tree[0].sweep.begin(),tree[0].sweep.end());
+  }
+}
+
 /** Update the location of a unit */
 template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class searchalgo>
 void CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::UpdateLocation(Unit<state, action, ConstrainedEnvironment<state,action>> *u, ConstrainedEnvironment<state,action> *e, state &loc, 
@@ -1208,6 +1220,8 @@ void CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::AddUn
   GetFullPath<state,action,comparison,conflicttable,searchalgo>(c, astar, currentEnvironment[theUnit]->environment,*tree[0].paths.back(),tree[0].wpts.back(),1,theUnit);
   if(Params::precheck==1){
     computeAABB(*tree[0].polygons.back(),*tree[0].paths.back());
+  }else if(Params::precheck==2){
+    Util::convexHull(*tree[0].paths.back(),*tree[0].polygons.back());
   }
   if(killex != INT_MAX && TOTAL_EXPANSIONS>killex)
       processSolution(-timer->EndTimer());
@@ -1464,6 +1478,8 @@ void CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::Repla
   ReplanLeg<state,action,comparison,conflicttable,searchalgo>(c, astar, currentEnvironment[theUnit]->environment, *tree[location].paths[theUnit], tree[location].wpts[theUnit], tree[location].con.prevWpt, tree[location].con.prevWpt+1,minTime,theUnit);
   if(Params::precheck==1){
     computeAABB(*tree[location].polygons[theUnit],*tree[location].paths[theUnit]);
+  }else if(Params::precheck==2){
+    Util::convexHull(*tree[location].paths[theUnit],*tree[location].polygons[theUnit]);
   }
   //for(int i(0); i<tree[location].paths.size(); ++i)
   //std::cout << "Replanned agent "<<i<<" path " << tree[location].paths[i]->size() << "\n";
