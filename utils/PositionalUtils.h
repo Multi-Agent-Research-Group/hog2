@@ -28,6 +28,7 @@
 #include "Vector2D.h"
 #include "Vector3D.h"
 #include <limits.h>
+#include <deque>
 
 namespace Util {
 inline double distanceSquared(double dx, double dy){ // x and y differences
@@ -66,18 +67,22 @@ inline double distance(double x1, double y1, double z1, double x2, double y2, do
   return distance(y1-y2,x1-x2,z1-z2);
 }
 
-inline double distanceSquared(Vector2D const& A, Vector2D const& B){
+template <typename state>
+inline double distanceSquared(state const& A, state const& B){
   return distanceSquared(A.x,A.y,B.x,B.y);
 }
-inline double distance(Vector2D const& A, Vector2D const& B){
+template <typename state>
+inline double distance(state const& A, state const& B){
   return sqrt(distanceSquared(A.x,A.y,B.x,B.y));
 }
 
-inline double distanceSquared(Vector3D const& A, Vector3D const& B){
+template <typename state>
+inline double distance3dSquared(state const& A, state const& B){
   return distanceSquared(A.x,A.y,A.z,B.x,B.y,B.z);
 }
 
-inline double distance(Vector3D const& A, Vector3D const& B){
+template <typename state>
+inline double distance3d(state const& A, state const& B){
   return sqrt(distanceSquared(A.x,A.y,A.z,B.x,B.y,B.z));
 }
 
@@ -142,6 +147,7 @@ inline double sqDistanceOfPointToLine(Vector2D v, Vector2D w, Vector2D const& p)
   //double dx(a.x-b.x);
   //return fabs(dy*x.x-dx-x.y+a.x*b.y-a.y*b.x)/sqrt(dy*dy+dx*dx);
 }
+
 inline double distanceOfPointToLine(Vector2D v, Vector2D w, Vector2D const& p){
   return sqrt(sqDistanceOfPointToLine(v,w,p));
 }
@@ -218,15 +224,400 @@ inline double meanDistanceOfPointToLine(Vector2D const& a, Vector2D const& b, Ve
 
 // From http://www.cplusplus.com/forum/beginner/49408/
 
-double linesIntersect(Vector2D const& A1, Vector2D const& A2, Vector2D const& B1, Vector2D const& B2, double* out=nullptr);
-bool intersectionPoint(Vector2D const& A1, Vector2D const& A2, Vector2D const& B1, Vector2D const& B2, Vector2D& out);
+template <typename state>
+double linesIntersect(state const& A1, state const& A2, state const& B1, state const& B2, double* out=nullptr);
+template <typename state>
+bool intersectionPoint(state const& A1, state const& A2, state const& B1, state const& B2, state& out);
 // Assume "rounded" line with radius (thus the line width is 2*r)
-bool fatLinesIntersect(Vector2D const& A1, Vector2D const& A2, double r1, Vector2D const& B1, Vector2D const& B2, double r2);
-float closestDistanceBetweenLineSegments(Vector3D const& s1, Vector3D const& d1, Vector3D const& s2, Vector3D const& d2);
-bool fatLinesIntersect(Vector3D const& A1, Vector3D const& A2, double r1, Vector3D const& B1, Vector3D const& B2, double r2);
-bool pointInPoly(std::vector<Vector2D> const& poly, Vector2D const& p);
-bool lineIntersectsPoly(std::vector<Vector2D> const& poly, Vector2D const& p1, Vector2D const& p2);
-void convexHull(std::vector<Vector2D> points, std::vector<Vector2D>& hull);
+template <typename state>
+float closestDistanceBetweenLineSegments(state const& s1, state const& d1, state const& s2, state const& d2);
+template <typename state>
+bool fatLinesIntersect(state const& A1, state const& A2, double r1, state const& B1, state const& B2, double r2);
+template <typename state>
+bool pointInPoly(std::vector<state> const& poly, state const& p);
+template <typename state>
+bool lineIntersectsPoly(std::vector<state> const& poly, state const& p1, state const& p2);
+template <typename state>
+void convexHull(std::vector<state> points, std::vector<state>& hull);
+template <typename state>
+bool sat(std::vector<state>const& a, std::vector<state>const& b);
 };
 
+// From http://www.cplusplus.com/forum/beginner/49408/
+
+template <typename state>
+double Util::linesIntersect(state const& A1, state const& A2, state const& B1, state const& B2, double* out){
+  state a(A2-A1);
+  state b(B2-B1);
+
+  double f(det(a,b));
+  if(!f)      // lines are parallel
+    return A1==B1||A1==B2||A2==B1||A2==B2?true:false;
+
+  state c(B2-A2);
+  double aa(det(a,c));
+  double bb(det(b,c));
+
+  if(f < 0)
+  {
+    if(aa > 0)     return false;
+    if(bb > 0)     return false;
+    if(aa < f)     return false;
+    if(bb < f)     return false;
+  }
+  else
+  {
+    if(aa < 0)     return false;
+    if(bb < 0)     return false;
+    if(aa > f)     return false;
+    if(bb > f)     return false;
+  }
+
+  if(out)
+    *out = 1.0 - (aa / f);
+  return true;
+}
+
+template <typename state>
+bool Util::intersectionPoint(state const& A1, state const& A2, state const& B1, state const& B2, state& out){
+  double pct(0);
+  if(linesIntersect(A1,A2,B1,B2,&pct)){
+    out=((B2 - B1) * pct) + B1;
+    return true;
+  }
+  return false;
+}
+
+// Assume "rounded" line with radius (thus the line width is 2*r)
+/*template <typename state>
+bool Util::fatLinesIntersect(state const& A1, state const& A2, double r1, state const& B1, state const& B2, double r2){
+  // If A and B intersect, we're done
+  if(linesIntersect(A1,A2,B1,B2)){return true;}
+
+  state NA(normal(A1,A2)*r1); // Normal of line from A1 to A2 
+  state NB(normal(B1,B2)*r2); // Normal of line from B1 to B2 
+  NA.Normalize();
+  NA*=r1;
+  NB.Normalize();
+  NB*=r2;
+
+  // If A and B are parallel, then we can just check the distance
+  double r(r1+r2);
+  if((NA==NB || NA==-NB) && fless(distanceOfPointToLine(A1,A2,B1),r)){return true;}
+
+  // Project along normal in both directions
+  state A11(A1+NA);
+  state A21(A2+NA);
+  state A12(A1-NA);
+  state A22(A2-NA);
+
+  state B11(B1+NB);
+  state B21(B2+NB);
+  state B12(B1-NB);
+  state B22(B2-NB);
+
+  if(linesIntersect(A11,A21,B11,B21)){return true;}
+  if(linesIntersect(A11,A21,B12,B22)){return true;}
+  if(linesIntersect(A12,A22,B11,B21)){return true;}
+  if(linesIntersect(A12,A22,B12,B22)){return true;}
+
+  // Finally, check endpoints
+  if(fless(distanceOfPointToLine(A11,A21,B1),r)){return true;}
+  if(fless(distanceOfPointToLine(A12,A22,B1),r)){return true;}
+  if(fless(distanceOfPointToLine(A11,A21,B2),r)){return true;}
+  if(fless(distanceOfPointToLine(A12,A22,B2),r)){return true;}
+  if(fless(distanceOfPointToLine(B11,B21,A1),r)){return true;}
+  if(fless(distanceOfPointToLine(B12,B22,A1),r)){return true;}
+  if(fless(distanceOfPointToLine(B11,B21,A2),r)){return true;}
+  if(fless(distanceOfPointToLine(B12,B22,A2),r)){return true;}
+
+  return false;
+}*/
+
+template <typename state>
+float Util::closestDistanceBetweenLineSegments(state const& s1, state const& d1, state const& s2, state const& d2)
+{
+  state u(d1-s1);
+  state v(d2-s2);
+  state w(s1-s2);
+  float a(u*u);         // always >= 0
+  float b(u*v);
+  float c(v*v);         // always >= 0
+  float d(u*w);
+  float e(v*w);
+  float D(a*c - b*b);        // always >= 0
+  float sc, sN, sD = D;       // sc = sN / sD, default sD = D >= 0
+  float tc, tN, tD = D;       // tc = tN / tD, default tD = D >= 0
+
+  // Compute the line parameters of the two closest points
+  if (D < TOLERANCE) { // the lines are almost parallel
+    sN = 0.0;         // force using point s1
+    sD = 1.0;         // to prevent possible division by 0.0 later
+    tN = e;
+    tD = c;
+  } else {                 // get the closest points on the infinite lines
+    sN = (b*e - c*d);
+    tN = (a*e - b*d);
+    if (sN < 0.0) {        // sc < 0 => the s=0 edge is visible
+      sN = 0.0;
+      tN = e;
+      tD = c;
+    } else if (sN > sD) {  // sc > 1  => the s=1 edge is visible
+      sN = sD;
+      tN = e + b;
+      tD = c;
+    }
+  }
+
+  if (tN < 0.0) {            // tc < 0 => the t=0 edge is visible
+    tN = 0.0;
+    // recompute sc for this edge
+    if (-d < 0.0) {
+      sN = 0.0;
+    } else if (-d > a){
+      sN = sD;
+    } else {
+      sN = -d;
+      sD = a;
+    }
+  } else if (tN > tD) {      // tc > 1  => the t=1 edge is visible
+    tN = tD;
+    // recompute sc for this edge
+    if ((-d + b) < 0.0) {
+      sN = 0;
+    } else if ((-d + b) > a) {
+      sN = sD;
+    } else {
+      sN = (-d +  b);
+      sD = a;
+    }
+  }
+  // finally do the division to get sc and tc
+  sc = (abs(sN) < TOLERANCE ? 0.0 : sN / sD);
+  tc = (abs(tN) < TOLERANCE ? 0.0 : tN / tD);
+
+  // get the difference of the two closest points
+  state dP(w + (u*sc) - (v*tc));  // =  S1(sc) - S2(tc)
+
+  return dP.len();   // return the closest distance
+}
+
+template <typename state>
+bool Util::fatLinesIntersect(state const& A1, state const& A2, double r1, state const& B1, state const& B2, double r2){
+  return fleq(closestDistanceBetweenLineSegments(A1,A2,B1,B2),r1+r2);
+}
+
+// For convex polygons only...
+// Also assumes that no polygon extends beyond 2^12 (4096) on the x axis
+template <typename state>
+bool Util::pointInPoly(std::vector<state> const& poly, state const& p1){
+  unsigned crossings(0);
+  state endpoint(state(p1.x+0xfff,p1.y));
+  crossings+=linesIntersect(poly.front(),poly.back(),p1,endpoint);
+  for(unsigned i(1); i<poly.size()&&crossings<2; ++i){
+    crossings+=linesIntersect(poly[i-1],poly[i],p1,endpoint);
+  }
+  return crossings%2;
+}
+
+template <typename state>
+bool Util::lineIntersectsPoly(std::vector<state> const& poly, state const& p1, state const& p2){
+  if(linesIntersect(poly.front(),poly.back(),p1,p2))return true;
+  for(unsigned i(1); i<poly.size(); ++i){
+    if(linesIntersect(poly[i-1],poly[i],p1,p2))return true;
+  }
+  return false;
+}
+
+template <typename state>
+struct privateUtils{
+  static state p0;
+  // A utility function to find next to top in a stack
+  static state nextToTop(std::deque<state> &S)
+  {
+    return S[S.size()-2];
+  }
+
+  // A utility function to swap two points
+  static void swap(state &p1, state &p2)
+  {
+    state temp = p1;
+    p1 = p2;
+    p2 = temp;
+  }
+
+  // A utility function to return square of distance
+  // between p1 and p2
+  static double distSq(state const& p1, state const& p2)
+  {
+    return (p1.x - p2.x)*(p1.x - p2.x) +
+      (p1.y - p2.y)*(p1.y - p2.y);
+  }
+
+  // To find orientation of ordered triplet (p, q, r).
+  // The function returns following values
+  // 0 --> p, q and r are colinear
+  // 1 --> Clockwise
+  // 2 --> Counterclockwise
+  static int orientation(state const& p, state const& q, state const& r)
+  {
+    double val = (q.y - p.y) * (r.x - q.x) -
+      (q.x - p.x) * (r.y - q.y);
+
+    //if (val == 0) return 0;  // collinear
+    return val?((val > 0)? 1: 2):0; // clock or counterclock wise
+  }
+
+  // A function used by library function qsort() to sort an array of
+  // points with respect to the first point
+  static bool compare(state const& p1, state const& p2){
+    // Find orientation
+    int o = orientation(p0, p1, p2);
+    if (o == 0)
+      return (distSq(p0, p2) >= distSq(p0, p1))? true : false;
+
+    return (o == 2)? true: false;
+  }
+
+  static bool contains(double n, state const& range){
+    return (range.min() <= n && n <= range.max());
+  }
+
+  static bool overlap(state const& a, state const& b){
+    if (contains(a.x,b)) return true;
+    if (contains(a.y,b)) return true;
+    if (contains(b.x,a)) return true;
+    if (contains(b.y,a)) return true;
+    return false;
+  }
+
+  static bool sat(std::vector<state>const& pa, std::vector<state>const& pb, state const& a, state const& b){
+    state axis((b-a).perp());
+    axis.Normalize();
+    state ppa(axis.projectPolyOntoSelf(pa));
+    state ppb(axis.projectPolyOntoSelf(pb));
+    return overlap(ppa,ppb);
+  }
+
+};
+
+template <typename state>
+state privateUtils<state>::p0;
+
+// Graham Scan
+// Prints convex hull of a set of n points.
+template <typename state>
+void Util::convexHull(std::vector<state> points, std::vector<state>& hull){
+  if (points.size() < 3){
+    hull.reserve(points.size());
+    hull.insert(hull.begin(),points.begin(),points.end());
+    return;
+  }
+   // Find the bottommost point
+   int ymin = points[0].y, min = 0;
+   for (int i = 1; i < points.size(); i++)
+   {
+     //std::cout << points[i] << "\n";
+     int y = points[i].y;
+ 
+     // Pick the bottom-most or chose the left
+     // most point in case of tie
+     if ((y < ymin) || (ymin == y &&
+         points[i].x < points[min].x))
+        ymin = points[i].y, min = i;
+   }
+ 
+   // Place the bottom-most point at first position
+   privateUtils<state>::swap(points[0], points[min]);
+ 
+   // Sort n-1 points with respect to the first point.
+   // A point p1 comes before p2 in sorted ouput if p2
+   // has larger polar angle (in counterclockwise
+   // direction) than p1
+   privateUtils<state>::p0 = points[0];
+   std::sort(points.begin()+1,points.end(),
+       [](state const& a, state const& b) -> bool {
+       return privateUtils<state>::compare(a,b);
+       });
+ 
+   // If two or more points make same angle with p0,
+   // Remove all but the one that is farthest from p0
+   // Remember that, in above sorting, our criteria was
+   // to keep the farthest point at the end when more than
+   // one points have same angle.
+   int m = 1; // Initialize size of modified array
+   for (int i=1; i<points.size(); i++)
+   {
+       // Keep removing i while angle of i and i+1 is same
+       // with respect to p0
+       while (i < points.size()-1 && privateUtils<state>::orientation(privateUtils<state>::p0, points[i],
+                                    points[i+1]) == 0)
+          i++;
+ 
+ 
+       points[m] = points[i];
+       m++;  // Update size of modified array
+   }
+ 
+   // If modified array of points has less than 3 points,
+   // convex hull is not possible, but we may have a line
+   // or point... return whatever we have.
+   if (m < 3){
+     for(int i(0);i<m; ++i)
+       hull.push_back(points[i]);
+     return;
+   }
+ 
+   // Create an empty stack and push first three points
+   // to it.
+   std::deque<state> S;
+   S.push_back(points[0]);
+   S.push_back(points[1]);
+   S.push_back(points[2]);
+ 
+   // Process remaining n-3 points
+   for (int i = 3; i < m; i++)
+   {
+      // Keep removing top while the angle formed by
+      // points next-to-top, top, and points[i] makes
+      // a non-left turn
+      while (privateUtils<state>::orientation(privateUtils<state>::nextToTop(S), S.back(), points[i]) != 2)
+         S.pop_back();
+      S.push_back(points[i]);
+   }
+ 
+   // Now stack has the output points, print contents of stack
+   hull.reserve(S.size());
+   while (!S.empty()){
+       hull.push_back(S.back());
+       S.pop_back();
+   }
+}
+
+// Separating axis theorem for polygonal intersection test
+template <typename state>
+bool Util::sat(std::vector<state>const& a, std::vector<state>const& b){
+  if(a.size()==1){
+    if(b.size()==1) return (a[0].x==b[0].x&&a[0].y==b[0].y);
+    if(b.size()==2) return fequal(Util::sqDistanceOfPointToLine(b[0],b[1],a[0]),0);
+    if(b.size()>=3) return Util::pointInPoly(b,a[0]);
+  }else if(a.size()==2){
+    if(b.size()==1) return fequal(Util::sqDistanceOfPointToLine(a[0],a[1],b[0]),0);
+    if(b.size()==2) return Util::linesIntersect(a[0],a[1],b[0],b[1]);
+    if(b.size()>=3) return Util::lineIntersectsPoly(b,a[0],a[1]);
+  }
+  if(b.size()==1) return Util::pointInPoly(a,b[0]);
+  if(b.size()==2) return Util::lineIntersectsPoly(a,b[0],b[1]);
+
+  unsigned i;
+  for (i=1;i<a.size();i++){
+    if(!privateUtils<state>::sat(a,b,a[i-1],a[i])) return false;
+  }
+  if(!privateUtils<state>::sat(a,b,a[a.size()-1],a[0])) return false;
+  for (i=1;i<b.size();i++){
+    if(!privateUtils<state>::sat(a,b,b[i-1],b[i])) return false;
+  }
+  if(!privateUtils<state>::sat(a,b,b[b.size()-1],b[0])) return false;
+  return true;
+}
 #endif

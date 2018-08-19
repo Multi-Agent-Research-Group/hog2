@@ -46,7 +46,6 @@ SRC_CPP = \
 	utils/MapOverlay.cpp \
 	utils/NN.cpp \
 	utils/Plot2D.cpp \
-	utils/PositionalUtils.cpp \
 	utils/ScenarioLoader.cpp \
 	utils/StatCollection.cpp \
 	utils/StatUtil.cpp \

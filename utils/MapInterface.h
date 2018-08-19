@@ -30,9 +30,9 @@ class MapInterface{
 public:
   virtual bool GetOpenGLCoord(float _x, float _y, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const=0;
   virtual bool GetOpenGLCoord(float _x, float _y, float _z, GLdouble &x, GLdouble &y, GLdouble &z, GLdouble &radius) const=0;
-  virtual inline long GetMapWidth() const=0;
-  virtual inline long GetMapHeight() const=0;
-  virtual inline long GetMapDepth() const{return 0;}
+  virtual inline long GetMapWidth() const{return 1;}
+  virtual inline long GetMapHeight() const{return 1;}
+  virtual inline long GetMapDepth() const{return 1;}
   virtual inline bool IsTraversable(long x, long y)const{return x>=0&&x<GetMapWidth()&&y>=0&&y<GetMapHeight();}
   virtual bool LineOfSight(Vector3D const&,Vector3D const&)const{return true;}
 };

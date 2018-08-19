@@ -193,7 +193,7 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-suboptimal", "-suboptimal", "Sub-optimal answers");
 	InstallCommandLineHandler(MyCLHandler, "-random", "-random", "Randomize conflict resolution order");
 	InstallCommandLineHandler(MyCLHandler, "-greedyCT", "-greedyCT", "Greedy sort high-level search by number of conflicts (GCBS)");
-	InstallCommandLineHandler(MyCLHandler, "-precheck", "-precheck", "Pre-check for broadphase collision 0(default)=No precheck, 1=AABB precheck, 2=Convex hull intersection check");
+	InstallCommandLineHandler(MyCLHandler, "-precheck", "-precheck", "Pre-check for broadphase collision 0(default)=No precheck, 1=AABB precheck, 2=Convex hull intersection check, 3=Sweep and prune");
 	InstallCommandLineHandler(MyCLHandler, "-ECBSheuristic", "-ECBSheuristic", "Use heuristic in low-level search");
 
     InstallWindowHandler(MyWindowHandler);
@@ -223,7 +223,7 @@ void InitHeadless(){
   ace=(Grid3DConstrainedEnvironment*)environs[0].rbegin()->environment;
 
   group = new MACBSGroup(environs,verbose); // Changed to 10,000 expansions from number of conflicts in the tree
-  MACBSGroup::greedyCT=greedyCT;
+  Params::greedyCT=greedyCT;
   group->disappearAtGoal=disappearAtGoal;
   group->timer=new Timer();
   group->seed=seed;
@@ -234,7 +234,7 @@ void InitHeadless(){
   group->ECBSheuristic=ECBSheuristic;
   group->nobypass=nobypass;
   group->verify=verify;
-  MACBSGroup::greedyCT=suboptimal;
+  Params::greedyCT=suboptimal;
   group->quiet=quiet;
   UnitTieBreaking3D<xyztLoc,t3DDirection>::randomalg=randomalg;
   UnitTieBreaking3D<xyztLoc,t3DDirection>::useCAT=useCAT;
@@ -315,6 +315,7 @@ void InitHeadless(){
     group->timer->StartTimeout(std::chrono::seconds(killtime),func);
   }
   //assert(false && "Exit early");
+  group->Init();
 }
 
 void InitSim(){
