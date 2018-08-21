@@ -61,6 +61,7 @@ SRC_CPP = \
 	utils/MinBloom.cpp \
 	utils/MapGenerators.cpp \
 	utils/NBitArray.cpp \
+        utils/PositionalUtils.cpp \
 	utils/SVGUtil.cpp \
 	utils/RangeCompression.cpp \
 	utils/MR1Permutation.cpp \

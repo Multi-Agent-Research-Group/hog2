@@ -229,8 +229,8 @@ double linesIntersect(state const& A1, state const& A2, state const& B1, state c
 template <typename state>
 bool intersectionPoint(state const& A1, state const& A2, state const& B1, state const& B2, state& out);
 // Assume "rounded" line with radius (thus the line width is 2*r)
-template <typename state>
-float closestDistanceBetweenLineSegments(state const& s1, state const& d1, state const& s2, state const& d2);
+float closestDistanceBetweenLineSegments(Vector3D const& s1, Vector3D const& d1, Vector3D const& s2, Vector3D const& d2);
+float closestDistanceBetweenLineSegments(Vector2D const& s1, Vector2D const& d1, Vector2D const& s2, Vector2D const& d2);
 template <typename state>
 bool fatLinesIntersect(state const& A1, state const& A2, double r1, state const& B1, state const& B2, double r2);
 template <typename state>
@@ -238,7 +238,7 @@ bool pointInPoly(std::vector<state> const& poly, state const& p);
 template <typename state>
 bool lineIntersectsPoly(std::vector<state> const& poly, state const& p1, state const& p2);
 template <typename state>
-void convexHull(std::vector<state> points, std::vector<state>& hull);
+void convexHull(std::vector<state> points, std::vector<Vector2D>& hull);
 template <typename state>
 bool sat(std::vector<state>const& a, std::vector<state>const& b);
 };
@@ -334,12 +334,11 @@ bool Util::fatLinesIntersect(state const& A1, state const& A2, double r1, state 
   return false;
 }*/
 
-template <typename state>
-float Util::closestDistanceBetweenLineSegments(state const& s1, state const& d1, state const& s2, state const& d2)
+/*float Util::closestDistanceBetweenLineSegments(Vector2D const& s1, Vector2D const& d1, Vector2D const& s2, Vector2D const& d2)
 {
-  state u(d1-s1);
-  state v(d2-s2);
-  state w(s1-s2);
+  Vector2D u(d1-s1);
+  Vector2D v(d2-s2);
+  Vector2D w(s1-s2);
   float a(u*u);         // always >= 0
   float b(u*v);
   float c(v*v);         // always >= 0
@@ -397,10 +396,10 @@ float Util::closestDistanceBetweenLineSegments(state const& s1, state const& d1,
   tc = (abs(tN) < TOLERANCE ? 0.0 : tN / tD);
 
   // get the difference of the two closest points
-  state dP(w + (u*sc) - (v*tc));  // =  S1(sc) - S2(tc)
+  Vector2D dP(w + (u*sc) - (v*tc));  // =  S1(sc) - S2(tc)
 
   return dP.len();   // return the closest distance
-}
+}*/
 
 template <typename state>
 bool Util::fatLinesIntersect(state const& A1, state const& A2, double r1, state const& B1, state const& B2, double r2){
@@ -507,10 +506,12 @@ state privateUtils<state>::p0;
 // Graham Scan
 // Prints convex hull of a set of n points.
 template <typename state>
-void Util::convexHull(std::vector<state> points, std::vector<state>& hull){
+void Util::convexHull(std::vector<state> points, std::vector<Vector2D>& hull){
   if (points.size() < 3){
     hull.reserve(points.size());
-    hull.insert(hull.begin(),points.begin(),points.end());
+    for(auto const& p: points){
+      hull.push_back(Vector2D(p));
+    }
     return;
   }
    // Find the bottommost point
@@ -564,7 +565,7 @@ void Util::convexHull(std::vector<state> points, std::vector<state>& hull){
    // or point... return whatever we have.
    if (m < 3){
      for(int i(0);i<m; ++i)
-       hull.push_back(points[i]);
+       hull.push_back(Vector2D(points[i]));
      return;
    }
  
@@ -589,7 +590,7 @@ void Util::convexHull(std::vector<state> points, std::vector<state>& hull){
    // Now stack has the output points, print contents of stack
    hull.reserve(S.size());
    while (!S.empty()){
-       hull.push_back(S.back());
+       hull.push_back(Vector2D(S.back()));
        S.pop_back();
    }
 }

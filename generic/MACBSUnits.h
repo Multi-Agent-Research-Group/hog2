@@ -389,11 +389,11 @@ struct Conflict {
 
 // populate vector aabb with (min),(max)
 template<typename state>
-void computeAABB(std::vector<state>& aabb, std::vector<state> const& path) {
+void computeAABB(std::vector<Vector2D>& aabb, std::vector<state> const& path) {
   aabb.resize(2);
-  aabb[0].x = 0xFFF; // INF...
-  aabb[0].y = 0xFFF;
-  aabb[0].z = 0x3FF;
+  aabb[0].x = path[0].x;
+  aabb[0].y = path[0].y;
+  //aabb[0].z = 0x3FF;
   for (auto const& p : path) {
     if (p.x < aabb[0].x) {
       aabb[0].x = p.x;
@@ -407,12 +407,12 @@ void computeAABB(std::vector<state>& aabb, std::vector<state> const& path) {
     if (p.y > aabb[1].y) {
       aabb[1].y = p.y;
     }
-    if (p.z < aabb[0].z) {
+    /*if (p.z < aabb[0].z) {
       aabb[0].z = p.z;
     }
     if (p.z > aabb[1].z) {
       aabb[1].z = p.z;
-    }
+    }*/
   }
 }
 
@@ -427,7 +427,7 @@ struct CBSTreeNode {
           from.polygons), con(from.con), parent(from.parent), satisfiable(from.satisfiable), cat(from.cat), cct(from.cct), sweep(from.sweep) {
   }
   CBSTreeNode(CBSTreeNode<state, conflicttable> const& from, Conflict<state> const& c, unsigned p, bool s)
-      : wpts(from.wpts), path(new std::vector<state>()), polygon(new std::vector<state>()), paths(from.paths), polygons(
+      : wpts(from.wpts), path(new std::vector<state>()), polygon(new std::vector<Vector2D>()), paths(from.paths), polygons(
           from.polygons), con(c), parent(p), satisfiable(s), cat(from.cat), cct(from.cct), sweep(from.sweep) {
     paths[c.unit1] = path.get();
     if (Params::precheck & (PRE_AABB|PRE_HULL)) {
@@ -441,8 +441,8 @@ struct CBSTreeNode {
   bool hasOverlap(unsigned a, unsigned b) const {
     if (Params::precheck == 1) {
       return (polygons[a]->at(0).x <= polygons[b]->at(1).x && polygons[a]->at(1).x >= polygons[b]->at(0).x)
-          && (polygons[a]->at(0).y <= polygons[b]->at(1).y && polygons[a]->at(1).y >= polygons[b]->at(0).y)
-          && (polygons[a]->at(0).z <= polygons[b]->at(1).z && polygons[a]->at(1).z >= polygons[b]->at(0).z);
+          && (polygons[a]->at(0).y <= polygons[b]->at(1).y && polygons[a]->at(1).y >= polygons[b]->at(0).y);
+          //&& (polygons[a]->at(0).z <= polygons[b]->at(1).z && polygons[a]->at(1).z >= polygons[b]->at(0).z);
     } else if (Params::precheck == 2) {
       // Detect polygonal overlap
       return Util::sat<Vector2D>(*polygons[a],*polygons[b]);
@@ -450,7 +450,7 @@ struct CBSTreeNode {
     return true; // default
   }
 
-  inline unsigned numCollisions(){
+  inline unsigned numCollisions()const{
     unsigned total(0);
     for(int agent(0); agent<paths.size(); ++agent){
         total+=numCollisions(agent);
@@ -458,7 +458,7 @@ struct CBSTreeNode {
     return total;
   }
 
-  inline unsigned numCollisions(unsigned agent){
+  inline unsigned numCollisions(unsigned agent)const{
       unsigned total(0);
       unsigned num(1+paths.size()/64);
       for(int i(0); i<num; ++i){
@@ -467,21 +467,21 @@ struct CBSTreeNode {
       return total;
     }
 
-  inline bool getcct(unsigned a1, unsigned a2){
+  inline bool getcct(unsigned a1, unsigned a2)const{
     return cct[a1][a2 / 64] & (1UL << (a2 % 64));
   }
 
-  inline void setcct(unsigned a1, unsigned a2) {
+  inline void setcct(unsigned a1, unsigned a2)const{
     cct[a1][a2 / 64] |= (1UL << (a2 % 64));
     cct[a2][a1 / 64] |= (1UL << (a1 % 64));
   }
 
-  inline void unsetcct(unsigned a1, unsigned a2) {
+  inline void unsetcct(unsigned a1, unsigned a2)const{
     cct[a1][a2 / 64] &= ~(1UL << (a2 % 64));
     //cct[a2][a1 / 64] &= ~(1UL << (a1 % 64));
   }
 
-  inline void clearcct(unsigned a1){
+  inline void clearcct(unsigned a1)const{
     memset(cct[a1].data(),0,cct[a1].size()*sizeof(uint64_t));
     for(int a2(0);a2<cct.size();++a2){
       unsetcct(a2,a1);
@@ -489,12 +489,12 @@ struct CBSTreeNode {
   }
   std::vector<std::vector<int> > wpts;
   mutable std::unique_ptr<std::vector<state>> path;
-  mutable std::unique_ptr<std::vector<state>> polygon;
+  mutable std::unique_ptr<std::vector<Vector2D>> polygon;
   std::vector<std::vector<state>*> paths;
-  std::vector<std::vector<state>*> polygons;
+  std::vector<std::vector<Vector2D>*> polygons;
   static Solution<state> basepaths;
-  static Solution<state> basepolygons;
-  std::vector<std::vector<uint64_t>> cct;
+  static Solution<Vector2D> basepolygons;
+  mutable std::vector<std::vector<uint64_t>> cct;
   std::vector<xyztAABB> sweep;
   Conflict<state> con;
   unsigned int parent;
@@ -505,7 +505,7 @@ struct CBSTreeNode {
 template<typename state, typename conflicttable>
 Solution<state> CBSTreeNode<state, conflicttable>::basepaths = Solution<state>();
 template<typename state, typename conflicttable>
-Solution<state> CBSTreeNode<state, conflicttable>::basepolygons = Solution<state>();
+Solution<Vector2D> CBSTreeNode<state, conflicttable>::basepolygons = Solution<Vector2D>();
 
 template<typename state, typename conflicttable, class searchalgo>
 static std::ostream& operator <<(std::ostream & out, const CBSTreeNode<state, conflicttable> &act) {
@@ -561,14 +561,15 @@ private:
   bool Bypass(int best, std::pair<unsigned, unsigned> const& numConflicts, Conflict<state> const& c1, unsigned otherunit,
       unsigned minTime);
   void Replan(int location);
+  bool IsCardinal(int x, state const&, state const&, int y, state const&, state const&);
   unsigned HasConflict(std::vector<state> const& a, std::vector<int> const& wa, std::vector<state> const& b,
       std::vector<int> const& wb, int x, int y, Conflict<state> &c1, Conflict<state> &c2,
       std::pair<unsigned, unsigned>& conflict, bool update, bool countall=true);
   std::pair<unsigned, unsigned> FindHiPriConflictAllPairs(CBSTreeNode<state, conflicttable> const& location, Conflict<state> &c1,
       Conflict<state> &c2, bool update = true);
   std::pair<unsigned, unsigned> FindHiPriConflictOneVsAll( CBSTreeNode<state, conflicttable> const& location, Conflict<state> &c1, Conflict<state> &c2, bool update=true);
-  std::pair<unsigned, unsigned> FindHiPriConflictOneVsAllSAP(CBSTreeNode<state, conflicttable>& location, Conflict<state> &c1, Conflict<state> &c2, unsigned agent, bool update=true, bool countall=true);
-  std::pair<unsigned, unsigned> FindHiPriConflictAllPairsSAP(CBSTreeNode<state, conflicttable>& location, Conflict<state> &c1, Conflict<state> &c2, unsigned agent, bool update=true, bool countall=true);
+  std::pair<unsigned, unsigned> FindHiPriConflictOneVsAllSAP(CBSTreeNode<state, conflicttable>& location, Conflict<state> &c1, Conflict<state> &c2, bool update=true, bool countall=true);
+  std::pair<unsigned, unsigned> FindHiPriConflictAllPairsSAP(CBSTreeNode<state, conflicttable>& location, Conflict<state> &c1, Conflict<state> &c2, bool update=true, bool countall=true);
 
   unsigned FindFirstConflict(CBSTreeNode<state, conflicttable> const& location, Conflict<state> &c1, Conflict<state> &c2);
 
@@ -1345,7 +1346,7 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
   tree[0].paths.back() = &CBSTreeNode<state, conflicttable>::basepaths[this->GetNumMembers() - 1];
   if (Params::precheck) {
     tree[0].polygons.resize(this->GetNumMembers());
-    tree[0].polygons.back() = new std::vector<state>();
+    tree[0].polygons.back() = new std::vector<Vector2D>();
   }
   tree[0].wpts.resize(this->GetNumMembers());
   //agentEnvs.resize(this->GetNumMembers());
@@ -1361,7 +1362,7 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
   if(Params::precheck==PRE_AABB){
     computeAABB(*tree[0].polygons.back(),*tree[0].paths.back());
   }else if(Params::precheck==PRE_HULL){
-    Util::convexHull<Vector2D>(*tree[0].paths.back(),*tree[0].polygons.back());
+    Util::convexHull<state>(*tree[0].paths.back(),*tree[0].polygons.back());
   }
   if (killex != INT_MAX && TOTAL_EXPANSIONS > killex)
     processSolution(-timer->EndTimer());
@@ -1529,8 +1530,25 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
         for (auto const& a : *newPath) {
           std::cout << a << "\n";
         }
+
       // TODO do full conflict count here
-      auto pconf(FindHiPriConflict(newNode, c3, c4, false)); // false since we don't care about finding cardinal conflicts
+      std::pair<unsigned,unsigned> pconf;
+      if(Params::precheck==PRE_SAP){
+        // Update the sweep list while counting collisions at the same time
+        if(Params::cct){
+          pconf=FindHiPriConflictAllPairsSAP(tree[bestNode], c3, c4, false);
+        }else{
+          pconf=FindHiPriConflictOneVsAllSAP(tree[bestNode], c3, c4, false);
+          pconf.first=tree[bestNode].numCollisions();
+        }
+      }else{
+        if(Params::cct){
+          pconf=FindHiPriConflictAllPairs(tree[bestNode], c3, c4, false);
+        }else{
+          pconf=FindHiPriConflictOneVsAll(tree[bestNode], c3, c4, false);
+          pconf.first=tree[bestNode].numCollisions();
+        }
+      }
       if (verbose)
         std::cout << "Path number " << pnum << "\n";
       if (verbose)
@@ -1641,7 +1659,7 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
     if(Params::precheck==PRE_AABB){
       computeAABB(*tree[location].polygons[theUnit],*tree[location].paths[theUnit]);
     }else if(Params::precheck==PRE_HULL){
-      Util::convexHull<Vector2D>(*tree[location].paths[theUnit],*tree[location].polygons[theUnit]);
+      Util::convexHull<state>(*tree[location].paths[theUnit],*tree[location].polygons[theUnit]);
     }
     //for(int i(0); i<tree[location].paths.size(); ++i)
     //std::cout << "Replanned agent "<<i<<" path " << tree[location].paths[i]->size() << "\n";
@@ -1723,6 +1741,37 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
     }
   }
 }
+template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class searchalgo>
+bool CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::IsCardinal(int x, state const& a1, state const& a2, int y, state const& b1, state const& b2){
+  CBSTreeNode<state, conflicttable>& location=tree[bestNode];
+  std::unique_ptr<Constraint<state>> constraint;
+  if (usecrossconstraints) {
+    constraint.reset((Constraint<state>*) new Collision<state>(b1,b2));
+  } else {
+    constraint.reset((Constraint<state>*) new Identical<state>(a1,a2));
+  }
+  currentEnvironment[x]->environment->constraints.push_back(constraint.get());
+
+  double origcost(currentEnvironment[x]->environment->GetPathLength(*location.paths[x]));
+
+  // Select the unit from the group
+  CBSUnit<state, action, comparison, conflicttable, searchalgo> *c(
+      (CBSUnit<state, action, comparison, conflicttable, searchalgo>*) this->GetMember(x));
+
+  comparison::currentEnv = (ConstrainedEnvironment<state, action>*) currentEnvironment[x]->environment;
+  comparison::currentAgent = x;
+
+  if (comparison::useCAT) {
+    comparison::CAT->remove(*location.paths[x], currentEnvironment[x]->environment, x);
+  }
+
+  std::vector<state> thePath;
+  GetFullPath<state,action,comparison,conflicttable,searchalgo>(c, astar, currentEnvironment[x]->environment, thePath, location.wpts[x], location.paths[y]->back().t, x);
+
+  double newcost(currentEnvironment[x]->environment->GetPathLength(thePath));
+  currentEnvironment[x]->environment->constraints.pop_back();
+  return !fequal(origcost,newcost);
+}
 
 // Returns a pair containing:
 // Number of Conflicts (NC)
@@ -1737,6 +1786,7 @@ template<typename state, typename action, typename comparison, typename conflict
 unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::HasConflict(std::vector<state> const& a,
     std::vector<int> const& wa, std::vector<state> const& b, std::vector<int> const& wb, int x, int y, Conflict<state> &c1,
     Conflict<state> &c2, std::pair<unsigned, unsigned>& conflict, bool update, bool countall) {
+  CBSTreeNode<state, conflicttable>& location=tree[bestNode];
   // The conflict parameter contains the conflict count so far (conflict.first)
   // and the type of conflict found so far (conflict.second=BOTH_CARDINAL being the highest)
 
@@ -1802,57 +1852,25 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, searchalg
     if(collisionCheck3D(a[xTime], a[xNextTime], b[yTime], b[yNextTime], agentRadius)) {
       ++conflict.first;
       if(!update && !countall){break;} // We don't care about anything except whether there is at least one conflict
-      if (verbose)
+      if(verbose)
         std::cout << conflict.first << " conflicts; #" << x << ":" << a[xTime] << "-->" << a[xNextTime] << " #" << y << ":"
             << b[yTime] << "-->" << b[yNextTime] << "\n";
-      if (update && (BOTH_CARDINAL != (conflict.second & BOTH_CARDINAL))) { // Keep updating until we find a both-cardinal conflict
+      if(update && (BOTH_CARDINAL != (conflict.second & BOTH_CARDINAL))) { // Keep updating until we find a both-cardinal conflict
         // Determine conflict type
-        // If there are other legal successors with succ.f()=child.f(), this is non-cardinal
-        unsigned conf(NO_CONFLICT); // Left is cardinal?
-        {
-          double childf(
-              currentEnvironment[x]->environment->GCost(a[xTime], a[xNextTime])
-                  + currentEnvironment[x]->environment->HCost(a[xNextTime], aGoal));
-          std::vector<state> succ;
-          currentEnvironment[x]->environment->GetSuccessors(a[xTime], succ);
-          bool found(false);
-          for (auto const& s : succ) { // Is there at least one successor with same g+h as child?
-            if (s.sameLoc(a[xNextTime])) {
-              continue;
-            }
-            if (fleq(
-                currentEnvironment[x]->environment->GCost(a[xTime], s)
-                    + currentEnvironment[x]->environment->HCost(s, aGoal), childf)) {
-              found = true;
-              break;
-            }
-          }
-          if (!found) {
-            conf |= LEFT_CARDINAL;
-          }
+        unsigned conf(NO_CONFLICT);
+
+        // Prepare for re-planning the paths
+        unsigned numConflicts(LoadConstraintsForNode(bestNode));
+        comparison::openList = astar.GetOpenList();
+        comparison::CAT = &(location.cat);
+        comparison::CAT->set(&location.paths);
+        // Left is cardinal?
+        if(IsCardinal(x,a[xTime],a[xNextTime],y,b[yTime],b[yNextTime])){
+          conf |= LEFT_CARDINAL;
         }
-        // Right is cardinal
-        {
-          double childf(
-              currentEnvironment[y]->environment->GCost(b[yTime], b[yNextTime])
-                  + currentEnvironment[y]->environment->HCost(b[yNextTime], bGoal));
-          std::vector<state> succ;
-          currentEnvironment[y]->environment->GetSuccessors(b[yTime], succ);
-          bool found(false);
-          for (auto const& s : succ) { // Is there at least one successor with same g+h as child?
-            if (s.sameLoc(b[yNextTime])) {
-              continue;
-            }
-            if (fleq(
-                currentEnvironment[y]->environment->GCost(b[yTime], s)
-                    + currentEnvironment[y]->environment->HCost(s, bGoal), childf)) {
-              found = true;
-              break;
-            }
-          }
-          if (!found) {
-            conf |= RIGHT_CARDINAL;
-          }
+        // Right is cardinal?
+        if(IsCardinal(y,b[yTime],b[yNextTime],x,a[xTime],a[xNextTime])){
+          conf |= RIGHT_CARDINAL;
         }
         // Have we increased from non-cardinal to semi-cardinal or both-cardinal?
         if (NO_CONFLICT == conflict.second || ((conflict.second <= NON_CARDINAL) && conf) || BOTH_CARDINAL == conf) {
@@ -1913,11 +1931,11 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, searchalg
 
 
 template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class searchalgo>
-std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::FindHiPriConflictAllPairsSAP(CBSTreeNode<state, conflicttable>& location, Conflict<state> &c1, Conflict<state> &c2, unsigned agent, bool update, bool countall){
+std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::FindHiPriConflictAllPairsSAP(CBSTreeNode<state, conflicttable>& location, Conflict<state> &c1, Conflict<state> &c2, bool update, bool countall){
   std::pair<unsigned, unsigned> conflict(0,0);
   std::vector<xyztAABB> path;
-  path.reserve(location.paths[location.c.unit1]->size());
-  addAABBs(*location.paths[location.c.unit1],path,location.c.unit1);
+  path.reserve(location.paths[location.con.unit1]->size());
+  addAABBs(*location.paths[location.con.unit1],path,location.con.unit1);
   unsigned a(1);
   unsigned b(0);
   std::vector<xyztAABB const*> active;
@@ -1954,50 +1972,19 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
               // Determine conflict type
               // If there are other legal successors with succ.f()=child.f(), this is non-cardinal
               unsigned conf(NO_CONFLICT); // Left is cardinal?
-              {
-                double childf(
-                    currentEnvironment[location.sweep[a].agent]->environment->GCost(location.sweep[a].start, location.sweep[a].end)
-                    + currentEnvironment[location.sweep[a].agent]->environment->HCost(location.sweep[a].end, location.wpts[location.sweep[a].agent][1]));
-                std::vector<state> succ;
-                currentEnvironment[location.sweep[a].agent]->environment->GetSuccessors(location.sweep[a].end, succ);
-                bool found(false);
-                for (auto const& s : succ) { // Is there at least one successor with same g+h as child?
-                  if (s.sameLoc(location.sweep[a].end)) {
-                    continue;
-                  }
-                  if (fleq(
-                        currentEnvironment[location.sweep[a].agent]->environment->GCost(location.sweep[a].end s)
-                        + currentEnvironment[location.sweep[a].agent]->environment->HCost(s, location.wpts[location.sweep[a].agent][1]), childf)) {
-                    found = true;
-                    break;
-                  }
-                }
-                if (!found) {
-                  conf |= LEFT_CARDINAL;
-                }
+
+              // Prepare for re-planning the paths
+              unsigned numConflicts(LoadConstraintsForNode(bestNode));
+              comparison::openList = astar.GetOpenList();
+              comparison::CAT = &(location.cat);
+              comparison::CAT->set(&location.paths);
+              // Left is cardinal?
+              if(IsCardinal(location.sweep[a].agent, location.sweep[a].start, location.sweep[a].end, location.sweep[b].agent, location.sweep[b].start, location.sweep[b].end)){
+                conf |= LEFT_CARDINAL;
               }
-              // Right is cardinal
-              {
-                double childf(
-                    currentEnvironment[location.sweep[b].agent]->environment->GCost(location.sweep[b].start, location.sweep[b].end)
-                    + currentEnvironment[location.sweep[b].agent]->environment->HCost(location.sweep[b].end, location.wpts[location.sweep[b].agent][1]));
-                std::vector<state> succ;
-                currentEnvironment[location.sweep[b].agent]->environment->GetSuccessors(location.sweep[b].start, succ);
-                bool found(false);
-                for (auto const& s : succ) { // Is there at least one successor with same g+h as child?
-                  if (s.sameLoc(location.sweep[b].end)) {
-                    continue;
-                  }
-                  if (fleq(
-                        currentEnvironment[location.sweep[b].agent]->environment->GCost(location.sweep[b].start, s)
-                        + currentEnvironment[location.sweep[b].agent]->environment->HCost(s, location.wpts[location.sweep[b].agent][1]), childf)) {
-                    found = true;
-                    break;
-                  }
-                }
-                if (!found) {
-                  conf |= RIGHT_CARDINAL;
-                }
+              // Right is cardinal?
+              if(IsCardinal(location.sweep[b].agent, location.sweep[b].start, location.sweep[b].end, location.sweep[a].agent, location.sweep[a].start, location.sweep[a].end)){
+                conf |= RIGHT_CARDINAL;
               }
               // Have we increased from non-cardinal to semi-cardinal or both-cardinal?
               if (NO_CONFLICT == conflict.second || ((conflict.second <= NON_CARDINAL) && conf) || BOTH_CARDINAL == conf) {
@@ -2027,7 +2014,7 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
         }
         ++c;
       }
-      active.push_back(&*a);
+      active.push_back(&location.sweep[a]);
       ++a;
     }
   }
@@ -2037,11 +2024,11 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
 }
 
 template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class searchalgo>
-std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::FindHiPriConflictOneVsAllSAP(std::vector<xyztAABB>& location.sweep, CBSTreeNode<state, conflicttable>& location, Conflict<state> &c1, Conflict<state> &c2, bool update, bool countall){
+std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::FindHiPriConflictOneVsAllSAP(CBSTreeNode<state, conflicttable>& location, Conflict<state> &c1, Conflict<state> &c2, bool update, bool countall){
   std::pair<unsigned, unsigned> conflict;
   std::vector<xyztAABB> path;
-  path.reserve(location.paths[location.c.unit1]->size());
-  addAABBs(*location.paths[location.c.unit1],path,location.c.unit1);
+  path.reserve(location.paths[location.con.unit1]->size());
+  addAABBs(*location.paths[location.con.unit1],path,location.con.unit1);
   unsigned a(0);
   unsigned b(0);
   while(a<location.sweep.size() && b<path.size() &&
@@ -2072,7 +2059,7 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
       // Decide if this is a cardinal conflict
       if(collisionCheck3D(location.sweep[a].start, location.sweep[a].end, location.sweep[b].start, location.sweep[b].end, agentRadius)) {
         ++conflict.first;
-        if(!update && !countall){break conflict;} // We don't care about anything except whether there is at least one conflict
+        if(!update && !countall){break;} // We don't care about anything except whether there is at least one conflict
         if (verbose)
           std::cout << conflict.first << " conflicts; #" << location.sweep[a].agent << ":" << location.sweep[a].start << "-->" << location.sweep[a].end << " #" << location.sweep[b].agent << ":"
             << location.sweep[b].start << "-->" << location.sweep[b].end << "\n";
@@ -2080,50 +2067,19 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
           // Determine conflict type
           // If there are other legal successors with succ.f()=child.f(), this is non-cardinal
           unsigned conf(NO_CONFLICT); // Left is cardinal?
-          {
-            double childf(
-                currentEnvironment[location.sweep[a].agent]->environment->GCost(location.sweep[a].start, location.sweep[a].end)
-                + currentEnvironment[location.sweep[a].agent]->environment->HCost(location.sweep[a].end, location.wpts[location.sweep[a].agent][1]));
-            std::vector<state> succ;
-            currentEnvironment[location.sweep[a].agent]->environment->GetSuccessors(location.sweep[a].end, succ);
-            bool found(false);
-            for (auto const& s : succ) { // Is there at least one successor with same g+h as child?
-              if (s.sameLoc(location.sweep[a].end)) {
-                continue;
-              }
-              if (fleq(
-                    currentEnvironment[location.sweep[a].agent]->environment->GCost(location.sweep[a].end s)
-                    + currentEnvironment[location.sweep[a].agent]->environment->HCost(s, location.wpts[location.sweep[a].agent][1]), childf)) {
-                found = true;
-                break;
-              }
-            }
-            if (!found) {
-              conf |= LEFT_CARDINAL;
-            }
+
+          // Prepare for re-planning the paths
+          unsigned numConflicts(LoadConstraintsForNode(bestNode));
+          comparison::openList = astar.GetOpenList();
+          comparison::CAT = &(location.cat);
+          comparison::CAT->set(&location.paths);
+          // Left is cardinal?
+          if(IsCardinal(location.sweep[a].agent, location.sweep[a].start, location.sweep[a].end, location.sweep[b].agent, location.sweep[b].start, location.sweep[b].end)){
+            conf |= LEFT_CARDINAL;
           }
-          // Right is cardinal
-          {
-            double childf(
-                currentEnvironment[location.sweep[b].agent]->environment->GCost(location.sweep[b].start, location.sweep[b].end)
-                + currentEnvironment[location.sweep[b].agent]->environment->HCost(location.sweep[b].end, location.wpts[location.sweep[b].agent][1]));
-            std::vector<state> succ;
-            currentEnvironment[location.sweep[b].agent]->environment->GetSuccessors(location.sweep[b].start, succ);
-            bool found(false);
-            for (auto const& s : succ) { // Is there at least one successor with same g+h as child?
-              if (s.sameLoc(location.sweep[b].end)) {
-                continue;
-              }
-              if (fleq(
-                    currentEnvironment[location.sweep[b].agent]->environment->GCost(location.sweep[b].start, s)
-                    + currentEnvironment[location.sweep[b].agent]->environment->HCost(s, location.wpts[location.sweep[b].agent][1]), childf)) {
-                found = true;
-                break;
-              }
-            }
-            if (!found) {
-              conf |= RIGHT_CARDINAL;
-            }
+          // Right is cardinal?
+          if(IsCardinal(location.sweep[b].agent, location.sweep[b].start, location.sweep[b].end, location.sweep[a].agent, location.sweep[a].start, location.sweep[a].end)){
+            conf |= RIGHT_CARDINAL;
           }
           // Have we increased from non-cardinal to semi-cardinal or both-cardinal?
           if (NO_CONFLICT == conflict.second || ((conflict.second <= NON_CARDINAL) && conf) || BOTH_CARDINAL == conf) {
@@ -2145,7 +2101,7 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
               c2.prevWpt = 0;
             }
             if(!countall && conf == BOTH_CARDINAL){
-              break conflict; // don't count any more, we don't care how many conflicts there are in total
+              break; // don't count any more, we don't care how many conflicts there are in total
             }
           }
         }
@@ -2171,11 +2127,11 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
   Timer tmr;
   tmr.StartTimer();
   for (unsigned b(0); b < activeMetaAgents.size(); ++b) {
-    if(b==location.c.unit1)continue;
+    if(b==location.con.unit1)continue;
     bool intraConflict(false); // Conflict between meta-agents
     unsigned previous(best.first.second);
     // For each pair of units in the group
-    for (unsigned x : activeMetaAgents.at(location.c.unit1).units) {
+    for (unsigned x : activeMetaAgents.at(location.con.unit1).units) {
       for (unsigned y : activeMetaAgents.at(b).units) {
         // This call will update "best" with the number of conflicts and
         // with the *most* cardinal conflicts
@@ -2195,9 +2151,9 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
     if (best.first.second > previous && (intraConflict)) {
       if (usecrossconstraints) {
         best.second.first.unit1 = b;
-        best.second.second.unit1 = location.c.unit1;
+        best.second.second.unit1 = location.con.unit1;
       } else {
-        best.second.first.unit1 = location.c.unit1;
+        best.second.first.unit1 = location.con.unit1;
         best.second.second.unit1 = b;
       }
     }

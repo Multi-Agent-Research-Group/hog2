@@ -1913,7 +1913,7 @@ static inline void set(unsigned* bitarray, size_t idx) {
 // Polygonal intersection from:
 // https://www.geometrictools.com/Documentation/MethodOfSeparatingAxes.pdf
 TEST(PolygonalIntersection, test1){
-  ASSERT_TRUE(Util::fatLinesIntersect({2,2},{2,3},.25,{2,3},{1,3},.25));
+  ASSERT_TRUE(Util::fatLinesIntersect<Vector2D>({2,2},{2,3},.25,{2,3},{1,3},.25));
 }
 
 
