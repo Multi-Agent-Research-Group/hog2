@@ -294,16 +294,15 @@ struct xyztLoc {
 struct xyztAABBPtrComp;
 
 struct xyztAABB{
-  xyztAABB():start(nullptr),end(nullptr){}
-  xyztAABB(xyztLoc const* a, xyztLoc const* b, uint32_t n):start(a),end(b),agent(n){
-    lowerBound.x=std::min(start->x,end->x);
-    upperBound.x=std::max(start->x,end->x);
-    lowerBound.y=std::min(start->y,end->y);
-    upperBound.y=std::max(start->y,end->y);
-    lowerBound.z=std::min(start->z,end->z);
-    upperBound.z=std::max(start->z,end->z);
-    lowerBound.t=std::min(start->t,end->t);
-    upperBound.t=std::max(start->t,end->t);
+  xyztAABB(xyztLoc const& a, xyztLoc const& b, uint32_t n):start(a),end(b),agent(n){
+    lowerBound.x=std::min(start.x,end.x);
+    upperBound.x=std::max(start.x,end.x);
+    lowerBound.y=std::min(start.y,end.y);
+    upperBound.y=std::max(start.y,end.y);
+    lowerBound.z=std::min(start.z,end.z);
+    upperBound.z=std::max(start.z,end.z);
+    lowerBound.t=std::min(start.t,end.t);
+    upperBound.t=std::max(start.t,end.t);
   }
 
   inline bool overlaps(const xyztAABB& aabb) const{
@@ -370,8 +369,8 @@ struct xyztAABB{
   /// Upper bound of AABB in each dimension.
   xyztLoc upperBound;
 
-  xyztLoc const* start;
-  xyztLoc const* end;
+  xyztLoc start;
+  xyztLoc end;
 
   uint32_t agent;
 };
