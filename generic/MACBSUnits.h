@@ -450,25 +450,40 @@ struct CBSTreeNode {
     return true; // default
   }
 
+  inline bool getcct(unsigned a1, unsigned a2)const{
+    return cct[a1][a2 / 64] & (1UL << (a2 % 64));
+  }
+
+  inline void getCollisionPair(unsigned& a1, unsigned& a2)const{
+    static unsigned num((1+paths.size()/64));
+    static unsigned bytelen(num*sizeof(uint64_t));
+    for(a1=0; a1<paths.size(); ++a1){
+      if(cct[a1][0] || memcmp(cct[a1].data(),cct[a1].data()+sizeof(uint64_t),num)){
+        for(int i(0); i<num; ++i){
+          if(cct[a1][i]){
+            a2=__builtin_ctzll(cct[a1][i])+(i*64);
+            return;
+          }
+        }
+      }
+    }
+  }
+
   inline unsigned numCollisions()const{
     unsigned total(0);
     for(int agent(0); agent<paths.size(); ++agent){
         total+=numCollisions(agent);
     }
-    return total;
+    return total/2; // Each collision is counted twice (a-->b,b-->a), hence div/2
   }
 
   inline unsigned numCollisions(unsigned agent)const{
-      unsigned total(0);
-      unsigned num(1+paths.size()/64);
-      for(int i(0); i<num; ++i){
-        total+=__builtin_popcountll(cct[agent][i]);
-      }
-      return total;
+    unsigned total(0);
+    static unsigned num(1+paths.size()/64);
+    for(int i(0); i<num; ++i){
+      total+=__builtin_popcountll(cct[agent][i]);
     }
-
-  inline bool getcct(unsigned a1, unsigned a2)const{
-    return cct[a1][a2 / 64] & (1UL << (a2 % 64));
+    return total;
   }
 
   inline void setcct(unsigned a1, unsigned a2)const{
@@ -740,7 +755,7 @@ CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::CBSGr
 
   CBSTreeNode<state, conflicttable>::basepaths.resize(environments.size());
   CBSTreeNode<state, conflicttable>::basepolygons.resize(environments.size());
-  astar.SetVerbose(verbose);
+  //astar.SetVerbose(verbose);
 }
 
 /** Expand a single CBS node */
@@ -758,18 +773,18 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
   std::pair<unsigned,unsigned> numConflicts;
   if(Params::precheck==PRE_SAP){
     // Update the sweep list while counting collisions at the same time
-    if(Params::cct){
-      numConflicts=FindHiPriConflictAllPairsSAP(tree[bestNode], c1, c2);
-    }else{
+    if(bestNode && Params::cct){
       numConflicts=FindHiPriConflictOneVsAllSAP(tree[bestNode], c1, c2);
       numConflicts.first=tree[bestNode].numCollisions();
+    }else{
+      numConflicts=FindHiPriConflictAllPairsSAP(tree[bestNode], c1, c2);
     }
   }else{
-    if(Params::cct){
-      numConflicts=FindHiPriConflictAllPairs(tree[bestNode], c1, c2);
-    }else{
+    if(bestNode && Params::cct){
       numConflicts=FindHiPriConflictOneVsAll(tree[bestNode], c1, c2);
       numConflicts.first=tree[bestNode].numCollisions();
+    }else{
+      numConflicts=FindHiPriConflictAllPairs(tree[bestNode], c1, c2);
     }
   }
   // If no conflicts are found in this node, then the path is done
@@ -1270,7 +1285,7 @@ void CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::Init(
         });
   }
   if(Params::cct){
-    tree[0].cct=std::vector<std::vector<uint64_t>>(tree[0].basepaths.size(),std::vector<uint64_t>(tree[0].basepaths.size()/64));
+    tree[0].cct=std::vector<std::vector<uint64_t>>(tree[0].basepaths.size(),std::vector<uint64_t>(tree[0].basepaths.size()/64+1));
   }
 }
 
@@ -1535,18 +1550,18 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
       std::pair<unsigned,unsigned> pconf;
       if(Params::precheck==PRE_SAP){
         // Update the sweep list while counting collisions at the same time
-        if(Params::cct){
-          pconf=FindHiPriConflictAllPairsSAP(tree[bestNode], c3, c4, false);
-        }else{
+        if(bestNode&&Params::cct){
           pconf=FindHiPriConflictOneVsAllSAP(tree[bestNode], c3, c4, false);
           pconf.first=tree[bestNode].numCollisions();
+        }else{
+          pconf=FindHiPriConflictAllPairsSAP(tree[bestNode], c3, c4, false);
         }
       }else{
-        if(Params::cct){
-          pconf=FindHiPriConflictAllPairs(tree[bestNode], c3, c4, false);
-        }else{
+        if(bestNode&&Params::cct){
           pconf=FindHiPriConflictOneVsAll(tree[bestNode], c3, c4, false);
           pconf.first=tree[bestNode].numCollisions();
+        }else{
+          pconf=FindHiPriConflictAllPairs(tree[bestNode], c3, c4, false);
         }
       }
       if (verbose)
@@ -1860,7 +1875,7 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, searchalg
         unsigned conf(NO_CONFLICT);
 
         // Prepare for re-planning the paths
-        unsigned numConflicts(LoadConstraintsForNode(bestNode));
+        if(bestNode)LoadConstraintsForNode(bestNode);
         comparison::openList = astar.GetOpenList();
         comparison::CAT = &(location.cat);
         comparison::CAT->set(&location.paths);
@@ -1974,7 +1989,7 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
               unsigned conf(NO_CONFLICT); // Left is cardinal?
 
               // Prepare for re-planning the paths
-              unsigned numConflicts(LoadConstraintsForNode(bestNode));
+              if(bestNode)LoadConstraintsForNode(bestNode);
               comparison::openList = astar.GetOpenList();
               comparison::CAT = &(location.cat);
               comparison::CAT->set(&location.paths);
@@ -2069,7 +2084,7 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
           unsigned conf(NO_CONFLICT); // Left is cardinal?
 
           // Prepare for re-planning the paths
-          unsigned numConflicts(LoadConstraintsForNode(bestNode));
+          if(bestNode)LoadConstraintsForNode(bestNode);
           comparison::openList = astar.GetOpenList();
           comparison::CAT = &(location.cat);
           comparison::CAT->set(&location.paths);
@@ -2120,7 +2135,7 @@ template<typename state, typename action, typename comparison, typename conflict
 std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::FindHiPriConflictOneVsAll(
     CBSTreeNode<state, conflicttable> const& location, Conflict<state> &c1, Conflict<state> &c2, bool update) {
   if (verbose)
-    std::cout << "Checking for conflicts\n";
+    std::cout << "Checking for conflicts (one vs all)\n";
   // prefer cardinal conflicts
   std::pair<std::pair<unsigned, unsigned>, std::pair<Conflict<state>, Conflict<state>>> best;
 
@@ -2160,11 +2175,23 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
     if(best.first.second==BOTH_CARDINAL){update=false;} // Now that we've found a both cardinal conflict, no sense updating
   }
   collisionTime += tmr.EndTimer();
-  if (update && best.first.first) {
+  if(best.first.first) { // Was a collision found with this agent?
+    if(update){
+      metaAgentConflictMatrix[best.second.first.unit1][best.second.second.unit1]++;
+      c1 = best.second.first;
+      c2 = best.second.second;
+    }
+  }else if(location.numCollisions()){ // Are there any collisions left?
+    unsigned x(0);
+    unsigned y(0);
+    location.getCollisionPair(x,y); // Select an arbitrary pair of colliding agents.
+    assert(HasConflict(*location.paths[x], location.wpts[x], *location.paths[y], location.wpts[y], x, y,
+          best.second.first, best.second.second, best.first, update, false));
     metaAgentConflictMatrix[best.second.first.unit1][best.second.second.unit1]++;
     c1 = best.second.first;
     c2 = best.second.second;
   }
+  
   return best.first;
 }
 
@@ -2173,7 +2200,7 @@ template<typename state, typename action, typename comparison, typename conflict
 std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::FindHiPriConflictAllPairs(
     CBSTreeNode<state, conflicttable> const& location, Conflict<state> &c1, Conflict<state> &c2, bool update) {
   if (verbose)
-    std::cout << "Checking for conflicts\n";
+    std::cout << "Checking for conflicts (all pairs)\n";
   // prefer cardinal conflicts
   std::pair<std::pair<unsigned, unsigned>, std::pair<Conflict<state>, Conflict<state>>> best;
 
@@ -2189,8 +2216,12 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
           // This call will update "best" with the number of conflicts and
           // with the *most* cardinal conflicts
           if (location.hasOverlap(x, y)) {
-            intraConflicts += HasConflict(*location.paths[x], location.wpts[x], *location.paths[y], location.wpts[y], x, y,
-                best.second.first, best.second.second, best.first, update);
+            if(HasConflict(*location.paths[x], location.wpts[x], *location.paths[y], location.wpts[y], x, y,
+                  best.second.first, best.second.second, best.first, update)){
+              ++intraConflicts;
+              if(Params::cct)
+                location.setcct(x,y);
+            }
           }
           /*if(requireLOS&&currentEnvironment[x]->agentType==Map3D::air||currentEnvironment[y]->agentType==Map3D::air){
            if(ViolatesProximity(location.paths[x],location.paths[y]

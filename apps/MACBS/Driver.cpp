@@ -95,8 +95,8 @@ std::vector<std::vector<xyztLoc> > waypoints;
   int animate(0);
   void InitHeadless();
 
-  int main(int argc, char* argv[])
-  {
+int main(int argc, char* argv[])
+{
   InstallHandlers();
   Params::precheck=0; // No precheck (default)
   ProcessCommandLineArgs(argc, argv);
@@ -193,6 +193,7 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-suboptimal", "-suboptimal", "Sub-optimal answers");
 	InstallCommandLineHandler(MyCLHandler, "-random", "-random", "Randomize conflict resolution order");
 	InstallCommandLineHandler(MyCLHandler, "-greedyCT", "-greedyCT", "Greedy sort high-level search by number of conflicts (GCBS)");
+	InstallCommandLineHandler(MyCLHandler, "-cct", "-cct", "Conflict count table");
 	InstallCommandLineHandler(MyCLHandler, "-precheck", "-precheck", "Pre-check for broadphase collision 0(default)=No precheck, 1=AABB precheck, 2=Convex hull intersection check, 3=Sweep and prune");
 	InstallCommandLineHandler(MyCLHandler, "-ECBSheuristic", "-ECBSheuristic", "Use heuristic in low-level search");
 
@@ -551,6 +552,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
           dtedfile=argument[1];
           return 2;
         }
+	if(strcmp(argument[0], "-cct") == 0)
+	{
+                Params::cct = true;
+		return 1;
+	}
 	if(strcmp(argument[0], "-precheck") == 0)
 	{
                 Params::precheck = atoi(argument[1]);
