@@ -31,8 +31,6 @@
 #include <deque>
 
 namespace Util {
-template <typename state>
-state p0;
 
 inline double distanceSquared(double dx, double dy){ // x and y differences
   return dx*dx+dy*dy;
@@ -246,9 +244,6 @@ template <typename state>
 bool sat(std::vector<state>const& a, std::vector<state>const& b);
 };
 
-template <typename state>
-state Util::p0;
-
 // From http://www.cplusplus.com/forum/beginner/49408/
 
 template <typename state>
@@ -436,6 +431,8 @@ bool Util::lineIntersectsPoly(std::vector<state> const& poly, state const& p1, s
 
 template <typename state>
 struct privateUtils{
+  static std::unique_ptr<state> p0;
+
   // A utility function to find next to top in a stack
   static state nextToTop(std::deque<state> &S)
   {
@@ -476,9 +473,9 @@ struct privateUtils{
   // points with respect to the first point
   static bool compare(state const& p1, state const& p2){
     // Find orientation
-    int o = orientation(Util::p0, p1, p2);
+    int o = orientation(*p0, p1, p2);
     if (o == 0)
-      return (distSq(Util::p0, p2) >= distSq(Util::p0, p1))? true : false;
+      return (distSq(*p0, p2) >= distSq(*p0, p1))? true : false;
 
     return (o == 2)? true: false;
   }
@@ -503,6 +500,9 @@ struct privateUtils{
     return overlap(ppa,ppb);
   }
 };
+
+template <typename state>
+std::unique_ptr<state> privateUtils<state>::p0(new state);
 
 // Graham Scan
 // Prints convex hull of a set of n points.
@@ -536,7 +536,7 @@ void Util::convexHull(std::vector<state> points, std::vector<Vector2D>& hull){
    // A point p1 comes before p2 in sorted ouput if p2
    // has larger polar angle (in counterclockwise
    // direction) than p1
-   Util::p0 = points[0];
+   privateUtils<state>::p0.reset(new state(points[0]));
    std::sort(points.begin()+1,points.end(),
        [](state const& a, state const& b) -> bool {
        return privateUtils<state>::compare(a,b);
@@ -552,7 +552,7 @@ void Util::convexHull(std::vector<state> points, std::vector<Vector2D>& hull){
    {
        // Keep removing i while angle of i and i+1 is same
        // with respect to p0
-       while (i < points.size()-1 && privateUtils<state>::orientation(Util::p0, points[i],
+       while (i < points.size()-1 && privateUtils<state>::orientation(*privateUtils<state>::p0, points[i],
                                     points[i+1]) == 0)
           i++;
  

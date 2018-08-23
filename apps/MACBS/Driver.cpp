@@ -194,6 +194,7 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-random", "-random", "Randomize conflict resolution order");
 	InstallCommandLineHandler(MyCLHandler, "-greedyCT", "-greedyCT", "Greedy sort high-level search by number of conflicts (GCBS)");
 	InstallCommandLineHandler(MyCLHandler, "-cct", "-cct", "Conflict count table");
+	InstallCommandLineHandler(MyCLHandler, "-skip", "-skip", "Ship-ahead logic");
 	InstallCommandLineHandler(MyCLHandler, "-precheck", "-precheck", "Pre-check for broadphase collision 0(default)=No precheck, 1=AABB precheck, 2=Convex hull intersection check, 3=Sweep and prune");
 	InstallCommandLineHandler(MyCLHandler, "-ECBSheuristic", "-ECBSheuristic", "Use heuristic in low-level search");
 
@@ -513,15 +514,19 @@ int MyCLHandler(char *argument[], int maxNumArgs)
                 newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
               }else if(e.name=="twentyfourconnected"){
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetTwoConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
+                  Params::conn=2;
                 newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
               }else if(e.name=="twentyfiveconnected"){
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetTwoConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
+                  Params::conn=2;
                 newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
               }else if(e.name=="fortyeightconnected"){
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetThreeConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
+                  Params::conn=3;
                 newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
               }else if(e.name=="fortynineconnected"){
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetThreeConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
+                  Params::conn=3;
                 newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
               }else if(e.name=="3dcardinal"){
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetZeroConnected(); me->SetAir();
@@ -531,6 +536,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
                 newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
               }else if(e.name=="3dtwo"){
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetTwoConnected(); me->SetAir();
+                  Params::conn=2;
                 newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
               }else{
                 std::cout << "Unknown environment " << e.name << "\n";
@@ -552,6 +558,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
           dtedfile=argument[1];
           return 2;
         }
+	if(strcmp(argument[0], "-skip") == 0)
+	{
+                Params::skip = true;
+		return 1;
+	}
 	if(strcmp(argument[0], "-cct") == 0)
 	{
                 Params::cct = true;
@@ -591,15 +602,19 @@ int MyCLHandler(char *argument[], int maxNumArgs)
                   newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
                 }else if(e.name=="twentyfourconnected"){
                   Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetTwoConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
+                  Params::conn=2;
                   newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
                 }else if(e.name=="twentyfiveconnected"){
                   Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetTwoConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
+                  Params::conn=2;
                   newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
                 }else if(e.name=="fortyeightconnected"){
                   Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetThreeConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
+                  Params::conn=3;
                   newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
                 }else if(e.name=="fortynineconnected"){
                   Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetThreeConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
+                  Params::conn=3;
                   newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
                 }else if(e.name=="3dcardinal"){
                   Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetZeroConnected(); me->SetAir();
@@ -609,6 +624,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
                   newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
                 }else if(e.name=="3dtwo"){
                   Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetTwoConnected(); me->SetAir();
+                  Params::conn=2;
                   newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
                 }else{
                   std::cout << "Unknown environment " << e.name << "\n";
@@ -653,21 +669,25 @@ int MyCLHandler(char *argument[], int maxNumArgs)
                 ev.emplace_back("nineconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[3],weights[3]);
               }{
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetTwoConnected();
+                  Params::conn=2;
                 me->SetGround();
                 newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
                 ev.emplace_back("twentyfourconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[4],weights[4]);
               }{
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetTwoConnected(); me->SetWaitAllowed();
+                  Params::conn=2;
                 me->SetGround();
                 newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
                 ev.emplace_back("twentyfiveconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[5],weights[5]);
               }{
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetThreeConnected();
+                  Params::conn=3;
                 me->SetGround();
                 newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
                 ev.emplace_back("fortyeightconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[6],weights[6]);
               }{
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetThreeConnected(); me->SetWaitAllowed();
+                  Params::conn=3;
                 me->SetGround();
                 newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
                 ev.emplace_back("fortynineconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[7],weights[7]);
@@ -683,6 +703,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
                 ev.emplace_back("3done",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[7],weights[7]);
               }{
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetTwoConnected();
+                  Params::conn=2;
                 me->SetAir();
                 newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
                 ev.emplace_back("3dtwo",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[7],weights[7]);
@@ -961,15 +982,19 @@ int MyCLHandler(char *argument[], int maxNumArgs)
                 newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
               }else if(e.name=="twentyfourconnected"){
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetTwoConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
+                  Params::conn=2;
                 newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
               }else if(e.name=="twentyfiveconnected"){
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetTwoConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
+                  Params::conn=2;
                 newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
               }else if(e.name=="fortyeightconnected"){
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetThreeConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
+                  Params::conn=3;
                 newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
               }else if(e.name=="fortynineconnected"){
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetThreeConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
+                  Params::conn=3;
                 newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
               }else if(e.name=="3dcardinal"){
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetZeroConnected(); me->SetAir();
@@ -979,6 +1004,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
                 newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
               }else if(e.name=="3dtwo"){
                 Grid3DEnvironment* me = new Grid3DEnvironment(map); me->SetTwoConnected(); me->SetAir();
+                  Params::conn=2;
                 newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
               }else{
                 std::cout << "Unknown environment " << e.name << "\n";

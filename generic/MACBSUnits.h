@@ -74,10 +74,14 @@ struct Params {
   static unsigned precheck;
   static bool cct;
   static bool greedyCT;
+  static bool skip;
+  static unsigned conn;
 };
 unsigned Params::precheck = 0;
+unsigned Params::conn = 1;
 bool Params::greedyCT = false;
 bool Params::cct = false;
+bool Params::skip = false;
 
 template<class state>
 struct CompareLowGCost {
@@ -1824,14 +1828,22 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, searchalg
   int pyTime(-1);
   for (int i = 0, j = 0; j < ymax && i < xmax;) // If we've reached the end of one of the paths, then time is up and 
       // no more conflicts could occur
-      {
-    /*if(Params::skip){
-     unsigned onedDist=min(abs(a[i].start.x-b[j].start.x),abs(a[i].start.y-b[j].start.y));
-     if(onedDist>Params::conn){
-     i+=onedDist/2;
-     j+=onedDist/2;
-     }
-     }*/
+  {
+    if(Params::skip){
+      unsigned onedDist=min(abs(a[i].x-b[j].x),abs(a[i].y-b[j].y)/(2*Params::conn));
+      if(onedDist>1){
+        i+=onedDist-1;
+        j+=onedDist-1;
+        if(i>=xmax){i=xmax-1;}
+        if(j>=ymax){j=ymax-1;}
+        while(a[i].t>b[min(j+1,ymax-1)].t){
+          --i;
+        }
+        while(b[j].t>a[min(i+1,xmax-1)].t){
+          --j;
+        }
+      }
+    }
     // I and J hold the current step in the path we are comparing. We need 
     // to check if the current I and J have a conflict, and if they do, then
     // we have to deal with it.
@@ -1870,7 +1882,7 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, searchalg
       if(!update && !countall){break;} // We don't care about anything except whether there is at least one conflict
       if(verbose)
         std::cout << conflict.first << " conflicts; #" << x << ":" << a[xTime] << "-->" << a[xNextTime] << " #" << y << ":"
-            << b[yTime] << "-->" << b[yNextTime] << "\n";
+          << b[yTime] << "-->" << b[yNextTime] << "\n";
       if(update && (BOTH_CARDINAL != (conflict.second & BOTH_CARDINAL))) { // Keep updating until we find a both-cardinal conflict
         // Determine conflict type
         unsigned conf(NO_CONFLICT);
