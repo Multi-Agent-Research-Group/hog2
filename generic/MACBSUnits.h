@@ -432,7 +432,8 @@ struct CBSTreeNode {
     paths[c.unit1] = path.get();
     if (Params::precheck & (PRE_AABB|PRE_HULL)) {
       polygons[c.unit1] = polygon.get();
-    }else if(Params::cct){
+    }
+    if(Params::cct){
       //for (unsigned x : activeMetaAgents.at(c.unit1).units) {
         clearcct(c.unit1); // Clear the cct for this unit so that we can re-count collisions
       //}
