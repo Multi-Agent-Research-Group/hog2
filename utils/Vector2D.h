@@ -26,11 +26,11 @@
 #include "FPUtil.h"
 #include <ostream>
 #include <vector>
-#include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
+//#include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
 
-typedef CGAL::Exact_predicates_inexact_constructions_kernel K;
-typedef K::Point_2 Point_2;
-typedef K::Point_3 Point_3;
+//typedef CGAL::Exact_predicates_inexact_constructions_kernel K;
+//typedef K::Point_2 Point_2;
+//typedef K::Point_3 Point_3;
 
 struct xyLoc;
 
@@ -38,7 +38,7 @@ class Vector2D {
   public:
     Vector2D(Vector2D const& v):Vector2D(v.x,v.y){}
     Vector2D(xyLoc const& v);
-    Vector2D(Point_2 const& p):Vector2D(p[0],p[1]){};
+    //Vector2D(Point_2 const& p):Vector2D(p[0],p[1]){};
     Vector2D(double _x,double _y):x(_x),y(_y) {/*Normalize();*/}
     Vector2D():x(0),y(0) {}
     void Set(double _x, double _y) { x=_x; y=_y; /*Normalize();*/}
@@ -48,7 +48,7 @@ class Vector2D {
 
     void SetAccessTime(double t) {}
     double GetAccessTime() {return 0.0;}
-    operator Point_2()const{return Point_2(x,y);}
+    //operator Point_2()const{return Point_2(x,y);}
 
     bool operator==(const Vector2D &rhs)const{return (fequal(x,rhs.x)&&fequal(y,rhs.y));}
     bool operator<(const Vector2D &rhs)const{return fequal(x,rhs.x)?fless(y,rhs.y):fless(x,rhs.x);}

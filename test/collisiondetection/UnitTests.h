@@ -22,10 +22,10 @@
 #ifndef UnitTests_h_
 #define UnitTests_h_
 
-#include <CGAL/convex_hull_2.h>
-#include <CGAL/ch_graham_andrew.h>
-#include <CGAL/intersections.h>
-#include <CGAL/Boolean_set_operations_2.h>
+//#include <CGAL/convex_hull_2.h>
+//#include <CGAL/ch_graham_andrew.h>
+//#include <CGAL/intersections.h>
+//#include <CGAL/Boolean_set_operations_2.h>
 #include "VelocityObstacle.h"
 #include "Timer.h"
 #include <gtest/gtest.h>
@@ -44,9 +44,9 @@
 //#include "EPEThetaStar.h"
 //#include "PEThetaStar.h"
 
-typedef std::vector<Point_2> Points;
+//typedef std::vector<Point_2> Points;
 
-void convexHullCGAL2(std::vector<xytLoc> points, std::vector<Vector2D>& hull){
+/*void convexHullCGAL2(std::vector<xytLoc> points, std::vector<Vector2D>& hull){
   if (points.size() < 3){
     hull.reserve(points.size());
     hull.insert(hull.begin(),points.begin(),points.end());
@@ -67,7 +67,7 @@ void convexHullCGAL(std::vector<xytLoc> points, std::vector<Vector2D>& hull){
   pts.reserve(points.size());
   pts.insert(pts.begin(),points.begin(),points.end());
   CGAL::convex_hull_2(pts.begin(),pts.end(), std::back_inserter(hull));
-}
+}*/
 // A globle point needed for  sorting points with reference
 // to  the first point Used in compare function of qsort()
 xytLoc p0;
@@ -370,7 +370,7 @@ bool sat(std::vector<Vector2D>const& a, std::vector<Vector2D>const& b){
   return true;
 }
 
-bool sat2(std::vector<Vector2D>const& a, std::vector<Vector2D>const& b){
+/*bool sat2(std::vector<Vector2D>const& a, std::vector<Vector2D>const& b){
   if(a.size()==1){
     if(b.size()==1) return (a[0].x==b[0].x&&a[0].y==b[0].y);
     if(b.size()==2) return fequal(Util::sqDistanceOfPointToLine(b[0],b[1],a[0]),0);
@@ -390,7 +390,7 @@ bool sat2(std::vector<Vector2D>const& a, std::vector<Vector2D>const& b){
   B.reserve(b.size());
   B.insert(B.begin(),b.begin(),b.end());
   return CGAL::do_intersect(VelocityObstacle::Polygon_2(A.begin(),A.end()),VelocityObstacle::Polygon_2(B.begin(),B.end()));
-}
+}*/
 
 
 // Separating axis theorem for polygonal intersection test
@@ -1253,7 +1253,7 @@ else{std::cout << "p";}
   std::cout << "\nTotal time (AABB)" << t.EndTimer() << "\n";
 }
 
-TEST(PerfTest, StaticPoly){
+/*TEST(PerfTest, StaticPoly){
   std::vector<Vector2D> square={{-.3,0},{0,-.3},{.3,0},{0,.3}};
   Timer t;
   t.StartTimer();
@@ -1286,7 +1286,7 @@ TEST(PerfTest, StaticPoly){
     }
   }
   std::cout << "\nTotal time (Static Square)" << t.EndTimer() << "\n";
-}
+}*/
 
 TEST(PerfTest, IncrementalCircular){
   Timer t;
@@ -5380,7 +5380,7 @@ void broadphaseTest(int type, unsigned nagents, unsigned tnum){
     }
     std::cout << "Brute force single agent with skip and ch on " << nagents << " with " << total4 << " checks, " << count4 << " collisions took " << tmr4.EndTimer() << "\n";
   }
-  {
+  /*{
     std::vector<xytLoc> newpath;
     int av=0, agent=0;
     {
@@ -5439,20 +5439,7 @@ void broadphaseTest(int type, unsigned nagents, unsigned tnum){
     Timer tmr4;
     std::vector<std::vector<Vector2D>> boxes(nagents);
     for(int i(0); i<nagents; ++i){
-      /*for(auto const& v:p[i]){
-        std::cout << v.x << " " << v.y << "\n";
-      }*/
       convexHullCGAL(p[i],boxes[i]);
-      /*std::cout << "Hull " << i << "\n";
-      for(auto const& v:boxes[i]){
-        std::cout << v << "\n";
-      }
-      std::cout << "from :";
-      for(auto const& v:p[i]){
-        std::cout << v << " ";
-      }
-        std::cout << "\n";
-      */
     }
     tmr4.StartTimer();
     // Count collisions brute force
@@ -5542,20 +5529,7 @@ void broadphaseTest(int type, unsigned nagents, unsigned tnum){
     Timer tmr4;
     std::vector<std::vector<Vector2D>> boxes(nagents);
     for(int i(0); i<nagents; ++i){
-      /*for(auto const& v:p[i]){
-        std::cout << v.x << " " << v.y << "\n";
-      }*/
       convexHullCGAL2(p[i],boxes[i]);
-      /*std::cout << "Hull " << i << "\n";
-      for(auto const& v:boxes[i]){
-        std::cout << v << "\n";
-      }
-      std::cout << "from :";
-      for(auto const& v:p[i]){
-        std::cout << v << " ";
-      }
-        std::cout << "\n";
-      */
     }
     tmr4.StartTimer();
     // Count collisions brute force
@@ -5586,7 +5560,7 @@ void broadphaseTest(int type, unsigned nagents, unsigned tnum){
       }
     }
     std::cout << "Brute force single agent with skip and chCGAL2 on " << nagents << " with " << total4 << " checks, " << count4 << " collisions took " << tmr4.EndTimer() << "\n";
-  }
+  }*/
   {
     std::vector<xytAABB> sorted;
     Timer tmr0;

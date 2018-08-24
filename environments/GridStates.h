@@ -59,14 +59,14 @@ struct xyLoc {
   public:
     xyLoc():x(-1),y(-1),landed(false){}
     xyLoc(uint16_t _x, uint16_t _y, bool l=false) :x(_x), y(_y), landed(l) {}
-    xyLoc(Point_2 const& p):xyLoc(p[0],p[1]){}
+    //xyLoc(Point_2 const& p):xyLoc(p[0],p[1]){}
     xyLoc(Vector2D const& p):xyLoc(p.x,p.y){}
     bool operator<(xyLoc const& other)const{return x==other.x?y<other.y:x<other.x;}
     uint16_t x;
     uint16_t y;
     bool landed; // Have we already arrived at the goal? (always leave this false if agent can block other agents)
     //operator Vector2D()const{return Vector2D(x,y);}
-    operator Point_2()const{return Point_2(x,y);}
+    //operator Point_2()const{return Point_2(x,y);}
     virtual bool sameLoc(xyLoc const& other)const{return x==other.x&&y==other.y;}
     virtual bool operator==(xyLoc const& other)const{return sameLoc(other);}
     virtual bool operator!=(xyLoc const& other)const{return !operator==(other); }
@@ -91,7 +91,7 @@ struct xytLoc : xyLoc, tLoc {
   xytLoc():xyLoc(),tLoc(),h(0){}
   operator TemporalVector3D()const{return TemporalVector3D(x,y,0,t);}
   operator Vector2D()const{return Vector2D(x,y);}
-  operator Point_2()const{return Point_2(x,y);}
+  //operator Point_2()const{return Point_2(x,y);}
   virtual bool sameLoc(xytLoc const& other)const{return x==other.x&&y==other.y;}
   virtual bool operator==(xytLoc const& other)const{return sameLoc(other)&&tLoc::operator==(other);}
   virtual bool operator!=(xytLoc const& other)const{return !operator==(other);}
@@ -247,7 +247,7 @@ struct xyzLoc {
     xyzLoc(unsigned _x, unsigned _y, unsigned _z=0):x(_x),y(_y),z(_z){}
     bool operator<(xyzLoc const& other)const{return x==other.x?(y==other.y?z<other.z:y<other.y):x<other.x;}
     operator Vector3D()const{return Vector3D(x,y,z);}
-    operator Point_3()const{return Point_3(x,y,z);}
+    //operator Point_3()const{return Point_3(x,y,z);}
     explicit operator Vector2D()const{return Vector2D(x,y);}
     virtual bool sameLoc(xyzLoc const& other)const{return x==other.x&&y==other.y&&z==other.z;}
     virtual bool operator==(xyzLoc const& other)const{return sameLoc(other);}
@@ -269,7 +269,7 @@ struct xyztLoc {
   operator TemporalVector3D()const{return TemporalVector3D(x,y,z,t/TIME_RESOLUTION_D);}
   explicit operator TemporalVector()const{return TemporalVector(x,y,t/TIME_RESOLUTION_D);}
   operator Vector3D()const{return Vector3D(x,y,z);}
-  operator Point_3()const{return Point_3(x,y,z);}
+  //operator Point_3()const{return Point_3(x,y,z);}
   explicit operator Vector2D()const{return Vector2D(x,y);}
   unsigned operator[](unsigned i)const{switch(i){case 0: return x; case 1: return y; case 2: return z;}return t;}
   unsigned t : 20; // Time (milliseconds)

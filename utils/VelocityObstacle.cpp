@@ -22,8 +22,8 @@
 #include "VelocityObstacle.h"
 #include <assert.h>
 #include <iostream>
-#include <CGAL/Boolean_set_operations_2.h>
-#include <CGAL/Polygon_2.h>
+//#include <CGAL/Boolean_set_operations_2.h>
+//#include <CGAL/Polygon_2.h>
 
 VelocityObstacle::VelocityObstacle(Vector2D const& a, Vector2D const& va, Vector2D const& b, Vector2D const& vb, double r1, double r2)
   : VO(a+vb), VL(0,0), VR(0,0)
@@ -41,7 +41,7 @@ VelocityObstacle::VelocityObstacle(Vector2D const& a, Vector2D const& va, Vector
 }
 
 // Polygon points are relative to the center fo the body (a, b respectively)
-VelocityObstacle::VelocityObstacle(Vector2D const& a, Vector2D const& va, Vector2D const& b, Vector2D const& vb, std::vector<Vector2D>const& polyA, std::vector<Vector2D>const& polyB)
+/*VelocityObstacle::VelocityObstacle(Vector2D const& a, Vector2D const& va, Vector2D const& b, Vector2D const& vb, std::vector<Vector2D>const& polyA, std::vector<Vector2D>const& polyB)
   : VO(a+vb), VL(0,0), VR(0,0)
 {
   // Compute points in minkowski sum
@@ -86,7 +86,7 @@ VelocityObstacle::VelocityObstacle(Vector2D const& a, Vector2D const& va, Vector
     VR=tmp;
     VL=VR;
   }
-}
+}*/
 
 bool getTangentOfCircle(Vector2D const& center, double radius, Vector2D const& point, std::vector<Vector2D>& tangents){
   assert(fless(0,radius)); //If the agent has no size, there's no VOB to compute
@@ -114,7 +114,7 @@ bool getTangentOfCircle(Vector2D const& center, double radius, Vector2D const& p
 }
 
 // Input is the two center points and their radiuses
-bool VelocityObstacle::AgentOverlap(Vector2D const& A,Vector2D const& B,std::vector<Vector2D>const& polyA,std::vector<Vector2D>const& polyB){
+/*bool VelocityObstacle::AgentOverlap(Vector2D const& A,Vector2D const& B,std::vector<Vector2D>const& polyA,std::vector<Vector2D>const& polyB){
   Points a;
   a.reserve(polyA.size());
   for(auto const& aa:polyA){
@@ -126,7 +126,7 @@ bool VelocityObstacle::AgentOverlap(Vector2D const& A,Vector2D const& B,std::vec
     b.push_back(B+bb);
   }
   return CGAL::do_intersect(Polygon_2(a.begin(),a.end()),Polygon_2(b.begin(),b.end()));
-}
+}*/
 
 // Input is the two center points and their radiuses
 bool VelocityObstacle::AgentOverlap(Vector2D const& A,Vector2D const& B,double ar,double br){
@@ -144,7 +144,7 @@ bool VelocityObstacle::IsInside(Vector2D const& point) const{
        ((VR.x - VO.x)*(apexDiff.y) > (VR.y - VO.y)*(apexDiff.x));
 }
 
-bool detectCollisionPolygonalAgents(Vector2D A, Vector2D const& VA, std::vector<Vector2D>const& polyA, double startTimeA, double endTimeA,
+/*bool detectCollisionPolygonalAgents(Vector2D A, Vector2D const& VA, std::vector<Vector2D>const& polyA, double startTimeA, double endTimeA,
 Vector2D B, Vector2D const& VB, std::vector<Vector2D>const& polyB, double startTimeB, double endTimeB){
 
   // check for time overlap
@@ -178,7 +178,7 @@ Vector2D B, Vector2D const& VB, std::vector<Vector2D>const& polyB, double startT
 
   // Finally, if the collision is still in the future we're ok.
   return !VelocityObstacle(A,VA,B,VB,polyA,polyB).IsInside(A+VA);
-}
+}*/
 
 // Detect whether a collision will occur between agent A and B inside the
 // given time intervals if they continue at constant velocity with no turns

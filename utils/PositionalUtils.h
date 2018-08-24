@@ -29,6 +29,8 @@
 #include "Vector3D.h"
 #include <limits.h>
 #include <deque>
+#include <algorithm>
+#include <memory>
 
 namespace Util {
 
