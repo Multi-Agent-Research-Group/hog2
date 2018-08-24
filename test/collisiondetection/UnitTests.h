@@ -1182,7 +1182,7 @@ float rfloat(float low=0, float high=10){
     return float(rand()%int(width*1000.0))/1000.0 + low;
 }
 
-TEST(PerfTest, VOSquare){
+/*TEST(PerfTest, VOSquare){
   std::vector<Vector2D> square={{-.3,.3},{-.3,-.3},{.3,-.3},{.3,.3}};
   Timer t;
   t.StartTimer();
@@ -1192,7 +1192,7 @@ std::cout << "f";}
 else{std::cout << "p";}
   }
   std::cout << "\nTotal time (VelocityObstacleSquare)" << t.EndTimer() << "\n";
-}
+}*/
 
 TEST(PerfTest, VO){
   Timer t;
@@ -1335,7 +1335,7 @@ TEST(PerfTest, IncrementalCircular){
   std::cout << "\nTotal time (Incremental Circular)" << t.EndTimer() << "\n";
 }
 
-TEST(PerfTest, IncrementalPoly){
+/*TEST(PerfTest, IncrementalPoly){
   std::vector<Vector2D> square={{-.3,.3},{-.3,-.3},{.3,-.3},{.3,.3}};
   Timer t;
   t.StartTimer();
@@ -1381,7 +1381,7 @@ TEST(PerfTest, IncrementalPoly){
     }else{std::cout << "p";}
   }
   std::cout << "\nTotal time (Incremental Square)" << t.EndTimer() << "\n";
-}
+}*/
 
 TEST(PerfTest, Gen){
   Timer t;
