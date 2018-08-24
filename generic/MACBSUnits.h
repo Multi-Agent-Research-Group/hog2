@@ -450,7 +450,7 @@ struct CBSTreeNode {
           //&& (polygons[a]->at(0).z <= polygons[b]->at(1).z && polygons[a]->at(1).z >= polygons[b]->at(0).z);
     } else if (Params::precheck == 2) {
       // Detect polygonal overlap
-      return Util::sat<Vector2D>(*polygons[a],*polygons[b]);
+      return Util::sat<Vector2D>(*polygons[a],*polygons[b],agentRadius);
     }
     return true; // default
   }
@@ -1831,11 +1831,16 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, searchalg
   {
     if(Params::skip){
       unsigned onedDist=min(abs(a[i].x-b[j].x),abs(a[i].y-b[j].y)/(2*Params::conn));
-      if(onedDist>1){
+      if(onedDist>2){
         i+=onedDist-1;
         j+=onedDist-1;
-        if(i>=xmax){i=xmax-1;}
-        if(j>=ymax){j=ymax-1;}
+        if(disappearAtGoal){
+          if(i>=xmax || j>=ymax) break;
+        }else{
+          if(i>=xmax && j>=ymax) break;
+          if(i>=xmax){i=xmax-1;}
+          if(j>=ymax){j=ymax-1;}
+        }
         while(a[i].t>b[min(j+1,ymax-1)].t){
           --i;
         }
@@ -2163,7 +2168,23 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
       for (unsigned y : activeMetaAgents.at(b).units) {
         // This call will update "best" with the number of conflicts and
         // with the *most* cardinal conflicts
-        if (location.hasOverlap(x, y)) {
+        if(location.hasOverlap(x, y)) {
+          // Augment paths to have same end time if necessary,
+          // Either add a wait action of sufficient length or
+          // Extend an existing wait action to the necessary length
+          if(!disappearAtGoal){
+            if(location.paths[x]->back().t < location.paths[y]->back().t){
+              if(location.paths[x]->size()>1 && !location.paths[x]->back().sameLoc(*(location.paths[x]->rbegin()+1))){
+                location.paths[x]->push_back(location.paths[x]->back());
+              }
+              location.paths[x]->back().t=location.paths[y]->back().t;
+            }else if(location.paths[y]->back().t < location.paths[x]->back().t){
+              if(location.paths[y]->size()>1 && !location.paths[y]->back().sameLoc(*(location.paths[y]->rbegin()+1))){
+                location.paths[y]->push_back(location.paths[y]->back());
+              }
+              location.paths[y]->back().t=location.paths[x]->back().t;
+            }
+          }
           if(HasConflict(*location.paths[x], location.wpts[x], *location.paths[y], location.wpts[y], x, y,
               best.second.first, best.second.second, best.first, update, false)){
             intraConflict=true;
@@ -2229,6 +2250,22 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
           // This call will update "best" with the number of conflicts and
           // with the *most* cardinal conflicts
           if (location.hasOverlap(x, y)) {
+            // Augment paths to have same end time if necessary,
+            // Either add a wait action of sufficient length or
+            // Extend an existing wait action to the necessary length
+            if(!disappearAtGoal){
+              if(location.paths[x]->back().t < location.paths[y]->back().t){
+                if(location.paths[x]->size()>1 && !location.paths[x]->back().sameLoc(*(location.paths[x]->rbegin()+1))){
+                  location.paths[x]->push_back(location.paths[x]->back());
+                }
+                location.paths[x]->back().t=location.paths[y]->back().t;
+              }else if(location.paths[y]->back().t < location.paths[x]->back().t){
+                if(location.paths[y]->size()>1 && !location.paths[y]->back().sameLoc(*(location.paths[y]->rbegin()+1))){
+                  location.paths[y]->push_back(location.paths[y]->back());
+                }
+                location.paths[y]->back().t=location.paths[x]->back().t;
+              }
+            }
             if(HasConflict(*location.paths[x], location.wpts[x], *location.paths[y], location.wpts[y], x, y,
                   best.second.first, best.second.second, best.first, update)){
               ++intraConflicts;

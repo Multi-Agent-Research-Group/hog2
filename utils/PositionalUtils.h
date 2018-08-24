@@ -241,7 +241,7 @@ bool lineIntersectsPoly(std::vector<state> const& poly, state const& p1, state c
 template <typename state>
 void convexHull(std::vector<state> points, std::vector<Vector2D>& hull);
 template <typename state>
-bool sat(std::vector<state>const& a, std::vector<state>const& b);
+bool sat(std::vector<state>const& a, std::vector<state>const& b, double radius);
 };
 
 // From http://www.cplusplus.com/forum/beginner/49408/
@@ -475,29 +475,29 @@ struct privateUtils{
     // Find orientation
     int o = orientation(*p0, p1, p2);
     if (o == 0)
-      return (distSq(*p0, p2) >= distSq(*p0, p1))? true : false;
+      return (distSq(*p0, p2) > distSq(*p0, p1))? true : false;
 
     return (o == 2)? true: false;
   }
 
-  static bool contains(double n, state const& range){
-    return (range.min() <= n && n <= range.max());
+  static bool contains(double n, state const& range, double doubleRadius){
+    return (fleq(range.min()-doubleRadius, n) && fleq(n-doubleRadius, range.max()));
   }
 
-  static bool overlap(state const& a, state const& b){
-    if (contains(a.x,b)) return true;
-    if (contains(a.y,b)) return true;
-    if (contains(b.x,a)) return true;
-    if (contains(b.y,a)) return true;
+  static bool overlap(state const& a, state const& b, double doubleRadius){
+    if (contains(a.x,b,doubleRadius)) return true;
+    if (contains(a.y,b,doubleRadius)) return true;
+    if (contains(b.x,a,doubleRadius)) return true;
+    if (contains(b.y,a,doubleRadius)) return true;
     return false;
   }
 
-  static bool sat(std::vector<state>const& pa, std::vector<state>const& pb, state const& a, state const& b){
+  static bool sat(std::vector<state>const& pa, std::vector<state>const& pb, state const& a, state const& b, double doubleRadius){
     state axis((b-a).perp());
     axis.Normalize();
     state ppa(axis.projectPolyOntoSelf(pa));
     state ppb(axis.projectPolyOntoSelf(pb));
-    return overlap(ppa,ppb);
+    return overlap(ppa,ppb,doubleRadius);
   }
 };
 
@@ -598,7 +598,8 @@ void Util::convexHull(std::vector<state> points, std::vector<Vector2D>& hull){
 
 // Separating axis theorem for polygonal intersection test
 template <typename state>
-bool Util::sat(std::vector<state>const& a, std::vector<state>const& b){
+bool Util::sat(std::vector<state>const& a, std::vector<state>const& b, double radius){
+  double doubleRadius(radius*2);
   if(a.size()==1){
     if(b.size()==1) return (a[0].x==b[0].x&&a[0].y==b[0].y);
     if(b.size()==2) return fequal(Util::sqDistanceOfPointToLine(b[0],b[1],a[0]),0);
@@ -613,13 +614,13 @@ bool Util::sat(std::vector<state>const& a, std::vector<state>const& b){
 
   unsigned i;
   for (i=1;i<a.size();i++){
-    if(!privateUtils<state>::sat(a,b,a[i-1],a[i])) return false;
+    if(!privateUtils<state>::sat(a,b,a[i-1],a[i],doubleRadius)) return false;
   }
-  if(!privateUtils<state>::sat(a,b,a[a.size()-1],a[0])) return false;
+  if(!privateUtils<state>::sat(a,b,a[a.size()-1],a[0],doubleRadius)) return false;
   for (i=1;i<b.size();i++){
-    if(!privateUtils<state>::sat(a,b,b[i-1],b[i])) return false;
+    if(!privateUtils<state>::sat(a,b,b[i-1],b[i],doubleRadius)) return false;
   }
-  if(!privateUtils<state>::sat(a,b,b[b.size()-1],b[0])) return false;
+  if(!privateUtils<state>::sat(a,b,b[b.size()-1],b[0],doubleRadius)) return false;
   return true;
 }
 #endif
