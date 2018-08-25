@@ -50,7 +50,7 @@ class BucketHash {
       size_t index1(t/bucketWidth);
       size_t index2(te/bucketWidth);
       assert(index1<=index2);
-      for(;index1<index2+1; ++index1){
+      for(;index1<std::min(buckets.size(),index2+1); ++index1){
         buckets[index1].erase(val);
       }
       // Naively assume the user has specified the right interval...
