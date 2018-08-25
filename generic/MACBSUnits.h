@@ -1771,6 +1771,7 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
     constraint.reset((Constraint<state>*) new Identical<state>(a1,a2));
   }
   currentEnvironment[x]->environment->constraints.push_back(constraint.get());
+  astar.SetHeuristic(currentEnvironment[x]->heuristic);
 
   double origcost(currentEnvironment[x]->environment->GetPathLength(*location.paths[x]));
 
