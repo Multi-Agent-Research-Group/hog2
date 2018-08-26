@@ -1676,11 +1676,6 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
     if(!quiet)std::cout << "Replan agent " << theUnit << "\n";
     //if(!quiet)std::cout << "re-planning path from " << start << " to " << goal << " on a path of len:" << thePath.size() << " out to time " << minTime <<"\n";
     ReplanLeg<state,action,comparison,conflicttable,searchalgo>(c, astar, currentEnvironment[theUnit]->environment, *tree[location].paths[theUnit], tree[location].wpts[theUnit], tree[location].con.prevWpt, tree[location].con.prevWpt+1,minTime,theUnit);
-    if(Params::precheck==PRE_AABB){
-      computeAABB(*tree[location].polygons[theUnit],*tree[location].paths[theUnit]);
-    }else if(Params::precheck==PRE_HULL){
-      Util::convexHull<state>(*tree[location].paths[theUnit],*tree[location].polygons[theUnit]);
-    }
     //for(int i(0); i<tree[location].paths.size(); ++i)
     //std::cout << "Replanned agent "<<i<<" path " << tree[location].paths[i]->size() << "\n";
 
@@ -1694,6 +1689,12 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
     // Make sure that the current location is satisfiable
     if (tree[location].paths[theUnit]->size() < 1) {
       tree[location].satisfiable = false;
+    }else{
+      if(Params::precheck==PRE_AABB){
+        computeAABB(*tree[location].polygons[theUnit],*tree[location].paths[theUnit]);
+      }else if(Params::precheck==PRE_HULL){
+        Util::convexHull<state>(*tree[location].paths[theUnit],*tree[location].polygons[theUnit]);
+      }
     }
 
     // Add the path back to the tree (new constraint included)
