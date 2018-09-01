@@ -193,6 +193,7 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-suboptimal", "-suboptimal", "Sub-optimal answers");
 	InstallCommandLineHandler(MyCLHandler, "-random", "-random", "Randomize conflict resolution order");
 	InstallCommandLineHandler(MyCLHandler, "-greedyCT", "-greedyCT", "Greedy sort high-level search by number of conflicts (GCBS)");
+	InstallCommandLineHandler(MyCLHandler, "-pc", "-pc", "prioritize conflicts");
 	InstallCommandLineHandler(MyCLHandler, "-cct", "-cct", "Conflict count table");
 	InstallCommandLineHandler(MyCLHandler, "-skip", "-skip", "Ship-ahead logic");
 	InstallCommandLineHandler(MyCLHandler, "-precheck", "-precheck", "Pre-check for broadphase collision 0(default)=No precheck, 1=AABB precheck, 2=Convex hull intersection check, 3=Sweep and prune");
@@ -561,6 +562,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 	if(strcmp(argument[0], "-skip") == 0)
 	{
                 Params::skip = true;
+		return 1;
+	}
+	if(strcmp(argument[0], "-pc") == 0)
+	{
+                Params::prioritizeConf = true;
 		return 1;
 	}
 	if(strcmp(argument[0], "-cct") == 0)

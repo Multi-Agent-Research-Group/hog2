@@ -76,12 +76,14 @@ struct Params {
   static bool greedyCT;
   static bool skip;
   static unsigned conn;
+  static bool prioritizeConf;
 };
 unsigned Params::precheck = 0;
 unsigned Params::conn = 1;
 bool Params::greedyCT = false;
 bool Params::cct = false;
 bool Params::skip = false;
+bool Params::prioritizeConf = false;
 
 template<class state>
 struct CompareLowGCost {
@@ -463,7 +465,7 @@ struct CBSTreeNode {
     static unsigned num((1+paths.size()/64));
     static unsigned bytelen(num*sizeof(uint64_t));
     for(a1=0; a1<paths.size(); ++a1){
-      if(cct[a1][0] || memcmp(cct[a1].data(),cct[a1].data()+sizeof(uint64_t),num)){
+      if(cct[a1][0] || memcmp(cct[a1].data(),cct[a1].data()+1,num-1)){
         for(int i(0); i<num; ++i){
           if(cct[a1][i]){
             a2=__builtin_ctzll(cct[a1][i])+(i*64);
@@ -1894,19 +1896,21 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, searchalg
         // Determine conflict type
         unsigned conf(NO_CONFLICT);
 
-        // Prepare for re-planning the paths
-        if(bestNode)LoadConstraintsForNode(bestNode);
-        comparison::openList = astar.GetOpenList();
-        comparison::CAT = &(location.cat);
-        comparison::CAT->set(&location.paths);
-        // Left is cardinal?
-        if(IsCardinal(x,a[xTime],a[xNextTime],y,b[yTime],b[yNextTime])){
-          conf |= LEFT_CARDINAL;
-        }
-        // Right is cardinal?
-        if(IsCardinal(y,b[yTime],b[yNextTime],x,a[xTime],a[xNextTime])){
-          conf |= RIGHT_CARDINAL;
-        }
+        if(Params::prioritizeConf){
+          // Prepare for re-planning the paths
+          if(bestNode)LoadConstraintsForNode(bestNode);
+          comparison::openList = astar.GetOpenList();
+          comparison::CAT = &(location.cat);
+          comparison::CAT->set(&location.paths);
+          // Left is cardinal?
+          if(IsCardinal(x,a[xTime],a[xNextTime],y,b[yTime],b[yNextTime])){
+            conf |= LEFT_CARDINAL;
+          }
+          // Right is cardinal?
+          if(IsCardinal(y,b[yTime],b[yNextTime],x,a[xTime],a[xNextTime])){
+            conf |= RIGHT_CARDINAL;
+          }
+        }else{conf=BOTH_CARDINAL;}
         // Have we increased from non-cardinal to semi-cardinal or both-cardinal?
         if (NO_CONFLICT == conflict.second || ((conflict.second <= NON_CARDINAL) && conf) || BOTH_CARDINAL == conf) {
           conflict.second = conf + 1;
