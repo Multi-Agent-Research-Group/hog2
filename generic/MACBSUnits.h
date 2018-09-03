@@ -430,11 +430,11 @@ struct CBSTreeNode {
   // Copy ctor takes over memory for path member
   CBSTreeNode(CBSTreeNode<state, conflicttable> const& from)
       : wpts(from.wpts), path(from.path.release()), polygon(from.polygon.release()), paths(from.paths), polygons(
-          from.polygons), con(from.con), parent(from.parent), satisfiable(from.satisfiable), cat(from.cat), cct(from.cct), sweep(from.sweep) {
+          from.polygons), con(from.con), parent(from.parent), satisfiable(from.satisfiable), cat(from.cat), cct(from.cct), cardinal(from.cardinal), semi(from.semi), sweep(from.sweep) {
   }
   CBSTreeNode(CBSTreeNode<state, conflicttable> const& from, Conflict<state> const& c, unsigned p, bool s)
       : wpts(from.wpts), path(new std::vector<state>()), polygon(new std::vector<Vector2D>()), paths(from.paths), polygons(
-          from.polygons), con(c), parent(p), satisfiable(s), cat(from.cat), cct(from.cct), sweep(from.sweep) {
+          from.polygons), con(c), parent(p), satisfiable(s), cat(from.cat), cct(from.cct), cardinal(from.cardinal), semi(from.semi),sweep(from.sweep) {
     paths[c.unit1] = path.get();
     if (Params::precheck & (PRE_AABB|PRE_HULL)) {
       polygons[c.unit1] = polygon.get();
@@ -443,6 +443,10 @@ struct CBSTreeNode {
       //for (unsigned x : activeMetaAgents.at(c.unit1).units) {
         clearcct(c.unit1); // Clear the cct for this unit so that we can re-count collisions
       //}
+        if(Params::prioritizeConf){
+          clearcardinal(c.unit1);
+          clearsemi(c.unit1);
+        }
     }
   }
   bool hasOverlap(unsigned a, unsigned b) const {
@@ -457,13 +461,40 @@ struct CBSTreeNode {
     return true; // default
   }
 
-  inline bool getcct(unsigned a1, unsigned a2)const{
-    return cct[a1][a2 / 64] & (1UL << (a2 % 64));
+  //inline bool getcct(unsigned a1, unsigned a2)const{
+    //return cct[a1][a2 / 64] & (1UL << (a2 % 64));
+  //}
+
+  inline void getCardinalPair(unsigned& a1, unsigned& a2)const{
+    static unsigned num((1+paths.size()/64));
+    for(a1=0; a1<paths.size(); ++a1){
+      if(cardinal[a1][0] || memcmp(cardinal[a1].data(),cardinal[a1].data()+1,num-1)){
+        for(int i(0); i<num; ++i){
+          if(cardinal[a1][i]){
+            a2=__builtin_ctzll(cardinal[a1][i])+(i*64);
+            return;
+          }
+        }
+      }
+    }
+  }
+
+  inline void getSemiCardinalPair(unsigned& a1, unsigned& a2)const{
+    static unsigned num((1+paths.size()/64));
+    for(a1=0; a1<paths.size(); ++a1){
+      if(semi[a1][0] || memcmp(semi[a1].data(),semi[a1].data()+1,num-1)){
+        for(int i(0); i<num; ++i){
+          if(semi[a1][i]){
+            a2=__builtin_ctzll(semi[a1][i])+(i*64);
+            return;
+          }
+        }
+      }
+    }
   }
 
   inline void getCollisionPair(unsigned& a1, unsigned& a2)const{
     static unsigned num((1+paths.size()/64));
-    static unsigned bytelen(num*sizeof(uint64_t));
     for(a1=0; a1<paths.size(); ++a1){
       if(cct[a1][0] || memcmp(cct[a1].data(),cct[a1].data()+1,num-1)){
         for(int i(0); i<num; ++i){
@@ -475,6 +506,25 @@ struct CBSTreeNode {
       }
     }
   }
+
+  inline bool hasCardinal()const{
+    static unsigned num(1+paths.size()/64);
+    for(int a1(0); a1<paths.size(); ++a1){
+      if(cardinal[a1][0] || memcmp(cardinal[a1].data(),cardinal[a1].data()+1,num-1)){
+        return true;
+      }
+    }
+  }
+
+  inline bool hasSemiCardinal()const{
+    static unsigned num(1+paths.size()/64);
+    for(int a1(0); a1<paths.size(); ++a1){
+      if(semi[a1][0] || memcmp(semi[a1].data(),semi[a1].data()+1,num-1)){
+        return true;
+      }
+    }
+  }
+
 
   inline unsigned numCollisions()const{
     unsigned total(0);
@@ -491,6 +541,40 @@ struct CBSTreeNode {
       total+=__builtin_popcountll(cct[agent][i]);
     }
     return total;
+  }
+
+  inline void setcardinal(unsigned a1, unsigned a2)const{
+    cardinal[a1][a2 / 64] |= (1UL << (a2 % 64));
+    cardinal[a2][a1 / 64] |= (1UL << (a1 % 64));
+  }
+
+  inline void unsetcardinal(unsigned a1, unsigned a2)const{
+    cardinal[a1][a2 / 64] &= ~(1UL << (a2 % 64));
+    //cardinal[a2][a1 / 64] &= ~(1UL << (a1 % 64));
+  }
+
+  inline void clearcardinal(unsigned a1)const{
+    memset(cardinal[a1].data(),0,cardinal[a1].size()*sizeof(uint64_t));
+    for(int a2(0);a2<cardinal.size();++a2){
+      unsetcardinal(a2,a1);
+    }
+  }
+
+  inline void setsemi(unsigned a1, unsigned a2)const{
+    semi[a1][a2 / 64] |= (1UL << (a2 % 64));
+    semi[a2][a1 / 64] |= (1UL << (a1 % 64));
+  }
+
+  inline void unsetsemi(unsigned a1, unsigned a2)const{
+    semi[a1][a2 / 64] &= ~(1UL << (a2 % 64));
+    //semi[a2][a1 / 64] &= ~(1UL << (a1 % 64));
+  }
+
+  inline void clearsemi(unsigned a1)const{
+    memset(semi[a1].data(),0,semi[a1].size()*sizeof(uint64_t));
+    for(int a2(0);a2<semi.size();++a2){
+      unsetsemi(a2,a1);
+    }
   }
 
   inline void setcct(unsigned a1, unsigned a2)const{
@@ -516,6 +600,8 @@ struct CBSTreeNode {
   std::vector<std::vector<Vector2D>*> polygons;
   static Solution<state> basepaths;
   static Solution<Vector2D> basepolygons;
+  mutable std::vector<std::vector<uint64_t>> cardinal;
+  mutable std::vector<std::vector<uint64_t>> semi;
   mutable std::vector<std::vector<uint64_t>> cct;
   std::vector<xyztAABB> sweep;
   Conflict<state> con;
@@ -1293,6 +1379,10 @@ void CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::Init(
   }
   if(Params::cct){
     tree[0].cct=std::vector<std::vector<uint64_t>>(tree[0].basepaths.size(),std::vector<uint64_t>(tree[0].basepaths.size()/64+1));
+    if(Params::prioritizeConf){
+      tree[0].cardinal=std::vector<std::vector<uint64_t>>(tree[0].basepaths.size(),std::vector<uint64_t>(tree[0].basepaths.size()/64+1));
+      tree[0].semi=std::vector<std::vector<uint64_t>>(tree[0].basepaths.size(),std::vector<uint64_t>(tree[0].basepaths.size()/64+1));
+    }
   }
 }
 
@@ -2195,6 +2285,12 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
               best.second.first, best.second.second, best.first, update, false)){
             intraConflict=true;
             location.setcct(x,y);
+            if(Params::prioritizeConf){
+              if(best.first.second==BOTH_CARDINAL)
+                location.setcardinal(x,y);
+              else if(best.first.second & LEFT_CARDINAL || best.first.second & RIGHT_CARDINAL)
+                location.setsemi(x,y);
+            }
           }
         }
         /*if(requireLOS&&currentEnvironment[x]->agentType==Map3D::air||currentEnvironment[y]->agentType==Map3D::air){
@@ -2224,7 +2320,17 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
   }else if(location.numCollisions()){ // Are there any collisions left?
     unsigned x(0);
     unsigned y(0);
-    location.getCollisionPair(x,y); // Select an arbitrary pair of colliding agents.
+    if(Params::prioritizeConf){
+      if(location.hasCardinal()){
+        location.getCardinalPair(x,y);
+      }else if(location.hasSemiCardinal()){
+        location.getSemiCardinalPair(x,y);
+      }else{
+        location.getCollisionPair(x,y); // Select an arbitrary pair of colliding agents.
+      }
+    }else{
+      location.getCollisionPair(x,y); // Select an arbitrary pair of colliding agents.
+    }
     assert(HasConflict(*location.paths[x], location.wpts[x], *location.paths[y], location.wpts[y], x, y,
           best.second.first, best.second.second, best.first, update, false));
     metaAgentConflictMatrix[best.second.first.unit1][best.second.second.unit1]++;
@@ -2275,8 +2381,15 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
             if(HasConflict(*location.paths[x], location.wpts[x], *location.paths[y], location.wpts[y], x, y,
                   best.second.first, best.second.second, best.first, update)){
               ++intraConflicts;
-              if(Params::cct)
+              if(Params::cct){
                 location.setcct(x,y);
+                if(Params::prioritizeConf){
+                  if(best.first.second==BOTH_CARDINAL)
+                    location.setcardinal(x,y);
+                  else if(best.first.second & LEFT_CARDINAL || best.first.second & RIGHT_CARDINAL)
+                    location.setsemi(x,y);
+                }
+              }
             }
           }
           /*if(requireLOS&&currentEnvironment[x]->agentType==Map3D::air||currentEnvironment[y]->agentType==Map3D::air){
