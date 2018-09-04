@@ -19,6 +19,7 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+
 #ifndef __hog2_glut__MACBSUnits__
 #define __hog2_glut__MACBSUnits__
 
@@ -1906,7 +1907,7 @@ template<typename state, typename action, typename comparison, typename conflict
 unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::HasConflict(std::vector<state> const& a,
     std::vector<int> const& wa, std::vector<state> const& b, std::vector<int> const& wb, int x, int y, Conflict<state> &c1,
     Conflict<state> &c2, std::pair<unsigned, unsigned>& conflict, unsigned& ctype, bool update, bool countall) {
-  CBSTreeNode<state, conflicttable>& location=tree[bestNode];
+  //CBSTreeNode<state, conflicttable>& location=tree[bestNode];
   // The conflict parameter contains the conflict count so far (conflict.first)
   // and the type of conflict found so far (conflict.second=BOTH_CARDINAL being the highest)
 
@@ -1979,18 +1980,22 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, searchalg
     //Constraint<state> x_c(a[xTime]);
     //state y_c =b[yTime];
 
-    state const& aGoal(a[wa[pwptA + 1]]);
-    state const& bGoal(b[wb[pwptB + 1]]);
+    //state const& aGoal(a[wa[pwptA + 1]]);
+    //state const& bGoal(b[wb[pwptB + 1]]);
     collchecks++;
-    if(collisionCheck3D(a[xTime], a[xNextTime], b[yTime], b[yNextTime], agentRadius)) {
+    double ctime(0.0);
+    if(ctime=collisionCheck3D(a[xTime], a[xNextTime], b[yTime], b[yNextTime], agentRadius)) {
       ++conflict.first;
-      if(!update && !countall){break;} // We don't care about anything except whether there is at least one conflict
+      if(!update && !countall){
+        //std::cout << "Exiting conf check loop (!countall && !update) "<<x<<","<<y<<" - \n";
+        break;} // We don't care about anything except whether there is at least one conflict
       if(verbose)
         std::cout << conflict.first << " conflicts; #" << x << ":" << a[xTime] << "-->" << a[xNextTime] << " #" << y << ":"
           << b[yTime] << "-->" << b[yNextTime] << "\n";
       if(update && (BOTH_CARDINAL != (ctype & BOTH_CARDINAL))) { // Keep updating until we find a both-cardinal conflict
         // Determine conflict type
         unsigned conf(NO_CONFLICT);
+        //std::cout << "CONFLICT: " <<x<<","<<y<<"\n";
 
         if(Params::prioritizeConf){
           // Prepare for re-planning the paths
@@ -1999,12 +2004,26 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, searchalg
           comparison::CAT = nullptr;//&(location.cat);
           //comparison::CAT->set(&location.paths);
           // Left is cardinal?
-          if(IsCardinal(x,a[xTime],a[xNextTime],y,b[yTime],b[yNextTime])){
+            state a1(a[xTime]);
+            state a2(a[xNextTime]);
+            state b1(b[yTime]);
+            state b2(b[yNextTime]);
+            //a1.t=ctime*state::TIME_RESOLUTION_U;
+            //b1.t=ctime*state::TIME_RESOLUTION_U;
+            if(a1.sameLoc(a2)){
+              a2.t=a1.t+currentEnvironment[x]->environment->WaitTime();
+            }
+            if(b1.sameLoc(b2)){
+              b2.t=b1.t+currentEnvironment[x]->environment->WaitTime();
+            }
+          if(IsCardinal(x,a1,a2,y,b1,b2)){
             conf |= LEFT_CARDINAL;
+            //std::cout << "LEFT_CARDINAL: " <<x<<","<<y<<"\n";
           }
           // Right is cardinal?
-          if(IsCardinal(y,b[yTime],b[yNextTime],x,a[xTime],a[xNextTime])){
+          if(IsCardinal(y,b1,b2,x,a1,a2)){
             conf |= RIGHT_CARDINAL;
+            //std::cout << "RIGHT_CARDINAL: " <<x<<","<<y<<"\n";
           }
         }else{conf=BOTH_CARDINAL;}
         // Have we increased from non-cardinal to semi-cardinal or both-cardinal?
@@ -2012,8 +2031,20 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, searchalg
           ctype = conf + 1;
 
           if (usecrossconstraints) {
-            c1.c.reset((Constraint<state>*) new Collision<state>(a[xTime], a[xNextTime]));
-            c2.c.reset((Constraint<state>*) new Collision<state>(b[yTime], b[yNextTime]));
+            state a1(a[xTime]);
+            state a2(a[xNextTime]);
+            state b1(b[yTime]);
+            state b2(b[yNextTime]);
+            //a1.t=ctime*state::TIME_RESOLUTION_U;
+            //b1.t=ctime*state::TIME_RESOLUTION_U;
+            if(a1.sameLoc(a2)){
+              a2.t=a1.t+currentEnvironment[x]->environment->WaitTime();
+            }
+            if(b1.sameLoc(b2)){
+              b2.t=b1.t+currentEnvironment[x]->environment->WaitTime();
+            }
+            c1.c.reset((Constraint<state>*) new Collision<state>(a1, a2));
+            c2.c.reset((Constraint<state>*) new Collision<state>(b1, b2));
             c1.unit1 = y;
             c2.unit1 = x;
             c1.prevWpt = pwptB;
@@ -2027,9 +2058,12 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, searchalg
             c2.prevWpt = pwptB;
           }
           if(!countall && conf == BOTH_CARDINAL){
+            //std::cout << "Exiting conf check loop (!countall && conf == BOTH_CARDINAL) "<<x<<","<<y<<" - \n";
             break; // don't count any more, we don't care how many conflicts there are in total
           }
         }
+      }else{
+        //std::cout << "Already found a cardinal conflict - "<<x<<","<<y<<" - no check for cardinality being performed...\n";
       }
     }
 
@@ -2291,16 +2325,18 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
           }
           unsigned ctype(NO_CONFLICT);
           if(HasConflict(*location.paths[x], location.wpts[x], *location.paths[y], location.wpts[y], x, y,
-              best.second.first, best.second.second, best.first, (Params::prioritizeConf?ctype:best.first.second), update, Params::prioritizeConf)){
+                best.second.first, best.second.second, best.first, (Params::prioritizeConf?ctype:best.first.second), update, false)){
             intraConflict=true;
             location.setcct(x,y);
             if(Params::prioritizeConf){
-              if(best.first.second==BOTH_CARDINAL)
+              if(ctype==BOTH_CARDINAL)
                 location.setcardinal(x,y);
-              else if(best.first.second & LEFT_CARDINAL || best.first.second & RIGHT_CARDINAL)
+              else if(ctype & LEFT_CARDINAL || ctype & RIGHT_CARDINAL)
                 location.setsemi(x,y);
+
             }
           }
+          best.first.second = std::max(ctype,best.first.second);
         }
         /*if(requireLOS&&currentEnvironment[x]->agentType==Map3D::air||currentEnvironment[y]->agentType==Map3D::air){
          if(ViolatesProximity(location.paths[x],location.paths[y]
@@ -2344,9 +2380,8 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
       location.getCollisionPair(x,y); // Select an arbitrary pair of colliding agents.
     }
     //std::cout << "selected " << x << ","<<y<<"\n";
-    unsigned ctype(NO_CONFLICT);
     assert(HasConflict(*location.paths[x], location.wpts[x], *location.paths[y], location.wpts[y], x, y,
-          best.second.first, best.second.second, best.first, (Params::prioritizeConf?ctype:best.first.second), true, false));
+          best.second.first, best.second.second, best.first, best.first.second, true, false));
     metaAgentConflictMatrix[best.second.first.unit1][best.second.second.unit1]++;
     c1 = best.second.first;
     c2 = best.second.second;
@@ -2394,18 +2429,20 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
             }
             unsigned ctype(NO_CONFLICT);
             if(HasConflict(*location.paths[x], location.wpts[x], *location.paths[y], location.wpts[y], x, y,
-                  best.second.first, best.second.second, best.first, best.first.second, update)){
-                 //best.second.first, best.second.second, best.first, (Params::prioritizeConf?ctype:best.first.second), update)){
+                  //best.second.first, best.second.second, best.first, best.first.second, update)){
+                 best.second.first, best.second.second, best.first, (Params::prioritizeConf?ctype:best.first.second), update,false)){//||Params::cct,Params::cct)){
               ++intraConflicts;
               if(Params::cct){
                 location.setcct(x,y);
                 if(Params::prioritizeConf){
-                  if(best.first.second==BOTH_CARDINAL)
+                  if(ctype==BOTH_CARDINAL)
                     location.setcardinal(x,y);
-                  else if(best.first.second & LEFT_CARDINAL || best.first.second & RIGHT_CARDINAL)
+                  else if(ctype & LEFT_CARDINAL || ctype & RIGHT_CARDINAL)
                     location.setsemi(x,y);
+
                 }
               }
+              best.first.second = std::max(ctype,best.first.second);
             }
           }
           /*if(requireLOS&&currentEnvironment[x]->agentType==Map3D::air||currentEnvironment[y]->agentType==Map3D::air){
@@ -2429,8 +2466,8 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
   collisionTime += tmr.EndTimer();
   if (update && best.first.first) {
     metaAgentConflictMatrix[best.second.first.unit1][best.second.second.unit1]++;
-    c1 = best.second.first;
-    c2 = best.second.second;
+    c2 = best.second.first;
+    c1 = best.second.second;
   }
   return best.first;
 }
