@@ -510,10 +510,13 @@ struct CBSTreeNode {
   inline bool hasCardinal()const{
     static unsigned num(1+paths.size()/64);
     for(int a1(0); a1<paths.size(); ++a1){
+      //std::cout << a1 << ":" << cardinal[a1][0] << "," << cardinal[a1][1] << "\n";
       if(cardinal[a1][0] || memcmp(cardinal[a1].data(),cardinal[a1].data()+1,num-1)){
+         //std::cout << a1 << " Has cardinal\n";
         return true;
       }
     }
+    return false;
   }
 
   inline bool hasSemiCardinal()const{
@@ -523,6 +526,7 @@ struct CBSTreeNode {
         return true;
       }
     }
+    return false;
   }
 
 
@@ -672,7 +676,7 @@ private:
   bool IsCardinal(int x, state const&, state const&, int y, state const&, state const&);
   unsigned HasConflict(std::vector<state> const& a, std::vector<int> const& wa, std::vector<state> const& b,
       std::vector<int> const& wb, int x, int y, Conflict<state> &c1, Conflict<state> &c2,
-      std::pair<unsigned, unsigned>& conflict, bool update, bool countall=true);
+      std::pair<unsigned, unsigned>& conflict, unsigned& ctype, bool update, bool countall=true);
   std::pair<unsigned, unsigned> FindHiPriConflictAllPairs(CBSTreeNode<state, conflicttable> const& location, Conflict<state> &c1,
       Conflict<state> &c2, bool update = true);
   std::pair<unsigned, unsigned> FindHiPriConflictOneVsAll( CBSTreeNode<state, conflicttable> const& location, Conflict<state> &c1, Conflict<state> &c2, bool update=true);
@@ -1378,10 +1382,11 @@ void CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::Init(
         });
   }
   if(Params::cct){
-    tree[0].cct=std::vector<std::vector<uint64_t>>(tree[0].basepaths.size(),std::vector<uint64_t>(tree[0].basepaths.size()/64+1));
+    tree[0].cct=std::vector<std::vector<uint64_t>>(tree[0].basepaths.size(),std::vector<uint64_t>(tree[0].basepaths.size()/64+1,0));
     if(Params::prioritizeConf){
-      tree[0].cardinal=std::vector<std::vector<uint64_t>>(tree[0].basepaths.size(),std::vector<uint64_t>(tree[0].basepaths.size()/64+1));
-      tree[0].semi=std::vector<std::vector<uint64_t>>(tree[0].basepaths.size(),std::vector<uint64_t>(tree[0].basepaths.size()/64+1));
+      tree[0].cardinal=std::vector<std::vector<uint64_t>>(tree[0].basepaths.size(),std::vector<uint64_t>(tree[0].basepaths.size()/64+1,0));
+      //std::cout << tree[0].hasCardinal() << " has Card\n";
+      tree[0].semi=std::vector<std::vector<uint64_t>>(tree[0].basepaths.size(),std::vector<uint64_t>(tree[0].basepaths.size()/64+1,0));
     }
   }
 }
@@ -1872,13 +1877,14 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
   CBSUnit<state, action, comparison, conflicttable, searchalgo> *c(
       (CBSUnit<state, action, comparison, conflicttable, searchalgo>*) this->GetMember(x));
 
+/*
   comparison::currentEnv = (ConstrainedEnvironment<state, action>*) currentEnvironment[x]->environment;
   comparison::currentAgent = x;
 
   if (comparison::useCAT) {
     comparison::CAT->remove(*location.paths[x], currentEnvironment[x]->environment, x);
   }
-
+*/
   std::vector<state> thePath;
   GetFullPath<state,action,comparison,conflicttable,searchalgo>(c, astar, currentEnvironment[x]->environment, thePath, location.wpts[x], location.paths[y]->back().t, x);
 
@@ -1899,7 +1905,7 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
 template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class searchalgo>
 unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::HasConflict(std::vector<state> const& a,
     std::vector<int> const& wa, std::vector<state> const& b, std::vector<int> const& wb, int x, int y, Conflict<state> &c1,
-    Conflict<state> &c2, std::pair<unsigned, unsigned>& conflict, bool update, bool countall) {
+    Conflict<state> &c2, std::pair<unsigned, unsigned>& conflict, unsigned& ctype, bool update, bool countall) {
   CBSTreeNode<state, conflicttable>& location=tree[bestNode];
   // The conflict parameter contains the conflict count so far (conflict.first)
   // and the type of conflict found so far (conflict.second=BOTH_CARDINAL being the highest)
@@ -1982,16 +1988,16 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, searchalg
       if(verbose)
         std::cout << conflict.first << " conflicts; #" << x << ":" << a[xTime] << "-->" << a[xNextTime] << " #" << y << ":"
           << b[yTime] << "-->" << b[yNextTime] << "\n";
-      if(update && (BOTH_CARDINAL != (conflict.second & BOTH_CARDINAL))) { // Keep updating until we find a both-cardinal conflict
+      if(update && (BOTH_CARDINAL != (ctype & BOTH_CARDINAL))) { // Keep updating until we find a both-cardinal conflict
         // Determine conflict type
         unsigned conf(NO_CONFLICT);
 
         if(Params::prioritizeConf){
           // Prepare for re-planning the paths
           if(bestNode)LoadConstraintsForNode(bestNode);
-          comparison::openList = astar.GetOpenList();
-          comparison::CAT = &(location.cat);
-          comparison::CAT->set(&location.paths);
+          //comparison::openList = astar.GetOpenList();
+          comparison::CAT = nullptr;//&(location.cat);
+          //comparison::CAT->set(&location.paths);
           // Left is cardinal?
           if(IsCardinal(x,a[xTime],a[xNextTime],y,b[yTime],b[yNextTime])){
             conf |= LEFT_CARDINAL;
@@ -2002,8 +2008,8 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, searchalg
           }
         }else{conf=BOTH_CARDINAL;}
         // Have we increased from non-cardinal to semi-cardinal or both-cardinal?
-        if (NO_CONFLICT == conflict.second || ((conflict.second <= NON_CARDINAL) && conf) || BOTH_CARDINAL == conf) {
-          conflict.second = conf + 1;
+        if (NO_CONFLICT == ctype || ((ctype <= NON_CARDINAL) && conf) || BOTH_CARDINAL == conf) {
+          ctype = conf + 1;
 
           if (usecrossconstraints) {
             c1.c.reset((Constraint<state>*) new Collision<state>(a[xTime], a[xNextTime]));
@@ -2062,6 +2068,7 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, searchalg
 template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class searchalgo>
 std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::FindHiPriConflictAllPairsSAP(CBSTreeNode<state, conflicttable>& location, Conflict<state> &c1, Conflict<state> &c2, bool update, bool countall){
   std::pair<unsigned, unsigned> conflict(0,0);
+  unsigned& ctype(conflict.second);
   std::vector<xyztAABB> path;
   path.reserve(location.paths[location.con.unit1]->size());
   addAABBs(*location.paths[location.con.unit1],path,location.con.unit1);
@@ -2097,7 +2104,7 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
             if (verbose)
               std::cout << conflict.first << " conflicts; #" << location.sweep[a].agent << ":" << location.sweep[a].start << "-->" << location.sweep[a].end << " #" << location.sweep[b].agent << ":"
                 << location.sweep[b].start << "-->" << location.sweep[b].end << "\n";
-            if (update && (BOTH_CARDINAL != (conflict.second & BOTH_CARDINAL))) { // Keep updating until we find a both-cardinal conflict
+            if (update && (BOTH_CARDINAL != (ctype & BOTH_CARDINAL))) { // Keep updating until we find a both-cardinal conflict
               // Determine conflict type
               // If there are other legal successors with succ.f()=child.f(), this is non-cardinal
               unsigned conf(NO_CONFLICT); // Left is cardinal?
@@ -2116,8 +2123,8 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
                 conf |= RIGHT_CARDINAL;
               }
               // Have we increased from non-cardinal to semi-cardinal or both-cardinal?
-              if (NO_CONFLICT == conflict.second || ((conflict.second <= NON_CARDINAL) && conf) || BOTH_CARDINAL == conf) {
-                conflict.second = conf + 1;
+              if (NO_CONFLICT == ctype || ((ctype <= NON_CARDINAL) && conf) || BOTH_CARDINAL == conf) {
+                ctype = conf + 1;
 
                 if (usecrossconstraints) {
                   c1.c.reset((Constraint<state>*) new Collision<state>(location.sweep[a].start, location.sweep[a].end));
@@ -2155,6 +2162,7 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
 template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class searchalgo>
 std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::FindHiPriConflictOneVsAllSAP(CBSTreeNode<state, conflicttable>& location, Conflict<state> &c1, Conflict<state> &c2, bool update, bool countall){
   std::pair<unsigned, unsigned> conflict;
+  unsigned& ctype(conflict.second);
   std::vector<xyztAABB> path;
   path.reserve(location.paths[location.con.unit1]->size());
   addAABBs(*location.paths[location.con.unit1],path,location.con.unit1);
@@ -2192,7 +2200,7 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
         if (verbose)
           std::cout << conflict.first << " conflicts; #" << location.sweep[a].agent << ":" << location.sweep[a].start << "-->" << location.sweep[a].end << " #" << location.sweep[b].agent << ":"
             << location.sweep[b].start << "-->" << location.sweep[b].end << "\n";
-        if (update && (BOTH_CARDINAL != (conflict.second & BOTH_CARDINAL))) { // Keep updating until we find a both-cardinal conflict
+        if (update && (BOTH_CARDINAL != (ctype & BOTH_CARDINAL))) { // Keep updating until we find a both-cardinal conflict
           // Determine conflict type
           // If there are other legal successors with succ.f()=child.f(), this is non-cardinal
           unsigned conf(NO_CONFLICT); // Left is cardinal?
@@ -2211,8 +2219,8 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
             conf |= RIGHT_CARDINAL;
           }
           // Have we increased from non-cardinal to semi-cardinal or both-cardinal?
-          if (NO_CONFLICT == conflict.second || ((conflict.second <= NON_CARDINAL) && conf) || BOTH_CARDINAL == conf) {
-            conflict.second = conf + 1;
+          if (NO_CONFLICT == ctype || ((ctype <= NON_CARDINAL) && conf) || BOTH_CARDINAL == conf) {
+            ctype = conf + 1;
 
             if (usecrossconstraints) {
               c1.c.reset((Constraint<state>*) new Collision<state>(location.sweep[a].start, location.sweep[a].end));
@@ -2260,8 +2268,8 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
     bool intraConflict(false); // Conflict between meta-agents
     unsigned previous(best.first.second);
     // For each pair of units in the group
-    for (unsigned x : activeMetaAgents.at(location.con.unit1).units) {
-      for (unsigned y : activeMetaAgents.at(b).units) {
+    for (unsigned x : activeMetaAgents.at(b).units) {
+      for (unsigned y : activeMetaAgents.at(location.con.unit1).units) {
         // This call will update "best" with the number of conflicts and
         // with the *most* cardinal conflicts
         if(location.hasOverlap(x, y)) {
@@ -2281,8 +2289,9 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
               location.paths[y]->back().t=location.paths[x]->back().t;
             }
           }
+          unsigned ctype(NO_CONFLICT);
           if(HasConflict(*location.paths[x], location.wpts[x], *location.paths[y], location.wpts[y], x, y,
-              best.second.first, best.second.second, best.first, update, false)){
+              best.second.first, best.second.second, best.first, (Params::prioritizeConf?ctype:best.first.second), update, Params::prioritizeConf)){
             intraConflict=true;
             location.setcct(x,y);
             if(Params::prioritizeConf){
@@ -2323,16 +2332,21 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
     if(Params::prioritizeConf){
       if(location.hasCardinal()){
         location.getCardinalPair(x,y);
+    //std::cout << "selected C" << x << ","<<y<<"\n";
       }else if(location.hasSemiCardinal()){
         location.getSemiCardinalPair(x,y);
+    //std::cout << "selected S" << x << ","<<y<<"\n";
       }else{
         location.getCollisionPair(x,y); // Select an arbitrary pair of colliding agents.
+    //std::cout << "selected L" << x << ","<<y<<"\n";
       }
     }else{
       location.getCollisionPair(x,y); // Select an arbitrary pair of colliding agents.
     }
+    //std::cout << "selected " << x << ","<<y<<"\n";
+    unsigned ctype(NO_CONFLICT);
     assert(HasConflict(*location.paths[x], location.wpts[x], *location.paths[y], location.wpts[y], x, y,
-          best.second.first, best.second.second, best.first, update, false));
+          best.second.first, best.second.second, best.first, (Params::prioritizeConf?ctype:best.first.second), true, false));
     metaAgentConflictMatrix[best.second.first.unit1][best.second.second.unit1]++;
     c1 = best.second.first;
     c2 = best.second.second;
@@ -2378,8 +2392,10 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
                 location.paths[y]->back().t=location.paths[x]->back().t;
               }
             }
+            unsigned ctype(NO_CONFLICT);
             if(HasConflict(*location.paths[x], location.wpts[x], *location.paths[y], location.wpts[y], x, y,
-                  best.second.first, best.second.second, best.first, update)){
+                  best.second.first, best.second.second, best.first, best.first.second, update)){
+                 //best.second.first, best.second.second, best.first, (Params::prioritizeConf?ctype:best.first.second), update)){
               ++intraConflicts;
               if(Params::cct){
                 location.setcct(x,y);
