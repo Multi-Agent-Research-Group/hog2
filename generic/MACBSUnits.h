@@ -78,6 +78,7 @@ struct Params {
   static bool skip;
   static unsigned conn;
   static bool prioritizeConf;
+  static bool usecrossconstraints;
 };
 unsigned Params::precheck = 0;
 unsigned Params::conn = 1;
@@ -85,6 +86,7 @@ bool Params::greedyCT = false;
 bool Params::cct = false;
 bool Params::skip = false;
 bool Params::prioritizeConf = false;
+bool Params::usecrossconstraints = true;
 
 template<class state>
 struct CompareLowGCost {
@@ -749,7 +751,6 @@ public:
   bool verbose = false;
   bool quiet = false;
   bool disappearAtGoal = true;
-  bool usecrossconstraints = true;
 };
 
 /** AIR CBS UNIT DEFINITIONS */
@@ -1864,7 +1865,7 @@ template<typename state, typename action, typename comparison, typename conflict
 bool CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::IsCardinal(int x, state const& a1, state const& a2, int y, state const& b1, state const& b2){
   CBSTreeNode<state, conflicttable>& location=tree[bestNode];
   std::unique_ptr<Constraint<state>> constraint;
-  if (usecrossconstraints) {
+  if (Params::usecrossconstraints) {
     constraint.reset((Constraint<state>*) new Collision<state>(b1,b2));
   } else {
     constraint.reset((Constraint<state>*) new Identical<state>(a1,a2));
@@ -2030,7 +2031,7 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, searchalg
         if (NO_CONFLICT == ctype || ((ctype <= NON_CARDINAL) && conf) || BOTH_CARDINAL == conf) {
           ctype = conf + 1;
 
-          if (usecrossconstraints) {
+          if (Params::usecrossconstraints) {
             state a1(a[xTime]);
             state a2(a[xNextTime]);
             state b1(b[yTime]);
@@ -2160,7 +2161,7 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
               if (NO_CONFLICT == ctype || ((ctype <= NON_CARDINAL) && conf) || BOTH_CARDINAL == conf) {
                 ctype = conf + 1;
 
-                if (usecrossconstraints) {
+                if (Params::usecrossconstraints) {
                   c1.c.reset((Constraint<state>*) new Collision<state>(location.sweep[a].start, location.sweep[a].end));
                   c2.c.reset((Constraint<state>*) new Collision<state>(location.sweep[b].start, location.sweep[b].end));
                   c1.unit1 = location.sweep[b].agent;
@@ -2256,7 +2257,7 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
           if (NO_CONFLICT == ctype || ((ctype <= NON_CARDINAL) && conf) || BOTH_CARDINAL == conf) {
             ctype = conf + 1;
 
-            if (usecrossconstraints) {
+            if (Params::usecrossconstraints) {
               c1.c.reset((Constraint<state>*) new Collision<state>(location.sweep[a].start, location.sweep[a].end));
               c2.c.reset((Constraint<state>*) new Collision<state>(location.sweep[b].start, location.sweep[b].end));
               c1.unit1 = location.sweep[b].agent;
@@ -2345,7 +2346,7 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
     }
     // Make sure that the conflict counted is the one being returned (and being translated to meta-agent indices)
     if (best.first.second > previous && (intraConflict)) {
-      if (usecrossconstraints) {
+      if (Params::usecrossconstraints) {
         best.second.first.unit1 = b;
         best.second.second.unit1 = location.con.unit1;
       } else {
@@ -2452,7 +2453,7 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
       }
       // Make sure that the conflict counted is the one being returned (and being translated to meta-agent indices)
       if (best.first.second > previous && (intraConflicts)) {
-        if (usecrossconstraints) {
+        if (Params::usecrossconstraints) {
           best.second.first.unit1 = b;
           best.second.second.unit1 = a;
         } else {
