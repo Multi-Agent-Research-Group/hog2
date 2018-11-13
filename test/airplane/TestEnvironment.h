@@ -205,7 +205,7 @@ void test2DPathUniqueness(){
   std::cout << "testPathUniqueness\n";
   srand(123456);
 
-  Map map(20,20);
+  Map map(64,64);
   MapEnvironment env(&map);
   TemplateAStar<xyLoc, tDirection, MapEnvironment> astar;
   std::vector<int> c({4,8,24,48});

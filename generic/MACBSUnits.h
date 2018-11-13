@@ -26,7 +26,8 @@
 #include <iostream>
 #include <limits> 
 #include <algorithm>
-#include <map>
+#include <unordered_map>
+#include <unordered_set>
 
 #include <queue>
 #include <functional>
@@ -425,19 +426,41 @@ void computeAABB(std::vector<Vector2D>& aabb, std::vector<state> const& path) {
   }
 }
 
+struct agentpair_t{
+  agentpair_t():a1(0xffff),a2(0xffff){}
+  agentpair_t(unsigned i1, unsigned i2):a1(i1),a2(i2){}
+  uint16_t a1;
+  uint16_t a2;
+  size_t operator==(agentpair_t const&pt)const{return pt.a1==a1 && pt.a2==a2;}
+  size_t operator()(agentpair_t const&pt)const{return pt.a1<pt.a2?pt.a1+pt.a2*0xffff:pt.a2+pt.a1*0xffff;}
+};
+
+struct conflict_t{
+  conflict_t():ix1(0xffff),ix2(0xffff){}
+  conflict_t(unsigned i1, unsigned i2):ix1(i1),ix2(i2){}
+  uint16_t ix1;
+  uint16_t ix2;
+  size_t operator==(conflict_t const&pt)const{return pt.ix1==ix1 && pt.ix2==ix2;}
+  size_t operator()(conflict_t const&pt)const{return pt.ix1+pt.ix2*0xffff;}
+};
+
 template<typename state, typename conflicttable>
 struct CBSTreeNode {
   CBSTreeNode()
-      : path(nullptr), parent(0), satisfiable(true), cat() {
+      : path(nullptr), parent(0), satisfiable(true), cat(), cct(), semi(), cardinal(){
   }
   // Copy ctor takes over memory for path member
   CBSTreeNode(CBSTreeNode<state, conflicttable> const& from)
-      : wpts(from.wpts), path(from.path.release()), polygon(from.polygon.release()), paths(from.paths), polygons(
-          from.polygons), con(from.con), parent(from.parent), satisfiable(from.satisfiable), cat(from.cat), cct(from.cct), cardinal(from.cardinal), semi(from.semi), sweep(from.sweep) {
+      : wpts(from.wpts), path(from.path.release()), polygon(from.polygon.release()),
+      paths(from.paths), polygons(from.polygons), con(from.con), parent(from.parent),
+      satisfiable(from.satisfiable), cat(from.cat), cct(from.cct),
+      cardinal(from.cardinal), semi(from.semi), sweep(from.sweep) {
   }
   CBSTreeNode(CBSTreeNode<state, conflicttable> const& from, Conflict<state> const& c, unsigned p, bool s)
-      : wpts(from.wpts), path(new std::vector<state>()), polygon(new std::vector<Vector2D>()), paths(from.paths), polygons(
-          from.polygons), con(c), parent(p), satisfiable(s), cat(from.cat), cct(from.cct), cardinal(from.cardinal), semi(from.semi),sweep(from.sweep) {
+      : wpts(from.wpts), path(new std::vector<state>()),
+      polygon(new std::vector<Vector2D>()), paths(from.paths), polygons(from.polygons),
+      con(c), parent(p), satisfiable(s), cat(from.cat), cct(from.cct),
+      cardinal(from.cardinal), semi(from.semi),sweep(from.sweep) {
     paths[c.unit1] = path.get();
     if (Params::precheck & (PRE_AABB|PRE_HULL)) {
       polygons[c.unit1] = polygon.get();
@@ -464,142 +487,101 @@ struct CBSTreeNode {
     return true; // default
   }
 
-  //inline bool getcct(unsigned a1, unsigned a2)const{
-    //return cct[a1][a2 / 64] & (1UL << (a2 % 64));
-  //}
-
   inline void getCardinalPair(unsigned& a1, unsigned& a2)const{
-    static unsigned num((1+paths.size()/64));
-    for(a1=0; a1<paths.size(); ++a1){
-      if(cardinal[a1][0] || memcmp(cardinal[a1].data(),cardinal[a1].data()+1,num-1)){
-        for(int i(0); i<num; ++i){
-          if(cardinal[a1][i]){
-            a2=__builtin_ctzll(cardinal[a1][i])+(i*64);
-            return;
-          }
-        }
-      }
+    for(auto const& e:cardinal){
+      a1=e.first.a1;
+      a2=e.first.a2;
+      return;
     }
   }
 
   inline void getSemiCardinalPair(unsigned& a1, unsigned& a2)const{
-    static unsigned num((1+paths.size()/64));
-    for(a1=0; a1<paths.size(); ++a1){
-      if(semi[a1][0] || memcmp(semi[a1].data(),semi[a1].data()+1,num-1)){
-        for(int i(0); i<num; ++i){
-          if(semi[a1][i]){
-            a2=__builtin_ctzll(semi[a1][i])+(i*64);
-            return;
-          }
-        }
-      }
+    for(auto const& e:semi){
+      a1=e.first.a1;
+      a2=e.first.a2;
+      return;
     }
   }
 
   inline void getCollisionPair(unsigned& a1, unsigned& a2)const{
-    static unsigned num((1+paths.size()/64));
-    for(a1=0; a1<paths.size(); ++a1){
-      if(cct[a1][0] || memcmp(cct[a1].data(),cct[a1].data()+1,num-1)){
-        for(int i(0); i<num; ++i){
-          if(cct[a1][i]){
-            a2=__builtin_ctzll(cct[a1][i])+(i*64);
-            return;
-          }
-        }
-      }
+    for(auto const& e:cct){
+      a1=e.first.a1;
+      a2=e.first.a2;
+      return;
     }
   }
 
   inline bool hasCardinal()const{
-    static unsigned num(1+paths.size()/64);
-    for(int a1(0); a1<paths.size(); ++a1){
-      //std::cout << a1 << ":" << cardinal[a1][0] << "," << cardinal[a1][1] << "\n";
-      if(cardinal[a1][0] || memcmp(cardinal[a1].data(),cardinal[a1].data()+1,num-1)){
-         //std::cout << a1 << " Has cardinal\n";
-        return true;
-      }
-    }
-    return false;
+    return !cardinal.empty();
   }
 
   inline bool hasSemiCardinal()const{
-    static unsigned num(1+paths.size()/64);
-    for(int a1(0); a1<paths.size(); ++a1){
-      if(semi[a1][0] || memcmp(semi[a1].data(),semi[a1].data()+1,num-1)){
-        return true;
-      }
-    }
-    return false;
+    return !semi.empty();
   }
 
+  inline bool hasCollisions()const{
+    return !cct.empty();
+  }
 
   inline unsigned numCollisions()const{
     unsigned total(0);
-    for(int agent(0); agent<paths.size(); ++agent){
-        total+=numCollisions(agent);
-    }
-    return total/2; // Each collision is counted twice (a-->b,b-->a), hence div/2
-  }
-
-  inline unsigned numCollisions(unsigned agent)const{
-    unsigned total(0);
-    static unsigned num(1+paths.size()/64);
-    for(int i(0); i<num; ++i){
-      total+=__builtin_popcountll(cct[agent][i]);
+    for(auto const& e:cct){
+      total+= e.second.size();
     }
     return total;
   }
 
-  inline void setcardinal(unsigned a1, unsigned a2)const{
-    cardinal[a1][a2 / 64] |= (1UL << (a2 % 64));
-    cardinal[a2][a1 / 64] |= (1UL << (a1 % 64));
+  inline void setcardinal(unsigned a1, unsigned a2, unsigned ix1, unsigned ix2)const{
+    cardinal[{a1,a2}].emplace(ix1,ix2);
   }
 
-  inline void unsetcardinal(unsigned a1, unsigned a2)const{
-    cardinal[a1][a2 / 64] &= ~(1UL << (a2 % 64));
-    //cardinal[a2][a1 / 64] &= ~(1UL << (a1 % 64));
+  inline void unsetcardinal(unsigned a1, unsigned a2, unsigned ix1, unsigned ix2)const{
+    cardinal[{a1,a2}].erase({ix1,ix2});
   }
 
   inline void clearcardinal(unsigned a1)const{
-    memset(cardinal[a1].data(),0,cardinal[a1].size()*sizeof(uint64_t));
     for(int a2(0);a2<cardinal.size();++a2){
-      unsetcardinal(a2,a1);
+      auto ix(cardinal.find({a1,a2}));
+      if(ix != cardinal.end()){
+        ix->second.clear();
+      }
     }
   }
 
-  inline void setsemi(unsigned a1, unsigned a2)const{
-    semi[a1][a2 / 64] |= (1UL << (a2 % 64));
-    semi[a2][a1 / 64] |= (1UL << (a1 % 64));
+  inline void setsemi(unsigned a1, unsigned a2, unsigned ix1, unsigned ix2)const{
+    semi[{a1,a2}].emplace(ix1,ix2);
   }
 
-  inline void unsetsemi(unsigned a1, unsigned a2)const{
-    semi[a1][a2 / 64] &= ~(1UL << (a2 % 64));
-    //semi[a2][a1 / 64] &= ~(1UL << (a1 % 64));
+  inline void unsetsemi(unsigned a1, unsigned a2, unsigned ix1, unsigned ix2)const{
+    semi[{a1,a2}].erase({ix1,ix2});
   }
 
   inline void clearsemi(unsigned a1)const{
-    memset(semi[a1].data(),0,semi[a1].size()*sizeof(uint64_t));
     for(int a2(0);a2<semi.size();++a2){
-      unsetsemi(a2,a1);
+      auto ix(semi.find({a1,a2}));
+      if(ix != semi.end()){
+        ix->second.clear();
+      }
     }
   }
 
-  inline void setcct(unsigned a1, unsigned a2)const{
-    cct[a1][a2 / 64] |= (1UL << (a2 % 64));
-    cct[a2][a1 / 64] |= (1UL << (a1 % 64));
+  inline void setcct(unsigned a1, unsigned a2, unsigned ix1, unsigned ix2)const{
+    cct[{a1,a2}].emplace(ix1,ix2);
   }
 
-  inline void unsetcct(unsigned a1, unsigned a2)const{
-    cct[a1][a2 / 64] &= ~(1UL << (a2 % 64));
-    //cct[a2][a1 / 64] &= ~(1UL << (a1 % 64));
+  inline void unsetcct(unsigned a1, unsigned a2, unsigned ix1, unsigned ix2)const{
+    cct[{a1,a2}].erase({ix1,ix2});
   }
 
   inline void clearcct(unsigned a1)const{
-    memset(cct[a1].data(),0,cct[a1].size()*sizeof(uint64_t));
     for(int a2(0);a2<cct.size();++a2){
-      unsetcct(a2,a1);
+      auto ix(cct.find({a1,a2}));
+      if(ix != cct.end()){
+        ix->second.clear();
+      }
     }
   }
+
   std::vector<std::vector<int> > wpts;
   mutable std::unique_ptr<std::vector<state>> path;
   mutable std::unique_ptr<std::vector<Vector2D>> polygon;
@@ -607,9 +589,9 @@ struct CBSTreeNode {
   std::vector<std::vector<Vector2D>*> polygons;
   static Solution<state> basepaths;
   static Solution<Vector2D> basepolygons;
-  mutable std::vector<std::vector<uint64_t>> cardinal;
-  mutable std::vector<std::vector<uint64_t>> semi;
-  mutable std::vector<std::vector<uint64_t>> cct;
+  mutable std::unordered_map<agentpair_t,std::unordered_set<conflict_t,conflict_t>,agentpair_t> cardinal;
+  mutable std::unordered_map<agentpair_t,std::unordered_set<conflict_t,conflict_t>,agentpair_t> semi;
+  mutable std::unordered_map<agentpair_t,std::unordered_set<conflict_t,conflict_t>,agentpair_t> cct;
   std::vector<xyztAABB> sweep;
   Conflict<state> con;
   unsigned int parent;
@@ -1383,14 +1365,6 @@ void CBSGroup<state,action,comparison,conflicttable,maplanner,searchalgo>::Init(
         return a.lowerBound.x < b.lowerBound.x; // sort by x
         });
   }
-  if(Params::cct){
-    tree[0].cct=std::vector<std::vector<uint64_t>>(tree[0].basepaths.size(),std::vector<uint64_t>(tree[0].basepaths.size()/64+1,0));
-    if(Params::prioritizeConf){
-      tree[0].cardinal=std::vector<std::vector<uint64_t>>(tree[0].basepaths.size(),std::vector<uint64_t>(tree[0].basepaths.size()/64+1,0));
-      //std::cout << tree[0].hasCardinal() << " has Card\n";
-      tree[0].semi=std::vector<std::vector<uint64_t>>(tree[0].basepaths.size(),std::vector<uint64_t>(tree[0].basepaths.size()/64+1,0));
-    }
-  }
 }
 
 /** Update the location of a unit */
@@ -1905,10 +1879,13 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
 // 4=right-cardinal 0x0100
 // 6=both-cardinal  0x0110
 template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class searchalgo>
-unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::HasConflict(std::vector<state> const& a,
-    std::vector<int> const& wa, std::vector<state> const& b, std::vector<int> const& wb, int x, int y, Conflict<state> &c1,
-    Conflict<state> &c2, std::pair<unsigned, unsigned>& conflict, unsigned& ctype, bool update, bool countall) {
-  //CBSTreeNode<state, conflicttable>& location=tree[bestNode];
+unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::HasConflict(
+    std::vector<state> const& a, std::vector<int> const& wa,
+    std::vector<state> const& b, std::vector<int> const& wb,
+    int x, int y, Conflict<state> &c1, Conflict<state> &c2,
+    std::pair<unsigned, unsigned>& conflict, unsigned& ctype,
+    bool update, bool countall){
+  CBSTreeNode<state, conflicttable>& location=tree[bestNode];
   // The conflict parameter contains the conflict count so far (conflict.first)
   // and the type of conflict found so far (conflict.second=BOTH_CARDINAL being the highest)
 
@@ -1987,11 +1964,16 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, searchalg
     double ctime(0.0);
     if(ctime=collisionCheck3D(a[xTime], a[xNextTime], b[yTime], b[yNextTime], agentRadius)){
       ++conflict.first;
+      if(Params::cct){
+        location.setcct(x,y,xTime,yTime);
+      }
       if(!update && !countall){
         //std::cout << "Exiting conf check loop (!countall && !update) "<<x<<","<<y<<" - \n";
         break;} // We don't care about anything except whether there is at least one conflict
       if(verbose)
-        std::cout << conflict.first << " conflicts; #" << x << ":" << a[xTime] << "-->" << a[xNextTime] << " #" << y << ":"
+        std::cout << conflict.first << " conflicts; #"
+          << x << ":" << a[xTime] << "-->" << a[xNextTime]
+          << " #" << y << ":"
           << b[yTime] << "-->" << b[yNextTime] << "\n";
       if(update && (BOTH_CARDINAL != (ctype & BOTH_CARDINAL))) { // Keep updating until we find a both-cardinal conflict
         // Determine conflict type
@@ -2025,6 +2007,11 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, searchalg
           if(IsCardinal(y,b1,b2,x,a1,a2)){
             conf |= RIGHT_CARDINAL;
             //std::cout << "RIGHT_CARDINAL: " <<x<<","<<y<<"\n";
+          }
+          if(conf&BOTH_CARDINAL){
+            location.setcardinal(x,y,xTime,yTime);
+          }else if(conf&LEFT_CARDINAL || conf&RIGHT_CARDINAL){
+            location.setsemi(x,y,xTime,yTime);
           }
         }else{conf=BOTH_CARDINAL;}
         // Have we increased from non-cardinal to semi-cardinal or both-cardinal?
@@ -2328,14 +2315,6 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
           if(HasConflict(*location.paths[x], location.wpts[x], *location.paths[y], location.wpts[y], x, y,
                 best.second.first, best.second.second, best.first, (Params::prioritizeConf?ctype:best.first.second), update, false)){
             intraConflict=true;
-            location.setcct(x,y);
-            if(Params::prioritizeConf){
-              if(ctype==BOTH_CARDINAL)
-                location.setcardinal(x,y);
-              else if(ctype & LEFT_CARDINAL || ctype & RIGHT_CARDINAL)
-                location.setsemi(x,y);
-
-            }
           }
           best.first.second = std::max(ctype,best.first.second);
         }
@@ -2363,7 +2342,7 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
       c1 = best.second.first;
       c2 = best.second.second;
     }
-  }else if(location.numCollisions()){ // Are there any collisions left?
+  }else if(location.hasCollisions()){ // Are there any collisions left?
     unsigned x(0);
     unsigned y(0);
     if(Params::prioritizeConf){
@@ -2433,16 +2412,6 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
                   //best.second.first, best.second.second, best.first, best.first.second, update)){
                  best.second.first, best.second.second, best.first, (Params::prioritizeConf?ctype:best.first.second), update,false)){//||Params::cct,Params::cct)){
               ++intraConflicts;
-              if(Params::cct){
-                location.setcct(x,y);
-                if(Params::prioritizeConf){
-                  if(ctype==BOTH_CARDINAL)
-                    location.setcardinal(x,y);
-                  else if(ctype & LEFT_CARDINAL || ctype & RIGHT_CARDINAL)
-                    location.setsemi(x,y);
-
-                }
-              }
               best.first.second = std::max(ctype,best.first.second);
             }
           }
