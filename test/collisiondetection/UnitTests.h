@@ -1216,6 +1216,35 @@ else{std::cout << "p";}
   std::cout << "\nTotal time (Quadratic)" << t.EndTimer() << "\n";
 }
 
+TEST(PerfTest, GatedQuadratic){
+  Timer t;
+  t.StartTimer();
+  unsigned skipped(0);
+  for(int i(0); i<100000; ++i){
+    Vector2D a1(rfloat(),rfloat());
+    Vector2D a2(rfloat(),rfloat());
+    Vector2D b1(rfloat(),rfloat());
+    Vector2D b2(rfloat(),rfloat());
+    if(b1.x==a2.x&&b1.y==a2.y){std::cout << "f";skipped++;continue;}
+    Vector2D va(a2-a1);
+    va.Normalize();
+    Vector2D vb(b2-b1);
+    vb.Normalize();
+    auto at1(rfloat(0,5));
+    auto at2(rfloat(5,10));
+    auto bt1(rfloat(0,5));
+    auto bt2(rfloat(5,10));
+    if((std::min(a1.x,a2.x)<=std::max(b1.x,b2.x) && std::min(b1.x,b2.x)<=std::max(a1.x,a2.x) &&
+          std::min(a1.y,a2.y)<=std::max(b1.y,b2.y) && std::min(b1.y,b2.y)<=std::max(a1.y,a2.y))){
+
+      if(collisionImminent(a1,va,.25,at1,at2,b1,vb,.25,bt1,bt2)){
+        std::cout << "f";}
+      else{std::cout << "p";}
+    }else{skipped++;continue;}
+  }
+  std::cout << "\nTotal time (Gated Quadratic)" << t.EndTimer() << " " << skipped << " skipped\n";
+}
+
 TEST(PerfTest, AABB){
   Timer t;
   t.StartTimer();
@@ -1692,7 +1721,7 @@ TEST(Theta1, TestAnomaly){
   std::cout << "\n";
 }
 
-TEST(Theta1, TestStepAside){
+/*TEST(Theta1, TestStepAside){
   Map map(8,8);
   MapEnvironment menv(&map);
   Map2DConstrainedEnvironment env(&menv);
@@ -1816,7 +1845,7 @@ TEST(Theta1, TestDodging){
     ASSERT_TRUE(env.LineOfSight(solution[i-1],solution[i]));
   }
   std::cout << "\n";
-}
+}*/
 
 TEST(DISABLED_Theta, TestMotionConstrained3D){
   Map3D map(8,8,8);

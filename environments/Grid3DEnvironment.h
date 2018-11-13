@@ -252,6 +252,8 @@ public:
         void findIntervals(xyztLoc curNode, std::vector<std::pair<double,double>>& intervals, std::vector<double>& EAT, int w) const;
         inline void SetWaitAllowed(){waitAllowed=true;}
         inline void SetSurface(bool v){surface=v;}
+        inline void SetMaxCost(uint64_t v){maxcost=v;}
+        inline void SetUniqueCosts(bool v){uniquecosts=v;}
         Map3D::AgentType agentType;
         bool fullBranching=false;
 protected:
@@ -260,6 +262,8 @@ protected:
 	uint8_t connectedness;
 	bool waitAllowed;
         bool surface;
+        bool uniquecosts;
+        uint64_t maxcost;
         static double _h4(unsigned dx, unsigned dy, double result=0.0);
         static double h4(const xyztLoc &l1, const xyztLoc &l2);
         static double _h6(unsigned dx, unsigned dy, unsigned dz, double result=0.0);

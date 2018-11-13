@@ -25,7 +25,6 @@ PROJECTS = \
   mapalgorithms \
   shared \
   utils \
-  apps/airplane \
   apps/icts \
   apps/experimental \
   apps/mapUtils \
@@ -34,12 +33,13 @@ PROJECTS = \
   apps/MAPF \
   apps/MAAStar \
   apps/MAIDAStar \
-  apps/aacbs \
-  test/airplane \
   test/mapf \
   test/utils \
   test/collisiondetection \
   test/environments \
+  #apps/aacbs \
+  #apps/airplane \
+  #test/airplane \
   #apps/MO \
 #  apps/multiagent \
 #  apps/measure_inconsistency 

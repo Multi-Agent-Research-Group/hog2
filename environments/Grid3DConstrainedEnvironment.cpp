@@ -46,7 +46,7 @@ void Grid3DConstrainedEnvironment::GetSuccessors(const xyztLoc &nodeID, std::vec
   // TODO: remove illegal successors
   for (unsigned int x = 0; x < n.size(); x++)
   {
-    unsigned inc(mapEnv->GetConnectedness()?(Util::distance(nodeID.x,nodeID.y,n[x].x,n[x].y))*xyztLoc::TIME_RESOLUTION_D:xyztLoc::TIME_RESOLUTION);
+    unsigned inc(GCost(nodeID,n[x])); // GCOST=Time duration
     if(!inc)inc=WaitTime(); // Wait action
     n[x].t=nodeID.t+inc;
     //xyztLoc newLoc(n[x],

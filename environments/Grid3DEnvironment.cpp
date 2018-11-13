@@ -538,11 +538,10 @@ double Grid3DEnvironment::GCost(const xyztLoc &l1, const xyztLoc &l2) const
   static double multiplier(xyztLoc::TIME_RESOLUTION_D);
   if(l1.sameLoc(getGoal()) && l1.sameLoc(l2)){return 0.0;}
   if(uniquecosts){
-    uint64_t
     if(l1.sameLoc(l2)){return (l1.x+l1.y+l1.z+1)%xyztLoc::TIME_RESOLUTION_U;}
     uint64_t v1(GetStateHash(l1));
     uint64_t v2(GetStateHash(l2));
-    return (v1<v2?v1*map->GetMapHeight()*map->GetMapWidth()+v2:v2*map->GetMapHeight()*map->GetMapWidth()+v1)%(maxCost*xyztLoc::TIME_RESOLUTION_U);
+    return (v1<v2?v1*map->GetMapHeight()*map->GetMapWidth()+v2:v2*map->GetMapHeight()*map->GetMapWidth()+v1)%(maxcost*xyztLoc::TIME_RESOLUTION_U);
   }
   static const float SQRT_2(sqrt(2));
   static const float SQRT_3(sqrt(3));

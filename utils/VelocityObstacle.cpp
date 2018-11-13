@@ -531,6 +531,16 @@ double collisionImminent(Vector3D A, Vector3D const& VA, double radiusA, double 
   return fleq(ctime,std::min(endTimeB,endTimeA)-startTimeA)?ctime+startTimeA:0;
 }
 
+
+double collisionCheck3DSlow(TemporalVector3D const& A1, TemporalVector3D const& A2, TemporalVector3D const& B1, TemporalVector3D const& B2, double radiusA, double radiusB, double speedA, double speedB){
+  Vector3D VA(A2-A1);
+  VA.Normalize();
+  VA*=speedA;
+  Vector3D VB(B2-B1);
+  VB.Normalize();
+  VB*=speedA;
+  return collisionImminent(A1,VA,radiusA,A1.t,A2.t,B1,VB,radiusB?radiusB:radiusA,B1.t,B2.t);
+}
 // Check for collision between entities moving from A1 to A2 and B1 to B2
 // Speed is optional. If provided, should be in grids per unit time; time should also be pre adjusted to reflect speed.
 /*template<typename state>

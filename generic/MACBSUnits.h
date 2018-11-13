@@ -1323,7 +1323,7 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
         auto bp(tree[bestNode].paths[y]->begin());
         auto b(bp + 1);
         while (a != tree[bestNode].paths[x]->end() && b != tree[bestNode].paths[y]->end()) {
-          if (collisionCheck3D(*ap, *a, *bp, *b, agentRadius)) {
+          if (collisionCheck3D(*ap, *a, *bp, *b, agentRadius)){
             valid = false;
             std::cout << "ERROR: Solution invalid; collision at: " << x << ":" << *ap << "-->" << *a << ", " << y << ":"
                 << *bp << "-->" << *b << std::endl;
@@ -1985,7 +1985,7 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, searchalg
     //state const& bGoal(b[wb[pwptB + 1]]);
     collchecks++;
     double ctime(0.0);
-    if(ctime=collisionCheck3D(a[xTime], a[xNextTime], b[yTime], b[yNextTime], agentRadius)) {
+    if(ctime=collisionCheck3D(a[xTime], a[xNextTime], b[yTime], b[yNextTime], agentRadius)){
       ++conflict.first;
       if(!update && !countall){
         //std::cout << "Exiting conf check loop (!countall && !update) "<<x<<","<<y<<" - \n";
