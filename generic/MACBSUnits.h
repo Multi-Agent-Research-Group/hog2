@@ -26,7 +26,6 @@
 #include <iostream>
 #include <limits> 
 #include <algorithm>
-#include <unordered_map>
 #include <unordered_set>
 
 #include <queue>
@@ -428,16 +427,16 @@ void computeAABB(std::vector<Vector2D>& aabb, std::vector<state> const& path) {
 
 struct agentpair_t{
   agentpair_t():a1(0xffff),a2(0xffff){}
-  agentpair_t(unsigned i1, unsigned i2):a1(i1),a2(i2){}
+  agentpair_t(unsigned i1, unsigned i2):a1(i1),a2(i2){if(a2<a1){a1=i2;a2=i1;}}
   uint16_t a1;
   uint16_t a2;
   size_t operator==(agentpair_t const&pt)const{return pt.a1==a1 && pt.a2==a2;}
-  size_t operator()(agentpair_t const&pt)const{return pt.a1<pt.a2?pt.a1+pt.a2*0xffff:pt.a2+pt.a1*0xffff;}
+  size_t operator()(agentpair_t const&pt)const{return pt.a1+pt.a2*0xffff;}
 };
 
 struct conflict_t{
   conflict_t():ix1(0xffff),ix2(0xffff){}
-  conflict_t(unsigned i1, unsigned i2):ix1(i1),ix2(i2){}
+  conflict_t(unsigned i1, unsigned i2):ix1(i1),ix2(i2){if(ix2<ix1){ix1=i2;ix2=i1;}}
   uint16_t ix1;
   uint16_t ix2;
   size_t operator==(conflict_t const&pt)const{return pt.ix1==ix1 && pt.ix2==ix2;}
@@ -540,10 +539,10 @@ struct CBSTreeNode {
   }
 
   inline void clearcardinal(unsigned a1)const{
-    for(int a2(0);a2<cardinal.size();++a2){
+    for(int a2(0);a2<paths.size();++a2){
       auto ix(cardinal.find({a1,a2}));
       if(ix != cardinal.end()){
-        ix->second.clear();
+        cardinal.erase(ix);
       }
     }
   }
@@ -557,10 +556,10 @@ struct CBSTreeNode {
   }
 
   inline void clearsemi(unsigned a1)const{
-    for(int a2(0);a2<semi.size();++a2){
+    for(int a2(0);a2<paths.size();++a2){
       auto ix(semi.find({a1,a2}));
       if(ix != semi.end()){
-        ix->second.clear();
+        semi.erase(ix);
       }
     }
   }
@@ -574,10 +573,10 @@ struct CBSTreeNode {
   }
 
   inline void clearcct(unsigned a1)const{
-    for(int a2(0);a2<cct.size();++a2){
+    for(int a2(0);a2<paths.size();++a2){
       auto ix(cct.find({a1,a2}));
       if(ix != cct.end()){
-        ix->second.clear();
+        cct.erase(ix);
       }
     }
   }
@@ -854,14 +853,14 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
   std::pair<unsigned,unsigned> numConflicts;
   if(Params::precheck==PRE_SAP){
     // Update the sweep list while counting collisions at the same time
-    if(bestNode && Params::cct){
+    if((bestNode!=0) && Params::cct){
       numConflicts=FindHiPriConflictOneVsAllSAP(tree[bestNode], c1, c2);
       numConflicts.first=tree[bestNode].numCollisions();
     }else{
       numConflicts=FindHiPriConflictAllPairsSAP(tree[bestNode], c1, c2);
     }
   }else{
-    if(bestNode && Params::cct){
+    if((bestNode!=0) && Params::cct){
       numConflicts=FindHiPriConflictOneVsAll(tree[bestNode], c1, c2);
       numConflicts.first=tree[bestNode].numCollisions();
     }else{
@@ -2313,7 +2312,7 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
           }
           unsigned ctype(NO_CONFLICT);
           if(HasConflict(*location.paths[x], location.wpts[x], *location.paths[y], location.wpts[y], x, y,
-                best.second.first, best.second.second, best.first, (Params::prioritizeConf?ctype:best.first.second), update, false)){
+                best.second.first, best.second.second, best.first, (Params::prioritizeConf?ctype:best.first.second), update, true)){
             intraConflict=true;
           }
           best.first.second = std::max(ctype,best.first.second);
@@ -2361,7 +2360,7 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
     }
     //std::cout << "selected " << x << ","<<y<<"\n";
     assert(HasConflict(*location.paths[x], location.wpts[x], *location.paths[y], location.wpts[y], x, y,
-          best.second.first, best.second.second, best.first, best.first.second, true, false));
+          best.second.first, best.second.second, best.first, best.first.second, true, true));
     metaAgentConflictMatrix[best.second.first.unit1][best.second.second.unit1]++;
     c1 = best.second.first;
     c2 = best.second.second;
@@ -2410,7 +2409,7 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
             unsigned ctype(NO_CONFLICT);
             if(HasConflict(*location.paths[x], location.wpts[x], *location.paths[y], location.wpts[y], x, y,
                   //best.second.first, best.second.second, best.first, best.first.second, update)){
-                 best.second.first, best.second.second, best.first, (Params::prioritizeConf?ctype:best.first.second), update,false)){//||Params::cct,Params::cct)){
+                 best.second.first, best.second.second, best.first, (Params::prioritizeConf?ctype:best.first.second), update,true)){
               ++intraConflicts;
               best.first.second = std::max(ctype,best.first.second);
             }
