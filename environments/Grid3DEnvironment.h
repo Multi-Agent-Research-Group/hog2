@@ -191,7 +191,7 @@ class Grid3DEnvironment : public SearchEnvironment<xyztLoc, t3DDirection>
 {
 public:
 	Grid3DEnvironment(Map3D *m, bool wait=false,Map3D::AgentType a=Map3D::air);
-	Grid3DEnvironment(Grid3DEnvironment *);
+	//Grid3DEnvironment(Grid3DEnvironment *);
 	virtual ~Grid3DEnvironment();
         virtual std::string name()const{return std::string("Grid3DEnvironment");}
 	void SetGraphHeuristic(GraphHeuristic *h);
@@ -254,16 +254,16 @@ public:
         inline void SetSurface(bool v){surface=v;}
         inline void SetMaxCost(uint64_t v){maxcost=v;}
         inline void SetUniqueCosts(bool v){uniquecosts=v;}
-        Map3D::AgentType agentType;
+        Map3D::AgentType agentType=Map3D::surface;
         bool fullBranching=false;
 protected:
-	GraphHeuristic *h;
-	Map3D *map;
-	uint8_t connectedness;
-	bool waitAllowed;
-        bool surface;
-        bool uniquecosts;
-        uint64_t maxcost;
+	GraphHeuristic *h=0;
+	Map3D *map=0;
+	uint8_t connectedness=0;
+	bool waitAllowed=true;
+        bool surface=true;
+        bool uniquecosts=false;
+        uint64_t maxcost=0;
         static double _h4(unsigned dx, unsigned dy, double result=0.0);
         static double h4(const xyztLoc &l1, const xyztLoc &l2);
         static double _h6(unsigned dx, unsigned dy, unsigned dz, double result=0.0);

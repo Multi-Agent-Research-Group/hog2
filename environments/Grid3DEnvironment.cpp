@@ -27,15 +27,11 @@
 
 using namespace Graphics2D;
 
-Grid3DEnvironment::Grid3DEnvironment(Map3D *_m,bool w,Map3D::AgentType a):h(nullptr),map(_m),connectedness(0),waitAllowed(w),agentType(a){
+Grid3DEnvironment::Grid3DEnvironment(Map3D *_m,bool w,Map3D::AgentType a):h(nullptr),map(_m),connectedness(0),waitAllowed(w),agentType(a),uniquecosts(false){
 }
 
-Grid3DEnvironment::Grid3DEnvironment(Grid3DEnvironment *me)
-{
-	map = me->map->Clone();
-	h = 0;
-	connectedness = me->connectedness;
-}
+//Grid3DEnvironment::Grid3DEnvironment(Grid3DEnvironment *me):map(me->map->Clone()),h(0),connectedness(me->connectedness)
+//{ }
 
 Grid3DEnvironment::~Grid3DEnvironment()
 {

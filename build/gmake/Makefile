@@ -30,13 +30,13 @@ PROJECTS = \
   apps/mapUtils \
   apps/3dmaps \
   apps/MACBS \
-  apps/MAPF \
   apps/MAAStar \
   apps/MAIDAStar \
   test/mapf \
   test/utils \
   test/collisiondetection \
   test/environments \
+  #apps/MAPF \
   #apps/aacbs \
   #apps/airplane \
   #test/airplane \
