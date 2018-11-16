@@ -2325,11 +2325,11 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
     // Make sure that the conflict counted is the one being returned (and being translated to meta-agent indices)
     if (best.first.second > previous && (intraConflict)) {
       if (Params::usecrossconstraints) {
-        best.second.first.unit1 = b;
-        best.second.second.unit1 = location.con.unit1;
-      } else {
         best.second.first.unit1 = location.con.unit1;
         best.second.second.unit1 = b;
+      } else {
+        best.second.first.unit1 = b;
+        best.second.second.unit1 = location.con.unit1;
       }
     }
     if(best.first.second==BOTH_CARDINAL){update=false;} // Now that we've found a both cardinal conflict, no sense updating
