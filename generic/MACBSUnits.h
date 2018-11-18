@@ -1993,10 +1993,10 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, searchalg
             //a1.t=ctime*state::TIME_RESOLUTION_U;
             //b1.t=ctime*state::TIME_RESOLUTION_U;
             if(a1.sameLoc(a2)){
-              a2.t=a1.t+currentEnvironment[x]->environment->WaitTime();
+              a2.t=b2.t+currentEnvironment[x]->environment->WaitTime();
             }
             if(b1.sameLoc(b2)){
-              b2.t=b1.t+currentEnvironment[x]->environment->WaitTime();
+              b2.t=a2.t+currentEnvironment[x]->environment->WaitTime();
             }
           if(IsCardinal(x,a1,a2,y,b1,b2)){
             conf |= LEFT_CARDINAL;
@@ -2380,6 +2380,7 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
 
   Timer tmr;
   tmr.StartTimer();
+  unsigned ctype(NO_CONFLICT);
   for (unsigned a(0); a < activeMetaAgents.size(); ++a) {
     for (unsigned b(a + 1); b < activeMetaAgents.size(); ++b) {
       unsigned intraConflicts(0); // Conflicts between meta-agents
@@ -2406,7 +2407,6 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
                 location.paths[y]->back().t=location.paths[x]->back().t;
               }
             }
-            unsigned ctype(NO_CONFLICT);
             if(HasConflict(*location.paths[x], location.wpts[x], *location.paths[y], location.wpts[y], x, y,
                   //best.second.first, best.second.second, best.first, best.first.second, update)){
                  best.second.first, best.second.second, best.first, (Params::prioritizeConf?ctype:best.first.second), update,true)){
