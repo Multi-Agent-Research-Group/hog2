@@ -62,6 +62,7 @@ std::string mapfile;
 std::string dtedfile;
 unsigned mergeThreshold(5);
 std::vector<std::vector<xyztLoc> > waypoints;
+Solution<xyztLoc> solution;
 //std::vector<SoftConstraint<xytLoc> > sconstraints;
 #define NUMBER_CANONICAL_STATES 10
 
@@ -86,7 +87,7 @@ std::vector<std::vector<xyztLoc> > waypoints;
   //typedef CBSGroup<xyztLoc,t3DDirection,UnitTieBreaking3D<xyztLoc,t3DDirection>,UnitTimeCAT<xyztLoc,t3DDirection>,ICTSAlgorithm<xyztLoc,t3DDirection>> MACBSGroup;
   typedef CBSUnit<xyztLoc,t3DDirection,TieBreaking3D<xyztLoc,t3DDirection>,NonUnitTimeCAT<xyztLoc,t3DDirection>> MACBSUnit;
   typedef CBSGroup<xyztLoc,t3DDirection,TieBreaking3D<xyztLoc,t3DDirection>,NonUnitTimeCAT<xyztLoc,t3DDirection>,ICTSAlgorithm<xyztLoc,t3DDirection>> MACBSGroup;
-  MACBSGroup* group(nullptr);
+  std::vector<MACBSGroup*> groups;
 
   template<>
   double NonUnitTimeCAT<xyztLoc, t3DDirection>::bucketWidth=xyztLoc::TIME_RESOLUTION_D;
@@ -110,14 +111,17 @@ int main(int argc, char* argv[])
   else
   {
     InitHeadless();
-    while (true)
-    {
-      group->ExpandOneCBSNode();
-    }
-    if(verbose)for(int i(0);i<group->GetNumMembers();++i){
-      std::cout << "final path for agent " << i << ":\n";
-      for(auto const& n: *group->tree.back().paths[i])
-        std::cout << n << "\n";
+    //std::cout << solution;
+    while(!detectIndependence()){
+      for(auto& group:groups){
+        while(group->ExpandOneCBSNode()){
+        }
+        if(verbose)for(int i(0);i<group->GetNumMembers();++i){
+          std::cout << "path for agent " << i << ":\n";
+          for(auto const& n: *group->tree.back().paths[i])
+            std::cout << n << "\n";
+        }
+      }
     }
   }
 }
@@ -227,102 +231,154 @@ void MyWindowHandler(unsigned long windowID, tWindowEventType eType)
 
 void InitHeadless(){
   ace=(Grid3DConstrainedEnvironment*)environs[0].rbegin()->environment;
+  groups.resize(num_agents);
+  solution.resize(num_agents);
+  int i(0);
+  for(auto& group:groups){
+    group=new MACBSGroup(environs,{i},verbose)};
+    Params::greedyCT=greedyCT;
+    group->disappearAtGoal=disappearAtGoal;
+    group->timer=new Timer();
+    group->seed=seed;
+    group->keeprunning=gui;
+    group->animate=animate;
+    group->killex=killex;
+    group->mergeThreshold=mergeThreshold;
+    group->ECBSheuristic=ECBSheuristic;
+    group->nobypass=nobypass;
+    group->verify=verify;
+    Params::greedyCT=suboptimal;
+    group->quiet=quiet;
+    UnitTieBreaking3D<xyztLoc,t3DDirection>::randomalg=randomalg;
+    UnitTieBreaking3D<xyztLoc,t3DDirection>::useCAT=useCAT;
+    TieBreaking3D<xyztLoc,t3DDirection>::randomalg=randomalg;
+    TieBreaking3D<xyztLoc,t3DDirection>::useCAT=useCAT;
+    if(gui){
+      sim = new UnitSim(ace);
+      sim->SetStepType(kLockStep);
+      sim->SetLogStats(false);
 
-  group = new MACBSGroup(environs,verbose); // Changed to 10,000 expansions from number of conflicts in the tree
-  Params::greedyCT=greedyCT;
-  group->disappearAtGoal=disappearAtGoal;
-  group->timer=new Timer();
-  group->seed=seed;
-  group->keeprunning=gui;
-  group->animate=animate;
-  group->killex=killex;
-  group->mergeThreshold=mergeThreshold;
-  group->ECBSheuristic=ECBSheuristic;
-  group->nobypass=nobypass;
-  group->verify=verify;
-  Params::greedyCT=suboptimal;
-  group->quiet=quiet;
-  UnitTieBreaking3D<xyztLoc,t3DDirection>::randomalg=randomalg;
-  UnitTieBreaking3D<xyztLoc,t3DDirection>::useCAT=useCAT;
-  TieBreaking3D<xyztLoc,t3DDirection>::randomalg=randomalg;
-  TieBreaking3D<xyztLoc,t3DDirection>::useCAT=useCAT;
-  if(gui){
-    sim = new UnitSim(ace);
-    sim->SetStepType(kLockStep);
-    sim->SetLogStats(false);
+      sim->AddUnitGroup(group);
+    }
 
-    sim->AddUnitGroup(group);
-  }
+    if(verbose)std::cout << "Adding agent " << i << std::endl;
 
-  if(verbose)std::cout << "Adding " << num_agents << "agents." << std::endl;
-
-  for (int i = 0; i < num_agents; i++) {
-    if(waypoints.size()<num_agents){
-      // Adding random waypoints
-      std::vector<xyztLoc> s;
-      unsigned r(maxsubgoals-minsubgoals);
-      int numsubgoals(minsubgoals+1);
-      if(r>0){
-        numsubgoals = rand()%(maxsubgoals-minsubgoals)+minsubgoals+1;
-      }
-      if(verbose)std::cout << "Agent " << i << " add " << numsubgoals << " subgoals\n";
-
-      for(int n(0); n<numsubgoals; ++n){
-        bool conflict(true);
-        while(conflict){
-          conflict=false;
-          xyztLoc start(rand() % width, rand() % length, rand() % height,0u);
-          if(!ace->GetMap()->IsTraversable(start.x,start.y,start.z,Map3D::air)){conflict=true;continue;}
-          for (int j = 0; j < waypoints.size(); j++)
-          {
-            if(i==j){continue;}
-            if(waypoints[j].size()>n)
-            {
-              xyztLoc a(waypoints[j][n]);
-              // Make sure that no subgoals at similar times have a conflict
-              Collision<xyztLoc> x_c(a,a,agentRadius);
-              if(x_c.ConflictsWith(start,start)){conflict=true;break;}
-              if(a==start){conflict=true;break;}
-            }
-            /*xytLoc a(start,1.0);
-            xytLoc b(a);
-            b.x++;
-            if(conflict=ace->ViolatesConstraint(a,b)){break;}*/
-          }
-          if(!conflict) s.push_back(start);
+      if(waypoints.size()<num_agents){
+        // Adding random waypoints
+        std::vector<xyztLoc> s;
+        unsigned r(maxsubgoals-minsubgoals);
+        int numsubgoals(minsubgoals+1);
+        if(r>0){
+          numsubgoals = rand()%(maxsubgoals-minsubgoals)+minsubgoals+1;
         }
-      }
-      waypoints.push_back(s);
-    }
-    for(auto w(waypoints.begin()+1); w!=waypoints.end();/*++w*/){
-      if(*(w-1) == *w)
-        waypoints.erase(w);
-      else
-        ++w;
-    }
+        if(verbose)std::cout << "Agent " << i << " add " << numsubgoals << " subgoals\n";
 
-    if(!quiet){
-      std::cout << "Set unit " << i << " subgoals: ";
-      for(auto &a: waypoints[i])
-        std::cout << a << " ";
-      std::cout << std::endl;
-    }
-    float softEff(.9);
-    MACBSUnit* unit = new MACBSUnit(waypoints[i],softEff);
-    unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
-    group->AddUnit(unit); // Add to the group
-    if(verbose)std::cout << "initial path for agent " << i << ":\n";
-    if(verbose)for(auto const& n: *group->tree[0].paths[i])
-      std::cout << n << "\n";
-    if(gui){sim->AddUnit(unit);} // Add to the group
+        for(int n(0); n<numsubgoals; ++n){
+          bool conflict(true);
+          while(conflict){
+            conflict=false;
+            xyztLoc start(rand() % width, rand() % length, rand() % height,0u);
+            if(!ace->GetMap()->IsTraversable(start.x,start.y,start.z,Map3D::air)){conflict=true;continue;}
+            for (int j = 0; j < waypoints.size(); j++)
+            {
+              if(i==j){continue;}
+              if(waypoints[j].size()>n)
+              {
+                xyztLoc a(waypoints[j][n]);
+                // Make sure that no subgoals at similar times have a conflict
+                Collision<xyztLoc> x_c(a,a,agentRadius);
+                if(x_c.ConflictsWith(start,start)){conflict=true;break;}
+                if(a==start){conflict=true;break;}
+              }
+              /*xytLoc a(start,1.0);
+                xytLoc b(a);
+                b.x++;
+                if(conflict=ace->ViolatesConstraint(a,b)){break;}*/
+            }
+            if(!conflict) s.push_back(start);
+          }
+        }
+        waypoints.push_back(s);
+      }
+      for(auto w(waypoints.begin()+1); w!=waypoints.end();/*++w*/){
+        if(*(w-1) == *w)
+          waypoints.erase(w);
+        else
+          ++w;
+      }
+
+      if(!quiet){
+        std::cout << "Set unit " << i << " subgoals: ";
+        for(auto &a: waypoints[i])
+          std::cout << a << " ";
+        std::cout << std::endl;
+      }
+      float softEff(.9);
+      MACBSUnit* unit = new MACBSUnit(waypoints[i],softEff);
+      unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
+      group->AddUnit(unit); // Add to the group
+      if(verbose)std::cout << "initial path for agent " << i << ":\n";
+      if(verbose)for(auto const& n: *group->tree[0].paths[i])
+        std::cout << n << "\n";
+      if(gui){sim->AddUnit(unit);} // Add to the group
+
+    //assert(false && "Exit early");
+    group->Init();
+    solution[i]=group->tree[i].basepaths[0];
+    ++i;
   }
   if(!gui){
     Timer::Timeout func(std::bind(&MACBSGroup::processSolution, group, std::placeholders::_1));
-    group->timer->StartTimeout(std::chrono::seconds(killtime),func);
+    group[0]->timer->StartTimeout(std::chrono::seconds(killtime),func);
   }
-  //assert(false && "Exit early");
-  group->Init();
 }
+
+bool detectIndependence(){
+  bool independent(true);
+  // Check all pairs for collision
+  for(int i(0); i<solution.size(); ++i){
+    for(int j(i+1); j<solution.size(); ++j){
+      auto a(1);
+      auto b(1);
+      while (a != solution[i]->end() && b != solution[j]->end()) {
+        if (collisionCheck3D(solution[i][a-1], solution[i][a], solution[j][b-1], solution[j][b], agentRadius)){
+          independent = false;
+          std::cout << "NOT INDEPENDENT: " << i << ":" << solution[i][a-1] << "-->" << solution[i][a] << ", " << j << ":"
+            << solution[j][b-1] << "-->" << solution[j][b] << std::endl;
+          if(groups[i]==groups[j]){
+            break;
+          }
+          // Combine groups i and j
+          MACBSGroup* toDelete(group[j]);
+          for(auto ag:*groups[j].agents){
+            if(verbose)std::cout << "Inserting agent " << ag << " into group for agent " << i << "\n";
+            groups[i]->agents.insert(ag);
+            groups[ag]=groups[i];
+            //maxnagents=std::max(group[i]->agents.size(),maxnagents);
+          }
+          delete toDelete;
+          toDelete=groups[i];
+          groups[i]=new MACBSGroup(environs,groups[i]->agents,verbose)};
+          delete toDelete;
+          for(auto ag:*groups[i].agents){
+            groups[ag]=groups[i];
+          }
+          break;
+        }
+      }
+      if (solution[i][a].t < solution[j][b].t) {
+        ++a;
+      } else if (solution[i][a].t > solution[j][b].t) {
+        ++b;
+      } else {
+        ++a;
+        ++b;
+      }
+    }
+  }
+  return independent;
+}
+
 
 void InitSim(){
   InitHeadless();

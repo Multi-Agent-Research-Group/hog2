@@ -618,6 +618,8 @@ struct ClearablePQ:public std::priority_queue<T,C,Cmp>{
   }
 };
 
+typedef std::unordered_set<uint16_t> Group;
+
 template<typename state, typename action, typename comparison, typename conflicttable, class maplanner,
     class searchalgo = TemporalAStar<state, action, ConstrainedEnvironment<state, action>,
         AStarOpenClosed<state, comparison>>>
@@ -650,6 +652,7 @@ public:
   void processSolution(double);
   searchalgo astar;
   unsigned mergeThreshold;
+  Group agents;
 
 private:
 
@@ -811,9 +814,9 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
 /** constructor **/
 template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class searchalgo>
 CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::CBSGroup(
-    std::vector<std::vector<EnvironmentContainer<state, action>>>& environvec, bool v)
+    std::vector<std::vector<EnvironmentContainer<state, action>>>& environvec, Group const& g, bool v)
     : time(0), bestNode(0), planFinished(false), verify(false), nobypass(false), ECBSheuristic(false), killex(INT_MAX), keeprunning(
-        false), animate(0), seed(1234567), timer(0), verbose(v), mergeThreshold(5), quiet(true) {
+        false), animate(0), seed(1234567), timer(0), verbose(v), mergeThreshold(5), quiet(true), agents(g){
   //std::cout << "THRESHOLD " << threshold << "\n";
 
   tree.resize(1);
@@ -870,6 +873,7 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
   // If no conflicts are found in this node, then the path is done
   if (numConflicts.first == 0) {
     processSolution(timer->EndTimer());
+    return false;
   } else {
     // If the conflict is NON_CARDINAL, try the bypass
     // if semi-cardinal, try bypass on one and create a child from the other
@@ -1349,8 +1353,8 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
   std::cout << total << std::endl;
   TOTAL_EXPANSIONS = 0;
   planFinished = true;
-  if (!keeprunning)
-    exit(0);
+  //if (!keeprunning)
+    //exit(0);
 }
 
 template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class searchalgo>
@@ -1658,7 +1662,7 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
           std::cout << "BYPASS -- solution\n";
         }
         processSolution(timer->EndTimer());
-        break;
+        return true;
       }
     } while (fleq(astar.GetNextPath(currentEnvironment[theUnit]->environment, start, goal, path, minTime), cost));
   }
