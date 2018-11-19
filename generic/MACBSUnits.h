@@ -2284,6 +2284,7 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
 
   Timer tmr;
   tmr.StartTimer();
+  unsigned ctype(NO_CONFLICT);
   for (unsigned b(0); b < activeMetaAgents.size(); ++b) {
     if(b==location.con.unit1)continue;
     bool intraConflict(false); // Conflict between meta-agents
@@ -2310,7 +2311,6 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
               location.paths[y]->back().t=location.paths[x]->back().t;
             }
           }
-          unsigned ctype(NO_CONFLICT);
           if(HasConflict(*location.paths[x], location.wpts[x], *location.paths[y], location.wpts[y], x, y,
                 best.second.first, best.second.second, best.first, (Params::prioritizeConf?ctype:best.first.second), update, true)){
             intraConflict=true;
