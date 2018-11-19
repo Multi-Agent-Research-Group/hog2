@@ -1467,7 +1467,7 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
   if (comparison::useCAT) {
     tree[0].cat.insert(*tree[0].paths.back(), currentEnvironment[theUnit]->environment, tree[0].paths.size() - 1);
   }
-  StayAtGoal(0); // Do this every time a unit is added because these updates are taken into consideration by the CAT
+  //StayAtGoal(0); // Do this every time a unit is added because these updates are taken into consideration by the CAT
 
   // Set the plan finished to false, as there's new updates
   planFinished = false;
@@ -2025,10 +2025,10 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, searchalg
             //a1.t=ctime*state::TIME_RESOLUTION_U;
             //b1.t=ctime*state::TIME_RESOLUTION_U;
             if(a1.sameLoc(a2)){
-              a2.t=a1.t+currentEnvironment[x]->environment->WaitTime();
+              a2.t=b2.t;//+currentEnvironment[x]->environment->WaitTime();
             }
             if(b1.sameLoc(b2)){
-              b2.t=b1.t+currentEnvironment[x]->environment->WaitTime();
+              b2.t=a2.t;//+currentEnvironment[x]->environment->WaitTime();
             }
             c1.c.reset((Constraint<state>*) new Collision<state>(a1, a2));
             c2.c.reset((Constraint<state>*) new Collision<state>(b1, b2));
