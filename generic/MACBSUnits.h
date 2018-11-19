@@ -2007,9 +2007,9 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, searchalg
             conf |= RIGHT_CARDINAL;
             //std::cout << "RIGHT_CARDINAL: " <<x<<","<<y<<"\n";
           }
-          if(conf&BOTH_CARDINAL){
+          if(conf>=BOTH_CARDINAL){
             location.setcardinal(x,y,xTime,yTime);
-          }else if(conf&LEFT_CARDINAL || conf&RIGHT_CARDINAL){
+          }else if(conf&BOTH_CARDINAL){
             location.setsemi(x,y,xTime,yTime);
           }
         }else{conf=BOTH_CARDINAL;}
