@@ -95,12 +95,40 @@ class Constraint : public DrawableConstraint{
 };
 
 template<typename State>
+class Box : public Constraint<State> {
+  public:
+    Box():Constraint<State>(){}
+    Box(State const& start, State const& end):Constraint<State>(start,end) {}
+    virtual double ConflictsWith(State const& s) const {return 0;} // Vertex collisions are ignored
+    // Check whether the opposing action has an edge or bounding box conflict
+    virtual double ConflictsWith(State const& from, State const& to) const {
+      // Check time...
+      if(this->start_state.t > to.t ||
+          this->end_state.t < from.t){
+        return 0;
+      }
+      // Check edge collisions...
+      if(this->start_state.sameLoc(to) && this->end_state.sameLoc(from)){
+        return std::max(this->start_state.t, from.t);
+      }
+      // Check bounding box...
+      return (std::min(this->start_state.x,this->end_state.x) > std::max(to.x,from.x) ||
+          std::max(this->start_state.x,this->end_state.x) < std::min(to.x,from.x) ||
+          std::min(this->start_state.y,this->end_state.y) > std::max(to.y,from.y) ||
+          std::max(this->start_state.y,this->end_state.y) < std::min(to.y,from.y))? 0 :
+        std::max(this->start_state.t, from.t);
+
+    }
+};
+
+template<typename State>
 class Identical : public Constraint<State> {
   public:
     Identical():Constraint<State>(){}
     Identical(State const& start, State const& end):Constraint<State>(start,end) {}
     virtual double ConflictsWith(State const& s) const {return 0;} // Vertex collisions are ignored
-    virtual double ConflictsWith(State const& from, State const& to) const {return (from.sameLoc(this->start_state) && to.sameLoc(this->end_state))?from.t:0;}
+    // Check whether the action has the exact same time and to/from
+    virtual double ConflictsWith(State const& from, State const& to) const {return (from==this->start_state && to==this->end_state)?from.t:0;}
 };
 
 template<typename State>
@@ -109,6 +137,7 @@ class Collision : public Constraint<State> {
     Collision(double radius=.25):Constraint<State>(),agentRadius(radius){}
     Collision(State const& start, State const& end,double radius=.25):Constraint<State>(start,end),agentRadius(radius){}
     virtual double ConflictsWith(State const& s) const {return 0;} // Vertex collisions are ignored
+    // Check whether the opposing action has a conflict with this one
     virtual double ConflictsWith(State const& from, State const& to) const {return collisionCheck3D(from,to,this->start_state,this->end_state,agentRadius);}
     virtual double ConflictsWith(Collision<State> const& x) const {return collisionCheck3D(this->start_state,this->end_state,x.start_state,x.end_state,agentRadius,x.agentRadius);}
     virtual void OpenGLDraw(MapInterface*) const {}

@@ -79,6 +79,7 @@ struct Params {
   static unsigned conn;
   static bool prioritizeConf;
   static bool usecrossconstraints;
+  static bool boxconstraints;
 };
 unsigned Params::precheck = 0;
 unsigned Params::conn = 1;
@@ -87,6 +88,7 @@ bool Params::cct = false;
 bool Params::skip = false;
 bool Params::prioritizeConf = false;
 bool Params::usecrossconstraints = true;
+bool Params::boxconstraints = false;
 
 template<class state>
 struct CompareLowGCost {
@@ -1839,7 +1841,11 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
   CBSTreeNode<state, conflicttable>& location=tree[bestNode];
   std::unique_ptr<Constraint<state>> constraint;
   if (Params::usecrossconstraints) {
-    constraint.reset((Constraint<state>*) new Collision<state>(b1,b2));
+    if(Params::boxconstraints){
+      constraint.reset((Box<state>*) new Box<state>(b1,b2));
+    }else{
+      constraint.reset((Constraint<state>*) new Collision<state>(b1,b2));
+    }
   } else {
     constraint.reset((Constraint<state>*) new Identical<state>(a1,a2));
   }
@@ -1961,7 +1967,7 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, searchalg
     //state const& bGoal(b[wb[pwptB + 1]]);
     collchecks++;
     double ctime(0.0);
-    if(ctime=collisionCheck3D(a[xTime], a[xNextTime], b[yTime], b[yNextTime], agentRadius)){
+    if(ctime=Params::boxconstraints?Box<state>(a[xTime], a[xNextTime]).ConflictsWith(b[yTime], b[yNextTime]):collisionCheck3D(a[xTime], a[xNextTime], b[yTime], b[yNextTime], agentRadius)){
       ++conflict.first;
       if(Params::cct){
         location.setcct(x,y,xTime,yTime);
@@ -1974,7 +1980,7 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, searchalg
           << x << ":" << a[xTime] << "-->" << a[xNextTime]
           << " #" << y << ":"
           << b[yTime] << "-->" << b[yNextTime] << "\n";
-      if(update && (BOTH_CARDINAL != (ctype & BOTH_CARDINAL))) { // Keep updating until we find a both-cardinal conflict
+      if(update) { // Keep updating until we find a both-cardinal conflict
         // Determine conflict type
         unsigned conf(NO_CONFLICT);
         //std::cout << "CONFLICT: " <<x<<","<<y<<"\n";
@@ -2025,13 +2031,18 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, searchalg
             //a1.t=ctime*state::TIME_RESOLUTION_U;
             //b1.t=ctime*state::TIME_RESOLUTION_U;
             if(a1.sameLoc(a2)){
-              a2.t=a1.t+currentEnvironment[x]->environment->WaitTime();
+              a2.t=b2.t;//+currentEnvironment[x]->environment->WaitTime();
             }
             if(b1.sameLoc(b2)){
-              b2.t=b1.t+currentEnvironment[x]->environment->WaitTime();
+              b2.t=a2.t;//+currentEnvironment[x]->environment->WaitTime();
             }
-            c1.c.reset((Constraint<state>*) new Collision<state>(a1, a2));
-            c2.c.reset((Constraint<state>*) new Collision<state>(b1, b2));
+            if(Params::boxconstraints){
+              c1.c.reset((Box<state>*) new Box<state>(a1, a2));
+              c2.c.reset((Box<state>*) new Box<state>(b1, b2));
+            }else{
+              c1.c.reset((Constraint<state>*) new Collision<state>(a1, a2));
+              c2.c.reset((Constraint<state>*) new Collision<state>(b1, b2));
+            }
             c1.unit1 = y;
             c2.unit1 = x;
             c1.prevWpt = pwptB;
@@ -2119,7 +2130,7 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
             location.sweep[a].lowerBound.y<=(*c)->upperBound.y &&
             location.sweep[a].upperBound.y>=(*c)->lowerBound.y){
           // Decide if this is a cardinal conflict
-          if(collisionCheck3D(location.sweep[a].start, location.sweep[a].end, location.sweep[b].start, location.sweep[b].end, agentRadius)) {
+          if(Params::boxconstraints?Box<state>(location.sweep[a].start, location.sweep[a].end).ConflictsWith(location.sweep[b].start,location.sweep[b].end):collisionCheck3D(location.sweep[a].start, location.sweep[a].end,location.sweep[b].start,location.sweep[b].end, agentRadius)){
             ++conflict.first;
             if(!update && !countall){return conflict;} // We don't care about anything except whether there is at least one conflict
             if (verbose)
@@ -2148,8 +2159,25 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
                 ctype = conf + 1;
 
                 if (Params::usecrossconstraints) {
-                  c1.c.reset((Constraint<state>*) new Collision<state>(location.sweep[a].start, location.sweep[a].end));
-                  c2.c.reset((Constraint<state>*) new Collision<state>(location.sweep[b].start, location.sweep[b].end));
+                  state a1(location.sweep[a].start);
+                  state a2(location.sweep[a].end);
+                  state b1(location.sweep[b].start);
+                  state b2(location.sweep[b].end);
+                  //a1.t=ctime*state::TIME_RESOLUTION_U;
+                  //b1.t=ctime*state::TIME_RESOLUTION_U;
+                  if(a1.sameLoc(a2)){
+                    a2.t=b2.t;//+currentEnvironment[x]->environment->WaitTime();
+                  }
+                  if(b1.sameLoc(b2)){
+                    b2.t=a2.t;//+currentEnvironment[x]->environment->WaitTime();
+                  }
+                  if(Params::boxconstraints){
+                    c1.c.reset((Box<state>*) new Box<state>(a1, a2));
+                    c2.c.reset((Box<state>*) new Box<state>(b1, b2));
+                  }else{
+                    c1.c.reset((Constraint<state>*) new Collision<state>(a1, a2));
+                    c2.c.reset((Constraint<state>*) new Collision<state>(b1, b2));
+                  }
                   c1.unit1 = location.sweep[b].agent;
                   c2.unit1 = location.sweep[a].agent;
                   c1.prevWpt = 0;
@@ -2215,7 +2243,7 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
         location.sweep[a].lowerBound.y<=path[b].upperBound.y &&
         location.sweep[a].upperBound.y>=path[b].lowerBound.y){
       // Decide if this is a cardinal conflict
-      if(collisionCheck3D(location.sweep[a].start, location.sweep[a].end, location.sweep[b].start, location.sweep[b].end, agentRadius)) {
+      if(Params::boxconstraints?Box<state>(location.sweep[a].start, location.sweep[a].end).ConflictsWith(location.sweep[b].start,location.sweep[b].end):collisionCheck3D(location.sweep[a].start, location.sweep[a].end,location.sweep[b].start,location.sweep[b].end, agentRadius)){
         ++conflict.first;
         if(!update && !countall){break;} // We don't care about anything except whether there is at least one conflict
         if (verbose)
@@ -2244,8 +2272,25 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
             ctype = conf + 1;
 
             if (Params::usecrossconstraints) {
-              c1.c.reset((Constraint<state>*) new Collision<state>(location.sweep[a].start, location.sweep[a].end));
-              c2.c.reset((Constraint<state>*) new Collision<state>(location.sweep[b].start, location.sweep[b].end));
+              state a1(location.sweep[a].start);
+              state a2(location.sweep[a].end);
+              state b1(location.sweep[b].start);
+              state b2(location.sweep[b].end);
+              //a1.t=ctime*state::TIME_RESOLUTION_U;
+              //b1.t=ctime*state::TIME_RESOLUTION_U;
+              if(a1.sameLoc(a2)){
+                a2.t=b2.t;//+currentEnvironment[x]->environment->WaitTime();
+              }
+              if(b1.sameLoc(b2)){
+                b2.t=a2.t;//+currentEnvironment[x]->environment->WaitTime();
+              }
+              if(Params::boxconstraints){
+                c1.c.reset((Box<state>*) new Box<state>(a1, a2));
+                c2.c.reset((Box<state>*) new Box<state>(b1, b2));
+              }else{
+                c1.c.reset((Constraint<state>*) new Collision<state>(a1, a2));
+                c2.c.reset((Constraint<state>*) new Collision<state>(b1, b2));
+              }
               c1.unit1 = location.sweep[b].agent;
               c2.unit1 = location.sweep[a].agent;
               c1.prevWpt = 0;
@@ -2301,12 +2346,18 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
           if(!disappearAtGoal){
             if(location.paths[x]->back().t < location.paths[y]->back().t){
               if(location.paths[x]->size()>1 && !location.paths[x]->back().sameLoc(*(location.paths[x]->rbegin()+1))){
-                location.paths[x]->push_back(location.paths[x]->back());
+                //while(location.paths[x]->back().t<location.paths[y]->back().t-currentEnvironment[x]->environment->WaitTime()){
+                  location.paths[x]->push_back(location.paths[x]->back());
+                  //location.paths[x]->back().t+=currentEnvironment[x]->environment->WaitTime();
+                //}
               }
               location.paths[x]->back().t=location.paths[y]->back().t;
             }else if(location.paths[y]->back().t < location.paths[x]->back().t){
               if(location.paths[y]->size()>1 && !location.paths[y]->back().sameLoc(*(location.paths[y]->rbegin()+1))){
-                location.paths[y]->push_back(location.paths[y]->back());
+                //while(location.paths[y]->back().t<location.paths[x]->back().t-currentEnvironment[x]->environment->WaitTime()){
+                  location.paths[y]->push_back(location.paths[y]->back());
+                  //location.paths[y]->back().t+=currentEnvironment[y]->environment->WaitTime();
+                //}
               }
               location.paths[y]->back().t=location.paths[x]->back().t;
             }
@@ -2397,12 +2448,18 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
             if(!disappearAtGoal){
               if(location.paths[x]->back().t < location.paths[y]->back().t){
                 if(location.paths[x]->size()>1 && !location.paths[x]->back().sameLoc(*(location.paths[x]->rbegin()+1))){
-                  location.paths[x]->push_back(location.paths[x]->back());
+                  //while(location.paths[x]->back().t<location.paths[y]->back().t-currentEnvironment[x]->environment->WaitTime()){
+                    location.paths[x]->push_back(location.paths[x]->back());
+                    //location.paths[x]->back().t+=currentEnvironment[x]->environment->WaitTime();
+                  //}
                 }
                 location.paths[x]->back().t=location.paths[y]->back().t;
               }else if(location.paths[y]->back().t < location.paths[x]->back().t){
                 if(location.paths[y]->size()>1 && !location.paths[y]->back().sameLoc(*(location.paths[y]->rbegin()+1))){
-                  location.paths[y]->push_back(location.paths[y]->back());
+                  //while(location.paths[y]->back().t<location.paths[x]->back().t-currentEnvironment[x]->environment->WaitTime()){
+                    location.paths[y]->push_back(location.paths[y]->back());
+                    //location.paths[y]->back().t+=currentEnvironment[y]->environment->WaitTime();
+                  //}
                 }
                 location.paths[y]->back().t=location.paths[x]->back().t;
               }
@@ -2415,7 +2472,7 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
             }
           }
           /*if(requireLOS&&currentEnvironment[x]->agentType==Map3D::air||currentEnvironment[y]->agentType==Map3D::air){
-           if(ViolatesProximity(location.paths[x],location.paths[y]
+           if(ViolatesProximity(location.paths[x],location.paths[y]))}
            }*/
         }
       }
