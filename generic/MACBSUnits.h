@@ -1469,7 +1469,7 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
   if (comparison::useCAT) {
     tree[0].cat.insert(*tree[0].paths.back(), currentEnvironment[theUnit]->environment, tree[0].paths.size() - 1);
   }
-  StayAtGoal(0); // Do this every time a unit is added because these updates are taken into consideration by the CAT
+  //StayAtGoal(0); // Do this every time a unit is added because these updates are taken into consideration by the CAT
 
   // Set the plan finished to false, as there's new updates
   planFinished = false;
