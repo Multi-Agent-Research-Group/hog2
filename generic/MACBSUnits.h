@@ -611,8 +611,8 @@ static std::ostream& operator <<(std::ostream & out, const CBSTreeNode<state, co
   return out;
 }
 
-template<class T, class C, class Cmp>
-struct ClearablePQ:public std::priority_queue<T,C,Cmp>{
+template<class T, class C>//, class Cmp>
+struct ClearablePQ:public std::priority_queue<T,C>{//,Cmp>{
   void clear(){
     //std::cout << "Clearing pq\n";
     //while(this->size()){std::cout<<this->size()<<"\n";this->pop();}
@@ -693,30 +693,39 @@ private:
 
   struct OpenListNode {
     OpenListNode()
-        : location(0), cost(0), nc(0) {
+        : location(0), cost(0), nc(0), cardinal(false) {
     }
-    OpenListNode(uint loc, double c, uint16_t n)
-        : location(loc), cost(c), nc(n) {
+    OpenListNode(uint loc, double c, uint16_t n, bool cardinl=false)
+        : location(loc), cost(c), nc(n), cardinal(cardinl) {
     }
     std::ostream& operator <<(std::ostream& out) const {
       out << "(loc: " << location << ", nc: " << nc << ", cost: " << cost << ")";
       return out;
     }
+    inline bool operator<(OpenListNode const& other)const{
+      if (Params::greedyCT){
+        return ( cardinal==other.cardinal ? nc == other.nc ? cost<other.cost : nc>other.nc : cardinal>other.cardinal);
+      }else{
+        return ( cost==other.cost ? cardinal==other.cardinal ?
+            (nc > other.nc) : cardinal>other.cardinal : cost < other.cost);
+      }
+    }
 
     uint location;
     double cost;
-    unsigned nc;
+    uint16_t nc;
+    bool cardinal;
   };
-  struct OpenListNodeCompare {
+  /*struct OpenListNodeCompare {
     bool operator()(const OpenListNode& left, const OpenListNode& right) {
       if (Params::greedyCT)
         return (left.nc == right.nc) ? (fgreater(left.cost, right.cost)) : (left.nc > right.nc);
       else
-        return fequal(left.cost, right.cost) ? (left.nc > right.nc) : (fgreater(left.cost, right.cost));
+        return left.cardinal==right.cardinal ? fequal(left.cost, right.cost) ? (left.nc > right.nc) : (fgreater(left.cost, right.cost) : left.cardinal>right.cardinal);
     }
-  };
+  };*/
 
-  ClearablePQ<CBSGroup::OpenListNode, std::vector<CBSGroup::OpenListNode>, CBSGroup::OpenListNodeCompare> openList;
+  ClearablePQ<CBSGroup::OpenListNode, std::vector<CBSGroup::OpenListNode>> openList;
 
   uint TOTAL_EXPANSIONS = 0;
 
@@ -1098,7 +1107,7 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
       if (verbose) {
         std::cout << "New CT NODE: " << last << " replanned: " << c1.unit1 << " cost: " << cost << " " << nc1 << "\n";
       }
-      openList.emplace(last, cost, nc1);
+      openList.emplace(last, cost, nc1, (numConflicts.second & LEFT_CARDINAL)==LEFT_CARDINAL);
     }
     //if(tree[bestNode].con.prevWpt+1==tree[bestNode].wpts[c2.unit1].size()-1){
     minTime = GetMaxTime(bestNode, c2.unit1) - 1.0; // Take off a 1-second wait action, otherwise paths will grow over and over.
@@ -1123,7 +1132,7 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
       if (verbose) {
         std::cout << "New CT NODE: " << last << " replanned: " << c2.unit1 << " cost: " << cost << " " << nc1 << "\n";
       }
-      openList.emplace(last, cost, nc1);
+      openList.emplace(last, cost, nc1, (numConflicts.second & RIGHT_CARDINAL)==RIGHT_CARDINAL);
     }
 
     // Get the best node from the top of the open list, and remove it from the list
@@ -1478,7 +1487,7 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
   tree.resize(1);
   bestNode = 0;
   openList.clear();
-  openList.emplace(0, 0, 0);
+  openList.emplace(0, 0, 0, false);
 }
 
 template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class searchalgo>
@@ -1690,7 +1699,7 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
   if (verbose) {
     std::cout << "New BYPASS NODE: " << last << " replanned: " << theUnit << " cost: " << cost << " " << nc1 << "\n";
   }
-  openList.emplace(last, cost, nc1);
+  openList.emplace(last, cost, nc1, false);
 
   comparison::useCAT = orig;
 
@@ -2006,12 +2015,12 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, searchalg
             }
           if(IsCardinal(x,a1,a2,y,b1,b2)){
             conf |= LEFT_CARDINAL;
-            //std::cout << "LEFT_CARDINAL: " <<x<<","<<y<<"\n";
+            if(verbose)std::cout << "LEFT_CARDINAL: " <<x<<","<<y<<"\n";
           }
           // Right is cardinal?
           if(IsCardinal(y,b1,b2,x,a1,a2)){
             conf |= RIGHT_CARDINAL;
-            //std::cout << "RIGHT_CARDINAL: " <<x<<","<<y<<"\n";
+            if(verbose)std::cout << "RIGHT_CARDINAL: " <<x<<","<<y<<"\n";
           }
           if(conf>=BOTH_CARDINAL){
             location.setcardinal(x,y,xTime,yTime);
