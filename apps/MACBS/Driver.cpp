@@ -195,6 +195,7 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-random", "-random", "Randomize conflict resolution order");
 	InstallCommandLineHandler(MyCLHandler, "-greedyCT", "-greedyCT", "Greedy sort high-level search by number of conflicts (GCBS)");
 	InstallCommandLineHandler(MyCLHandler, "-nocross", "-nocross", "Do not use cross-constraints (identical only)");
+	InstallCommandLineHandler(MyCLHandler, "-timerange", "-timerange", "Use time range constarints");
 	InstallCommandLineHandler(MyCLHandler, "-boxconstraints", "-boxconstraints", "Use action bounding box constraints");
 	InstallCommandLineHandler(MyCLHandler, "-pc", "-pc", "prioritize conflicts");
 	InstallCommandLineHandler(MyCLHandler, "-cct", "-cct", "Conflict count table");
@@ -568,6 +569,12 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 	if(strcmp(argument[0], "-boxconstraints") == 0)
 	{
                 Params::boxconstraints = true;
+		return 1;
+	}
+	if(strcmp(argument[0], "-timerange") == 0)
+	{
+                Params::timerange = true;
+                Params::usecrossconstraints = false;
 		return 1;
 	}
 	if(strcmp(argument[0], "-nocross") == 0)

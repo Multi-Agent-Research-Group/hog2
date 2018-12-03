@@ -80,6 +80,7 @@ struct Params {
   static bool prioritizeConf;
   static bool usecrossconstraints;
   static bool boxconstraints;
+  static bool timerange;
 };
 unsigned Params::precheck = 0;
 unsigned Params::conn = 1;
@@ -89,6 +90,7 @@ bool Params::skip = false;
 bool Params::prioritizeConf = false;
 bool Params::usecrossconstraints = true;
 bool Params::boxconstraints = false;
+bool Params::timerange = false;
 
 template<class state>
 struct CompareLowGCost {
@@ -382,19 +384,21 @@ struct MetaAgent {
 template<typename state>
 struct Conflict {
   Conflict<state>()
-      : c(nullptr), unit1(9999999), prevWpt(0) {
+      : c(nullptr), unit1(9999999), unit2(9999999), prevWpt(0) {
   }
   Conflict<state>(Conflict<state> const& from)
-      : c(from.c.release()), unit1(from.unit1), prevWpt(from.prevWpt) {
+      : c(from.c.release()), unit1(from.unit1), unit2(from.unit2), prevWpt(from.prevWpt) {
   }
   Conflict<state>& operator=(Conflict<state> const& from) {
     c.reset(from.c.release());
     unit1 = from.unit1;
+    unit2 = from.unit2;
     prevWpt = from.prevWpt;
     return *this;
   }
   mutable std::unique_ptr<Constraint<state>> c; // constraint representing one agent in the meta-state
   unsigned unit1;
+  unsigned unit2;
   unsigned prevWpt;
 };
 
@@ -814,7 +818,10 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
   //if(verbose)std::cout << "Add constraint " << c.start_state << "-->" << c.end_state << "\n";
   for (unsigned agent : activeMetaAgents[metaagent].units) {
     for (EnvironmentContainer<state, action> env : this->environments[agent]) {
-      env.environment->AddConstraint(c);
+      if(c->negative)
+        env.environment->AddConstraint(c);
+      else
+        env.environment->AddPositiveConstraint(c);
     }
   }
 }
@@ -940,7 +947,7 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
           bestNode = 0;
           openList.clear();
           //openList=ClearablePQ<CBSGroup::OpenListNode, std::vector<CBSGroup::OpenListNode>, CBSGroup::OpenListNodeCompare>();
-          openList.emplace(0, 0, 0);
+          openList.emplace(0, 0, 0, 0);
           // Clear all constraints from environments
           for (auto const& e : currentEnvironment) {
             e->environment->ClearConstraints();
@@ -1288,7 +1295,7 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
     unit->SetPath(newPath);
     if (tree[bestNode].paths[x]->size()) {
       if (!quiet)
-        std::cout << "Agent " << x << ": " << "\n";
+        std::cout << "Agent " << x << "(" << environments[x][0].environment->GetPathLength(*tree[bestNode].paths[x]) << "): " << "\n";
       unsigned wpt(0);
       signed ix(0);
       for (auto &a : *tree[bestNode].paths[x]) {
@@ -1858,7 +1865,7 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
   } else {
     constraint.reset((Constraint<state>*) new Identical<state>(a1,a2));
   }
-  currentEnvironment[x]->environment->constraints.push_back(constraint.get());
+  currentEnvironment[x]->environment->constraints.insert(constraint.get());
   astar.SetHeuristic(currentEnvironment[x]->heuristic);
 
   double origcost(currentEnvironment[x]->environment->GetPathLength(*location.paths[x]));
@@ -1879,7 +1886,7 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
   GetFullPath<state,action,comparison,conflicttable,searchalgo>(c, astar, currentEnvironment[x]->environment, thePath, location.wpts[x], location.paths[y]->back().t, x);
 
   double newcost(currentEnvironment[x]->environment->GetPathLength(thePath));
-  currentEnvironment[x]->environment->constraints.pop_back();
+  currentEnvironment[x]->environment->constraints.erase(constraint.get());
   return !fequal(origcost,newcost);
 }
 
@@ -2053,14 +2060,36 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, searchalg
               c2.c.reset((Constraint<state>*) new Collision<state>(b1, b2));
             }
             c1.unit1 = y;
+            c1.unit2 = x;
             c2.unit1 = x;
+            c2.unit2 = y;
             c1.prevWpt = pwptB;
             c2.prevWpt = pwptA;
           } else {
-            c1.c.reset((Constraint<state>*) new Identical<state>(a[xTime], a[xNextTime]));
-            c2.c.reset((Constraint<state>*) new Identical<state>(b[yTime], b[yNextTime]));
+            if(Params::timerange){
+              state a1(a[xTime]);
+              state a2(a[xNextTime]);
+              state b1(b[yTime]);
+              state b2(b[yNextTime]);
+              auto intvl(collisionInterval3D(a1,a2,b1,b2,agentRadius));
+              a1.t-=intvl.first*state::TIME_RESOLUTION_U-a1.t;
+              a2.t-=intvl.second*state::TIME_RESOLUTION_U-a1.t;
+              b1.t-=intvl.first*state::TIME_RESOLUTION_U-b1.t;
+              b2.t-=intvl.second*state::TIME_RESOLUTION_U-b1.t;
+              if(a1.t<0)a1.t=TOLERANCE;
+              if(b1.t<0)b1.t=TOLERANCE;
+              assert(a1.t<a2.t);
+              assert(b1.t<b2.t);
+              c1.c.reset((Constraint<state>*) new TimeRange<state>(a1, a2));
+              c2.c.reset((Constraint<state>*) new TimeRange<state>(b1, b2));
+            }else{
+              c1.c.reset((Constraint<state>*) new Identical<state>(a[xTime], a[xNextTime]));
+              c2.c.reset((Constraint<state>*) new Identical<state>(b[yTime], b[yNextTime]));
+            }
             c1.unit1 = x;
+            c1.unit2 = y;
             c2.unit1 = y;
+            c2.unit2 = x;
             c1.prevWpt = pwptA;
             c2.prevWpt = pwptB;
           }
@@ -2188,14 +2217,18 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
                     c2.c.reset((Constraint<state>*) new Collision<state>(b1, b2));
                   }
                   c1.unit1 = location.sweep[b].agent;
+                  c1.unit2 = location.sweep[a].agent;
                   c2.unit1 = location.sweep[a].agent;
+                  c2.unit2 = location.sweep[b].agent;
                   c1.prevWpt = 0;
                   c2.prevWpt = 0;
                 } else {
                   c1.c.reset((Constraint<state>*) new Identical<state>(location.sweep[a].start, location.sweep[a].end));
                   c2.c.reset((Constraint<state>*) new Identical<state>(location.sweep[b].start, location.sweep[b].end));
                   c1.unit1 = location.sweep[a].agent;
+                  c1.unit2 = location.sweep[b].agent;
                   c2.unit1 = location.sweep[b].agent;
+                  c2.unit2 = location.sweep[a].agent;
                   c1.prevWpt = 0;
                   c2.prevWpt = 0;
                 }
@@ -2301,14 +2334,18 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
                 c2.c.reset((Constraint<state>*) new Collision<state>(b1, b2));
               }
               c1.unit1 = location.sweep[b].agent;
+              c1.unit2 = location.sweep[a].agent;
               c2.unit1 = location.sweep[a].agent;
+              c2.unit2 = location.sweep[b].agent;
               c1.prevWpt = 0;
               c2.prevWpt = 0;
             } else {
               c1.c.reset((Constraint<state>*) new Identical<state>(location.sweep[a].start, location.sweep[a].end));
               c2.c.reset((Constraint<state>*) new Identical<state>(location.sweep[b].start, location.sweep[b].end));
               c1.unit1 = location.sweep[a].agent;
+              c1.unit2 = location.sweep[b].agent;
               c2.unit1 = location.sweep[b].agent;
+              c2.unit2 = location.sweep[a].agent;
               c1.prevWpt = 0;
               c2.prevWpt = 0;
             }
@@ -2386,10 +2423,14 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
     if (best.first.second > previous && (intraConflict)) {
       if (Params::usecrossconstraints) {
         best.second.first.unit1 = location.con.unit1;
+        best.second.first.unit2 = b;
         best.second.second.unit1 = b;
+        best.second.second.unit2 = location.con.unit1;
       } else {
         best.second.first.unit1 = b;
+        best.second.first.unit2 = location.con.unit1;
         best.second.second.unit1 = location.con.unit1;
+        best.second.second.unit2 = b;
       }
     }
     if(best.first.second==BOTH_CARDINAL){update=false;} // Now that we've found a both cardinal conflict, no sense updating
@@ -2489,10 +2530,14 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
       if (best.first.second > previous && (intraConflicts)) {
         if (Params::usecrossconstraints) {
           best.second.first.unit1 = b;
+          best.second.first.unit2 = a;
           best.second.second.unit1 = a;
+          best.second.second.unit2 = b;
         } else {
           best.second.first.unit1 = a;
+          best.second.first.unit2 = b;
           best.second.second.unit1 = b;
+          best.second.second.unit2 = a;
         }
       }
       if(best.first.second==BOTH_CARDINAL){update=false;}

@@ -77,7 +77,7 @@ class Constraint : public DrawableConstraint{
   public:
     Constraint() {}
     Constraint(State const& start) : start_state(start), end_state(start) {}
-    Constraint(State const& start, State const& end) : start_state(start), end_state(end) {}
+    Constraint(State const& start, State const& end, bool neg=true) : start_state(start), end_state(end), negative(neg) {}
 
     State start() const {return start_state;}
     State end() const {return end_state;}
@@ -92,13 +92,21 @@ class Constraint : public DrawableConstraint{
 
     State start_state;
     State end_state;
+    bool negative;
 };
+
+namespace std {
+   template<typename State>
+   struct less<Constraint<State> const*> {
+     bool operator()(Constraint<State> const* a, Constraint<State> const* b)const{return a->start_state==b->start_state?a->end_state<b->end_state:a->start_state<b->start_state;}
+   };
+}
 
 template<typename State>
 class Box : public Constraint<State> {
   public:
     Box():Constraint<State>(){}
-    Box(State const& start, State const& end):Constraint<State>(start,end) {}
+    Box(State const& start, State const& end, bool neg=true):Constraint<State>(start,end,neg) {}
     virtual double ConflictsWith(State const& s) const {return 0;} // Vertex collisions are ignored
     // Check whether the opposing action has an edge or bounding box conflict
     virtual double ConflictsWith(State const& from, State const& to) const {
@@ -125,17 +133,31 @@ template<typename State>
 class Identical : public Constraint<State> {
   public:
     Identical():Constraint<State>(){}
-    Identical(State const& start, State const& end):Constraint<State>(start,end) {}
+    Identical(State const& s, bool neg=true):Constraint<State>(s,s,neg) {}
+    Identical(State const& start, State const& end, bool neg=true):Constraint<State>(start,end,neg) {}
     virtual double ConflictsWith(State const& s) const {return 0;} // Vertex collisions are ignored
     // Check whether the action has the exact same time and to/from
     virtual double ConflictsWith(State const& from, State const& to) const {return (from==this->start_state && to==this->end_state)?from.t:0;}
 };
 
 template<typename State>
+class TimeRange : public Constraint<State> {
+  public:
+    TimeRange():Constraint<State>(){}
+    // Pass in: start,end with start/end coords and start/end times of collision...
+    // The times do NOT correspond to the actual action times, but the time interval to avoid
+    TimeRange(State const& start, State const& end, bool neg=true):Constraint<State>(start,end,neg){}
+    virtual double ConflictsWith(State const& s) const {return 0;} // Vertex collisions are ignored
+    // Check whether the opposing action has a conflict with this one
+    virtual double ConflictsWith(State const& from, State const& to) const {return from.sameLoc(this->start_state) && to.sameLoc(this->end_state) && from.t >= this->start_state.t && to.t <= this->end_state.t; }
+    virtual void OpenGLDraw(MapInterface*) const {}
+};
+
+template<typename State>
 class Collision : public Constraint<State> {
   public:
     Collision(double radius=.25):Constraint<State>(),agentRadius(radius){}
-    Collision(State const& start, State const& end,double radius=.25):Constraint<State>(start,end),agentRadius(radius){}
+    Collision(State const& start, State const& end,double radius=.25, bool neg=true):Constraint<State>(start,end,neg),agentRadius(radius){}
     virtual double ConflictsWith(State const& s) const {return 0;} // Vertex collisions are ignored
     // Check whether the opposing action has a conflict with this one
     virtual double ConflictsWith(State const& from, State const& to) const {return collisionCheck3D(from,to,this->start_state,this->end_state,agentRadius);}
@@ -193,10 +215,11 @@ template<typename State, typename Action>
 class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
   public:
     /** Add a constraint to the model */
-    virtual void AddConstraint(Constraint<State> const* c){constraints.emplace_back(c);}
-    virtual void AddConstraints(std::vector<std::unique_ptr<Constraint<State> const>> const& cs){for(auto const& c:cs)constraints.push_back(c.get());}
+    virtual void AddConstraint(Constraint<State> const* c){constraints.insert(c);}
+    virtual void AddPositiveConstraint(Constraint<State> const* c){pconstraints.insert(c);}
+    virtual void AddConstraints(std::vector<std::unique_ptr<Constraint<State> const>> const& cs){for(auto const& c:cs)constraints.insert(c.get());}
     /** Clear the constraints */
-    virtual void ClearConstraints(){constraints.resize(0);}
+    virtual void ClearConstraints(){constraints.clear();pconstraints.clear();}
     /** Get the possible actions from a state */
     virtual void GetActions(const State &nodeID, std::vector<Action> &actions) const = 0;
     virtual void GetReverseActions(const State &nodeID, std::vector<Action> &actions) const = 0;
@@ -205,8 +228,12 @@ class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
     /** Checks to see if any constraint is violated, returning the time of violation, 0 otherwise */
     virtual inline double ViolatesConstraint(const State &from, const State &to) const {
       //Check if the action violates any of the constraints that are in the constraints list
-      for (auto const& c : constraints){
-        double vtime(c->ConflictsWith(from,to));
+      Identical<State> start(from);
+      Identical<State> end(to);
+      auto s(constraints.lower_bound((Constraint<State> const*)&start));
+      auto const& e(constraints.upper_bound((Constraint<State> const*)&end));
+      for(;s!=e;++s){
+        double vtime((*s)->ConflictsWith(from,to));
         if(vtime)return vtime;
       }
       return 0;
@@ -224,7 +251,8 @@ class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
     virtual bool collisionCheck(const State &s1, const State &d1, float r1, const State &s2, const State &d2, float r2)=0;
 
     State theGoal;
-    std::vector<Constraint<State> const*> constraints;
+    std::set<Constraint<State> const*, std::less<Constraint<State> const*>> constraints;
+    std::set<Constraint<State> const*, std::less<Constraint<State> const*>> pconstraints;
 };
 
 // We initialize these here, but they can be changed at run-time

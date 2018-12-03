@@ -154,7 +154,7 @@ void Map2DConstrainedEnvironment::AddConstraint(Constraint<TemporalVector3D> con
 
 void Map2DConstrainedEnvironment::AddConstraint(Constraint<xytLoc> const* c)
 {
-	constraints.push_back(c);
+	constraints.insert(c);
 }
 
 void Map2DConstrainedEnvironment::GetReverseActions(const xytLoc &nodeID, std::vector<tDirection> &actions) const
