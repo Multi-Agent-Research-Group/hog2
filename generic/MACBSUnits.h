@@ -545,7 +545,7 @@ struct CBSTreeNode {
   }
 
   inline void clearcardinal(unsigned a1)const{
-    for(int a2(0);a2<paths.size();++a2){
+    for(unsigned a2(0);a2<paths.size();++a2){
       auto ix(cardinal.find({a1,a2}));
       if(ix != cardinal.end()){
         cardinal.erase(ix);
@@ -562,7 +562,7 @@ struct CBSTreeNode {
   }
 
   inline void clearsemi(unsigned a1)const{
-    for(int a2(0);a2<paths.size();++a2){
+    for(unsigned a2(0);a2<paths.size();++a2){
       auto ix(semi.find({a1,a2}));
       if(ix != semi.end()){
         semi.erase(ix);
@@ -579,7 +579,7 @@ struct CBSTreeNode {
   }
 
   inline void clearcct(unsigned a1)const{
-    for(int a2(0);a2<paths.size();++a2){
+    for(unsigned a2(0);a2<paths.size();++a2){
       auto ix(cct.find({a1,a2}));
       if(ix != cct.end()){
         cct.erase(ix);
@@ -1019,7 +1019,7 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
           }
           for (unsigned k(0); k < activeMetaAgents[i].units.size(); k++) {
             unsigned theUnit(activeMetaAgents[i].units[k]);
-            unsigned minTime(GetMaxTime(0, theUnit) - 1.0); // Take off a 1-second wait action, otherwise paths will grow over and over.
+            unsigned minTime(GetMaxTime(0, theUnit)); // Take off a 1-second wait action, otherwise paths will grow over and over.
             MergeLeg<state, action, comparison, conflicttable, searchalgo>(solution[k], *tree[0].paths[theUnit],
                 tree[0].wpts[theUnit], 0, 1, minTime);
             //CBSUnit<state,action,comparison,conflicttable,searchalgo> *c((CBSUnit<state,action,comparison,conflicttable,searchalgo>*)this->GetMember(theUnit));
@@ -1092,7 +1092,7 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
     unsigned minTime(0);
     // If this is the last waypoint, the plan needs to extend so that the agent sits at the final goal
     //if(bestNode==0 || (activeMetaAgents[c1.unit1].units.size()==1 && tree[bestNode].con.prevWpt+1==tree[bestNode].wpts[activeMetaAgents[c1.unit1].units[0]].size()-1)){
-    minTime = GetMaxTime(bestNode, c1.unit1) - 1.0; // Take off a 1-second wait action, otherwise paths will grow over and over.
+    minTime = GetMaxTime(bestNode, c1.unit1); // Take off a 1-second wait action, otherwise paths will grow over and over.
     //}
     if ((numConflicts.second & LEFT_CARDINAL) || !Bypass(bestNode, numConflicts, c1, c2.unit1, minTime)) {
       last = tree.size();
@@ -1117,7 +1117,7 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
       openList.emplace(last, cost, nc1, (numConflicts.second & LEFT_CARDINAL)==LEFT_CARDINAL);
     }
     //if(tree[bestNode].con.prevWpt+1==tree[bestNode].wpts[c2.unit1].size()-1){
-    minTime = GetMaxTime(bestNode, c2.unit1) - 1.0; // Take off a 1-second wait action, otherwise paths will grow over and over.
+    minTime = GetMaxTime(bestNode, c2.unit1); // Take off a 1-second wait action, otherwise paths will grow over and over.
     //}
     if ((numConflicts.second & RIGHT_CARDINAL) || !Bypass(bestNode, numConflicts, c2, c1.unit1, minTime)) {
       last = tree.size();
@@ -1416,6 +1416,7 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
 
   astar.SetHeuristic(currentEnvironment[agent]->heuristic);
   astar.SetWeight(currentEnvironment[agent]->astar_weight);
+  astar.SetGoalSteps(!disappearAtGoal && !Params::usecrossconstraints);
 }
 
 /** Add a new unit with a new start and goal state to the CBS group */
@@ -1760,7 +1761,7 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
     unsigned minTime(0);
     // If this is the last waypoint, the plan needs to extend so that the agent sits at the final goal
     if (tree[location].con.prevWpt + 1 == tree[location].wpts[theUnit].size() - 1) {
-      minTime = GetMaxTime(location, theUnit) - 1; // Take off a 1-second wait action, otherwise paths will grow over and over.
+      minTime = GetMaxTime(location, theUnit); // Take off a 1-second wait action, otherwise paths will grow over and over.
     }
 
     if(!quiet)std::cout << "Replan agent " << theUnit << "\n";
@@ -1796,7 +1797,7 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
       tree[location].paths[theUnit].push_back(thePath[i]);
       }*/
   } else {
-    unsigned numConflicts(LoadConstraintsForNode(location));
+    LoadConstraintsForNode(location);
     //AddEnvironmentConstraint(tree[location].con.c,theMA);
     std::vector<EnvironmentContainer<state, action>*> envs(activeMetaAgents[theMA].units.size());
     MultiAgentState<state> start(envs.size());
@@ -1824,8 +1825,8 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
       for (auto theUnit : activeMetaAgents[theMA].units) {
         CBSUnit<state, action, comparison, conflicttable, searchalgo> *c(
             (CBSUnit<state, action, comparison, conflicttable, searchalgo>*) this->GetMember(theUnit));
-        unsigned minTime(GetMaxTime(location, theUnit) - 1.0); // Take off a 1-second wait action, otherwise paths will grow over and over.
-        unsigned wpt(0);
+        unsigned minTime(GetMaxTime(location, theUnit)); // Take off a 1-second wait action, otherwise paths will grow over and over.
+        //unsigned wpt(0);
         /*for (unsigned l(0); l < partial[i].size(); l++)
           {
           tree[location].paths[theUnit].push_back(partial[i][l]);
@@ -2392,18 +2393,26 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
           if(!disappearAtGoal){
             if(location.paths[x]->back().t < location.paths[y]->back().t){
               if(location.paths[x]->size()>1 && !location.paths[x]->back().sameLoc(*(location.paths[x]->rbegin()+1))){
-                //while(location.paths[x]->back().t<location.paths[y]->back().t-currentEnvironment[x]->environment->WaitTime()){
+                if(Params::usecrossconstraints){
                   location.paths[x]->push_back(location.paths[x]->back());
-                  //location.paths[x]->back().t+=currentEnvironment[x]->environment->WaitTime();
-                //}
+                }else{
+                  while(location.paths[x]->back().t<location.paths[y]->back().t-currentEnvironment[x]->environment->WaitTime()){
+                    location.paths[x]->push_back(location.paths[x]->back());
+                    location.paths[x]->back().t+=currentEnvironment[x]->environment->WaitTime();
+                  }
+                }
               }
               location.paths[x]->back().t=location.paths[y]->back().t;
             }else if(location.paths[y]->back().t < location.paths[x]->back().t){
               if(location.paths[y]->size()>1 && !location.paths[y]->back().sameLoc(*(location.paths[y]->rbegin()+1))){
-                //while(location.paths[y]->back().t<location.paths[x]->back().t-currentEnvironment[x]->environment->WaitTime()){
-                  location.paths[y]->push_back(location.paths[y]->back());
-                  //location.paths[y]->back().t+=currentEnvironment[y]->environment->WaitTime();
-                //}
+                if(Params::usecrossconstraints){
+                  location.paths[y]->back().t+=currentEnvironment[y]->environment->WaitTime();
+                }else{
+                  while(location.paths[y]->back().t<location.paths[x]->back().t-currentEnvironment[x]->environment->WaitTime()){
+                    location.paths[y]->push_back(location.paths[y]->back());
+                    location.paths[y]->back().t+=currentEnvironment[y]->environment->WaitTime();
+                  }
+                }
               }
               location.paths[y]->back().t=location.paths[x]->back().t;
             }
@@ -2498,18 +2507,26 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
             if(!disappearAtGoal){
               if(location.paths[x]->back().t < location.paths[y]->back().t){
                 if(location.paths[x]->size()>1 && !location.paths[x]->back().sameLoc(*(location.paths[x]->rbegin()+1))){
-                  //while(location.paths[x]->back().t<location.paths[y]->back().t-currentEnvironment[x]->environment->WaitTime()){
+                  if(Params::usecrossconstraints){
                     location.paths[x]->push_back(location.paths[x]->back());
-                    //location.paths[x]->back().t+=currentEnvironment[x]->environment->WaitTime();
-                  //}
+                  }else{
+                    while(location.paths[x]->back().t<location.paths[y]->back().t-currentEnvironment[x]->environment->WaitTime()){
+                      location.paths[x]->push_back(location.paths[x]->back());
+                      location.paths[x]->back().t+=currentEnvironment[x]->environment->WaitTime();
+                    }
+                  }
                 }
                 location.paths[x]->back().t=location.paths[y]->back().t;
               }else if(location.paths[y]->back().t < location.paths[x]->back().t){
                 if(location.paths[y]->size()>1 && !location.paths[y]->back().sameLoc(*(location.paths[y]->rbegin()+1))){
-                  //while(location.paths[y]->back().t<location.paths[x]->back().t-currentEnvironment[x]->environment->WaitTime()){
+                  if(Params::usecrossconstraints){
                     location.paths[y]->push_back(location.paths[y]->back());
-                    //location.paths[y]->back().t+=currentEnvironment[y]->environment->WaitTime();
-                  //}
+                  }else{
+                    while(location.paths[y]->back().t<location.paths[x]->back().t-currentEnvironment[x]->environment->WaitTime()){
+                      location.paths[y]->push_back(location.paths[y]->back());
+                      location.paths[y]->back().t+=currentEnvironment[y]->environment->WaitTime();
+                    }
+                  }
                 }
                 location.paths[y]->back().t=location.paths[x]->back().t;
               }

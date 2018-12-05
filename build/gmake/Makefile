@@ -26,16 +26,16 @@ PROJECTS = \
   shared \
   utils \
   apps/icts \
-  apps/experimental \
-  apps/mapUtils \
-  apps/3dmaps \
   apps/MACBS \
   apps/MAAStar \
-  apps/MAIDAStar \
-  test/mapf \
-  test/utils \
-  test/collisiondetection \
-  test/environments \
+  #apps/experimental \
+  #apps/mapUtils \
+  #apps/3dmaps \
+  #apps/MAIDAStar \
+  #test/mapf \
+  #test/utils \
+  #test/collisiondetection \
+  #test/environments \
   #apps/MAPF \
   #apps/aacbs \
   #apps/airplane \

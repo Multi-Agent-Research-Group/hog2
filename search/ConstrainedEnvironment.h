@@ -137,7 +137,7 @@ class Identical : public Constraint<State> {
     Identical(State const& start, State const& end, bool neg=true):Constraint<State>(start,end,neg) {}
     virtual double ConflictsWith(State const& s) const {return 0;} // Vertex collisions are ignored
     // Check whether the action has the exact same time and to/from
-    virtual double ConflictsWith(State const& from, State const& to) const {return (from==this->start_state && to==this->end_state)?from.t:0;}
+    virtual double ConflictsWith(State const& from, State const& to) const {return (from==this->start_state && to.sameLoc(this->end_state))?from.t?double(from.t)/State::TIME_RESOLUTION_D:-1.0/State::TIME_RESOLUTION_D:0;}
 };
 
 template<typename State>
@@ -149,7 +149,7 @@ class TimeRange : public Constraint<State> {
     TimeRange(State const& start, State const& end, bool neg=true):Constraint<State>(start,end,neg){}
     virtual double ConflictsWith(State const& s) const {return 0;} // Vertex collisions are ignored
     // Check whether the opposing action has a conflict with this one
-    virtual double ConflictsWith(State const& from, State const& to) const {return from.sameLoc(this->start_state) && to.sameLoc(this->end_state) && from.t >= this->start_state.t && to.t <= this->end_state.t; }
+    virtual double ConflictsWith(State const& from, State const& to) const {return (from.sameLoc(this->start_state) && to.sameLoc(this->end_state) && from.t >= this->start_state.t && to.t <= this->end_state.t)?double(from.t)/State::TIME_RESOLUTION_D:0; }
     virtual void OpenGLDraw(MapInterface*) const {}
 };
 
@@ -228,10 +228,14 @@ class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
     /** Checks to see if any constraint is violated, returning the time of violation, 0 otherwise */
     virtual inline double ViolatesConstraint(const State &from, const State &to) const {
       //Check if the action violates any of the constraints that are in the constraints list
+      if(!constraints.size())return 0;
       Identical<State> start(from);
       Identical<State> end(to);
       auto s(constraints.lower_bound((Constraint<State> const*)&start));
-      auto const& e(constraints.upper_bound((Constraint<State> const*)&end));
+      if(s==constraints.end())--s;
+      while((*s)->start_state.t>=from.t && s!=constraints.begin())--s; // Reverse to the constraint just before
+      auto e(constraints.upper_bound((Constraint<State> const*)&end));
+      while(e!=constraints.end() && (*e)->end_state.t<=to.t)++e;
       for(;s!=e;++s){
         double vtime((*s)->ConflictsWith(from,to));
         if(vtime)return vtime;

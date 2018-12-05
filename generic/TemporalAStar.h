@@ -101,6 +101,8 @@ public:
 	{ uint64_t key; return openClosedList.Lookup(env->GetStateHash(val), key); }
 	
 	void SetUseBPMX(int depth) { useBPMX = depth; if (depth) reopenNodes = true; }
+	void SetGoalSteps(bool v) { goalSteps=v; }
+
 	int GetUsingBPMX() { return useBPMX; }
 
 	void SetReopenNodes(bool re) { reopenNodes = re; }
@@ -170,6 +172,7 @@ private:
 	bool useRadius;// = false;
 	int useBPMX;
 	bool reopenNodes;
+	bool goalSteps;
 	uint64_t uniqueNodesExpanded;
 	environment *radEnv;
 	Heuristic<state> *theHeuristic;
@@ -402,14 +405,16 @@ bool TemporalAStar<state,action,environment,openList>::DoSingleSearchStep(std::v
             // Returns 0 if no violation, otherwise the minimum safe time (minus epsilon)
             n.t=env->ViolatesConstraint(openClosedList.Lookup(nodeid).data,n);
             if(!n.t){
-                n.t=minTime;
-              if(std::find(neighbors.begin(),neighbors.end(),n)==neighbors.end()){
+              n.t=minTime;
+              if(!goalSteps
+                 && std::find(neighbors.begin(),neighbors.end(),n)==neighbors.end()){
                 neighbors.insert(neighbors.begin(),n);
               }
             }else{
               //n.t-=env->WaitTime();
-              if(fgreater(n.t,openClosedList.Lookup(nodeid).data.t)
-                  && std::find(neighbors.begin(),neighbors.end(),n)==neighbors.end()){
+              if(!goalSteps
+                 && fgreater(n.t,openClosedList.Lookup(nodeid).data.t)
+                 && std::find(neighbors.begin(),neighbors.end(),n)==neighbors.end()){
                 neighbors.insert(neighbors.begin(),n);
               }
             }
