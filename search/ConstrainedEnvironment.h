@@ -54,7 +54,6 @@ class DrawableConstraint{
     static int height;
 };
 
-// Represents a radial constraint where cost increases as we approach the center
 template<typename State>
 class SoftConstraint : public DrawableConstraint {
   public:
@@ -129,6 +128,34 @@ class Box : public Constraint<State> {
     }
 };
 
+
+
+template<typename State>
+class XOR : public Constraint<State> {
+  public:
+    XOR():Constraint<State>(){}
+    XOR(State const& s, bool neg=true):Constraint<State>(s,s,neg) {}
+    XOR(State const& start, State const& end, State const& s2, State const& e2, bool neg=true):Constraint<State>(start,end,neg),pos_start(s2),pos_end(e2){}
+    virtual Constraint<State>* Swap()const=0;
+    virtual double ConflictsWith(State const& s) const=0;
+    virtual double ConflictsWith(State const& from, State const& to) const=0;
+    // XOR defines a positive constraint as well...
+    State pos_start;
+    State pos_end;
+};
+
+template<typename State>
+class XORIdentical : public XOR<State> {
+  public:
+    XORIdentical():Constraint<State>(){}
+    XORIdentical(State const& s, bool neg=true):Constraint<State>(s,s,neg) {}
+    XORIdentical(State const& start, State const& end, State const& s2, State const& e2, bool neg=true):XOR<State>(start,end,s2,e2,neg){}
+    virtual Constraint<State>* Swap()const{return new XORIdentical<State>(this->pos_start,this->pos_end,this->start_state,this->end_state,this->negative);}
+    virtual double ConflictsWith(State const& s) const {return 0;} // Vertex collisions are ignored
+    // Check whether the action has the exact same time and to/from
+    virtual double ConflictsWith(State const& from, State const& to) const {return (from==this->start_state && to.sameLoc(this->end_state))?from.t?double(from.t)/State::TIME_RESOLUTION_D:-1.0/State::TIME_RESOLUTION_D:0;}
+};
+
 template<typename State>
 class Identical : public Constraint<State> {
   public:
@@ -149,7 +176,10 @@ class TimeRange : public Constraint<State> {
     TimeRange(State const& start, State const& end, bool neg=true):Constraint<State>(start,end,neg){}
     virtual double ConflictsWith(State const& s) const {return 0;} // Vertex collisions are ignored
     // Check whether the opposing action has a conflict with this one
-    virtual double ConflictsWith(State const& from, State const& to) const {return (from.sameLoc(this->start_state) && to.sameLoc(this->end_state) && from.t >= this->start_state.t && to.t <= this->end_state.t)?double(from.t)/State::TIME_RESOLUTION_D:0; }
+    virtual double ConflictsWith(State const& from, State const& to) const {return (from.sameLoc(this->start_state)
+		    && to.sameLoc(this->end_state)
+		    && from.t >= this->start_state.t
+		    && from.t <= this->end_state.t)?double(from.t)/State::TIME_RESOLUTION_D:0; }
     virtual void OpenGLDraw(MapInterface*) const {}
 };
 
@@ -164,6 +194,38 @@ class Collision : public Constraint<State> {
     virtual double ConflictsWith(Collision<State> const& x) const {return collisionCheck3D(this->start_state,this->end_state,x.start_state,x.end_state,agentRadius,x.agentRadius);}
     virtual void OpenGLDraw(MapInterface*) const {}
     double agentRadius;
+};
+
+template<typename State>
+class XORCollision : public XOR<State> {
+  public:
+    XORCollision(double radius=.25):Constraint<State>(),agentRadius(radius){}
+    XORCollision(State const& start, State const& end,double radius=.25, bool neg=true):Constraint<State>(start,end,neg){}
+    XORCollision(State const& start, State const& end, State const& s2, State const& e2, bool neg=true, double radius=.25):XOR<State>(start,end,s2,e2,neg),agentRadius(radius){}
+    virtual Constraint<State>* Swap()const{return new XORCollision<State>(this->pos_start,this->pos_end,this->start_state,this->end_state,this->negative);}
+    virtual double ConflictsWith(State const& s) const {return 0;} // Vertex collisions are ignored
+    // Check whether the opposing action has a conflict with this one
+    virtual double ConflictsWith(State const& from, State const& to) const {return collisionCheck3D(from,to,this->start_state,this->end_state,agentRadius);}
+    virtual double ConflictsWith(XORCollision<State> const& x) const {return collisionCheck3D(this->start_state,this->end_state,x.start_state,x.end_state,agentRadius,x.agentRadius);}
+    virtual void OpenGLDraw(MapInterface*) const {}
+    double agentRadius;
+    State pos_start;
+    State pos_end;
+};
+
+template<typename State>
+class Pyramid : public Constraint<State> {
+  public:
+    Pyramid(double radius=.25):Constraint<State>(),agentRadius(radius){}
+    Pyramid(State const& start, State const& end, unsigned st, double radius=.25, bool neg=true):Constraint<State>(start,end,neg),agentRadius(radius),stime(st){}
+    virtual double ConflictsWith(State const& s) const {return 0;} // Vertex collisions are ignored
+    // Check whether the opposing action has a conflict with this one
+    // // Only perform check if start time is identical
+    virtual double ConflictsWith(State const& from, State const& to) const {return from.t==stime?collisionCheck3D(from,to,this->start_state,this->end_state,agentRadius):0;}
+    virtual double ConflictsWith(Pyramid<State> const& x) const {return x.start_state.t==stime?collisionCheck3D(this->start_state,this->end_state,x.start_state,x.end_state,agentRadius,x.agentRadius):0;}
+    virtual void OpenGLDraw(MapInterface*) const {}
+    double agentRadius;
+    unsigned stime;
 };
 
 template<typename State>
@@ -233,9 +295,9 @@ class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
       Identical<State> end(to);
       auto s(constraints.lower_bound((Constraint<State> const*)&start));
       if(s==constraints.end())--s;
-      while((*s)->start_state.t>=from.t && s!=constraints.begin())--s; // Reverse to the constraint just before
+      while((*s)->end_state.t>=from.t && s!=constraints.begin())--s; // Reverse to the constraint just before
       auto e(constraints.upper_bound((Constraint<State> const*)&end));
-      while(e!=constraints.end() && (*e)->end_state.t<=to.t)++e;
+      while(e!=constraints.end() && (*e)->start_state.t<=to.t)++e;
       for(;s!=e;++s){
         double vtime((*s)->ConflictsWith(from,to));
         if(vtime)return vtime;

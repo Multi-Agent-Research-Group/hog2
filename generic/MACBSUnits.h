@@ -78,9 +78,13 @@ struct Params {
   static bool skip;
   static unsigned conn;
   static bool prioritizeConf;
-  static bool usecrossconstraints;
+  static bool identicalconstraints;
+  static bool crossconstraints;
   static bool boxconstraints;
-  static bool timerange;
+  static bool timerangeconstraints;
+  static bool pyramidconstraints;
+  static bool xorconstraints;
+  static bool extrinsicconstraints;
 };
 unsigned Params::precheck = 0;
 unsigned Params::conn = 1;
@@ -88,9 +92,13 @@ bool Params::greedyCT = false;
 bool Params::cct = false;
 bool Params::skip = false;
 bool Params::prioritizeConf = false;
-bool Params::usecrossconstraints = true;
+bool Params::crossconstraints = false;
+bool Params::identicalconstraints = true;
 bool Params::boxconstraints = false;
-bool Params::timerange = false;
+bool Params::timerangeconstraints = false;
+bool Params::pyramidconstraints = false;
+bool Params::xorconstraints = false;
+bool Params::extrinsicconstraints = false;
 
 template<class state>
 struct CompareLowGCost {
@@ -665,13 +673,14 @@ private:
   void Replan(int location);
   bool IsCardinal(int x, state const&, state const&, int y, state const&, state const&);
   unsigned HasConflict(std::vector<state> const& a, std::vector<int> const& wa, std::vector<state> const& b,
-      std::vector<int> const& wb, int x, int y, Conflict<state> &c1, Conflict<state> &c2,
+      std::vector<int> const& wb, int x, int y, std::vector<Conflict<state>> &conflicts,
       std::pair<unsigned, unsigned>& conflict, unsigned& ctype, bool update, bool countall=true);
-  std::pair<unsigned, unsigned> FindHiPriConflictAllPairs(CBSTreeNode<state, conflicttable> const& location, Conflict<state> &c1,
-      Conflict<state> &c2, bool update = true);
-  std::pair<unsigned, unsigned> FindHiPriConflictOneVsAll( CBSTreeNode<state, conflicttable> const& location, Conflict<state> &c1, Conflict<state> &c2, bool update=true);
-  std::pair<unsigned, unsigned> FindHiPriConflictOneVsAllSAP(CBSTreeNode<state, conflicttable>& location, Conflict<state> &c1, Conflict<state> &c2, bool update=true, bool countall=true);
-  std::pair<unsigned, unsigned> FindHiPriConflictAllPairsSAP(CBSTreeNode<state, conflicttable>& location, Conflict<state> &c1, Conflict<state> &c2, bool update=true, bool countall=true);
+  std::pair<unsigned, unsigned> FindHiPriConflictAllPairs(CBSTreeNode<state, conflicttable> const& location,
+      std::vector<Conflict<state>> &conflicts, bool update = true);
+  std::pair<unsigned, unsigned> FindHiPriConflictOneVsAll( CBSTreeNode<state, conflicttable> const& location,
+      std::vector<Conflict<state>> &conflicts, bool update=true);
+  //std::pair<unsigned, unsigned> FindHiPriConflictOneVsAllSAP(CBSTreeNode<state, conflicttable>& location, Conflict<state> &c1, Conflict<state> &c2, bool update=true, bool countall=true);
+  //std::pair<unsigned, unsigned> FindHiPriConflictAllPairsSAP(CBSTreeNode<state, conflicttable>& location, Conflict<state> &c1, Conflict<state> &c2, bool update=true, bool countall=true);
 
   unsigned FindFirstConflict(CBSTreeNode<state, conflicttable> const& location, Conflict<state> &c1, Conflict<state> &c2);
 
@@ -865,24 +874,24 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
   if (planFinished)
     return false;
 
-  Conflict<state> c1, c2;
+  std::vector<Conflict<state>> conflicts;
   unsigned long last = tree.size();
 
   std::pair<unsigned,unsigned> numConflicts;
   if(Params::precheck==PRE_SAP){
     // Update the sweep list while counting collisions at the same time
-    if((bestNode!=0) && Params::cct){
-      numConflicts=FindHiPriConflictOneVsAllSAP(tree[bestNode], c1, c2);
-      numConflicts.first=tree[bestNode].numCollisions();
-    }else{
-      numConflicts=FindHiPriConflictAllPairsSAP(tree[bestNode], c1, c2);
-    }
+    //if((bestNode!=0) && Params::cct){
+      //numConflicts=FindHiPriConflictOneVsAllSAP(tree[bestNode], conflicts);
+      //numConflicts.first=tree[bestNode].numCollisions();
+    //}else{
+      //numConflicts=FindHiPriConflictAllPairsSAP(tree[bestNode], conflicts);
+    //}
   }else{
     if((bestNode!=0) && Params::cct){
-      numConflicts=FindHiPriConflictOneVsAll(tree[bestNode], c1, c2);
+      numConflicts=FindHiPriConflictOneVsAll(tree[bestNode], conflicts);
       numConflicts.first=tree[bestNode].numCollisions();
     }else{
-      numConflicts=FindHiPriConflictAllPairs(tree[bestNode], c1, c2);
+      numConflicts=FindHiPriConflictAllPairs(tree[bestNode], conflicts);
     }
   }
   // If no conflicts are found in this node, then the path is done
@@ -903,9 +912,8 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
           << (numConflicts.second == 7 ?
               "CARDINAL" :
               (numConflicts.second == 3 ? "LEFT-CARDINAL" : (numConflicts.second == 5 ? "RIGHT-CARDINAL" : "NON-CARDINAL")))
-          << " conflict found between MA " << c1.unit1 << " and MA " << c2.unit1 << " @:" << c2.c->start() << "-->"
-          << c2.c->end() << " and " << c1.c->start() << "-->" << c1.c->end() << " NC " << numConflicts.first << " prev-W "
-          << c1.prevWpt << " " << c2.prevWpt << "\n";
+          << " conflict found between MA " << conflicts[0].unit1 << " and MA " << conflicts[1].unit1 << " @:" << conflicts[1].c->start() << "-->"
+          << conflicts[1].c->end() << " and " << conflicts[0].c->start() << "-->" << conflicts[0].c->end() << " NC " << numConflicts.first << " prev-W\n";
     //if(verbose){
     //std::cout << c1.unit1 << ":\n";
     //for(auto const& a:tree[bestNode].paths[c1.unit1]){
@@ -917,8 +925,8 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
     //}
     //}
     if (animate) {
-      c1.c->OpenGLDraw(currentEnvironment[0]->environment->GetMap());
-      c2.c->OpenGLDraw(currentEnvironment[0]->environment->GetMap());
+      conflicts[0].c->OpenGLDraw(currentEnvironment[0]->environment->GetMap());
+      conflicts[1].c->OpenGLDraw(currentEnvironment[0]->environment->GetMap());
       usleep(animate * 1000);
     }
 
@@ -1092,54 +1100,79 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
     unsigned minTime(0);
     // If this is the last waypoint, the plan needs to extend so that the agent sits at the final goal
     //if(bestNode==0 || (activeMetaAgents[c1.unit1].units.size()==1 && tree[bestNode].con.prevWpt+1==tree[bestNode].wpts[activeMetaAgents[c1.unit1].units[0]].size()-1)){
-    minTime = GetMaxTime(bestNode, c1.unit1); // Take off a 1-second wait action, otherwise paths will grow over and over.
     //}
-    if ((numConflicts.second & LEFT_CARDINAL) || !Bypass(bestNode, numConflicts, c1, c2.unit1, minTime)) {
-      last = tree.size();
-      //tree.resize(last+1);
-      tree.emplace_back(tree[bestNode], c1, bestNode, true);
-      Replan(last);
-      unsigned nc1(numConflicts.first);
-      double cost = 0;
-      for (int y = 0; y < tree[last].paths.size(); y++) {
-        if (verbose) {
-          std::cout << "Agent " << y << ":\n";
-          for (auto const& ff : *tree[last].paths[y]) {
-            std::cout << ff << "\n";
+    if(Params::xorconstraints){
+    for(auto const& c:conflicts){
+        last = tree.size();
+        //tree.resize(last+1);
+        tree.emplace_back(tree[bestNode], c, bestNode, true);
+        Replan(last);
+        unsigned nc1(numConflicts.first);
+        double cost = 0;
+        for (int y = 0; y < tree[last].paths.size(); y++) {
+          if (verbose) {
+            std::cout << "Agent " << y << ":\n";
+            for (auto const& ff : *tree[last].paths[y]) {
+              std::cout << ff << "\n";
+            }
+            std::cout << "cost: " << currentEnvironment[y]->environment->GetPathLength(*tree[last].paths[y]) << "\n";
           }
-          std::cout << "cost: " << currentEnvironment[y]->environment->GetPathLength(*tree[last].paths[y]) << "\n";
+          cost += currentEnvironment[y]->environment->GetPathLength(*tree[last].paths[y]);
         }
-        cost += currentEnvironment[y]->environment->GetPathLength(*tree[last].paths[y]);
+        if (verbose) {
+          std::cout << "New CT NODE: " << last << " replanned: " << c.unit1 << " cost: " << cost << " " << nc1 << "\n";
+        }
+        openList.emplace(last, cost, nc1, (numConflicts.second & RIGHT_CARDINAL)==RIGHT_CARDINAL);
       }
-      if (verbose) {
-        std::cout << "New CT NODE: " << last << " replanned: " << c1.unit1 << " cost: " << cost << " " << nc1 << "\n";
+    }else{
+      minTime = GetMaxTime(bestNode, conflicts[1].unit1); // Take off a 1-second wait action, otherwise paths will grow over and over.
+      if ((numConflicts.second & LEFT_CARDINAL) || !Bypass(bestNode, numConflicts, conflicts[0], conflicts[1].unit1, minTime)) {
+        last = tree.size();
+        //tree.resize(last+1);
+        tree.emplace_back(tree[bestNode], conflicts[0], bestNode, true);
+        Replan(last);
+        unsigned nc1(numConflicts.first);
+        double cost = 0;
+        for (int y = 0; y < tree[last].paths.size(); y++) {
+          if (verbose) {
+            std::cout << "Agent " << y << ":\n";
+            for (auto const& ff : *tree[last].paths[y]) {
+              std::cout << ff << "\n";
+            }
+            std::cout << "cost: " << currentEnvironment[y]->environment->GetPathLength(*tree[last].paths[y]) << "\n";
+          }
+          cost += currentEnvironment[y]->environment->GetPathLength(*tree[last].paths[y]);
+        }
+        if (verbose) {
+          std::cout << "New CT NODE: " << last << " replanned: " << conflicts[0].unit1 << " cost: " << cost << " " << nc1 << "\n";
+        }
+        openList.emplace(last, cost, nc1, (numConflicts.second & LEFT_CARDINAL)==LEFT_CARDINAL);
       }
-      openList.emplace(last, cost, nc1, (numConflicts.second & LEFT_CARDINAL)==LEFT_CARDINAL);
-    }
-    //if(tree[bestNode].con.prevWpt+1==tree[bestNode].wpts[c2.unit1].size()-1){
-    minTime = GetMaxTime(bestNode, c2.unit1); // Take off a 1-second wait action, otherwise paths will grow over and over.
+      //if(tree[bestNode].con.prevWpt+1==tree[bestNode].wpts[conflicts[1].unit1].size()-1){
+      minTime = GetMaxTime(bestNode, conflicts[1].unit1); // Take off a 1-second wait action, otherwise paths will grow over and over.
     //}
-    if ((numConflicts.second & RIGHT_CARDINAL) || !Bypass(bestNode, numConflicts, c2, c1.unit1, minTime)) {
-      last = tree.size();
-      //tree.resize(last+1);
-      tree.emplace_back(tree[bestNode], c2, bestNode, true);
-      Replan(last);
-      unsigned nc1(numConflicts.first);
-      double cost = 0;
-      for (int y = 0; y < tree[last].paths.size(); y++) {
-        if (verbose) {
-          std::cout << "Agent " << y << ":\n";
-          for (auto const& ff : *tree[last].paths[y]) {
-            std::cout << ff << "\n";
+      if ((numConflicts.second & RIGHT_CARDINAL) || !Bypass(bestNode, numConflicts, conflicts[1], conflicts[0].unit1, minTime)) {
+        last = tree.size();
+        //tree.resize(last+1);
+        tree.emplace_back(tree[bestNode], conflicts[1], bestNode, true);
+        Replan(last);
+        unsigned nc1(numConflicts.first);
+        double cost = 0;
+        for (int y = 0; y < tree[last].paths.size(); y++) {
+          if (verbose) {
+            std::cout << "Agent " << y << ":\n";
+            for (auto const& ff : *tree[last].paths[y]) {
+              std::cout << ff << "\n";
+            }
+            std::cout << "cost: " << currentEnvironment[y]->environment->GetPathLength(*tree[last].paths[y]) << "\n";
           }
-          std::cout << "cost: " << currentEnvironment[y]->environment->GetPathLength(*tree[last].paths[y]) << "\n";
+          cost += currentEnvironment[y]->environment->GetPathLength(*tree[last].paths[y]);
         }
-        cost += currentEnvironment[y]->environment->GetPathLength(*tree[last].paths[y]);
+        if (verbose) {
+          std::cout << "New CT NODE: " << last << " replanned: " << conflicts[1].unit1 << " cost: " << cost << " " << nc1 << "\n";
+        }
+        openList.emplace(last, cost, nc1, (numConflicts.second & RIGHT_CARDINAL)==RIGHT_CARDINAL);
       }
-      if (verbose) {
-        std::cout << "New CT NODE: " << last << " replanned: " << c2.unit1 << " cost: " << cost << " " << nc1 << "\n";
-      }
-      openList.emplace(last, cost, nc1, (numConflicts.second & RIGHT_CARDINAL)==RIGHT_CARDINAL);
     }
 
     // Get the best node from the top of the open list, and remove it from the list
@@ -1416,7 +1449,7 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
 
   astar.SetHeuristic(currentEnvironment[agent]->heuristic);
   astar.SetWeight(currentEnvironment[agent]->astar_weight);
-  astar.SetGoalSteps(!disappearAtGoal && !Params::usecrossconstraints);
+  astar.SetGoalSteps(!disappearAtGoal && !Params::extrinsicconstraints);
 }
 
 /** Add a new unit with a new start and goal state to the CBS group */
@@ -1554,7 +1587,7 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, searchalg
     if (theMA == tree[location].con.unit1) {
       numConflicts++;
       AddEnvironmentConstraint(tree[location].con.c.get(), theMA);
-      if (verbose)
+      if (!quiet)
         std::cout << "Adding constraint (in accumulation)" << tree[location].con.c->start_state << "-->"
             << tree[location].con.c->end_state << " for MA " << theMA << "\n";
     }
@@ -1578,7 +1611,7 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
   //std::cout << "Attempt to find a bypass.\n";
 
   bool success(false);
-  Conflict<state> c3, c4;
+  std::vector<Conflict<state>> confl;
   std::vector<state>* oldPath(tree[best].paths[theUnit]);
   std::vector<int> newWpts(tree[best].wpts[theUnit]);
   // Re-perform the search with the same constraints (since the start and goal are the same)
@@ -1644,22 +1677,22 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
 
       // TODO do full conflict count here
       std::pair<unsigned,unsigned> pconf;
-      if(Params::precheck==PRE_SAP){
+      //if(Params::precheck==PRE_SAP){
         // Update the sweep list while counting collisions at the same time
+        //if(bestNode&&Params::cct){
+          //pconf=FindHiPriConflictOneVsAllSAP(tree[bestNode], c3, c4, false);
+          //pconf.first=tree[bestNode].numCollisions();
+        //}else{
+          //pconf=FindHiPriConflictAllPairsSAP(tree[bestNode], c3, c4, false);
+        //}
+      //}else{
         if(bestNode&&Params::cct){
-          pconf=FindHiPriConflictOneVsAllSAP(tree[bestNode], c3, c4, false);
+          pconf=FindHiPriConflictOneVsAll(tree[bestNode], confl, false);
           pconf.first=tree[bestNode].numCollisions();
         }else{
-          pconf=FindHiPriConflictAllPairsSAP(tree[bestNode], c3, c4, false);
+          pconf=FindHiPriConflictAllPairs(tree[bestNode], confl, false);
         }
-      }else{
-        if(bestNode&&Params::cct){
-          pconf=FindHiPriConflictOneVsAll(tree[bestNode], c3, c4, false);
-          pconf.first=tree[bestNode].numCollisions();
-        }else{
-          pconf=FindHiPriConflictAllPairs(tree[bestNode], c3, c4, false);
-        }
-      }
+      //}
       if (verbose)
         std::cout << "Path number " << pnum << "\n";
       if (verbose)
@@ -1823,8 +1856,8 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
     if (partial.size()) {
       i = 0;
       for (auto theUnit : activeMetaAgents[theMA].units) {
-        CBSUnit<state, action, comparison, conflicttable, searchalgo> *c(
-            (CBSUnit<state, action, comparison, conflicttable, searchalgo>*) this->GetMember(theUnit));
+        //CBSUnit<state, action, comparison, conflicttable, searchalgo> *c(
+            //(CBSUnit<state, action, comparison, conflicttable, searchalgo>*) this->GetMember(theUnit));
         unsigned minTime(GetMaxTime(location, theUnit)); // Take off a 1-second wait action, otherwise paths will grow over and over.
         //unsigned wpt(0);
         /*for (unsigned l(0); l < partial[i].size(); l++)
@@ -1854,17 +1887,40 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
   }
 }
 template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class searchalgo>
-bool CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::IsCardinal(int x, state const& a1, state const& a2, int y, state const& b1, state const& b2){
+bool CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::IsCardinal(int x, state const& ax1, state const& ax2, int y, state const& bx1, state const& bx2){
   CBSTreeNode<state, conflicttable>& location=tree[bestNode];
   std::unique_ptr<Constraint<state>> constraint;
-  if (Params::usecrossconstraints) {
+  if (Params::extrinsicconstraints) {
+	  state b2(bx2);
+    if(bx1.sameLoc(bx2)){
+      b2.t=ax2.t;//+currentEnvironment[x]->environment->WaitTime();
+    }
     if(Params::boxconstraints){
-      constraint.reset((Box<state>*) new Box<state>(b1,b2));
-    }else{
-      constraint.reset((Constraint<state>*) new Collision<state>(b1,b2));
+      constraint.reset((Box<state>*) new Box<state>(bx1,b2));
+    }else if(Params::crossconstraints){
+      constraint.reset((Constraint<state>*) new Collision<state>(bx1,b2));
+    }else if(Params::pyramidconstraints){
+      constraint.reset((Constraint<state>*) new Pyramid<state>(bx1,b2,ax1.t));
     }
   } else {
-    constraint.reset((Constraint<state>*) new Identical<state>(a1,a2));
+    if(Params::identicalconstraints){
+      constraint.reset((Constraint<state>*) new Identical<state>(ax1,ax2));
+    }else{
+              state a1(ax1);
+              state a2(ax2);
+              state b1(bx1);
+              state b2(bx2);
+              auto intvl(collisionInterval3D(a1,a2,b1,b2,agentRadius));
+              a2.t-=intvl.second*state::TIME_RESOLUTION_U-a1.t;
+              a1.t-=intvl.first*state::TIME_RESOLUTION_U-a1.t;
+              b2.t-=intvl.second*state::TIME_RESOLUTION_U-b1.t;
+              b1.t-=intvl.first*state::TIME_RESOLUTION_U-b1.t;
+              if(a1.t<0)a1.t=TOLERANCE;
+              if(b1.t<0)b1.t=TOLERANCE;
+              assert(a1.t<a2.t);
+              assert(b1.t<b2.t);
+      constraint.reset((Constraint<state>*) new TimeRange<state>(a1,a2));
+    }
   }
   currentEnvironment[x]->environment->constraints.insert(constraint.get());
   astar.SetHeuristic(currentEnvironment[x]->heuristic);
@@ -1904,7 +1960,7 @@ template<typename state, typename action, typename comparison, typename conflict
 unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::HasConflict(
     std::vector<state> const& a, std::vector<int> const& wa,
     std::vector<state> const& b, std::vector<int> const& wb,
-    int x, int y, Conflict<state> &c1, Conflict<state> &c2,
+    int x, int y, std::vector<Conflict<state>>& conflicts,
     std::pair<unsigned, unsigned>& conflict, unsigned& ctype,
     bool update, bool countall){
   CBSTreeNode<state, conflicttable>& location=tree[bestNode];
@@ -1984,7 +2040,7 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, searchalg
     //state const& bGoal(b[wb[pwptB + 1]]);
     collchecks++;
     double ctime(0.0);
-    if(ctime=Params::boxconstraints?Box<state>(a[xTime], a[xNextTime]).ConflictsWith(b[yTime], b[yNextTime]):collisionCheck3D(a[xTime], a[xNextTime], b[yTime], b[yNextTime], agentRadius)){
+    if((ctime=Params::boxconstraints?Box<state>(a[xTime], a[xNextTime]).ConflictsWith(b[yTime], b[yNextTime]):collisionCheck3D(a[xTime], a[xNextTime], b[yTime], b[yNextTime], agentRadius))){
       ++conflict.first;
       if(Params::cct){
         location.setcct(x,y,xTime,yTime);
@@ -2040,59 +2096,108 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, searchalg
         if (NO_CONFLICT == ctype || ((ctype <= NON_CARDINAL) && conf) || BOTH_CARDINAL == conf) {
           ctype = conf + 1;
 
-          if (Params::usecrossconstraints) {
-            state a1(a[xTime]);
-            state a2(a[xNextTime]);
-            state b1(b[yTime]);
-            state b2(b[yNextTime]);
-            //a1.t=ctime*state::TIME_RESOLUTION_U;
-            //b1.t=ctime*state::TIME_RESOLUTION_U;
-            if(a1.sameLoc(a2)){
-              a2.t=b2.t;//+currentEnvironment[x]->environment->WaitTime();
+	  if(Params::xorconstraints){
+            conflicts.resize(3);
+	    Conflict<state>& c1=conflicts[0];
+	    Conflict<state>& c2=conflicts[1];
+	    Conflict<state>& c3=conflicts[2];
+	    state a1(a[xTime]);
+	    state a2(a[xNextTime]);
+	    state b1(b[yTime]);
+	    state b2(b[yNextTime]);
+            if (Params::extrinsicconstraints) {
+              c1.c.reset((Constraint<state>*) new XORCollision<state>(a1,a2,b1,b2,false));
+              c2.c.reset((Constraint<state>*) new XORCollision<state>(b1,b2,a1,a2,false));
+              c3.c.reset((Constraint<state>*) new XORIdentical<state>(a1,a2,b1,b2));
+	      c1.unit1 = y;
+	      c1.unit2 = x;
+	      c2.unit1 = x;
+	      c2.unit2 = y;
+	      c3.unit1 = x;
+	      c3.unit2 = y;
+	      c1.prevWpt = pwptA;
+	      c2.prevWpt = pwptB;
+	      c3.prevWpt = pwptA;
+	    }else{
+              c1.c.reset((Constraint<state>*) new XORIdentical<state>(a1,a2,b1,b2,false));
+              c2.c.reset((Constraint<state>*) new XORIdentical<state>(b1,b2,a1,a2,false));
+              c3.c.reset((Constraint<state>*) new XORIdentical<state>(a1,a2,b1,b2));
+	      c1.unit1 = x;
+	      c1.unit2 = y;
+	      c2.unit1 = y;
+	      c2.unit2 = x;
+	      c3.unit1 = x;
+	      c3.unit2 = y;
+	      c1.prevWpt = pwptA;
+	      c2.prevWpt = pwptB;
+	      c3.prevWpt = pwptA;
             }
-            if(b1.sameLoc(b2)){
-              b2.t=a2.t;//+currentEnvironment[x]->environment->WaitTime();
-            }
-            if(Params::boxconstraints){
-              c1.c.reset((Box<state>*) new Box<state>(a1, a2));
-              c2.c.reset((Box<state>*) new Box<state>(b1, b2));
-            }else{
-              c1.c.reset((Constraint<state>*) new Collision<state>(a1, a2));
-              c2.c.reset((Constraint<state>*) new Collision<state>(b1, b2));
-            }
-            c1.unit1 = y;
-            c1.unit2 = x;
-            c2.unit1 = x;
-            c2.unit2 = y;
-            c1.prevWpt = pwptB;
-            c2.prevWpt = pwptA;
-          } else {
-            if(Params::timerange){
+	  }else{
+            conflicts.resize(2);
+	    Conflict<state>& c1=conflicts[0];
+	    Conflict<state>& c2=conflicts[1];
+            if (Params::extrinsicconstraints) {
               state a1(a[xTime]);
               state a2(a[xNextTime]);
               state b1(b[yTime]);
               state b2(b[yNextTime]);
-              auto intvl(collisionInterval3D(a1,a2,b1,b2,agentRadius));
-              a1.t-=intvl.first*state::TIME_RESOLUTION_U-a1.t;
-              a2.t-=intvl.second*state::TIME_RESOLUTION_U-a1.t;
-              b1.t-=intvl.first*state::TIME_RESOLUTION_U-b1.t;
-              b2.t-=intvl.second*state::TIME_RESOLUTION_U-b1.t;
-              if(a1.t<0)a1.t=TOLERANCE;
-              if(b1.t<0)b1.t=TOLERANCE;
-              assert(a1.t<a2.t);
-              assert(b1.t<b2.t);
-              c1.c.reset((Constraint<state>*) new TimeRange<state>(a1, a2));
-              c2.c.reset((Constraint<state>*) new TimeRange<state>(b1, b2));
-            }else{
-              c1.c.reset((Constraint<state>*) new Identical<state>(a[xTime], a[xNextTime]));
-              c2.c.reset((Constraint<state>*) new Identical<state>(b[yTime], b[yNextTime]));
+              //a1.t=ctime*state::TIME_RESOLUTION_U;
+              //b1.t=ctime*state::TIME_RESOLUTION_U;
+              if(a1.sameLoc(a2)){
+                a2.t=b2.t;//+currentEnvironment[x]->environment->WaitTime();
+              }
+              if(b1.sameLoc(b2)){
+                b2.t=a2.t;//+currentEnvironment[x]->environment->WaitTime();
+              }
+              if(Params::boxconstraints){
+                c1.c.reset((Box<state>*) new Box<state>(a1, a2));
+                c2.c.reset((Box<state>*) new Box<state>(b1, b2));
+              }else if(Params::crossconstraints){
+                c1.c.reset((Constraint<state>*) new Collision<state>(a1, a2));
+                c2.c.reset((Constraint<state>*) new Collision<state>(b1, b2));
+              }else if(Params::pyramidconstraints){
+                c1.c.reset((Constraint<state>*) new Pyramid<state>(a1, a2, b1.t));
+                c2.c.reset((Constraint<state>*) new Pyramid<state>(b1, b2, a1.t));
+              }
+              c1.unit1 = y;
+              c1.unit2 = x;
+              c2.unit1 = x;
+              c2.unit2 = y;
+              c1.prevWpt = pwptB;
+              c2.prevWpt = pwptA;
+            } else {
+              if(Params::timerangeconstraints){
+                state a1(a[xTime]);
+                state a2(a[xNextTime]);
+                state b1(b[yTime]);
+                state b2(b[yNextTime]);
+	        //std::cout << "Collision at: " << x << ": " << a1 << "-->" << a2 << ", " << y << ": " << b1 << " " << b2 << "\n";
+                auto intvl(collisionInterval3D(a1,a2,b1,b2,agentRadius));
+                a2.t-=intvl.second*state::TIME_RESOLUTION_U-a1.t;
+                a1.t-=intvl.first*state::TIME_RESOLUTION_U-a1.t;
+                b2.t-=intvl.second*state::TIME_RESOLUTION_U-b1.t;
+                b1.t-=intvl.first*state::TIME_RESOLUTION_U-b1.t;
+                if(a1.t<0)a1.t=TOLERANCE;
+                if(b1.t<0)b1.t=TOLERANCE;
+                assert(a1.t<a2.t);
+                assert(b1.t<b2.t);
+	        assert(a1.t<=a[xTime].t);
+	        assert(a2.t>=a[xTime].t);
+	        assert(b1.t<=b[yTime].t);
+	        assert(b2.t>=b[yTime].t);
+                c1.c.reset((Constraint<state>*) new TimeRange<state>(a1, a2));
+                c2.c.reset((Constraint<state>*) new TimeRange<state>(b1, b2));
+              }else{
+                c1.c.reset((Constraint<state>*) new Identical<state>(a[xTime], a[xNextTime]));
+                c2.c.reset((Constraint<state>*) new Identical<state>(b[yTime], b[yNextTime]));
+              }
+              c1.unit1 = x;
+              c1.unit2 = y;
+              c2.unit1 = y;
+              c2.unit2 = x;
+              c1.prevWpt = pwptA;
+              c2.prevWpt = pwptB;
             }
-            c1.unit1 = x;
-            c1.unit2 = y;
-            c2.unit1 = y;
-            c2.unit2 = x;
-            c1.prevWpt = pwptA;
-            c2.prevWpt = pwptB;
           }
           if(!countall && conf == BOTH_CARDINAL){
             //std::cout << "Exiting conf check loop (!countall && conf == BOTH_CARDINAL) "<<x<<","<<y<<" - \n";
@@ -2136,7 +2241,7 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, searchalg
 }
 
 
-template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class searchalgo>
+/*template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class searchalgo>
 std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::FindHiPriConflictAllPairsSAP(CBSTreeNode<state, conflicttable>& location, Conflict<state> &c1, Conflict<state> &c2, bool update, bool countall){
   std::pair<unsigned, unsigned> conflict(0,0);
   unsigned& ctype(conflict.second);
@@ -2162,7 +2267,7 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
       add=false;
     }else{
       // Check against everything in the active list
-      for(auto c(active.begin()); c!=active.end(); /*++c*/){
+      for(auto c(active.begin()); c!=active.end(); ++c){
         if(
             location.sweep[a].upperBound.t>=(*c)->lowerBound.t &&
             location.sweep[a].lowerBound.t<=(*c)->upperBound.t &&
@@ -2197,7 +2302,7 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
               if (NO_CONFLICT == ctype || ((ctype <= NON_CARDINAL) && conf) || BOTH_CARDINAL == conf) {
                 ctype = conf + 1;
 
-                if (Params::usecrossconstraints) {
+                if (Params::crossconstraints) {
                   state a1(location.sweep[a].start);
                   state a2(location.sweep[a].end);
                   state b1(location.sweep[b].start);
@@ -2249,9 +2354,9 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
   while(a<=location.sweep.size() && b<path.size()){
     location.sweep.push_back(path[b]);
   }
-}
+}*/
 
-template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class searchalgo>
+/*template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class searchalgo>
 std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::FindHiPriConflictOneVsAllSAP(CBSTreeNode<state, conflicttable>& location, Conflict<state> &c1, Conflict<state> &c2, bool update, bool countall){
   std::pair<unsigned, unsigned> conflict;
   unsigned& ctype(conflict.second);
@@ -2314,7 +2419,7 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
           if (NO_CONFLICT == ctype || ((ctype <= NON_CARDINAL) && conf) || BOTH_CARDINAL == conf) {
             ctype = conf + 1;
 
-            if (Params::usecrossconstraints) {
+            if (Params::crossconstraints) {
               state a1(location.sweep[a].start);
               state a2(location.sweep[a].end);
               state b1(location.sweep[b].start);
@@ -2362,17 +2467,17 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
   while(a==location.sweep.size() && b<path.size()){
     location.sweep.push_back(path[b]);
   }
-}
+}*/
 
 /** Find the highest priority conflict **/
 // By definition, we can't call this function unless we are using the CCT
 template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class searchalgo>
 std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::FindHiPriConflictOneVsAll(
-    CBSTreeNode<state, conflicttable> const& location, Conflict<state> &c1, Conflict<state> &c2, bool update) {
+    CBSTreeNode<state, conflicttable> const& location, std::vector<Conflict<state>> &conflicts, bool update) {
   if (verbose)
     std::cout << "Checking for conflicts (one vs all)\n";
   // prefer cardinal conflicts
-  std::pair<std::pair<unsigned, unsigned>, std::pair<Conflict<state>, Conflict<state>>> best;
+  std::pair<std::pair<unsigned, unsigned>, std::vector<Conflict<state>>> best;
 
   Timer tmr;
   tmr.StartTimer();
@@ -2393,7 +2498,7 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
           if(!disappearAtGoal){
             if(location.paths[x]->back().t < location.paths[y]->back().t){
               if(location.paths[x]->size()>1 && !location.paths[x]->back().sameLoc(*(location.paths[x]->rbegin()+1))){
-                if(Params::usecrossconstraints){
+                if(Params::extrinsicconstraints){
                   location.paths[x]->push_back(location.paths[x]->back());
                 }else{
                   while(location.paths[x]->back().t<location.paths[y]->back().t-currentEnvironment[x]->environment->WaitTime()){
@@ -2405,7 +2510,7 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
               location.paths[x]->back().t=location.paths[y]->back().t;
             }else if(location.paths[y]->back().t < location.paths[x]->back().t){
               if(location.paths[y]->size()>1 && !location.paths[y]->back().sameLoc(*(location.paths[y]->rbegin()+1))){
-                if(Params::usecrossconstraints){
+                if(Params::extrinsicconstraints){
                   location.paths[y]->back().t+=currentEnvironment[y]->environment->WaitTime();
                 }else{
                   while(location.paths[y]->back().t<location.paths[x]->back().t-currentEnvironment[x]->environment->WaitTime()){
@@ -2418,7 +2523,7 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
             }
           }
           if(HasConflict(*location.paths[x], location.wpts[x], *location.paths[y], location.wpts[y], x, y,
-                best.second.first, best.second.second, best.first, (Params::prioritizeConf?ctype:best.first.second), update, true)){
+                best.second, best.first, (Params::prioritizeConf?ctype:best.first.second), update, true)){
             intraConflict=true;
           }
           best.first.second = std::max(ctype,best.first.second);
@@ -2430,16 +2535,32 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
     }
     // Make sure that the conflict counted is the one being returned (and being translated to meta-agent indices)
     if (best.first.second > previous && (intraConflict)) {
-      if (Params::usecrossconstraints) {
-        best.second.first.unit1 = location.con.unit1;
-        best.second.first.unit2 = b;
-        best.second.second.unit1 = b;
-        best.second.second.unit2 = location.con.unit1;
-      } else {
-        best.second.first.unit1 = b;
-        best.second.first.unit2 = location.con.unit1;
-        best.second.second.unit1 = location.con.unit1;
-        best.second.second.unit2 = b;
+      if(Params::xorconstraints){
+        if (Params::extrinsicconstraints) {
+          best.second[0].unit1 = location.con.unit1;
+          best.second[0].unit2 = b;
+          best.second[1].unit1 = b;
+          best.second[1].unit2 = location.con.unit1;
+        }else{
+          best.second[0].unit1 = b;
+          best.second[0].unit2 = location.con.unit1;
+          best.second[1].unit1 = location.con.unit1;
+          best.second[1].unit2 = b;
+	}
+        best.second[2].unit1 = location.con.unit1;
+        best.second[2].unit2 = b;
+      }else{
+        if (Params::extrinsicconstraints) {
+          best.second[0].unit1 = location.con.unit1;
+          best.second[0].unit2 = b;
+          best.second[1].unit1 = b;
+          best.second[1].unit2 = location.con.unit1;
+        } else {
+          best.second[0].unit1 = b;
+          best.second[0].unit2 = location.con.unit1;
+          best.second[1].unit1 = location.con.unit1;
+          best.second[1].unit2 = b;
+        }
       }
     }
     if(best.first.second==BOTH_CARDINAL){update=false;} // Now that we've found a both cardinal conflict, no sense updating
@@ -2447,9 +2568,8 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
   collisionTime += tmr.EndTimer();
   if(best.first.first) { // Was a collision found with this agent?
     if(update){
-      metaAgentConflictMatrix[best.second.first.unit1][best.second.second.unit1]++;
-      c1 = best.second.first;
-      c2 = best.second.second;
+      metaAgentConflictMatrix[best.second[0].unit1][best.second[1].unit1]++;
+      conflicts = best.second; // Copy
     }
   }else if(location.hasCollisions()){ // Are there any collisions left?
     unsigned x(0);
@@ -2470,10 +2590,9 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
     }
     //std::cout << "selected " << x << ","<<y<<"\n";
     assert(HasConflict(*location.paths[x], location.wpts[x], *location.paths[y], location.wpts[y], x, y,
-          best.second.first, best.second.second, best.first, best.first.second, true, true));
-    metaAgentConflictMatrix[best.second.first.unit1][best.second.second.unit1]++;
-    c1 = best.second.first;
-    c2 = best.second.second;
+          best.second, best.first, best.first.second, true, true));
+    metaAgentConflictMatrix[best.second[0].unit1][best.second[0].unit2]++;
+    conflicts = best.second; // Copy
   }
   
   return best.first;
@@ -2482,17 +2601,17 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
 /** Find the highest priority conflict **/
 template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class searchalgo>
 std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::FindHiPriConflictAllPairs(
-    CBSTreeNode<state, conflicttable> const& location, Conflict<state> &c1, Conflict<state> &c2, bool update) {
+    CBSTreeNode<state, conflicttable> const& location, std::vector<Conflict<state>> &conflicts, bool update) {
   if (verbose)
     std::cout << "Checking for conflicts (all pairs)\n";
   // prefer cardinal conflicts
-  std::pair<std::pair<unsigned, unsigned>, std::pair<Conflict<state>, Conflict<state>>> best;
+  std::pair<std::pair<unsigned, unsigned>, std::vector<Conflict<state>>> best;
 
   Timer tmr;
   tmr.StartTimer();
   unsigned ctype(NO_CONFLICT);
   for (unsigned a(0); a < activeMetaAgents.size(); ++a) {
-    for (unsigned b(a + 1); b < activeMetaAgents.size(); ++b) {
+    for (unsigned b(a + 1); b < activeMetaAgents.size(); ++b){
       unsigned intraConflicts(0); // Conflicts between meta-agents
       unsigned previous(best.first.second);
       // For each pair of units in the group
@@ -2507,7 +2626,7 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
             if(!disappearAtGoal){
               if(location.paths[x]->back().t < location.paths[y]->back().t){
                 if(location.paths[x]->size()>1 && !location.paths[x]->back().sameLoc(*(location.paths[x]->rbegin()+1))){
-                  if(Params::usecrossconstraints){
+                  if(Params::extrinsicconstraints){
                     location.paths[x]->push_back(location.paths[x]->back());
                   }else{
                     while(location.paths[x]->back().t<location.paths[y]->back().t-currentEnvironment[x]->environment->WaitTime()){
@@ -2519,7 +2638,7 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
                 location.paths[x]->back().t=location.paths[y]->back().t;
               }else if(location.paths[y]->back().t < location.paths[x]->back().t){
                 if(location.paths[y]->size()>1 && !location.paths[y]->back().sameLoc(*(location.paths[y]->rbegin()+1))){
-                  if(Params::usecrossconstraints){
+                  if(Params::extrinsicconstraints){
                     location.paths[y]->push_back(location.paths[y]->back());
                   }else{
                     while(location.paths[y]->back().t<location.paths[x]->back().t-currentEnvironment[x]->environment->WaitTime()){
@@ -2533,7 +2652,7 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
             }
             if(HasConflict(*location.paths[x], location.wpts[x], *location.paths[y], location.wpts[y], x, y,
                   //best.second.first, best.second.second, best.first, best.first.second, update)){
-                 best.second.first, best.second.second, best.first, (Params::prioritizeConf?ctype:best.first.second), update,true)){
+                 best.second, best.first, (Params::prioritizeConf?ctype:best.first.second), update,true)){
               ++intraConflicts;
               best.first.second = std::max(ctype,best.first.second);
             }
@@ -2545,26 +2664,34 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
       }
       // Make sure that the conflict counted is the one being returned (and being translated to meta-agent indices)
       if (best.first.second > previous && (intraConflicts)) {
-        if (Params::usecrossconstraints) {
-          best.second.first.unit1 = b;
-          best.second.first.unit2 = a;
-          best.second.second.unit1 = a;
-          best.second.second.unit2 = b;
-        } else {
-          best.second.first.unit1 = a;
-          best.second.first.unit2 = b;
-          best.second.second.unit1 = b;
-          best.second.second.unit2 = a;
-        }
+	if(Params::xorconstraints){
+          best.second[0].unit1 = b;
+          best.second[0].unit2 = a;
+          best.second[1].unit1 = a;
+          best.second[1].unit2 = b;
+          best.second[2].unit1 = a;
+          best.second[2].unit2 = b;
+	}else{
+          if (Params::extrinsicconstraints) {
+            best.second[0].unit1 = b;
+            best.second[0].unit2 = a;
+            best.second[1].unit1 = a;
+            best.second[1].unit2 = b;
+          } else {
+            best.second[0].unit1 = a;
+            best.second[0].unit2 = b;
+            best.second[1].unit1 = b;
+            best.second[1].unit2 = a;
+          }
       }
       if(best.first.second==BOTH_CARDINAL){update=false;}
+    }
     }
   }
   collisionTime += tmr.EndTimer();
   if (update && best.first.first) {
-    metaAgentConflictMatrix[best.second.first.unit1][best.second.second.unit1]++;
-    c2 = best.second.first;
-    c1 = best.second.second;
+    metaAgentConflictMatrix[best.second[0].unit1][best.second[0].unit2]++;
+    conflicts=best.second;
   }
   return best.first;
 }

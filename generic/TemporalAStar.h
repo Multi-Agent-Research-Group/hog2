@@ -207,6 +207,12 @@ const char *TemporalAStar<state,action,environment,openList>::GetName()
 template <class state, class action, class environment, class openList>
 void TemporalAStar<state,action,environment,openList>::GetPath(environment *_env, const state& from, const state& to, std::vector<state> &thePath, unsigned minTime)
 {
+	// Assume that the heuristic is perfect (otherwise this check is WRONG)
+	// Also assume that cost is equivalent to time.
+	// Check wheter it is feasible to get to the goal at the specified time,
+	// If time is zero, assume any time is fine.
+	if(to.t && theHeuristic->HCost(from,to)<to.t){ return; }
+
   	if (!InitializeSearch(_env, from, to, thePath,minTime))
   	{	
   		return;

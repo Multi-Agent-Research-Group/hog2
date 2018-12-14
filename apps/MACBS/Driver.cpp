@@ -194,9 +194,8 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-suboptimal", "-suboptimal", "Sub-optimal answers");
 	InstallCommandLineHandler(MyCLHandler, "-random", "-random", "Randomize conflict resolution order");
 	InstallCommandLineHandler(MyCLHandler, "-greedyCT", "-greedyCT", "Greedy sort high-level search by number of conflicts (GCBS)");
-	InstallCommandLineHandler(MyCLHandler, "-nocross", "-nocross", "Do not use cross-constraints (identical only)");
-	InstallCommandLineHandler(MyCLHandler, "-timerange", "-timerange", "Use time range constarints");
-	InstallCommandLineHandler(MyCLHandler, "-boxconstraints", "-boxconstraints", "Use action bounding box constraints");
+	InstallCommandLineHandler(MyCLHandler, "-xor", "-xor", "Use XOR constraints");
+	InstallCommandLineHandler(MyCLHandler, "-ctype", "-ctype", "Constraint type: \n\t1: identical constraints\n\t2: Pyramid constraints\n\t3: Collision constraints (sub-optimal)\n\t4: Time range constraints (sub-optimal)\n\t5: Box constraints (sub-optimal)");
 	InstallCommandLineHandler(MyCLHandler, "-pc", "-pc", "prioritize conflicts");
 	InstallCommandLineHandler(MyCLHandler, "-cct", "-cct", "Conflict count table");
 	InstallCommandLineHandler(MyCLHandler, "-uniqcost", "-uniqcost <value>", "Use randomized unique costs up to <value>");
@@ -566,21 +565,48 @@ int MyCLHandler(char *argument[], int maxNumArgs)
           dtedfile=argument[1];
           return 2;
         }
-	if(strcmp(argument[0], "-boxconstraints") == 0)
-	{
-                Params::boxconstraints = true;
+	if(strcmp(argument[0], "-xor") == 0){
+		Params::xorconstraints=true;
 		return 1;
 	}
-	if(strcmp(argument[0], "-timerange") == 0)
+	if(strcmp(argument[0], "-ctype") == 0)
 	{
-                Params::timerange = true;
-                Params::usecrossconstraints = false;
-		return 1;
-	}
-	if(strcmp(argument[0], "-nocross") == 0)
-	{
-                Params::usecrossconstraints = false;
-		return 1;
+	   //1: identical constraints
+	   //2: Pyramid constraints
+	   //3: Collision constraints (sub-optimal)
+	   //4: Time range constraints (sub-optimal)
+	   //5: Box constraints (sub-optimal)
+		unsigned scheme(atoi(argument[1]));
+		Params::crossconstraints=false;
+		Params::boxconstraints=false;
+		Params::timerangeconstraints=false;
+		Params::pyramidconstraints=false;
+		Params::identicalconstraints=false;
+		Params::extrinsicconstraints=false;
+		switch(scheme){
+		  case 1:
+		    Params::identicalconstraints=true;
+		  break;
+	          case 2:
+		    Params::pyramidconstraints=true;
+		    Params::extrinsicconstraints=true;
+		  break;
+	          case 3:
+		    Params::crossconstraints=true;
+		    Params::extrinsicconstraints=true;
+		  break;
+	          case 4:
+		    Params::timerangeconstraints=true;
+		  break;
+	          case 5:
+		    Params::boxconstraints=true;
+		    Params::extrinsicconstraints=true;
+		  break;
+		  default:
+		    Params::identicalconstraints=true;
+		  break;
+		}
+		return 2;
 	}
 	if(strcmp(argument[0], "-skip") == 0)
 	{
