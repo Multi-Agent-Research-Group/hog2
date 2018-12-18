@@ -53,7 +53,6 @@ int width = 64;
 int length = 64;
 int height = 0;
 bool recording = false; // Record frames
-bool verbose(false);
 bool quiet(false);
 double simTime = 0;
 double stepsPerFrame = 1.0/100.0;
@@ -114,7 +113,7 @@ int main(int argc, char* argv[])
     {
       group->ExpandOneCBSNode();
     }
-    if(verbose)for(int i(0);i<group->GetNumMembers();++i){
+    if(Params::verbose)for(int i(0);i<group->GetNumMembers();++i){
       std::cout << "final path for agent " << i << ":\n";
       for(auto const& n: *group->tree.back().paths[i])
         std::cout << n << "\n";
@@ -187,6 +186,7 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-disappear", "-disappear", "Agents disappear at goal");
 	InstallCommandLineHandler(MyCLHandler, "-nogui", "-nogui", "Turn off gui");
 	InstallCommandLineHandler(MyCLHandler, "-verbose", "-verbose", "Turn on verbose output");
+	InstallCommandLineHandler(MyCLHandler, "-astarverbose", "-astarverbose", "Turn on verbose output for A*");
 	InstallCommandLineHandler(MyCLHandler, "-quiet", "-quiet", "Extreme minimal output");
 	InstallCommandLineHandler(MyCLHandler, "-cat", "-cat", "Use Conflict Avoidance Table (CAT)");
 	InstallCommandLineHandler(MyCLHandler, "-animate", "-animate <usecs>", "Animate CBS search");
@@ -229,7 +229,7 @@ void MyWindowHandler(unsigned long windowID, tWindowEventType eType)
 void InitHeadless(){
   ace=(Grid3DConstrainedEnvironment*)environs[0].rbegin()->environment;
 
-  group = new MACBSGroup(environs,verbose); // Changed to 10,000 expansions from number of conflicts in the tree
+  group = new MACBSGroup(environs); // Changed to 10,000 expansions from number of conflicts in the tree
   Params::greedyCT=greedyCT;
   group->disappearAtGoal=disappearAtGoal;
   group->timer=new Timer();
@@ -255,7 +255,7 @@ void InitHeadless(){
     sim->AddUnitGroup(group);
   }
 
-  if(verbose)std::cout << "Adding " << num_agents << "agents." << std::endl;
+  if(Params::verbose)std::cout << "Adding " << num_agents << "agents." << std::endl;
 
   for (int i = 0; i < num_agents; i++) {
     if(waypoints.size()<num_agents){
@@ -266,7 +266,7 @@ void InitHeadless(){
       if(r>0){
         numsubgoals = rand()%(maxsubgoals-minsubgoals)+minsubgoals+1;
       }
-      if(verbose)std::cout << "Agent " << i << " add " << numsubgoals << " subgoals\n";
+      if(Params::verbose)std::cout << "Agent " << i << " add " << numsubgoals << " subgoals\n";
 
       for(int n(0); n<numsubgoals; ++n){
         bool conflict(true);
@@ -312,8 +312,8 @@ void InitHeadless(){
     MACBSUnit* unit = new MACBSUnit(waypoints[i],softEff);
     unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
     group->AddUnit(unit); // Add to the group
-    if(verbose)std::cout << "initial path for agent " << i << ":\n";
-    if(verbose)for(auto const& n: *group->tree[0].paths[i])
+    if(Params::verbose)std::cout << "initial path for agent " << i << ":\n";
+    if(Params::verbose)for(auto const& n: *group->tree[0].paths[i])
       std::cout << n << "\n";
     if(gui){sim->AddUnit(unit);} // Add to the group
   }
@@ -812,9 +812,14 @@ int MyCLHandler(char *argument[], int maxNumArgs)
 		quiet = true;
 		return 1;
 	}
+	if(strcmp(argument[0], "-astarverbose") == 0)
+	{
+		Params::astarverbose = true;
+		return 1;
+	}
 	if(strcmp(argument[0], "-verbose") == 0)
 	{
-		verbose = true;
+		Params::verbose = true;
 		return 1;
 	}
 	if(strcmp(argument[0], "-disappear") == 0)

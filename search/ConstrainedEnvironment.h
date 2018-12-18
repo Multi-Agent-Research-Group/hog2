@@ -97,7 +97,7 @@ class Constraint : public DrawableConstraint{
 namespace std {
    template<typename State>
    struct less<Constraint<State> const*> {
-     bool operator()(Constraint<State> const* a, Constraint<State> const* b)const{return a->start_state==b->start_state?a->end_state<b->end_state:a->start_state<b->start_state;}
+     bool operator()(Constraint<State> const* a, Constraint<State> const* b)const{return a->start_state==b->start_state?a->end_state==b->end_state?a<b:a->end_state<b->end_state:a->start_state<b->start_state;}
    };
 }
 
@@ -153,7 +153,9 @@ class XORIdentical : public XOR<State> {
     virtual Constraint<State>* Swap()const{return new XORIdentical<State>(this->pos_start,this->pos_end,this->start_state,this->end_state,this->negative);}
     virtual double ConflictsWith(State const& s) const {return 0;} // Vertex collisions are ignored
     // Check whether the action has the exact same time and to/from
-    virtual double ConflictsWith(State const& from, State const& to) const {return (from==this->start_state && to.sameLoc(this->end_state))?from.t?double(from.t)/State::TIME_RESOLUTION_D:-1.0/State::TIME_RESOLUTION_D:0;}
+    virtual double ConflictsWith(State const& from, State const& to) const {
+      return (from==this->start_state &&
+      to.sameLoc(this->end_state))?from.t?double(from.t)/State::TIME_RESOLUTION_D:-1.0/State::TIME_RESOLUTION_D:0;}
 };
 
 template<typename State>
@@ -300,7 +302,10 @@ class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
       while(e!=constraints.end() && (*e)->start_state.t<=to.t)++e;
       for(;s!=e;++s){
         double vtime((*s)->ConflictsWith(from,to));
-        if(vtime)return vtime;
+        if(vtime){
+          //std::cout << "Ignoring " << from << "-->" << to << "\n";
+          return vtime;
+        }
       }
       return 0;
     }
