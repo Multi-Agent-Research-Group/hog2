@@ -543,26 +543,30 @@ double collisionCheck3DSlow(TemporalVector3D const& A1, TemporalVector3D const& 
 }
 // Check for collision between entities moving from A1 to A2 and B1 to B2
 // Speed is optional. If provided, should be in grids per unit time; time should also be pre adjusted to reflect speed.
-/*template<typename state>
-double collisionCheck3D(state const& A1, state const& A2, state const& B1, state const& B2, double radiusA, double radiusB, double speedA, double speedB){
-  if(A1==B1){return std::min(A1.t,B1.t);}
-  if(A2==B2){return std::min(A2.t,B2.t);}
-  if(A1.sameLoc(B2)&&B1.sameLoc(A2)){return std::min(A1.t,B1.t);}
-}*/
-
 double collisionCheck3D(TemporalVector3D const& A1, TemporalVector3D const& A2, TemporalVector3D const& B1, TemporalVector3D const& B2, double radiusA, double radiusB, double speedA, double speedB){
   unsigned sdx(fabs(A1.x-B2.x));
   unsigned sdy(fabs(A1.y-B2.y));
   unsigned sdz(fabs(A1.z-B2.z));
   // Same edge in reverse?
   if(sdx==0&&sdy==0&&sdz==0&&B1.x==A2.x&&B1.y==A2.y&&B1.z==A2.z){
-    double ctime(std::min(A1.t,B1.t));
-    return ctime?ctime:TOLERANCE;
+    double dist(sqrt(distanceSquared(A1,B1))-(A1.t>B1.t?(A1.t-B1.t)*speedA:(B1.t-A1.t)*speedB));
+    double radius((radiusA*speedA+radiusB*speedB));
+    double speed(speedA+speedB);
+    double ctime(std::max(A1.t,B1.t)+(dist-radius)/speed);
+    return ctime;
   }
-  // Same start?
-  if(A1==B1){return A1.t?A1.t:1e-10;}
-  // Same end?
-  if(A2==B2){return radiusA*radiusB;}//A1.t?A1.t:THRESHOLD;} // A more accurate time could be calculated possibly
+
+  // Same start && same end?
+  if(A1.x==B1.x && A1.y==B1.y && A1.z==B1.z
+      && A2.x==B2.x && A2.y==B2.y && A2.z==B2.z){
+    double radius((radiusA*speedA+radiusB*speedB));
+    // Distance based on time offset
+    double tdist(fgreater(A1.t,B1.t)?speedA*(A1.t-B1.t):speedB*(B1.t-A1.t));
+    if(radius > tdist){
+      // immediately colliding
+      return std::max(A1.t,B1.t);
+    }
+  }
 
   unsigned ssx(fabs(A1.x-B1.x));
   unsigned ssy(fabs(A1.y-B1.y));
@@ -573,62 +577,14 @@ double collisionCheck3D(TemporalVector3D const& A1, TemporalVector3D const& A2, 
   switch(dim){
     case 0:
     case 1:
-      if(std::max(radiusA,radiusB)>.25){
-        //static unsigned bitarray27r_5[27*27*27/WORD_BITS+1];
-        //if(!bitarray27r_5[0]){
-          //fillArray(bitarray27r_5,*index27,1,.5);
-        //}
-
         if(ssx<2 && ssy<2 && ssz<2 && sdx<3 && sdy<3 && sdz<3){
-          //if(!get(bitarray27r_5,index27(A1,A2,B1,B2)))
-             //return 0;
         }else if(sdx<2 && sdy<2 && sdz<2 && ssx<3 && ssy<3 && ssz<3){
-          //if(!get(bitarray27r_5,index27(A1,A2,B2,B1)))
-             //return 0;
         }else{return 0;}
-      }else{
-        //static unsigned bitarray27r_25[27*27*27/WORD_BITS+1];
-        //if(!get(bitarray27r_25,CENTER_IDX27)){
-          //fillArray(bitarray27r_25,*index27,1,.25);
-        //}
-
-        if(ssx<2 && ssy<2 && ssz<2 && sdx<3 && sdy<3 && sdz<3){
-          //if(!get(bitarray27r_25,index27(A1,A2,B1,B2)))
-             //return 0;
-        }else if(sdx<2 && sdy<2 && sdz<3 && ssx<3 && ssy<3 && ssz<3){
-          //if(!get(bitarray27r_25,index27(A1,A2,B2,B1)))
-             //return 0;
-        }else{return 0;}
-      }
       break;
     case 2:
-      if(std::max(radiusA,radiusB)>.25){
-        //static unsigned bitarray125r_5[125*125*125/WORD_BITS+1];
-        //if(!get(bitarray125r_5,CENTER_IDX125)){
-          //fillArray(bitarray125r_5,*index125,2,.5);
-        //}
-
         if(ssx<3 && ssy<3 && ssz<3 && sdx<5 && sdy<5 && sdz<5){
-          //if(!get(bitarray125r_5,index125(A1,A2,B1,B2)))
-             //return 0;
         }else if(sdx<3 && sdy<3 && sdz<3 && ssx<5 && ssy<5 && ssz<5){
-          //if(!get(bitarray125r_5,index125(A1,A2,B2,B1)))
-             //return 0;
         }else{return 0;}
-      }else{
-        //static unsigned bitarray125r_25[125*125*125/WORD_BITS+1];
-        //if(!get(bitarray125r_25,CENTER_IDX125)){
-          //fillArray(bitarray125r_25,*index125,2,.25);
-        //}
-
-        if(ssx<3 && ssy<3 && ssz<3 && sdx<5 && sdy<5 && sdz<5){
-          //if(!get(bitarray125r_25,index125(A1,A2,B1,B2)))
-             //return 0;
-        }else if(sdx<3 && sdy<3 && sdz<3 && ssx<5 && ssy<5 && ssz<5){
-          //if(!get(bitarray125r_25,index125(A1,A2,B2,B1)))
-             //return 0;
-        }else{return 0;}
-      }
       break;
     default:
       break;
@@ -640,6 +596,74 @@ double collisionCheck3D(TemporalVector3D const& A1, TemporalVector3D const& A2, 
   VB.Normalize();
   VB*=speedA;
   return collisionImminent(A1,VA,radiusA,A1.t,A2.t,B1,VB,radiusB?radiusB:radiusA,B1.t,B2.t);
+}
+
+std::pair<double,double> collisionInterval3D(TemporalVector3D const& A1, TemporalVector3D const& A2, TemporalVector3D const& B1, TemporalVector3D const& B2, double radiusA, double radiusB, double speedA, double speedB){
+  unsigned sdx(fabs(A1.x-B2.x));
+  unsigned sdy(fabs(A1.y-B2.y));
+  unsigned sdz(fabs(A1.z-B2.z));
+  // Same edge in reverse?
+  if(sdx==0&&sdy==0&&sdz==0&&B1.x==A2.x&&B1.y==A2.y&&B1.z==A2.z){
+    double dist(sqrt(distanceSquared(A1,B1))-(A1.t>B1.t?(A1.t-B1.t)*speedA:(B1.t-A1.t)*speedB));
+    double radius((radiusA*speedA+radiusB*speedB));
+    double speed(speedA+speedB);
+    double ctime(std::max(A1.t,B1.t)+(dist-radius)/speed);
+    return {ctime,ctime+radius/speed};
+  }
+
+  // Same start && same end?
+  if(A1.x==B1.x && A1.y==B1.y && A1.z==B1.z
+      && A2.x==B2.x && A2.y==B2.y && A2.z==B2.z){
+    double radius((radiusA*speedA+radiusB*speedB));
+    // Distance based on time offset
+    double tdist(fgreater(A1.t,B1.t)?speedA*(A1.t-B1.t):speedB*(B1.t-A1.t));
+    if(radius > tdist){
+      // immediately colliding
+      double begin(std::max(A1.t,B1.t));
+      double end(std::min(A2.t,B2.t));
+      if(fequal(speedA,speedB)){
+        return {begin,end}; // Collision continues for entire duration
+      }else if(fgreater(speedA,speedB)){ // A is moving faster
+        // How much distance is required?
+        double reqd(fgreater(A1.t,B1.t)?tdist-radius:tdist+radius);
+        end = std::min(end,begin + reqd*(speedA-speedB));
+      }else{ // B is moving faster
+        double reqd(fless(A1.t,B1.t)?tdist-radius:tdist+radius);
+        end = std::min(end,begin + reqd*(speedB-speedA));
+      }
+      return {begin,end};
+    }
+    // Determine if collision is going to happen in the future
+  }
+
+  unsigned ssx(fabs(A1.x-B1.x));
+  unsigned ssy(fabs(A1.y-B1.y));
+  unsigned ssz(fabs(A1.z-B1.z));
+
+  unsigned dim(std::max(std::max(std::max(fabs(A1.x-A2.x),fabs(B1.x-B2.x)),std::max(fabs(A1.y-A2.y),fabs(B1.y-B2.y))),std::max(fabs(A1.z-A2.z),fabs(B1.z-B2.z))));
+
+  switch(dim){
+    case 0:
+    case 1:
+        if(ssx<2 && ssy<2 && ssz<2 && sdx<3 && sdy<3 && sdz<3){
+        }else if(sdx<2 && sdy<2 && sdz<2 && ssx<3 && ssy<3 && ssz<3){
+        }else{return {0,0};}
+      break;
+    case 2:
+        if(ssx<3 && ssy<3 && ssz<3 && sdx<5 && sdy<5 && sdz<5){
+        }else if(sdx<3 && sdy<3 && sdz<3 && ssx<5 && ssy<5 && ssz<5){
+        }else{return {0,0};}
+      break;
+    default:
+      break;
+  };
+  Vector3D VA(A2-A1);
+  VA.Normalize();
+  VA*=speedA;
+  Vector3D VB(B2-B1);
+  VB.Normalize();
+  VB*=speedA;
+  return getCollisionInterval(A1,VA,radiusA,A1.t,A2.t,B1,VB,radiusB?radiusB:radiusA,B1.t,B2.t);
 }
 
 // Get collision time between two agents - that is the time that they will "start" colliding.

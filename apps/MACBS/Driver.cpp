@@ -53,7 +53,6 @@ int width = 64;
 int length = 64;
 int height = 0;
 bool recording = false; // Record frames
-bool verbose(false);
 bool quiet(false);
 double simTime = 0;
 double stepsPerFrame = 1.0/100.0;
@@ -96,6 +95,7 @@ Solution<xyztLoc> solution;
   int animate(0);
   uint64_t maxcost(0);
   void InitHeadless();
+  bool detectIndependence();
 
 int main(int argc, char* argv[])
 {
@@ -116,7 +116,7 @@ int main(int argc, char* argv[])
       for(auto& group:groups){
         while(group->ExpandOneCBSNode()){
         }
-        if(verbose)for(int i(0);i<group->GetNumMembers();++i){
+        if(Params::verbose)for(int i(0);i<group->GetNumMembers();++i){
           std::cout << "path for agent " << i << ":\n";
           for(auto const& n: *group->tree.back().paths[i])
             std::cout << n << "\n";
@@ -191,6 +191,7 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-disappear", "-disappear", "Agents disappear at goal");
 	InstallCommandLineHandler(MyCLHandler, "-nogui", "-nogui", "Turn off gui");
 	InstallCommandLineHandler(MyCLHandler, "-verbose", "-verbose", "Turn on verbose output");
+	InstallCommandLineHandler(MyCLHandler, "-astarverbose", "-astarverbose", "Turn on verbose output for A*");
 	InstallCommandLineHandler(MyCLHandler, "-quiet", "-quiet", "Extreme minimal output");
 	InstallCommandLineHandler(MyCLHandler, "-cat", "-cat", "Use Conflict Avoidance Table (CAT)");
 	InstallCommandLineHandler(MyCLHandler, "-animate", "-animate <usecs>", "Animate CBS search");
@@ -198,8 +199,8 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-suboptimal", "-suboptimal", "Sub-optimal answers");
 	InstallCommandLineHandler(MyCLHandler, "-random", "-random", "Randomize conflict resolution order");
 	InstallCommandLineHandler(MyCLHandler, "-greedyCT", "-greedyCT", "Greedy sort high-level search by number of conflicts (GCBS)");
-	InstallCommandLineHandler(MyCLHandler, "-nocross", "-nocross", "Do not use cross-constraints (identical only)");
-	InstallCommandLineHandler(MyCLHandler, "-boxconstraints", "-boxconstraints", "Use action bounding box constraints");
+	InstallCommandLineHandler(MyCLHandler, "-xor", "-xor", "Use XOR constraints");
+	InstallCommandLineHandler(MyCLHandler, "-ctype", "-ctype", "Constraint type: \n\t1: identical constraints\n\t2: Pyramid constraints\n\t3: Collision constraints (sub-optimal)\n\t4: Time range constraints (sub-optimal)\n\t5: Box constraints (sub-optimal)");
 	InstallCommandLineHandler(MyCLHandler, "-pc", "-pc", "prioritize conflicts");
 	InstallCommandLineHandler(MyCLHandler, "-cct", "-cct", "Conflict count table");
 	InstallCommandLineHandler(MyCLHandler, "-uniqcost", "-uniqcost <value>", "Use randomized unique costs up to <value>");
@@ -236,7 +237,7 @@ void InitHeadless(){
   solution.resize(num_agents);
   int i(0);
   for(auto& group:groups){
-    group=new MACBSGroup(environs,{i},verbose)};
+    group=new MACBSGroup(environs,{i});
     Params::greedyCT=greedyCT;
     group->disappearAtGoal=disappearAtGoal;
     group->timer=new Timer();
@@ -258,70 +259,68 @@ void InitHeadless(){
       sim = new UnitSim(ace);
       sim->SetStepType(kLockStep);
       sim->SetLogStats(false);
-
       sim->AddUnitGroup(group);
     }
 
-    if(verbose)std::cout << "Adding agent " << i << std::endl;
+    if(waypoints.size()<num_agents){
+      // Adding random waypoints
+      std::vector<xyztLoc> s;
+      unsigned r(maxsubgoals-minsubgoals);
+      int numsubgoals(minsubgoals+1);
+      if(r>0){
+        numsubgoals = rand()%(maxsubgoals-minsubgoals)+minsubgoals+1;
+      }
+      if(Params::verbose)std::cout << "Agent " << i << " add " << numsubgoals << " subgoals\n";
 
-      if(waypoints.size()<num_agents){
-        // Adding random waypoints
-        std::vector<xyztLoc> s;
-        unsigned r(maxsubgoals-minsubgoals);
-        int numsubgoals(minsubgoals+1);
-        if(r>0){
-          numsubgoals = rand()%(maxsubgoals-minsubgoals)+minsubgoals+1;
-        }
-        if(verbose)std::cout << "Agent " << i << " add " << numsubgoals << " subgoals\n";
-
-        for(int n(0); n<numsubgoals; ++n){
-          bool conflict(true);
-          while(conflict){
-            conflict=false;
-            xyztLoc start(rand() % width, rand() % length, rand() % height,0u);
-            if(!ace->GetMap()->IsTraversable(start.x,start.y,start.z,Map3D::air)){conflict=true;continue;}
-            for (int j = 0; j < waypoints.size(); j++)
+      for(int n(0); n<numsubgoals; ++n){
+        bool conflict(true);
+        while(conflict){
+          conflict=false;
+          xyztLoc start(rand() % width, rand() % length, rand() % height,0u);
+          if(!ace->GetMap()->IsTraversable(start.x,start.y,start.z,Map3D::air)){conflict=true;continue;}
+          for (int j = 0; j < waypoints.size(); j++)
+          {
+            if(i==j){continue;}
+            if(waypoints[j].size()>n)
             {
-              if(i==j){continue;}
-              if(waypoints[j].size()>n)
-              {
-                xyztLoc a(waypoints[j][n]);
-                // Make sure that no subgoals at similar times have a conflict
-                Collision<xyztLoc> x_c(a,a,agentRadius);
-                if(x_c.ConflictsWith(start,start)){conflict=true;break;}
-                if(a==start){conflict=true;break;}
-              }
-              /*xytLoc a(start,1.0);
-                xytLoc b(a);
-                b.x++;
-                if(conflict=ace->ViolatesConstraint(a,b)){break;}*/
+              xyztLoc a(waypoints[j][n]);
+              // Make sure that no subgoals at similar times have a conflict
+              Collision<xyztLoc> x_c(a,a,agentRadius);
+              if(x_c.ConflictsWith(start,start)){conflict=true;break;}
+              if(a==start){conflict=true;break;}
             }
-            if(!conflict) s.push_back(start);
+            /*xytLoc a(start,1.0);
+              xytLoc b(a);
+              b.x++;
+              if(conflict=ace->ViolatesConstraint(a,b)){break;}*/
           }
+          if(!conflict) s.push_back(start);
         }
-        waypoints.push_back(s);
       }
-      for(auto w(waypoints.begin()+1); w!=waypoints.end();/*++w*/){
-        if(*(w-1) == *w)
-          waypoints.erase(w);
-        else
-          ++w;
-      }
+      waypoints.push_back(s);
+    }
+    for(auto w(waypoints.begin()+1); w!=waypoints.end();/*++w*/){
+      if(*(w-1) == *w)
+        waypoints.erase(w);
+      else
+        ++w;
+    }
 
-      if(!quiet){
-        std::cout << "Set unit " << i << " subgoals: ";
-        for(auto &a: waypoints[i])
-          std::cout << a << " ";
-        std::cout << std::endl;
-      }
-      float softEff(.9);
-      MACBSUnit* unit = new MACBSUnit(waypoints[i],softEff);
-      unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
-      group->AddUnit(unit); // Add to the group
-      if(verbose)std::cout << "initial path for agent " << i << ":\n";
-      if(verbose)for(auto const& n: *group->tree[0].paths[i])
+    if(!quiet){
+      std::cout << "Set unit " << i << " subgoals: ";
+      for(auto &a: waypoints[i])
+        std::cout << a << " ";
+      std::cout << std::endl;
+    }
+    float softEff(.9);
+    MACBSUnit* unit = new MACBSUnit(waypoints[i],softEff);
+    unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
+    group->AddUnit(unit); // Add to the group
+    if(Params::verbose)std::cout << "initial path for agent " << i << ":\n";
+    if(Params::verbose)
+      for(auto const& n: *group->tree[0].paths[i])
         std::cout << n << "\n";
-      if(gui){sim->AddUnit(unit);} // Add to the group
+    if(gui){sim->AddUnit(unit);} // Add to the group
 
     //assert(false && "Exit early");
     group->Init();
@@ -329,8 +328,8 @@ void InitHeadless(){
     ++i;
   }
   if(!gui){
-    Timer::Timeout func(std::bind(&MACBSGroup::processSolution, group, std::placeholders::_1));
-    group[0]->timer->StartTimeout(std::chrono::seconds(killtime),func);
+    Timer::Timeout func(std::bind(&MACBSGroup::processSolution, groups[0], std::placeholders::_1));
+    groups[0]->timer->StartTimeout(std::chrono::seconds(killtime),func);
   }
 }
 
@@ -341,7 +340,7 @@ bool detectIndependence(){
     for(int j(i+1); j<solution.size(); ++j){
       auto a(1);
       auto b(1);
-      while (a != solution[i]->end() && b != solution[j]->end()) {
+      while (a < solution[i].size() && b < solution[j].size()) {
         if (collisionCheck3D(solution[i][a-1], solution[i][a], solution[j][b-1], solution[j][b], agentRadius)){
           independent = false;
           std::cout << "NOT INDEPENDENT: " << i << ":" << solution[i][a-1] << "-->" << solution[i][a] << ", " << j << ":"
@@ -350,18 +349,18 @@ bool detectIndependence(){
             break;
           }
           // Combine groups i and j
-          MACBSGroup* toDelete(group[j]);
-          for(auto ag:*groups[j].agents){
-            if(verbose)std::cout << "Inserting agent " << ag << " into group for agent " << i << "\n";
+          MACBSGroup* toDelete(groups[j]);
+          for(auto ag:groups[j]->agents){
+            if(Params::verbose)std::cout << "Inserting agent " << ag << " into group for agent " << i << "\n";
             groups[i]->agents.insert(ag);
             groups[ag]=groups[i];
             //maxnagents=std::max(group[i]->agents.size(),maxnagents);
           }
           delete toDelete;
           toDelete=groups[i];
-          groups[i]=new MACBSGroup(environs,groups[i]->agents,verbose)};
+          groups[i]=new MACBSGroup(environs,groups[i]->agents);
           delete toDelete;
-          for(auto ag:*groups[i].agents){
+          for(auto ag:groups[i]->agents){
             groups[ag]=groups[i];
           }
           break;
@@ -396,19 +395,20 @@ void MyComputationHandler()
 //std::vector<t3DDirection> acts;
 void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 {
-  if (ace){
-    for(auto u : group->GetMembers()){
-      glLineWidth(2.0);
-      GLfloat r, g, b;
-      u->GetColor(r, g, b);
-      ace->SetColor(r,g,b);
-      ace->GLDrawPath(((MACBSUnit const*)u)->GetPath(),((MACBSUnit const*)u)->GetWaypoints());
+  for(auto const& group:groups){
+    if (ace){
+      for(auto& u : group->GetMembers()){
+        glLineWidth(2.0);
+        GLfloat r, g, b;
+        u->GetColor(r, g, b);
+        ace->SetColor(r,g,b);
+        ace->GLDrawPath(((MACBSUnit const*)u)->GetPath(),((MACBSUnit const*)u)->GetWaypoints());
+      }
     }
-  }
 
   //static double ptime[500];
   //memset(ptime,0,500*sizeof(double));
-  if (sim){
+  if(sim){
     sim->OpenGLDraw();
     if (!paused) {
       if(group->donePlanning()){
@@ -429,8 +429,7 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
   }
 
 
-  if (recording)
-  {
+  if(recording){
     static int index = 0;
     if(group->donePlanning() || index%10==0){
     char fname[255];
@@ -443,685 +442,722 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
     }
     index++;
   }
+  }
 }
 
-int MyCLHandler(char *argument[], int maxNumArgs)
-{
+int MyCLHandler(char *argument[], int maxNumArgs){
 
-	if(strcmp(argument[0], "-ECBSheuristic") == 0)
-	{
-                ECBSheuristic = true;
-		return 1;
-	}
-	if(strcmp(argument[0], "-greedyCT") == 0)
-	{
-                greedyCT = true;
-		return 1;
-	}
-	if(strcmp(argument[0], "-suboptimal") == 0)
-	{
-                suboptimal = true;
-		return 1;
-	}
-	if(strcmp(argument[0], "-verify") == 0)
-	{
-                verify = true;
-		return 1;
-	}
-	if(strcmp(argument[0], "-cat") == 0)
-	{
-                useCAT = true;
-		return 1;
-	}
-	if(strcmp(argument[0], "-random") == 0)
-	{
-                randomalg = true;
-		return 1;
-	}
-	if(strcmp(argument[0], "-scenfile") == 0)
-        {
-          std::string pathprefix("../../"); // Because I always run from the build directory...
-          if(num_agents==0){
-            std::cout<<"-nagents must be specified before -scenfile\n";
-            exit(1);
-          }
-          ScenarioLoader sl(argument[1]);
-          if(sl.GetNumExperiments()==0)
-          {
-            std::cout<<"No experiments in this scenario file or invalid file.\n";
-            exit(1);
-          }
-          mapfile=sl.GetNthExperiment(0).GetMapName();
-          mapfile.insert(0,pathprefix); // Add prefix
-          Map3D* map=new Map3D(mapfile.c_str(),dtedfile.c_str());
-          if(!envdata.size()){
-            for(int i(0); i<num_agents; ++i){
-              std::vector<EnvData> ev;
-              for(int j(0); j<sizeof(cutoffs)/sizeof(cutoffs[0]); ++j){
-                if(cutoffs[j]<9999)
-                  ev.emplace_back(j,envnames[j],'G',cutoffs[j],weights[j]);
-              }
-              envdata.push_back(ev);
-            }
-          }
-
-          unsigned agent(0);
-          for(auto a: envdata){
-            // Add start/goal location
-            std::vector<xyztLoc> wpts;
-            Experiment e(sl.GetNthExperiment(agent));
-            unsigned sx(e.GetStartX());
-            unsigned sy(e.GetStartY());
-            unsigned ex(e.GetGoalX());
-            unsigned ey(e.GetGoalY());
-            if(a[0].agentType=='S'){
-              while(map->GetTerrain(sx,sy)!=Map3D::kWater){
-                sx=rand()%map->GetMapWidth();
-                sy=rand()%map->GetMapHeight();
-              }
-              while(map->GetTerrain(ex,ey)!=Map3D::kWater){
-                ex=rand()%map->GetMapWidth();
-                ey=rand()%map->GetMapHeight();
-              }
-            }
-            unsigned sz(a[0].agentType=='A'?rand()%(map->GetMapDepth()-1)+1:0);
-            unsigned ez(a[0].agentType=='A'?rand()%(map->GetMapDepth()-1)+1:0);
-            while(true){
-              bool bad(false);
-              for(auto const& w:waypoints){
-                if((sx==w[0].x && sy==w[0].y && sz==w[0].z) || (ex==w[1].x && ey==w[1].y && ez==w[0].z)){
-                  bad=true;
-                  break;
-                }
-              }
-              if(!bad)break;
-              e=sl.GetNthExperiment(agent);
-              sx=e.GetStartX();
-              sy=e.GetStartY();
-              ex=e.GetGoalX();
-              ey=e.GetGoalY();
-              sz=a[0].agentType=='A'?rand()%(map->GetMapDepth()-1)+1:0;
-              ez=a[0].agentType=='A'?rand()%(map->GetMapDepth()-1)+1:0;
-              if(a[0].agentType=='S'){
-                while(map->GetTerrain(sx,sy)!=Map3D::kWater){
-                  sx=rand()%map->GetMapWidth();
-                  sy=rand()%map->GetMapHeight();
-                }
-                while(map->GetTerrain(ex,ey)!=Map3D::kWater){
-                  ex=rand()%map->GetMapWidth();
-                  ey=rand()%map->GetMapHeight();
-                }
-              }
-            }
-            wpts.emplace_back(sx,sy,sz);
-            wpts.emplace_back(ex,ey,ez);
-            waypoints.push_back(wpts);
-
-            // Add environments
-            std::vector<EnvironmentContainer<xyztLoc,t3DDirection>> ev;
-            for(auto e: a){
-              Grid3DConstrainedEnvironment* newEnv(nullptr);
-              Grid3DEnvironment* me(nullptr);
-              if(e.name=="fourconnected"){
-                me = new Grid3DEnvironment(map); me->SetZeroConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
-                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-              }else if(e.name=="fiveconnected"){
-                me = new Grid3DEnvironment(map); me->SetZeroConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
-                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-              }else if(e.name=="eightconnected"){
-                me = new Grid3DEnvironment(map); me->SetOneConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
-                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-              }else if(e.name=="nineconnected"){
-                me = new Grid3DEnvironment(map); me->SetOneConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
-                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-              }else if(e.name=="twentyfourconnected"){
-                me = new Grid3DEnvironment(map); me->SetTwoConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
-                  Params::conn=2;
-                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-              }else if(e.name=="twentyfiveconnected"){
-                me = new Grid3DEnvironment(map); me->SetTwoConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
-                  Params::conn=2;
-                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-              }else if(e.name=="fortyeightconnected"){
-                me = new Grid3DEnvironment(map); me->SetThreeConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
-                  Params::conn=3;
-                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-              }else if(e.name=="fortynineconnected"){
-                me = new Grid3DEnvironment(map); me->SetThreeConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
-                  Params::conn=3;
-                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-              }else if(e.name=="3dcardinal"){
-                me = new Grid3DEnvironment(map); me->SetZeroConnected(); me->SetAir();
-                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-              }else if(e.name=="3done"){
-                me = new Grid3DEnvironment(map); me->SetOneConnected(); me->SetAir();
-                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-              }else if(e.name=="3dtwo"){
-                me = new Grid3DEnvironment(map); me->SetTwoConnected(); me->SetAir();
-                  Params::conn=2;
-                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-              }else{
-                std::cout << "Unknown environment " << e.name << "\n";
-                assert(!"Unknown environment encountered");
-              }
-              if(maxcost){me->SetUniqueCosts(true);me->SetMaxCost(maxcost);}
-              newEnv->GetMapEnv()->setGoal(waypoints[ev.size()].back());
-              newEnv->WaitTime(wait);
-              ev.emplace_back(e.name,newEnv,new Map3dPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),e.threshold,e.weight);
-            }
-            environs.push_back(ev);
-            ++agent;
-          }
-          
-          return 2;
+  if(strcmp(argument[0], "-ECBSheuristic") == 0){
+    ECBSheuristic = true;
+    return 1;
+  }
+  if(strcmp(argument[0], "-greedyCT") == 0)
+  {
+    greedyCT = true;
+    return 1;
+  }
+  if(strcmp(argument[0], "-suboptimal") == 0)
+  {
+    suboptimal = true;
+    return 1;
+  }
+  if(strcmp(argument[0], "-verify") == 0)
+  {
+    verify = true;
+    return 1;
+  }
+  if(strcmp(argument[0], "-cat") == 0)
+  {
+    useCAT = true;
+    return 1;
+  }
+  if(strcmp(argument[0], "-random") == 0)
+  {
+    randomalg = true;
+    return 1;
+  }
+  if(strcmp(argument[0], "-scenfile") == 0)
+  {
+    std::string pathprefix("../../"); // Because I always run from the build directory...
+    if(num_agents==0){
+      std::cout<<"-nagents must be specified before -scenfile\n";
+      exit(1);
+    }
+    ScenarioLoader sl(argument[1]);
+    if(sl.GetNumExperiments()==0)
+    {
+      std::cout<<"No experiments in this scenario file or invalid file.\n";
+      exit(1);
+    }
+    mapfile=sl.GetNthExperiment(0).GetMapName();
+    mapfile.insert(0,pathprefix); // Add prefix
+    Map3D* map=new Map3D(mapfile.c_str(),dtedfile.c_str());
+    if(!envdata.size()){
+      for(int i(0); i<num_agents; ++i){
+        std::vector<EnvData> ev;
+        for(int j(0); j<sizeof(cutoffs)/sizeof(cutoffs[0]); ++j){
+          if(cutoffs[j]<9999)
+            ev.emplace_back(j,envnames[j],'G',cutoffs[j],weights[j]);
         }
-	if(strcmp(argument[0], "-dtedfile") == 0)
-        {
-          // If this flag is used, assume there is no scenfile flag
-          dtedfile=argument[1];
-          return 2;
+        envdata.push_back(ev);
+      }
+    }
+
+    unsigned agent(0);
+    for(auto a: envdata){
+      // Add start/goal location
+      std::vector<xyztLoc> wpts;
+      Experiment e(sl.GetNthExperiment(agent));
+      unsigned sx(e.GetStartX());
+      unsigned sy(e.GetStartY());
+      unsigned ex(e.GetGoalX());
+      unsigned ey(e.GetGoalY());
+      if(a[0].agentType=='S'){
+        while(map->GetTerrain(sx,sy)!=Map3D::kWater){
+          sx=rand()%map->GetMapWidth();
+          sy=rand()%map->GetMapHeight();
         }
-	if(strcmp(argument[0], "-boxconstraints") == 0)
-	{
-                Params::boxconstraints = true;
-		return 1;
-	}
-	if(strcmp(argument[0], "-nocross") == 0)
-	{
-                Params::usecrossconstraints = false;
-		return 1;
-	}
-	if(strcmp(argument[0], "-skip") == 0)
-	{
-                Params::skip = true;
-		return 1;
-	}
-	if(strcmp(argument[0], "-pc") == 0)
-	{
-                Params::prioritizeConf = true;
-		return 1;
-	}
-	if(strcmp(argument[0], "-cct") == 0)
-	{
-                Params::cct = true;
-		return 1;
-	}
-	if(strcmp(argument[0], "-precheck") == 0)
-	{
-                Params::precheck = atoi(argument[1]);
-		return 2;
-	}
-	if(strcmp(argument[0], "-mapfile") == 0)
-        {
-          // If this flag is used, assume there is no scenfile flag
-          mapfile=argument[1];
-          std::string pathprefix("../../"); // Because I always run from the build directory...
-          mapfile.insert(0,pathprefix); // Add prefix
-          Map3D* map=new Map3D(mapfile.c_str(),dtedfile.c_str());
+        while(map->GetTerrain(ex,ey)!=Map3D::kWater){
+          ex=rand()%map->GetMapWidth();
+          ey=rand()%map->GetMapHeight();
+        }
+      }
+      unsigned sz(a[0].agentType=='A'?rand()%(map->GetMapDepth()-1)+1:0);
+      unsigned ez(a[0].agentType=='A'?rand()%(map->GetMapDepth()-1)+1:0);
+      while(true){
+        bool bad(false);
+        for(auto const& w:waypoints){
+          if((sx==w[0].x && sy==w[0].y && sz==w[0].z) || (ex==w[1].x && ey==w[1].y && ez==w[0].z)){
+            bad=true;
+            break;
+          }
+        }
+        if(!bad)break;
+        e=sl.GetNthExperiment(agent);
+        sx=e.GetStartX();
+        sy=e.GetStartY();
+        ex=e.GetGoalX();
+        ey=e.GetGoalY();
+        sz=a[0].agentType=='A'?rand()%(map->GetMapDepth()-1)+1:0;
+        ez=a[0].agentType=='A'?rand()%(map->GetMapDepth()-1)+1:0;
+        if(a[0].agentType=='S'){
+          while(map->GetTerrain(sx,sy)!=Map3D::kWater){
+            sx=rand()%map->GetMapWidth();
+            sy=rand()%map->GetMapHeight();
+          }
+          while(map->GetTerrain(ex,ey)!=Map3D::kWater){
+            ex=rand()%map->GetMapWidth();
+            ey=rand()%map->GetMapHeight();
+          }
+        }
+      }
+      wpts.emplace_back(sx,sy,sz);
+      wpts.emplace_back(ex,ey,ez);
+      waypoints.push_back(wpts);
+
+      // Add environments
+      std::vector<EnvironmentContainer<xyztLoc,t3DDirection>> ev;
+      for(auto e: a){
+        Grid3DConstrainedEnvironment* newEnv(nullptr);
+        Grid3DEnvironment* me(nullptr);
+        if(e.name=="fourconnected"){
+          me = new Grid3DEnvironment(map); me->SetZeroConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
+          newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+        }else if(e.name=="fiveconnected"){
+          me = new Grid3DEnvironment(map); me->SetZeroConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
+          newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+        }else if(e.name=="eightconnected"){
+          me = new Grid3DEnvironment(map); me->SetOneConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
+          newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+        }else if(e.name=="nineconnected"){
+          me = new Grid3DEnvironment(map); me->SetOneConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
+          newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+        }else if(e.name=="twentyfourconnected"){
+          me = new Grid3DEnvironment(map); me->SetTwoConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
+          Params::conn=2;
+          newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+        }else if(e.name=="twentyfiveconnected"){
+          me = new Grid3DEnvironment(map); me->SetTwoConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
+          Params::conn=2;
+          newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+        }else if(e.name=="fortyeightconnected"){
+          me = new Grid3DEnvironment(map); me->SetThreeConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
+          Params::conn=3;
+          newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+        }else if(e.name=="fortynineconnected"){
+          me = new Grid3DEnvironment(map); me->SetThreeConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
+          Params::conn=3;
+          newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+        }else if(e.name=="3dcardinal"){
+          me = new Grid3DEnvironment(map); me->SetZeroConnected(); me->SetAir();
+          newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+        }else if(e.name=="3done"){
+          me = new Grid3DEnvironment(map); me->SetOneConnected(); me->SetAir();
+          newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+        }else if(e.name=="3dtwo"){
+          me = new Grid3DEnvironment(map); me->SetTwoConnected(); me->SetAir();
+          Params::conn=2;
+          newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+        }else{
+          std::cout << "Unknown environment " << e.name << "\n";
+          assert(!"Unknown environment encountered");
+        }
+        if(maxcost){me->SetUniqueCosts(true);me->SetMaxCost(maxcost);}
+        newEnv->GetMapEnv()->setGoal(waypoints[ev.size()].back());
+        newEnv->WaitTime(wait);
+        ev.emplace_back(e.name,newEnv,new Map3dPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),e.threshold,e.weight);
+      }
+      environs.push_back(ev);
+      ++agent;
+    }
+
+    return 2;
+  }
+  if(strcmp(argument[0], "-dtedfile") == 0)
+  {
+    // If this flag is used, assume there is no scenfile flag
+    dtedfile=argument[1];
+    return 2;
+  }
+  if(strcmp(argument[0], "-xor") == 0){
+    Params::xorconstraints=true;
+    return 1;
+  }
+  if(strcmp(argument[0], "-ctype") == 0)
+  {
+    //1: identical constraints
+    //2: Pyramid constraints
+    //3: Collision constraints (sub-optimal)
+    //4: Time range constraints (sub-optimal)
+    //5: Box constraints (sub-optimal)
+    unsigned scheme(atoi(argument[1]));
+    Params::crossconstraints=false;
+    Params::boxconstraints=false;
+    Params::timerangeconstraints=false;
+    Params::pyramidconstraints=false;
+    Params::identicalconstraints=false;
+    Params::extrinsicconstraints=false;
+    switch(scheme){
+      case 1:
+        Params::identicalconstraints=true;
+        break;
+      case 2:
+        Params::pyramidconstraints=true;
+        Params::extrinsicconstraints=true;
+        break;
+      case 3:
+        Params::crossconstraints=true;
+        Params::extrinsicconstraints=true;
+        break;
+      case 4:
+        Params::timerangeconstraints=true;
+        break;
+      case 5:
+        Params::boxconstraints=true;
+        Params::extrinsicconstraints=true;
+        break;
+      default:
+        Params::identicalconstraints=true;
+        break;
+    }
+    return 2;
+  }
+  if(strcmp(argument[0], "-skip") == 0)
+  {
+    Params::skip = true;
+    return 1;
+  }
+  if(strcmp(argument[0], "-pc") == 0)
+  {
+    Params::prioritizeConf = true;
+    return 1;
+  }
+  if(strcmp(argument[0], "-cct") == 0)
+  {
+    Params::cct = true;
+    return 1;
+  }
+  if(strcmp(argument[0], "-precheck") == 0)
+  {
+    Params::precheck = atoi(argument[1]);
+    return 2;
+  }
+  if(strcmp(argument[0], "-mapfile") == 0)
+  {
+    // If this flag is used, assume there is no scenfile flag
+    mapfile=argument[1];
+    std::string pathprefix("../../"); // Because I always run from the build directory...
+    mapfile.insert(0,pathprefix); // Add prefix
+    Map3D* map=new Map3D(mapfile.c_str(),dtedfile.c_str());
+    Grid3DConstrainedEnvironment* newEnv(nullptr);
+    if(envdata.size()){
+      int agent(0);
+      for(auto a: envdata){
+        // Add environments
+        std::vector<EnvironmentContainer<xyztLoc,t3DDirection>> ev;
+        for(auto e: a){
+          Grid3DEnvironment* me(nullptr);
           Grid3DConstrainedEnvironment* newEnv(nullptr);
-          if(envdata.size()){
-            int agent(0);
-            for(auto a: envdata){
-              // Add environments
-              std::vector<EnvironmentContainer<xyztLoc,t3DDirection>> ev;
-              for(auto e: a){
-                Grid3DEnvironment* me(nullptr);
-                Grid3DConstrainedEnvironment* newEnv(nullptr);
-                if(e.name=="fourconnected"){
-                  me = new Grid3DEnvironment(map); me->SetZeroConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
-                  newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-                }else if(e.name=="fiveconnected"){
-                  me = new Grid3DEnvironment(map); me->SetZeroConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
-                  newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-                }else if(e.name=="eightconnected"){
-                  me = new Grid3DEnvironment(map); me->SetOneConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
-                  newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-                }else if(e.name=="nineconnected"){
-                  me = new Grid3DEnvironment(map); me->SetOneConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
-                  newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-                }else if(e.name=="twentyfourconnected"){
-                  me = new Grid3DEnvironment(map); me->SetTwoConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
-                  Params::conn=2;
-                  newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-                }else if(e.name=="twentyfiveconnected"){
-                  me = new Grid3DEnvironment(map); me->SetTwoConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
-                  Params::conn=2;
-                  newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-                }else if(e.name=="fortyeightconnected"){
-                  me = new Grid3DEnvironment(map); me->SetThreeConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
-                  Params::conn=3;
-                  newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-                }else if(e.name=="fortynineconnected"){
-                  me = new Grid3DEnvironment(map); me->SetThreeConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
-                  Params::conn=3;
-                  newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-                }else if(e.name=="3dcardinal"){
-                  me = new Grid3DEnvironment(map); me->SetZeroConnected(); me->SetAir();
-                  newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-                }else if(e.name=="3done"){
-                  me = new Grid3DEnvironment(map); me->SetOneConnected(); me->SetAir();
-                  newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-                }else if(e.name=="3dtwo"){
-                  me = new Grid3DEnvironment(map); me->SetTwoConnected(); me->SetAir();
-                  Params::conn=2;
-                  newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-                }else{
-                  std::cout << "Unknown environment " << e.name << "\n";
-                  assert(!"Unknown environment encountered");
-                }
-                if(maxcost){me->SetUniqueCosts(true);me->SetMaxCost(maxcost);}
-                if(waypoints.size()>agent){
-                  if(!map->IsTraversable(waypoints[agent][0].x,waypoints[agent][0].y,waypoints[agent][0].z,newEnv->GetMapEnv()->agentType)){
-                    std::cout << "ERROR : start location for agent "<<agent<<"("<<e.agentType<<") is not traversable\n";assert(false);
-                  }
-                  if(!map->IsTraversable(waypoints[agent][1].x,waypoints[agent][1].y,waypoints[agent][1].z,newEnv->GetMapEnv()->agentType)){
-                    std::cout << "ERROR : goal location for agent "<<agent<<"("<<e.agentType<<") is not traversable\n";assert(false);
-                  }
-                }
-                ev.emplace_back(e.name,newEnv,new Map3dPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),e.threshold,e.weight);
-              }
-              environs.push_back(ev);
-              agent++;
-            }
+          if(e.name=="fourconnected"){
+            me = new Grid3DEnvironment(map); me->SetZeroConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
+            newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+          }else if(e.name=="fiveconnected"){
+            me = new Grid3DEnvironment(map); me->SetZeroConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
+            newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+          }else if(e.name=="eightconnected"){
+            me = new Grid3DEnvironment(map); me->SetOneConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
+            newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+          }else if(e.name=="nineconnected"){
+            me = new Grid3DEnvironment(map); me->SetOneConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
+            newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+          }else if(e.name=="twentyfourconnected"){
+            me = new Grid3DEnvironment(map); me->SetTwoConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
+            Params::conn=2;
+            newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+          }else if(e.name=="twentyfiveconnected"){
+            me = new Grid3DEnvironment(map); me->SetTwoConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
+            Params::conn=2;
+            newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+          }else if(e.name=="fortyeightconnected"){
+            me = new Grid3DEnvironment(map); me->SetThreeConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
+            Params::conn=3;
+            newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+          }else if(e.name=="fortynineconnected"){
+            me = new Grid3DEnvironment(map); me->SetThreeConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
+            Params::conn=3;
+            newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+          }else if(e.name=="3dcardinal"){
+            me = new Grid3DEnvironment(map); me->SetZeroConnected(); me->SetAir();
+            newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+          }else if(e.name=="3done"){
+            me = new Grid3DEnvironment(map); me->SetOneConnected(); me->SetAir();
+            newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+          }else if(e.name=="3dtwo"){
+            me = new Grid3DEnvironment(map); me->SetTwoConnected(); me->SetAir();
+            Params::conn=2;
+            newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
           }else{
-            // All agents have the same environments based on the cutoffs parameter
-            for(int i(0); i<num_agents; ++i){
-              std::vector<EnvironmentContainer<xyztLoc,t3DDirection>> ev;
-              Grid3DEnvironment* me(nullptr);
-              {
-                me = new Grid3DEnvironment(map); me->SetZeroConnected();
-                me->SetGround();
-                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-                ev.emplace_back("fourconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[0],weights[0]);
-              }{
-                me = new Grid3DEnvironment(map); me->SetZeroConnected(); me->SetWaitAllowed();
-                me->SetGround();
-                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-                ev.emplace_back("fiveconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[1],weights[1]);
-              }{
-                me = new Grid3DEnvironment(map); me->SetOneConnected();
-                me->SetGround();
-                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-                ev.emplace_back("eightconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[2],weights[2]);
-              }{
-                me = new Grid3DEnvironment(map); me->SetOneConnected(); me->SetWaitAllowed();
-                me->SetGround();
-                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-                ev.emplace_back("nineconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[3],weights[3]);
-              }{
-                me = new Grid3DEnvironment(map); me->SetTwoConnected();
-                  Params::conn=2;
-                me->SetGround();
-                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-                ev.emplace_back("twentyfourconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[4],weights[4]);
-              }{
-                me = new Grid3DEnvironment(map); me->SetTwoConnected(); me->SetWaitAllowed();
-                  Params::conn=2;
-                me->SetGround();
-                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-                ev.emplace_back("twentyfiveconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[5],weights[5]);
-              }{
-                me = new Grid3DEnvironment(map); me->SetThreeConnected();
-                  Params::conn=3;
-                me->SetGround();
-                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-                ev.emplace_back("fortyeightconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[6],weights[6]);
-              }{
-                me = new Grid3DEnvironment(map); me->SetThreeConnected(); me->SetWaitAllowed();
-                  Params::conn=3;
-                me->SetGround();
-                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-                ev.emplace_back("fortynineconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[7],weights[7]);
-              }{
-                me = new Grid3DEnvironment(map); me->SetZeroConnected();
-                me->SetAir();
-                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-                ev.emplace_back("3dcardinal",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[7],weights[7]);
-              }{
-                me = new Grid3DEnvironment(map); me->SetOneConnected();
-                me->SetAir();
-                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-                ev.emplace_back("3done",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[7],weights[7]);
-              }{
-                me = new Grid3DEnvironment(map); me->SetTwoConnected();
-                  Params::conn=2;
-                me->SetAir();
-                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-                ev.emplace_back("3dtwo",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[7],weights[7]);
-              }
-              if(maxcost){me->SetUniqueCosts(true);me->SetMaxCost(maxcost);}
-              environs.push_back(ev);
+            std::cout << "Unknown environment " << e.name << "\n";
+            assert(!"Unknown environment encountered");
+          }
+          if(maxcost){me->SetUniqueCosts(true);me->SetMaxCost(maxcost);}
+          if(waypoints.size()>agent){
+            if(!map->IsTraversable(waypoints[agent][0].x,waypoints[agent][0].y,waypoints[agent][0].z,newEnv->GetMapEnv()->agentType)){
+              std::cout << "ERROR : start location for agent "<<agent<<"("<<e.agentType<<") is not traversable\n";assert(false);
+            }
+            if(!map->IsTraversable(waypoints[agent][1].x,waypoints[agent][1].y,waypoints[agent][1].z,newEnv->GetMapEnv()->agentType)){
+              std::cout << "ERROR : goal location for agent "<<agent<<"("<<e.agentType<<") is not traversable\n";assert(false);
             }
           }
-          return 2;
+          ev.emplace_back(e.name,newEnv,new Map3dPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),e.threshold,e.weight);
         }
-	if(strcmp(argument[0], "-mergeThreshold") == 0)
+        environs.push_back(ev);
+        agent++;
+      }
+    }else{
+      // All agents have the same environments based on the cutoffs parameter
+      for(int i(0); i<num_agents; ++i){
+        std::vector<EnvironmentContainer<xyztLoc,t3DDirection>> ev;
+        Grid3DEnvironment* me(nullptr);
         {
-                mergeThreshold = atoi(argument[1]);
-		return 2;
-	}
-	if(strcmp(argument[0], "-killex") == 0)
-	{
-                killex = atoi(argument[1]);
-		return 2;
-	}
-	if(strcmp(argument[0], "-killmem") == 0)
-	{
-                killmem = atoi(argument[1]);
-		return 2;
-	}
-	if(strcmp(argument[0], "-killtime") == 0)
-	{
-                killtime = atoi(argument[1]);
-		return 2;
-	}
-	if(strcmp(argument[0], "-uniqcost") == 0)
-	{
-		maxcost=atoi(argument[1]);
-		return 2;
-	}
-	if(strcmp(argument[0], "-animate") == 0)
-	{
-		animate=atoi(argument[1]);
-		return 2;
-	}
-	if(strcmp(argument[0], "-nogui") == 0)
-	{
-		gui = false;
-		return 1;
-	}
-	if(strcmp(argument[0], "-quiet") == 0)
-	{
-		quiet = true;
-		return 1;
-	}
-	if(strcmp(argument[0], "-verbose") == 0)
-	{
-		verbose = true;
-		return 1;
-	}
-	if(strcmp(argument[0], "-disappear") == 0)
-	{
-		disappearAtGoal = true;
-		return 1;
-	}
-	if(strcmp(argument[0], "-resolution") == 0)
-	{
-		xyztLoc::TIME_RESOLUTION_U=xyztLoc::TIME_RESOLUTION=xyztLoc::TIME_RESOLUTION_D=atof(argument[1]);
-                NonUnitTimeCAT<xyztLoc, t3DDirection>::bucketWidth=xyztLoc::TIME_RESOLUTION_D;
-		return 2;
-	}
-	if(strcmp(argument[0], "-radius") == 0)
-	{
-		agentRadius=atof(argument[1]);
-		return 2;
-	}
-	if(strcmp(argument[0], "-nobypass") == 0)
-	{
-		nobypass = true;
-		return 1;
-	}
-        if(strcmp(argument[0], "-record") == 0)
-        {
-                recording = true;
-                return 1;
+          me = new Grid3DEnvironment(map); me->SetZeroConnected();
+          me->SetGround();
+          newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+          ev.emplace_back("fourconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[0],weights[0]);
+        }{
+          me = new Grid3DEnvironment(map); me->SetZeroConnected(); me->SetWaitAllowed();
+          me->SetGround();
+          newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+          ev.emplace_back("fiveconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[1],weights[1]);
+        }{
+          me = new Grid3DEnvironment(map); me->SetOneConnected();
+          me->SetGround();
+          newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+          ev.emplace_back("eightconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[2],weights[2]);
+        }{
+          me = new Grid3DEnvironment(map); me->SetOneConnected(); me->SetWaitAllowed();
+          me->SetGround();
+          newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+          ev.emplace_back("nineconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[3],weights[3]);
+        }{
+          me = new Grid3DEnvironment(map); me->SetTwoConnected();
+          Params::conn=2;
+          me->SetGround();
+          newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+          ev.emplace_back("twentyfourconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[4],weights[4]);
+        }{
+          me = new Grid3DEnvironment(map); me->SetTwoConnected(); me->SetWaitAllowed();
+          Params::conn=2;
+          me->SetGround();
+          newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+          ev.emplace_back("twentyfiveconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[5],weights[5]);
+        }{
+          me = new Grid3DEnvironment(map); me->SetThreeConnected();
+          Params::conn=3;
+          me->SetGround();
+          newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+          ev.emplace_back("fortyeightconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[6],weights[6]);
+        }{
+          me = new Grid3DEnvironment(map); me->SetThreeConnected(); me->SetWaitAllowed();
+          Params::conn=3;
+          me->SetGround();
+          newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+          ev.emplace_back("fortynineconnected",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[7],weights[7]);
+        }{
+          me = new Grid3DEnvironment(map); me->SetZeroConnected();
+          me->SetAir();
+          newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+          ev.emplace_back("3dcardinal",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[7],weights[7]);
+        }{
+          me = new Grid3DEnvironment(map); me->SetOneConnected();
+          me->SetAir();
+          newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+          ev.emplace_back("3done",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[7],weights[7]);
+        }{
+          me = new Grid3DEnvironment(map); me->SetTwoConnected();
+          Params::conn=2;
+          me->SetAir();
+          newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+          ev.emplace_back("3dtwo",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[7],weights[7]);
         }
-	if(strcmp(argument[0], "-wait") == 0)
-	{
-		wait = atoi(argument[1]);
-		return 1;
-	}
-        if(strcmp(argument[0], "-cfgfile") == 0){
-          std::ifstream ss(argument[1]);
-          int agentNumber(0);
+        if(maxcost){me->SetUniqueCosts(true);me->SetMaxCost(maxcost);}
+        environs.push_back(ev);
+      }
+    }
+    return 2;
+  }
+  if(strcmp(argument[0], "-mergeThreshold") == 0)
+  {
+    mergeThreshold = atoi(argument[1]);
+    return 2;
+  }
+  if(strcmp(argument[0], "-killex") == 0)
+  {
+    killex = atoi(argument[1]);
+    return 2;
+  }
+  if(strcmp(argument[0], "-killmem") == 0)
+  {
+    killmem = atoi(argument[1]);
+    return 2;
+  }
+  if(strcmp(argument[0], "-killtime") == 0)
+  {
+    killtime = atoi(argument[1]);
+    return 2;
+  }
+  if(strcmp(argument[0], "-uniqcost") == 0)
+  {
+    maxcost=atoi(argument[1]);
+    return 2;
+  }
+  if(strcmp(argument[0], "-animate") == 0)
+  {
+    animate=atoi(argument[1]);
+    return 2;
+  }
+  if(strcmp(argument[0], "-nogui") == 0)
+  {
+    gui = false;
+    return 1;
+  }
+  if(strcmp(argument[0], "-quiet") == 0)
+  {
+    quiet = true;
+    return 1;
+  }
+  if(strcmp(argument[0], "-astarverbose") == 0)
+  {
+    Params::astarverbose = true;
+    return 1;
+  }
+  if(strcmp(argument[0], "-verbose") == 0)
+  {
+    Params::verbose = true;
+    return 1;
+  }
+  if(strcmp(argument[0], "-disappear") == 0)
+  {
+    disappearAtGoal = true;
+    return 1;
+  }
+  if(strcmp(argument[0], "-resolution") == 0)
+  {
+    xyztLoc::TIME_RESOLUTION_U=xyztLoc::TIME_RESOLUTION=xyztLoc::TIME_RESOLUTION_D=atof(argument[1]);
+    NonUnitTimeCAT<xyztLoc, t3DDirection>::bucketWidth=xyztLoc::TIME_RESOLUTION_D;
+    return 2;
+  }
+  if(strcmp(argument[0], "-radius") == 0)
+  {
+    agentRadius=atof(argument[1]);
+    return 2;
+  }
+  if(strcmp(argument[0], "-nobypass") == 0)
+  {
+    nobypass = true;
+    return 1;
+  }
+  if(strcmp(argument[0], "-record") == 0)
+  {
+    recording = true;
+    return 1;
+  }
+  if(strcmp(argument[0], "-wait") == 0)
+  {
+    wait = atoi(argument[1]);
+    return 1;
+  }
+  if(strcmp(argument[0], "-cfgfile") == 0){
+    std::ifstream ss(argument[1]);
+    int agentNumber(0);
 
-          std::string line;
-          while(std::getline(ss, line)){
-            auto ln(Util::split(line,' '));
-            unsigned group(atoi(ln[0].c_str()));
-            int agent(atoi(ln[1].c_str()));
-            char agentType(ln[2].c_str()[0]);
-            while(agent>agentNumber){
-              envdata.push_back(envdata.back()); // make copies
-              agentNumber++;
-            }
-            agentNumber++;
-            auto envs(Util::split(ln[3],','));
-            std::vector<EnvData> envinfo;
-            for(auto e:envs){
-              auto info(Util::split(e,':'));
-              envinfo.emplace_back(group,info[0],agentType,atoi(info[1].c_str()),atof(info[2].c_str()));
-            }
-            envdata.push_back(envinfo);
-          }
-          while(envdata.size()<num_agents){envdata.push_back(envdata.back());} // make copies
-          return 2;
+    std::string line;
+    while(std::getline(ss, line)){
+      auto ln(Util::split(line,' '));
+      unsigned group(atoi(ln[0].c_str()));
+      int agent(atoi(ln[1].c_str()));
+      char agentType(ln[2].c_str()[0]);
+      while(agent>agentNumber){
+        envdata.push_back(envdata.back()); // make copies
+        agentNumber++;
+      }
+      agentNumber++;
+      auto envs(Util::split(ln[3],','));
+      std::vector<EnvData> envinfo;
+      for(auto e:envs){
+        auto info(Util::split(e,':'));
+        envinfo.emplace_back(group,info[0],agentType,atoi(info[1].c_str()),atof(info[2].c_str()));
+      }
+      envdata.push_back(envinfo);
+    }
+    while(envdata.size()<num_agents){envdata.push_back(envdata.back());} // make copies
+    return 2;
+  }
+  if(strcmp(argument[0], "-envfile") == 0){
+    std::ifstream ss(argument[1]);
+    int agentNumber(0);
+
+    std::string line;
+    while(std::getline(ss, line)){
+      auto ln(Util::split(line,' '));
+      int agent(atoi(ln[0].c_str()));
+      char agentType(ln[1].c_str()[0]);
+      while(agent>agentNumber){
+        envdata.push_back(envdata.back()); // make copies
+        agentNumber++;
+      }
+      agentNumber++;
+      auto envs(Util::split(ln[2],','));
+      std::vector<EnvData> envinfo;
+      for(auto e:envs){
+        auto info(Util::split(e,':'));
+        envinfo.emplace_back(agentNumber,info[0],agentType,atoi(info[1].c_str()),atof(info[2].c_str()));
+      }
+      envdata.push_back(envinfo);
+    }
+    while(envdata.size()<num_agents){envdata.push_back(envdata.back());} // make copies
+    return 2;
+  }
+  if(strcmp(argument[0], "-probfile") == 0){
+    //std::cout << "Reading instance from file: \""<<argument[1]<<"\"\n";
+    num_agents=0;
+    std::ifstream ss(argument[1]);
+    int x,y,z;
+    float t(0.0);
+    std::string line;
+    while(std::getline(ss, line)){
+      std::vector<xyztLoc> wpts;
+      std::istringstream is(line);
+      std::string field;
+      while(is >> field){
+        size_t n(std::count(field.begin(), field.end(), ','));
+        if(n==1){
+          sscanf(field.c_str(),"%d,%d", &x,&y);
+          z=0;
+          t=0;
+        }else if(n==2){
+          sscanf(field.c_str(),"%d,%d,%f", &x,&y,&t);
+          z=0;
+        }else if(n==3){
+          sscanf(field.c_str(),"%d,%d,%d,%f", &x,&y,&z,&t);
+        }else{
+          assert(!"Invalid value inside problem file");
         }
-        if(strcmp(argument[0], "-envfile") == 0){
-          std::ifstream ss(argument[1]);
-          int agentNumber(0);
+        wpts.emplace_back(x,y,z,t);
+      }
+      waypoints.push_back(wpts);
+      num_agents++;
+    }
+    if(waypoints.size()==0){
+      assert(!"Invalid filename or empty file");
+    }
+    return 2;
+  }
+  if(strcmp(argument[0], "-constraints") == 0){
+    std::cout << "Reading constraints from file: \""<<argument[1]<<"\"\n";
+    std::ifstream ss(argument[1]);
+    int x,y,r;
+    std::string line;
+    while(std::getline(ss, line)){
+      std::vector<xytLoc> wpts;
+      std::istringstream is(line);
+      std::string field;
+      while(is >> field){
+        sscanf(field.c_str(),"%d,%d,%d", &x,&y,&r);
+        //sconstraints.push_back(SoftConstraint<xytLoc>(xytLoc(x,y,0),r));
+      }
+    }
+    return 2;
+  }
+  if(strcmp(argument[0], "-cutoffs") == 0)
+  {
+    std::string str = argument[1];
 
-          std::string line;
-          while(std::getline(ss, line)){
-            auto ln(Util::split(line,' '));
-            int agent(atoi(ln[0].c_str()));
-            char agentType(ln[1].c_str()[0]);
-            while(agent>agentNumber){
-              envdata.push_back(envdata.back()); // make copies
-              agentNumber++;
-            }
-            agentNumber++;
-            auto envs(Util::split(ln[2],','));
-            std::vector<EnvData> envinfo;
-            for(auto e:envs){
-              auto info(Util::split(e,':'));
-              envinfo.emplace_back(agentNumber,info[0],agentType,atoi(info[1].c_str()),atof(info[2].c_str()));
-            }
-            envdata.push_back(envinfo);
-          }
-          while(envdata.size()<num_agents){envdata.push_back(envdata.back());} // make copies
-          return 2;
+    std::stringstream ss(str);
+
+    int i;
+    int index(0);
+
+    while (ss >> i)
+    {
+      cutoffs[index++] = i;
+
+      if (ss.peek() == ',')
+        ss.ignore();
+    }
+    return 2;
+  }
+  if(strcmp(argument[0], "-weights") == 0)
+  {
+    std::string str = argument[1];
+
+    std::stringstream ss(str);
+
+    double i;
+    int index(0);
+
+    while (ss >> i)
+    {
+      weights[index++] = i;
+
+      if (ss.peek() == ',')
+        ss.ignore();
+    }
+    return 2;
+  }
+  if(strcmp(argument[0], "-seed") == 0)
+  {
+    seed = atoi(argument[1]);	
+    srand(seed);
+    srandom(seed);
+    return 2;
+  }
+  if(strcmp(argument[0], "-nsubgoals") == 0)
+  {
+    std::string str = argument[1];
+
+    std::stringstream ss(str);
+
+    int i;
+    ss >> i;
+    minsubgoals = i;
+    if (ss.peek() == ',')
+      ss.ignore();
+    ss >> i;
+    maxsubgoals = i;
+    return 2;
+  }
+  if(strcmp(argument[0], "-dimensions") == 0)
+  {
+    std::string str = argument[1];
+    std::stringstream ss(str);
+
+    int i;
+    ss >> i;
+    width = i;
+    if (ss.peek() == ',')
+      ss.ignore();
+    ss >> i;
+    length = i;
+    if (ss.peek() == ',')
+      ss.ignore();
+    ss >> i;
+    height = i;
+
+    Map3D* map(new Map3D(width,length,height));
+    int agent(0);
+    for(auto a: envdata){
+      // Add environments
+      std::vector<EnvironmentContainer<xyztLoc,t3DDirection>> ev;
+      for(auto e: a){
+        Grid3DEnvironment* me(nullptr);
+        Grid3DConstrainedEnvironment* newEnv(nullptr);
+        if(e.name=="fourconnected"){
+          me = new Grid3DEnvironment(map); me->SetZeroConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
+          newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+        }else if(e.name=="fiveconnected"){
+          me = new Grid3DEnvironment(map); me->SetZeroConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
+          newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+        }else if(e.name=="eightconnected"){
+          me = new Grid3DEnvironment(map); me->SetOneConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
+          newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+        }else if(e.name=="nineconnected"){
+          me = new Grid3DEnvironment(map); me->SetOneConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
+          newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+        }else if(e.name=="twentyfourconnected"){
+          me = new Grid3DEnvironment(map); me->SetTwoConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
+          Params::conn=2;
+          newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+        }else if(e.name=="twentyfiveconnected"){
+          me = new Grid3DEnvironment(map); me->SetTwoConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
+          Params::conn=2;
+          newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+        }else if(e.name=="fortyeightconnected"){
+          me = new Grid3DEnvironment(map); me->SetThreeConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
+          Params::conn=3;
+          newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+        }else if(e.name=="fortynineconnected"){
+          me = new Grid3DEnvironment(map); me->SetThreeConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
+          Params::conn=3;
+          newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+        }else if(e.name=="3dcardinal"){
+          me = new Grid3DEnvironment(map); me->SetZeroConnected(); me->SetAir();
+          newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+        }else if(e.name=="3done"){
+          me = new Grid3DEnvironment(map); me->SetOneConnected(); me->SetAir();
+          newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+        }else if(e.name=="3dtwo"){
+          me = new Grid3DEnvironment(map); me->SetTwoConnected(); me->SetAir();
+          Params::conn=2;
+          newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
+        }else{
+          std::cout << "Unknown environment " << e.name << "\n";
+          assert(!"Unknown environment encountered");
         }
-	if(strcmp(argument[0], "-probfile") == 0){
-		//std::cout << "Reading instance from file: \""<<argument[1]<<"\"\n";
-		num_agents=0;
-		std::ifstream ss(argument[1]);
-		int x,y,z;
-                float t(0.0);
-		std::string line;
-		while(std::getline(ss, line)){
-			std::vector<xyztLoc> wpts;
-			std::istringstream is(line);
-			std::string field;
-			while(is >> field){
-                                size_t n(std::count(field.begin(), field.end(), ','));
-                                if(n==1){
-                                  sscanf(field.c_str(),"%d,%d", &x,&y);
-                                  z=0;
-                                  t=0;
-                                }else if(n==2){
-				  sscanf(field.c_str(),"%d,%d,%f", &x,&y,&t);
-                                  z=0;
-                                }else if(n==3){
-				  sscanf(field.c_str(),"%d,%d,%d,%f", &x,&y,&z,&t);
-                                }else{
-                                  assert(!"Invalid value inside problem file");
-                                }
-				wpts.emplace_back(x,y,z,t);
-			}
-			waypoints.push_back(wpts);
-			num_agents++;
-		}
-                if(waypoints.size()==0){
-                  assert(!"Invalid filename or empty file");
-                }
-		return 2;
-	}
-	if(strcmp(argument[0], "-constraints") == 0){
-		std::cout << "Reading constraints from file: \""<<argument[1]<<"\"\n";
-		std::ifstream ss(argument[1]);
-		int x,y,r;
-		std::string line;
-		while(std::getline(ss, line)){
-			std::vector<xytLoc> wpts;
-			std::istringstream is(line);
-			std::string field;
-			while(is >> field){
-				sscanf(field.c_str(),"%d,%d,%d", &x,&y,&r);
-				//sconstraints.push_back(SoftConstraint<xytLoc>(xytLoc(x,y,0),r));
-			}
-		}
-		return 2;
-	}
-	if(strcmp(argument[0], "-cutoffs") == 0)
-        {
-          std::string str = argument[1];
-
-          std::stringstream ss(str);
-
-          int i;
-          int index(0);
-
-          while (ss >> i)
-          {
-            cutoffs[index++] = i;
-
-            if (ss.peek() == ',')
-              ss.ignore();
-          }
-          return 2;
+        if(maxcost){
+          me->SetUniqueCosts(true);
+          me->SetMaxCost(maxcost);
+          ev.emplace_back(e.name,newEnv,new Map3dPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),e.threshold,e.weight);
+        }else{
+          ev.emplace_back(e.name,newEnv,nullptr,e.threshold,e.weight);
         }
-	if(strcmp(argument[0], "-weights") == 0)
-        {
-          std::string str = argument[1];
-
-          std::stringstream ss(str);
-
-          double i;
-          int index(0);
-
-          while (ss >> i)
-          {
-            weights[index++] = i;
-
-            if (ss.peek() == ',')
-              ss.ignore();
-          }
-          return 2;
-        }
-	if(strcmp(argument[0], "-seed") == 0)
-	{
-		seed = atoi(argument[1]);	
-                srand(seed);
-                srandom(seed);
-		return 2;
-	}
-	if(strcmp(argument[0], "-nsubgoals") == 0)
-        {
-          std::string str = argument[1];
-
-          std::stringstream ss(str);
-
-          int i;
-          ss >> i;
-          minsubgoals = i;
-          if (ss.peek() == ',')
-            ss.ignore();
-          ss >> i;
-          maxsubgoals = i;
-          return 2;
-        }
-	if(strcmp(argument[0], "-dimensions") == 0)
-        {
-          std::string str = argument[1];
-          std::stringstream ss(str);
-
-          int i;
-          ss >> i;
-          width = i;
-          if (ss.peek() == ',')
-            ss.ignore();
-          ss >> i;
-          length = i;
-          if (ss.peek() == ',')
-            ss.ignore();
-          ss >> i;
-          height = i;
-
-          Map3D* map(new Map3D(width,length,height));
-          int agent(0);
-          for(auto a: envdata){
-            // Add environments
-            std::vector<EnvironmentContainer<xyztLoc,t3DDirection>> ev;
-            for(auto e: a){
-              Grid3DEnvironment* me(nullptr);
-              Grid3DConstrainedEnvironment* newEnv(nullptr);
-              if(e.name=="fourconnected"){
-                me = new Grid3DEnvironment(map); me->SetZeroConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
-                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-              }else if(e.name=="fiveconnected"){
-                me = new Grid3DEnvironment(map); me->SetZeroConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
-                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-              }else if(e.name=="eightconnected"){
-                me = new Grid3DEnvironment(map); me->SetOneConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
-                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-              }else if(e.name=="nineconnected"){
-                me = new Grid3DEnvironment(map); me->SetOneConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
-                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-              }else if(e.name=="twentyfourconnected"){
-                me = new Grid3DEnvironment(map); me->SetTwoConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
-                  Params::conn=2;
-                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-              }else if(e.name=="twentyfiveconnected"){
-                me = new Grid3DEnvironment(map); me->SetTwoConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
-                  Params::conn=2;
-                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-              }else if(e.name=="fortyeightconnected"){
-                me = new Grid3DEnvironment(map); me->SetThreeConnected(); e.agentType=='G'?me->SetGround():me->SetSurface();
-                  Params::conn=3;
-                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-              }else if(e.name=="fortynineconnected"){
-                me = new Grid3DEnvironment(map); me->SetThreeConnected(); me->SetWaitAllowed(); e.agentType=='G'?me->SetGround():me->SetSurface();
-                  Params::conn=3;
-                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-              }else if(e.name=="3dcardinal"){
-                me = new Grid3DEnvironment(map); me->SetZeroConnected(); me->SetAir();
-                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-              }else if(e.name=="3done"){
-                me = new Grid3DEnvironment(map); me->SetOneConnected(); me->SetAir();
-                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-              }else if(e.name=="3dtwo"){
-                me = new Grid3DEnvironment(map); me->SetTwoConnected(); me->SetAir();
-                  Params::conn=2;
-                newEnv = new Grid3DConstrainedEnvironment(me); newEnv->SetIgnoreHeading(true);
-              }else{
-                std::cout << "Unknown environment " << e.name << "\n";
-                assert(!"Unknown environment encountered");
-              }
-              if(maxcost){
-                me->SetUniqueCosts(true);
-                me->SetMaxCost(maxcost);
-                ev.emplace_back(e.name,newEnv,new Map3dPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),e.threshold,e.weight);
-              }else{
-                ev.emplace_back(e.name,newEnv,nullptr,e.threshold,e.weight);
-              }
-              // If -dimensions is specified, there is no map
-              //ev.emplace_back(e.name,newEnv,nullptr,new Map3dPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),e.threshold,e.weight);
-              newEnv->setGoal(waypoints[agent][1]);
-              newEnv->WaitTime(wait);
-              newEnv->GetMapEnv()->setGoal(waypoints[agent][1]);
-            }
-            environs.push_back(ev);
-            agent++;
-          }
-          return 2;
-        }
-	if(strcmp(argument[0], "-nagents") == 0)
-	{
-		num_agents = atoi(argument[1]);	
-		return 2;
-	}
-	return 1; //ignore typos
+        // If -dimensions is specified, there is no map
+        //ev.emplace_back(e.name,newEnv,nullptr,new Map3dPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),e.threshold,e.weight);
+        newEnv->setGoal(waypoints[agent][1]);
+        newEnv->WaitTime(wait);
+        newEnv->GetMapEnv()->setGoal(waypoints[agent][1]);
+      }
+      environs.push_back(ev);
+      agent++;
+    }
+    return 2;
+  }
+  if(strcmp(argument[0], "-nagents") == 0)
+  {
+    num_agents = atoi(argument[1]);	
+    return 2;
+  }
+  return 1; //ignore typos
 }
 
 

@@ -83,6 +83,9 @@ struct TemporalVector3D : Vector3D {
   float t;
 };
 
+static inline double distanceSquared(Vector3D const& A1, Vector3D const& B1){
+  return (A1.x-B1.x)*(A1.x-B1.x) + (A1.y-B1.y)*(A1.y-B1.y) + (A1.z-B1.z)*(A1.z-B1.z);
+}
 
 // Calculate cross product of vectors
 inline Vector3D cross(Vector3D const& v1, Vector3D const& v2){ return Vector3D((v1.y*v2.z)-(v1.z*v2.y),(v1.z*v2.x)-(v1.x*v2.z),(v1.x*v2.y)-(v1.y*v2.x));}

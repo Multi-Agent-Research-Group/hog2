@@ -191,6 +191,8 @@ bool BaseMapOccupancyInterface::CanMove(const xyLoc &, const xyLoc &l2)
 	
 }
 
+
+
 float xytLoc::TIME_RESOLUTION=10.0f;
 unsigned xytLoc::TIME_RESOLUTION_U=10u;
 double xytLoc::TIME_RESOLUTION_D=10.0;

@@ -326,7 +326,7 @@ void Grid3DEnvironment::ApplyAction(xyztLoc &s, t3DDirection dir) const
 }
 
 double Grid3DEnvironment::_h4(unsigned dx, unsigned dy, double result){
-  return dx+dy+result;
+  return dx*xyztLoc::TIME_RESOLUTION_D+dy*xyztLoc::TIME_RESOLUTION_D+result;
 }
 
 double Grid3DEnvironment::h4(const xyztLoc &l1, const xyztLoc &l2){
@@ -334,7 +334,7 @@ double Grid3DEnvironment::h4(const xyztLoc &l1, const xyztLoc &l2){
 }
 
 double Grid3DEnvironment::_h6(unsigned dx, unsigned dy, unsigned dz, double result){
-  return dx+dy+dz+result;
+  return dx*xyztLoc::TIME_RESOLUTION_D+dy*xyztLoc::TIME_RESOLUTION_D+dz*xyztLoc::TIME_RESOLUTION_D+result;
 }
 
 double Grid3DEnvironment::h6(const xyztLoc &l1, const xyztLoc &l2){
@@ -342,7 +342,7 @@ double Grid3DEnvironment::h6(const xyztLoc &l1, const xyztLoc &l2){
 }
 
 double Grid3DEnvironment::_h8(unsigned dx,unsigned dy,double result){
-  static double const SQRT_2(std::sqrt(2.0));
+  static double const SQRT_2(round(std::sqrt(2.0)*xyztLoc::TIME_RESOLUTION_D));
   if(dx>dy){ // Swap
     unsigned tmp(dx); dx=dy; dy=tmp;
   }
@@ -359,7 +359,7 @@ double Grid3DEnvironment::h8(const xyztLoc &l1, const xyztLoc &l2){
 }
 
 double Grid3DEnvironment::_h26(unsigned dx,unsigned dy,unsigned dz,double result){
-  static double const SQRT_3(std::sqrt(3.0));
+  static double const SQRT_3(round(std::sqrt(3.0)*xyztLoc::TIME_RESOLUTION_D));
   if(dx==0)return _h8(dy,dz,result);
   if(dy==0)return _h8(dx,dz,result);
   if(dz==0)return _h8(dx,dy,result);
@@ -386,7 +386,7 @@ double Grid3DEnvironment::h26(const xyztLoc &l1, const xyztLoc &l2){
 }
 
 double Grid3DEnvironment::_h24(unsigned dx,unsigned dy,double result){
-  static double const SQRT_5(sqrt(5));
+  static double const SQRT_5(round(sqrt(5)*xyztLoc::TIME_RESOLUTION_D));
   if(dx>dy){ // Swap
     unsigned tmp(dx); dx=dy; dy=tmp;
   }
@@ -407,10 +407,10 @@ double Grid3DEnvironment::h24(const xyztLoc &l1, const xyztLoc &l2){
 }
 
 double Grid3DEnvironment::_h48(unsigned dx,unsigned dy,double result){
-  static double const SQRT_2(std::sqrt(2.0));
-  static double const SQRT_5(std::sqrt(5.0));
-  static double const SQRT_10(sqrt(10));
-  static double const SQRT_13(sqrt(13));
+  static double const SQRT_2(round(std::sqrt(2.0)*xyztLoc::TIME_RESOLUTION_D));
+  static double const SQRT_5(round(std::sqrt(5.0)*xyztLoc::TIME_RESOLUTION_D));
+  static double const SQRT_10(round(sqrt(10)*xyztLoc::TIME_RESOLUTION_D));
+  static double const SQRT_13(round(sqrt(13)*xyztLoc::TIME_RESOLUTION_D));
   if(dx==dy) return dx*SQRT_2;
   if(dx>dy){ // Swap
     unsigned tmp(dx); dx=dy; dy=tmp;
@@ -459,9 +459,9 @@ double Grid3DEnvironment::h48(const xyztLoc &l1, const xyztLoc &l2){
 }
 
 double Grid3DEnvironment::_h124(unsigned dx,unsigned dy,unsigned dz,double result){
-  static double const SQRT_3(sqrt(3));
-  static double const SQRT_6(sqrt(6));
-  static double const SQRT_9(3.0);
+  static double const SQRT_3(round(sqrt(3)*xyztLoc::TIME_RESOLUTION_D));
+  static double const SQRT_6(round(sqrt(6)*xyztLoc::TIME_RESOLUTION_D));
+  static double const SQRT_9(3.0*xyztLoc::TIME_RESOLUTION_D);
   if(dx==0)return _h24(dy,dz,result);
   if(dy==0)return _h24(dx,dz,result);
   if(dz==0)return _h24(dx,dy,result);
@@ -511,15 +511,15 @@ double Grid3DEnvironment::HCost(const xyztLoc &l1, const xyztLoc &l2)const{
   //if(l1.sameLoc(l2))return 1.0;
   switch(connectedness){
     case 0:
-      return h6(l1,l2)*xyztLoc::TIME_RESOLUTION_D;
+      return h6(l1,l2);
     case 1:
-      return h26(l1,l2)*xyztLoc::TIME_RESOLUTION_D;
+      return h26(l1,l2);
     case 2:
-      return h124(l1,l2)*xyztLoc::TIME_RESOLUTION_D;
+      return h124(l1,l2);
     case 3:
-      return h48(l1,l2)*xyztLoc::TIME_RESOLUTION_D;
+      return h48(l1,l2);
     default:
-      return Util::distance(l1.x,l1.y,l1.z,l2.x,l2.y,l2.z)*xyztLoc::TIME_RESOLUTION_D;
+      return round(Util::distance(l1.x,l1.y,l1.z,l2.x,l2.y,l2.z)*xyztLoc::TIME_RESOLUTION_D);
   }
 }
 
@@ -539,21 +539,21 @@ double Grid3DEnvironment::GCost(const xyztLoc &l1, const xyztLoc &l2) const
     uint64_t v2(GetStateHash(l2));
     return (v1<v2?v1*map->GetMapHeight()*map->GetMapWidth()+v2:v2*map->GetMapHeight()*map->GetMapWidth()+v1)%(maxcost*xyztLoc::TIME_RESOLUTION_U);
   }
-  static const float SQRT_2(sqrt(2));
-  static const float SQRT_3(sqrt(3));
-  static const float SQRT_5(sqrt(5));
-  static const float SQRT_6(sqrt(6));
-  static const float SQRT_8(sqrt(8));
-  static const float SQRT_10(sqrt(10));
-  static const float SQRT_11(sqrt(11));
-  static const float SQRT_12(sqrt(12));
-  static const float SQRT_13(sqrt(13));
-  static const float SQRT_15(sqrt(15));
-  static const float SQRT_17(sqrt(17));
-  static const float SQRT_18(sqrt(18));
-  static const float SQRT_19(sqrt(19));
-  static const float SQRT_22(sqrt(22));
-  static const float SQRT_27(sqrt(27));
+  static const float SQRT_2(round(sqrt(2)*multiplier));
+  static const float SQRT_3(round(sqrt(3)*multiplier));
+  static const float SQRT_5(round(sqrt(5)*multiplier));
+  static const float SQRT_6(round(sqrt(6)*multiplier));
+  static const float SQRT_8(round(sqrt(8)*multiplier));
+  static const float SQRT_10(round(sqrt(10)*multiplier));
+  static const float SQRT_11(round(sqrt(11)*multiplier));
+  static const float SQRT_12(round(sqrt(12)*multiplier));
+  static const float SQRT_13(round(sqrt(13)*multiplier));
+  static const float SQRT_15(round(sqrt(15)*multiplier));
+  static const float SQRT_17(round(sqrt(17)*multiplier));
+  static const float SQRT_18(round(sqrt(18)*multiplier));
+  static const float SQRT_19(round(sqrt(19)*multiplier));
+  static const float SQRT_22(round(sqrt(22)*multiplier));
+  static const float SQRT_27(round(sqrt(27)*multiplier));
   switch(connectedness){
     case 0:{return l1.sameLoc(getGoal()) && l1.sameLoc(l2)?0:multiplier;}
     case 1:{
@@ -561,8 +561,8 @@ double Grid3DEnvironment::GCost(const xyztLoc &l1, const xyztLoc &l2) const
              switch(v){
                case 0: return l1.sameLoc(getGoal()) && l1.sameLoc(l2)?0:multiplier;
                case 1: return multiplier;
-               case 2: return multiplier*SQRT_2;
-               case 3: return multiplier*SQRT_3;
+               case 2: return SQRT_2;
+               case 3: return SQRT_3;
                default: return multiplier;
              }
            }
@@ -573,18 +573,18 @@ double Grid3DEnvironment::GCost(const xyztLoc &l1, const xyztLoc &l2) const
              unsigned v(dx+dy+dz);
 
              if(v==6){
-               return multiplier*SQRT_12;
+               return SQRT_12;
              }else if(v==5){
                return multiplier*3.0; // sqrt(4+4+1)=3
              }else if(v==4){
-               if(dx==0||dy==0||dz==0) return multiplier*SQRT_8;
-               else return multiplier*SQRT_6;
+               if(dx==0||dy==0||dz==0) return SQRT_8;
+               else return SQRT_6;
              }else if(v==3){
-               if(dx==0||dy==0||dz==0) return multiplier*SQRT_5;
-               else return multiplier*SQRT_3;
+               if(dx==0||dy==0||dz==0) return SQRT_5;
+               else return SQRT_3;
              }else if(v==2){
                if(dx==2||dy==2||dz==2) return multiplier*2.0;
-               else return multiplier*SQRT_2;
+               else return SQRT_2;
              }else{return l1.sameLoc(getGoal()) && l1.sameLoc(l2)?0:multiplier;}
            }
     case 3:{
@@ -594,31 +594,31 @@ double Grid3DEnvironment::GCost(const xyztLoc &l1, const xyztLoc &l2) const
              unsigned v(dx+dy+dz);
 
              if(v==9){
-               return multiplier*SQRT_27;
+               return SQRT_27;
              }else if(v==8){
-               return multiplier*SQRT_22;
+               return SQRT_22;
              }else if(v==7){
-               if(dx==1||dy==1||dz==1) return multiplier*SQRT_19;
-               else return multiplier*SQRT_17;
+               if(dx==1||dy==1||dz==1) return SQRT_19;
+               else return SQRT_17;
              }else if(v==6){
-               if(dx==0||dy==0||dz==0) return multiplier*SQRT_18;
-               else if(dx==3||dy==3||dz==3) return multiplier*SQRT_15;
-               else return multiplier*SQRT_12;
+               if(dx==0||dy==0||dz==0) return SQRT_18;
+               else if(dx==3||dy==3||dz==3) return SQRT_15;
+               else return SQRT_12;
              }else if(v==5){
-               if(dx==0||dy==0||dz==0) return multiplier*SQRT_13;
-               else if(dx==3||dy==3||dz==3) return multiplier*SQRT_11;
+               if(dx==0||dy==0||dz==0) return SQRT_13;
+               else if(dx==3||dy==3||dz==3) return SQRT_11;
                else return multiplier*3.0;
              }else if(v==4){
-               if(dx==3||dy==3||dz==3) return multiplier*SQRT_10;
-               else if(dx==0||dy==0||dz==0) return multiplier*SQRT_8;
-               else return multiplier*SQRT_6;
+               if(dx==3||dy==3||dz==3) return SQRT_10;
+               else if(dx==0||dy==0||dz==0) return SQRT_8;
+               else return SQRT_6;
              }else if(v==3){
-               if(dx==1&&dy==1&&dz==1) return multiplier*SQRT_3;
+               if(dx==1&&dy==1&&dz==1) return SQRT_3;
                else if(dx==3||dy==3||dz==3) return multiplier*3.0;
-               else return multiplier*SQRT_5;
+               else return SQRT_5;
              }else if(v==2){
                if(dx==2||dy==2||dz==2) return multiplier*2.0;
-               else return multiplier*SQRT_2;
+               else return SQRT_2;
              }else{return l1.sameLoc(getGoal()) && l1.sameLoc(l2)?0:multiplier;}
            }
   }
@@ -676,7 +676,7 @@ bool Grid3DEnvironment::LineOfSight(const std::pair<xyztLoc,xyztLoc> &node, cons
 bool Grid3DEnvironment::GoalTest(const xyztLoc &node, const xyztLoc &goal) const
 {
 // require goal time if specified
-	return ((node.x == goal.x) && (node.y == goal.y) && (node.z==goal.z) && (!goal.t || (node.t<=goal.t)));
+	return ((node.x == goal.x) && (node.y == goal.y) && (node.z==goal.z) && (!goal.t || (node.t==goal.t)));
 }
 
 uint64_t Grid3DEnvironment::GetMaxHash() const
@@ -897,7 +897,7 @@ double Grid3DEnvironment::GetPathLength(std::vector<xyztLoc> &neighbors)
 	double length = 0;
 	for (unsigned int x = 1; x < neighbors.size(); x++)
 	{
-		length += HCost(neighbors[x-1], neighbors[x]);
+		length += GCost(neighbors[x-1], neighbors[x]);
 	}
 	return length;
 }
