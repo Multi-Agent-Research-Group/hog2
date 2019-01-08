@@ -195,10 +195,15 @@ void GetFullPath(CBSUnit<state, action, comparison, conflicttable, searchalgo>* 
     }
   }
   std::vector<state> fpts(pts.begin(),pts.end());
-  if(!fpts.rbegin()->sameLoc(c->GetWaypoint(1))){
+  if(!(*fpts.rbegin()==c->GetWaypoint(1))){
     //fpts.reserve(fpts.size()+1);
     fpts.push_back(c->GetWaypoint(1));
     if(Params::verbose)std::cout << "Plan eventually" << *fpts.begin() <<"-->"<<*fpts.rbegin()<<"\n";
+  }
+  // All waypoints are the same
+  if(fpts.size()==1){
+    thePath.push_back(fpts[0]);
+    return;
   }
 
   // Perform search for all legs
@@ -210,12 +215,11 @@ void GetFullPath(CBSUnit<state, action, comparison, conflicttable, searchalgo>* 
   }
   for (int i(0); i < fpts.size() - 1; ++i) {
     std::vector<state> path;
-    state start(thePath.size() ? thePath.back() : fpts[i]);
+    state start(fpts[i]);
     //start.landed=false;
     //start.t=0;
     state goal(fpts[i + 1]);
     env->setGoal(goal);
-
     if(Params::verbose)std::cout << "Plan " << start <<"-->"<<goal<<"\n";
     Timer tmr;
     tmr.StartTimer();
@@ -1587,6 +1591,7 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
   comparison::CAT->set(&tree[0].paths);
   GetFullPath<state, action, comparison, conflicttable, searchalgo>(c, astar, currentEnvironment[theUnit]->environment,
       *tree[0].paths.back(), tree[0].wpts.back(), 1, theUnit, replanTime, TOTAL_EXPANSIONS);
+  assert(tree[0].paths.back()->size());
   if(Params::precheck==PRE_AABB){
     computeAABB(*tree[0].polygons.back(),*tree[0].paths.back());
   }else if(Params::precheck==PRE_HULL){
