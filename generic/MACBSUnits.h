@@ -59,16 +59,12 @@
 #define PRE_HULL 2
 #define PRE_SAP  4
 
-unsigned collchecks(0);
-float collisionTime(0);
-float planTime(0);
-float replanTime(0);
-float bypassplanTime(0);
-float maplanTime(0);
 
 
 template<typename state, typename action, typename comparison, typename conflicttable, class searchalgo>
 class CBSUnit;
+template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class searchalgo>
+class CBSGroup;
 
 extern double agentRadius;
 struct Params {
@@ -177,90 +173,9 @@ void MergeLeg(std::vector<state> const& path, std::vector<state>& thePath, std::
 
 // Plan path between waypoints
 template<typename state, typename action, typename comparison, typename conflicttable, class searchalgo>
-unsigned ReplanLeg(CBSUnit<state, action, comparison, conflicttable, searchalgo>* c, searchalgo& astar,
-    ConstrainedEnvironment<state, action>* env, std::vector<state>& thePath, std::vector<int>& wpts, unsigned s, unsigned g,
-    unsigned minTime, unsigned agent) {
-  if (thePath.empty()) {
-    return GetFullPath(c, astar, env, thePath, wpts, minTime, agent);
-    //assert(false && "Expected a valid path for re-planning.");
-  }
-  std::cout << "REPLANLEG\n";
-  int insertPoint(wpts[s]); // Starting index of this leg
-  unsigned origTime(thePath[wpts[g]].t); // Original ending time of leg
-  unsigned deletes(wpts[g] - wpts[s] + 1); // Number of path points in this leg.
-  // Remove points from the original path (if they exist)
-  if (thePath.empty()) {
-    assert(false && "Expected a valid path for re-planning.");
-  }
-  while (thePath.size() > wpts[g] + 1 && thePath[wpts[g]].sameLoc(thePath[++wpts[g]])) {
-    deletes++;
-  }
-  state start(c->GetWaypoint(s));
-  state goal(c->GetWaypoint(g));
-  // Preserve proper start time
-  start.t = thePath[wpts[s]].t;
-
-  //std::cout << start << " to " << goal << "\n";
-
-  // Perform search for the leg
-  std::vector<state> path;
-  env->setGoal(goal);
-  Timer tmr;
-  tmr.StartTimer();
-  astar.GetPath(env, start, goal, path, minTime);
-  replanTime += tmr.EndTimer();
-  //std::cout << "Replan took: " << tmr.EndTimer() << std::endl;
-  //std::cout << "New leg " << path.size() << "\n";
-  //for(auto &p: path){std::cout << p << "\n";}
-  if (path.empty()) {
-    thePath.resize(0);
-    return astar.GetNodesExpanded(); //no solution found
-  }
-  unsigned newTime(path.rbegin()->t); // Save the track end time of the new leg
-
-  // Insert new path in front of the insert point
-  //std::cout << "SIZE " << thePath.size() << "\n";
-  //std::cout << "Insert path of len " << path.size() << " before " << insertPoint << "\n";
-  thePath.insert(thePath.begin() + insertPoint, path.begin(), path.end());
-  //std::cout << "SIZE " << thePath.size() << "\n";
-  insertPoint += path.size();
-
-  //Erase the original subpath including the start node
-  //std::cout << "Erase path from " << insertPoint << " to " << (insertPoint+deletes) << "\n";
-  thePath.erase(thePath.begin() + insertPoint, thePath.begin() + insertPoint + deletes);
-  //std::cout << "SIZE " << thePath.size() << "\n";
-
-  // Update waypoint indices
-  int legLenDiff(path.size() - deletes);
-  if (legLenDiff) {
-    for (int i(g); i < wpts.size(); ++i) {
-      wpts[i] += legLenDiff;
-    }
-  }
-
-  if (thePath.size() - 1 != wpts[g] && newTime != origTime) {
-    // Increase times through the end of the track
-    auto newEnd(thePath.begin() + insertPoint);
-    while (newEnd++ != thePath.end()) {
-      newEnd->t += (newTime - origTime);
-    }
-  }
-
-  while (wpts[g] > wpts[s] + 1 && thePath[wpts[g]].sameLoc(thePath[wpts[g] - 1])) {
-    wpts[g]--;
-  }
-  //std::cout << "Replanned path\n";
-  //for(auto &p: thePath){std::cout << p << "\n";}
-  //std::cout << "exp replan " << astar.GetNodesExpanded() << "\n";
-  return astar.GetNodesExpanded();
-}
-
-// Plan path between waypoints
-template<typename state, typename action, typename comparison, typename conflicttable, class searchalgo>
-unsigned GetFullPath(CBSUnit<state, action, comparison, conflicttable, searchalgo>* c, searchalgo& astar,
+void GetFullPath(CBSUnit<state, action, comparison, conflicttable, searchalgo>* c, searchalgo& astar,
     ConstrainedEnvironment<state, action>* env, std::vector<state>& thePath, std::vector<int>& wpts, unsigned minTime,
-    unsigned agent) {
-  unsigned expansions(0);
+    unsigned agent, float& replanTime, unsigned& expansions) {
   // We should only call this function for initial empty paths.
   if (thePath.size())
     assert(!"Tried to plan on top of an existing path!");
@@ -305,14 +220,14 @@ unsigned GetFullPath(CBSUnit<state, action, comparison, conflicttable, searchalg
     Timer tmr;
     tmr.StartTimer();
     astar.GetPath(env, start, goal, path, goal.t?goal.t:minTime);
-    planTime += tmr.EndTimer();
+    replanTime += tmr.EndTimer();
     if(Params::verbose)std::cout << start <<"-->"<<goal<<" took: " << tmr.EndTimer() << std::endl;
 
     expansions += astar.GetNodesExpanded();
     //std::cout << "exp full " << astar.GetNodesExpanded() << "\n";
     if (path.empty()) {
       thePath.clear();
-      return expansions;
+      return;
     } //no solution found
 
     // Append to the entire path, omitting the first node for subsequent legs
@@ -325,8 +240,90 @@ unsigned GetFullPath(CBSUnit<state, action, comparison, conflicttable, searchalg
       wpts[i + 1] = --ix;
     }
   }
-  return expansions;
 }
+
+// Plan path between waypoints
+template<typename state, typename action, typename comparison, typename conflicttable, class searchalgo>
+void ReplanLeg(CBSUnit<state, action, comparison, conflicttable, searchalgo>* c, searchalgo& astar,
+    ConstrainedEnvironment<state, action>* env, std::vector<state>& thePath, std::vector<int>& wpts, unsigned s, unsigned g,
+    unsigned minTime, unsigned agent, float& replanTime, unsigned& expansions) {
+  if (thePath.empty()) {
+    GetFullPath<state, action, comparison, conflicttable, searchalgo>(c, astar, env, thePath, wpts, minTime, agent, replanTime, expansions);
+    return;
+    //assert(false && "Expected a valid path for re-planning.");
+  }
+  //std::cout << "REPLANLEG\n";
+  int insertPoint(wpts[s]); // Starting index of this leg
+  unsigned origTime(thePath[wpts[g]].t); // Original ending time of leg
+  unsigned deletes(wpts[g] - wpts[s] + 1); // Number of path points in this leg.
+  // Remove points from the original path (if they exist)
+  if (thePath.empty()) {
+    assert(false && "Expected a valid path for re-planning.");
+  }
+  while (thePath.size() > wpts[g] + 1 && thePath[wpts[g]].sameLoc(thePath[++wpts[g]])) {
+    deletes++;
+  }
+  state start(c->GetWaypoint(s));
+  state goal(c->GetWaypoint(g));
+  // Preserve proper start time
+  start.t = thePath[wpts[s]].t;
+
+  //std::cout << start << " to " << goal << "\n";
+
+  // Perform search for the leg
+  std::vector<state> path;
+  env->setGoal(goal);
+  Timer tmr;
+  tmr.StartTimer();
+  astar.GetPath(env, start, goal, path, minTime);
+  replanTime += tmr.EndTimer();
+  //std::cout << "Replan took: " << tmr.EndTimer() << std::endl;
+  //std::cout << "New leg " << path.size() << "\n";
+  //for(auto &p: path){std::cout << p << "\n";}
+  if (path.empty()) {
+    thePath.resize(0);
+    expansions+= astar.GetNodesExpanded(); //no solution found
+    return;
+  }
+  unsigned newTime(path.rbegin()->t); // Save the track end time of the new leg
+
+  // Insert new path in front of the insert point
+  //std::cout << "SIZE " << thePath.size() << "\n";
+  //std::cout << "Insert path of len " << path.size() << " before " << insertPoint << "\n";
+  thePath.insert(thePath.begin() + insertPoint, path.begin(), path.end());
+  //std::cout << "SIZE " << thePath.size() << "\n";
+  insertPoint += path.size();
+
+  //Erase the original subpath including the start node
+  //std::cout << "Erase path from " << insertPoint << " to " << (insertPoint+deletes) << "\n";
+  thePath.erase(thePath.begin() + insertPoint, thePath.begin() + insertPoint + deletes);
+  //std::cout << "SIZE " << thePath.size() << "\n";
+
+  // Update waypoint indices
+  int legLenDiff(path.size() - deletes);
+  if (legLenDiff) {
+    for (int i(g); i < wpts.size(); ++i) {
+      wpts[i] += legLenDiff;
+    }
+  }
+
+  if (thePath.size() - 1 != wpts[g] && newTime != origTime) {
+    // Increase times through the end of the track
+    auto newEnd(thePath.begin() + insertPoint);
+    while (newEnd++ != thePath.end()) {
+      newEnd->t += (newTime - origTime);
+    }
+  }
+
+  while (wpts[g] > wpts[s] + 1 && thePath[wpts[g]].sameLoc(thePath[wpts[g] - 1])) {
+    wpts[g]--;
+  }
+  //std::cout << "Replanned path\n";
+  //for(auto &p: thePath){std::cout << p << "\n";}
+  //std::cout << "exp replan " << astar.GetNodesExpanded() << "\n";
+  expansions += astar.GetNodesExpanded();
+}
+
 
 template<typename state, typename action, typename comparison, typename conflicttable, class searchalgo = TemporalAStar<
     state, action, ConstrainedEnvironment<state, action>, AStarOpenClosed<state, comparison>>>
@@ -626,8 +623,6 @@ struct CBSTreeNode {
   mutable std::unique_ptr<std::vector<Vector2D>> polygon;
   std::vector<std::vector<state>*> paths;
   std::vector<std::vector<Vector2D>*> polygons;
-  static Solution<state> basepaths;
-  static Solution<Vector2D> basepolygons;
   mutable std::unordered_map<agentpair_t,std::unordered_set<conflict_t,conflict_t>,agentpair_t> cardinal;
   mutable std::unordered_map<agentpair_t,std::unordered_set<conflict_t,conflict_t>,agentpair_t> semi;
   mutable std::unordered_map<agentpair_t,std::unordered_set<conflict_t,conflict_t>,agentpair_t> cct;
@@ -639,10 +634,6 @@ struct CBSTreeNode {
   conflicttable cat; // Conflict avoidance table
 };
 
-template<typename state, typename conflicttable>
-Solution<state> CBSTreeNode<state, conflicttable>::basepaths = Solution<state>();
-template<typename state, typename conflicttable>
-Solution<Vector2D> CBSTreeNode<state, conflicttable>::basepolygons = Solution<Vector2D>();
 
 template<typename state, typename conflicttable, class searchalgo>
 static std::ostream& operator <<(std::ostream & out, const CBSTreeNode<state, conflicttable> &act) {
@@ -659,7 +650,7 @@ struct ClearablePQ:public std::priority_queue<T,C>{//,Cmp>{
   }
 };
 
-typedef std::unordered_set<uint16_t> Group;
+typedef std::vector<uint16_t> Group;
 
 template<typename state, typename action, typename comparison, typename conflicttable, class maplanner,
     class searchalgo = TemporalAStar<state, action, ConstrainedEnvironment<state, action>,
@@ -675,6 +666,7 @@ public:
       ConstrainedEnvironment<state, action> *e, state &loc, bool success,
       SimulationInfo<state, action, ConstrainedEnvironment<state, action>> *si);
   void AddUnit(Unit<state, action, ConstrainedEnvironment<state, action>> *u);
+  void AddUnit(Unit<state, action, ConstrainedEnvironment<state, action>> *u, std::vector<state> const& path);
   unsigned GetMaxTime(int location, int agent);
   void StayAtGoal(int location);
 
@@ -714,8 +706,6 @@ private:
 
   unsigned FindFirstConflict(CBSTreeNode<state, conflicttable> const& location, Conflict<state> &c1, Conflict<state> &c2);
 
-  bool planFinished;
-
   /* Code for dealing with multiple environments */
   std::vector<std::vector<EnvironmentContainer<state, action>>> environments;
   std::vector<EnvironmentContainer<state, action>*> currentEnvironment;
@@ -730,9 +720,6 @@ private:
   std::vector<MetaAgent> activeMetaAgents;
   std::vector<std::vector<unsigned>> metaAgentConflictMatrix;
   bool CheckForMerge(std::pair<unsigned, unsigned> &toMerge);
-
-  unsigned int bestNode;
-  std::mutex bestNodeLock;
 
   struct OpenListNode {
     OpenListNode()
@@ -770,10 +757,12 @@ private:
 
   ClearablePQ<CBSGroup::OpenListNode, std::vector<CBSGroup::OpenListNode>> openList;
 
-  uint TOTAL_EXPANSIONS = 0;
 
   //std::vector<SearchEnvironment<state,action>*> agentEnvs;
 public:
+  bool planFinished;
+  unsigned bestNode;
+
   // Algorithm parameters
   bool verify;
   bool nobypass;
@@ -781,11 +770,37 @@ public:
   unsigned killex; // Kill after this many expansions
   bool keeprunning; // Whether to keep running after finding the answer (e.g. for ui)
   int seed;
-  Timer* timer;
+  static Timer* timer;
   int animate; // Add pauses for animation
   bool quiet = false;
   bool disappearAtGoal = true;
+  Solution<state> basepaths;
+  Solution<Vector2D> basepolygons;
+  static unsigned TOTAL_EXPANSIONS;
+  static unsigned collchecks;
+  static float collisionTime;
+  static float planTime;
+  static float replanTime;
+  static float bypassplanTime;
+  static float maplanTime;
 };
+
+template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class searchalgo>
+Timer* CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::timer=new Timer();
+template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class searchalgo>
+unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::TOTAL_EXPANSIONS=0;
+template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class searchalgo>
+unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::collchecks=0;
+template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class searchalgo>
+float CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::collisionTime=0;
+template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class searchalgo>
+float CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::planTime=0;
+template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class searchalgo>
+float CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::replanTime=0;
+template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class searchalgo>
+float CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::bypassplanTime=0;
+template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class searchalgo>
+float CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::maplanTime=0;
 
 /** AIR CBS UNIT DEFINITIONS */
 
@@ -869,7 +884,7 @@ template<typename state, typename action, typename comparison, typename conflict
 CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::CBSGroup(
     std::vector<std::vector<EnvironmentContainer<state, action>>>& environvec, Group const& g)
     : time(0), bestNode(0), planFinished(false), verify(false), nobypass(false), ECBSheuristic(false), killex(INT_MAX), keeprunning(
-        false), animate(0), seed(1234567), timer(0), mergeThreshold(5), quiet(true), agents(g){
+        false), animate(0), seed(1234567), mergeThreshold(5), quiet(true), agents(g){
   //std::cout << "THRESHOLD " << threshold << "\n";
 
   tree.resize(1);
@@ -888,9 +903,9 @@ CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::CBSGr
     SetEnvironment(0, agent);
     ++agent;
   }
+  basepaths.resize(environments.size());
+  basepolygons.resize(environments.size());
 
-  CBSTreeNode<state, conflicttable>::basepaths.resize(environments.size());
-  CBSTreeNode<state, conflicttable>::basepolygons.resize(environments.size());
   astar.SetVerbose(Params::astarverbose);
 }
 
@@ -927,7 +942,7 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
   }
   // If no conflicts are found in this node, then the path is done
   if (numConflicts.first == 0) {
-    processSolution(timer->EndTimer());
+    processSolution(CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::timer->EndTimer());
     return false;
   } else {
     // If the conflict is NON_CARDINAL, try the bypass
@@ -939,21 +954,22 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
     //c1.unit1=c2.unit1;
     //c2.unit1=tmp;
     // Notify the user of the conflict
-    if (!quiet)
+    if (!quiet){
       if(Params::extrinsicconstraints)
-      std::cout << "TREE " << bestNode << "(" << tree[bestNode].parent << ") "
+        std::cout << "TREE " << bestNode << "(" << tree[bestNode].parent << ") "
           << (numConflicts.second == 7 ?
               "CARDINAL" :
               (numConflicts.second == 3 ? "LEFT-CARDINAL" : (numConflicts.second == 5 ? "RIGHT-CARDINAL" : "NON-CARDINAL")))
           << " conflict found between MA " << conflicts[0].unit1 << " and MA " << conflicts[0].unit2 << " @:" << conflicts[1].c->start() << "-->"
           << conflicts[1].c->end() << " and " << conflicts[0].c->start() << "-->" << conflicts[0].c->end() << " NC " << numConflicts.first << " prev-W\n";
       else
-      std::cout << "TREE " << bestNode << "(" << tree[bestNode].parent << ") "
+        std::cout << "TREE " << bestNode << "(" << tree[bestNode].parent << ") "
           << (numConflicts.second == 7 ?
               "CARDINAL" :
               (numConflicts.second == 3 ? "LEFT-CARDINAL" : (numConflicts.second == 5 ? "RIGHT-CARDINAL" : "NON-CARDINAL")))
           << " conflict found between MA " << conflicts[0].unit1 << " and MA " << conflicts[0].unit2 << " @:" << conflicts[0].c->start() << "-->"
           << conflicts[0].c->end() << " and " << conflicts[1].c->start() << "-->" << conflicts[1].c->end() << " NC " << numConflicts.first << " prev-W\n";
+    }
     //if(Params::verbose){
     //std::cout << c1.unit1 << ":\n";
     //for(auto const& a:tree[bestNode].paths[c1.unit1]){
@@ -1143,14 +1159,14 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
     //minTime = GetMaxTime(bestNode, c1.unit1) - 1.0; // Take off a 1-second wait action, otherwise paths will grow over and over.
     //}
     if(Params::xorconstraints){
-    unsigned i(0);
-    for(auto const& c:conflicts){
+      unsigned i(0);
+      for(auto const& c:conflicts){
         last = tree.size();
         //tree.resize(last+1);
         tree.emplace_back(tree[bestNode], c, bestNode, true);
         // Pass in the action that should be avoided....
-        state s1(Params::extrinsicconstraints?((XOR<state>const*)c.c.get())->pos_start:c.c->start_state);
-        state s2(Params::extrinsicconstraints?((XOR<state>const*)c.c.get())->pos_end:c.c->end_state);
+        state s1(Params::extrinsicconstraints?((XOR<state>const*)tree[last].con.c.get())->pos_start:tree[last].con.c->start_state);
+        state s2(Params::extrinsicconstraints?((XOR<state>const*)tree[last].con.c.get())->pos_end:tree[last].con.c->end_state);
         Replan(last,s1,s2);
         ++i;
         unsigned nc1(numConflicts.first);
@@ -1169,8 +1185,8 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
           std::cout << "Replanned: " << c.unit1 << " cost: " << cost << " " << nc1 << "\n";
         }
         if(tree[last].con.c2.get()){
-          s1=Params::extrinsicconstraints?c.c->start_state:((XOR<state>const*)c.c.get())->pos_start;
-          s2=Params::extrinsicconstraints?c.c->end_state:((XOR<state>const*)c.c.get())->pos_end;
+          s1=Params::extrinsicconstraints?tree[last].con.c2->start_state:((XOR<state>const*)tree[last].con.c2.get())->pos_start;
+          s2=Params::extrinsicconstraints?tree[last].con.c2->end_state:((XOR<state>const*)tree[last].con.c2.get())->pos_end;
           Replan(last,s1,s2,true);
           unsigned nc1(numConflicts.first);
           double cost = 0;
@@ -1190,7 +1206,7 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
         }
         openList.emplace(last, cost, nc1, (numConflicts.second & RIGHT_CARDINAL)==RIGHT_CARDINAL);
       }
-    if(Params::verbose)std::cout << "New CT NODE: " << bestNode << ">" << last << "\n";
+      if(Params::verbose)std::cout << "New CT NODE: " << bestNode << ">" << last << "\n";
     }else{
       minTime = GetMaxTime(bestNode, conflicts[1].unit1); // Take off a 1-second wait action, otherwise paths will grow over and over.
       if ((numConflicts.second & LEFT_CARDINAL) || !Bypass(bestNode, numConflicts, conflicts[0], conflicts[1].unit1, minTime)) {
@@ -1443,29 +1459,30 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
       }
     }
   }
-  fflush(stdout);
-  std::cout
+  if(!quiet){
+    fflush(stdout);
+    std::cout
       << "elapsed,planTime,replanTime,bypassplanTime,maplanTime,collisionTime,expansions,CATcollchecks,collchecks,collisions,cost,actions\n";
-  if (verify && elapsed > 0)
-    std::cout << (valid ? "VALID" : "INVALID") << std::endl;
-  if (elapsed < 0) {
-    //std::cout << seed<<":FAILED\n";
-    std::cout << seed << ":" << elapsed * (-1.0) << ",";
-  } else {
-    std::cout << seed << ":" << elapsed << ",";
+    if (verify && elapsed > 0)
+      std::cout << (valid ? "VALID" : "INVALID") << std::endl;
+    if (elapsed < 0) {
+      //std::cout << seed<<":FAILED\n";
+      std::cout << seed << ":" << elapsed * (-1.0) << ",";
+    } else {
+      std::cout << seed << ":" << elapsed << ",";
+    }
+    std::cout << planTime << ",";
+    std::cout << replanTime << ",";
+    std::cout << bypassplanTime << ",";
+    std::cout << maplanTime << ",";
+    std::cout << collisionTime << ",";
+    std::cout << TOTAL_EXPANSIONS << ",";
+    std::cout << comparison::collchecks << ",";
+    std::cout << collchecks << ",";
+    std::cout << tree.size() << ",";
+    std::cout << cost / state::TIME_RESOLUTION_D << ",";
+    std::cout << total << std::endl;
   }
-  std::cout << planTime << ",";
-  std::cout << replanTime << ",";
-  std::cout << bypassplanTime << ",";
-  std::cout << maplanTime << ",";
-  std::cout << collisionTime << ",";
-  std::cout << TOTAL_EXPANSIONS << ",";
-  std::cout << comparison::collchecks << ",";
-  std::cout << collchecks << ",";
-  std::cout << tree.size() << ",";
-  std::cout << cost / state::TIME_RESOLUTION_D << ",";
-  std::cout << total << std::endl;
-  TOTAL_EXPANSIONS = 0;
   planFinished = true;
   //if (!keeprunning)
     //exit(0);
@@ -1554,10 +1571,10 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
 
   // Resize the number of paths in the root of the tree
   tree[0].paths.resize(this->GetNumMembers());
-  tree[0].paths.back() = &CBSTreeNode<state, conflicttable>::basepaths[this->GetNumMembers() - 1];
+  tree[0].paths.back() = &basepaths[this->GetNumMembers()-1];
   if (Params::precheck) {
     tree[0].polygons.resize(this->GetNumMembers());
-    tree[0].polygons.back() = new std::vector<Vector2D>();
+    tree[0].polygons.back() = &basepolygons[this->GetNumMembers()-1];
   }
   tree[0].wpts.resize(this->GetNumMembers());
   //agentEnvs.resize(this->GetNumMembers());
@@ -1569,21 +1586,95 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
   comparison::CAT = &(tree[0].cat);
   comparison::CAT->set(&tree[0].paths);
   GetFullPath<state, action, comparison, conflicttable, searchalgo>(c, astar, currentEnvironment[theUnit]->environment,
-      *tree[0].paths.back(), tree[0].wpts.back(), 1, theUnit);
+      *tree[0].paths.back(), tree[0].wpts.back(), 1, theUnit, replanTime, TOTAL_EXPANSIONS);
   if(Params::precheck==PRE_AABB){
     computeAABB(*tree[0].polygons.back(),*tree[0].paths.back());
   }else if(Params::precheck==PRE_HULL){
     Util::convexHull<state>(*tree[0].paths.back(),*tree[0].polygons.back());
   }
   if (killex != INT_MAX && TOTAL_EXPANSIONS > killex)
-    processSolution(-timer->EndTimer());
+    processSolution(-CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::timer->EndTimer());
   //std::cout << "AddUnit agent: " << (theUnit) << " expansions: " << astar.GetNodesExpanded() << "\n";
 
   // Create new conflict avoidance table instance
-  if (this->GetNumMembers() < 2)
+  if(comparison::useCAT && this->GetNumMembers() < 2){
     tree[0].cat = conflicttable();
   // We add the optimal path to the root of the tree
-  if (comparison::useCAT) {
+    tree[0].cat.insert(*tree[0].paths.back(), currentEnvironment[theUnit]->environment, tree[0].paths.size() - 1);
+  }
+  //StayAtGoal(0); // Do this every time a unit is added because these updates are taken into consideration by the CAT
+
+  // Set the plan finished to false, as there's new updates
+  planFinished = false;
+
+  // Clear up the rest of the tree and clean the open list
+  tree.resize(1);
+  bestNode = 0;
+  openList.clear();
+  openList.emplace(0, 0, 0, false);
+}
+
+/** Add a new unit with an existing path **/
+// Note: this should never be called with a meta agent of size>1
+template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class searchalgo>
+void CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::AddUnit(
+    Unit<state, action, ConstrainedEnvironment<state, action>> *u, std::vector<state> const& path) {
+  astar.SetExternalExpansionsPtr(&TOTAL_EXPANSIONS);
+  astar.SetExternalExpansionLimit(killex);
+
+  CBSUnit<state, action, comparison, conflicttable, searchalgo> *c = (CBSUnit<state, action, comparison, conflicttable, searchalgo>*) u;
+  unsigned theUnit(this->GetNumMembers());
+  c->setUnitNumber(theUnit);
+  // Add the new unit to the group
+  UnitGroup<state, action, ConstrainedEnvironment<state, action>>::AddUnit(u);
+
+  activeMetaAgents.push_back(MetaAgent(theUnit));
+  unitToMetaAgentMap[theUnit] = activeMetaAgents.size() - 1;
+
+  // Add the new meta-agent to the conflict matrix
+  metaAgentConflictMatrix.push_back(std::vector<unsigned>(activeMetaAgents.size()));
+  for (unsigned i(0); i < activeMetaAgents.size(); ++i) {
+    metaAgentConflictMatrix[i].push_back(0);
+    metaAgentConflictMatrix.back()[i] = 0;
+    // Clear the constraints from the environment set
+    ClearEnvironmentConstraints(i);
+  }
+
+  SetEnvironment(0, theUnit);
+
+  // Setup the state and goal in the graph
+  //c->GetStart(start);
+  //c->GetGoal(goal);
+
+  // Resize the number of paths in the root of the tree
+  tree[0].paths.resize(this->GetNumMembers());
+  tree[0].paths.back() = &basepaths[this->GetNumMembers()-1];
+  if (Params::precheck) {
+    tree[0].polygons.resize(this->GetNumMembers());
+    tree[0].polygons.back() = &basepolygons[this->GetNumMembers()-1];
+  }
+  tree[0].wpts.resize(this->GetNumMembers());
+  tree[0].wpts[this->GetNumMembers()-1].push_back(0);
+  tree[0].wpts[this->GetNumMembers()-1].push_back(path.size()-1);
+
+  // copy the path
+  tree[0].paths.back()->reserve(path.size());
+  for(auto const& s:path){
+    tree[0].paths.back()->push_back(s);
+  }
+  if(Params::precheck==PRE_AABB){
+    computeAABB(*tree[0].polygons.back(),*tree[0].paths.back());
+  }else if(Params::precheck==PRE_HULL){
+    Util::convexHull<state>(*tree[0].paths.back(),*tree[0].polygons.back());
+  }
+  if (killex != INT_MAX && TOTAL_EXPANSIONS > killex)
+    processSolution(-CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::timer->EndTimer());
+  //std::cout << "AddUnit agent: " << (theUnit) << " expansions: " << astar.GetNodesExpanded() << "\n";
+
+  // Create new conflict avoidance table instance
+  if(comparison::useCAT && this->GetNumMembers() < 2){
+    tree[0].cat = conflicttable();
+  // We add the optimal path to the root of the tree
     tree[0].cat.insert(*tree[0].paths.back(), currentEnvironment[theUnit]->environment, tree[0].paths.size() - 1);
   }
   //StayAtGoal(0); // Do this every time a unit is added because these updates are taken into consideration by the CAT
@@ -1797,14 +1888,14 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
         if (Params::verbose) {
           std::cout << "BYPASS -- solution\n";
         }
-        processSolution(timer->EndTimer());
+        processSolution(CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::timer->EndTimer());
         break;
       }
     } while (fleq(astar.GetNextPath(currentEnvironment[theUnit]->environment, start, goal, path, minTime), cost));
   }
   TOTAL_EXPANSIONS += astar.GetNodesExpanded();
   if (killex != INT_MAX && TOTAL_EXPANSIONS > killex)
-    processSolution(-timer->EndTimer());
+    processSolution(-CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::timer->EndTimer());
 
   if (!success) {
     // Give back the pointer to c1
@@ -1893,14 +1984,14 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
 
     if(!quiet)std::cout << "Replan agent " << theUnit << "\n";
     //if(!quiet)std::cout << "re-planning path from " << start << " to " << goal << " on a path of len:" << thePath.size() << " out to time " << minTime <<"\n";
-    ReplanLeg<state,action,comparison,conflicttable,searchalgo>(c, astar, currentEnvironment[theUnit]->environment, *tree[location].paths[theUnit], tree[location].wpts[theUnit], tree[location].con.prevWpt, tree[location].con.prevWpt+1,minTime,theUnit);
+    ReplanLeg<state,action,comparison,conflicttable,searchalgo>(c, astar, currentEnvironment[theUnit]->environment, *tree[location].paths[theUnit], tree[location].wpts[theUnit], tree[location].con.prevWpt, tree[location].con.prevWpt+1,minTime,theUnit,replanTime,TOTAL_EXPANSIONS);
     //for(int i(0); i<tree[location].paths.size(); ++i)
     //std::cout << "Replanned agent "<<i<<" path " << tree[location].paths[i]->size() << "\n";
 
     if(!quiet){
       bool found(false);
-      for(unsigned i(0); i<tree[location].paths[theUnit]->size()-1; ++i) {
-        if(tree[location].paths[theUnit]->at(i)==s1 && tree[location].paths[theUnit]->at(i+1)==s2){
+      for(unsigned i(1); i<tree[location].paths[theUnit]->size(); ++i) {
+        if(tree[location].paths[theUnit]->at(i-1)==s1 && tree[location].paths[theUnit]->at(i)==s2){
           found=true;
           break;
         }
@@ -1909,7 +2000,7 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
     }
 
     if (killex != INT_MAX && TOTAL_EXPANSIONS > killex)
-      processSolution(-timer->EndTimer());
+      processSolution(-CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::timer->EndTimer());
 
     //DoHAStar(start, goal, thePath);
     //TOTAL_EXPANSIONS += astar.GetNodesExpanded();
@@ -2027,7 +2118,7 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
       constraint.reset((Constraint<state>*) new TimeRange<state>(a1,a2));
     }
   }
-  currentEnvironment[x]->environment->constraints.insert(constraint.get());
+  currentEnvironment[x]->environment->AddConstraint(constraint.get());
   astar.SetHeuristic(currentEnvironment[x]->heuristic);
 
   double origcost(currentEnvironment[x]->environment->GetPathLength(*location.paths[x]));
@@ -2045,10 +2136,10 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, searchalgo>::
   }
 */
   std::vector<state> thePath;
-  GetFullPath<state,action,comparison,conflicttable,searchalgo>(c, astar, currentEnvironment[x]->environment, thePath, location.wpts[x], location.paths[y]->back().t, x);
+  GetFullPath<state,action,comparison,conflicttable,searchalgo>(c, astar, currentEnvironment[x]->environment, thePath, location.wpts[x], location.paths[y]->back().t, x, replanTime, TOTAL_EXPANSIONS);
 
   double newcost(currentEnvironment[x]->environment->GetPathLength(thePath));
-  currentEnvironment[x]->environment->constraints.erase(constraint.get());
+  currentEnvironment[x]->environment->constraints.remove(constraint->start().t,constraint->end().t,constraint.get());
   return !fequal(origcost,newcost);
 }
 
@@ -2280,10 +2371,22 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, searchalg
                 state b2(b[yNextTime]);
 	        //std::cout << "Collision at: " << x << ": " << a1 << "-->" << a2 << ", " << y << ": " << b1 << " " << b2 << "\n";
                 auto intvl(collisionInterval3D(a1,a2,b1,b2,agentRadius));
-                a2.t-=intvl.second*state::TIME_RESOLUTION_U-a1.t;
-                a1.t-=intvl.first*state::TIME_RESOLUTION_U-a1.t;
-                b2.t-=intvl.second*state::TIME_RESOLUTION_U-b1.t;
-                b1.t-=intvl.first*state::TIME_RESOLUTION_U-b1.t;
+                double duration(std::min((unsigned)floor(intvl.second*state::TIME_RESOLUTION_U),a2.t)-std::max(a1.t,(unsigned)ceil(intvl.first*state::TIME_RESOLUTION_U)));
+                if(duration<a1.t)
+                  a1.t-=duration;
+                else
+                  a1.t=0;
+                a2.t=a[xTime].t+duration;
+                //std::cout << "Block " << a1.t << "-->"<<a[xTime].t<<"-->"<<a2.t<<"\n";
+
+                duration=std::min((unsigned)floor(intvl.second*state::TIME_RESOLUTION_U),b2.t)-std::max(b1.t,(unsigned)ceil(intvl.first*state::TIME_RESOLUTION_U));
+                if(duration<b1.t)
+                  b1.t-=duration;
+                else
+                  b1.t=0;
+                b2.t=b[yTime].t+duration;
+                //std::cout << "Block " << b1.t << "-->"<<b[yTime].t<<"-->"<<b2.t<<"\n";
+
                 if(a1.t<0)a1.t=TOLERANCE;
                 if(b1.t<0)b1.t=TOLERANCE;
                 //assert(a1.t<a2.t);

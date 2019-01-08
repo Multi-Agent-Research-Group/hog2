@@ -81,14 +81,14 @@ public:
 	}
 	
 	virtual bool Done()
-	{
-		for (unsigned int x = 0; x < members.size(); x++)
-      	if (!members[x]->Done())
-      	{
-         	return false;
-         }
-      return true;
-   }
+        {
+          for (unsigned int x = 0; x < members.size(); x++)
+            if (!members[x]->Done())
+            {
+              return false;
+            }
+          return true;
+        }
 
 
 	void RemoveUnit(Unit<state, action, environment> *u)
@@ -116,7 +116,7 @@ public:
 
 	virtual std::vector<Unit<state,action,environment> *> GetMembers() {return members;}
 	unsigned int GetNumMembers() { return members.size(); }
-	Unit<state,action,environment> *GetMember(int which) const { return members[which]; }
+	Unit<state,action,environment> *GetMember(unsigned which) const { return members[which]; }
 	
 private:
 	std::vector<Unit<state, action, environment> *> members;

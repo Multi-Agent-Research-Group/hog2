@@ -29,7 +29,6 @@ public:
 	Map2DConstrainedEnvironment(Map *m);
 	Map2DConstrainedEnvironment(MapEnvironment *m);
 	virtual void AddConstraint(Constraint<TemporalVector3D> const* c);
-	virtual void AddConstraint(Constraint<xytLoc> const* c);
 	void ClearConstraints();
         virtual std::string name()const{return mapEnv->name();}
 	bool GetNextSuccessor(const xytLoc &currOpenNode, const xytLoc &goal, xytLoc &next, double &currHCost, uint64_t &special, bool &validMove);

@@ -83,33 +83,32 @@ public:
 	virtual void GetColor(GLfloat& _r, GLfloat& _g, GLfloat& _b) const { _r=r; _g=g; _b=b; }
 	
 	UnitGroup<state, action, environment> *GetUnitGroup() { return group; }
-	void SetUnitGroup(UnitGroup<state, action, environment> *_group)
-		{
-			// If we're already set to the given group then do nothing
-			if (_group == group)
-				return;
-			
-			UnitGroup<state, action, environment> *tmp = group;
-			
-			group = 0; 
-			if (tmp)
-				tmp->RemoveUnit(this);
-			
-			// Set the back pointer
-			group = _group;
-			
-			if (_group != 0)
-				_group->AddUnit(this);
-			
-			// OLD CODE
-/*			// If we had a group before then move
-			if (tmp != 0)
-			{
-				tmp->RemoveUnit(this);
-				if (_group)
-					_group->AddUnit(this);
-			} */ 
-		}
+        void SetUnitGroup(UnitGroup<state, action, environment> *_group){
+          // If we're already set to the given group then do nothing
+          //if (_group == group)
+          //return;
+
+          //UnitGroup<state, action, environment> *tmp = group;
+
+          //group = 0; 
+          //if (tmp)
+          //tmp->RemoveUnit(this);
+
+          // Set the back pointer
+          group = _group;
+
+          if (_group != 0)
+            _group->AddUnit(this);
+
+          // OLD CODE
+          /*			// If we had a group before then move
+                                if (tmp != 0)
+                                {
+                                tmp->RemoveUnit(this);
+                                if (_group)
+                                _group->AddUnit(this);
+                                } */ 
+        }
 
 	virtual unsigned int GetNum() { return unitid; }
 	virtual void SetNum( unsigned int num ) { unitid = num; return; }

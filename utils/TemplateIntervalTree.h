@@ -59,7 +59,6 @@ class TemplateIntervalTree {
       : left(nullptr)
         , right(nullptr)
         , center(val.start)
-        , count(1)
         , dp(1)
     {
       intervals.push_back(val);
@@ -88,18 +87,16 @@ class TemplateIntervalTree {
     std::unique_ptr<intervalTree> left;
     std::unique_ptr<intervalTree> right;
     K center;
-    unsigned count;
     unsigned dp; // depth
 
   public:
-    inline unsigned size()const{return count;}
+    inline unsigned empty()const{return intervals.empty();}
     inline unsigned depth()const{return dp;}
 
     TemplateIntervalTree<T,K>(void)
       : left(nullptr)
         , right(nullptr)
         , center(0)
-        , count(0)
         , dp(0)
     { }
 
@@ -110,7 +107,6 @@ class TemplateIntervalTree {
       left(other.left ? copyTree(*other.left) : nullptr),
       right(other.right ? copyTree(*other.right) : nullptr),
       center(other.center),
-      count(other.count),
       dp(other.dp)
     { }
 
@@ -119,7 +115,6 @@ class TemplateIntervalTree {
       intervals = other.intervals;
       left = other.left ? copyTree(*other.left) : nullptr;
       right = other.right ? copyTree(*other.right) : nullptr;
-      count = other.count;
       dp = other.dp;
       return *this;
     }
@@ -129,7 +124,6 @@ class TemplateIntervalTree {
     TemplateIntervalTree<T,K>( intervalVector const& ivals)
       : left(nullptr)
       , right(nullptr)
-      , count(ivals.size())
       , dp(insert_preorder(ivals))
     { }
 
@@ -142,7 +136,6 @@ class TemplateIntervalTree {
       if(intervals.empty()) {
         center=interval.start;
         intervals.push_back(interval);
-        //++count;
       } else if (interval.stop < center) {
         if(left){
           left->insert(interval);
@@ -156,7 +149,6 @@ class TemplateIntervalTree {
           right = std::unique_ptr<intervalTree>(new intervalTree(interval));
         }
       } else {
-        //++count;
         intervals.push_back(interval);
       }
     }
@@ -178,26 +170,25 @@ class TemplateIntervalTree {
           // to prevent moving all items after the value by one
           swap(*it, intervals.back());
           intervals.pop_back();
-          count--;
           // Can't update depth easily so we won't
           return true;
         }
-        return false;
       }
+      return false;
     }
 
-    intervalVector findOverlapping(K start, K stop) const {
-      intervalVector ov;
+    std::vector<T> findOverlapping(K start, K stop) const {
+      std::vector<T> ov;
       this->findOverlapping(start, stop, ov);
       return ov;
     }
 
-    void findOverlapping(K start, K stop, intervalVector& overlapping) const {
+    void findOverlapping(K start, K stop, std::vector<T>& overlapping) const {
       if (!intervals.empty() && ! (stop < intervals.front().start)) {
         for (typename intervalVector::const_iterator i = intervals.begin(); i != intervals.end(); ++i) {
           const interval& interval = *i;
           if (interval.stop >= start && interval.start <= stop) {
-            overlapping.push_back(interval);
+            overlapping.push_back(interval.value);
           }
         }
       }
@@ -236,6 +227,13 @@ class TemplateIntervalTree {
         right->findContained(start, stop, contained);
       }
 
+    }
+
+    void clear(){
+      left.reset(); // Should cascade
+      right.reset(); // Should cascade
+      intervals.clear();
+      dp=0;
     }
 
     ~TemplateIntervalTree(void) = default;

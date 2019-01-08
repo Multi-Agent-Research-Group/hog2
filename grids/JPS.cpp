@@ -195,7 +195,7 @@ void JPS::GetJPSSuccessors(int x, int y, uint8_t parent, const xyLoc &goal, doub
 	{
 		if (y != 0 && Passable(x, (y-1)))
 		{
-			bool a = false, b = false;
+			//bool a = false, b = false;
 			uint8_t next = 0;
 			if (JumpPoint(x, y-1))
 			{
@@ -225,7 +225,7 @@ void JPS::GetJPSSuccessors(int x, int y, uint8_t parent, const xyLoc &goal, doub
 	{
 		if (x != 0 && Passable(x-1, (y)))
 		{
-			bool a = false, b = false;
+			//bool a = false, b = false;
 			uint8_t next = 0;
 			if (JumpPoint(x-1, y))
 			{
@@ -257,7 +257,7 @@ void JPS::GetJPSSuccessors(int x, int y, uint8_t parent, const xyLoc &goal, doub
 		if (y != h-1 && Passable(x, (y+1)))
 		{
 			uint8_t next = 0;
-			bool a = false, b = false;
+			//bool a = false, b = false;
 			if (JumpPoint(x, y+1))
 			{
 				if (x != 0 && !Passable(x-1, (y)) && Passable(x-1, (y+1)))
@@ -287,7 +287,7 @@ void JPS::GetJPSSuccessors(int x, int y, uint8_t parent, const xyLoc &goal, doub
 		if (x != w-1 && Passable(x+1, (y)))
 		{
 			uint8_t next = 0;
-			bool a = false, b = false;
+			//bool a = false, b = false;
 			
 			if (JumpPoint(x+1, y))
 			{

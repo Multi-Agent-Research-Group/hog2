@@ -152,11 +152,6 @@ void Map2DConstrainedEnvironment::AddConstraint(Constraint<TemporalVector3D> con
 	vconstraints.push_back(c);
 }
 
-void Map2DConstrainedEnvironment::AddConstraint(Constraint<xytLoc> const* c)
-{
-	constraints.insert(c);
-}
-
 void Map2DConstrainedEnvironment::GetReverseActions(const xytLoc &nodeID, std::vector<tDirection> &actions) const
 {
 	// Get the action information from the hidden env
@@ -277,7 +272,6 @@ void Map2DConstrainedEnvironment::GLDrawLine(const xytLoc &x, const xytLoc &y) c
 void Map2DConstrainedEnvironment::GLDrawPath(const std::vector<xytLoc> &p, const std::vector<xytLoc> &waypoints) const
 {
         if(p.size()<2) return;
-        int wpt(0);
         //TODO Draw waypoints as cubes.
         for(auto a(p.begin()+1); a!=p.end(); ++a){
           GLDrawLine(*(a-1),*a);

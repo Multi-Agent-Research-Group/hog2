@@ -76,7 +76,7 @@ Solution<xyztLoc> solution;
   int maxsubgoals(1);
   int wait = xyztLoc::TIME_RESOLUTION_U;
   bool nobypass = false;
-
+  bool noid = false;
   bool paused = false;
 
   Grid3DConstrainedEnvironment *ace = 0;
@@ -86,7 +86,9 @@ Solution<xyztLoc> solution;
   //typedef CBSGroup<xyztLoc,t3DDirection,UnitTieBreaking3D<xyztLoc,t3DDirection>,UnitTimeCAT<xyztLoc,t3DDirection>,ICTSAlgorithm<xyztLoc,t3DDirection>> MACBSGroup;
   typedef CBSUnit<xyztLoc,t3DDirection,TieBreaking3D<xyztLoc,t3DDirection>,NonUnitTimeCAT<xyztLoc,t3DDirection>> MACBSUnit;
   typedef CBSGroup<xyztLoc,t3DDirection,TieBreaking3D<xyztLoc,t3DDirection>,NonUnitTimeCAT<xyztLoc,t3DDirection>,ICTSAlgorithm<xyztLoc,t3DDirection>> MACBSGroup;
-  std::vector<MACBSGroup*> groups;
+  std::unordered_map<unsigned,MACBSGroup*> groups;
+  std::vector<unsigned> rgroups;
+  std::vector<MACBSUnit*> units;
 
   template<>
   double NonUnitTimeCAT<xyztLoc, t3DDirection>::bucketWidth=xyztLoc::TIME_RESOLUTION_D;
@@ -97,6 +99,80 @@ Solution<xyztLoc> solution;
   void InitHeadless();
   bool detectIndependence();
 
+  void processSolution(double elapsed){
+    double cost(0.0);
+    unsigned total(0);
+    // For every unit in the node
+    bool valid(true);
+    for (unsigned int x = 0; x < solution.size(); x++) {
+      cost += environs[0][0].environment->GetPathLength(solution[x]);
+      total += solution[x].size();
+
+      if (solution[x].size()) {
+          std::cout << "Agent " << x << " (" << environs[0][0].environment->GetPathLength(solution[x]) << "): " << "\n";
+        for (auto &a : solution[x]) {
+          std::cout << "  " << a << "\n";
+        }
+      } else {
+        if (!quiet)
+          std::cout << "Agent " << x << ": " << "NO Path Found.\n";
+      }
+      // Only verify the solution if the run didn't time out
+      if (verify && elapsed > 0) {
+        for (unsigned y = x + 1; y < solution.size(); y++) {
+          auto ap(solution[x].begin());
+          auto a(ap + 1);
+          auto bp(solution[y].begin());
+          auto b(bp + 1);
+          while (a != solution[x].end() && b != solution[y].end()) {
+            if (collisionCheck3D(*ap, *a, *bp, *b, agentRadius)){
+              valid = false;
+              std::cout << "ERROR: Solution invalid; collision at: " << x << ":" << *ap << "-->" << *a << ", " << y << ":"
+                << *bp << "-->" << *b << std::endl;
+            }
+            if (a->t < b->t) {
+              ++a;
+              ++ap;
+            } else if (a->t > b->t) {
+              ++b;
+              ++bp;
+            } else {
+              ++a;
+              ++b;
+              ++ap;
+              ++bp;
+            }
+          }
+        }
+      }
+    }
+    unsigned nodes(0);
+    for(auto const& g:groups){
+      nodes+=g.second->tree.size();
+    }
+    fflush(stdout);
+    std::cout
+      << "elapsed,planTime,replanTime,bypassplanTime,maplanTime,collisionTime,expansions,CATcollchecks,collchecks,collisions,cost,actions\n";
+    if (verify && elapsed > 0)
+      std::cout << (valid ? "VALID" : "INVALID") << std::endl;
+    if (elapsed < 0) {
+      //std::cout << seed<<":FAILED\n";
+      std::cout << seed << ":" << elapsed * (-1.0) << ",";
+    } else {
+      std::cout << seed << ":" << elapsed << ",";
+    }
+    std::cout << MACBSGroup::planTime << ",";
+    std::cout << MACBSGroup::replanTime << ",";
+    std::cout << MACBSGroup::bypassplanTime << ",";
+    std::cout << MACBSGroup::maplanTime << ",";
+    std::cout << MACBSGroup::collisionTime << ",";
+    std::cout << MACBSGroup::TOTAL_EXPANSIONS << ",";
+    std::cout << TieBreaking3D<xyztLoc,t3DDirection>::collchecks << ",";
+    std::cout << MACBSGroup::collchecks << ",";
+    std::cout << nodes << ",";
+    std::cout << cost / xyztLoc::TIME_RESOLUTION_D << ",";
+    std::cout << total << std::endl;
+  }
 int main(int argc, char* argv[])
 {
   InstallHandlers();
@@ -112,17 +188,34 @@ int main(int argc, char* argv[])
   {
     InitHeadless();
     //std::cout << solution;
-    while(!detectIndependence()){
+    while((groups.size()==1&&!groups[0]->donePlanning())||!detectIndependence()){
+      if(Params::verbose)
+      std::cout << "There are " << groups.size() << " groups" << std::endl;
       for(auto& group:groups){
-        while(group->ExpandOneCBSNode()){
-        }
-        if(Params::verbose)for(int i(0);i<group->GetNumMembers();++i){
-          std::cout << "path for agent " << i << ":\n";
-          for(auto const& n: *group->tree.back().paths[i])
-            std::cout << n << "\n";
+        if(!group.second->donePlanning()){
+          if(Params::verbose)std::cout << "Independent group " << group.first << " being replanned:\n";
+          while(group.second->ExpandOneCBSNode()){
+          }
+          unsigned k(0);
+          for(auto const& a:group.second->agents){
+            if(Params::verbose)std::cout << "  " << a << "\n";
+            solution[a]=*group.second->tree[group.second->bestNode].paths[k++];
+          }
+        }else{
+          if(Params::verbose)std::cout << "Independent group " << group.first << " NOT being replanned\n";
+          if(Params::verbose)for(auto const& a:group.second->agents){
+            std::cout << "  " << a << "\n";
+          }
         }
       }
     }
+    processSolution(MACBSGroup::timer->EndTimer());
+    //if(Params::verbose)
+      //for(int i(0);i<solution.size();++i){
+      //std::cout << "path for agent " << i << ":\n";
+      //for(auto const& n: solution[i])
+        //std::cout << n << "\n";
+    //}
   }
 }
 
@@ -172,6 +265,7 @@ void InstallHandlers()
 	InstallCommandLineHandler(MyCLHandler, "-nsubgoals", "-nsubgoals <number>,<number>", "Select the min,max number of subgoals per agent.");
 	InstallCommandLineHandler(MyCLHandler, "-seed", "-seed <number>", "Seed for random number generator (defaults to clock)");
 	InstallCommandLineHandler(MyCLHandler, "-nobypass", "-nobypass", "Turn off bypass option");
+	InstallCommandLineHandler(MyCLHandler, "-noid", "-noid", "Turn off independence detection");
         InstallCommandLineHandler(MyCLHandler, "-record", "-record", "Record frames");
 	InstallCommandLineHandler(MyCLHandler, "-cutoffs", "-cutoffs <n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>", "Number of conflicts to tolerate before switching to less constrained layer of environment. Environments are ordered as: CardinalGrid,OctileGrid,Cardinal3D,Octile3D,H4,H8,Simple,Cardinal,Octile,48Highway");
 	InstallCommandLineHandler(MyCLHandler, "-weights", "-weights <n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>", "Weight to apply to the low-level search for each environment entered as: CardinalGrid,OctileGrid,Cardinal3D,Octile3D,H4,H8,Simple,Cardinal,Octile,48Highway");
@@ -230,106 +324,154 @@ void MyWindowHandler(unsigned long windowID, tWindowEventType eType)
 	}
 }
 
+void InitGroupParams(MACBSGroup* group){
+  Params::greedyCT=greedyCT;
+  group->disappearAtGoal=disappearAtGoal;
+  group->seed=seed;
+  group->keeprunning=gui;
+  group->animate=animate;
+  group->killex=killex;
+  group->mergeThreshold=mergeThreshold;
+  group->ECBSheuristic=ECBSheuristic;
+  group->nobypass=nobypass;
+  group->verify=verify;
+  Params::greedyCT=suboptimal;
+  group->quiet=quiet;
+}
+void fillWaypoints(){
+  if(waypoints.size()<num_agents){
+    // Adding random waypoints
+    std::vector<xyztLoc> s;
+    unsigned r(maxsubgoals-minsubgoals);
+    int numsubgoals(minsubgoals+1);
+    if(r>0){
+      numsubgoals = rand()%(maxsubgoals-minsubgoals)+minsubgoals+1;
+    }
+    if(Params::verbose)std::cout << "Agent " << waypoints.size() << " add " << numsubgoals << " subgoals\n";
+
+    for(int n(0); n<numsubgoals; ++n){
+      bool conflict(true);
+      while(conflict){
+        conflict=false;
+        xyztLoc start(rand() % width, rand() % length, rand() % height,0u);
+        if(!ace->GetMap()->IsTraversable(start.x,start.y,start.z,Map3D::air)){conflict=true;continue;}
+        for (int j = 0; j < waypoints.size()-1; j++)
+        {
+          if(waypoints[j].size()>n)
+          {
+            xyztLoc a(waypoints[j][n]);
+            // Make sure that no subgoals at similar times have a conflict
+            Collision<xyztLoc> x_c(a,a,agentRadius);
+            if(x_c.ConflictsWith(start,start)){conflict=true;break;}
+            if(a==start){conflict=true;break;}
+          }
+          /*xytLoc a(start,1.0);
+            xytLoc b(a);
+            b.x++;
+            if(conflict=ace->ViolatesConstraint(a,b)){break;}*/
+        }
+        if(!conflict) s.push_back(start);
+      }
+    }
+    waypoints.push_back(s);
+  }
+  for(auto w(waypoints.begin()+1); w!=waypoints.end();/*++w*/){
+    if(*(w-1) == *w)
+      waypoints.erase(w);
+    else
+      ++w;
+  }
+}
+
 
 void InitHeadless(){
   ace=(Grid3DConstrainedEnvironment*)environs[0].rbegin()->environment;
-  groups.resize(num_agents);
+  UnitTieBreaking3D<xyztLoc,t3DDirection>::randomalg=randomalg;
+  UnitTieBreaking3D<xyztLoc,t3DDirection>::useCAT=useCAT;
+  TieBreaking3D<xyztLoc,t3DDirection>::randomalg=randomalg;
+  TieBreaking3D<xyztLoc,t3DDirection>::useCAT=useCAT;
+
+  if(gui){
+    sim = new UnitSim(ace);
+    sim->SetStepType(kLockStep);
+    sim->SetLogStats(false);
+  }
+  groups.reserve(num_agents);
   solution.resize(num_agents);
-  int i(0);
-  for(auto& group:groups){
-    group=new MACBSGroup(environs,{i});
-    Params::greedyCT=greedyCT;
-    group->disappearAtGoal=disappearAtGoal;
-    group->timer=new Timer();
-    group->seed=seed;
-    group->keeprunning=gui;
-    group->animate=animate;
-    group->killex=killex;
-    group->mergeThreshold=mergeThreshold;
-    group->ECBSheuristic=ECBSheuristic;
-    group->nobypass=nobypass;
-    group->verify=verify;
-    Params::greedyCT=suboptimal;
-    group->quiet=quiet;
-    UnitTieBreaking3D<xyztLoc,t3DDirection>::randomalg=randomalg;
-    UnitTieBreaking3D<xyztLoc,t3DDirection>::useCAT=useCAT;
-    TieBreaking3D<xyztLoc,t3DDirection>::randomalg=randomalg;
-    TieBreaking3D<xyztLoc,t3DDirection>::useCAT=useCAT;
+  units.reserve(num_agents);
+
+  if(noid){
+    MACBSGroup* group=groups[0]=new MACBSGroup(environs,{});
+    group->agents.resize(num_agents);
+    std::iota(group->agents.begin(),group->agents.end(),0); // Add agents 0, 1, ...
+    rgroups.resize(1);
+    rgroups[0]=0;
+    Timer::Timeout func(std::bind(&MACBSGroup::processSolution, groups[0], std::placeholders::_1));
+    MACBSGroup::timer->StartTimeout(std::chrono::seconds(killtime),func);
+    InitGroupParams(group);
+
     if(gui){
-      sim = new UnitSim(ace);
-      sim->SetStepType(kLockStep);
-      sim->SetLogStats(false);
       sim->AddUnitGroup(group);
     }
+    fillWaypoints();
 
-    if(waypoints.size()<num_agents){
-      // Adding random waypoints
-      std::vector<xyztLoc> s;
-      unsigned r(maxsubgoals-minsubgoals);
-      int numsubgoals(minsubgoals+1);
-      if(r>0){
-        numsubgoals = rand()%(maxsubgoals-minsubgoals)+minsubgoals+1;
-      }
-      if(Params::verbose)std::cout << "Agent " << i << " add " << numsubgoals << " subgoals\n";
-
-      for(int n(0); n<numsubgoals; ++n){
-        bool conflict(true);
-        while(conflict){
-          conflict=false;
-          xyztLoc start(rand() % width, rand() % length, rand() % height,0u);
-          if(!ace->GetMap()->IsTraversable(start.x,start.y,start.z,Map3D::air)){conflict=true;continue;}
-          for (int j = 0; j < waypoints.size(); j++)
-          {
-            if(i==j){continue;}
-            if(waypoints[j].size()>n)
-            {
-              xyztLoc a(waypoints[j][n]);
-              // Make sure that no subgoals at similar times have a conflict
-              Collision<xyztLoc> x_c(a,a,agentRadius);
-              if(x_c.ConflictsWith(start,start)){conflict=true;break;}
-              if(a==start){conflict=true;break;}
-            }
-            /*xytLoc a(start,1.0);
-              xytLoc b(a);
-              b.x++;
-              if(conflict=ace->ViolatesConstraint(a,b)){break;}*/
-          }
-          if(!conflict) s.push_back(start);
-        }
-      }
-      waypoints.push_back(s);
-    }
-    for(auto w(waypoints.begin()+1); w!=waypoints.end();/*++w*/){
-      if(*(w-1) == *w)
-        waypoints.erase(w);
-      else
-        ++w;
-    }
-
-    if(!quiet){
-      std::cout << "Set unit " << i << " subgoals: ";
-      for(auto &a: waypoints[i])
-        std::cout << a << " ";
-      std::cout << std::endl;
-    }
     float softEff(.9);
-    MACBSUnit* unit = new MACBSUnit(waypoints[i],softEff);
-    unit->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
-    group->AddUnit(unit); // Add to the group
-    if(Params::verbose)std::cout << "initial path for agent " << i << ":\n";
-    if(Params::verbose)
-      for(auto const& n: *group->tree[0].paths[i])
-        std::cout << n << "\n";
-    if(gui){sim->AddUnit(unit);} // Add to the group
-
-    //assert(false && "Exit early");
+    for(int i(0); i<num_agents; ++i){
+      if(!quiet){
+        std::cout << "Set unit " << i << " subgoals: ";
+        for(auto &a: waypoints[i])
+          std::cout << a << " ";
+        std::cout << std::endl;
+      }
+      units.push_back(new MACBSUnit(waypoints[i],softEff));
+      units[i]->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
+      group->AddUnit(units[i]); // Add to the group
+      if(Params::verbose)std::cout << "initial path for agent " << i << ":\n";
+      if(Params::verbose)
+        for(auto const& n: *group->tree[0].paths[i])
+          std::cout << n << "\n";
+      if(gui){sim->AddUnit(units[i]);} // Add to the group
+      solution[i]=group->basepaths[0];
+    }
     group->Init();
-    solution[i]=group->tree[i].basepaths[0];
-    ++i;
-  }
-  if(!gui){
-    Timer::Timeout func(std::bind(&MACBSGroup::processSolution, groups[0], std::placeholders::_1));
-    groups[0]->timer->StartTimeout(std::chrono::seconds(killtime),func);
+  }else{
+    rgroups.resize(num_agents);
+    for(uint16_t i(0); i<num_agents; ++i){
+      if(Params::verbose)std::cout << "Creating group " << i << "\n";
+      MACBSGroup* group=groups[i]=new MACBSGroup(environs,{i});
+      rgroups[i]=i;
+      if(i==0 && !gui){
+        Timer::Timeout func(std::bind(&MACBSGroup::processSolution, groups[0], std::placeholders::_1));
+        MACBSGroup::timer->StartTimeout(std::chrono::seconds(killtime),func);
+      }
+      InitGroupParams(group);
+      if(gui){
+        sim->AddUnitGroup(group);
+      }
+
+      fillWaypoints();
+
+      if(!quiet){
+        std::cout << "Set unit " << i << " subgoals: ";
+        for(auto &a: waypoints[i])
+          std::cout << a << " ";
+        std::cout << std::endl;
+      }
+      float softEff(.9);
+      units.push_back(new MACBSUnit(waypoints[i],softEff));
+      units[i]->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
+      group->AddUnit(units[i]); // Add to the group
+      if(Params::verbose)std::cout << "initial path for agent " << i << ":\n";
+      if(Params::verbose)
+        for(auto const& n: *group->tree[0].paths[i])
+          std::cout << n << "\n";
+      if(gui){sim->AddUnit(units[i]);} // Add to the group
+
+      //assert(false && "Exit early");
+      group->Init();
+      group->planFinished=true;
+      solution[i]=group->basepaths[0];
+    }
   }
 }
 
@@ -340,39 +482,60 @@ bool detectIndependence(){
     for(int j(i+1); j<solution.size(); ++j){
       auto a(1);
       auto b(1);
-      while (a < solution[i].size() && b < solution[j].size()) {
-        if (collisionCheck3D(solution[i][a-1], solution[i][a], solution[j][b-1], solution[j][b], agentRadius)){
+      while(a < solution[i].size() && b < solution[j].size()) {
+        if(collisionCheck3D(solution[i][a-1], solution[i][a], solution[j][b-1], solution[j][b], agentRadius)){
           independent = false;
-          std::cout << "NOT INDEPENDENT: " << i << ":" << solution[i][a-1] << "-->" << solution[i][a] << ", " << j << ":"
+          if(Params::verbose)std::cout << "NOT INDEPENDENT: " << i << ":" << solution[i][a-1] << "-->" << solution[i][a] << ", " << j << ":"
             << solution[j][b-1] << "-->" << solution[j][b] << std::endl;
-          if(groups[i]==groups[j]){
-            break;
+          if(rgroups[i]==rgroups[j]){
+            break; // This can happen if both collide with a common agent
           }
           // Combine groups i and j
-          MACBSGroup* toDelete(groups[j]);
-          for(auto ag:groups[j]->agents){
-            if(Params::verbose)std::cout << "Inserting agent " << ag << " into group for agent " << i << "\n";
-            groups[i]->agents.insert(ag);
-            groups[ag]=groups[i];
+          //groups[i]=new MACBSGroup(environs,groups[i]->agents);
+          MACBSGroup* toDelete(groups[rgroups[j]]);
+          //MACBSGroup* toDelete2(groups[i]);
+          if(groups.find(rgroups[j])==groups.end()){
+            std::cout << "ERROR: agent "<<j<<" belongs to group "<<rgroups[j]<<" but group not found\n";
+            assert(false);
+          }
+          if(groups.find(rgroups[i])==groups.end()){
+            std::cout << "ERROR: agent "<<i<<" belongs to group "<<rgroups[i]<<" but group not found\n";
+            assert(false);
+          }
+          if(Params::verbose)std::cout << "Insert "<<groups[rgroups[j]]->GetNumMembers()<<"/"<<groups[rgroups[j]]->agents.size() << " agents\n";
+          unsigned origgroup(rgroups[j]);
+          for(auto ag:groups[rgroups[j]]->agents){
+            if(Params::verbose)std::cout << "Inserting agent " << ag << " into group "<<rgroups[i]<<" for agent " << i << "("<<(uint64_t)units[ag]<<") from group "<<origgroup<<"\n";
+            groups[rgroups[i]]->agents.push_back(ag);
+            groups[rgroups[i]]->AddUnit(units[ag],solution[ag]);
+            rgroups[ag]=rgroups[i];
             //maxnagents=std::max(group[i]->agents.size(),maxnagents);
           }
-          delete toDelete;
-          toDelete=groups[i];
-          groups[i]=new MACBSGroup(environs,groups[i]->agents);
-          delete toDelete;
-          for(auto ag:groups[i]->agents){
-            groups[ag]=groups[i];
+          if(Params::verbose)std::cout << "Group " << rgroups[i] << " now has: \n";
+          unsigned k=0;
+          if(Params::verbose)for(auto ag:groups[rgroups[i]]->agents){
+            std::cout << "  "<<ag<<"-"<<(uint64_t)groups[rgroups[i]]->GetMember(k++)<<"\n";
           }
+          if(Params::verbose)std::cout << groups[rgroups[i]]->donePlanning() << " done\n";
+          /*k=0;
+          for(auto ag:groups[i]->agents){
+            groups[i]->AddUnit(groups[ag]->GetMember(k),*groups[ag]->tree[groups[ag]->bestNode].paths[k]);
+            k++;
+            groups[ag]=groups[i];
+          }*/
+          if(Params::verbose)std::cout << origgroup << "erased\n";
+          groups.erase(origgroup);
+          delete toDelete;
           break;
         }
-      }
-      if (solution[i][a].t < solution[j][b].t) {
-        ++a;
-      } else if (solution[i][a].t > solution[j][b].t) {
-        ++b;
-      } else {
-        ++a;
-        ++b;
+        if (solution[i][a].t < solution[j][b].t) {
+          ++a;
+        } else if (solution[i][a].t > solution[j][b].t) {
+          ++b;
+        } else {
+          ++a;
+          ++b;
+        }
       }
     }
   }
@@ -397,7 +560,7 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 {
   for(auto const& group:groups){
     if (ace){
-      for(auto& u : group->GetMembers()){
+      for(auto& u : group.second->GetMembers()){
         glLineWidth(2.0);
         GLfloat r, g, b;
         u->GetColor(r, g, b);
@@ -411,15 +574,15 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
   if(sim){
     sim->OpenGLDraw();
     if (!paused) {
-      if(group->donePlanning()){
+      if(group.second->donePlanning()){
       sim->StepTime2(stepsPerFrame);
       }else{
         sim->StepTime2(.00001);
       }
 
       /*std::cout << "Printing locations at time: " << sim->GetSimulationTime() << std::endl;
-        for (int x = 0; x < group->GetNumMembers(); x ++) {
-        MACBSUnit* c((MACBSUnit*)group->GetMember(x));
+        for (int x = 0; x < group.second->GetNumMembers(); x ++) {
+        MACBSUnit* c((MACBSUnit*)group.second->GetMember(x));
         xytLoc cur;
         c->GetLocation(cur);
       //if(!fequal(ptime[x],sim->GetSimulationTime())
@@ -431,9 +594,9 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 
   if(recording){
     static int index = 0;
-    if(group->donePlanning() || index%10==0){
+    if(group.second->donePlanning() || index%10==0){
     char fname[255];
-    if(group->donePlanning())
+    if(group.second->donePlanning())
       sprintf(fname, "movies/cbs-%05d", index);
     else
       sprintf(fname, "movies/cbs-%05d", index/10);
@@ -891,6 +1054,11 @@ int MyCLHandler(char *argument[], int maxNumArgs){
   {
     agentRadius=atof(argument[1]);
     return 2;
+  }
+  if(strcmp(argument[0], "-noid") == 0)
+  {
+    noid = true;
+    return 1;
   }
   if(strcmp(argument[0], "-nobypass") == 0)
   {
