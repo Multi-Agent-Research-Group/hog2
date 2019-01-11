@@ -177,7 +177,7 @@ template<typename state, typename action, typename comparison, typename conflict
 void GetFullPath(CBSUnit<state, action, comparison, conflicttable, searchalgo>* c, searchalgo& astar,
     EnvironmentContainer<state, action>& env, std::vector<state>& thePath, std::vector<int>& wpts, unsigned minTime,
     unsigned agent, float& replanTime, unsigned& expansions) {
-  static std::unordered_map<uint64_t,singleHeuristic*> heuristics;
+  static std::unordered_map<uint64_t,std::unique_ptr<singleHeuristic>> heuristics;
   // We should only call this function for initial empty paths.
   if (thePath.size())
     assert(!"Tried to plan on top of an existing path!");
@@ -229,14 +229,17 @@ void GetFullPath(CBSUnit<state, action, comparison, conflicttable, searchalgo>* 
       if(i==fpts.size()-2){
         astar.SetHeuristic(env.heuristic);
       }else{
-        Heuristic<state>* h(nullptr);
+        singleHeuristic* h(nullptr);
          // TODO fix this so we get a unique key (its ok ro xyztLoc, but not others.)
 	uint64_t key(*((uint64_t*)&goal));
-        if(heuristics.find(key)==heuristics.end()){
+	auto hh(heuristics.find(key));
+        if(hh==heuristics.end()){
           h=new singleHeuristic(env.environment->GetMap(),env.environment);
 	  heuristics[key].reset(h);
-        }
-        astar.SetHeuristic(env.heuristic);
+        }else{
+          h=hh->second.get();
+	}
+        astar.SetHeuristic(h);
       }
     }
     astar.GetPath(env.environment, start, goal, path, goal.t?goal.t:minTime);
@@ -268,7 +271,7 @@ void ReplanLeg(CBSUnit<state, action, comparison, conflicttable, searchalgo>* c,
     EnvironmentContainer<state, action>& env, std::vector<state>& thePath, std::vector<int>& wpts, unsigned s, unsigned g,
     unsigned minTime, unsigned agent, float& replanTime, unsigned& expansions) {
   if (thePath.empty()) {
-    GetFullPath<state, action, comparison, conflicttable, searchalgo, singleHeuristic>(c, astar, env.environment, thePath, wpts, minTime, agent, replanTime, expansions);
+    GetFullPath<state, action, comparison, conflicttable, searchalgo, singleHeuristic>(c, astar, env, thePath, wpts, minTime, agent, replanTime, expansions);
     return;
     //assert(false && "Expected a valid path for re-planning.");
   }

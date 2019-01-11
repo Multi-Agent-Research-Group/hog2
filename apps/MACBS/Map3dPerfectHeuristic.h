@@ -33,7 +33,7 @@ class Map3dPerfectHeuristic: public Heuristic<state> {
 
   public:
     // constructor
-    Map3dPerfectHeuristic( Map3D *_m, Grid3DConstrainedEnvironment* _e): m(_m),e(_e),depth(e->GetMapEnv()->agentType==Map3D::air?m->GetMapDepth():1),elapsed(0.0),loaded(false),list(m->GetMapHeight()*m->GetMapWidth()*depth){}
+    Map3dPerfectHeuristic( MapInterface* _m, ConstrainedEnvironment<xyztLoc, t3DDirection>* _e): m((Map3D*)_m),e((Grid3DConstrainedEnvironment*)_e),depth(e->GetMapEnv()->agentType==Map3D::air?m->GetMapDepth():1),elapsed(0.0),loaded(false),list(m->GetMapHeight()*m->GetMapWidth()*depth){}
 
     double HCost( const state &s1, const state &s2 ) const {
       if(!loaded){
