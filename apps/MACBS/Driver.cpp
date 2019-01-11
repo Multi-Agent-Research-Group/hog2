@@ -85,7 +85,7 @@ Solution<xyztLoc> solution;
   //typedef CBSUnit<xyztLoc,t3DDirection,UnitTieBreaking3D<xyztLoc,t3DDirection>,UnitTimeCAT<xyztLoc,t3DDirection>> MACBSUnit;
   //typedef CBSGroup<xyztLoc,t3DDirection,UnitTieBreaking3D<xyztLoc,t3DDirection>,UnitTimeCAT<xyztLoc,t3DDirection>,ICTSAlgorithm<xyztLoc,t3DDirection>> MACBSGroup;
   typedef CBSUnit<xyztLoc,t3DDirection,TieBreaking3D<xyztLoc,t3DDirection>,NonUnitTimeCAT<xyztLoc,t3DDirection>> MACBSUnit;
-  typedef CBSGroup<xyztLoc,t3DDirection,TieBreaking3D<xyztLoc,t3DDirection>,NonUnitTimeCAT<xyztLoc,t3DDirection>,ICTSAlgorithm<xyztLoc,t3DDirection>> MACBSGroup;
+  typedef CBSGroup<xyztLoc,t3DDirection,TieBreaking3D<xyztLoc,t3DDirection>,NonUnitTimeCAT<xyztLoc,t3DDirection>,ICTSAlgorithm<xyztLoc,t3DDirection>,Map3dPerfectHeuristic<xyztLoc,t3DDirection>> MACBSGroup;
   std::unordered_map<unsigned,MACBSGroup*> groups;
   std::vector<unsigned> rgroups;
   std::vector<MACBSUnit*> units;
@@ -108,13 +108,13 @@ Solution<xyztLoc> solution;
       cost += environs[0][0].environment->GetPathLength(solution[x]);
       total += solution[x].size();
 
-      if (solution[x].size()) {
+      if(!quiet)
+      if(solution[x].size()) {
           std::cout << "Agent " << x << " (" << environs[0][0].environment->GetPathLength(solution[x]) << "): " << "\n";
         for (auto &a : solution[x]) {
           std::cout << "  " << a << "\n";
         }
       } else {
-        if (!quiet)
           std::cout << "Agent " << x << ": " << "NO Path Found.\n";
       }
       // Only verify the solution if the run didn't time out
@@ -437,8 +437,9 @@ void InitHeadless(){
   }else{
     rgroups.resize(num_agents);
     for(uint16_t i(0); i<num_agents; ++i){
+      std::vector<std::vector<EnvironmentContainer<xyztLoc,t3DDirection>>> environ={environs[i]};
       if(Params::verbose)std::cout << "Creating group " << i << "\n";
-      MACBSGroup* group=groups[i]=new MACBSGroup(environs,{i});
+      MACBSGroup* group=groups[i]=new MACBSGroup(environ,{i});
       rgroups[i]=i;
       if(i==0 && !gui){
         Timer::Timeout func(std::bind(&MACBSGroup::processSolution, groups[0], std::placeholders::_1));
@@ -504,15 +505,17 @@ bool detectIndependence(){
           }
           if(Params::verbose)std::cout << "Insert "<<groups[rgroups[j]]->GetNumMembers()<<"/"<<groups[rgroups[j]]->agents.size() << " agents\n";
           unsigned origgroup(rgroups[j]);
+	  unsigned k(0);
           for(auto ag:groups[rgroups[j]]->agents){
             if(Params::verbose)std::cout << "Inserting agent " << ag << " into group "<<rgroups[i]<<" for agent " << i << "("<<(uint64_t)units[ag]<<") from group "<<origgroup<<"\n";
             groups[rgroups[i]]->agents.push_back(ag);
+            groups[rgroups[i]]->environments.push_back(groups[origgroup]->environments[k++]);
             groups[rgroups[i]]->AddUnit(units[ag],solution[ag]);
             rgroups[ag]=rgroups[i];
             //maxnagents=std::max(group[i]->agents.size(),maxnagents);
           }
           if(Params::verbose)std::cout << "Group " << rgroups[i] << " now has: \n";
-          unsigned k=0;
+          k=0;
           if(Params::verbose)for(auto ag:groups[rgroups[i]]->agents){
             std::cout << "  "<<ag<<"-"<<(uint64_t)groups[rgroups[i]]->GetMember(k++)<<"\n";
           }
