@@ -65,121 +65,124 @@ Solution<xyztLoc> solution;
 //std::vector<SoftConstraint<xytLoc> > sconstraints;
 #define NUMBER_CANONICAL_STATES 10
 
-  char const* envnames[11] = {"fourconnected","fiveconnected","eightconnected","nineconnected","twentyfourconnected","twentyfiveconnected","fortyeightconnected","fortynineconnected","3dcardinal","3done","3dtwo"};
-  int cutoffs[10] = {0,9999,9999,9999,9999,9999,9999,9999,9999,9999}; // for each env
-  double weights[10] = {1,1,1,1,1,1,1,1,1,1}; // for each env
-  std::vector<std::vector<EnvironmentContainer<xyztLoc,t3DDirection>>> environs;
-  std::vector<std::vector<EnvData>> envdata;
-  int seed = clock();
-  int num_agents = 0;
-  int minsubgoals(1);
-  int maxsubgoals(1);
-  int wait = xyztLoc::TIME_RESOLUTION_U;
-  bool nobypass = false;
-  bool noid = false;
-  bool paused = false;
+char const* envnames[11] = {"fourconnected","fiveconnected","eightconnected","nineconnected","twentyfourconnected","twentyfiveconnected","fortyeightconnected","fortynineconnected","3dcardinal","3done","3dtwo"};
+int cutoffs[10] = {0,9999,9999,9999,9999,9999,9999,9999,9999,9999}; // for each env
+double weights[10] = {1,1,1,1,1,1,1,1,1,1}; // for each env
+std::vector<std::vector<EnvironmentContainer<xyztLoc,t3DDirection>>> environs;
+std::vector<std::vector<EnvData>> envdata;
+int seed = clock();
+int num_agents = 0;
+int minsubgoals(1);
+int maxsubgoals(1);
+int wait = xyztLoc::TIME_RESOLUTION_U;
+bool nobypass = false;
+bool noid = false;
+bool paused = false;
 
-  Grid3DConstrainedEnvironment *ace = 0;
-  typedef UnitSimulation<xyztLoc, t3DDirection, ConstrainedEnvironment<xyztLoc,t3DDirection>> UnitSim;
-  UnitSim *sim = 0;
-  //typedef CBSUnit<xyztLoc,t3DDirection,UnitTieBreaking3D<xyztLoc,t3DDirection>,UnitTimeCAT<xyztLoc,t3DDirection>> MACBSUnit;
-  //typedef CBSGroup<xyztLoc,t3DDirection,UnitTieBreaking3D<xyztLoc,t3DDirection>,UnitTimeCAT<xyztLoc,t3DDirection>,ICTSAlgorithm<xyztLoc,t3DDirection>> MACBSGroup;
-  typedef CBSUnit<xyztLoc,t3DDirection,TieBreaking3D<xyztLoc,t3DDirection>,NonUnitTimeCAT<xyztLoc,t3DDirection>> MACBSUnit;
-  typedef CBSGroup<xyztLoc,t3DDirection,TieBreaking3D<xyztLoc,t3DDirection>,NonUnitTimeCAT<xyztLoc,t3DDirection>,ICTSAlgorithm<xyztLoc,t3DDirection>,Map3dPerfectHeuristic<xyztLoc,t3DDirection>> MACBSGroup;
-  std::unordered_map<unsigned,MACBSGroup*> groups;
-  std::vector<unsigned> rgroups;
-  std::vector<MACBSUnit*> units;
+Grid3DConstrainedEnvironment *ace = 0;
+typedef UnitSimulation<xyztLoc, t3DDirection, ConstrainedEnvironment<xyztLoc,t3DDirection>> UnitSim;
+UnitSim *sim = 0;
+//typedef CBSUnit<xyztLoc,t3DDirection,UnitTieBreaking3D<xyztLoc,t3DDirection>,UnitTimeCAT<xyztLoc,t3DDirection>> MACBSUnit;
+//typedef CBSGroup<xyztLoc,t3DDirection,UnitTieBreaking3D<xyztLoc,t3DDirection>,UnitTimeCAT<xyztLoc,t3DDirection>,ICTSAlgorithm<xyztLoc,t3DDirection>> MACBSGroup;
+typedef CBSUnit<xyztLoc,t3DDirection,TieBreaking3D<xyztLoc,t3DDirection>,NonUnitTimeCAT<xyztLoc,t3DDirection>> MACBSUnit;
+typedef CBSGroup<xyztLoc,t3DDirection,TieBreaking3D<xyztLoc,t3DDirection>,NonUnitTimeCAT<xyztLoc,t3DDirection>,ICTSAlgorithm<xyztLoc,t3DDirection>,Map3dPerfectHeuristic<xyztLoc,t3DDirection>> MACBSGroup;
+std::unordered_map<unsigned,MACBSGroup*> groups;
+std::vector<unsigned> rgroups;
+std::vector<MACBSUnit*> units;
 
-  template<>
-  double NonUnitTimeCAT<xyztLoc, t3DDirection>::bucketWidth=xyztLoc::TIME_RESOLUTION_D;
+template<>
+double NonUnitTimeCAT<xyztLoc, t3DDirection>::bucketWidth=xyztLoc::TIME_RESOLUTION_D;
 
-  bool gui=true;
-  int animate(0);
-  uint64_t maxcost(0);
-  void InitHeadless();
-  bool detectIndependence();
+bool gui=true;
+int animate(0);
+uint64_t maxcost(0);
+void InitHeadless();
+bool detectIndependence();
 
-  void processSolution(double elapsed){
-    double cost(0.0);
-    unsigned total(0);
-    // For every unit in the node
-    bool valid(true);
-    for (unsigned int x = 0; x < solution.size(); x++) {
-      cost += environs[0][0].environment->GetPathLength(solution[x]);
-      total += solution[x].size();
+void processSolution(double elapsed){
+  double cost(0.0);
+  unsigned total(0);
+  // For every unit in the node
+  bool valid(true);
+  for (unsigned int x = 0; x < solution.size(); x++) {
+    cost += environs[0][0].environment->GetPathLength(solution[x]);
+    total += solution[x].size();
 
-      if(!quiet)
+    if(!quiet)
       if(solution[x].size()) {
-          std::cout << "Agent " << x << " (" << environs[0][0].environment->GetPathLength(solution[x]) << "): " << "\n";
+        std::cout << "Agent " << x << " (" << environs[0][0].environment->GetPathLength(solution[x]) << "): " << "\n";
         for (auto &a : solution[x]) {
           std::cout << "  " << a << "\n";
         }
       } else {
-          std::cout << "Agent " << x << ": " << "NO Path Found.\n";
+        std::cout << "Agent " << x << ": " << "NO Path Found.\n";
       }
-      // Only verify the solution if the run didn't time out
-      if (verify && elapsed > 0) {
-        for (unsigned y = x + 1; y < solution.size(); y++) {
-          auto ap(solution[x].begin());
-          auto a(ap + 1);
-          auto bp(solution[y].begin());
-          auto b(bp + 1);
-          while (a != solution[x].end() && b != solution[y].end()) {
-            if (collisionCheck3D(*ap, *a, *bp, *b, agentRadius)){
-              valid = false;
-              std::cout << "ERROR: Solution invalid; collision at: " << x << ":" << *ap << "-->" << *a << ", " << y << ":"
-                << *bp << "-->" << *b << std::endl;
-            }
-            if (a->t < b->t) {
-              ++a;
-              ++ap;
-            } else if (a->t > b->t) {
-              ++b;
-              ++bp;
-            } else {
-              ++a;
-              ++b;
-              ++ap;
-              ++bp;
-            }
+    // Only verify the solution if the run didn't time out
+    if (verify && elapsed > 0) {
+      for (unsigned y = x + 1; y < solution.size(); y++) {
+        auto ap(solution[x].begin());
+        auto a(ap + 1);
+        auto bp(solution[y].begin());
+        auto b(bp + 1);
+        while (a != solution[x].end() && b != solution[y].end()) {
+          if (collisionCheck3D(*ap, *a, *bp, *b, agentRadius)){
+            valid = false;
+            std::cout << "ERROR: Solution invalid; collision at: " << x << ":" << *ap << "-->" << *a << ", " << y << ":"
+              << *bp << "-->" << *b << std::endl;
+          }
+          if (a->t < b->t) {
+            ++a;
+            ++ap;
+          } else if (a->t > b->t) {
+            ++b;
+            ++bp;
+          } else {
+            ++a;
+            ++b;
+            ++ap;
+            ++bp;
           }
         }
       }
     }
-    unsigned nodes(0);
-    for(auto const& g:groups){
-      nodes+=g.second->tree.size();
-    }
-    fflush(stdout);
-    std::cout
-      << "elapsed,planTime,replanTime,bypassplanTime,maplanTime,collisionTime,expansions,CATcollchecks,collchecks,collisions,cost,actions\n";
-    if (verify && elapsed > 0)
-      std::cout << (valid ? "VALID" : "INVALID") << std::endl;
-    if (elapsed < 0) {
-      //std::cout << seed<<":FAILED\n";
-      std::cout << seed << ":" << elapsed * (-1.0) << ",";
-    } else {
-      std::cout << seed << ":" << elapsed << ",";
-    }
-    std::cout << MACBSGroup::planTime << ",";
-    std::cout << MACBSGroup::replanTime << ",";
-    std::cout << MACBSGroup::bypassplanTime << ",";
-    std::cout << MACBSGroup::maplanTime << ",";
-    std::cout << MACBSGroup::collisionTime << ",";
-    std::cout << MACBSGroup::TOTAL_EXPANSIONS << ",";
-    std::cout << TieBreaking3D<xyztLoc,t3DDirection>::collchecks << ",";
-    std::cout << MACBSGroup::collchecks << ",";
-    std::cout << nodes << ",";
-    std::cout << cost / xyztLoc::TIME_RESOLUTION_D << ",";
-    std::cout << total << std::endl;
   }
+  unsigned nodes(0);
+  for(auto const& g:groups){
+    nodes+=g.second->tree.size();
+  }
+  fflush(stdout);
+  std::cout
+    << "elapsed,planTime,replanTime,bypassplanTime,maplanTime,collisionTime,expansions,CATcollchecks,collchecks,collisions,cost,actions\n";
+  if (verify && elapsed > 0)
+    std::cout << (valid ? "VALID" : "INVALID") << std::endl;
+  if (elapsed < 0) {
+    //std::cout << seed<<":FAILED\n";
+    std::cout << seed << ":" << elapsed * (-1.0) << ",";
+  } else {
+    std::cout << seed << ":" << elapsed << ",";
+  }
+  std::cout << MACBSGroup::planTime << ",";
+  std::cout << MACBSGroup::replanTime << ",";
+  std::cout << MACBSGroup::bypassplanTime << ",";
+  std::cout << MACBSGroup::maplanTime << ",";
+  std::cout << MACBSGroup::collisionTime << ",";
+  std::cout << MACBSGroup::TOTAL_EXPANSIONS << ",";
+  std::cout << TieBreaking3D<xyztLoc,t3DDirection>::collchecks << ",";
+  std::cout << MACBSGroup::collchecks << ",";
+  std::cout << nodes << ",";
+  std::cout << cost / xyztLoc::TIME_RESOLUTION_D << ",";
+  std::cout << total << std::endl;
+  if (!gui)
+    exit(0);
+}
+
 int main(int argc, char* argv[])
 {
   InstallHandlers();
   Params::precheck=0; // No precheck (default)
   ProcessCommandLineArgs(argc, argv);
   Util::setmemlimit(killmem);
-  
+
   if(gui)
   {
     RunHOGGUI(0, 0);
@@ -190,12 +193,11 @@ int main(int argc, char* argv[])
     //std::cout << solution;
     while((groups.size()==1&&!groups[0]->donePlanning())||!detectIndependence()){
       if(Params::verbose)
-      std::cout << "There are " << groups.size() << " groups" << std::endl;
+        std::cout << "There are " << groups.size() << " groups" << std::endl;
       for(auto& group:groups){
         if(!group.second->donePlanning()){
           if(Params::verbose)std::cout << "Independent group " << group.first << " being replanned:\n";
-          while(group.second->ExpandOneCBSNode()){
-          }
+          while(group.second->ExpandOneCBSNode()){ }
           unsigned k(0);
           for(auto const& a:group.second->agents){
             if(Params::verbose)std::cout << "  " << a << "\n";
@@ -211,10 +213,10 @@ int main(int argc, char* argv[])
     }
     processSolution(MACBSGroup::timer->EndTimer());
     //if(Params::verbose)
-      //for(int i(0);i<solution.size();++i){
-      //std::cout << "path for agent " << i << ":\n";
-      //for(auto const& n: solution[i])
-        //std::cout << n << "\n";
+    //for(int i(0);i<solution.size();++i){
+    //std::cout << "path for agent " << i << ":\n";
+    //for(auto const& n: solution[i])
+    //std::cout << n << "\n";
     //}
   }
 }
@@ -226,15 +228,15 @@ int main(int argc, char* argv[])
  */
 void CreateSimulation(int id)
 {
-	SetNumPorts(id, 1);
-	
-//	unitSims.resize(id+1);
-//	unitSims[id] = new DirectionSimulation(new Directional2DEnvironment(map, kVehicle));
-//	unitSims[id]->SetStepType(kRealTime);
-//	unitSims[id]->GetStats()->EnablePrintOutput(true);
-//	unitSims[id]->GetStats()->AddIncludeFilter("gCost");
-//	unitSims[id]->GetStats()->AddIncludeFilter("nodesExpanded");
-//	dp = new DirectionalPlanner(quad);
+  SetNumPorts(id, 1);
+
+  //	unitSims.resize(id+1);
+  //	unitSims[id] = new DirectionSimulation(new Directional2DEnvironment(map, kVehicle));
+  //	unitSims[id]->SetStepType(kRealTime);
+  //	unitSims[id]->GetStats()->EnablePrintOutput(true);
+  //	unitSims[id]->GetStats()->AddIncludeFilter("gCost");
+  //	unitSims[id]->GetStats()->AddIncludeFilter("nodesExpanded");
+  //	dp = new DirectionalPlanner(quad);
 }
 
 /**
@@ -242,86 +244,86 @@ void CreateSimulation(int id)
  */
 void InstallHandlers()
 {
-	InstallKeyboardHandler(MyDisplayHandler, "Toggle Abstraction", "Toggle display of the ith level of the abstraction", kAnyModifier, '0', '9');
-	InstallKeyboardHandler(MyDisplayHandler, "Cycle Abs. Display", "Cycle which group abstraction is drawn", kAnyModifier, '\t');
-	InstallKeyboardHandler(MyDisplayHandler, "Pause Simulation", "Pause simulation execution.", kNoModifier, 'p');
-	InstallKeyboardHandler(MyDisplayHandler, "Speed Up Simulation", "Speed Up simulation execution.", kNoModifier, '=');
-	InstallKeyboardHandler(MyDisplayHandler, "Slow Down Simulation", "Slow Down simulation execution.", kNoModifier, '-');
-	InstallKeyboardHandler(MyDisplayHandler, "Step Simulation", "If the simulation is paused, step forward .1 sec.", kNoModifier, 'o');
-	InstallKeyboardHandler(MyDisplayHandler, "Record", "Toggle recording.", kNoModifier, 'r');
-	InstallKeyboardHandler(MyDisplayHandler, "Step History", "If the simulation is paused, step forward .1 sec in history", kAnyModifier, '}');
-	InstallKeyboardHandler(MyDisplayHandler, "Step History", "If the simulation is paused, step back .1 sec in history", kAnyModifier, '{');
-	InstallKeyboardHandler(MyDisplayHandler, "Step Abs Type", "Increase abstraction type", kAnyModifier, ']');
-	InstallKeyboardHandler(MyDisplayHandler, "Step Abs Type", "Decrease abstraction type", kAnyModifier, '[');
+  InstallKeyboardHandler(MyDisplayHandler, "Toggle Abstraction", "Toggle display of the ith level of the abstraction", kAnyModifier, '0', '9');
+  InstallKeyboardHandler(MyDisplayHandler, "Cycle Abs. Display", "Cycle which group abstraction is drawn", kAnyModifier, '\t');
+  InstallKeyboardHandler(MyDisplayHandler, "Pause Simulation", "Pause simulation execution.", kNoModifier, 'p');
+  InstallKeyboardHandler(MyDisplayHandler, "Speed Up Simulation", "Speed Up simulation execution.", kNoModifier, '=');
+  InstallKeyboardHandler(MyDisplayHandler, "Slow Down Simulation", "Slow Down simulation execution.", kNoModifier, '-');
+  InstallKeyboardHandler(MyDisplayHandler, "Step Simulation", "If the simulation is paused, step forward .1 sec.", kNoModifier, 'o');
+  InstallKeyboardHandler(MyDisplayHandler, "Record", "Toggle recording.", kNoModifier, 'r');
+  InstallKeyboardHandler(MyDisplayHandler, "Step History", "If the simulation is paused, step forward .1 sec in history", kAnyModifier, '}');
+  InstallKeyboardHandler(MyDisplayHandler, "Step History", "If the simulation is paused, step back .1 sec in history", kAnyModifier, '{');
+  InstallKeyboardHandler(MyDisplayHandler, "Step Abs Type", "Increase abstraction type", kAnyModifier, ']');
+  InstallKeyboardHandler(MyDisplayHandler, "Step Abs Type", "Decrease abstraction type", kAnyModifier, '[');
 
-	InstallKeyboardHandler(MyPathfindingKeyHandler, "Mapbuilding Unit", "Deploy unit that paths to a target, building a map as it travels", kNoModifier, 'd');
-	InstallKeyboardHandler(MyRandomUnitKeyHandler, "Add A* Unit", "Deploys a simple a* unit", kNoModifier, 'a');
-	InstallKeyboardHandler(MyRandomUnitKeyHandler, "Add simple Unit", "Deploys a randomly moving unit", kShiftDown, 'a');
-	InstallKeyboardHandler(MyRandomUnitKeyHandler, "Add simple Unit", "Deploys a right-hand-rule unit", kControlDown, '1');
+  InstallKeyboardHandler(MyPathfindingKeyHandler, "Mapbuilding Unit", "Deploy unit that paths to a target, building a map as it travels", kNoModifier, 'd');
+  InstallKeyboardHandler(MyRandomUnitKeyHandler, "Add A* Unit", "Deploys a simple a* unit", kNoModifier, 'a');
+  InstallKeyboardHandler(MyRandomUnitKeyHandler, "Add simple Unit", "Deploys a randomly moving unit", kShiftDown, 'a');
+  InstallKeyboardHandler(MyRandomUnitKeyHandler, "Add simple Unit", "Deploys a right-hand-rule unit", kControlDown, '1');
 
-	InstallCommandLineHandler(MyCLHandler, "-wait", "-wait <time units>", "The duration of wait actions");
-	InstallCommandLineHandler(MyCLHandler, "-dimensions", "-dimensions width,length,height", "Set the length,width and height of the environment (max 65K,65K,1024).");
-	InstallCommandLineHandler(MyCLHandler, "-nagents", "-nagents <number>", "Select the number of agents.");
-	InstallCommandLineHandler(MyCLHandler, "-nsubgoals", "-nsubgoals <number>,<number>", "Select the min,max number of subgoals per agent.");
-	InstallCommandLineHandler(MyCLHandler, "-seed", "-seed <number>", "Seed for random number generator (defaults to clock)");
-	InstallCommandLineHandler(MyCLHandler, "-nobypass", "-nobypass", "Turn off bypass option");
-	InstallCommandLineHandler(MyCLHandler, "-noid", "-noid", "Turn off independence detection");
-        InstallCommandLineHandler(MyCLHandler, "-record", "-record", "Record frames");
-	InstallCommandLineHandler(MyCLHandler, "-cutoffs", "-cutoffs <n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>", "Number of conflicts to tolerate before switching to less constrained layer of environment. Environments are ordered as: CardinalGrid,OctileGrid,Cardinal3D,Octile3D,H4,H8,Simple,Cardinal,Octile,48Highway");
-	InstallCommandLineHandler(MyCLHandler, "-weights", "-weights <n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>", "Weight to apply to the low-level search for each environment entered as: CardinalGrid,OctileGrid,Cardinal3D,Octile3D,H4,H8,Simple,Cardinal,Octile,48Highway");
-	InstallCommandLineHandler(MyCLHandler, "-probfile", "-probfile", "Load MAPF instance from file");
-	InstallCommandLineHandler(MyCLHandler, "-cfgfile", "-cfgfile", "Load MAPF configuration from file");
-	InstallCommandLineHandler(MyCLHandler, "-envfile", "-envfile", "Load environment settings per agent");
-	InstallCommandLineHandler(MyCLHandler, "-constraints", "-constraints", "Load constraints from file");
-	InstallCommandLineHandler(MyCLHandler, "-killtime", "-killtime", "Kill after this many seconds");
-	InstallCommandLineHandler(MyCLHandler, "-killmem", "-killmem", "Kill after this many seconds");
-	InstallCommandLineHandler(MyCLHandler, "-killex", "-killex", "Kill after this many expansions");
-	InstallCommandLineHandler(MyCLHandler, "-mapfile", "-mapfile", "Map file to use");
-	InstallCommandLineHandler(MyCLHandler, "-dtedfile", "-dtedfile", "Map file to use");
-	InstallCommandLineHandler(MyCLHandler, "-scenfile", "-scenfile", "Scenario file to use");
-	InstallCommandLineHandler(MyCLHandler, "-mergeThreshold", "-mergeThreshold", "Number of conflicts to tolerate between meta-agents before merging");
-	InstallCommandLineHandler(MyCLHandler, "-radius", "-radius <value>", "Radius in units of agent");
-	InstallCommandLineHandler(MyCLHandler, "-resolution", "-resolution <value>", "Inverse resolution of time/cost");
-	InstallCommandLineHandler(MyCLHandler, "-disappear", "-disappear", "Agents disappear at goal");
-	InstallCommandLineHandler(MyCLHandler, "-nogui", "-nogui", "Turn off gui");
-	InstallCommandLineHandler(MyCLHandler, "-verbose", "-verbose", "Turn on verbose output");
-	InstallCommandLineHandler(MyCLHandler, "-astarverbose", "-astarverbose", "Turn on verbose output for A*");
-	InstallCommandLineHandler(MyCLHandler, "-quiet", "-quiet", "Extreme minimal output");
-	InstallCommandLineHandler(MyCLHandler, "-cat", "-cat", "Use Conflict Avoidance Table (CAT)");
-	InstallCommandLineHandler(MyCLHandler, "-animate", "-animate <usecs>", "Animate CBS search");
-	InstallCommandLineHandler(MyCLHandler, "-verify", "-verify", "Verify results");
-	InstallCommandLineHandler(MyCLHandler, "-suboptimal", "-suboptimal", "Sub-optimal answers");
-	InstallCommandLineHandler(MyCLHandler, "-random", "-random", "Randomize conflict resolution order");
-	InstallCommandLineHandler(MyCLHandler, "-greedyCT", "-greedyCT", "Greedy sort high-level search by number of conflicts (GCBS)");
-	InstallCommandLineHandler(MyCLHandler, "-xor", "-xor", "Use XOR constraints");
-	InstallCommandLineHandler(MyCLHandler, "-ctype", "-ctype", "Constraint type: \n\t1: identical constraints\n\t2: Pyramid constraints\n\t3: Collision constraints (sub-optimal)\n\t4: Time range constraints (sub-optimal)\n\t5: Box constraints (sub-optimal)");
-	InstallCommandLineHandler(MyCLHandler, "-pc", "-pc", "prioritize conflicts");
-	InstallCommandLineHandler(MyCLHandler, "-cct", "-cct", "Conflict count table");
-	InstallCommandLineHandler(MyCLHandler, "-uniqcost", "-uniqcost <value>", "Use randomized unique costs up to <value>");
-	InstallCommandLineHandler(MyCLHandler, "-skip", "-skip", "Ship-ahead logic");
-	InstallCommandLineHandler(MyCLHandler, "-precheck", "-precheck", "Pre-check for broadphase collision 0(default)=No precheck, 1=AABB precheck, 2=Convex hull intersection check, 3=Sweep and prune");
-	InstallCommandLineHandler(MyCLHandler, "-ECBSheuristic", "-ECBSheuristic", "Use heuristic in low-level search");
+  InstallCommandLineHandler(MyCLHandler, "-wait", "-wait <time units>", "The duration of wait actions");
+  InstallCommandLineHandler(MyCLHandler, "-dimensions", "-dimensions width,length,height", "Set the length,width and height of the environment (max 65K,65K,1024).");
+  InstallCommandLineHandler(MyCLHandler, "-nagents", "-nagents <number>", "Select the number of agents.");
+  InstallCommandLineHandler(MyCLHandler, "-nsubgoals", "-nsubgoals <number>,<number>", "Select the min,max number of subgoals per agent.");
+  InstallCommandLineHandler(MyCLHandler, "-seed", "-seed <number>", "Seed for random number generator (defaults to clock)");
+  InstallCommandLineHandler(MyCLHandler, "-nobypass", "-nobypass", "Turn off bypass option");
+  InstallCommandLineHandler(MyCLHandler, "-noid", "-noid", "Turn off independence detection");
+  InstallCommandLineHandler(MyCLHandler, "-record", "-record", "Record frames");
+  InstallCommandLineHandler(MyCLHandler, "-cutoffs", "-cutoffs <n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>", "Number of conflicts to tolerate before switching to less constrained layer of environment. Environments are ordered as: CardinalGrid,OctileGrid,Cardinal3D,Octile3D,H4,H8,Simple,Cardinal,Octile,48Highway");
+  InstallCommandLineHandler(MyCLHandler, "-weights", "-weights <n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>", "Weight to apply to the low-level search for each environment entered as: CardinalGrid,OctileGrid,Cardinal3D,Octile3D,H4,H8,Simple,Cardinal,Octile,48Highway");
+  InstallCommandLineHandler(MyCLHandler, "-probfile", "-probfile", "Load MAPF instance from file");
+  InstallCommandLineHandler(MyCLHandler, "-cfgfile", "-cfgfile", "Load MAPF configuration from file");
+  InstallCommandLineHandler(MyCLHandler, "-envfile", "-envfile", "Load environment settings per agent");
+  InstallCommandLineHandler(MyCLHandler, "-constraints", "-constraints", "Load constraints from file");
+  InstallCommandLineHandler(MyCLHandler, "-killtime", "-killtime", "Kill after this many seconds");
+  InstallCommandLineHandler(MyCLHandler, "-killmem", "-killmem", "Kill after this many seconds");
+  InstallCommandLineHandler(MyCLHandler, "-killex", "-killex", "Kill after this many expansions");
+  InstallCommandLineHandler(MyCLHandler, "-mapfile", "-mapfile", "Map file to use");
+  InstallCommandLineHandler(MyCLHandler, "-dtedfile", "-dtedfile", "Map file to use");
+  InstallCommandLineHandler(MyCLHandler, "-scenfile", "-scenfile", "Scenario file to use");
+  InstallCommandLineHandler(MyCLHandler, "-mergeThreshold", "-mergeThreshold", "Number of conflicts to tolerate between meta-agents before merging");
+  InstallCommandLineHandler(MyCLHandler, "-radius", "-radius <value>", "Radius in units of agent");
+  InstallCommandLineHandler(MyCLHandler, "-resolution", "-resolution <value>", "Inverse resolution of time/cost");
+  InstallCommandLineHandler(MyCLHandler, "-disappear", "-disappear", "Agents disappear at goal");
+  InstallCommandLineHandler(MyCLHandler, "-nogui", "-nogui", "Turn off gui");
+  InstallCommandLineHandler(MyCLHandler, "-verbose", "-verbose", "Turn on verbose output");
+  InstallCommandLineHandler(MyCLHandler, "-astarverbose", "-astarverbose", "Turn on verbose output for A*");
+  InstallCommandLineHandler(MyCLHandler, "-quiet", "-quiet", "Extreme minimal output");
+  InstallCommandLineHandler(MyCLHandler, "-cat", "-cat", "Use Conflict Avoidance Table (CAT)");
+  InstallCommandLineHandler(MyCLHandler, "-animate", "-animate <usecs>", "Animate CBS search");
+  InstallCommandLineHandler(MyCLHandler, "-verify", "-verify", "Verify results");
+  InstallCommandLineHandler(MyCLHandler, "-suboptimal", "-suboptimal", "Sub-optimal answers");
+  InstallCommandLineHandler(MyCLHandler, "-random", "-random", "Randomize conflict resolution order");
+  InstallCommandLineHandler(MyCLHandler, "-greedyCT", "-greedyCT", "Greedy sort high-level search by number of conflicts (GCBS)");
+  InstallCommandLineHandler(MyCLHandler, "-xor", "-xor", "Use XOR constraints");
+  InstallCommandLineHandler(MyCLHandler, "-ctype", "-ctype", "Constraint type: \n\t1: identical constraints\n\t2: Pyramid constraints\n\t3: Collision constraints (sub-optimal)\n\t4: Time range constraints (sub-optimal)\n\t5: Box constraints (sub-optimal)");
+  InstallCommandLineHandler(MyCLHandler, "-pc", "-pc", "prioritize conflicts");
+  InstallCommandLineHandler(MyCLHandler, "-cct", "-cct", "Conflict count table");
+  InstallCommandLineHandler(MyCLHandler, "-uniqcost", "-uniqcost <value>", "Use randomized unique costs up to <value>");
+  InstallCommandLineHandler(MyCLHandler, "-skip", "-skip", "Ship-ahead logic");
+  InstallCommandLineHandler(MyCLHandler, "-precheck", "-precheck", "Pre-check for broadphase collision 0(default)=No precheck, 1=AABB precheck, 2=Convex hull intersection check, 3=Sweep and prune");
+  InstallCommandLineHandler(MyCLHandler, "-ECBSheuristic", "-ECBSheuristic", "Use heuristic in low-level search");
 
-    InstallWindowHandler(MyWindowHandler);
+  InstallWindowHandler(MyWindowHandler);
 
-	InstallMouseClickHandler(MyClickHandler);
+  InstallMouseClickHandler(MyClickHandler);
 }
 
 void MyWindowHandler(unsigned long windowID, tWindowEventType eType)
 {
-	if (eType == kWindowDestroyed)
-	{
-		printf("Window %ld destroyed\n", windowID);
-		RemoveFrameHandler(MyFrameHandler, windowID, 0);
-	}
-	else if (eType == kWindowCreated)
-	{
-		glClearColor(0.6, 0.8, 1.0, 1.0);
-		printf("Window %ld created\n", windowID);
-		InstallFrameHandler(MyFrameHandler, windowID, 0);
-		InitSim();
-		CreateSimulation(windowID);
-	}
+  if (eType == kWindowDestroyed)
+  {
+    printf("Window %ld destroyed\n", windowID);
+    RemoveFrameHandler(MyFrameHandler, windowID, 0);
+  }
+  else if (eType == kWindowCreated)
+  {
+    glClearColor(0.6, 0.8, 1.0, 1.0);
+    printf("Window %ld created\n", windowID);
+    InstallFrameHandler(MyFrameHandler, windowID, 0);
+    InitSim();
+    CreateSimulation(windowID);
+  }
 }
 
 void InitGroupParams(MACBSGroup* group){
@@ -406,8 +408,10 @@ void InitHeadless(){
     std::iota(group->agents.begin(),group->agents.end(),0); // Add agents 0, 1, ...
     rgroups.resize(1);
     rgroups[0]=0;
-    Timer::Timeout func(std::bind(&MACBSGroup::processSolution, groups[0], std::placeholders::_1));
-    MACBSGroup::timer->StartTimeout(std::chrono::seconds(killtime),func);
+    if(!gui){
+      Timer::Timeout func(std::bind(processSolution, std::placeholders::_1));
+      MACBSGroup::timer->StartTimeout(std::chrono::seconds(killtime),func);
+    }
     InitGroupParams(group);
 
     if(gui){
@@ -442,7 +446,7 @@ void InitHeadless(){
       MACBSGroup* group=groups[i]=new MACBSGroup(environ,{i});
       rgroups[i]=i;
       if(i==0 && !gui){
-        Timer::Timeout func(std::bind(&MACBSGroup::processSolution, groups[0], std::placeholders::_1));
+        Timer::Timeout func(std::bind(&processSolution, std::placeholders::_1));
         MACBSGroup::timer->StartTimeout(std::chrono::seconds(killtime),func);
       }
       InitGroupParams(group);
@@ -505,7 +509,7 @@ bool detectIndependence(){
           }
           if(Params::verbose)std::cout << "Insert "<<groups[rgroups[j]]->GetNumMembers()<<"/"<<groups[rgroups[j]]->agents.size() << " agents\n";
           unsigned origgroup(rgroups[j]);
-	  unsigned k(0);
+          unsigned k(0);
           for(auto ag:groups[rgroups[j]]->agents){
             if(Params::verbose)std::cout << "Inserting agent " << ag << " into group "<<rgroups[i]<<" for agent " << i << "("<<(uint64_t)units[ag]<<") from group "<<origgroup<<"\n";
             groups[rgroups[i]]->agents.push_back(ag);
@@ -521,11 +525,11 @@ bool detectIndependence(){
           }
           if(Params::verbose)std::cout << groups[rgroups[i]]->donePlanning() << " done\n";
           /*k=0;
-          for(auto ag:groups[i]->agents){
+            for(auto ag:groups[i]->agents){
             groups[i]->AddUnit(groups[ag]->GetMember(k),*groups[ag]->tree[groups[ag]->bestNode].paths[k]);
             k++;
             groups[ag]=groups[i];
-          }*/
+            }*/
           if(Params::verbose)std::cout << origgroup << "erased\n";
           groups.erase(origgroup);
           delete toDelete;
@@ -552,10 +556,10 @@ void InitSim(){
 
 void MyComputationHandler()
 {
-	while (true)
-	{
-		sim->StepTime2(stepsPerFrame);
-	}
+  while (true)
+  {
+    sim->StepTime2(stepsPerFrame);
+  }
 }
 
 //std::vector<t3DDirection> acts;
@@ -572,42 +576,42 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
       }
     }
 
-  //static double ptime[500];
-  //memset(ptime,0,500*sizeof(double));
-  if(sim){
-    sim->OpenGLDraw();
-    if (!paused) {
-      if(group.second->donePlanning()){
-      sim->StepTime2(stepsPerFrame);
-      }else{
-        sim->StepTime2(.00001);
+    //static double ptime[500];
+    //memset(ptime,0,500*sizeof(double));
+    if(sim){
+      sim->OpenGLDraw();
+      if (!paused) {
+        if(group.second->donePlanning()){
+          sim->StepTime2(stepsPerFrame);
+        }else{
+          sim->StepTime2(.00001);
+        }
+
+        /*std::cout << "Printing locations at time: " << sim->GetSimulationTime() << std::endl;
+          for (int x = 0; x < group.second->GetNumMembers(); x ++) {
+          MACBSUnit* c((MACBSUnit*)group.second->GetMember(x));
+          xytLoc cur;
+          c->GetLocation(cur);
+        //if(!fequal(ptime[x],sim->GetSimulationTime())
+        std::cout << "\t" << x << ":" << cur << std::endl;
+        }*/
       }
-
-      /*std::cout << "Printing locations at time: " << sim->GetSimulationTime() << std::endl;
-        for (int x = 0; x < group.second->GetNumMembers(); x ++) {
-        MACBSUnit* c((MACBSUnit*)group.second->GetMember(x));
-        xytLoc cur;
-        c->GetLocation(cur);
-      //if(!fequal(ptime[x],sim->GetSimulationTime())
-      std::cout << "\t" << x << ":" << cur << std::endl;
-      }*/
     }
-  }
 
 
-  if(recording){
-    static int index = 0;
-    if(group.second->donePlanning() || index%10==0){
-    char fname[255];
-    if(group.second->donePlanning())
-      sprintf(fname, "movies/cbs-%05d", index);
-    else
-      sprintf(fname, "movies/cbs-%05d", index/10);
-    SaveScreenshot(windowID, fname);
-    printf("Saving '%s'\n", fname);
+    if(recording){
+      static int index = 0;
+      if(group.second->donePlanning() || index%10==0){
+        char fname[255];
+        if(group.second->donePlanning())
+          sprintf(fname, "movies/cbs-%05d", index);
+        else
+          sprintf(fname, "movies/cbs-%05d", index/10);
+        SaveScreenshot(windowID, fname);
+        printf("Saving '%s'\n", fname);
+      }
+      index++;
     }
-    index++;
-  }
   }
 }
 
@@ -801,6 +805,8 @@ int MyCLHandler(char *argument[], int maxNumArgs){
     Params::boxconstraints=false;
     Params::timerangeconstraints=false;
     Params::pyramidconstraints=false;
+    Params::mutualconstraints=false;
+    Params::overlapconstraints=false;
     Params::identicalconstraints=false;
     Params::extrinsicconstraints=false;
     switch(scheme){
@@ -819,6 +825,13 @@ int MyCLHandler(char *argument[], int maxNumArgs){
         Params::timerangeconstraints=true;
         break;
       case 5:
+        Params::mutualconstraints=true;
+        break;
+      case 6:
+        Params::overlapconstraints=true;
+        Params::extrinsicconstraints=true;
+        break;
+      case 7:
         Params::boxconstraints=true;
         Params::extrinsicconstraints=true;
         break;
@@ -1334,129 +1347,129 @@ int MyCLHandler(char *argument[], int maxNumArgs){
 
 void MyDisplayHandler(unsigned long windowID, tKeyboardModifier mod, char key)
 {
-	xyLoc b;
-	switch (key)
-	{
-		case 'r': recording = !recording; break;
-		case '[': recording = true; break;
-		case ']': recording = false; break;
-		case '\t':
-			if (mod != kShiftDown)
-				SetActivePort(windowID, (GetActivePort(windowID)+1)%GetNumPorts(windowID));
-			else
-			{
-				SetNumPorts(windowID, 1+(GetNumPorts(windowID)%MAXPORTS));
-			}
-			break;
-		case '-': 
-                        if(stepsPerFrame>0)stepsPerFrame-=frameIncrement;
-                        break;
-		case '=': 
-                        stepsPerFrame+=frameIncrement;
-                        break;
-		case 'p': 
-			paused = !paused;
-			break;//unitSims[windowID]->SetPaused(!unitSims[windowID]->GetPaused()); break;
-		case 'o':
-//			if (unitSims[windowID]->GetPaused())
-//			{
-//				unitSims[windowID]->SetPaused(false);
-//				unitSims[windowID]->StepTime(1.0/30.0);
-//				unitSims[windowID]->SetPaused(true);
-//			}
-			break;
-		case 'd':
-			
-			break;
-		default:
-			break;
-	}
+  xyLoc b;
+  switch (key)
+  {
+    case 'r': recording = !recording; break;
+    case '[': recording = true; break;
+    case ']': recording = false; break;
+    case '\t':
+              if (mod != kShiftDown)
+                SetActivePort(windowID, (GetActivePort(windowID)+1)%GetNumPorts(windowID));
+              else
+              {
+                SetNumPorts(windowID, 1+(GetNumPorts(windowID)%MAXPORTS));
+              }
+              break;
+    case '-': 
+              if(stepsPerFrame>0)stepsPerFrame-=frameIncrement;
+              break;
+    case '=': 
+              stepsPerFrame+=frameIncrement;
+              break;
+    case 'p': 
+              paused = !paused;
+              break;//unitSims[windowID]->SetPaused(!unitSims[windowID]->GetPaused()); break;
+    case 'o':
+              //			if (unitSims[windowID]->GetPaused())
+              //			{
+              //				unitSims[windowID]->SetPaused(false);
+              //				unitSims[windowID]->StepTime(1.0/30.0);
+              //				unitSims[windowID]->SetPaused(true);
+              //			}
+              break;
+    case 'd':
+
+              break;
+    default:
+              break;
+  }
 }
 
 void MyRandomUnitKeyHandler(unsigned long windowID, tKeyboardModifier mod, char)
 {
-	
+
 }
 
 void MyPathfindingKeyHandler(unsigned long , tKeyboardModifier , char)
 {
-//	// attmpt to learn!
-//	Map3D m(100, 100);
-//	Directional2DEnvironment d(&m);
-//	//Directional2DEnvironment(Map3D *m, model envType = kVehicle, heuristicType heuristic = kExtendedPerimeterHeuristic);
-//	xySpeedHeading l1(50, 50), l2(50, 50);
-//	__gnu_cxx::hash_map<uint64_t, xySpeedHeading, Hash64 > stateTable;
-//	
-//	std::vector<xySpeedHeading> path;
-//	TemplateAStar2<xySpeedHeading, deltaSpeedHeading, Directional2DEnvironment> alg;
-//	alg.SetStopAfterGoal(false);
-//	alg.InitializeSearch(&d, l1, l1, path);
-//	for (int x = 0; x < 2000; x++)
-//		alg.DoSingleSearchStep(path);
-//	int count = alg.GetNumItems();
-//	LinearRegression lr(37, 1, 1/37.0); // 10 x, 10 y, dist, heading offset [16]
-//	std::vector<double> inputs;
-//	std::vector<double> output(1);
-//	for (unsigned int x = 0; x < count; x++)
-//	{
-//		// note that the start state is always at rest;
-//		// we actually want the goal state at rest?
-//		// or generate everything by backtracking through the parents of each state
-//		const AStarOpenClosedData<xySpeedHeading> val = GetItem(x);
-//		inputs[0] = sqrt((val.data.x-l1.x)*(val.data.x-l1.x)+(val.data.y-l1.)*(val.data.y-l1.y));
-//		// fill in values
-//		if (fabs(val.data.x-l1.x) >= 10)
-//			inputs[10] = 1;
-//		else inputs[1+fabs(val.data.x-l1.x)] = 1;
-//		if (fabs(val.data.y-l1.y) >= 10)
-//			inputs[20] = 1;
-//		else inputs[11+fabs(val.data.y-l1.y)] = 1;
-//		// this is wrong -- I need the possibility of flipping 15/1 is only 2 apart
-//		intputs[30+((int)(fabs(l1.rotation-val.data.rotation)))%16] = 1;
-//		output[0] = val.g;
-//		lr.train(inputs, output);
-//		// get data and learn to predict the g-cost
-//		//val.data.
-//		//val.g;
-//	}
+  //	// attmpt to learn!
+  //	Map3D m(100, 100);
+  //	Directional2DEnvironment d(&m);
+  //	//Directional2DEnvironment(Map3D *m, model envType = kVehicle, heuristicType heuristic = kExtendedPerimeterHeuristic);
+  //	xySpeedHeading l1(50, 50), l2(50, 50);
+  //	__gnu_cxx::hash_map<uint64_t, xySpeedHeading, Hash64 > stateTable;
+  //	
+  //	std::vector<xySpeedHeading> path;
+  //	TemplateAStar2<xySpeedHeading, deltaSpeedHeading, Directional2DEnvironment> alg;
+  //	alg.SetStopAfterGoal(false);
+  //	alg.InitializeSearch(&d, l1, l1, path);
+  //	for (int x = 0; x < 2000; x++)
+  //		alg.DoSingleSearchStep(path);
+  //	int count = alg.GetNumItems();
+  //	LinearRegression lr(37, 1, 1/37.0); // 10 x, 10 y, dist, heading offset [16]
+  //	std::vector<double> inputs;
+  //	std::vector<double> output(1);
+  //	for (unsigned int x = 0; x < count; x++)
+  //	{
+  //		// note that the start state is always at rest;
+  //		// we actually want the goal state at rest?
+  //		// or generate everything by backtracking through the parents of each state
+  //		const AStarOpenClosedData<xySpeedHeading> val = GetItem(x);
+  //		inputs[0] = sqrt((val.data.x-l1.x)*(val.data.x-l1.x)+(val.data.y-l1.)*(val.data.y-l1.y));
+  //		// fill in values
+  //		if (fabs(val.data.x-l1.x) >= 10)
+  //			inputs[10] = 1;
+  //		else inputs[1+fabs(val.data.x-l1.x)] = 1;
+  //		if (fabs(val.data.y-l1.y) >= 10)
+  //			inputs[20] = 1;
+  //		else inputs[11+fabs(val.data.y-l1.y)] = 1;
+  //		// this is wrong -- I need the possibility of flipping 15/1 is only 2 apart
+  //		intputs[30+((int)(fabs(l1.rotation-val.data.rotation)))%16] = 1;
+  //		output[0] = val.g;
+  //		lr.train(inputs, output);
+  //		// get data and learn to predict the g-cost
+  //		//val.data.
+  //		//val.g;
+  //	}
 }
 
 bool MyClickHandler(unsigned long windowID, int, int, point3d loc, tButtonType button, tMouseEventType mType)
 {
-	return false;
-	mouseTracking = false;
-	if (button == kRightButton)
-	{
-		switch (mType)
-		{
-			case kMouseDown:
-				//unitSims[windowID]->GetEnvironment()->GetMap()->GetPointFromCoordinate(loc, px1, py1);
-				//printf("Mouse down at (%d, %d)\n", px1, py1);
-				break;
-			case kMouseDrag:
-				mouseTracking = true;
-				//unitSims[windowID]->GetEnvironment()->GetMap()->GetPointFromCoordinate(loc, px2, py2);
-				//printf("Mouse tracking at (%d, %d)\n", px2, py2);
-				break;
-			case kMouseUp:
-			{
-//				if ((px1 == -1) || (px2 == -1))
-//					break;
-//				xySpeedHeading l1, l2;
-//				l1.x = px1;
-//				l1.y = py1;
-//				l2.x = px2;
-//				l2.y = py2;
-//				DirPatrolUnit *ru1 = new DirPatrolUnit(l1, dp);
-//				ru1->SetNumPatrols(1);
-//				ru1->AddPatrolLocation(l2);
-//				ru1->AddPatrolLocation(l1);
-//				ru1->SetSpeed(2);
-//				unitSims[windowID]->AddUnit(ru1);
-			}
-			break;
-		}
-		return true;
-	}
-	return false;
+  return false;
+  mouseTracking = false;
+  if (button == kRightButton)
+  {
+    switch (mType)
+    {
+      case kMouseDown:
+        //unitSims[windowID]->GetEnvironment()->GetMap()->GetPointFromCoordinate(loc, px1, py1);
+        //printf("Mouse down at (%d, %d)\n", px1, py1);
+        break;
+      case kMouseDrag:
+        mouseTracking = true;
+        //unitSims[windowID]->GetEnvironment()->GetMap()->GetPointFromCoordinate(loc, px2, py2);
+        //printf("Mouse tracking at (%d, %d)\n", px2, py2);
+        break;
+      case kMouseUp:
+        {
+          //				if ((px1 == -1) || (px2 == -1))
+          //					break;
+          //				xySpeedHeading l1, l2;
+          //				l1.x = px1;
+          //				l1.y = py1;
+          //				l2.x = px2;
+          //				l2.y = py2;
+          //				DirPatrolUnit *ru1 = new DirPatrolUnit(l1, dp);
+          //				ru1->SetNumPatrols(1);
+          //				ru1->AddPatrolLocation(l2);
+          //				ru1->AddPatrolLocation(l1);
+          //				ru1->SetSpeed(2);
+          //				unitSims[windowID]->AddUnit(ru1);
+        }
+        break;
+    }
+    return true;
+  }
+  return false;
 }
