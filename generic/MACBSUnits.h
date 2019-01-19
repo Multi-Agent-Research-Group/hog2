@@ -2209,11 +2209,11 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
           }
         }
       }
-      std::vector<std::pair<unsigned,unsigned>> mutualset;
-      mutualset.reserve(fwd.size()*rwd.size());
-      BiClique::findBiClique(fwd,rwd,conf,mutualset);
-      for(auto const& m:mutualset){
-        constraints.emplace_back((Constraint<state>*) new Identical<state>(ax1,as[armap[m.first]]));
+      std::vector<unsigned> left;
+      std::vector<unsigned> right;
+      BiClique::findBiClique(fwd,rwd,conf,left,right);
+      for(auto const& m:left){
+        constraints.emplace_back((Constraint<state>*) new Identical<state>(ax1,as[armap[m]]));
       }
     }
   }
@@ -2575,14 +2575,14 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
 //else{std::cout << "NO CRASH\n";}
                   }
                 }
-                std::vector<std::pair<unsigned,unsigned>> mutualset;
-                mutualset.reserve(fwd.size()*rwd.size());
-                //if(verbose){
-                //}
-                BiClique::findBiClique(fwd,rwd,conf,mutualset);
-                for(auto const& m:mutualset){
-                  c1.c.emplace_back((Constraint<state>*) new Identical<state>(a1,as[armap[m.first]]));
-                  c2.c.emplace_back((Constraint<state>*) new Identical<state>(b1,bs[brmap[m.second]]));
+                std::vector<unsigned> left;
+                std::vector<unsigned> right;
+                BiClique::findBiClique(fwd,rwd,conf,left,right);
+                for(auto const& m:left){
+                  c1.c.emplace_back((Constraint<state>*) new Identical<state>(a1,as[armap[m]]));
+                }
+                for(auto const& m:right){
+                  c2.c.emplace_back((Constraint<state>*) new Identical<state>(b1,bs[brmap[m]]));
                 }
               }else{
                 c1.c.emplace_back((Constraint<state>*) new Identical<state>(a[xTime], a[xNextTime]));

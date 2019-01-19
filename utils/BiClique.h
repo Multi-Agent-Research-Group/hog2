@@ -36,7 +36,8 @@ namespace BiClique{
       unsigned rDegree,
       std::vector<unsigned> const& histL,
       std::vector<unsigned> const& histR,
-      std::vector<std::pair<unsigned,unsigned>>& biclique){
+      std::vector<unsigned>& left,
+      std::vector<unsigned>& right){
 //std::cout << "Trying " << lDegree << " " << rDegree << "\n";
     assert(lDegree>0);
     assert(rDegree>0);
@@ -45,18 +46,23 @@ namespace BiClique{
     }
     if(rDegree==1){
       if(lDegree == 1){
-        biclique.push_back(start);
+        left.push_back(start.first);
+        right.push_back(start.second);
         return true;
       }else{
+        left.push_back(start.first);
+        right.reserve(L[start.first].size());
         for(auto const& a:L[start.first]){
-          biclique.emplace_back(start.first,a);
+          right.push_back(a);
         }
         return true;
       }
     }
     if(lDegree==1){
+      right.push_back(start.second);
+      left.reserve(R[start.second].size());
       for(auto const& a:R[start.second]){
-        biclique.emplace_back(a,start.second);
+        left.push_back(a);
       }
       return true;
     }
@@ -98,10 +104,13 @@ namespace BiClique{
       }
     }
     if(lNodes==rDegree && rNodes==lDegree){
-      for(unsigned i(0); i<L.size(); ++i){
-        for(auto j:L[i]){
-          biclique.emplace_back(i,j);
-        }
+      left.reserve(R[start.second].size());
+      for(auto const& a:R[start.second]){
+        left.push_back(a);
+      }
+      right.reserve(L[start.first].size());
+      for(auto const& a:L[start.first]){
+        right.push_back(a);
       }
       return true;
     }
@@ -132,13 +141,13 @@ namespace BiClique{
         if(size==lDegree && i+1==k &&
             std::find(cmn.begin(),cmn.end(),start.second)!=cmn.end()){
           // We have an answer
-          for(auto const& c:cmn){
-            biclique.emplace_back(start.first,c);
+          right.reserve(cmn.size());
+          for(auto const& a:cmn){
+            right.push_back(a);
           }
-          for(unsigned j(0); j<k; ++j){
-            for(auto const& c:cmn){
-              biclique.emplace_back(d[j],c);
-            }
+          left.reserve(k);
+          for(unsigned i(0); i<k; ++i){
+            left.push_back(d[i]);
           }
           return true;
         }
@@ -158,7 +167,8 @@ namespace BiClique{
       std::vector<std::vector<unsigned>> L,
       std::vector<std::vector<unsigned>> R,
       std::pair<unsigned,unsigned> const& start,
-      std::vector<std::pair<unsigned,unsigned>>& biclique){
+      std::vector<unsigned>& left,
+      std::vector<unsigned>& right){
     // Sort adj lists for easier comparison ops
     for(auto& l:L){
       std::sort(l.begin(),l.end());
@@ -273,21 +283,18 @@ namespace BiClique{
     // Special easy case...
     if(rDegree==1){
       if(lDegree == 1){
-        biclique.push_back(start);
+        left.push_back(start.first);
+        right.push_back(start.second);
         return;
       }else{
+        left.push_back(start.first);
+        right.reserve(L[start.first].size());
         for(auto const& a:L[start.first]){
-          biclique.emplace_back(start.first,a);
+          right.push_back(a);
         }
         return;
       }
     }
-    if(lDegree==1){
-      for(auto const& a:R[start.second]){
-        biclique.emplace_back(a,start.second);
-      }
-      return;
-  }
 
     // Cumulative histogram - the number of vertices with degX or above.
     for(auto const& l:L){
@@ -311,7 +318,7 @@ namespace BiClique{
       lDegree=q.top().first;
       rDegree=q.top().second;
       q.pop();
-      if(!testFeasibility(L,R,start,lDegree,rDegree,histL,histR,biclique)){
+      if(!testFeasibility(L,R,start,lDegree,rDegree,histL,histR,left,right)){
         // minus one from l
         unsigned n(lDegree-1);
         uint64_t key(n*L.size()+rDegree);
