@@ -228,7 +228,7 @@ inline double meanDistanceOfPointToLine(Vector2D const& a, Vector2D const& b, Ve
 // From http://www.cplusplus.com/forum/beginner/49408/
 
 template <typename state>
-double linesIntersect(state const& A1, state const& A2, state const& B1, state const& B2, double* out=nullptr);
+bool linesIntersect(state const& A1, state const& A2, state const& B1, state const& B2, double* out=nullptr);
 template <typename state>
 bool intersectionPoint(state const& A1, state const& A2, state const& B1, state const& B2, state& out);
 // Assume "rounded" line with radius (thus the line width is 2*r)
@@ -249,7 +249,7 @@ bool sat(std::vector<state>const& a, std::vector<state>const& b, double radius);
 // From http://www.cplusplus.com/forum/beginner/49408/
 
 template <typename state>
-double Util::linesIntersect(state const& A1, state const& A2, state const& B1, state const& B2, double* out){
+bool Util::linesIntersect(state const& A1, state const& A2, state const& B1, state const& B2, double* out){
   state a(A2-A1);
   state b(B2-B1);
 

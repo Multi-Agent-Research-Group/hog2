@@ -209,7 +209,7 @@ void Grid3DEnvironment::GetSuccessors(const xyztLoc &loc, std::vector<xyztLoc> &
       } // connectedness>0
     } // right
 
-    if(connectedness>3){
+    if(connectedness>2){
       if(fullBranching){
         if(d2 && map->IsTraversable(loc.x, loc.y+3,agentType))
           neighbors.emplace_back(loc.x, loc.y+3);

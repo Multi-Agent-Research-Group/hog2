@@ -37,6 +37,7 @@ namespace BiClique{
       std::vector<unsigned> const& histL,
       std::vector<unsigned> const& histR,
       std::vector<std::pair<unsigned,unsigned>>& biclique){
+//std::cout << "Trying " << lDegree << " " << rDegree << "\n";
     assert(lDegree>0);
     assert(rDegree>0);
     if(histL[lDegree]<rDegree || histR[rDegree]<lDegree){
@@ -61,8 +62,6 @@ namespace BiClique{
     }
 
     // Histograms for the count of nodes that  are referenced by index
-    std::vector<unsigned> rhist(L.size());
-    std::vector<unsigned> lhist(R.size());
     bool changed(true);
     unsigned lNodes(0);
     unsigned rNodes(0);
@@ -83,7 +82,6 @@ namespace BiClique{
             lNodes++;
           }
         }
-        rhist[i]=L[i].size();
       }
       for(unsigned i(0); i<R.size(); ++i){
         if(R[i].size()){
@@ -97,7 +95,6 @@ namespace BiClique{
             rNodes++;
           }
         }
-        lhist[i]=R[i].size();
       }
     }
     if(lNodes==rDegree && rNodes==lDegree){
@@ -169,12 +166,39 @@ namespace BiClique{
     for(auto& r:R){
       std::sort(r.begin(),r.end());
     }
+    /*for(auto const& f:L){
+      unsigned j(0);
+      for(unsigned i(0); i<R.size(); ++i){
+      if(j>=f.size() || i<f[j]){std::cout << "0 ";}
+      else{std::cout << "1 "; ++j;}
+      }
+      std::cout << "\n";
+      }
+      {
+      std::cout << "L:\n";
+      for(auto const& a:L){
+      for(auto const& b:a){
+      std::cout << b << " ";
+      }
+      std::cout << "\n";
+      }
+      std::cout << "R:\n";
+      for(auto const& a:R){
+      for(auto const& b:a){
+      std::cout << b << " ";
+      }
+      std::cout << "\n";
+      }
+      std::cout << "\n";
+      }*/
 
+// Omitting this part because we assume that no nodes are disconnected from start
+/*
     // Get rid of any node that start.first is not connected to
     unsigned i(0);
     unsigned k(0);
     unsigned j(L[start.first][k]);
-    while(true){
+    while(i<R.size()){
       if(i<j){
         R[i].clear();
         for(auto& l:L){
@@ -188,12 +212,29 @@ namespace BiClique{
         j=L[start.first][k];
       }
     }
+ {
+  std::cout << "L:\n";
+  for(auto const& a:L){
+    for(auto const& b:a){
+      std::cout << b << " ";
+    }
+    std::cout << "\n";
+  }
+  std::cout << "R:\n";
+  for(auto const& a:R){
+    for(auto const& b:a){
+      std::cout << b << " ";
+    }
+    std::cout << "\n";
+  }
+  std::cout << "\n";
+}
 
     // Get rid of any node that start.second is not connected to
     i=0;
     k=0;
     j=R[start.second][k];
-    while(true){
+    while(i<L.size()){
       if(i<j){
         L[i].clear();
         for(auto& l:R){
@@ -207,11 +248,29 @@ namespace BiClique{
         j=R[start.second][k];
       }
     }
-    std::vector<unsigned> histL(L.size()+1);
-    std::vector<unsigned> histR(R.size()+1);
+ {
+  std::cout << "L:\n";
+  for(auto const& a:L){
+    for(auto const& b:a){
+      std::cout << b << " ";
+    }
+    std::cout << "\n";
+  }
+  std::cout << "R:\n";
+  for(auto const& a:R){
+    for(auto const& b:a){
+      std::cout << b << " ";
+    }
+    std::cout << "\n";
+  }
+  std::cout << "\n";
+}
+*/
+    std::vector<unsigned> histL(R.size()+1);
+    std::vector<unsigned> histR(L.size()+1);
     unsigned lDegree(L[start.first].size());
     unsigned rDegree(R[start.second].size());
-    // Specail easy case...
+    // Special easy case...
     if(rDegree==1){
       if(lDegree == 1){
         biclique.push_back(start);
@@ -228,19 +287,19 @@ namespace BiClique{
         biclique.emplace_back(a,start.second);
       }
       return;
-    }
+  }
 
     // Cumulative histogram - the number of vertices with degX or above.
     for(auto const& l:L){
       histL[l.size()]++;
     }
-    for(int i(histL.size()); i>1; --i){
+    for(int i(histL.size()-1); i>1; --i){
       histL[i-1]+=histL[i];
     }
     for(auto const& r:R){
       histR[r.size()]++;
     }
-    for(int i(histR.size()); i>1; --i){
+    for(int i(histR.size()-1); i>1; --i){
       histR[i-1]+=histR[i];
     }
 

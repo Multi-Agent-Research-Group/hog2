@@ -209,6 +209,20 @@ class Collision : public Constraint<State> {
 };
 
 template<typename State>
+class Overlap : public Constraint<State> {
+  public:
+    Overlap(double radius=.25):Constraint<State>(),agentRadius(radius){}
+    Overlap(State const& start, State const& end,double radius=.25, bool neg=true):Constraint<State>(start,end,neg),agentRadius(radius){}
+    virtual ~Overlap(){}
+    virtual double ConflictsWith(State const& s) const {return 0;} // Vertex collisions are ignored
+    // Check whether the opposing action has a conflict with this one
+    virtual double ConflictsWith(State const& from, State const& to) const {return Util::linesIntersect<Vector2D>(Vector2D(this->start_state),Vector2D(this->end_state),Vector2D(from),Vector2D(to));}
+    virtual double ConflictsWith(Overlap<State> const& x) const {return Util::linesIntersect<Vector2D>(Vector2D(this->start_state),Vector2D(this->end_state),Vector2D(x.start_state),Vector2D(x.end_state));}
+    virtual void OpenGLDraw(MapInterface*) const {}
+    double agentRadius;
+};
+
+template<typename State>
 class XORCollision : public XOR<State> {
   public:
     XORCollision(double radius=.25):Constraint<State>(),agentRadius(radius){}
