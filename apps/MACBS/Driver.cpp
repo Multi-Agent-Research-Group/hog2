@@ -1144,7 +1144,7 @@ int MyCLHandler(char *argument[], int maxNumArgs){
   }
   if(strcmp(argument[0], "-probfile") == 0){
     //std::cout << "Reading instance from file: \""<<argument[1]<<"\"\n";
-    num_agents=0;
+    int agents=0;
     std::ifstream ss(argument[1]);
     int x,y,z;
     float t(0.0);
@@ -1170,7 +1170,8 @@ int MyCLHandler(char *argument[], int maxNumArgs){
         wpts.emplace_back(x,y,z,t);
       }
       waypoints.push_back(wpts);
-      num_agents++;
+      agents++;
+      if(num_agents>0 && agents==num_agents){num_agents=agents;break;}
     }
     if(waypoints.size()==0){
       assert(!"Invalid filename or empty file");
