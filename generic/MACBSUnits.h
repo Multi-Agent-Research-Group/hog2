@@ -60,7 +60,7 @@
 #define PRE_HULL 2
 #define PRE_SAP  4
 
-#define MAXNAGENTS 500
+#define MAXNAGENTS 1000
 
 template<typename state, typename action, typename comparison, typename conflicttable, class searchalgo>
 class CBSUnit;

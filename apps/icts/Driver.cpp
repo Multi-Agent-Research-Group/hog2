@@ -53,6 +53,7 @@ double MAXTIME=0xffffffff; // 20 bits worth
 double INFLATION=1000;
 double TOMSECS=0.001;
 double waitTime=1;
+bool disappear(false);
 
 MapEnvironment* env;
 SearchEnvironment<xyLoc,tDirection>* senv;
@@ -235,6 +236,7 @@ void InstallHandlers()
   InstallCommandLineHandler(MyCLHandler, "-timeRes", "-timeRes", "Time resolution (size of one unit of time)");
   InstallCommandLineHandler(MyCLHandler, "-waitTime", "-waitTime", "Time duration for wait actions");
   InstallCommandLineHandler(MyCLHandler, "-noID", "-noID", "No Independence Dection (ID) framework");
+  InstallCommandLineHandler(MyCLHandler, "-disappear", "-disappear", "Agents disappear at the goal");
   InstallCommandLineHandler(MyCLHandler, "-noOD", "-noOD", "No Operator Decomposition (OD)");
   InstallCommandLineHandler(MyCLHandler, "-fulljoint", "-fulljoint", "Turn off early exit from jointDFS");
   InstallCommandLineHandler(MyCLHandler, "-stats", "-stats", "Turn off early exit from jointDFS");
@@ -447,7 +449,7 @@ bool LimitedDFS(xyLoc const& start, xyLoc const& end, DAG& dag, Node*& root, uin
     Node* parent(&dag[hash]);
     int d(maxDepth-depth);
     //if(d+INFLATION<=maxDepth){ // Insert one long wait action at goal
-    while(d+waitTime*INFLATION<=maxDepth){ // Increment depth by 1 for wait actions
+    while(!disappear && d+waitTime*INFLATION<=maxDepth){ // Increment depth by 1 for wait actions
       // Wait at goal
       Node current(start,(d+=waitTime*INFLATION));
       uint64_t chash(current.Hash());
@@ -892,10 +894,12 @@ bool jointDFS(MultiEdge const& s, uint32_t d, Solution solution, std::vector<Sol
       // Copy the solution into the answer set
       if(!checkOnly){
         // Shore up with wait actions
-        for(int i(0); i<solution.size(); ++i){
-          if(solution[i].back()->depth<MAXTIME){
-            solution[i].emplace_back(new Node(solution[i].back()->n,MAXTIME));
-            toDelete.push_back(solution[i].back());
+        if(!disappear){
+          for(int i(0); i<solution.size(); ++i){
+            if(solution[i].back()->depth<MAXTIME){
+              solution[i].emplace_back(new Node(solution[i].back()->n,MAXTIME));
+              toDelete.push_back(solution[i].back());
+            }
           }
         }
         solutions.clear();
@@ -1957,6 +1961,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
   if(strcmp(argument[0], "-noID") == 0)
   {
     ID = false;
+    return 1;
+  }
+  if(strcmp(argument[0], "-disappear") == 0)
+  {
+    disappear = true;
     return 1;
   }
   if(strcmp(argument[0], "-verify") == 0)
