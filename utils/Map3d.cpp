@@ -95,7 +95,8 @@ void Map3D::Load(const char *filename, const char *dtedfile)
   float** elevation = new float*[width];
   for(int i = 0; i <width; i++){
     elevation[i] = new float[height];
-    memset(elevation[i],1,height); // Set to zero for now...
+    for(int j(0); j<height; ++j)
+      elevation[i][j]=1;
   }
 
   if(!readdted1(dtedfile,elevation,width,height,0,0,depth)){
