@@ -2597,7 +2597,11 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
                 }
                 std::vector<unsigned> left;
                 std::vector<unsigned> right;
-                BiClique::findBiClique(fwd,rwd,conf,left,right);
+                if(fwd.size()<=rwd.size()){
+                  BiClique::findBiClique(fwd,rwd,conf,left,right);
+                }else{
+                  BiClique::findBiClique(rwd,fwd,{conf.second,conf.first},right,left);
+                }
                 for(auto const& m:left){
                   c1.c.emplace_back((Constraint<state>*) new Identical<state>(a1,as[armap[m]]));
                 }

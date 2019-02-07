@@ -131,7 +131,11 @@ namespace BiClique{
     // rDegree nodes
     // Test up to all N choose K combinations
     unsigned k(rDegree-1); // minus 1 because we always include the start vertex
+    //std::cout << "N choose k (" << lDegree << "," << rDegree << "\n";
     do {
+      //for(auto const& g:d)
+        //std::cout << g << " ";
+      //std::cout << "\n";
       std::vector<unsigned> cmn(L[start.first]); // Start test with this...
       for(unsigned i(0); i<k; ++i){
         std::vector<unsigned> tmp;
@@ -149,6 +153,7 @@ namespace BiClique{
           for(unsigned i(0); i<k; ++i){
             left.push_back(d[i]);
           }
+          //std::cout << "\n";
           return true;
         }
       }
