@@ -193,7 +193,7 @@ int main(int argc, char* argv[])
   {
     InitHeadless();
     //std::cout << solution;
-    while((groups.size()==1&&!groups[0]->donePlanning())||!detectIndependence()){
+    while((groups.size()==1&&!groups.begin()->second->donePlanning())||!detectIndependence()){
       if(Params::verbose)
         std::cout << "There are " << groups.size() << " groups" << std::endl;
       for(auto& group:groups){
@@ -289,6 +289,7 @@ void InstallHandlers()
   InstallCommandLineHandler(MyCLHandler, "-disappear", "-disappear", "Agents disappear at goal");
   InstallCommandLineHandler(MyCLHandler, "-nogui", "-nogui", "Turn off gui");
   InstallCommandLineHandler(MyCLHandler, "-verbose", "-verbose", "Turn on verbose output");
+  InstallCommandLineHandler(MyCLHandler, "-vc", "-vc", "Turn on vertex collisions");
   InstallCommandLineHandler(MyCLHandler, "-astarverbose", "-astarverbose", "Turn on verbose output for A*");
   InstallCommandLineHandler(MyCLHandler, "-quiet", "-quiet", "Extreme minimal output");
   InstallCommandLineHandler(MyCLHandler, "-cat", "-cat", "Use Conflict Avoidance Table (CAT)");
@@ -405,7 +406,8 @@ void InitHeadless(){
   units.reserve(num_agents);
 
   if(noid){
-    MACBSGroup* group=groups[0]=new MACBSGroup(environs,{});
+    groups[0]=new MACBSGroup(environs,{});
+    MACBSGroup* group=groups[0];
     group->agents.resize(num_agents);
     std::iota(group->agents.begin(),group->agents.end(),0); // Add agents 0, 1, ...
     rgroups.resize(1);
@@ -445,7 +447,8 @@ void InitHeadless(){
     for(uint16_t i(0); i<num_agents; ++i){
       std::vector<std::vector<EnvironmentContainer<xyztLoc,t3DDirection>>> environ={environs[i]};
       if(Params::verbose)std::cout << "Creating group " << i << "\n";
-      MACBSGroup* group=groups[i]=new MACBSGroup(environ,{i});
+      groups[i]=new MACBSGroup(environ,{i});
+      MACBSGroup* group=groups[i];
       rgroups[i]=i;
       if(i==0 && !gui){
         Timer::Timeout func(std::bind(&processSolution, std::placeholders::_1));
@@ -470,7 +473,7 @@ void InitHeadless(){
       group->AddUnit(units[i]); // Add to the group
       if(Params::verbose)std::cout << "initial path for agent " << i << ":\n";
       if(Params::verbose)
-        for(auto const& n: *group->tree[0].paths[i])
+        for(auto const& n: *group->tree[0].paths[0])
           std::cout << n << "\n";
       if(gui){sim->AddUnit(units[i]);} // Add to the group
 
@@ -1050,6 +1053,11 @@ int MyCLHandler(char *argument[], int maxNumArgs){
   if(strcmp(argument[0], "-astarverbose") == 0)
   {
     Params::astarverbose = true;
+    return 1;
+  }
+  if(strcmp(argument[0], "-vc") == 0)
+  {
+    Params::vc = true;
     return 1;
   }
   if(strcmp(argument[0], "-verbose") == 0)

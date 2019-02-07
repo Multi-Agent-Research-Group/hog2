@@ -174,7 +174,10 @@ class Identical : public Constraint<State> {
     virtual ~Identical(){}
     virtual double ConflictsWith(State const& s) const {return 0;} // Vertex collisions are ignored
     // Check whether the action has the exact same time and to/from
-    virtual double ConflictsWith(State const& from, State const& to) const {return (from==this->start_state && to.sameLoc(this->end_state))?from.t?double(from.t)/State::TIME_RESOLUTION_D:-1.0/State::TIME_RESOLUTION_D:0;}
+    virtual double ConflictsWith(State const& from, State const& to) const {
+      // Vertex collision
+      if(this->start_state==this->end_state && to==this->end_state) return to.t/State::TIME_RESOLUTION_D-.25;//radius
+      return (from==this->start_state && to.sameLoc(this->end_state))?from.t?double(from.t)/State::TIME_RESOLUTION_D:-1.0/State::TIME_RESOLUTION_D:0;}
 };
 
 template<typename State>
