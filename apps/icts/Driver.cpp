@@ -50,7 +50,7 @@
 // for agents to stay at goal
 double MAXTIME=0xffffffff; // 20 bits worth
 // for inflation of floats to avoid rounding errors
-double INFLATION=1000;
+double INFLATION=10;
 double TOMSECS=0.001;
 double waitTime=1;
 bool disappear(false);
@@ -239,7 +239,7 @@ void InstallHandlers()
   InstallCommandLineHandler(MyCLHandler, "-disappear", "-disappear", "Agents disappear at the goal");
   InstallCommandLineHandler(MyCLHandler, "-noOD", "-noOD", "No Operator Decomposition (OD)");
   InstallCommandLineHandler(MyCLHandler, "-fulljoint", "-fulljoint", "Turn off early exit from jointDFS");
-  InstallCommandLineHandler(MyCLHandler, "-stats", "-stats", "Turn off early exit from jointDFS");
+  InstallCommandLineHandler(MyCLHandler, "-stats", "-stats", "Turn on detailed stats output");
   InstallCommandLineHandler(MyCLHandler, "-noprecheck", "-noprecheck", "Perform simplified collision check before trying the expensive one");
   InstallCommandLineHandler(MyCLHandler, "-mode", "-mode s,b,p,a", "s=sub-optimal,p=pairwise,b=pairwise,sub-optimal,a=astar");
   InstallCommandLineHandler(MyCLHandler, "-increment", "-increment [value]", "High-level increment");
@@ -1980,7 +1980,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
   }
   if(strcmp(argument[0], "-timeRes") == 0)
   {
-    INFLATION = atof(argument[1]);
+    step = INFLATION = atof(argument[1]);
     TOMSECS=1/INFLATION;
     std::cout << "Time resolution:  " << INFLATION << "\n";
     return 2;
@@ -2095,7 +2095,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
     int x,y;
     uint32_t t(0.0);
     std::string line;
-    n=0;
+    int tn(0);
     while(std::getline(ss, line)){
       std::vector<xyLoc> wpts;
       std::istringstream is(line);
@@ -2112,8 +2112,9 @@ int MyCLHandler(char *argument[], int maxNumArgs)
         wpts.emplace_back(x,y,t);
       }
       waypoints.push_back(wpts);
-      n++;
+      if(n==++tn){break;}
     }
+    if(n==0)n=tn;
     return 2;
   }
   if(strcmp(argument[0], "-dimensions") == 0)
@@ -2137,10 +2138,10 @@ int MyCLHandler(char *argument[], int maxNumArgs)
   }
   if(strcmp(argument[0], "-scenfile") == 0)
   {
-    //if(n==0){
-      //std::cout<<"-nagents must be specified before -scenfile\n";
-      //exit(1);
-    //}
+    if(n==0){
+      std::cout<<"-nagents must be specified before -scenfile\n";
+      exit(1);
+    }
     ScenarioLoader sl(argument[1]);
     if(sl.GetNumExperiments()==0)
     {
@@ -2151,7 +2152,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
     mapfile=sl.GetNthExperiment(0).GetMapName();
     mapfile.insert(0,pathprefix); // Add prefix
 
-    n=sl.GetNumExperiments();
+    assert(n<=sl.GetNumExperiments());
     for(int i(0); i<n; ++i){
       // Add start/goal location
       std::vector<xyLoc> wpts;
