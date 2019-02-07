@@ -812,6 +812,8 @@ public:
   static float replanTime;
   static float bypassplanTime;
   static float maplanTime;
+  static uint64_t constraintsz;
+  static uint64_t constrainttot;
 };
 
 template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class singleHeuristic, class searchalgo>
@@ -824,6 +826,10 @@ template<typename state, typename action, typename comparison, typename conflict
 float CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeuristic, searchalgo>::collisionTime=0;
 template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class singleHeuristic, class searchalgo>
 float CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeuristic, searchalgo>::planTime=0;
+template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class singleHeuristic, class searchalgo>
+uint64_t CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeuristic, searchalgo>::constraintsz=0;
+template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class singleHeuristic, class searchalgo>
+uint64_t CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeuristic, searchalgo>::constrainttot=0;
 template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class singleHeuristic, class searchalgo>
 float CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeuristic, searchalgo>::replanTime=0;
 template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class singleHeuristic, class searchalgo>
@@ -1012,12 +1018,16 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
     //std::cout << a << "\n";
     //}
     //}
+    constraintsz+=std::max(conflicts[0].c.size(),conflicts[1].c.size());
+    constrainttot+=conflicts[0].c.size()+conflicts[1].c.size();
     if (animate) {
-      for(auto const& c:conflicts[0].c)
+      for(auto const& c:conflicts[0].c){
         c->OpenGLDraw(currentEnvironment[0]->environment->GetMap());
-      for(auto const& c:conflicts[1].c)
+      }
+      for(auto const& c:conflicts[1].c){
         c->OpenGLDraw(currentEnvironment[0]->environment->GetMap());
-      usleep(animate * 1000);
+      }
+      //usleep(animate * 1000);
     }
 
     for (unsigned i(0); i < activeMetaAgents.size(); ++i) {
@@ -1502,7 +1512,7 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
   if(!quiet){
     fflush(stdout);
     std::cout
-      << "elapsed,planTime,replanTime,bypassplanTime,maplanTime,collisionTime,expansions,CATcollchecks,collchecks,collisions,cost,actions\n";
+    << "elapsed,planTime,replanTime,bypassplanTime,maplanTime,collisionTime,expansions,CATcollchecks,collchecks,collisions,cost,actions,maxCSet,meanCSet\n";
     if (verify && elapsed > 0)
       std::cout << (valid ? "VALID" : "INVALID") << std::endl;
     if (elapsed < 0) {
@@ -1521,7 +1531,9 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
     std::cout << collchecks << ",";
     std::cout << tree.size() << ",";
     std::cout << cost / state::TIME_RESOLUTION_D << ",";
-    std::cout << total << std::endl;
+    std::cout << total << ",";
+    std::cout << constraintsz/double(tree.size()) << std::endl;
+    std::cout << constrainttot/double(tree.size())/2.0 << std::endl;
   }
   planFinished = true;
   //if (!keeprunning)
@@ -2405,6 +2417,12 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
 	    state a2(a[xNextTime]);
 	    state b1(b[yTime]);
 	    state b2(b[yNextTime]);
+            c1.c.clear();
+            c2.c.clear();
+            c3.c.clear();
+            c1.c2.clear();
+            c2.c2.clear();
+            c3.c2.clear();
             if (Params::extrinsicconstraints) {
               c1.c.emplace_back((Constraint<state>*) new XORCollision<state>(a1,a2,b1,b2,false));
               c2.c.emplace_back((Constraint<state>*) new XORCollision<state>(b1,b2,a1,a2,false));
@@ -2438,6 +2456,8 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
             conflicts.resize(2);
 	    Conflict<state>& c1=conflicts[0];
 	    Conflict<state>& c2=conflicts[1];
+            c1.c.clear();
+            c2.c.clear();
             if (Params::extrinsicconstraints) {
               state a1(a[xTime]);
               state a2(a[xNextTime]);

@@ -152,7 +152,7 @@ void processSolution(double elapsed){
   }
   fflush(stdout);
   std::cout
-    << "elapsed,planTime,replanTime,bypassplanTime,maplanTime,collisionTime,expansions,CATcollchecks,collchecks,collisions,cost,actions\n";
+    << "elapsed,planTime,replanTime,bypassplanTime,maplanTime,collisionTime,expansions,CATcollchecks,collchecks,collisions,cost,actions,maxCSet,meanCSet\n";
   if (verify && elapsed > 0)
     std::cout << (valid ? "VALID" : "INVALID") << std::endl;
   if (elapsed < 0) {
@@ -171,7 +171,9 @@ void processSolution(double elapsed){
   std::cout << MACBSGroup::collchecks << ",";
   std::cout << nodes << ",";
   std::cout << cost / xyztLoc::TIME_RESOLUTION_D << ",";
-  std::cout << total << std::endl;
+  std::cout << total << ",";
+  std::cout << MACBSGroup::constraintsz/double(nodes) << std::endl;
+  std::cout << MACBSGroup::constrainttot/double(nodes)/2.0 << std::endl;
   if (!gui)
     exit(0);
 }
@@ -601,7 +603,7 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 
     if(recording){
       static int index = 0;
-      if(group.second->donePlanning() || index%10==0){
+      if(group.second->donePlanning() || index%10==9){
         char fname[255];
         if(group.second->donePlanning())
           sprintf(fname, "movies/cbs-%05d", index);
