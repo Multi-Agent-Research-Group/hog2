@@ -680,6 +680,7 @@ struct ClearablePQ:public std::priority_queue<T,C>{//,Cmp>{
     //while(this->size()){std::cout<<this->size()<<"\n";this->pop();}
     this->c.resize(0);
   }
+  C& getContainer() { return this->c; }
 };
 
 typedef std::vector<uint16_t> Group;
@@ -758,16 +759,12 @@ private:
     OpenListNode(uint loc, double c, uint16_t n, bool cardinl=false)
         : location(loc), cost(c), nc(n), cardinal(cardinl) {
     }
-    std::ostream& operator <<(std::ostream& out) const {
-      out << "(loc: " << location << ", nc: " << nc << ", cost: " << cost << ")";
-      return out;
-    }
     inline bool operator<(OpenListNode const& other)const{
       if (Params::greedyCT){
         return ( cardinal==other.cardinal ? nc == other.nc ? cost<other.cost : nc>other.nc : cardinal>other.cardinal);
       }else{
         return ( cost==other.cost ? cardinal==other.cardinal ?
-            (nc > other.nc) : cardinal>other.cardinal : cost < other.cost);
+            (nc > other.nc) : cardinal>other.cardinal : cost > other.cost);
       }
     }
 
@@ -840,6 +837,7 @@ template<typename state, typename action, typename comparison, typename conflict
 float CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeuristic, searchalgo>::bypassplanTime=0;
 template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class singleHeuristic, class searchalgo>
 float CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeuristic, searchalgo>::maplanTime=0;
+
 
 /** AIR CBS UNIT DEFINITIONS */
 
@@ -951,6 +949,9 @@ CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeuristic, s
 // Return true while processing
 template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class singleHeuristic, class searchalgo>
 bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeuristic, searchalgo>::ExpandOneCBSNode() {
+  //for(auto const& o:openList.getContainer()){
+    //std::cout << "tree["<<o.location <<"]="<<o.cost<<","<<o.nc<<"\n";
+  //}
   openList.pop();
   if(!quiet)
     std::cout << "Expanding " << bestNode << "\n";
