@@ -1452,7 +1452,7 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
     // Update the actual unit path
     // Add an extra wait action for "visualization" purposes,
     // This should not affect correctness...
-    if (tree[bestNode].paths[x]->size() && tree[bestNode].paths[x]->back().t < maxTime) {
+    if (!disappearAtGoal && tree[bestNode].paths[x]->size() && tree[bestNode].paths[x]->back().t < maxTime) {
       tree[bestNode].paths[x]->push_back(tree[bestNode].paths[x]->back());
       tree[bestNode].paths[x]->back().t = maxTime;
     }
@@ -1740,7 +1740,7 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
 
   unsigned maxDuration(1);
   if (disappearAtGoal)
-    return 1;
+    return 0;
 
   int i(0);
   // Find max duration of all paths
