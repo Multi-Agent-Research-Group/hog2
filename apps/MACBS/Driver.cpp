@@ -290,6 +290,7 @@ void InstallHandlers()
   InstallCommandLineHandler(MyCLHandler, "-nogui", "-nogui", "Turn off gui");
   InstallCommandLineHandler(MyCLHandler, "-verbose", "-verbose", "Turn on verbose output");
   InstallCommandLineHandler(MyCLHandler, "-vc", "-vc", "Turn on vertex collisions");
+  InstallCommandLineHandler(MyCLHandler, "-asym", "-asym", "Turn on asymmetric pairings");
   InstallCommandLineHandler(MyCLHandler, "-astarverbose", "-astarverbose", "Turn on verbose output for A*");
   InstallCommandLineHandler(MyCLHandler, "-quiet", "-quiet", "Extreme minimal output");
   InstallCommandLineHandler(MyCLHandler, "-cat", "-cat", "Use Conflict Avoidance Table (CAT)");
@@ -1058,6 +1059,11 @@ int MyCLHandler(char *argument[], int maxNumArgs){
   if(strcmp(argument[0], "-vc") == 0)
   {
     Params::vc = true;
+    return 1;
+  }
+  if(strcmp(argument[0], "-asym") == 0)
+  {
+    Params::asym = true;
     return 1;
   }
   if(strcmp(argument[0], "-verbose") == 0)

@@ -86,6 +86,7 @@ struct Params {
   static bool overlapconstraints;
   static bool verbose;
   static bool astarverbose;
+  static bool asym; // Asymmetric set
   static bool vc; // vertex collisions
 };
 
@@ -106,6 +107,7 @@ bool Params::mutualconstraints = false;
 bool Params::overlapconstraints = false;
 bool Params::verbose = false;
 bool Params::astarverbose = false;
+bool Params::asym = false;
 bool Params::vc = false;
 
 template<class state>
@@ -723,7 +725,7 @@ private:
   bool Bypass(int best, std::pair<unsigned, unsigned> const& numConflicts, Conflict<state> const& c1, unsigned otherunit,
       unsigned minTime);
   void Replan(int location, state const& s1, state const& s2, bool a2=false);
-  bool IsCardinal(int x, state const&, state const&, int y, state const&, state const&);
+  bool IsCardinal(int x, state const&, state const&, int y, state const&, state const&, bool asym=false);
   unsigned HasConflict(std::vector<state> const& a, std::vector<int> const& wa, std::vector<state> const& b,
       std::vector<int> const& wb, int x, int y, std::vector<Conflict<state>> &conflicts,
       std::pair<unsigned, unsigned>& conflict, unsigned& ctype, bool update, bool countall=true);
@@ -2134,7 +2136,7 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
   }
 }
 template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class singleHeuristic, class searchalgo>
-bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeuristic, searchalgo>::IsCardinal(int x, state const& ax1, state const& ax2, int y, state const& bx1, state const& bx2){
+bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeuristic, searchalgo>::IsCardinal(int x, state const& ax1, state const& ax2, int y, state const& bx1, state const& bx2, bool asym){
   CBSTreeNode<state, conflicttable>& location=tree[bestNode];
   std::vector<std::unique_ptr<Constraint<state>>> constraints;
   if(Params::vc && ax2==bx2){ // Vertex collision
@@ -2148,7 +2150,11 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
       if(Params::boxconstraints){
         constraints.emplace_back((Box<state>*) new Box<state>(bx1,b2));
       }else if(Params::crossconstraints){
-        constraints.emplace_back((Constraint<state>*) new Collision<state>(bx1,b2));
+        if(asym){
+          constraints.emplace_back((Constraint<state>*) new Identical<state>(ax1,ax2));
+        }else{
+          constraints.emplace_back((Constraint<state>*) new Collision<state>(bx1,b2));
+        }
       }else if(Params::overlapconstraints){
         constraints.emplace_back((Overlap<state>*) new Overlap<state>(bx1,b2));
       }else if(Params::pyramidconstraints){
@@ -2400,7 +2406,7 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
             if(Params::verbose)std::cout << "LEFT_CARDINAL: " <<x<<","<<y<<"\n";
           }
           // Right is cardinal?
-          if(IsCardinal(y,b1,b2,x,a1,a2)){
+          if(IsCardinal(y,b1,b2,x,a1,a2,Params::asym)){
             conf |= RIGHT_CARDINAL;
             if(Params::verbose)std::cout << "RIGHT_CARDINAL: " <<x<<","<<y<<"\n";
           }
@@ -2497,7 +2503,11 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
           c2.c.emplace_back((Box<state>*) new Box<state>(b1, b2));
         }else if(Params::crossconstraints){
           c1.c.emplace_back((Constraint<state>*) new Collision<state>(a1, a2));
-          c2.c.emplace_back((Constraint<state>*) new Collision<state>(b1, b2));
+          if(Params::asym){
+            c2.c.emplace_back((Constraint<state>*) new Identical<state>(a1, a2));
+          }else{
+            c2.c.emplace_back((Constraint<state>*) new Collision<state>(b1, b2));
+          }
         }else if(Params::overlapconstraints){
           c1.c.emplace_back((Overlap<state>*) new Overlap<state>(a1,a2));
           c2.c.emplace_back((Overlap<state>*) new Overlap<state>(b1,b2));
