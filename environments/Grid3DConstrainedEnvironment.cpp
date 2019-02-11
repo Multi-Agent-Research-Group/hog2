@@ -42,6 +42,7 @@ void Grid3DConstrainedEnvironment::GetSuccessors(const xyztLoc &nodeID, std::vec
 {
   std::vector<xyztLoc> n;
   mapEnv->GetSuccessors(nodeID, n);
+  neighbors.reserve(n.size());
 
   // TODO: remove illegal successors
   for (unsigned int x = 0; x < n.size(); x++)

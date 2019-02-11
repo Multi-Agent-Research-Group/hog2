@@ -49,6 +49,8 @@ void Grid3DEnvironment::SetGraphHeuristic(GraphHeuristic *gh)
 
 void Grid3DEnvironment::GetSuccessors(const xyztLoc &loc, std::vector<xyztLoc> &neighbors) const
 {
+  static const unsigned sz(connectedness==0?5:connectedness==2?17:connectedness==3?33:9);
+  neighbors.reserve(sz);
   if(agentType==Map3D::air){
     // TODO add LOS checks
     if(connectedness==0){
@@ -531,7 +533,7 @@ double Grid3DEnvironment::GCost(const xyztLoc &l, const t3DDirection &act) const
 
 double Grid3DEnvironment::GCost(const xyztLoc &l1, const xyztLoc &l2) const
 {
-  static double multiplier(xyztLoc::TIME_RESOLUTION_D);
+  const double multiplier(xyztLoc::TIME_RESOLUTION_D);
   if(l1.sameLoc(getGoal()) && l1.sameLoc(l2)){return 0.0;}
   if(uniquecosts){
     if(l1.sameLoc(l2)){return (l1.x+l1.y+l1.z+1)%xyztLoc::TIME_RESOLUTION_U;}

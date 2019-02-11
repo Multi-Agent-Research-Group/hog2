@@ -1023,8 +1023,8 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
     //std::cout << a << "\n";
     //}
     //}
-    constraintsz+=std::max(conflicts[0].c.size(),conflicts[1].c.size());
-    constrainttot+=conflicts[0].c.size()+conflicts[1].c.size();
+    constraintsz+=conflicts[0].c.size()+conflicts[1].c.size();
+    constrainttot++;
     if (animate) {
       for(auto const& c:conflicts[0].c){
         c->OpenGLDraw(currentEnvironment[0]->environment->GetMap());
@@ -1537,8 +1537,7 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
     std::cout << tree.size() << ",";
     std::cout << cost / state::TIME_RESOLUTION_D << ",";
     std::cout << total << ",";
-    std::cout << constraintsz/double(tree.size()) << std::endl;
-    std::cout << constrainttot/double(tree.size())/2.0 << std::endl;
+    std::cout << constraintsz/std::max(1ul,constrainttot) << std::endl;
   }
   planFinished = true;
   //if (!keeprunning)

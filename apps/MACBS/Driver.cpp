@@ -172,8 +172,7 @@ void processSolution(double elapsed){
   std::cout << nodes << ",";
   std::cout << cost / xyztLoc::TIME_RESOLUTION_D << ",";
   std::cout << total << ",";
-  std::cout << MACBSGroup::constraintsz/double(nodes) << ",";
-  std::cout << MACBSGroup::constrainttot/double(nodes)/2.0 << std::endl;
+  std::cout << MACBSGroup::constraintsz/std::max(1ul,MACBSGroup::constrainttot)<< std::endl;
   if (!gui)
     exit(0);
 }
