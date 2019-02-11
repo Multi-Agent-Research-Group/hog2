@@ -108,7 +108,7 @@ void processSolution(double elapsed){
     cost += environs[0][0].environment->GetPathLength(solution[x]);
     total += solution[x].size();
 
-    if(!quiet)
+    if(!quiet){
       if(solution[x].size()) {
         std::cout << "Agent " << x << " (" << environs[0][0].environment->GetPathLength(solution[x]) << "): " << "\n";
         for (auto &a : solution[x]) {
@@ -117,6 +117,7 @@ void processSolution(double elapsed){
       } else {
         std::cout << "Agent " << x << ": " << "NO Path Found.\n";
       }
+    }
     // Only verify the solution if the run didn't time out
     if (verify && elapsed > 0) {
       for (unsigned y = x + 1; y < solution.size(); y++) {

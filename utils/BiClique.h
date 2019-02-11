@@ -120,7 +120,8 @@ namespace BiClique{
     // If we got here, the degree is too high on some vertices
     // TODO, this would likely run faster if we compute permuatations
     // based on the smaller of L or R... (instead of always using L)
-    std::vector<unsigned> d;
+    static std::vector<unsigned> d;
+    d.resize(0);
     d.reserve(L.size());
     for(unsigned j(0); j<L.size(); ++j){
       if(j!=start.first && L[j].size()){
@@ -303,12 +304,16 @@ namespace BiClique{
 
     // Cumulative histogram - the number of vertices with degX or above.
     for(auto const& l:L){
+      //if(l.size()>=R.size())
+        //std::cout << "bad "<<l.size()<<">="<<R.size()<<"\n";
       histL[l.size()]++;
     }
     for(int i(histL.size()-1); i>1; --i){
       histL[i-1]+=histL[i];
     }
     for(auto const& r:R){
+      //if(r.size()>=L.size())
+        //std::cout << "bad "<<r.size()<<">="<<L.size()<<"\n";
       histR[r.size()]++;
     }
     for(int i(histR.size()-1); i>1; --i){

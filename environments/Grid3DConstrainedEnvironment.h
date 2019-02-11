@@ -78,6 +78,7 @@ private:
         bool ignoreHeading;
 
 	Grid3DEnvironment *mapEnv;
+        mutable std::vector<xyztLoc> n;
 };
 
 // Check if an openlist node conflicts with a node from an existing path

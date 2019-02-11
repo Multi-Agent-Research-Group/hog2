@@ -40,7 +40,7 @@ Grid3DConstrainedEnvironment::Grid3DConstrainedEnvironment(Grid3DEnvironment *m)
 
 void Grid3DConstrainedEnvironment::GetSuccessors(const xyztLoc &nodeID, std::vector<xyztLoc> &neighbors) const
 {
-  std::vector<xyztLoc> n;
+  n.resize(0);
   mapEnv->GetSuccessors(nodeID, n);
   neighbors.reserve(n.size());
 

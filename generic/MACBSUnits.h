@@ -193,28 +193,34 @@ void GetFullPath(CBSUnit<state, action, comparison, conflicttable, searchalgo>* 
   //thePath.resize(0);
   wpts.resize(c->GetNumWaypoints()+env.environment->pconstraints.size()*2);
   wpts[0] = 0;
-  std::set<state> pts;
-  // Assume there are only 2 waypoints at this time...
-  pts.insert(c->GetWaypoint(0));
-  for(auto const& p: env.environment->pconstraints){ // Implies that xor is turned on
-    if(Params::extrinsicconstraints){
-      pts.insert(p->start_state);
-      pts.insert(p->end_state);
-    }else{
-      pts.insert(((XOR<state> const*)p)->pos_start);
-      pts.insert(((XOR<state> const*)p)->pos_end);
+  std::vector<state> const* fpts(&c->GetWaypoints());
+  if(Params::xorconstraints){
+    static std::set<state> pts;
+    pts.clear();
+    // Assume there are only 2 waypoints at this time...
+    pts.insert(c->GetWaypoint(0));
+    for(auto const& p: env.environment->pconstraints){ // Implies that xor is turned on
+      if(Params::extrinsicconstraints){
+        pts.insert(p->start_state);
+        pts.insert(p->end_state);
+      }else{
+        pts.insert(((XOR<state> const*)p)->pos_start);
+        pts.insert(((XOR<state> const*)p)->pos_end);
+      }
     }
-  }
-  std::vector<state> fpts(pts.begin(),pts.end());
-  if(!(*fpts.rbegin()==c->GetWaypoint(1))){
-    //fpts.reserve(fpts.size()+1);
-    fpts.push_back(c->GetWaypoint(1));
-    if(Params::verbose)std::cout << "Plan eventually" << *fpts.begin() <<"-->"<<*fpts.rbegin()<<"\n";
-  }
-  // All waypoints are the same
-  if(fpts.size()==1){
-    thePath.push_back(fpts[0]);
-    return;
+    static std::vector<state> ffpts;
+    ffpts.insert(ffpts.begin(),pts.begin(),pts.end());
+    if(!(*ffpts.rbegin()==c->GetWaypoint(1))){
+      //ffpts.reserve(ffpts.size()+1);
+      ffpts.push_back(c->GetWaypoint(1));
+      if(Params::verbose)std::cout << "Plan eventually" << *ffpts.begin() <<"-->"<<*ffpts.rbegin()<<"\n";
+    }
+    // All waypoints are the same
+    if(ffpts.size()==1){
+      thePath.push_back(ffpts[0]);
+      return;
+    }
+    fpts=&ffpts;
   }
 
   // Perform search for all legs
@@ -224,18 +230,17 @@ void GetFullPath(CBSUnit<state, action, comparison, conflicttable, searchalgo>* 
     comparison::openList = astar.GetOpenList();
     comparison::currentAgent = agent;
   }
-  for (int i(0); i < fpts.size() - 1; ++i) {
-    std::vector<state> path;
-    state start(fpts[i]);
+  for (int i(0); i < fpts->size() - 1; ++i) {
+    state start(fpts->at(i));
     //start.landed=false;
     //start.t=0;
-    state goal(fpts[i + 1]);
+    state goal(fpts->at(i + 1));
     env.environment->setGoal(goal);
     if(Params::verbose)std::cout << "Plan " << start <<"-->"<<goal<<"\n";
     Timer tmr;
     tmr.StartTimer();
     if(env.heuristic){ //There is a specific heuristic that we should use
-      if(i==fpts.size()-2){
+      if(i==fpts->size()-2){
         astar.SetHeuristic(env.heuristic);
       }else{
         singleHeuristic* h(nullptr);
@@ -251,6 +256,8 @@ void GetFullPath(CBSUnit<state, action, comparison, conflicttable, searchalgo>* 
         astar.SetHeuristic(h);
       }
     }
+    static std::vector<state> path;
+    path.resize(0);
     astar.GetPath(env.environment, start, goal, path, goal.t?goal.t:minTime);
     replanTime += tmr.EndTimer();
     if(Params::verbose)std::cout << start <<"-->"<<goal<<" took: " << tmr.EndTimer() << std::endl;
@@ -303,7 +310,8 @@ void ReplanLeg(CBSUnit<state, action, comparison, conflicttable, searchalgo>* c,
   //std::cout << start << " to " << goal << "\n";
 
   // Perform search for the leg
-  std::vector<state> path;
+  static std::vector<state> path;
+  path.resize(0);
   env.environment->setGoal(goal);
   Timer tmr;
   tmr.StartTimer();
@@ -1181,7 +1189,8 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
             // Prune these paths to the current simulation time
             state current;
             unit->GetLocation(current);
-            std::vector<state> newPath;
+            static std::vector<state> newPath;
+            newPath.resize(0);
             newPath.push_back(current); // Add the current simulation node to the new path
 
             // For everything in the path that's new, add the path back
@@ -1333,7 +1342,8 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
         // Prune these paths to the current simulation time
         state current;
         unit->GetLocation(current);
-        std::vector<state> newPath;
+        static std::vector<state> newPath;
+        newPath.resize(0);
         newPath.push_back(current); // Add the current simulation node to the new path
 
         // For everything in the path that's new, add the path back
@@ -1458,7 +1468,8 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
     }
 
     // For everything in the path that's new, add the path back
-    std::vector<state> newPath;
+    static std::vector<state> newPath;
+    newPath.resize(0);
     for (state const& xNode : *tree[bestNode].paths[x]) {
       newPath.push_back(xNode);
     }
@@ -1685,7 +1696,8 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
   UnitGroup<state, action, ConstrainedEnvironment<state, action>>::AddUnit(u);
 
   basepaths[theUnit]=path;
-  std::vector<Vector2D> poly;
+  static std::vector<Vector2D> poly;
+  poly.resize(0);
   if(Params::precheck==PRE_AABB){
     computeAABB(poly,path);
   }else if(Params::precheck==PRE_HULL){
@@ -1838,9 +1850,12 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
   //std::cout << "Attempt to find a bypass.\n";
 
   bool success(false);
-  std::vector<Conflict<state>> confl;
+  static std::vector<Conflict<state>> confl;
+  confl.resize(0);
   std::vector<state>* oldPath(tree[best].paths[theUnit]);
-  std::vector<int> newWpts(tree[best].wpts[theUnit]);
+  static std::vector<int> newWpts;
+  newWpts.resize(0);
+  newWpts.insert(newWpts.begin(),tree[best].wpts[theUnit].begin(),tree[best].wpts[theUnit].end());
   // Re-perform the search with the same constraints (since the start and goal are the same)
   CBSUnit<state, action, comparison, conflicttable, searchalgo> *c = (CBSUnit<state, action, comparison, conflicttable,
       searchalgo>*) this->GetMember(c1.unit1);
@@ -1856,7 +1871,8 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
   // Cost of the previous path
   double cost(currentEnvironment[theUnit]->environment->GetPathLength(*oldPath));
   currentEnvironment[theUnit]->environment->setGoal(goal);
-  std::vector<state> path;
+  static std::vector<state> path;
+  path.resize(0);
 
   Conflict<state> t1, t2; // Temp variables
   // Perform search for the leg
@@ -2180,20 +2196,30 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
         constraints.emplace_back((Constraint<state>*) new TimeRange<state>(a1,a2));
       }else if(Params::mutualconstraints){
         // Mutually conflicting sets.
-        std::vector<state> as;
-        std::vector<state> bs;
+        static std::vector<state> as;
+        as.resize(0);
+        static std::vector<state> bs;
+        bs.resize(0);
         currentEnvironment[x]->environment->GetSuccessors(ax1,as);     
         currentEnvironment[y]->environment->GetSuccessors(bx1,bs);     
+        //unsigned fcost1(currentEnvironment[x]->environment->GCost(ax1,ax2)+currentEnvironment[x]->environment->HCost(ax2,currentEnvironment[x]->environment->getGoal()));
+        //unsigned fcost2(currentEnvironment[y]->environment->GCost(bx1,bx2)+currentEnvironment[b]->environment->HCost(bx2,currentEnvironment[y]->environment->getGoal()));
 
         // Determine the mutually conflicting set...
-        std::vector<std::vector<unsigned>> fwd(1,std::vector<unsigned>(1)); // The 0th element is the collsion between a1,b1.
-        std::vector<std::vector<unsigned>> rwd(1,std::vector<unsigned>(1));
+        static std::vector<std::vector<unsigned>> fwd;
+        fwd.resize(1,std::vector<unsigned>(1)); // The 0th element is the collsion between a1,b1.
+        static std::vector<std::vector<unsigned>> rwd;
+        rwd.resize(1,std::vector<unsigned>(1));
         unsigned bogus(as.size()+bs.size());
-        std::vector<unsigned> amap(as.size(),bogus);
-        std::vector<unsigned> bmap(bs.size(),bogus);
-        std::vector<unsigned> armap(1);
+        static std::vector<unsigned> amap;
+        amap.resize(as.size(),bogus);
+        static std::vector<unsigned> bmap;
+        bmap.resize(bs.size(),bogus);
+        static std::vector<unsigned> armap;
+        armap.resize(1,1);
         armap.reserve(as.size());
-        std::vector<unsigned> brmap(1);
+        static std::vector<unsigned> brmap;
+        brmap.resize(1,1);
         brmap.reserve(bs.size());
         std::pair<unsigned,unsigned> conf(0,0);
         for(unsigned a(0); a<as.size(); ++a){
@@ -2232,8 +2258,12 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
             }
           }
         }
-        std::vector<unsigned> left;
-        std::vector<unsigned> right;
+        static std::vector<unsigned> left;
+        left.resize(0);
+        left.reserve(fwd.size());
+        static std::vector<unsigned> right;
+        right.resize(0);
+        right.reserve(rwd.size());
         BiClique::findBiClique(fwd,rwd,conf,left,right);
         for(auto const& m:left){
           constraints.emplace_back((Constraint<state>*) new Identical<state>(ax1,as[armap[m]]));
@@ -2260,7 +2290,8 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
     comparison::CAT->remove(*location.paths[x], currentEnvironment[x]->environment, x);
   }
 */
-  std::vector<state> thePath;
+  static std::vector<state> thePath;
+  thePath.resize(0);
   GetFullPath<state,action,comparison,conflicttable,searchalgo,singleHeuristic>(c, astar, *currentEnvironment[x], thePath, location.wpts[x], location.paths[y]->back().t, x, replanTime, TOTAL_EXPANSIONS);
 
   double newcost(currentEnvironment[x]->environment->GetPathLength(thePath));
@@ -2561,8 +2592,10 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
           state b1(b[yTime]);
           state b2(b[yNextTime]);
           // Mutually conflicting sets.
-          std::vector<state> as;
-          std::vector<state> bs;
+          static std::vector<state> as;
+          as.resize(0);
+          static std::vector<state> bs;
+          bs.resize(0);
           LoadConstraintsForNode(bestNode,x);
           currentEnvironment[x]->environment->GetSuccessors(a1,as);     
           if(as.empty()){as.push_back(a2);}
@@ -2571,16 +2604,26 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
           if(bs.empty()){bs.push_back(b2);}
 
           // Determine the mutually conflicting set...
-          std::vector<std::vector<unsigned>> fwd(1,std::vector<unsigned>(1)); // The 0th element is the collsion between a1,b1.
-          std::vector<std::vector<unsigned>> rwd(1,std::vector<unsigned>(1));
+          static std::vector<std::vector<unsigned>> fwd;
+          fwd.resize(0);
+          fwd.resize(1,std::vector<unsigned>(1)); // The 0th element is the collsion between a1,b1.
+          fwd.reserve(as.size());
+          static std::vector<std::vector<unsigned>> rwd;
+          rwd.resize(0);
+          rwd.resize(1,std::vector<unsigned>(1));
+          rwd.reserve(bs.size());
           unsigned bogus(as.size()+bs.size());
-          std::vector<unsigned> amap(as.size(),bogus);
-          std::vector<unsigned> bmap(bs.size(),bogus);
-          std::vector<unsigned> armap(1);
+          static std::vector<unsigned> amap;
+          amap.resize(as.size(),bogus);
+          static std::vector<unsigned> bmap;
+          bmap.resize(bs.size(),bogus);
+          static std::vector<unsigned> armap;
+          armap.resize(1,1);
           armap.reserve(as.size());
-          std::vector<unsigned> brmap(1);
+          static std::vector<unsigned> brmap;
+          brmap.resize(1,1);
           brmap.reserve(bs.size());
-          std::pair<unsigned,unsigned> conf(0,0);
+          static std::pair<unsigned,unsigned> conf(0,0);
           for(unsigned a(0); a<as.size(); ++a){
             //std::cout << a1 << "<->" << as[a] << " " << b1 << "<->" << b2 << " => "; 
             if(collisionCheck3D(a1, as[a], b1, b2, agentRadius)){
@@ -2619,15 +2662,20 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
               unsigned b(brmap[j]);
               //std::cout << a1 << "<->" << as[a] << " " << b1 << "<->" << bs[b] << " => "; 
               if(collisionCheck3D(a1, as[a], b1, bs[b], agentRadius)){
-                //std::cout << "CRASH\n";
+                //std::cout << "CRASH: ["<<amap[a]<<"]="<<bmap[b] <<"\n";
                 fwd[amap[a]].push_back(bmap[b]);
                 rwd[bmap[b]].push_back(amap[a]);
               }
               //else{std::cout << "NO CRASH\n";}
             }
           }
-          std::vector<unsigned> left;
-          std::vector<unsigned> right;
+          //std::cout << "\n";
+          static std::vector<unsigned> left;
+          left.resize(0);
+          left.reserve(fwd.size());
+          static std::vector<unsigned> right;
+          right.resize(0);
+          right.reserve(rwd.size());
           if(fwd.size()<=rwd.size()){
             BiClique::findBiClique(fwd,rwd,conf,left,right);
           }else{
