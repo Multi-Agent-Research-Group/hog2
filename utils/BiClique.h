@@ -132,14 +132,16 @@ namespace BiClique{
     // rDegree nodes
     // Test up to all N choose K combinations
     unsigned k(rDegree-1); // minus 1 because we always include the start vertex
+    static std::vector<unsigned> cmn(L[start.first]); // Start test with this...
+    static std::vector<unsigned> tmp;
     //std::cout << "N choose k (" << lDegree << "," << rDegree << "\n";
     do {
       //for(auto const& g:d)
         //std::cout << g << " ";
       //std::cout << "\n";
-      std::vector<unsigned> cmn(L[start.first]); // Start test with this...
+      cmn=L[start.first]; // Start test with this...
       for(unsigned i(0); i<k; ++i){
-        std::vector<unsigned> tmp;
+        tmp.resize(0);
         unsigned size(intersection(cmn,L[d[i]],tmp)); // Set intersection
         if(size<lDegree)break;
         cmn=tmp;
@@ -170,18 +172,13 @@ namespace BiClique{
   // match the indices of vertices in the respective adjacency list.
   // the result will be a list of edges in the biclique.
   void findBiClique(
-      std::vector<std::vector<unsigned>> L,
-      std::vector<std::vector<unsigned>> R,
+      std::vector<std::vector<unsigned>> const& L,
+      std::vector<std::vector<unsigned>> const& R,
       std::pair<unsigned,unsigned> const& start,
       std::vector<unsigned>& left,
       std::vector<unsigned>& right){
-    // Sort adj lists for easier comparison ops
-    for(auto& l:L){
-      std::sort(l.begin(),l.end());
-    }
-    for(auto& r:R){
-      std::sort(r.begin(),r.end());
-    }
+    unsigned minimum(std::max(L.size()+1,R.size()+1));
+    
     /*for(auto const& f:L){
       unsigned j(0);
       for(unsigned i(0); i<R.size(); ++i){
@@ -264,6 +261,9 @@ namespace BiClique{
         j=R[start.second][k];
       }
     }
+*/
+    unsigned lDegree(L[start.first].size());
+/*
  {
   std::cout << "L:\n";
   for(auto const& a:L){
@@ -282,9 +282,6 @@ namespace BiClique{
   std::cout << "\n";
 }
 */
-    std::vector<unsigned> histL(R.size()+1);
-    std::vector<unsigned> histR(L.size()+1);
-    unsigned lDegree(L[start.first].size());
     unsigned rDegree(R[start.second].size());
     // Special easy case...
     if(rDegree==1){
@@ -302,6 +299,13 @@ namespace BiClique{
       }
     }
 
+    static std::vector<unsigned> histL;
+    histL.resize(R.size()+1);
+    memset(&histL[0], 0, sizeof(histL[0]) * histL.size());
+    static std::vector<unsigned> histR;
+    histR.resize(L.size()+1);
+    memset(&histR[0], 0, sizeof(histR[0]) * histR.size());
+    std::queue<std::pair<unsigned,unsigned>> q;
     // Cumulative histogram - the number of vertices with degX or above.
     for(auto const& l:L){
       //if(l.size()>=R.size())
@@ -318,32 +322,35 @@ namespace BiClique{
     }
     for(int i(histR.size()-1); i>1; --i){
       histR[i-1]+=histR[i];
+      unsigned num(histR[i]);
+      while((i)+num>minimum && histL[num]>=i){
+        q.emplace(num--,i);
+      }
     }
+    q.emplace(R.size()>L.size()?R.size():1,R.size()>L.size()?1:L.size());
+    //std::cout << "q:\n";
+    //for(auto const& p:possibilities){
+      //std::cout << p.first << "," << p.second << "\n";
+    //}
 
-    std::unordered_set<uint64_t> dupe;
-    auto cmp = [](std::pair<unsigned,unsigned> left, std::pair<unsigned,unsigned> right) { return left.first*left.second<right.first*right.second;};
-    std::priority_queue<std::pair<unsigned,unsigned>, std::vector<std::pair<unsigned,unsigned>>, decltype(cmp)> q(cmp);
-    q.push({lDegree,rDegree});
+    // Sort adj lists for easier comparison ops
+    // Skip this - we assume they are initially sorted
+    /*for(auto& l:L){
+      std::sort(l.begin(),l.end());
+    }
+    for(auto& r:R){
+      std::sort(r.begin(),r.end());
+    }*/
+
+    //std::unordered_set<uint64_t> dupe;
+    //auto cmp = [](std::pair<unsigned,unsigned> left, std::pair<unsigned,unsigned> right) { return left.first*left.second<right.first*right.second;};
+    //std::priority_queue<std::pair<unsigned,unsigned>, std::vector<std::pair<unsigned,unsigned>>, decltype(cmp)> q(cmp);
     while(!q.empty()){
-      lDegree=q.top().first;
-      rDegree=q.top().second;
+      lDegree=q.front().first;
+      rDegree=q.front().second;
       q.pop();
-      if(!testFeasibility(L,R,start,lDegree,rDegree,histL,histR,left,right)){
-        // minus one from l
-        unsigned n(lDegree-1);
-        uint64_t key(n*L.size()+rDegree);
-        if(n && dupe.find(key)==dupe.end()){
-          dupe.insert(key);
-          q.push({n,rDegree});
-        }
-        // minus one from r
-        n=rDegree-1;
-        key=lDegree*L.size()+n;
-        if(n && dupe.find(key)==dupe.end()){
-          dupe.insert(key);
-          q.push({lDegree,n});
-        }
-      }else{
+      //std::cout << "trying " << lDegree << "," << rDegree << "\n";
+      if(testFeasibility(L,R,start,lDegree,rDegree,histL,histR,left,right)){
         break;
       }
     }
