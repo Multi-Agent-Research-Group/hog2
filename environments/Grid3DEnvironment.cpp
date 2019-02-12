@@ -301,6 +301,259 @@ void Grid3DEnvironment::GetSuccessors(const xyztLoc &loc, std::vector<xyztLoc> &
   }
 }
 
+unsigned Grid3DEnvironment::GetSuccessors(const xyztLoc &loc, xyztLoc* neighbors) const{
+  unsigned sz(0);
+  if(agentType==Map3D::air){
+    // TODO add LOS checks
+    if(connectedness==0){
+      if(map->IsTraversable(loc.x,loc.y,loc.z+1,agentType))
+        neighbors[sz++]=xyztLoc(loc.x,loc.y,loc.z+1);
+      if(map->IsTraversable(loc.x,loc.y,loc.z-1,agentType))
+        neighbors[sz++]=xyztLoc(loc.x,loc.y,loc.z-1);
+      if(map->IsTraversable(loc.x,loc.y+1,loc.z,agentType))
+        neighbors[sz++]=xyztLoc(loc.x,loc.y+1,loc.z);
+      if(map->IsTraversable(loc.x,loc.y-1,loc.z,agentType))
+        neighbors[sz++]=xyztLoc(loc.x,loc.y-1,loc.z);
+      if(map->IsTraversable(loc.x+1,loc.y,loc.z,agentType))
+        neighbors[sz++]=xyztLoc(loc.x+1,loc.y,loc.z);
+      if(map->IsTraversable(loc.x-1,loc.y,loc.z,agentType))
+        neighbors[sz++]=xyztLoc(loc.x-1,loc.y,loc.z);
+      if(waitAllowed)neighbors[sz++]=xyztLoc(loc);
+    }else{
+      for(int i(-connectedness); i<=connectedness; ++i){
+        for(int j(-connectedness); j<=connectedness; ++j){
+          for(int k(-connectedness); k<=connectedness; ++k){
+            if(!waitAllowed && i==0 && j==0 && k==0)continue;
+            if(map->IsTraversable(loc.x+i,loc.y+j,loc.z+k,agentType))
+              neighbors[sz++]=xyztLoc(loc.x+i,loc.y+j,loc.z+k);
+          }
+        }
+      }
+    }
+  }else{
+    if(waitAllowed) // Is waiting allowed?
+    {
+      neighbors[sz++]=loc;
+    }
+    bool u=false, d=false, /*l=false, r=false,*/ u2=false, d2=false, l2=false, r2=false, /*ur=false, ul=false, dr=false, dl=false,*/ u2l=false, d2l=false, u2r=false, d2r=false, ul2=false, ur2=false, dl2=false, dr2=false, u2r2=false, u2l2=false, d2r2=false, d2l2=false;
+    // 
+    if ((map->CanStep(loc.x, loc.y, loc.x, loc.y+1,agentType)))
+    {
+      d = true;
+      neighbors[sz++]=xyztLoc(loc.x, loc.y+1);
+      if(connectedness>1 && map->IsTraversable(loc.x, loc.y+2,agentType)){
+        d2=true;
+        if(fullBranching)neighbors[sz++]=xyztLoc(loc.x, loc.y+2);
+      }
+    }
+    if ((map->CanStep(loc.x, loc.y, loc.x, loc.y-1,agentType)))
+    {
+      u = true;
+      neighbors[sz++]=xyztLoc(loc.x, loc.y-1);
+      if(connectedness>1 && map->IsTraversable(loc.x, loc.y-2,agentType)){
+        u2=true;
+        if(fullBranching)neighbors[sz++]=xyztLoc(loc.x, loc.y-2);
+      }
+    }
+    if ((map->CanStep(loc.x, loc.y, loc.x-1, loc.y,agentType)))
+    {
+      //l=true;
+      neighbors[sz++]=xyztLoc(loc.x-1, loc.y);
+      if (connectedness>0){
+        // Left is open ...
+        if(connectedness>1 && map->IsTraversable(loc.x-2, loc.y,agentType)){ // left 2
+          l2=true;
+          if(fullBranching)neighbors[sz++]=xyztLoc(loc.x-2, loc.y);
+        }
+        if(u && (map->CanStep(loc.x, loc.y, loc.x-1, loc.y-1,agentType))){
+          //ul=true;
+          neighbors[sz++]=xyztLoc(loc.x-1, loc.y-1);
+          if(connectedness>1){
+            // Left, Up, Left2 and UpLeft are open...
+            if(l2 && map->IsTraversable(loc.x-2, loc.y-1,agentType)){
+              ul2=true;
+              neighbors[sz++]=xyztLoc(loc.x-2, loc.y-1);
+            }
+            // Left, Up2, Up and UpLeft are open...
+            if(u2 && map->IsTraversable(loc.x-1, loc.y-2,agentType)){
+              u2l=true;
+              neighbors[sz++]=xyztLoc(loc.x-1, loc.y-2);
+            }
+            if(ul2 && u2l && map->IsTraversable(loc.x-2, loc.y-2,agentType)){
+              u2l2=true;
+              if(fullBranching)neighbors[sz++]=xyztLoc(loc.x-2, loc.y-2);
+            }
+          }
+        }
+
+        if (d && (map->CanStep(loc.x, loc.y, loc.x-1, loc.y+1,agentType))){
+          neighbors[sz++]=xyztLoc(loc.x-1, loc.y+1);
+          //dl=true;
+          if(connectedness>1){
+            // Left, Down, Left2 and UpLeft are open...
+            if(l2 && map->IsTraversable(loc.x-2, loc.y+1,agentType)){
+              dl2=true;
+              neighbors[sz++]=xyztLoc(loc.x-2, loc.y+1);
+            }
+            // Left, Up2, Up and UpLeft are open...
+            if(d2 && map->IsTraversable(loc.x-1, loc.y+2,agentType)){
+              d2l=true;
+              neighbors[sz++]=xyztLoc(loc.x-1, loc.y+2);
+            }
+            if(dl2 && d2l && map->IsTraversable(loc.x-2, loc.y+2,agentType)){
+              d2l2=true;
+              if(fullBranching)neighbors[sz++]=xyztLoc(loc.x-2, loc.y+2);
+            }
+          }
+        } // down && downleft
+      } // connectedness>5
+    } // left
+
+    if ((map->CanStep(loc.x, loc.y, loc.x+1, loc.y,agentType)))
+    {
+      //r=true;
+      neighbors[sz++]=xyztLoc(loc.x+1, loc.y);
+      if (connectedness>0){
+        // Right is open ...
+        if(connectedness>1 && map->IsTraversable(loc.x+2, loc.y,agentType)){ // right 2
+          r2=true;
+          if(fullBranching)neighbors[sz++]=xyztLoc(loc.x+2, loc.y);
+        }
+        if(u && (map->CanStep(loc.x, loc.y, loc.x+1, loc.y-1,agentType))){
+          //ur=true;
+          neighbors[sz++]=xyztLoc(loc.x+1, loc.y-1);
+          if(connectedness>1){
+            // Right, Up, Right2 and UpRight are open...
+            if(r2 && map->IsTraversable(loc.x+2, loc.y-1,agentType)){
+              ur2=true;
+              neighbors[sz++]=xyztLoc(loc.x+2, loc.y-1);
+            }
+            // Right, Up2, Up and UpRight are open...
+            if(u2 && map->IsTraversable(loc.x+1, loc.y-2,agentType)){
+              u2r=true;
+              neighbors[sz++]=xyztLoc(loc.x+1, loc.y-2);
+            }
+            if(ur2 && u2r && map->IsTraversable(loc.x+2, loc.y-2,agentType)){
+              u2r2=true;
+              if(fullBranching)neighbors[sz++]=xyztLoc(loc.x+2, loc.y-2);
+            }
+          }
+        }
+
+        if (d && (map->CanStep(loc.x, loc.y, loc.x+1, loc.y+1,agentType))){
+          //dr=true;
+          neighbors[sz++]=xyztLoc(loc.x+1, loc.y+1);
+          if(connectedness>1){
+            // Right, Down, Right2 and UpRight are open...
+            if(r2 && map->IsTraversable(loc.x+2, loc.y+1,agentType)){
+              dr2=true;
+              neighbors[sz++]=xyztLoc(loc.x+2, loc.y+1);
+            }
+            // Right, Up2, Up and UpRight are open...
+            if(d2 && map->IsTraversable(loc.x+1, loc.y+2,agentType)){
+              d2r=true;
+              neighbors[sz++]=xyztLoc(loc.x+1, loc.y+2);
+            }
+            if(dr2 && d2r && map->IsTraversable(loc.x+2, loc.y+2,agentType)){
+              d2r2=true;
+              if(fullBranching)neighbors[sz++]=xyztLoc(loc.x+2, loc.y+2);
+            }
+          }
+        } // down && downright
+      } // connectedness>0
+    } // right
+
+    if(connectedness>2){
+      if(fullBranching){
+        if(d2 && map->IsTraversable(loc.x, loc.y+3,agentType))
+          neighbors[sz++]=xyztLoc(loc.x, loc.y+3);
+        if(u2 && map->IsTraversable(loc.x, loc.y-3,agentType))
+          neighbors[sz++]=xyztLoc(loc.x, loc.y-3);
+        if(r2 && map->IsTraversable(loc.x+3, loc.y,agentType))
+          neighbors[sz++]=xyztLoc(loc.x+3, loc.y);
+        if(l2 && map->IsTraversable(loc.x-3, loc.y,agentType))
+          neighbors[sz++]=xyztLoc(loc.x-3, loc.y);
+      }
+
+      // ul3
+      //if(l2 && map->IsTraversable(loc.x-2, loc.y-1,agentType) && map->IsTraversable(loc.x-3, loc.y-1,agentType))
+      if(l2 && ul2 && map->IsTraversable(loc.x-3, loc.y-1,agentType))
+        neighbors[sz++]=xyztLoc(loc.x-3, loc.y-1);
+      // dl3
+      //if(l2 && map->IsTraversable(loc.x-2, loc.y+1,agentType) && map->IsTraversable(loc.x-3, loc.y+1,agentType))
+      if(l2 && dl2  && map->IsTraversable(loc.x-3, loc.y+1,agentType))
+        neighbors[sz++]=xyztLoc(loc.x-3, loc.y+1);
+      // ur3
+      //if(r2 && map->IsTraversable(loc.x+2, loc.y-1,agentType) && map->IsTraversable(loc.x+3, loc.y-1,agentType))
+      if(r2 && ur2 && map->IsTraversable(loc.x+3, loc.y-1,agentType))
+        neighbors[sz++]=xyztLoc(loc.x+3, loc.y-1);
+      // dr3
+      //if(r2 && map->IsTraversable(loc.x+2, loc.y+1,agentType) && map->IsTraversable(loc.x+3, loc.y+1,agentType))
+      if(r2 && dr2 && map->IsTraversable(loc.x+3, loc.y+1,agentType))
+        neighbors[sz++]=xyztLoc(loc.x+3, loc.y+1);
+
+      // u3l
+      //if(u2 && map->IsTraversable(loc.x-1, loc.y-2,agentType) && map->IsTraversable(loc.x-1, loc.y-3,agentType))
+      if(u2 && u2l && map->IsTraversable(loc.x-1, loc.y-3,agentType))
+        neighbors[sz++]=xyztLoc(loc.x-1, loc.y-3);
+      // d3l
+      //if(d2 && map->IsTraversable(loc.x-1, loc.y+2,agentType) && map->IsTraversable(loc.x-1, loc.y+3,agentType))
+      if(d2 && d2l && map->IsTraversable(loc.x-1, loc.y+3,agentType))
+        neighbors[sz++]=xyztLoc(loc.x-1, loc.y+3);
+      // u3r
+      //if(u2 && map->IsTraversable(loc.x+1, loc.y-2,agentType) && map->IsTraversable(loc.x+1, loc.y-3,agentType))
+      if(u2 && u2r && map->IsTraversable(loc.x+1, loc.y-3,agentType))
+        neighbors[sz++]=xyztLoc(loc.x+1, loc.y-3);
+      // d3r
+      //if(d2 && map->IsTraversable(loc.x+1, loc.y+2,agentType) && map->IsTraversable(loc.x+1, loc.y+3,agentType))
+      if(d2 && d2r && map->IsTraversable(loc.x+1, loc.y+3,agentType))
+        neighbors[sz++]=xyztLoc(loc.x+1, loc.y+3);
+
+      // u2l3
+      if(u2l2 && map->IsTraversable(loc.x-3,loc.y-1,agentType) && map->IsTraversable(loc.x-3, loc.y-2,agentType))
+        neighbors[sz++]=xyztLoc(loc.x-3, loc.y-2);
+      // d2l3
+      if(d2l2 && map->IsTraversable(loc.x-3,loc.y+1,agentType) && map->IsTraversable(loc.x-3, loc.y+2,agentType))
+        neighbors[sz++]=xyztLoc(loc.x-3, loc.y+2);
+      // u2r3
+      if(u2r2 && map->IsTraversable(loc.x+3,loc.y-1,agentType) && map->IsTraversable(loc.x+3, loc.y-2,agentType))
+        neighbors[sz++]=xyztLoc(loc.x+3, loc.y-2);
+      // d2r3
+      if(d2r2 && map->IsTraversable(loc.x+3,loc.y+1,agentType) && map->IsTraversable(loc.x+3, loc.y+2,agentType))
+        neighbors[sz++]=xyztLoc(loc.x+3, loc.y+2);
+
+      // u3l2
+      if(u2l2 && map->IsTraversable(loc.x-1,loc.y-3,agentType) && map->IsTraversable(loc.x-2, loc.y-3,agentType))
+        neighbors[sz++]=xyztLoc(loc.x-2, loc.y-3);
+      // d3l2
+      if(d2l2 && map->IsTraversable(loc.x-1,loc.y+3,agentType) && map->IsTraversable(loc.x-2, loc.y+3,agentType))
+        neighbors[sz++]=xyztLoc(loc.x-2, loc.y+3);
+      // u3r2
+      if(u2r2 && map->IsTraversable(loc.x+1,loc.y-3,agentType) && map->IsTraversable(loc.x+2, loc.y-3,agentType))
+        neighbors[sz++]=xyztLoc(loc.x+2, loc.y-3);
+      // d3r2
+      if(d2r2 && map->IsTraversable(loc.x+1,loc.y+3,agentType) && map->IsTraversable(loc.x+2, loc.y+3,agentType))
+        neighbors[sz++]=xyztLoc(loc.x+2, loc.y+3);
+
+      if(fullBranching){
+        // u3l3
+        if(u2l2 && map->IsTraversable(loc.x-2,loc.y-3,agentType) && map->IsTraversable(loc.x-3,loc.y-2,agentType) && map->IsTraversable(loc.x-3, loc.y-3,agentType))
+          neighbors[sz++]=xyztLoc(loc.x-3, loc.y-3);
+        // d3l3
+        if(d2l2 && map->IsTraversable(loc.x-2,loc.y+3,agentType) && map->IsTraversable(loc.x-3,loc.y+2,agentType) && map->IsTraversable(loc.x-3, loc.y+3,agentType))
+          neighbors[sz++]=xyztLoc(loc.x-3, loc.y+3);
+        // u3r3
+        if(u2r2 && map->IsTraversable(loc.x+2,loc.y-3,agentType) && map->IsTraversable(loc.x+3,loc.y-2,agentType) && map->IsTraversable(loc.x+3, loc.y-3,agentType))
+          neighbors[sz++]=xyztLoc(loc.x+3, loc.y-3);
+        // d3r3
+        if(d2r2 && map->IsTraversable(loc.x+2,loc.y+3,agentType) && map->IsTraversable(loc.x+3,loc.y+2,agentType) && map->IsTraversable(loc.x+3, loc.y+3,agentType))
+          neighbors[sz++]=xyztLoc(loc.x+3, loc.y+3);
+      }
+    }
+  }
+  return sz;
+}
+
 void Grid3DEnvironment::GetActions(const xyztLoc &loc, std::vector<t3DDirection> &actions) const
 {
 // TODO: Implement this

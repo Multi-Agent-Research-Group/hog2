@@ -197,6 +197,7 @@ public:
 	void SetGraphHeuristic(GraphHeuristic *h);
 	GraphHeuristic *GetGraphHeuristic();
 	virtual void GetSuccessors(const xyztLoc &nodeID, std::vector<xyztLoc> &neighbors) const;
+	virtual unsigned GetSuccessors(const xyztLoc &nodeID, xyztLoc* neighbors) const;
 	void GetActions(const xyztLoc &nodeID, std::vector<t3DDirection> &actions) const;
 	t3DDirection GetAction(const xyztLoc &s1, const xyztLoc &s2) const;
 	virtual void ApplyAction(xyztLoc &s, t3DDirection dir) const;

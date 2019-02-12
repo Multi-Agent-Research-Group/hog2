@@ -29,6 +29,7 @@ public:
 	Grid3DConstrainedEnvironment(Grid3DEnvironment *m);
         virtual std::string name()const{return mapEnv->name();}
 	virtual void GetSuccessors(const xyztLoc &nodeID, std::vector<xyztLoc> &neighbors) const;
+	virtual unsigned GetSuccessors(const xyztLoc &nodeID, xyztLoc* neighbors) const;
 	virtual void GetAllSuccessors(const xyztLoc &nodeID, std::vector<xyztLoc> &neighbors) const;
 	virtual void GetActions(const xyztLoc &nodeID, std::vector<t3DDirection> &actions) const;
 	virtual t3DDirection GetAction(const xyztLoc &s1, const xyztLoc &s2) const;
@@ -78,7 +79,6 @@ private:
         bool ignoreHeading;
 
 	Grid3DEnvironment *mapEnv;
-        mutable std::vector<xyztLoc> n;
 };
 
 // Check if an openlist node conflicts with a node from an existing path

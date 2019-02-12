@@ -42,7 +42,7 @@
 //#include "TemplateIntervalTree.h"
 #include "GridStates.h"
 #include "MultiAgentStructures.h"
-#include "TemporalAStar.h"
+#include "TemporalAStar2.h"
 #include "Heuristic.h"
 #include "BiClique.h"
 #include "Timer.h"
@@ -2156,7 +2156,7 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
   CBSTreeNode<state, conflicttable>& location=tree[bestNode];
   std::vector<std::unique_ptr<Constraint<state>>> constraints;
   if(Params::vc && ax2==bx2){ // Vertex collision
-    constraints.emplace_back((Constraint<state>*) new Identical<state>(ax2,ax2));
+    constraints.emplace_back((Constraint<state>*) new Vertex<state>(ax2));
   }else{
     if (Params::extrinsicconstraints) {
       state b2(bx2);
@@ -2196,11 +2196,17 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
         constraints.emplace_back((Constraint<state>*) new TimeRange<state>(a1,a2));
       }else if(Params::mutualconstraints){
         // Mutually conflicting sets.
+        state testo[64];
+        unsigned na(currentEnvironment[x]->environment->GetSuccessors(ax1,testo));
         static std::vector<state> as;
         as.resize(0);
         static std::vector<state> bs;
         bs.resize(0);
         currentEnvironment[x]->environment->GetSuccessors(ax1,as);     
+assert(na==as.size());
+for(int i(0); i<na; ++i){
+assert(as[i]==testo[i]);
+}
         currentEnvironment[y]->environment->GetSuccessors(bx1,bs);     
         //unsigned fcost1(currentEnvironment[x]->environment->GCost(ax1,ax2)+currentEnvironment[x]->environment->HCost(ax2,currentEnvironment[x]->environment->getGoal()));
         //unsigned fcost2(currentEnvironment[y]->environment->GCost(bx1,bx2)+currentEnvironment[b]->environment->HCost(bx2,currentEnvironment[y]->environment->getGoal()));
@@ -2463,8 +2469,8 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
     c2.unit2 = x;
     c1.prevWpt = pwptA;
     c2.prevWpt = pwptB;
-    c1.c.emplace_back((Constraint<state>*) new Identical<state>(a[xNextTime],a[xNextTime]));
-    c2.c.emplace_back((Constraint<state>*) new Identical<state>(a[xNextTime],a[xNextTime]));
+    c1.c.emplace_back((Constraint<state>*) new Vertex<state>(a[xNextTime]));
+    c2.c.emplace_back((Constraint<state>*) new Vertex<state>(a[xNextTime]));
   }else{
     if(Params::xorconstraints){
       conflicts.resize(3);
@@ -2598,6 +2604,12 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
           bs.resize(0);
           LoadConstraintsForNode(bestNode,x);
           currentEnvironment[x]->environment->GetSuccessors(a1,as);     
+        state testo[64];
+        unsigned na(currentEnvironment[x]->environment->GetSuccessors(a1,testo));
+assert(na==as.size());
+for(int i(0); i<na; ++i){
+assert(as[i]==testo[i]);
+}
           if(as.empty()){as.push_back(a2);}
           LoadConstraintsForNode(bestNode,y);
           currentEnvironment[y]->environment->GetSuccessors(b1,bs);     
@@ -2978,7 +2990,7 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
   if (Params::verbose)
     std::cout << "Checking for conflicts (one vs all)\n";
   // prefer cardinal conflicts
-  std::pair<std::pair<unsigned, unsigned>, std::vector<Conflict<state>>> best;
+  std::pair<unsigned, unsigned> best;
 
   Timer tmr;
   tmr.StartTimer();
@@ -2986,7 +2998,7 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
   for (unsigned b(0); b < activeMetaAgents.size(); ++b) {
     if(b==agent)continue;
     bool intraConflict(false); // Conflict between meta-agents
-    unsigned previous(best.first.second);
+    unsigned previous(best.second);
     // For each pair of units in the group
     for (unsigned x : activeMetaAgents.at(b).units) {
       for (unsigned y : activeMetaAgents.at(agent).units) {
@@ -3024,10 +3036,10 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
             }
           }
           if(HasConflict(*location.paths[x], location.wpts[x], *location.paths[y], location.wpts[y], x, y,
-                best.second, best.first, (Params::prioritizeConf?ctype:best.first.second), update, true)){
+                conflicts, best, (Params::prioritizeConf?ctype:best.second), update, true)){
             intraConflict=true;
           }
-          best.first.second = std::max(ctype,best.first.second);
+          best.second = std::max(ctype,best.second);
         }
         /*if(requireLOS&&currentEnvironment[x]->agentType==Map3D::air||currentEnvironment[y]->agentType==Map3D::air){
          if(ViolatesProximity(location.paths[x],location.paths[y]
@@ -3035,42 +3047,41 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
       }
     }
     // Make sure that the conflict counted is the one being returned (and being translated to meta-agent indices)
-    if (best.first.second > previous && (intraConflict)) {
+    if (best.second > previous && (intraConflict)) {
       if(Params::xorconstraints){
         if (Params::extrinsicconstraints) {
-          best.second[0].unit1 = agent;
-          best.second[0].unit2 = b;
-          best.second[1].unit1 = b;
-          best.second[1].unit2 = agent;
+          conflicts[0].unit1 = agent;
+          conflicts[0].unit2 = b;
+          conflicts[1].unit1 = b;
+          conflicts[1].unit2 = agent;
         }else{
-          best.second[0].unit1 = b;
-          best.second[0].unit2 = agent;
-          best.second[1].unit1 = agent;
-          best.second[1].unit2 = b;
+          conflicts[0].unit1 = b;
+          conflicts[0].unit2 = agent;
+          conflicts[1].unit1 = agent;
+          conflicts[1].unit2 = b;
 	}
-        best.second[2].unit1 = agent;
-        best.second[2].unit2 = b;
+        conflicts[2].unit1 = agent;
+        conflicts[2].unit2 = b;
       }else{
         if (Params::extrinsicconstraints) {
-          best.second[0].unit1 = agent;
-          best.second[0].unit2 = b;
-          best.second[1].unit1 = b;
-          best.second[1].unit2 = agent;
+          conflicts[0].unit1 = agent;
+          conflicts[0].unit2 = b;
+          conflicts[1].unit1 = b;
+          conflicts[1].unit2 = agent;
         } else {
-          best.second[0].unit1 = b;
-          best.second[0].unit2 = agent;
-          best.second[1].unit1 = agent;
-          best.second[1].unit2 = b;
+          conflicts[0].unit1 = b;
+          conflicts[0].unit2 = agent;
+          conflicts[1].unit1 = agent;
+          conflicts[1].unit2 = b;
         }
       }
     }
-    if(best.first.second==BOTH_CARDINAL){update=false;} // Now that we've found a both cardinal conflict, no sense updating
+    if(best.second==BOTH_CARDINAL){update=false;} // Now that we've found a both cardinal conflict, no sense updating
   }
   collisionTime += tmr.EndTimer();
-  if(best.first.first) { // Was a collision found with this agent?
+  if(best.first) { // Was a collision found with this agent?
     if(update){
-      metaAgentConflictMatrix[best.second[0].unit1][best.second[1].unit1]++;
-      conflicts = best.second; // Copy
+      metaAgentConflictMatrix[conflicts[0].unit1][conflicts[1].unit1]++;
     }
   }else if(location.hasCollisions()){ // Are there any collisions left?
     unsigned x(0);
@@ -3091,12 +3102,11 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
     }
     //std::cout << "selected " << x << ","<<y<<"\n";
     assert(HasConflict(*location.paths[x], location.wpts[x], *location.paths[y], location.wpts[y], x, y,
-          best.second, best.first, best.first.second, true, true));
-    metaAgentConflictMatrix[best.second[0].unit1][best.second[0].unit2]++;
-    conflicts = best.second; // Copy
+          conflicts, best, best.second, true, true));
+    metaAgentConflictMatrix[conflicts[0].unit1][conflicts[0].unit2]++;
   }
   
-  return best.first;
+  return best;
 }
 
 /** Find the highest priority conflict **/

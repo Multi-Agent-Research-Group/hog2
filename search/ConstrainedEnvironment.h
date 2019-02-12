@@ -166,6 +166,22 @@ class XORIdentical : public XOR<State> {
 };
 
 template<typename State>
+class Vertex : public Constraint<State> {
+  public:
+    Vertex(double radius=.25):Constraint<State>(),agentRadius(radius){}
+    Vertex(State const& start,double radius=.25, bool neg=true):Constraint<State>(start,start,neg),agentRadius(radius){}
+    virtual ~Vertex(){}
+    virtual double ConflictsWith(State const& s) const {return 0;} // Vertex collisions are ignored
+    // Check whether the action has the exact same time and to/from
+    virtual double ConflictsWith(State const& from, State const& to) const {
+      // Vertex collision
+      if(to==this->end_state) return to.t/State::TIME_RESOLUTION_D-.25;//radius
+      return 0.0;
+    }
+    double agentRadius;
+};
+
+template<typename State>
 class Identical : public Constraint<State> {
   public:
     Identical():Constraint<State>(){}
@@ -176,7 +192,6 @@ class Identical : public Constraint<State> {
     // Check whether the action has the exact same time and to/from
     virtual double ConflictsWith(State const& from, State const& to) const {
       // Vertex collision
-      if(this->start_state==this->end_state && to==this->end_state) return to.t/State::TIME_RESOLUTION_D-.25;//radius
       return (from==this->start_state && to.sameLoc(this->end_state))?from.t?double(from.t)/State::TIME_RESOLUTION_D:-1.0/State::TIME_RESOLUTION_D:0;}
 };
 
@@ -320,6 +335,7 @@ class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
     virtual void GetReverseActions(const State &nodeID, std::vector<Action> &actions) const = 0;
     /** Get the successor states not violating constraints */
     virtual void GetSuccessors(const State &nodeID, std::vector<State> &neighbors) const = 0;
+    virtual unsigned GetSuccessors(const State &nodeID, State* neighbors) const{return 0;}
     /** Checks to see if any constraint is violated, returning the time of violation, 0 otherwise */
     virtual inline double ViolatesConstraint(const State &from, const State &to) const {
       //Check if the action violates any of the constraints that are in the constraints list
@@ -331,7 +347,8 @@ class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
       //while((*s)->end_state.t>=from.t && s!=constraints.begin())--s; // Reverse to the constraint just before
       //auto e(constraints.upper_bound((Constraint<State> const*)&end));
       //while(e!=constraints.end() && (*e)->start_state.t<=to.t)++e;
-      std::vector<Constraint<State> const*> cs;
+      static std::vector<Constraint<State> const*> cs;
+      cs.resize(0);
       constraints.findOverlapping(from.t,to.t,cs);
       //for(;s!=e;++s){
       for(auto const& s:cs){

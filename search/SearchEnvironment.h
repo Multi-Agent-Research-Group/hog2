@@ -34,6 +34,7 @@ class SearchEnvironment : public ObjectiveEnvironment<state> {
 public:
 	virtual ~SearchEnvironment() {}
 	virtual void GetSuccessors(const state &nodeID, std::vector<state> &neighbors) const = 0;
+	virtual unsigned GetSuccessors(const state &nodeID, state* neighbors) const{return 0UL;}
 	virtual void GetActions(const state &nodeID, std::vector<action> &actions) const = 0;
 	virtual int GetNumSuccessors(const state &stateID) const
 	{ std::vector<state> neighbors; GetSuccessors(stateID, neighbors); return (int)neighbors.size(); }
