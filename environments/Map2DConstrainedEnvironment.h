@@ -39,7 +39,7 @@ public:
 	virtual void ApplyAction(xytLoc &s, tDirection a) const;
 	virtual void UndoAction(xytLoc &s, tDirection a) const;
 	virtual void GetReverseActions(const xytLoc &nodeID, std::vector<tDirection> &actions) const;
-	double ViolatesConstraint(const xytLoc &from, const xytLoc &to) const;
+	//double ViolatesConstraint(const xytLoc &from, const xytLoc &to) const;
         void setSoftConstraintEffectiveness(double){}
 	double GetPathLength(std::vector<xytLoc> &neighbors);
         virtual bool collisionCheck(const xytLoc &s1, const xytLoc &d1, float r1, const xytLoc &s2, const xytLoc &d2, float r2);

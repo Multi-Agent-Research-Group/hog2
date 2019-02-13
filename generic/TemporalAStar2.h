@@ -371,7 +371,7 @@ bool TemporalAStar<state,action,environment,openList>::DoSingleSearchStep(std::v
         state n=openClosedList.Lookup(nodeid).data;
         n.t=minTime;
         // Returns 0 if no violation, otherwise the minimum safe time (minus epsilon)
-        n.t=env->ViolatesConstraint(openClosedList.Lookup(nodeid).data,n);
+        n.t=env->ViolatesConstraintTime(openClosedList.Lookup(nodeid).data,n);
         if(!n.t){
           n.t=minTime;
           if(!goalSteps){

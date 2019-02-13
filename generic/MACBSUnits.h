@@ -1504,10 +1504,10 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
         auto bp(tree[bestNode].paths[y]->begin());
         auto b(bp + 1);
         while (a != tree[bestNode].paths[x]->end() && b != tree[bestNode].paths[y]->end()) {
-          if (collisionCheck3D(*ap, *a, *bp, *b, agentRadius)){
+          if(collisionCheck3D(*ap, *a, *bp, *b, agentRadius)){
             valid = false;
             std::cout << "ERROR: Solution invalid; collision at: " << x << ":" << *ap << "-->" << *a << ", " << y << ":"
-                << *bp << "-->" << *b << std::endl;
+              << *bp << "-->" << *b << std::endl;
           }
           if (a->t < b->t) {
             ++a;
@@ -2155,9 +2155,15 @@ template<typename state, typename action, typename comparison, typename conflict
 bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeuristic, searchalgo>::IsCardinal(int x, state const& ax1, state const& ax2, int y, state const& bx1, state const& bx2, bool asym){
   CBSTreeNode<state, conflicttable>& location=tree[bestNode];
   std::vector<std::unique_ptr<Constraint<state>>> constraints;
-  if(Params::vc && ax2==bx2){ // Vertex collision
-    constraints.emplace_back((Constraint<state>*) new Vertex<state>(ax2));
-  }else{
+  const unsigned diam(agentRadius*2*state::TIME_RESOLUTION_D);
+  if(Params::vc){
+    if(ax2.sameLoc(bx2) && abs(ax2.t-bx2.t)<diam){ // Vertex collision
+      constraints.emplace_back((Constraint<state>*) new EndVertex<state>(ax2));
+    }else if(ax1.sameLoc(bx1) && abs(ax1.t-bx1.t)<diam){
+      constraints.emplace_back((Constraint<state>*) new StartVertex<state>(ax1));
+    }
+  }
+  if(!constraints.size()){
     if (Params::extrinsicconstraints) {
       state b2(bx2);
       if(bx1.sameLoc(bx2)){
@@ -2370,8 +2376,8 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
     // to check if the current I and J have a conflict, and if they do, then
     // we have to deal with it.
     // Figure out which indices we're comparing
-    int xTime(max(0, min(i, xmax - 1)));
-    int yTime(max(0, min(j, ymax - 1)));
+    int xTime(max(0, min(i, xmax - 2)));
+    int yTime(max(0, min(j, ymax - 2)));
     int xNextTime(min(xmax - 1, xTime + 1));
     int yNextTime(min(ymax - 1, yTime + 1));
 
@@ -2399,8 +2405,7 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
     //state const& aGoal(a[wa[pwptA + 1]]);
     //state const& bGoal(b[wb[pwptB + 1]]);
     collchecks++;
-    double ctime(0.0);
-    if((ctime=Params::boxconstraints?Box<state>(a[xTime], a[xNextTime]).ConflictsWith(b[yTime], b[yNextTime]):collisionCheck3D(a[xTime], a[xNextTime], b[yTime], b[yNextTime], agentRadius))){
+    if(Params::boxconstraints?Box<state>(a[xTime], a[xNextTime]).ConflictsWith(b[yTime], b[yNextTime]):collisionCheck3D(a[xTime], a[xNextTime], b[yTime], b[yNextTime], agentRadius)){
       ++conflict.first;
       if(Params::cct){
         location.setcct(x,y,xTime,yTime);
@@ -2457,255 +2462,316 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
         if (NO_CONFLICT == ctype || ((ctype <= NON_CARDINAL) && conf) || BOTH_CARDINAL == conf) {
           ctype = conf + 1;
 
-  if(Params::vc && a[xNextTime]==b[yNextTime]){ // Vertex collision
-    conflicts.resize(2);
-    Conflict<state>& c1=conflicts[0];
-    Conflict<state>& c2=conflicts[1];
-    c1.c.clear();
-    c2.c.clear();
-    c1.unit1 = x;
-    c1.unit2 = y;
-    c2.unit1 = y;
-    c2.unit2 = x;
-    c1.prevWpt = pwptA;
-    c2.prevWpt = pwptB;
-    c1.c.emplace_back((Constraint<state>*) new Vertex<state>(a[xNextTime]));
-    c2.c.emplace_back((Constraint<state>*) new Vertex<state>(a[xNextTime]));
-  }else{
-    if(Params::xorconstraints){
-      conflicts.resize(3);
-      Conflict<state>& c1=conflicts[0];
-      Conflict<state>& c2=conflicts[1];
-      Conflict<state>& c3=conflicts[2];
-      state a1(a[xTime]);
-      state a2(a[xNextTime]);
-      state b1(b[yTime]);
-      state b2(b[yNextTime]);
-      c1.c.clear();
-      c2.c.clear();
-      c3.c.clear();
-      c1.c2.clear();
-      c2.c2.clear();
-      c3.c2.clear();
-      if (Params::extrinsicconstraints) {
-        c1.c.emplace_back((Constraint<state>*) new XORCollision<state>(a1,a2,b1,b2,false));
-        c2.c.emplace_back((Constraint<state>*) new XORCollision<state>(b1,b2,a1,a2,false));
-        c3.c.emplace_back((Constraint<state>*) new Identical<state>(a1,a2));
-        c3.c2.emplace_back((Constraint<state>*) new Identical<state>(b1,b2));
-        c1.unit1 = y;
-        c1.unit2 = x;
-        c2.unit1 = x;
-        c2.unit2 = y;
-        c3.unit1 = x;
-        c3.unit2 = y;
-        c1.prevWpt = pwptA;
-        c2.prevWpt = pwptB;
-        c3.prevWpt = pwptA;
-      }else{
-        c1.c.emplace_back((Constraint<state>*) new XORIdentical<state>(a1,a2,b1,b2,false));
-        c2.c.emplace_back((Constraint<state>*) new XORIdentical<state>(b1,b2,a1,a2,false));
-        c3.c.emplace_back((Constraint<state>*) new Identical<state>(a1,a2));
-        c3.c2.emplace_back((Constraint<state>*) new Identical<state>(b1,b2));
-        c1.unit1 = x;
-        c1.unit2 = y;
-        c2.unit1 = y;
-        c2.unit2 = x;
-        c3.unit1 = x;
-        c3.unit2 = y;
-        c1.prevWpt = pwptA;
-        c2.prevWpt = pwptB;
-        c3.prevWpt = pwptA;
-      }
-    }else{
-      conflicts.resize(2);
-      Conflict<state>& c1=conflicts[0];
-      Conflict<state>& c2=conflicts[1];
-      c1.c.clear();
-      c2.c.clear();
-      if (Params::extrinsicconstraints) {
-        state a1(a[xTime]);
-        state a2(a[xNextTime]);
-        state b1(b[yTime]);
-        state b2(b[yNextTime]);
-        //a1.t=ctime*state::TIME_RESOLUTION_U;
-        //b1.t=ctime*state::TIME_RESOLUTION_U;
-        if(a1.sameLoc(a2)){
-          a2.t=b2.t;//+currentEnvironment[x]->environment->WaitTime();
-        }
-        if(b1.sameLoc(b2)){
-          b2.t=a2.t;//+currentEnvironment[x]->environment->WaitTime();
-        }
-        if(Params::boxconstraints){
-          c1.c.emplace_back((Box<state>*) new Box<state>(a1, a2));
-          c2.c.emplace_back((Box<state>*) new Box<state>(b1, b2));
-        }else if(Params::crossconstraints){
-          c1.c.emplace_back((Constraint<state>*) new Collision<state>(a1, a2));
-          if(Params::asym){
-            c2.c.emplace_back((Constraint<state>*) new Identical<state>(a1, a2));
-          }else{
-            c2.c.emplace_back((Constraint<state>*) new Collision<state>(b1, b2));
-          }
-        }else if(Params::overlapconstraints){
-          c1.c.emplace_back((Overlap<state>*) new Overlap<state>(a1,a2));
-          c2.c.emplace_back((Overlap<state>*) new Overlap<state>(b1,b2));
-        }else if(Params::pyramidconstraints){
-          c1.c.emplace_back((Constraint<state>*) new Pyramid<state>(a1, a2, b1.t));
-          c2.c.emplace_back((Constraint<state>*) new Pyramid<state>(b1, b2, a1.t));
-        }
-        c1.unit1 = y;
-        c1.unit2 = x;
-        c2.unit1 = x;
-        c2.unit2 = y;
-        c1.prevWpt = pwptB;
-        c2.prevWpt = pwptA;
-      } else {
-        if(Params::timerangeconstraints){
-          state a1(a[xTime]);
-          state a2(a[xNextTime]);
-          state b1(b[yTime]);
-          state b2(b[yNextTime]);
-          //std::cout << "Collision at: " << x << ": " << a1 << "-->" << a2 << ", " << y << ": " << b1 << " " << b2 << "\n";
-          auto intvl(collisionInterval3D(a1,a2,b1,b2,agentRadius));
-          double duration(std::min((unsigned)floor(intvl.second*state::TIME_RESOLUTION_U),a2.t)-std::max(a1.t,(unsigned)ceil(intvl.first*state::TIME_RESOLUTION_U)));
-          if(duration<a1.t)
-            a1.t-=duration;
-          else
-            a1.t=0;
-          a2.t=a[xTime].t+duration;
-          //std::cout << "Block " << a1.t << "-->"<<a[xTime].t<<"-->"<<a2.t<<"\n";
-
-          duration=std::min((unsigned)floor(intvl.second*state::TIME_RESOLUTION_U),b2.t)-std::max(b1.t,(unsigned)ceil(intvl.first*state::TIME_RESOLUTION_U));
-          if(duration<b1.t)
-            b1.t-=duration;
-          else
-            b1.t=0;
-          b2.t=b[yTime].t+duration;
-          //std::cout << "Block " << b1.t << "-->"<<b[yTime].t<<"-->"<<b2.t<<"\n";
-
-          if(a1.t<0)a1.t=TOLERANCE;
-          if(b1.t<0)b1.t=TOLERANCE;
-          //assert(a1.t<a2.t);
-          //assert(b1.t<b2.t);
-          assert(a1.t<=a[xTime].t);
-          assert(a2.t>=a[xTime].t);
-          assert(b1.t<=b[yTime].t);
-          assert(b2.t>=b[yTime].t);
-          c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(a1, a2));
-          c2.c.emplace_back((Constraint<state>*) new TimeRange<state>(b1, b2));
-        }else if(Params::mutualconstraints){
-          state a1(a[xTime]);
-          state a2(a[xNextTime]);
-          state b1(b[yTime]);
-          state b2(b[yNextTime]);
-          // Mutually conflicting sets.
-          //static std::vector<state> as;
-          //as.resize(0);
-          //static std::vector<state> bs;
-          //bs.resize(0);
-          //currentEnvironment[x]->environment->GetSuccessors(a1,as);     
-          state as[64];
-          state bs[64];
-          LoadConstraintsForNode(bestNode,x);
-          unsigned na(currentEnvironment[x]->environment->GetSuccessors(a1,as));
-          LoadConstraintsForNode(bestNode,y);
-          unsigned nb(currentEnvironment[y]->environment->GetSuccessors(b1,bs));
-          if(na==0){as[na++]=a2;}
-          if(nb==0){bs[nb++]=b2;}
-
-          // Determine the mutually conflicting set...
-          static std::vector<std::vector<unsigned>> fwd;
-          fwd.resize(0);
-          fwd.resize(1,std::vector<unsigned>(1)); // The 0th element is the collsion between a1,b1.
-          fwd.reserve(na);
-          static std::vector<std::vector<unsigned>> rwd;
-          rwd.resize(0);
-          rwd.resize(1,std::vector<unsigned>(1));
-          rwd.reserve(nb);
-          unsigned amap[64];
-          unsigned bmap[64];
-          static std::vector<unsigned> armap;
-          armap.resize(1,1);
-          armap.reserve(na);
-          static std::vector<unsigned> brmap;
-          brmap.resize(1,1);
-          brmap.reserve(nb);
-          static std::pair<unsigned,unsigned> conf(0,0);
-          for(unsigned a(0); a<na; ++a){
-            //std::cout << a1 << "<->" << as[a] << " " << b1 << "<->" << b2 << " => "; 
-            if(collisionCheck3D(a1, as[a], b1, b2, agentRadius)){
-              //std::cout << "CRASH\n";
-              if(a2==as[a]){
-                amap[a]=0;
-                armap[0]=a;
+          const unsigned diam(agentRadius*2*state::TIME_RESOLUTION_D);
+          bool vc(false);
+          if(Params::vc){
+            state const& a1(a[xTime]);
+            state const& a2(a[xNextTime]);
+            state const& b1(b[yTime]);
+            state const& b2(b[yNextTime]);
+            if(a2.sameLoc(b2) && abs(a2.t-b2.t)<diam){ // Vertex collision
+              vc=true;
+              conflicts.resize(2);
+              Conflict<state>& c1=conflicts[0];
+              Conflict<state>& c2=conflicts[1];
+              c1.c.clear();
+              c2.c.clear();
+              c1.prevWpt = pwptA;
+              c2.prevWpt = pwptB;
+              if(Params::extrinsicconstraints){
+                c1.unit1 = y;
+                c1.unit2 = x;
+                c2.unit1 = x;
+                c2.unit2 = y;
+                c1.c.emplace_back((Constraint<state>*) new Vertex<state>(b2));
+                c2.c.emplace_back((Constraint<state>*) new Vertex<state>(a2));
               }else{
-                amap[a]=fwd.size();
-                armap.push_back(a);
-                fwd.push_back(std::vector<unsigned>(1));
-                rwd[0].push_back(amap[a]);
+                c1.unit1 = x;
+                c1.unit2 = y;
+                c2.unit1 = y;
+                c2.unit2 = x;
+                c1.c.emplace_back((Constraint<state>*) new Vertex<state>(a2));
+                c2.c.emplace_back((Constraint<state>*) new Vertex<state>(b2));
               }
-            }
-            //else{std::cout << "NO CRASH\n";}
-          }
-          for(unsigned b(0); b<nb; ++b){
-            //std::cout << a1 << "<->" << a2 << " " << b1 << "<->" << bs[b] << " => "; 
-            if(collisionCheck3D(a1, a2, b1, bs[b], agentRadius)){
-              //std::cout << "CRASH\n";
-              if(b2==bs[b]){
-                bmap[b]=0;
-                brmap[0]=b;
+            }else if(a1.sameLoc(b1) && abs(a1.t-b1.t)<diam){
+              vc=true;
+              conflicts.resize(2);
+              Conflict<state>& c1=conflicts[0];
+              Conflict<state>& c2=conflicts[1];
+              c1.c.clear();
+              c2.c.clear();
+              c1.prevWpt = pwptA;
+              c2.prevWpt = pwptB;
+              if(Params::extrinsicconstraints){
+                c1.unit1 = y;
+                c1.unit2 = x;
+                c2.unit1 = x;
+                c2.unit2 = y;
+                c1.c.emplace_back((Constraint<state>*) new Vertex<state>(b1));
+                c2.c.emplace_back((Constraint<state>*) new Vertex<state>(a1));
               }else{
-                bmap[b]=rwd.size();
-                brmap.push_back(b);
-                rwd.push_back(std::vector<unsigned>(1));
-                fwd[0].push_back(bmap[b]);
+                c1.unit1 = x;
+                c1.unit2 = y;
+                c2.unit1 = y;
+                c2.unit2 = x;
+                c1.c.emplace_back((Constraint<state>*) new Vertex<state>(a1));
+                c2.c.emplace_back((Constraint<state>*) new Vertex<state>(b1));
               }
             }
-            //else{std::cout << "NO CRASH\n";}
           }
-          for(unsigned i(1); i<armap.size(); ++i){
-            unsigned a(armap[i]);
-            for(unsigned j(1); j<brmap.size(); ++j){
-              unsigned b(brmap[j]);
-              //std::cout << a1 << "<->" << as[a] << " " << b1 << "<->" << bs[b] << " => "; 
-              if(collisionCheck3D(a1, as[a], b1, bs[b], agentRadius)){
-                //std::cout << "CRASH: ["<<amap[a]<<"]="<<bmap[b] <<"\n";
-                fwd[amap[a]].push_back(bmap[b]);
-                rwd[bmap[b]].push_back(amap[a]);
+          if(!vc){
+            if(Params::xorconstraints){
+              conflicts.resize(3);
+              Conflict<state>& c1=conflicts[0];
+              Conflict<state>& c2=conflicts[1];
+              Conflict<state>& c3=conflicts[2];
+              state const& a1(a[xTime]);
+              state const& a2(a[xNextTime]);
+              state const& b1(b[yTime]);
+              state const& b2(b[yNextTime]);
+              c1.c.clear();
+              c2.c.clear();
+              c3.c.clear();
+              c1.c2.clear();
+              c2.c2.clear();
+              c3.c2.clear();
+              if(Params::extrinsicconstraints) {
+                c1.c.emplace_back((Constraint<state>*) new XORCollision<state>(a1,a2,b1,b2,false));
+                c2.c.emplace_back((Constraint<state>*) new XORCollision<state>(b1,b2,a1,a2,false));
+                c3.c.emplace_back((Constraint<state>*) new Identical<state>(a1,a2));
+                c3.c2.emplace_back((Constraint<state>*) new Identical<state>(b1,b2));
+                c1.unit1 = y;
+                c1.unit2 = x;
+                c2.unit1 = x;
+                c2.unit2 = y;
+                c3.unit1 = x;
+                c3.unit2 = y;
+                c1.prevWpt = pwptA;
+                c2.prevWpt = pwptB;
+                c3.prevWpt = pwptA;
+              }else{
+                c1.c.emplace_back((Constraint<state>*) new XORIdentical<state>(a1,a2,b1,b2,false));
+                c2.c.emplace_back((Constraint<state>*) new XORIdentical<state>(b1,b2,a1,a2,false));
+                c3.c.emplace_back((Constraint<state>*) new Identical<state>(a1,a2));
+                c3.c2.emplace_back((Constraint<state>*) new Identical<state>(b1,b2));
+                c1.unit1 = x;
+                c1.unit2 = y;
+                c2.unit1 = y;
+                c2.unit2 = x;
+                c3.unit1 = x;
+                c3.unit2 = y;
+                c1.prevWpt = pwptA;
+                c2.prevWpt = pwptB;
+                c3.prevWpt = pwptA;
               }
-              //else{std::cout << "NO CRASH\n";}
+            }else{
+              conflicts.resize(2);
+              Conflict<state>& c1=conflicts[0];
+              Conflict<state>& c2=conflicts[1];
+              c1.c.clear();
+              c2.c.clear();
+              if (Params::extrinsicconstraints) {
+                state const& a1(a[xTime]);
+                state a2(a[xNextTime]);
+                state const& b1(b[yTime]);
+                state b2(b[yNextTime]);
+                //a1.t=ctime*state::TIME_RESOLUTION_U;
+                //b1.t=ctime*state::TIME_RESOLUTION_U;
+                if(a1.sameLoc(a2)){
+                  a2.t=b2.t;//+currentEnvironment[x]->environment->WaitTime();
+                }
+                if(b1.sameLoc(b2)){
+                  b2.t=a2.t;//+currentEnvironment[x]->environment->WaitTime();
+                }
+                if(Params::boxconstraints){
+                  c1.c.emplace_back((Box<state>*) new Box<state>(a1, a2));
+                  c2.c.emplace_back((Box<state>*) new Box<state>(b1, b2));
+                }else if(Params::crossconstraints){
+                  c1.c.emplace_back((Constraint<state>*) new Collision<state>(a1, a2));
+                  if(Params::asym){
+                    c2.c.emplace_back((Constraint<state>*) new Identical<state>(a1, a2));
+                  }else{
+                    c2.c.emplace_back((Constraint<state>*) new Collision<state>(b1, b2));
+                  }
+                }else if(Params::overlapconstraints){
+                  c1.c.emplace_back((Overlap<state>*) new Overlap<state>(a1,a2));
+                  c2.c.emplace_back((Overlap<state>*) new Overlap<state>(b1,b2));
+                }else if(Params::pyramidconstraints){
+                  c1.c.emplace_back((Constraint<state>*) new Pyramid<state>(a1, a2, b1.t));
+                  c2.c.emplace_back((Constraint<state>*) new Pyramid<state>(b1, b2, a1.t));
+                }
+                c1.unit1 = y;
+                c1.unit2 = x;
+                c2.unit1 = x;
+                c2.unit2 = y;
+                c1.prevWpt = pwptB;
+                c2.prevWpt = pwptA;
+              } else {
+                if(Params::timerangeconstraints){
+                  state a1(a[xTime]);
+                  state a2(a[xNextTime]);
+                  state b1(b[yTime]);
+                  state b2(b[yNextTime]);
+                  //std::cout << "Collision at: " << x << ": " << a1 << "-->" << a2 << ", " << y << ": " << b1 << " " << b2 << "\n";
+                  auto intvl(collisionInterval3D(a1,a2,b1,b2,agentRadius));
+                  double duration(std::min((unsigned)floor(intvl.second*state::TIME_RESOLUTION_U),a2.t)-std::max(a1.t,(unsigned)ceil(intvl.first*state::TIME_RESOLUTION_U)));
+                  if(duration<a1.t)
+                    a1.t-=duration;
+                  else
+                    a1.t=0;
+                  a2.t=a[xTime].t+duration;
+                  //std::cout << "Block " << a1.t << "-->"<<a[xTime].t<<"-->"<<a2.t<<"\n";
+
+                  duration=std::min((unsigned)floor(intvl.second*state::TIME_RESOLUTION_U),b2.t)-std::max(b1.t,(unsigned)ceil(intvl.first*state::TIME_RESOLUTION_U));
+                  if(duration<b1.t)
+                    b1.t-=duration;
+                  else
+                    b1.t=0;
+                  b2.t=b[yTime].t+duration;
+                  //std::cout << "Block " << b1.t << "-->"<<b[yTime].t<<"-->"<<b2.t<<"\n";
+
+                  if(a1.t<0)a1.t=TOLERANCE;
+                  if(b1.t<0)b1.t=TOLERANCE;
+                  //assert(a1.t<a2.t);
+                  //assert(b1.t<b2.t);
+                  assert(a1.t<=a[xTime].t);
+                  assert(a2.t>=a[xTime].t);
+                  assert(b1.t<=b[yTime].t);
+                  assert(b2.t>=b[yTime].t);
+                  c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(a1, a2));
+                  c2.c.emplace_back((Constraint<state>*) new TimeRange<state>(b1, b2));
+                }else if(Params::mutualconstraints){
+                  state const& a1(a[xTime]);
+                  state const& a2(a[xNextTime]);
+                  state const& b1(b[yTime]);
+                  state const& b2(b[yNextTime]);
+                  // Mutually conflicting sets.
+                  //static std::vector<state> as;
+                  //as.resize(0);
+                  //static std::vector<state> bs;
+                  //bs.resize(0);
+                  //currentEnvironment[x]->environment->GetSuccessors(a1,as);     
+                  state as[64];
+                  state bs[64];
+                  LoadConstraintsForNode(bestNode,x);
+                  unsigned na(currentEnvironment[x]->environment->GetSuccessors(a1,as));
+                  LoadConstraintsForNode(bestNode,y);
+                  unsigned nb(currentEnvironment[y]->environment->GetSuccessors(b1,bs));
+                  if(na==0){as[na++]=a2;}
+                  if(nb==0){bs[nb++]=b2;}
+
+                  // Determine the mutually conflicting set...
+                  static std::vector<std::vector<unsigned>> fwd;
+                  fwd.resize(0);
+                  fwd.resize(1,std::vector<unsigned>(1)); // The 0th element is the collsion between a1,b1.
+                  fwd.reserve(na);
+                  static std::vector<std::vector<unsigned>> rwd;
+                  rwd.resize(0);
+                  rwd.resize(1,std::vector<unsigned>(1));
+                  rwd.reserve(nb);
+                  unsigned amap[64];
+                  unsigned bmap[64];
+                  static std::vector<unsigned> armap;
+                  armap.resize(1,1);
+                  armap.reserve(na);
+                  static std::vector<unsigned> brmap;
+                  brmap.resize(1,1);
+                  brmap.reserve(nb);
+                  static std::pair<unsigned,unsigned> conf(0,0);
+                  for(unsigned a(0); a<na; ++a){
+                    //std::cout << a1 << "<->" << as[a] << " " << b1 << "<->" << b2 << " => "; 
+                    if(collisionCheck3D(a1, as[a], b1, b2, agentRadius)){
+                      //std::cout << "CRASH\n";
+                      if(a2==as[a]){
+                        amap[a]=0;
+                        armap[0]=a;
+                      }else{
+                        amap[a]=fwd.size();
+                        armap.push_back(a);
+                        fwd.push_back(std::vector<unsigned>(1));
+                        rwd[0].push_back(amap[a]);
+                      }
+                    }
+                    //else{std::cout << "NO CRASH\n";}
+                  }
+                  for(unsigned b(0); b<nb; ++b){
+                    //std::cout << a1 << "<->" << a2 << " " << b1 << "<->" << bs[b] << " => "; 
+                    if(collisionCheck3D(a1, a2, b1, bs[b], agentRadius)){
+                      //std::cout << "CRASH\n";
+                      if(b2==bs[b]){
+                        bmap[b]=0;
+                        brmap[0]=b;
+                      }else{
+                        bmap[b]=rwd.size();
+                        brmap.push_back(b);
+                        rwd.push_back(std::vector<unsigned>(1));
+                        fwd[0].push_back(bmap[b]);
+                      }
+                    }
+                    //else{std::cout << "NO CRASH\n";}
+                  }
+                  for(unsigned i(1); i<armap.size(); ++i){
+                    unsigned a(armap[i]);
+                    for(unsigned j(1); j<brmap.size(); ++j){
+                      unsigned b(brmap[j]);
+                      //std::cout << a1 << "<->" << as[a] << " " << b1 << "<->" << bs[b] << " => "; 
+                      if(collisionCheck3D(a1, as[a], b1, bs[b], agentRadius)){
+                        //std::cout << "CRASH: ["<<amap[a]<<"]="<<bmap[b] <<"\n";
+                        fwd[amap[a]].push_back(bmap[b]);
+                        rwd[bmap[b]].push_back(amap[a]);
+                      }
+                      //else{std::cout << "NO CRASH\n";}
+                    }
+                  }
+                  //std::cout << "\n";
+                  static std::vector<unsigned> left;
+                  left.resize(0);
+                  left.reserve(fwd.size());
+                  static std::vector<unsigned> right;
+                  right.resize(0);
+                  right.reserve(rwd.size());
+                  if(fwd.size()<=rwd.size()){
+                    BiClique::findBiClique(fwd,rwd,conf,left,right);
+                  }else{
+                    BiClique::findBiClique(rwd,fwd,{conf.second,conf.first},right,left);
+                  }
+                  bool found(false);
+                  for(auto const& m:left){
+if(as[armap[m]]==a2)found=true;
+                    c1.c.emplace_back((Constraint<state>*) new Identical<state>(a1,as[armap[m]]));
+                  }
+if(!found){
+for(auto const& aa:a){
+std::cout << aa << "\n";
+}
+std::cout << "bad\n";
+assert(false);
+}
+found=false;
+                  for(auto const& m:right){
+if(bs[brmap[m]]==b2)found=true;
+                    c2.c.emplace_back((Constraint<state>*) new Identical<state>(b1,bs[brmap[m]]));
+                  }
+if(!found){
+for(auto const& aa:b){
+std::cout << aa << "\n";
+}
+std::cout << "bad\n";
+assert(false);
+}
+                }else{
+                  c1.c.emplace_back((Constraint<state>*) new Identical<state>(a[xTime], a[xNextTime]));
+                  c2.c.emplace_back((Constraint<state>*) new Identical<state>(b[yTime], b[yNextTime]));
+                }
+                c1.unit1 = x;
+                c1.unit2 = y;
+                c2.unit1 = y;
+                c2.unit2 = x;
+                c1.prevWpt = pwptA;
+                c2.prevWpt = pwptB;
+              }
             }
           }
-          //std::cout << "\n";
-          static std::vector<unsigned> left;
-          left.resize(0);
-          left.reserve(fwd.size());
-          static std::vector<unsigned> right;
-          right.resize(0);
-          right.reserve(rwd.size());
-          if(fwd.size()<=rwd.size()){
-            BiClique::findBiClique(fwd,rwd,conf,left,right);
-          }else{
-            BiClique::findBiClique(rwd,fwd,{conf.second,conf.first},right,left);
-          }
-          for(auto const& m:left){
-            c1.c.emplace_back((Constraint<state>*) new Identical<state>(a1,as[armap[m]]));
-          }
-          for(auto const& m:right){
-            c2.c.emplace_back((Constraint<state>*) new Identical<state>(b1,bs[brmap[m]]));
-          }
-        }else{
-          c1.c.emplace_back((Constraint<state>*) new Identical<state>(a[xTime], a[xNextTime]));
-          c2.c.emplace_back((Constraint<state>*) new Identical<state>(b[yTime], b[yNextTime]));
-        }
-        c1.unit1 = x;
-        c1.unit2 = y;
-        c2.unit1 = y;
-        c2.unit2 = x;
-        c1.prevWpt = pwptA;
-        c2.prevWpt = pwptB;
-      }
-    }
-  }
           if(!countall && conf == BOTH_CARDINAL){
             //std::cout << "Exiting conf check loop (!countall && conf == BOTH_CARDINAL) "<<x<<","<<y<<" - \n";
             break; // don't count any more, we don't care how many conflicts there are in total

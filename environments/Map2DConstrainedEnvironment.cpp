@@ -92,7 +92,7 @@ void Map2DConstrainedEnvironment::GetAllSuccessors(const xytLoc &nodeID, std::ve
   }
 }
 
-double Map2DConstrainedEnvironment::ViolatesConstraint(const xytLoc &from, const xytLoc &to) const{
+/*double Map2DConstrainedEnvironment::ViolatesConstraint(const xytLoc &from, const xytLoc &to) const{
   
   // Check motion constraints first
   //if(maxTurnAzimuth&&fless(maxTurnAzimuth,fabs(from.h-to.h))) return false;
@@ -121,7 +121,7 @@ double Map2DConstrainedEnvironment::ViolatesConstraint(const xytLoc &from, const
     }
   }
   return 0;
-}
+}*/
 
 void Map2DConstrainedEnvironment::GetActions(const xytLoc &nodeID, std::vector<tDirection> &actions) const
 {

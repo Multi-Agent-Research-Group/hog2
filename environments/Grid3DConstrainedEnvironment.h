@@ -50,7 +50,7 @@ public:
 	virtual uint64_t GetActionHash(t3DDirection act) const;
 	virtual double GetPathLength(std::vector<xyztLoc> const& neighbors)const;
 
-        virtual inline double ViolatesConstraint(const xyztLoc &from, const xyztLoc &to) const {
+        virtual inline double ViolatesConstraintTime(const xyztLoc &from, const xyztLoc &to) const {
           // Convert to ceiling of nearest resolution
           return ceil(ConstrainedEnvironment<xyztLoc, t3DDirection>::ViolatesConstraint(from,to)*xyztLoc::TIME_RESOLUTION_D);
         }
