@@ -57,9 +57,9 @@ SRC_CPP = \
 	environments/CanonicalGrid.cpp \
 	environments/Fling.cpp \
 	environments/Voxels.cpp \
+	environments/Map2DEnvironment.cpp \
+	environments/Map2DConstrainedEnvironment.cpp \
 	environments/NaryTree.cpp
-	#environments/Map2DEnvironment.cpp \
-	#environments/Map2DConstrainedEnvironment.cpp \
 	#environments/Airplane.cpp \
 	#environments/AirplaneSimple.cpp \
 	#environments/AirplaneGrid3DCardinal.cpp \

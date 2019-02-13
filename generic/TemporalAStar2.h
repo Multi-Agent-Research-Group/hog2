@@ -26,7 +26,6 @@
 #include <iostream>
 #include <limits.h> 
 #include "FPUtil.h"
-#include <ext/hash_map>
 #include "AStarOpenClosed.h"
 #include "BucketOpenClosed.h"
 //#include "SearchEnvironment.h" // for the SearchEnvironment class

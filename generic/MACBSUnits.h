@@ -2598,45 +2598,39 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
           state b1(b[yTime]);
           state b2(b[yNextTime]);
           // Mutually conflicting sets.
-          static std::vector<state> as;
-          as.resize(0);
-          static std::vector<state> bs;
-          bs.resize(0);
+          //static std::vector<state> as;
+          //as.resize(0);
+          //static std::vector<state> bs;
+          //bs.resize(0);
+          //currentEnvironment[x]->environment->GetSuccessors(a1,as);     
+          state as[64];
+          state bs[64];
           LoadConstraintsForNode(bestNode,x);
-          currentEnvironment[x]->environment->GetSuccessors(a1,as);     
-        state testo[64];
-        unsigned na(currentEnvironment[x]->environment->GetSuccessors(a1,testo));
-assert(na==as.size());
-for(int i(0); i<na; ++i){
-assert(as[i]==testo[i]);
-}
-          if(as.empty()){as.push_back(a2);}
+          unsigned na(currentEnvironment[x]->environment->GetSuccessors(a1,as));
           LoadConstraintsForNode(bestNode,y);
-          currentEnvironment[y]->environment->GetSuccessors(b1,bs);     
-          if(bs.empty()){bs.push_back(b2);}
+          unsigned nb(currentEnvironment[y]->environment->GetSuccessors(b1,bs));
+          if(na==0){as[na++]=a2;}
+          if(nb==0){bs[nb++]=b2;}
 
           // Determine the mutually conflicting set...
           static std::vector<std::vector<unsigned>> fwd;
           fwd.resize(0);
           fwd.resize(1,std::vector<unsigned>(1)); // The 0th element is the collsion between a1,b1.
-          fwd.reserve(as.size());
+          fwd.reserve(na);
           static std::vector<std::vector<unsigned>> rwd;
           rwd.resize(0);
           rwd.resize(1,std::vector<unsigned>(1));
-          rwd.reserve(bs.size());
-          unsigned bogus(as.size()+bs.size());
-          static std::vector<unsigned> amap;
-          amap.resize(as.size(),bogus);
-          static std::vector<unsigned> bmap;
-          bmap.resize(bs.size(),bogus);
+          rwd.reserve(nb);
+          unsigned amap[64];
+          unsigned bmap[64];
           static std::vector<unsigned> armap;
           armap.resize(1,1);
-          armap.reserve(as.size());
+          armap.reserve(na);
           static std::vector<unsigned> brmap;
           brmap.resize(1,1);
-          brmap.reserve(bs.size());
+          brmap.reserve(nb);
           static std::pair<unsigned,unsigned> conf(0,0);
-          for(unsigned a(0); a<as.size(); ++a){
+          for(unsigned a(0); a<na; ++a){
             //std::cout << a1 << "<->" << as[a] << " " << b1 << "<->" << b2 << " => "; 
             if(collisionCheck3D(a1, as[a], b1, b2, agentRadius)){
               //std::cout << "CRASH\n";
@@ -2652,7 +2646,7 @@ assert(as[i]==testo[i]);
             }
             //else{std::cout << "NO CRASH\n";}
           }
-          for(unsigned b(0); b<bs.size(); ++b){
+          for(unsigned b(0); b<nb; ++b){
             //std::cout << a1 << "<->" << a2 << " " << b1 << "<->" << bs[b] << " => "; 
             if(collisionCheck3D(a1, a2, b1, bs[b], agentRadius)){
               //std::cout << "CRASH\n";
