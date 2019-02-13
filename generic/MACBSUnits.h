@@ -2203,16 +2203,11 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
       }else if(Params::mutualconstraints){
         // Mutually conflicting sets.
         state testo[64];
-        unsigned na(currentEnvironment[x]->environment->GetSuccessors(ax1,testo));
         static std::vector<state> as;
         as.resize(0);
         static std::vector<state> bs;
         bs.resize(0);
         currentEnvironment[x]->environment->GetSuccessors(ax1,as);     
-assert(na==as.size());
-for(int i(0); i<na; ++i){
-assert(as[i]==testo[i]);
-}
         currentEnvironment[y]->environment->GetSuccessors(bx1,bs);     
         //unsigned fcost1(currentEnvironment[x]->environment->GCost(ax1,ax2)+currentEnvironment[x]->environment->HCost(ax2,currentEnvironment[x]->environment->getGoal()));
         //unsigned fcost2(currentEnvironment[y]->environment->GCost(bx1,bx2)+currentEnvironment[b]->environment->HCost(bx2,currentEnvironment[y]->environment->getGoal()));
@@ -2735,30 +2730,12 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
                   }else{
                     BiClique::findBiClique(rwd,fwd,{conf.second,conf.first},right,left);
                   }
-                  bool found(false);
                   for(auto const& m:left){
-if(as[armap[m]]==a2)found=true;
                     c1.c.emplace_back((Constraint<state>*) new Identical<state>(a1,as[armap[m]]));
                   }
-if(!found){
-for(auto const& aa:a){
-std::cout << aa << "\n";
-}
-std::cout << "bad\n";
-assert(false);
-}
-found=false;
                   for(auto const& m:right){
-if(bs[brmap[m]]==b2)found=true;
                     c2.c.emplace_back((Constraint<state>*) new Identical<state>(b1,bs[brmap[m]]));
                   }
-if(!found){
-for(auto const& aa:b){
-std::cout << aa << "\n";
-}
-std::cout << "bad\n";
-assert(false);
-}
                 }else{
                   c1.c.emplace_back((Constraint<state>*) new Identical<state>(a[xTime], a[xNextTime]));
                   c2.c.emplace_back((Constraint<state>*) new Identical<state>(b[yTime], b[yNextTime]));
