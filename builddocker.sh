@@ -6,4 +6,5 @@ docker build -t site-nexus.labs.isgs.lmco.com:8080/mapf .
 docker push site-nexus.labs.isgs.lmco.com:8080/mapf
 for ((i=0; i<10; i++)); do
   ssh mst${i} docker pull site-nexus.labs.isgs.lmco.com:8080/mapf
+  ssh mst${i} docker image prune -f
 done

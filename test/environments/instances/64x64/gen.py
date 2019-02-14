@@ -6,14 +6,14 @@ import errno
 for i in range(100):
   s=set()
   g=set()
-  while len(s) < 300:
+  while len(s) < 1000:
     s.add((random.randint(0,63),random.randint(0,63)))
-  while len(g) < 300:
+  while len(g) < 1000:
     g.add((random.randint(0,63),random.randint(0,63)))
   start=list(s)
   goal=list(g)
   
-  for size in range(5,305,5):
+  for size in range(1000,1005,5):
     if not os.path.exists("./%d"%size):
       try:
         os.makedirs("./%d"%size)

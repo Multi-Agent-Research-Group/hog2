@@ -1,8 +1,10 @@
 #!/bin/bash
 
+ulimit -c 0
+
 ALG="${ALG:-MACBS}"
-NAGENTS="${NAGENTS:-100}"
-DOMAIN="${DOMAIN:-64}"
+#NAGENTS="${NAGENTS:-100}"
+DOMAIN="${DOMAIN:-8,5,35,5:64,20,260,20:brc202d,10,100,10:ost003d,10,100,10:den520d,10,100,10}"
 TRIALS="${TRIALS:-100}"
 KILLTIME="${KILLTIME:-300}"
 KILLMEM="${KILLMEM:-8000}"
@@ -10,6 +12,8 @@ BFACTOR="${BFACTOR:-9}"
 RADIUS="${RADIUS:-.25}"
 BYPASS="${BYPASS:-false}"
 PC="${PC:-false}"
+VC="${VC:-false}"
+ASYM="${ASYM:-false}"
 CAT="${CAT:-false}"
 PRECHECK="${PRECHECK:-0}"
 SKIP="${SKIP:-false}"
@@ -20,16 +24,6 @@ GREEDY="${GREEDY:-false}"
 ID="${ID:-true}"
 RES="${RES:-10}"
 DISAPPEAR="${DISAPPEAR:-true}"
-
-START=$NAGENTS
-STOP=$NAGENTS
-INC=1
-if [[ $NAGENTS == *":"* ]]; then
-  IFS=':' read -r -a NAGENTS <<< "$NAGENTS"
-  START=${NAGENTS[0]}
-  STOP=${NAGENTS[1]}
-  INC=${NAGENTS[2]}
-fi
 
 DESCRIP=""
 case $CTYPE in
@@ -43,6 +37,12 @@ case $CTYPE in
   DESCRIP="TIME"
   ;;
 5)
+  DESCRIP="MC"
+  ;;
+6)
+  DESCRIP="OVR"
+  ;;
+7)
   DESCRIP="BOX"
   ;;
 *)
@@ -120,6 +120,20 @@ else
   PC=""
 fi
 
+if [[ $ASYM = true ]]; then
+  ASYM="-asym"
+  DESCRIP="${DESCRIP}_ASYM"
+else
+  ASYM=""
+fi
+
+if [[ $VC = true ]]; then
+  VC="-vc"
+  DESCRIP="${DESCRIP}_VC"
+else
+  VC=""
+fi
+
 BP=""
 if [[ $BYPASS = false ]]; then
   BP="-nobypass"
@@ -130,28 +144,43 @@ fi
 IFS=':' read -r -a DOMAIN <<< "$DOMAIN"
 IFS=':' read -r -a BFACTOR <<< "$BFACTOR"
 
-for ((a=${START}; a<=${STOP}; a+=${INC})); do
-  for d in "${!DOMAIN[@]}"; do
-    SCENPRIOR=""
-    SCENARIOPREFIX="-probfile /hog2/instances/64x64/"
-    SCENARIOSUFFIX=".csv -dimensions 64,64,1"
-    if [[ ${DOMAIN[$d]} == "8" ]]; then
-      SCENARIOPREFIX="-probfile /hog2/instances/8x8/"
-      SCENARIOSUFFIX=".csv -envfile /hog2/movement/env${BFACTOR[$b]}.csv -dimensions 8,8,1"
-    elif [[ ${DOMAIN[$d]} == "64" ]]; then
-      SCENARIOPREFIX="-probfile /hog2/instances/64x64/"
-      SCENARIOSUFFIX=".csv -envfile /hog2/movement/env${BFACTOR[$b]}.csv -dimensions 64,64,1"
-    else
-      SCENPRIOR="-nagents ${a} "
-      SCENARIOPREFIX="-scenfile /hog2/instances/${DOMAIN[$d]}/"
-      SCENARIOSUFFIX=".csv -envfile /hog2/movement/env${BFACTOR[$b]}.csv"
-    fi
+for d in "${!DOMAIN[@]}"; do
+dom=${DOMAIN[$d]}
+IFS=',' read -r -a dom <<< "$dom"
+dname=${dom[0]}
+START=${dom[1]}
+STOP=${dom[2]}
+INC=${dom[3]}
 
-    for b in "${!BFACTOR[@]}"; do
-      FILENAME="cbs_${DOMAIN[$d]}_${BFACTOR[$b]}_${a}_${DESCRIP}.txt"
+for ((a=${START}; a<=${STOP}; a+=${INC})); do
+  for b in "${!BFACTOR[@]}"; do
+      MOV="-envfile /hog2/movement/env${BFACTOR[$b]}.csv"
+      SCENPRIOR="-nagents ${a} "
+      SCENARIOPREFIX="-probfile /hog2/instances/64x64/"
+      SCENARIOSUFFIX=".csv -dimensions 64,64,1"
+      if [[ ${dname} == "8" ]]; then
+        SCENARIOPREFIX="-probfile /hog2/instances/8x8/50"
+        SCENARIOSUFFIX=".csv -dimensions 8,8,1"
+      elif [[ ${dname} == "64" ]]; then
+        SCENARIOPREFIX="-probfile /hog2/instances/64x64/1000"
+        SCENARIOSUFFIX=".csv -dimensions 64,64,1"
+      else
+        SCENARIOPREFIX="-scenfile /hog2/instances/${dname}/500"
+        SCENARIOSUFFIX=".csv"
+      fi
+
+      FILENAME=$(printf "${ALG}_${dname}_${DESCRIP}_%02d_%03d.txt" ${BFACTOR[$b]} ${a})
       for ((i=0; i<${TRIALS}; i++)); do
-        cmd="/hog2/bin/${ALG} -seed ${i} -killtime $KILLTIME -killmem $KILLMEM ${SCENPRIOR}${SCENARIOPREFIX}${a}/${i}${SCENARIOSUFFIX} $BP $PC $CAT $XOR $CCT $GREEDY $ID $DISAPPEAR -resolution $RES -ctype $CTYPE -radius $RADIUS -killmem $KILLMEM -verify -quiet -nogui -mergeThreshold 9999999"
-	time $cmd >> /output/$FILENAME
+        if [[ ${ALG} == "icts" ]]; then
+          MOV="-agentType ${BFACTOR[$b]}"
+          cmd="/hog2/bin/${ALG} -seed ${i} -mode p -killtime $KILLTIME -killmem $KILLMEM ${MOV} ${SCENPRIOR}${SCENARIOPREFIX}/${i}${SCENARIOSUFFIX} $ID $DISAPPEAR -timeRes $RES -radius $RADIUS -verify -quiet -nogui"
+          echo $cmd $FILENAME
+          time $cmd >> /output/$FILENAME
+        else
+          cmd="/hog2/bin/${ALG} -seed ${i} -killtime $KILLTIME -killmem $KILLMEM ${SCENPRIOR}${MOV} ${SCENARIOPREFIX}/${i}${SCENARIOSUFFIX} $BP $ASYM $VC $PC $CAT $XOR $CCT $GREEDY $ID $DISAPPEAR -resolution $RES -ctype $CTYPE -radius $RADIUS -killmem $KILLMEM -verify -quiet -nogui -mergeThreshold 9999999"
+          echo $cmd $FILENAME
+          time $cmd >> /output/$FILENAME
+        fi
       done
     done
   done

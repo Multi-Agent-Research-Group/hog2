@@ -27,14 +27,14 @@ print w
 for i in range(100):
   s=set()
   g=set()
-  while len(s) < 300:
+  while len(s) <= 500:
     x=random.randint(0,w-1)
     y=random.randint(0,h-1)
     while m[y][x]!='.':
       x=random.randint(0,w-1)
       y=random.randint(0,h-1)
     s.add((x,y))
-  while len(g) < 300:
+  while len(g) <= 500:
     x=random.randint(0,w-1)
     y=random.randint(0,h-1)
     while m[y][x]!='.':
@@ -44,7 +44,7 @@ for i in range(100):
   start=list(s)
   goal=list(g)
   
-  for size in range(5,300,5):
+  for size in [500]:
     if not os.path.exists("./%d"%size):
       try:
         os.makedirs("./%d"%size)
