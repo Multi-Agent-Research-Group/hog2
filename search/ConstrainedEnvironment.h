@@ -24,7 +24,7 @@
 #include "SearchEnvironment.h"
 #include "PositionalUtils.h"
 #include "VelocityObstacle.h"
-#include "TemplateIntervalTree.h"
+#include "IntervalTree.h"
 
 /*
 struct Action{
@@ -93,6 +93,15 @@ class Constraint : public DrawableConstraint{
     virtual void print(std::ostream& os)const{
       os << "{" << start() << "-->" << end() << "}";
     }
+
+    bool operator==(Constraint const& other) const {
+      return start_state==other.start_state && end_state==other.end_state;
+    }
+
+    bool operator<(Constraint const& other) const{
+      return start_state == other.start_state ? end_state < other.end_state : start_state<other.start_state;
+    }
+
 
     State start_state;
     State end_state;
@@ -403,9 +412,9 @@ template<typename State, typename Action>
 class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
   public:
     /** Add a constraint to the model */
-    virtual void AddConstraint(Constraint<State> const* c){constraints.insert(c->start().t,c->end().t,c);}
+    virtual void AddConstraint(Constraint<State> const* c){constraints.insert(c);}
     virtual void AddPositiveConstraint(Constraint<State> const* c){pconstraints.insert(c);}
-    virtual void AddConstraints(std::vector<std::unique_ptr<Constraint<State> const>> const& cs){for(auto const& c:cs)constraints.insert(c->start().t,c->end().t,c.get());}
+    virtual void AddConstraints(std::vector<std::unique_ptr<Constraint<State> const>> const& cs){constraints.insert(cs);}
     /** Clear the constraints */
     virtual void ClearConstraints(){constraints.clear();pconstraints.clear();}
     /** Get the possible actions from a state */
@@ -425,9 +434,10 @@ class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
       //while((*s)->end_state.t>=from.t && s!=constraints.begin())--s; // Reverse to the constraint just before
       //auto e(constraints.upper_bound((Constraint<State> const*)&end));
       //while(e!=constraints.end() && (*e)->start_state.t<=to.t)++e;
-      static std::vector<Constraint<State> const*> cs;
+      static typename IntervalTree<Constraint<State>>::Intervals cs;
       cs.resize(0);
-      constraints.findOverlapping(from.t,to.t,cs);
+      Identical<State> tmp(from,to);
+      constraints.findOverlapping((Constraint<State>*)&tmp,cs);
       for(auto const& s:cs){
         double vtime(s->ConflictTime(from,to));
         if(vtime){
@@ -440,9 +450,10 @@ class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
     virtual inline bool ViolatesConstraint(const State &from, const State &to) const {
       //Check if the action violates any of the constraints that are in the constraints list
       if(constraints.empty())return 0;
-      static std::vector<Constraint<State> const*> cs;
+      static typename IntervalTree<Constraint<State>>::Intervals cs;
       cs.resize(0);
-      constraints.findOverlapping(from.t,to.t,cs);
+      Identical<State> tmp(from,to);
+      constraints.findOverlapping((Constraint<State>*)&tmp,cs);
       for(auto const& s:cs){
         if(s->ConflictsWith(from,to))return true;
       }
@@ -461,7 +472,7 @@ class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
     virtual bool collisionCheck(const State &s1, const State &d1, float r1, const State &s2, const State &d2, float r2)=0;
 
     State theGoal;
-    TemplateIntervalTree<Constraint<State> const*,unsigned> constraints;
+    IntervalTree<Constraint<State>> constraints;
     //TemplateIntervalTree<Constraint<State> const*,unsigned> pconstraints;
     //std::set<Constraint<State> const*, std::less<Constraint<State> const*>> constraints;
     std::set<Constraint<State> const*, std::less<Constraint<State> const*>> pconstraints;

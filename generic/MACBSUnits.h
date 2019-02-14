@@ -39,7 +39,6 @@
 #include "UnitGroup.h"
 #include "ConstrainedEnvironment.h"
 #include "VelocityObstacle.h"
-//#include "TemplateIntervalTree.h"
 #include "GridStates.h"
 #include "MultiAgentStructures.h"
 #include "TemporalAStar2.h"
@@ -2202,35 +2201,37 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
         constraints.emplace_back((Constraint<state>*) new TimeRange<state>(a1,a2));
       }else if(Params::mutualconstraints){
         // Mutually conflicting sets.
-        state testo[64];
-        static std::vector<state> as;
-        as.resize(0);
-        static std::vector<state> bs;
-        bs.resize(0);
-        currentEnvironment[x]->environment->GetSuccessors(ax1,as);     
-        currentEnvironment[y]->environment->GetSuccessors(bx1,bs);     
-        //unsigned fcost1(currentEnvironment[x]->environment->GCost(ax1,ax2)+currentEnvironment[x]->environment->HCost(ax2,currentEnvironment[x]->environment->getGoal()));
-        //unsigned fcost2(currentEnvironment[y]->environment->GCost(bx1,bx2)+currentEnvironment[b]->environment->HCost(bx2,currentEnvironment[y]->environment->getGoal()));
+        state as[64];
+        state bs[64];
+        //LoadConstraintsForNode(bestNode,x);
+        unsigned na(currentEnvironment[x]->environment->GetSuccessors(ax1,as));
+        //LoadConstraintsForNode(bestNode,y);
+        unsigned nb(currentEnvironment[y]->environment->GetSuccessors(bx1,bs));
+        if(na==0){as[na++]=ax2;}
+        if(nb==0){bs[nb++]=bx2;}
 
         // Determine the mutually conflicting set...
         static std::vector<std::vector<unsigned>> fwd;
+        fwd.resize(0);
         fwd.resize(1,std::vector<unsigned>(1)); // The 0th element is the collsion between a1,b1.
+        fwd.reserve(na);
         static std::vector<std::vector<unsigned>> rwd;
+        rwd.resize(0);
         rwd.resize(1,std::vector<unsigned>(1));
-        unsigned bogus(as.size()+bs.size());
-        static std::vector<unsigned> amap;
-        amap.resize(as.size(),bogus);
-        static std::vector<unsigned> bmap;
-        bmap.resize(bs.size(),bogus);
+        rwd.reserve(nb);
+        unsigned amap[64];
+        unsigned bmap[64];
         static std::vector<unsigned> armap;
         armap.resize(1,1);
-        armap.reserve(as.size());
+        armap.reserve(na);
         static std::vector<unsigned> brmap;
         brmap.resize(1,1);
-        brmap.reserve(bs.size());
-        std::pair<unsigned,unsigned> conf(0,0);
-        for(unsigned a(0); a<as.size(); ++a){
+        brmap.reserve(nb);
+        static std::pair<unsigned,unsigned> conf(0,0);
+        for(unsigned a(0); a<na; ++a){
+          //std::cout << ax1 << "<->" << as[a] << " " << bx1 << "<->" << bx2 << " => "; 
           if(collisionCheck3D(ax1, as[a], bx1, bx2, agentRadius)){
+            //std::cout << "CRASH\n";
             if(ax2==as[a]){
               amap[a]=0;
               armap[0]=a;
@@ -2241,9 +2242,12 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
               rwd[0].push_back(amap[a]);
             }
           }
+          //else{std::cout << "NO CRASH\n";}
         }
-        for(unsigned b(0); b<bs.size(); ++b){
+        for(unsigned b(0); b<nb; ++b){
+          //std::cout << ax1 << "<->" << ax2 << " " << bx1 << "<->" << bs[b] << " => "; 
           if(collisionCheck3D(ax1, ax2, bx1, bs[b], agentRadius)){
+            //std::cout << "CRASH\n";
             if(bx2==bs[b]){
               bmap[b]=0;
               brmap[0]=b;
@@ -2254,30 +2258,40 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
               fwd[0].push_back(bmap[b]);
             }
           }
+          //else{std::cout << "NO CRASH\n";}
         }
         for(unsigned i(1); i<armap.size(); ++i){
           unsigned a(armap[i]);
           for(unsigned j(1); j<brmap.size(); ++j){
             unsigned b(brmap[j]);
+            //std::cout << ax1 << "<->" << as[a] << " " << bx1 << "<->" << bs[b] << " => "; 
             if(collisionCheck3D(ax1, as[a], bx1, bs[b], agentRadius)){
+              //std::cout << "CRASH: ["<<amap[a]<<"]="<<bmap[b] <<"\n";
               fwd[amap[a]].push_back(bmap[b]);
               rwd[bmap[b]].push_back(amap[a]);
             }
+            //else{std::cout << "NO CRASH\n";}
           }
         }
+        //std::cout << "\n";
         static std::vector<unsigned> left;
         left.resize(0);
         left.reserve(fwd.size());
         static std::vector<unsigned> right;
         right.resize(0);
         right.reserve(rwd.size());
-        BiClique::findBiClique(fwd,rwd,conf,left,right);
+        if(fwd.size()<=rwd.size()){
+          BiClique::findBiClique(fwd,rwd,conf,left,right);
+        }else{
+          BiClique::findBiClique(rwd,fwd,{conf.second,conf.first},right,left);
+        }
         for(auto const& m:left){
           constraints.emplace_back((Constraint<state>*) new Identical<state>(ax1,as[armap[m]]));
         }
       }
     }
   }
+  LoadConstraintsForNode(bestNode,x);
   for(auto const& constraint:constraints){
     currentEnvironment[x]->environment->AddConstraint(constraint.get());
   }
@@ -2302,9 +2316,9 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
   GetFullPath<state,action,comparison,conflicttable,searchalgo,singleHeuristic>(c, astar, *currentEnvironment[x], thePath, location.wpts[x], location.paths[y]->back().t, x, replanTime, TOTAL_EXPANSIONS);
 
   double newcost(currentEnvironment[x]->environment->GetPathLength(thePath));
-  for(auto const& constraint:constraints){
-    currentEnvironment[x]->environment->constraints.remove(constraint->start().t,constraint->end().t,constraint.get());
-  }
+  //for(auto const& constraint:constraints){
+    //currentEnvironment[x]->environment->constraints.remove(constraint->start().t,constraint->end().t,constraint.get());
+  //}
   return !fequal(origcost,newcost);
 }
 
