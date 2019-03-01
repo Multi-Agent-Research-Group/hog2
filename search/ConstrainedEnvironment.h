@@ -77,9 +77,10 @@ class SoftConstraint : public DrawableConstraint {
 template<typename State>
 class Constraint : public DrawableConstraint{
   public:
+    enum CTYPE{EDGE=0,VERTEX,OTHER};
     Constraint() {}
-    Constraint(State const& start) : start_state(start), end_state(start) {}
-    Constraint(State const& start, State const& end, bool neg=true) : start_state(start), end_state(end), negative(neg) {}
+    Constraint(State const& start) : start_state(start), end_state(start) , ctype(CTYPE::OTHER){}
+    Constraint(State const& start, State const& end, bool neg=true, CTYPE ct=CTYPE::OTHER) : start_state(start), end_state(end), ctype(ct), negative(neg) {}
     virtual ~Constraint(){}
 
     State start() const {return start_state;}
@@ -106,6 +107,7 @@ class Constraint : public DrawableConstraint{
     State start_state;
     State end_state;
     bool negative;
+    CTYPE ctype;
 };
 
 namespace std {
@@ -196,7 +198,7 @@ class XORIdentical : public XOR<State> {
 template<typename State>
 class Vertex : public Constraint<State> {
   public:
-    Vertex(State const& start,double radius=.25, bool neg=true):Constraint<State>(start,start,neg){}
+    Vertex(State const& start,double radius=.25, bool neg=true):Constraint<State>(start,start,neg,Constraint<State>::CTYPE::VERTEX){}
     virtual ~Vertex(){}
     // Check whether the action has the exact same time and to/from
     virtual double ConflictTime(State const& from, State const& to) const {
@@ -216,7 +218,7 @@ template<typename State>
 class EndVertex : public Constraint<State> {
   public:
     //EndVertex(double diam=.5):Constraint<State>(),agentDiameter(diam*State::TIME_RESOLUTION_D){}
-    EndVertex(State const& start,double radius=.25, bool neg=true):Constraint<State>(start,start,neg){}//,agentDiameter(radius*2.0*State::TIME_RESOLUTION_D){}
+    EndVertex(State const& start,double radius=.25, bool neg=true):Constraint<State>(start,start,neg,Constraint<State>::CTYPE::VERTEX){}//,agentDiameter(radius*2.0*State::TIME_RESOLUTION_D){}
     virtual ~EndVertex(){}
     // Check whether the action has the exact same time and to/from
     virtual double ConflictTime(State const& from, State const& to) const {
@@ -239,7 +241,7 @@ template<typename State>
 class StartVertex : public Constraint<State> {
   public:
     //StartVertex(double radius=.25):Constraint<State>(),agentDiameter(diam*State::TIME_RESOLUTION_D){}
-    StartVertex(State const& start,double radius=.25, bool neg=true):Constraint<State>(start,start,neg){}//,agentDiameter(radius*2.0*State::TIME_RESOLUTION_D){}
+    StartVertex(State const& start,double radius=.25, bool neg=true):Constraint<State>(start,start,neg,Constraint<State>::CTYPE::VERTEX){}//,agentDiameter(radius*2.0*State::TIME_RESOLUTION_D){}
     virtual ~StartVertex(){}
     // Check whether the action has the exact same time and to/from
     virtual double ConflictTime(State const& from, State const& to) const {
@@ -263,7 +265,7 @@ class Identical : public Constraint<State> {
   public:
     Identical():Constraint<State>(){}
     Identical(State const& s, bool neg=true):Constraint<State>(s,s,neg) {}
-    Identical(State const& start, State const& end, bool neg=true):Constraint<State>(start,end,neg) {}
+    Identical(State const& start, State const& end, bool neg=true):Constraint<State>(start,end,neg,Constraint<State>::CTYPE::VERTEX) {}
     virtual ~Identical(){}
     // Check whether the action has the exact same time and to/from
     virtual double ConflictTime(State const& from, State const& to) const {
@@ -416,7 +418,7 @@ class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
     virtual void AddPositiveConstraint(Constraint<State> const* c){pconstraints.insert(c);}
     virtual void AddConstraints(std::vector<std::unique_ptr<Constraint<State> const>> const& cs){constraints.insert(cs);}
     /** Clear the constraints */
-    virtual void ClearConstraints(){constraints.clear();pconstraints.clear();}
+    virtual void ClearConstraints(){constraints.clear();pconstraints.clear();edgeConstraints.clear();vertexConstraints.clear();}
     /** Get the possible actions from a state */
     virtual void GetActions(const State &nodeID, std::vector<Action> &actions) const = 0;
     virtual void GetReverseActions(const State &nodeID, std::vector<Action> &actions) const = 0;
@@ -425,6 +427,16 @@ class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
     virtual unsigned GetSuccessors(const State &nodeID, State* neighbors) const{return 0;}
     /** Checks to see if any constraint is violated, returning the time of violation, 0 otherwise */
     virtual inline double ViolatesConstraintTime(const State &from, const State &to) const {
+      auto const& v(edgeConstraints.find(this->GetStateHash(from)));
+      if(v!=edgeConstraints.end()){
+        if(to.sameLoc(v->second))return from.t?from.t*State::TIME_RESOLUTION_D:-1.0;
+      }
+      if(vertexConstraints.find(this->GetStateHash(from))!=vertexConstraints.end()){
+        return from.t?from.t*State::TIME_RESOLUTION_D:-1.0;
+      }
+      if(vertexConstraints.find(this->GetStateHash(to))!=vertexConstraints.end()){
+        return from.t?from.t*State::TIME_RESOLUTION_D-.25:-1.0;
+      }
       //Check if the action violates any of the constraints that are in the constraints list
       if(constraints.empty())return 0;
       //Identical<State> start(from);
@@ -448,6 +460,16 @@ class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
       return 0;
     }
     virtual inline bool ViolatesConstraint(const State &from, const State &to) const {
+      auto const& v(edgeConstraints.find(this->GetStateHash(from)));
+      if(v!=edgeConstraints.end() && to.sameLoc(v->second)){
+        return true;
+      }
+      if(vertexConstraints.find(this->GetStateHash(from))!=vertexConstraints.end()){
+        return true;
+      }
+      if(vertexConstraints.find(this->GetStateHash(to))!=vertexConstraints.end()){
+        return true;
+      }
       //Check if the action violates any of the constraints that are in the constraints list
       if(constraints.empty())return 0;
       static typename IntervalTree<Constraint<State>>::Intervals cs;
@@ -470,9 +492,13 @@ class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
     virtual void SetIgnoreHeading(bool i){}
     virtual bool GetIgnoreHeading()const{return false;}
     virtual bool collisionCheck(const State &s1, const State &d1, float r1, const State &s2, const State &d2, float r2)=0;
+    virtual bool fetch(State const& a, State const&b, int i, State& c){}
+    virtual unsigned branchingFactor(){}
 
     State theGoal;
     IntervalTree<Constraint<State>> constraints;
+    std::unordered_map<uint64_t,State> edgeConstraints;
+    std::unordered_set<uint64_t> vertexConstraints;
     //TemplateIntervalTree<Constraint<State> const*,unsigned> pconstraints;
     //std::set<Constraint<State> const*, std::less<Constraint<State> const*>> constraints;
     std::set<Constraint<State> const*, std::less<Constraint<State> const*>> pconstraints;

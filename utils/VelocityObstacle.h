@@ -59,8 +59,11 @@ void get3DSuccessors(Vector3D const& c, std::vector<Vector3D>& s, unsigned conn)
 unsigned index9(Vector2D const& s1, Vector2D d1, Vector2D s2, Vector2D d2);
 unsigned index25(Vector2D const& s1, Vector2D d1, Vector2D s2, Vector2D d2);
 unsigned index49(Vector2D const& s1, Vector2D d1, Vector2D s2, Vector2D d2);
+unsigned index493(Vector3D const& s1, Vector3D d1, Vector3D s2, Vector3D d2);
 unsigned index27(Vector3D const& s1, Vector3D d1, Vector3D s2, Vector3D d2);
 unsigned index125(Vector3D const& s1, Vector3D d1, Vector3D s2, Vector3D d2);
+
+extern float fltarray[49*49*49];
 
 inline bool get(unsigned* bitarray, size_t idx) {
   return bitarray[idx / WORD_BITS] & (1 << (idx % WORD_BITS));
@@ -77,6 +80,7 @@ double radiusA, double radiusB=0, double speedA=1.0, double speedB=1.0);
 
 bool collisionImminent(Vector3D const A, Vector3D const& VA, double radiusA, double startTimeA, double endTimeA,
 Vector3D const B, Vector3D const& VB, double radiusB, double startTimeB, double endTimeB);
+double getCollisionInterval3D(Vector3D const& A, Vector3D const& VA, Vector3D const& B, Vector3D const& VB, double radiusA=0.25, double radiusB=0.25);
 double getCollisionTime(Vector3D const A, Vector3D const& VA, double radiusA, double startTimeA, double endTimeA,
 Vector3D const B, Vector3D const& VB, double radiusB, double startTimeB, double endTimeB);
 bool collisionCheck3D(TemporalVector3D const& A1, TemporalVector3D const& A2, TemporalVector3D const& B1, TemporalVector3D const& B2,
@@ -97,5 +101,8 @@ std::pair<double,double> getCollisionInterval(Vector3D const A, Vector3D const& 
 Vector3D B, Vector3D const& VB, double radiusB, double startTimeB, double endTimeB);
 std::pair<double,double> collisionInterval3D(TemporalVector3D const& A1, TemporalVector3D const& A2, TemporalVector3D const& B1, TemporalVector3D const& B2, 
 double radiusA, double radiusB=0, double speedA=1.0, double speedB=1.0);
+void load3DCollisionTable();
+void fillArray(unsigned (*index)(Vector3D const&,Vector3D, Vector3D,Vector3D),unsigned conn, double radius);
+bool collisionCheck3DAPriori(TemporalVector3D const& A1, TemporalVector3D const& A2, TemporalVector3D const& B1, TemporalVector3D const& B2, double radiusA=.25, double radiusB=.25);
 
 #endif

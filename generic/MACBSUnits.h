@@ -47,6 +47,7 @@
 #include "Timer.h"
 #include <string.h>
 #include <unordered_map>
+#include <math.h>
 
 #define NO_CONFLICT    0
 #define NON_CARDINAL   1
@@ -2231,6 +2232,7 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
         for(unsigned a(0); a<na; ++a){
           //std::cout << ax1 << "<->" << as[a] << " " << bx1 << "<->" << bx2 << " => "; 
           if(collisionCheck3D(ax1, as[a], bx1, bx2, agentRadius)){
+          //if(collisionCheck3DAPriori(ax1, as[a], bx1, bx2, agentRadius)){
             //std::cout << "CRASH\n";
             if(ax2==as[a]){
               amap[a]=0;
@@ -2247,6 +2249,7 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
         for(unsigned b(0); b<nb; ++b){
           //std::cout << ax1 << "<->" << ax2 << " " << bx1 << "<->" << bs[b] << " => "; 
           if(collisionCheck3D(ax1, ax2, bx1, bs[b], agentRadius)){
+          //if(collisionCheck3DAPriori(ax1, ax2, bx1, bs[b], agentRadius)){
             //std::cout << "CRASH\n";
             if(bx2==bs[b]){
               bmap[b]=0;
@@ -2266,6 +2269,7 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
             unsigned b(brmap[j]);
             //std::cout << ax1 << "<->" << as[a] << " " << bx1 << "<->" << bs[b] << " => "; 
             if(collisionCheck3D(ax1, as[a], bx1, bs[b], agentRadius)){
+            //if(collisionCheck3DAPriori(ax1, as[a], bx1, bs[b], agentRadius)){
               //std::cout << "CRASH: ["<<amap[a]<<"]="<<bmap[b] <<"\n";
               fwd[amap[a]].push_back(bmap[b]);
               rwd[bmap[b]].push_back(amap[a]);
@@ -2414,6 +2418,13 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
     //state const& aGoal(a[wa[pwptA + 1]]);
     //state const& bGoal(b[wb[pwptB + 1]]);
     collchecks++;
+    //if(collisionCheck3DAPriori(a[xTime], a[xNextTime], b[yTime], b[yNextTime], agentRadius) !=
+        //collisionCheck3D(a[xTime], a[xNextTime], b[yTime], b[yNextTime], agentRadius)){
+      //bool ap=collisionCheck3DAPriori(a[xTime], a[xNextTime], b[yTime], b[yNextTime], agentRadius);
+      //bool cc=collisionCheck3D(a[xTime], a[xNextTime], b[yTime], b[yNextTime], agentRadius);
+      //std::cout << "bad\n";
+    //}
+    //if(Params::boxconstraints?Box<state>(a[xTime], a[xNextTime]).ConflictsWith(b[yTime], b[yNextTime]):collisionCheck3DAPriori(a[xTime], a[xNextTime], b[yTime], b[yNextTime], agentRadius)){
     if(Params::boxconstraints?Box<state>(a[xTime], a[xNextTime]).ConflictsWith(b[yTime], b[yNextTime]):collisionCheck3D(a[xTime], a[xNextTime], b[yTime], b[yNextTime], agentRadius)){
       ++conflict.first;
       if(Params::cct){
@@ -2596,10 +2607,86 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
                   c1.c.emplace_back((Box<state>*) new Box<state>(a1, a2));
                   c2.c.emplace_back((Box<state>*) new Box<state>(b1, b2));
                 }else if(Params::crossconstraints){
-                  c1.c.emplace_back((Constraint<state>*) new Collision<state>(a1, a2));
                   if(Params::asym){
-                    c2.c.emplace_back((Constraint<state>*) new Identical<state>(a1, a2));
+                    state s;
+                    unsigned left(0);
+                    unsigned right(0);
+                    //Assume all agents have the same bf
+                    const unsigned bf(currentEnvironment[x]->environment->branchingFactor());
+
+                    unsigned dir(1);
+                    int i(1);
+                    //Loop through actions of s clockwise
+                    while(i<bf/2){
+                      // Set current element if it is a valid move
+                      if(currentEnvironment[x]->environment->fetch(a1,a2,i*dir,s)){
+                        //Does it collide with the core action of b?
+                        //if(collisionCheck3DAPriori(a1, s, b1, b2, agentRadius))
+                        if(collisionCheck3D(a1, s, b1, b2, agentRadius)){
+                          ++left;
+                        }else{ // No collision with core
+                          break;
+                        }
+                      }
+                      ++i;
+                    }
+                    // Sweep the other direction
+                    dir=-1;
+                    i = 1;
+                    //Loop through actions of s
+                    while(i<bf/2-1){
+                      // Set current element if it is a valid move
+                      if(currentEnvironment[x]->environment->fetch(a1,a2,i*dir,s)){
+                        //Does it collide with the core action of b?
+                        //if(collisionCheck3DAPriori(a1, s, b1, b2, agentRadius))
+                        if(collisionCheck3D(a1, s, b1, b2, agentRadius)){
+                          ++left;
+                        }else{ // No collision with core
+                          break;
+                        }
+                      }
+                      ++i;
+                    }
+                    // Loop through actions of b
+                    i=1;
+                    while(i<bf/2 && right<=left){
+                      // Set current element if it is a valid move
+                      if(currentEnvironment[y]->environment->fetch(b1,b2,i*dir,s)){
+                        //Does it collide with the core action of a?
+                        //if(collisionCheck3DAPriori(a1, a2, b1, s, agentRadius))
+                        if(collisionCheck3D(a1, a2, b1, s, agentRadius)){
+                          right++;
+                        }else{ // No collision with core
+                          break;
+                        }
+                      }
+                      ++i;
+                    }
+                    // Loop through actions of b
+                    i=1;
+                    dir=1;
+                    while(i<bf/2-1 && right<=left){
+                      // Set current element if it is a valid move
+                      if(currentEnvironment[y]->environment->fetch(b1,b2,i*dir,s)){
+                        //Does it collide with the core action of a?
+                        //if(collisionCheck3DAPriori(a1, a2, b1, s, agentRadius))
+                        if(collisionCheck3D(a1, a2, b1, s, agentRadius)){
+                          right++;
+                        }else{ // No collision with core
+                          break;
+                        }
+                      }
+                      ++i;
+                    }
+                    if(left>right){
+                      c1.c.emplace_back((Constraint<state>*) new Collision<state>(a1, a2));
+                      c2.c.emplace_back((Constraint<state>*) new Identical<state>(a1, a2));
+                    }else{
+                      c1.c.emplace_back((Constraint<state>*) new Identical<state>(b1, b2));
+                      c2.c.emplace_back((Constraint<state>*) new Collision<state>(b1, b2));
+                    }
                   }else{
+                    c1.c.emplace_back((Constraint<state>*) new Collision<state>(a1, a2));
                     c2.c.emplace_back((Constraint<state>*) new Collision<state>(b1, b2));
                   }
                 }else if(Params::overlapconstraints){
@@ -2654,101 +2741,152 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
                   state const& a2(a[xNextTime]);
                   state const& b1(b[yTime]);
                   state const& b2(b[yNextTime]);
-                  // Mutually conflicting sets.
-                  //static std::vector<state> as;
-                  //as.resize(0);
-                  //static std::vector<state> bs;
-                  //bs.resize(0);
-                  //currentEnvironment[x]->environment->GetSuccessors(a1,as);     
-                  state as[64];
-                  state bs[64];
-                  LoadConstraintsForNode(bestNode,x);
-                  unsigned na(currentEnvironment[x]->environment->GetSuccessors(a1,as));
-                  LoadConstraintsForNode(bestNode,y);
-                  unsigned nb(currentEnvironment[y]->environment->GetSuccessors(b1,bs));
-                  if(na==0){as[na++]=a2;}
-                  if(nb==0){bs[nb++]=b2;}
+                  state c;
+                  static state as[64];
+                  static state bs[64];
+                  static bool bc[64];
+                  memset(&bc,0,sizeof(bool)*64);
+                  // 0th element is the cardinal pair of actions
+                  unsigned ai(0);
+                  as[ai++]=a2;
+                  unsigned bi(0);
+                  bs[bi++]=b2;
+                  
+                  //Assume all agents ahve the same bf
+                  const unsigned bf(currentEnvironment[x]->environment->branchingFactor());
 
                   // Determine the mutually conflicting set...
-                  static std::vector<std::vector<unsigned>> fwd;
-                  fwd.resize(0);
-                  fwd.resize(1,std::vector<unsigned>(1)); // The 0th element is the collsion between a1,b1.
-                  fwd.reserve(na);
-                  static std::vector<std::vector<unsigned>> rwd;
-                  rwd.resize(0);
-                  rwd.resize(1,std::vector<unsigned>(1));
-                  rwd.reserve(nb);
-                  unsigned amap[64];
-                  unsigned bmap[64];
-                  static std::vector<unsigned> armap;
-                  armap.resize(1,1);
-                  armap.reserve(na);
-                  static std::vector<unsigned> brmap;
-                  brmap.resize(1,1);
-                  brmap.reserve(nb);
-                  static std::pair<unsigned,unsigned> conf(0,0);
-                  for(unsigned a(0); a<na; ++a){
-                    //std::cout << a1 << "<->" << as[a] << " " << b1 << "<->" << b2 << " => "; 
-                    if(collisionCheck3D(a1, as[a], b1, b2, agentRadius)){
-                      //std::cout << "CRASH\n";
-                      if(a2==as[a]){
-                        amap[a]=0;
-                        armap[0]=a;
-                      }else{
-                        amap[a]=fwd.size();
-                        armap.push_back(a);
-                        fwd.push_back(std::vector<unsigned>(1));
-                        rwd[0].push_back(amap[a]);
-                      }
-                    }
-                    //else{std::cout << "NO CRASH\n";}
+                  static std::vector<std::vector<unsigned>> fwd(bf);
+                  for(auto&f:fwd){
+                    f.resize(0);
                   }
-                  for(unsigned b(0); b<nb; ++b){
-                    //std::cout << a1 << "<->" << a2 << " " << b1 << "<->" << bs[b] << " => "; 
-                    if(collisionCheck3D(a1, a2, b1, bs[b], agentRadius)){
-                      //std::cout << "CRASH\n";
-                      if(b2==bs[b]){
-                        bmap[b]=0;
-                        brmap[0]=b;
-                      }else{
-                        bmap[b]=rwd.size();
-                        brmap.push_back(b);
-                        rwd.push_back(std::vector<unsigned>(1));
-                        fwd[0].push_back(bmap[b]);
-                      }
-                    }
-                    //else{std::cout << "NO CRASH\n";}
+                  fwd[0].push_back(0); // The 0th element is the collsion between a1,b1.
+                  static std::vector<std::vector<unsigned>> rwd(bf);
+                  for(auto&f:rwd){
+                    f.resize(0);
                   }
-                  for(unsigned i(1); i<armap.size(); ++i){
-                    unsigned a(armap[i]);
-                    for(unsigned j(1); j<brmap.size(); ++j){
-                      unsigned b(brmap[j]);
-                      //std::cout << a1 << "<->" << as[a] << " " << b1 << "<->" << bs[b] << " => "; 
-                      if(collisionCheck3D(a1, as[a], b1, bs[b], agentRadius)){
-                        //std::cout << "CRASH: ["<<amap[a]<<"]="<<bmap[b] <<"\n";
-                        fwd[amap[a]].push_back(bmap[b]);
-                        rwd[bmap[b]].push_back(amap[a]);
+                  rwd[0].push_back(0); // The 0th element is the collsion between a1,b1.
+                  unsigned adir(1);
+                  int i(1);
+                  unsigned bdir(-1);
+                  int j(1);
+                  //Loop through actions of a
+                  while(i<bf/2){
+                    // Set current element if it is a valid move
+                    if(currentEnvironment[x]->environment->fetch(a1,a2,i*adir,as[ai])){
+                      //Does it collide with the core action of b?
+                      //if(collisionCheck3DAPriori(a1, as[ai], b1, b2, agentRadius)){
+                      if(collisionCheck3D(a1, as[ai], b1, b2, agentRadius)){
+                        fwd[ai].push_back(0);
+                        rwd[0].push_back(ai);
+                        //std::cout << "a"<<ai << "collides with core\n";
+                        // Loop through actions of b
+                        bi=1;
+                        j=1;
+                        while(j<bf/2){
+                          // Set current element if it is a valid move
+                          if(currentEnvironment[y]->environment->fetch(b1,b2,j*bdir,bs[bi])){
+                            //Does it collide with the core action of a?
+                            //if(!bc[bi] && collisionCheck3DAPriori(a1, a2, b1, bs[bi], agentRadius)){
+                            if(!bc[bi] && collisionCheck3D(a1, a2, b1, bs[bi], agentRadius)){
+                              rwd[bi].push_back(0);
+                              fwd[0].push_back(bi);
+                            }
+                            bc[bi]=1;
+                            if(rwd[bi].size()){
+                              //std::cout << "b"<<bi << "collides with core\n";
+                              //if(collisionCheck3DAPriori(a1, as[ai], b1, bs[bi], agentRadius)){
+                              if(collisionCheck3D(a1, as[ai], b1, bs[bi], agentRadius)){
+                              //std::cout << "a"<<ai << " collides with b"<<bi << "\n";
+                                rwd[bi].push_back(ai);
+                                fwd[ai].push_back(bi);
+                                bi++;
+                              }else{ // No need to sweep
+                                break;
+                              }
+                            }else{ // No collision with core
+                              break;
+                            }
+                          }
+                          ++j;
+                        }
+                        ai++;
+                      }else{ // No collision with core
+                        break;
                       }
-                      //else{std::cout << "NO CRASH\n";}
                     }
+                    ++i;
+                  }
+                  // Sweep the other direction
+                  adir=-1;
+                  i = j = 1;
+                  bdir=1;
+                  //Loop through actions of a
+                  while(i<bf/2-1){
+                    // Set current element if it is a valid move
+                    if(currentEnvironment[x]->environment->fetch(a1,a2,i*adir,as[ai])){
+                      //Does it collide with the core action of b?
+                      //if(collisionCheck3DAPriori(a1, as[ai], b1, b2, agentRadius)){
+                      if(collisionCheck3D(a1, as[ai], b1, b2, agentRadius)){
+                        fwd[ai].push_back(0);
+                        rwd[0].push_back(ai);
+                        //std::cout << "a"<<ai << "collides with core\n";
+                        // Loop through actions of b
+                        bi=1;
+                        j=1;
+                        while(j<bf/2-1){
+                          // Set current element if it is a valid move
+                          if(currentEnvironment[y]->environment->fetch(b1,b2,j*bdir,bs[bi])){
+                            //Does it collide with the core action of a?
+                            //if(!bc[bi] && collisionCheck3DAPriori(a1, a2, b1, bs[bi], agentRadius)){
+                            if(!bc[bi] && collisionCheck3D(a1, a2, b1, bs[bi], agentRadius)){
+                              rwd[bi].push_back(0);
+                              fwd[0].push_back(bi);
+                            }
+                            bc[bi]=1;
+                            if(rwd[bi].size()){
+                              //std::cout << "b"<<bi << "collides with core\n";
+                              //if(collisionCheck3DAPriori(a1, as[ai], b1, bs[bi], agentRadius)){
+                              if(collisionCheck3D(a1, as[ai], b1, bs[bi], agentRadius)){
+                              //std::cout << "a"<<ai << " collides with b"<<bi << "\n";
+                                rwd[bi].push_back(ai);
+                                fwd[ai].push_back(bi);
+                                bi++;
+                              }else{ // No need to sweep
+                                break;
+                              }
+                            }else{ // No collision with core
+                              break;
+                            }
+                          }
+                          ++j;
+                        }
+                        ai++;
+                      }else{ // No collision with core
+                        break;
+                      }
+                    }
+                    ++i;
                   }
                   //std::cout << "\n";
                   static std::vector<unsigned> left;
                   left.resize(0);
-                  left.reserve(fwd.size());
+                  left.reserve(rwd[0].size());
                   static std::vector<unsigned> right;
                   right.resize(0);
-                  right.reserve(rwd.size());
-                  if(fwd.size()<=rwd.size()){
+                  right.reserve(fwd[0].size());
+                  std::pair<unsigned,unsigned> conf(0,0);
+                  if(rwd[0].size()<=fwd[0].size()){
                     BiClique::findBiClique(fwd,rwd,conf,left,right);
                   }else{
                     BiClique::findBiClique(rwd,fwd,{conf.second,conf.first},right,left);
                   }
+//std::cout << "sz:" << (left.size()+right.size())-std::max(left.size(),right.size())-1 << "\n";
                   for(auto const& m:left){
-                    c1.c.emplace_back((Constraint<state>*) new Identical<state>(a1,as[armap[m]]));
+                    c1.c.emplace_back((Constraint<state>*) new Identical<state>(a1,as[m]));
                   }
                   for(auto const& m:right){
-                    c2.c.emplace_back((Constraint<state>*) new Identical<state>(b1,bs[brmap[m]]));
+                    c2.c.emplace_back((Constraint<state>*) new Identical<state>(b1,bs[m]));
                   }
                 }else{
                   c1.c.emplace_back((Constraint<state>*) new Identical<state>(a[xTime], a[xNextTime]));

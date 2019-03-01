@@ -44,28 +44,6 @@ namespace BiClique{
     if(histL[lDegree]<rDegree || histR[rDegree]<lDegree){
       return false;
     }
-    if(rDegree==1){
-      if(lDegree == 1){
-        left.push_back(start.first);
-        right.push_back(start.second);
-        return true;
-      }else{
-        left.push_back(start.first);
-        right.reserve(L[start.first].size());
-        for(auto const& a:L[start.first]){
-          right.push_back(a);
-        }
-        return true;
-      }
-    }
-    if(lDegree==1){
-      right.push_back(start.second);
-      left.reserve(R[start.second].size());
-      for(auto const& a:R[start.second]){
-        left.push_back(a);
-      }
-      return true;
-    }
 
     // Histograms for the count of nodes that  are referenced by index
     bool changed(true);
@@ -76,7 +54,7 @@ namespace BiClique{
       lNodes=0;
       rNodes=0;
       // Prune out all edges that have a degree that is too small
-      for(unsigned i(0); i<L.size(); ++i){
+      for(unsigned i(0); i<R[start.second].size(); ++i){
         if(L[i].size()){
           if(L[i].size()<lDegree){
             changed=true;
@@ -89,7 +67,7 @@ namespace BiClique{
           }
         }
       }
-      for(unsigned i(0); i<R.size(); ++i){
+      for(unsigned i(0); i<L[start.first].size(); ++i){
         if(R[i].size()){
           if(R[i].size()<rDegree){
             changed=true;
@@ -118,12 +96,10 @@ namespace BiClique{
     if(rNodes<lDegree)return false;
 
     // If we got here, the degree is too high on some vertices
-    // TODO, this would likely run faster if we compute permuatations
-    // based on the smaller of L or R... (instead of always using L)
     static std::vector<unsigned> d;
     d.resize(0);
-    d.reserve(L.size());
-    for(unsigned j(0); j<L.size(); ++j){
+    d.reserve(R[start.second].size());
+    for(unsigned j(0); j<R[start.second].size(); ++j){
       if(j!=start.first && L[j].size()){
         d.push_back(j);
       }
@@ -134,7 +110,6 @@ namespace BiClique{
     unsigned k(rDegree-1); // minus 1 because we always include the start vertex
     static std::vector<unsigned> cmn(L[start.first]); // Start test with this...
     static std::vector<unsigned> tmp;
-    //std::cout << "N choose k (" << lDegree << "," << rDegree << "\n";
     do {
       //for(auto const& g:d)
         //std::cout << g << " ";
@@ -177,7 +152,7 @@ namespace BiClique{
       std::pair<unsigned,unsigned> const& start,
       std::vector<unsigned>& left,
       std::vector<unsigned>& right){
-    unsigned minimum(std::max(L.size()+1,R.size()+1));
+    unsigned minimum(std::max(L[start.first].size()+1,R[start.first].size()+1));
     
     /*for(auto const& f:L){
       unsigned j(0);
@@ -300,25 +275,25 @@ namespace BiClique{
     }
 
     static std::vector<unsigned> histL;
-    histL.resize(R.size()+1);
+    histL.resize(L[start.first].size()+1);
     memset(&histL[0], 0, sizeof(histL[0]) * histL.size());
     static std::vector<unsigned> histR;
-    histR.resize(L.size()+1);
+    histR.resize(R[start.second].size()+1);
     memset(&histR[0], 0, sizeof(histR[0]) * histR.size());
     std::queue<std::pair<unsigned,unsigned>> q;
     // Cumulative histogram - the number of vertices with degX or above.
-    for(auto const& l:L){
+    for(unsigned l(0); l<R[start.second].size(); ++l){
       //if(l.size()>=R.size())
         //std::cout << "bad "<<l.size()<<">="<<R.size()<<"\n";
-      histL[l.size()]++;
+      histL[L[l].size()]++;
     }
     for(int i(histL.size()-1); i>1; --i){
       histL[i-1]+=histL[i];
     }
-    for(auto const& r:R){
+    for(unsigned r(0); r<L[start.first].size(); ++r){
       //if(r.size()>=L.size())
         //std::cout << "bad "<<r.size()<<">="<<L.size()<<"\n";
-      histR[r.size()]++;
+      histR[R[r].size()]++;
     }
     for(int i(histR.size()-1); i>1; --i){
       histR[i-1]+=histR[i];
@@ -327,7 +302,7 @@ namespace BiClique{
         q.emplace(num--,i);
       }
     }
-    q.emplace(R.size()>L.size()?R.size():1,R.size()>L.size()?1:L.size());
+    q.emplace(R[start.second].size()>L[start.first].size()?1:L[start.first].size(),R[start.second].size()>L[start.first].size()?R[start.second].size():1);
     //std::cout << "q:\n";
     //for(auto const& p:possibilities){
       //std::cout << p.first << "," << p.second << "\n";
@@ -349,6 +324,28 @@ namespace BiClique{
       lDegree=q.front().first;
       rDegree=q.front().second;
       q.pop();
+      if(rDegree==1){
+        if(lDegree == 1){
+          left.push_back(start.first);
+          right.push_back(start.second);
+          return;
+        }else{
+          left.push_back(start.first);
+          right.reserve(L[start.first].size());
+          for(auto const& a:L[start.first]){
+            right.push_back(a);
+          }
+          return;
+        }
+      }
+      if(lDegree==1){
+        right.push_back(start.second);
+        left.reserve(R[start.second].size());
+        for(auto const& a:R[start.second]){
+          left.push_back(a);
+        }
+        return;
+      }
       //std::cout << "trying " << lDegree << "," << rDegree << "\n";
       if(testFeasibility(L,R,start,lDegree,rDegree,histL,histR,left,right)){
         break;

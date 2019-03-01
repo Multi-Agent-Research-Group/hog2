@@ -180,6 +180,7 @@ void processSolution(double elapsed){
 
 int main(int argc, char* argv[])
 {
+  load3DCollisionTable();
   InstallHandlers();
   Params::precheck=0; // No precheck (default)
   ProcessCommandLineArgs(argc, argv);
