@@ -37,8 +37,6 @@ SRC_CPP = \
 	environments/Grid3DConstrainedEnvironment.cpp \
 	environments/Grid3DEnvironment.cpp \
 	environments/GridStates.cpp \
-	environments/Map2DEnvironment.cpp \
-	environments/Map2DConstrainedEnvironment.cpp \
 	environments/PermutationPuzzleEnvironment.cpp \
 	environments/MNPuzzle.cpp \
 	environments/FlipSide.cpp \
@@ -59,6 +57,8 @@ SRC_CPP = \
 	environments/CanonicalGrid.cpp \
 	environments/Fling.cpp \
 	environments/Voxels.cpp \
+	environments/Map2DEnvironment.cpp \
+	environments/Map2DConstrainedEnvironment.cpp \
 	environments/NaryTree.cpp
 	#environments/Airplane.cpp \
 	#environments/AirplaneSimple.cpp \

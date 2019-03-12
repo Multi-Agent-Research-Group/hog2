@@ -11,7 +11,6 @@
 # All projects to build in this order.
 PROJECTS = \
   gui/GL \
-  search \
   absmapalgorithms \
   abstraction \
   abstractionalgorithms \
@@ -28,6 +27,7 @@ PROJECTS = \
   apps/icts \
   apps/MACBS \
   apps/MAAStar \
+  #search \
   #apps/experimental \
   #apps/mapUtils \
   #apps/3dmaps \

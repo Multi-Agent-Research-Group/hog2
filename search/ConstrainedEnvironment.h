@@ -24,7 +24,7 @@
 #include "SearchEnvironment.h"
 #include "PositionalUtils.h"
 #include "VelocityObstacle.h"
-#include "TemplateIntervalTree.h"
+#include "IntervalTree.h"
 
 /*
 struct Action{
@@ -51,9 +51,9 @@ class DrawableConstraint{
   public:
     virtual ~DrawableConstraint(){}
     virtual void OpenGLDraw(MapInterface*) const=0;
-    static int width;
-    static int length;
-    static int height;
+    //static int width;
+    //static int length;
+    //static int height;
 };
 
 template<typename State>
@@ -77,25 +77,37 @@ class SoftConstraint : public DrawableConstraint {
 template<typename State>
 class Constraint : public DrawableConstraint{
   public:
+    enum CTYPE{EDGE=0,VERTEX,OTHER};
     Constraint() {}
-    Constraint(State const& start) : start_state(start), end_state(start) {}
-    Constraint(State const& start, State const& end, bool neg=true) : start_state(start), end_state(end), negative(neg) {}
+    Constraint(State const& start) : start_state(start), end_state(start) , ctype(CTYPE::OTHER){}
+    Constraint(State const& start, State const& end, bool neg=true, CTYPE ct=CTYPE::OTHER) : start_state(start), end_state(end), ctype(ct), negative(neg) {}
     virtual ~Constraint(){}
 
     State start() const {return start_state;}
     State end() const {return end_state;}
 
-    virtual double ConflictsWith(State const& s) const=0;
-    virtual double ConflictsWith(State const& from, State const& to) const=0;
-    virtual double ConflictsWith(Constraint const& x) const {return ConflictsWith(x.start_state, x.end_state);}
+    //virtual bool ConflictsWith(State const& s) const=0;
+    virtual double ConflictTime(State const& from, State const& to) const=0;
+    virtual bool ConflictsWith(State const& from, State const& to) const=0;
+    virtual bool ConflictsWith(Constraint const& x) const {return ConflictsWith(x.start_state, x.end_state);}
     virtual void OpenGLDraw(MapInterface*) const {}
     virtual void print(std::ostream& os)const{
       os << "{" << start() << "-->" << end() << "}";
     }
 
+    bool operator==(Constraint const& other) const {
+      return start_state==other.start_state && end_state==other.end_state;
+    }
+
+    bool operator<(Constraint const& other) const{
+      return start_state == other.start_state ? end_state < other.end_state : start_state<other.start_state;
+    }
+
+
     State start_state;
     State end_state;
     bool negative;
+    CTYPE ctype;
 };
 
 namespace std {
@@ -111,9 +123,8 @@ class Box : public Constraint<State> {
     Box():Constraint<State>(){}
     Box(State const& start, State const& end, bool neg=true):Constraint<State>(start,end,neg) {}
     virtual ~Box(){}
-    virtual double ConflictsWith(State const& s) const {return 0;} // Vertex collisions are ignored
     // Check whether the opposing action has an edge or bounding box conflict
-    virtual double ConflictsWith(State const& from, State const& to) const {
+    virtual double ConflictTime(State const& from, State const& to) const {
       // Check time...
       if(this->start_state.t > to.t ||
           this->end_state.t < from.t){
@@ -131,6 +142,22 @@ class Box : public Constraint<State> {
         std::max(this->start_state.t, from.t);
 
     }
+    virtual bool ConflictsWith(State const& from, State const& to) const {
+      // Check time...
+      if(this->start_state.t > to.t ||
+          this->end_state.t < from.t){
+        return false;
+      }
+      // Check edge collisions...
+      if(this->start_state.sameLoc(to) && this->end_state.sameLoc(from)){
+        return true;
+      }
+      // Check bounding box...
+      return !(std::min(this->start_state.x,this->end_state.x) > std::max(to.x,from.x) ||
+          std::max(this->start_state.x,this->end_state.x) < std::min(to.x,from.x) ||
+          std::min(this->start_state.y,this->end_state.y) > std::max(to.y,from.y) ||
+          std::max(this->start_state.y,this->end_state.y) < std::min(to.y,from.y));
+    }
 };
 
 
@@ -143,8 +170,8 @@ class XOR : public Constraint<State> {
     XOR(State const& start, State const& end, State const& s2, State const& e2, bool neg=true):Constraint<State>(start,end,neg),pos_start(s2),pos_end(e2){}
     virtual ~XOR(){}
     virtual Constraint<State>* Swap()const=0;
-    virtual double ConflictsWith(State const& s) const=0;
-    virtual double ConflictsWith(State const& from, State const& to) const=0;
+    virtual double ConflictTime(State const& from, State const& to) const=0;
+    virtual bool ConflictsWith(State const& from, State const& to) const=0;
     // XOR defines a positive constraint as well...
     State pos_start;
     State pos_end;
@@ -158,11 +185,79 @@ class XORIdentical : public XOR<State> {
     XORIdentical(State const& start, State const& end, State const& s2, State const& e2, bool neg=true):XOR<State>(start,end,s2,e2,neg){}
     virtual ~XORIdentical(){}
     virtual Constraint<State>* Swap()const{return new XORIdentical<State>(this->pos_start,this->pos_end,this->start_state,this->end_state,this->negative);}
-    virtual double ConflictsWith(State const& s) const {return 0;} // Vertex collisions are ignored
     // Check whether the action has the exact same time and to/from
-    virtual double ConflictsWith(State const& from, State const& to) const {
+    virtual double ConflictTime(State const& from, State const& to) const {
       return (from==this->start_state &&
-      to.sameLoc(this->end_state))?from.t?double(from.t)/State::TIME_RESOLUTION_D:-1.0/State::TIME_RESOLUTION_D:0;}
+          to.sameLoc(this->end_state))?from.t?double(from.t)/State::TIME_RESOLUTION_D:-1.0/State::TIME_RESOLUTION_D:0;
+    }
+    virtual bool ConflictsWith(State const& from, State const& to) const {
+      return from==this->start_state && to.sameLoc(this->end_state);
+    }
+};
+
+template<typename State>
+class Vertex : public Constraint<State> {
+  public:
+    Vertex(State const& start,double radius=.25, bool neg=true):Constraint<State>(start,start,neg,Constraint<State>::CTYPE::VERTEX){}
+    virtual ~Vertex(){}
+    // Check whether the action has the exact same time and to/from
+    virtual double ConflictTime(State const& from, State const& to) const {
+      // arrival is within diameter and arrival is the same vertex
+      if(to==this->end_state) return (std::min(to.t,this->end_state.t))/State::TIME_RESOLUTION_D;
+      else if(from==this->start_state) return std::min(from.t,this->start_state.t)/State::TIME_RESOLUTION_D;
+      return 0.0;
+    }
+    virtual bool ConflictsWith(State const& from, State const& to) const {
+      //unsigned delta(abs(to.t-this->end_state.t));
+      // arrival is within diameter and arrival is the same vertex
+      return to==this->end_state || from==this->start_state;
+    }
+};
+
+template<typename State>
+class EndVertex : public Constraint<State> {
+  public:
+    //EndVertex(double diam=.5):Constraint<State>(),agentDiameter(diam*State::TIME_RESOLUTION_D){}
+    EndVertex(State const& start,double radius=.25, bool neg=true):Constraint<State>(start,start,neg,Constraint<State>::CTYPE::VERTEX){}//,agentDiameter(radius*2.0*State::TIME_RESOLUTION_D){}
+    virtual ~EndVertex(){}
+    // Check whether the action has the exact same time and to/from
+    virtual double ConflictTime(State const& from, State const& to) const {
+      //unsigned delta(abs(to.t-this->end_state.t));
+      // arrival is within diameter and arrival is the same vertex
+      //if(delta<agentDiameter && to.sameLoc(this->end_state)) return (std::min(to.t,this->end_state.t)-delta)/State::TIME_RESOLUTION_D;
+      if(to==this->end_state) return (std::min(to.t,this->end_state.t))/State::TIME_RESOLUTION_D;
+      return 0.0;
+    }
+    virtual bool ConflictsWith(State const& from, State const& to) const {
+      //unsigned delta(abs(to.t-this->end_state.t));
+      // arrival is within diameter and arrival is the same vertex
+      //return delta<agentDiameter && to.sameLoc(this->end_state);
+      return to==this->end_state;
+    }
+    //unsigned agentDiameter;
+};
+
+template<typename State>
+class StartVertex : public Constraint<State> {
+  public:
+    //StartVertex(double radius=.25):Constraint<State>(),agentDiameter(diam*State::TIME_RESOLUTION_D){}
+    StartVertex(State const& start,double radius=.25, bool neg=true):Constraint<State>(start,start,neg,Constraint<State>::CTYPE::VERTEX){}//,agentDiameter(radius*2.0*State::TIME_RESOLUTION_D){}
+    virtual ~StartVertex(){}
+    // Check whether the action has the exact same time and to/from
+    virtual double ConflictTime(State const& from, State const& to) const {
+      //unsigned delta(abs(from.t-this->start_state.t));
+      // arrival is within diameter and arrival is the same vertex
+      //if(delta<agentDiameter && from.sameLoc(this->start_state)) return std::min(from.t,this->start_state.t)/State::TIME_RESOLUTION_D;
+      if(from==this->start_state) return std::min(from.t,this->start_state.t)/State::TIME_RESOLUTION_D;
+      return 0.0;
+    }
+    virtual bool ConflictsWith(State const& from, State const& to) const {
+      //unsigned delta(abs(from.t-this->start_state.t));
+      // arrival is within diameter and arrival is the same vertex
+      //return from.sameLoc(this->start_state) && delta<agentDiameter;
+      return from==this->start_state;
+    }
+    //unsigned agentDiameter;
 };
 
 template<typename State>
@@ -170,12 +265,40 @@ class Identical : public Constraint<State> {
   public:
     Identical():Constraint<State>(){}
     Identical(State const& s, bool neg=true):Constraint<State>(s,s,neg) {}
-    Identical(State const& start, State const& end, bool neg=true):Constraint<State>(start,end,neg) {}
+    Identical(State const& start, State const& end, bool neg=true):Constraint<State>(start,end,neg,Constraint<State>::CTYPE::VERTEX) {}
     virtual ~Identical(){}
-    virtual double ConflictsWith(State const& s) const {return 0;} // Vertex collisions are ignored
     // Check whether the action has the exact same time and to/from
-    virtual double ConflictsWith(State const& from, State const& to) const {return (from==this->start_state && to.sameLoc(this->end_state))?from.t?double(from.t)/State::TIME_RESOLUTION_D:-1.0/State::TIME_RESOLUTION_D:0;}
+    virtual double ConflictTime(State const& from, State const& to) const {
+      // Vertex collision
+      return (from==this->start_state && to.sameLoc(this->end_state))?from.t?double(from.t)/State::TIME_RESOLUTION_D:-1.0/State::TIME_RESOLUTION_D:0;
+    }
+    virtual bool ConflictsWith(State const& from, State const& to) const {
+      // Vertex collision
+      return from==this->start_state && to.sameLoc(this->end_state);
+    }
 };
+
+template<typename State>
+class ConditionalIdentical : public Constraint<State> {
+  public:
+    ConditionalIdentical():Constraint<State>(){}
+    ConditionalIdentical(State const& s, bool neg=true):Constraint<State>(s,s,neg) {}
+    ConditionalIdentical(State const& start, State const& end, bool neg=true):Constraint<State>(start,end,neg,Constraint<State>::CTYPE::VERTEX) {}
+    virtual ~ConditionalIdentical(){}
+    // Check whether the action has the exact same time and to/from
+    virtual double ConflictTime(State const& from, State const& to) const {
+      // Vertex collision
+      return (from==this->start_state && to.sameLoc(this->end_state))?from.t?double(from.t)/State::TIME_RESOLUTION_D:-1.0/State::TIME_RESOLUTION_D:0;
+    }
+    virtual bool ConflictsWith(State const& from, State const& to) const {
+      // Vertex collision
+      return !ignore && (from==this->start_state && to.sameLoc(this->end_state));
+    }
+    static bool ignore;
+};
+template<typename State>
+bool ConditionalIdentical<State>::ignore=false;
+
 
 template<typename State>
 class TimeRange : public Constraint<State> {
@@ -185,12 +308,17 @@ class TimeRange : public Constraint<State> {
     // The times do NOT correspond to the actual action times, but the time interval to avoid
     TimeRange(State const& start, State const& end, bool neg=true):Constraint<State>(start,end,neg){}
     virtual ~TimeRange(){}
-    virtual double ConflictsWith(State const& s) const {return 0;} // Vertex collisions are ignored
     // Check whether the opposing action has a conflict with this one
-    virtual double ConflictsWith(State const& from, State const& to) const {return (from.sameLoc(this->start_state)
+    virtual double ConflictTime(State const& from, State const& to) const {return (from.sameLoc(this->start_state)
 		    && to.sameLoc(this->end_state)
 		    && from.t >= this->start_state.t
 		    && from.t <= this->end_state.t)?std::max(double(from.t)/State::TIME_RESOLUTION_D,1.0/State::TIME_RESOLUTION_D):0; }
+    virtual bool ConflictsWith(State const& from, State const& to) const {
+      return (from.sameLoc(this->start_state)
+          && to.sameLoc(this->end_state)
+          && from.t >= this->start_state.t
+          && from.t <= this->end_state.t);
+    }
     virtual void OpenGLDraw(MapInterface*) const {}
 };
 
@@ -200,13 +328,30 @@ class Collision : public Constraint<State> {
     Collision(double radius=.25):Constraint<State>(),agentRadius(radius){}
     Collision(State const& start, State const& end,double radius=.25, bool neg=true):Constraint<State>(start,end,neg),agentRadius(radius){}
     virtual ~Collision(){}
-    virtual double ConflictsWith(State const& s) const {return 0;} // Vertex collisions are ignored
     // Check whether the opposing action has a conflict with this one
-    virtual double ConflictsWith(State const& from, State const& to) const {return collisionCheck3D(from,to,this->start_state,this->end_state,agentRadius);}
-    virtual double ConflictsWith(Collision<State> const& x) const {return collisionCheck3D(this->start_state,this->end_state,x.start_state,x.end_state,agentRadius,x.agentRadius);}
+    virtual double ConflictTime(State const& from, State const& to) const {return collisionTime3D(from,to,this->start_state,this->end_state,agentRadius);}
+    virtual bool ConflictsWith(State const& from, State const& to) const {return collisionCheck3D(from,to,this->start_state,this->end_state,agentRadius);}
+    virtual bool ConflictsWith(Collision<State> const& x) const {return collisionCheck3D(this->start_state,this->end_state,x.start_state,x.end_state,agentRadius,x.agentRadius);}
     virtual void OpenGLDraw(MapInterface*) const {}
     double agentRadius;
 };
+
+template<typename State>
+class Conditional : public Constraint<State> {
+  public:
+    Conditional(double radius=.25):Constraint<State>(),agentRadius(radius){}
+    Conditional(State const& start, State const& end,double radius=.25, bool neg=true):Constraint<State>(start,end,neg),agentRadius(radius){}
+    virtual ~Conditional(){}
+    // Check whether the opposing action has a conflict with this one
+    virtual double ConflictTime(State const& from, State const& to) const {return collisionTime3D(from,to,this->start_state,this->end_state,agentRadius);}
+    virtual bool ConflictsWith(State const& from, State const& to) const {return !ignore && collisionCheck3D(from,to,this->start_state,this->end_state,agentRadius);}
+    virtual bool ConflictsWith(Conditional<State> const& x) const {return collisionCheck3D(this->start_state,this->end_state,x.start_state,x.end_state,agentRadius,x.agentRadius);}
+    virtual void OpenGLDraw(MapInterface*) const {}
+    double agentRadius;
+    static bool ignore;
+};
+template<typename State>
+bool Conditional<State>::ignore=false;
 
 template<typename State>
 class Overlap : public Constraint<State> {
@@ -214,10 +359,10 @@ class Overlap : public Constraint<State> {
     Overlap(double radius=.25):Constraint<State>(),agentRadius(radius){}
     Overlap(State const& start, State const& end,double radius=.25, bool neg=true):Constraint<State>(start,end,neg),agentRadius(radius){}
     virtual ~Overlap(){}
-    virtual double ConflictsWith(State const& s) const {return 0;} // Vertex collisions are ignored
     // Check whether the opposing action has a conflict with this one
-    virtual double ConflictsWith(State const& from, State const& to) const {return Util::linesIntersect<Vector2D>(Vector2D(this->start_state),Vector2D(this->end_state),Vector2D(from),Vector2D(to));}
-    virtual double ConflictsWith(Overlap<State> const& x) const {return Util::linesIntersect<Vector2D>(Vector2D(this->start_state),Vector2D(this->end_state),Vector2D(x.start_state),Vector2D(x.end_state));}
+    virtual double ConflictTime(State const& from, State const& to) const {return Util::linesIntersect<Vector2D>(Vector2D(this->start_state),Vector2D(this->end_state),Vector2D(from),Vector2D(to));}
+    virtual bool ConflictsWith(State const& from, State const& to) const {return Util::linesIntersect<Vector2D>(Vector2D(this->start_state),Vector2D(this->end_state),Vector2D(from),Vector2D(to));}
+    virtual bool ConflictsWith(Overlap<State> const& x) const {return Util::linesIntersect<Vector2D>(Vector2D(this->start_state),Vector2D(this->end_state),Vector2D(x.start_state),Vector2D(x.end_state));}
     virtual void OpenGLDraw(MapInterface*) const {}
     double agentRadius;
 };
@@ -230,10 +375,10 @@ class XORCollision : public XOR<State> {
     XORCollision(State const& start, State const& end, State const& s2, State const& e2, bool neg=true, double radius=.25):XOR<State>(start,end,s2,e2,neg),agentRadius(radius){}
     virtual ~XORCollision(){}
     virtual Constraint<State>* Swap()const{return new XORCollision<State>(this->pos_start,this->pos_end,this->start_state,this->end_state,this->negative);}
-    virtual double ConflictsWith(State const& s) const {return 0;} // Vertex collisions are ignored
     // Check whether the opposing action has a conflict with this one
-    virtual double ConflictsWith(State const& from, State const& to) const {return collisionCheck3D(from,to,this->start_state,this->end_state,agentRadius);}
-    virtual double ConflictsWith(XORCollision<State> const& x) const {return collisionCheck3D(this->start_state,this->end_state,x.start_state,x.end_state,agentRadius,x.agentRadius);}
+    virtual double ConflictTime(State const& from, State const& to) const {return collisionTime3D(from,to,this->start_state,this->end_state,agentRadius);}
+    virtual bool ConflictsWith(State const& from, State const& to) const {return collisionCheck3D(from,to,this->start_state,this->end_state,agentRadius);}
+    virtual bool ConflictsWith(XORCollision<State> const& x) const {return collisionCheck3D(this->start_state,this->end_state,x.start_state,x.end_state,agentRadius,x.agentRadius);}
     virtual void OpenGLDraw(MapInterface*) const {}
     double agentRadius;
     State pos_start;
@@ -246,11 +391,12 @@ class Pyramid : public Constraint<State> {
     Pyramid(double radius=.25):Constraint<State>(),agentRadius(radius){}
     Pyramid(State const& start, State const& end, unsigned st, double radius=.25, bool neg=true):Constraint<State>(start,end,neg),agentRadius(radius),stime(st){}
     virtual ~Pyramid(){}
-    virtual double ConflictsWith(State const& s) const {return 0;} // Vertex collisions are ignored
+    virtual bool ConflictsWith(State const& s) const {return 0;} // Vertex collisions are ignored
     // Check whether the opposing action has a conflict with this one
     // // Only perform check if start time is identical
-    virtual double ConflictsWith(State const& from, State const& to) const {return from.t==stime?collisionCheck3D(from,to,this->start_state,this->end_state,agentRadius):0;}
-    virtual double ConflictsWith(Pyramid<State> const& x) const {return x.start_state.t==stime?collisionCheck3D(this->start_state,this->end_state,x.start_state,x.end_state,agentRadius,x.agentRadius):0;}
+    virtual double ConflictTime(State const& from, State const& to) const {return from.t==stime?collisionTime3D(from,to,this->start_state,this->end_state,agentRadius):0;}
+    virtual bool ConflictsWith(State const& from, State const& to) const {return from.t==stime?collisionCheck3D(from,to,this->start_state,this->end_state,agentRadius):false;}
+    virtual bool ConflictsWith(Pyramid<State> const& x) const {return x.start_state.t==stime?collisionCheck3D(this->start_state,this->end_state,x.start_state,x.end_state,agentRadius,x.agentRadius):0;}
     virtual void OpenGLDraw(MapInterface*) const {}
     double agentRadius;
     unsigned stime;
@@ -307,18 +453,29 @@ template<typename State, typename Action>
 class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
   public:
     /** Add a constraint to the model */
-    virtual void AddConstraint(Constraint<State> const* c){constraints.insert(c->start().t,c->end().t,c);}
+    virtual void AddConstraint(Constraint<State> const* c){constraints.insert(c);}
     virtual void AddPositiveConstraint(Constraint<State> const* c){pconstraints.insert(c);}
-    virtual void AddConstraints(std::vector<std::unique_ptr<Constraint<State> const>> const& cs){for(auto const& c:cs)constraints.insert(c->start().t,c->end().t,c.get());}
+    virtual void AddConstraints(std::vector<std::unique_ptr<Constraint<State> const>> const& cs){constraints.insert(cs);}
     /** Clear the constraints */
-    virtual void ClearConstraints(){constraints.clear();pconstraints.clear();}
+    virtual void ClearConstraints(){constraints.clear();pconstraints.clear();edgeConstraints.clear();vertexConstraints.clear();}
     /** Get the possible actions from a state */
     virtual void GetActions(const State &nodeID, std::vector<Action> &actions) const = 0;
     virtual void GetReverseActions(const State &nodeID, std::vector<Action> &actions) const = 0;
     /** Get the successor states not violating constraints */
     virtual void GetSuccessors(const State &nodeID, std::vector<State> &neighbors) const = 0;
+    virtual unsigned GetSuccessors(const State &nodeID, State* neighbors) const{return 0;}
     /** Checks to see if any constraint is violated, returning the time of violation, 0 otherwise */
-    virtual inline double ViolatesConstraint(const State &from, const State &to) const {
+    virtual inline double ViolatesConstraintTime(const State &from, const State &to) const {
+      auto const& v(edgeConstraints.find(this->GetStateHash(from)));
+      if(v!=edgeConstraints.end()){
+        if(to.sameLoc(v->second))return from.t?from.t*State::TIME_RESOLUTION_D:-1.0;
+      }
+      if(vertexConstraints.find(this->GetStateHash(from))!=vertexConstraints.end()){
+        return from.t?from.t*State::TIME_RESOLUTION_D:-1.0;
+      }
+      if(vertexConstraints.find(this->GetStateHash(to))!=vertexConstraints.end()){
+        return from.t?from.t*State::TIME_RESOLUTION_D-.25:-1.0;
+      }
       //Check if the action violates any of the constraints that are in the constraints list
       if(constraints.empty())return 0;
       //Identical<State> start(from);
@@ -328,17 +485,40 @@ class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
       //while((*s)->end_state.t>=from.t && s!=constraints.begin())--s; // Reverse to the constraint just before
       //auto e(constraints.upper_bound((Constraint<State> const*)&end));
       //while(e!=constraints.end() && (*e)->start_state.t<=to.t)++e;
-      std::vector<Constraint<State> const*> cs;
-      constraints.findOverlapping(from.t,to.t,cs);
-      //for(;s!=e;++s){
+      static typename IntervalTree<Constraint<State>>::Intervals cs;
+      cs.resize(0);
+      Identical<State> tmp(from,to);
+      constraints.findOverlapping((Constraint<State>*)&tmp,cs);
       for(auto const& s:cs){
-        double vtime(s->ConflictsWith(from,to));
+        double vtime(s->ConflictTime(from,to));
         if(vtime){
           //std::cout << "Ignoring " << from << "-->" << to << "\n";
           return vtime;
         }
       }
       return 0;
+    }
+    virtual inline bool ViolatesConstraint(const State &from, const State &to) const {
+      auto const& v(edgeConstraints.find(this->GetStateHash(from)));
+      if(v!=edgeConstraints.end() && to.sameLoc(v->second)){
+        return true;
+      }
+      if(vertexConstraints.find(this->GetStateHash(from))!=vertexConstraints.end()){
+        return true;
+      }
+      if(vertexConstraints.find(this->GetStateHash(to))!=vertexConstraints.end()){
+        return true;
+      }
+      //Check if the action violates any of the constraints that are in the constraints list
+      if(constraints.empty())return 0;
+      static typename IntervalTree<Constraint<State>>::Intervals cs;
+      cs.resize(0);
+      Identical<State> tmp(from,to);
+      constraints.findOverlapping((Constraint<State>*)&tmp,cs);
+      for(auto const& s:cs){
+        if(s->ConflictsWith(from,to))return true;
+      }
+      return false;
     }
     virtual void GLDrawLine(const State &x, const State &y) const{}
     virtual void GLDrawPath(const std::vector<State> &p, const std::vector<State> &waypoints) const{
@@ -351,9 +531,13 @@ class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
     virtual void SetIgnoreHeading(bool i){}
     virtual bool GetIgnoreHeading()const{return false;}
     virtual bool collisionCheck(const State &s1, const State &d1, float r1, const State &s2, const State &d2, float r2)=0;
+    virtual bool fetch(State const& a, State const&b, int i, State& c){}
+    virtual unsigned branchingFactor(){}
 
     State theGoal;
-    TemplateIntervalTree<Constraint<State> const*,unsigned> constraints;
+    IntervalTree<Constraint<State>> constraints;
+    std::unordered_map<uint64_t,State> edgeConstraints;
+    std::unordered_set<uint64_t> vertexConstraints;
     //TemplateIntervalTree<Constraint<State> const*,unsigned> pconstraints;
     //std::set<Constraint<State> const*, std::less<Constraint<State> const*>> constraints;
     std::set<Constraint<State> const*, std::less<Constraint<State> const*>> pconstraints;

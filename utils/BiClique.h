@@ -44,28 +44,6 @@ namespace BiClique{
     if(histL[lDegree]<rDegree || histR[rDegree]<lDegree){
       return false;
     }
-    if(rDegree==1){
-      if(lDegree == 1){
-        left.push_back(start.first);
-        right.push_back(start.second);
-        return true;
-      }else{
-        left.push_back(start.first);
-        right.reserve(L[start.first].size());
-        for(auto const& a:L[start.first]){
-          right.push_back(a);
-        }
-        return true;
-      }
-    }
-    if(lDegree==1){
-      right.push_back(start.second);
-      left.reserve(R[start.second].size());
-      for(auto const& a:R[start.second]){
-        left.push_back(a);
-      }
-      return true;
-    }
 
     // Histograms for the count of nodes that  are referenced by index
     bool changed(true);
@@ -76,7 +54,7 @@ namespace BiClique{
       lNodes=0;
       rNodes=0;
       // Prune out all edges that have a degree that is too small
-      for(unsigned i(0); i<L.size(); ++i){
+      for(unsigned i(0); i<R[start.second].size(); ++i){
         if(L[i].size()){
           if(L[i].size()<lDegree){
             changed=true;
@@ -89,7 +67,7 @@ namespace BiClique{
           }
         }
       }
-      for(unsigned i(0); i<R.size(); ++i){
+      for(unsigned i(0); i<L[start.first].size(); ++i){
         if(R[i].size()){
           if(R[i].size()<rDegree){
             changed=true;
@@ -118,11 +96,10 @@ namespace BiClique{
     if(rNodes<lDegree)return false;
 
     // If we got here, the degree is too high on some vertices
-    // TODO, this would likely run faster if we compute permuatations
-    // based on the smaller of L or R... (instead of always using L)
-    std::vector<unsigned> d;
-    d.reserve(L.size());
-    for(unsigned j(0); j<L.size(); ++j){
+    static std::vector<unsigned> d;
+    d.resize(0);
+    d.reserve(R[start.second].size());
+    for(unsigned j(0); j<R[start.second].size(); ++j){
       if(j!=start.first && L[j].size()){
         d.push_back(j);
       }
@@ -131,10 +108,15 @@ namespace BiClique{
     // rDegree nodes
     // Test up to all N choose K combinations
     unsigned k(rDegree-1); // minus 1 because we always include the start vertex
+    static std::vector<unsigned> cmn(L[start.first]); // Start test with this...
+    static std::vector<unsigned> tmp;
     do {
-      std::vector<unsigned> cmn(L[start.first]); // Start test with this...
+      //for(auto const& g:d)
+        //std::cout << g << " ";
+      //std::cout << "\n";
+      cmn=L[start.first]; // Start test with this...
       for(unsigned i(0); i<k; ++i){
-        std::vector<unsigned> tmp;
+        tmp.resize(0);
         unsigned size(intersection(cmn,L[d[i]],tmp)); // Set intersection
         if(size<lDegree)break;
         cmn=tmp;
@@ -149,6 +131,7 @@ namespace BiClique{
           for(unsigned i(0); i<k; ++i){
             left.push_back(d[i]);
           }
+          //std::cout << "\n";
           return true;
         }
       }
@@ -164,18 +147,13 @@ namespace BiClique{
   // match the indices of vertices in the respective adjacency list.
   // the result will be a list of edges in the biclique.
   void findBiClique(
-      std::vector<std::vector<unsigned>> L,
-      std::vector<std::vector<unsigned>> R,
+      std::vector<std::vector<unsigned>> const& L,
+      std::vector<std::vector<unsigned>> const& R,
       std::pair<unsigned,unsigned> const& start,
       std::vector<unsigned>& left,
       std::vector<unsigned>& right){
-    // Sort adj lists for easier comparison ops
-    for(auto& l:L){
-      std::sort(l.begin(),l.end());
-    }
-    for(auto& r:R){
-      std::sort(r.begin(),r.end());
-    }
+    unsigned minimum(std::max(L[start.first].size()+1,R[start.first].size()+1));
+    
     /*for(auto const& f:L){
       unsigned j(0);
       for(unsigned i(0); i<R.size(); ++i){
@@ -258,6 +236,9 @@ namespace BiClique{
         j=R[start.second][k];
       }
     }
+*/
+    unsigned lDegree(L[start.first].size());
+/*
  {
   std::cout << "L:\n";
   for(auto const& a:L){
@@ -276,9 +257,6 @@ namespace BiClique{
   std::cout << "\n";
 }
 */
-    std::vector<unsigned> histL(R.size()+1);
-    std::vector<unsigned> histR(L.size()+1);
-    unsigned lDegree(L[start.first].size());
     unsigned rDegree(R[start.second].size());
     // Special easy case...
     if(rDegree==1){
@@ -296,44 +274,80 @@ namespace BiClique{
       }
     }
 
+    static std::vector<unsigned> histL;
+    histL.resize(L[start.first].size()+1);
+    memset(&histL[0], 0, sizeof(histL[0]) * histL.size());
+    static std::vector<unsigned> histR;
+    histR.resize(R[start.second].size()+1);
+    memset(&histR[0], 0, sizeof(histR[0]) * histR.size());
+    std::queue<std::pair<unsigned,unsigned>> q;
     // Cumulative histogram - the number of vertices with degX or above.
-    for(auto const& l:L){
-      histL[l.size()]++;
+    for(unsigned l(0); l<R[start.second].size(); ++l){
+      //if(l.size()>=R.size())
+        //std::cout << "bad "<<l.size()<<">="<<R.size()<<"\n";
+      histL[L[l].size()]++;
     }
     for(int i(histL.size()-1); i>1; --i){
       histL[i-1]+=histL[i];
     }
-    for(auto const& r:R){
-      histR[r.size()]++;
+    for(unsigned r(0); r<L[start.first].size(); ++r){
+      //if(r.size()>=L.size())
+        //std::cout << "bad "<<r.size()<<">="<<L.size()<<"\n";
+      histR[R[r].size()]++;
     }
     for(int i(histR.size()-1); i>1; --i){
       histR[i-1]+=histR[i];
+      unsigned num(histR[i]);
+      while((i)+num>minimum && histL[num]>=i){
+        q.emplace(num--,i);
+      }
     }
+    q.emplace(R[start.second].size()>L[start.first].size()?1:L[start.first].size(),R[start.second].size()>L[start.first].size()?R[start.second].size():1);
+    //std::cout << "q:\n";
+    //for(auto const& p:possibilities){
+      //std::cout << p.first << "," << p.second << "\n";
+    //}
 
-    std::unordered_set<uint64_t> dupe;
-    auto cmp = [](std::pair<unsigned,unsigned> left, std::pair<unsigned,unsigned> right) { return left.first*left.second<right.first*right.second;};
-    std::priority_queue<std::pair<unsigned,unsigned>, std::vector<std::pair<unsigned,unsigned>>, decltype(cmp)> q(cmp);
-    q.push({lDegree,rDegree});
+    // Sort adj lists for easier comparison ops
+    // Skip this - we assume they are initially sorted
+    /*for(auto& l:L){
+      std::sort(l.begin(),l.end());
+    }
+    for(auto& r:R){
+      std::sort(r.begin(),r.end());
+    }*/
+
+    //std::unordered_set<uint64_t> dupe;
+    //auto cmp = [](std::pair<unsigned,unsigned> left, std::pair<unsigned,unsigned> right) { return left.first*left.second<right.first*right.second;};
+    //std::priority_queue<std::pair<unsigned,unsigned>, std::vector<std::pair<unsigned,unsigned>>, decltype(cmp)> q(cmp);
     while(!q.empty()){
-      lDegree=q.top().first;
-      rDegree=q.top().second;
+      lDegree=q.front().first;
+      rDegree=q.front().second;
       q.pop();
-      if(!testFeasibility(L,R,start,lDegree,rDegree,histL,histR,left,right)){
-        // minus one from l
-        unsigned n(lDegree-1);
-        uint64_t key(n*L.size()+rDegree);
-        if(n && dupe.find(key)==dupe.end()){
-          dupe.insert(key);
-          q.push({n,rDegree});
+      if(rDegree==1){
+        if(lDegree == 1){
+          left.push_back(start.first);
+          right.push_back(start.second);
+          return;
+        }else{
+          left.push_back(start.first);
+          right.reserve(L[start.first].size());
+          for(auto const& a:L[start.first]){
+            right.push_back(a);
+          }
+          return;
         }
-        // minus one from r
-        n=rDegree-1;
-        key=lDegree*L.size()+n;
-        if(n && dupe.find(key)==dupe.end()){
-          dupe.insert(key);
-          q.push({lDegree,n});
+      }
+      if(lDegree==1){
+        right.push_back(start.second);
+        left.reserve(R[start.second].size());
+        for(auto const& a:R[start.second]){
+          left.push_back(a);
         }
-      }else{
+        return;
+      }
+      //std::cout << "trying " << lDegree << "," << rDegree << "\n";
+      if(testFeasibility(L,R,start,lDegree,rDegree,histL,histR,left,right)){
         break;
       }
     }

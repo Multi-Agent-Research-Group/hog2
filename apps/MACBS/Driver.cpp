@@ -40,7 +40,6 @@ bool ECBSheuristic = false; // use ECBS heuristic at low-level
 bool randomalg = false; // Randomize tiebreaking
 bool useCAT = false; // Use conflict avoidance table
 bool verify = false;
-bool suboptimal = false;
 bool mouseTracking;
 unsigned killtime(300); // Kill after some number of seconds
 unsigned killmem(1024); // 1GB
@@ -108,7 +107,7 @@ void processSolution(double elapsed){
     cost += environs[0][0].environment->GetPathLength(solution[x]);
     total += solution[x].size();
 
-    if(!quiet)
+    if(!quiet){
       if(solution[x].size()) {
         std::cout << "Agent " << x << " (" << environs[0][0].environment->GetPathLength(solution[x]) << "): " << "\n";
         for (auto &a : solution[x]) {
@@ -117,6 +116,7 @@ void processSolution(double elapsed){
       } else {
         std::cout << "Agent " << x << ": " << "NO Path Found.\n";
       }
+    }
     // Only verify the solution if the run didn't time out
     if (verify && elapsed > 0) {
       for (unsigned y = x + 1; y < solution.size(); y++) {
@@ -172,14 +172,14 @@ void processSolution(double elapsed){
   std::cout << nodes << ",";
   std::cout << cost / xyztLoc::TIME_RESOLUTION_D << ",";
   std::cout << total << ",";
-  std::cout << MACBSGroup::constraintsz/double(nodes) << std::endl;
-  std::cout << MACBSGroup::constrainttot/double(nodes)/2.0 << std::endl;
+  std::cout << MACBSGroup::constraintsz/std::max(1ul,MACBSGroup::constrainttot)<< std::endl;
   if (!gui)
     exit(0);
 }
 
 int main(int argc, char* argv[])
 {
+  //load3DCollisionTable();
   InstallHandlers();
   Params::precheck=0; // No precheck (default)
   ProcessCommandLineArgs(argc, argv);
@@ -193,7 +193,7 @@ int main(int argc, char* argv[])
   {
     InitHeadless();
     //std::cout << solution;
-    while((groups.size()==1&&!groups[0]->donePlanning())||!detectIndependence()){
+    while((groups.size()==1&&!groups.begin()->second->donePlanning())||!detectIndependence()){
       if(Params::verbose)
         std::cout << "There are " << groups.size() << " groups" << std::endl;
       for(auto& group:groups){
@@ -289,11 +289,15 @@ void InstallHandlers()
   InstallCommandLineHandler(MyCLHandler, "-disappear", "-disappear", "Agents disappear at goal");
   InstallCommandLineHandler(MyCLHandler, "-nogui", "-nogui", "Turn off gui");
   InstallCommandLineHandler(MyCLHandler, "-verbose", "-verbose", "Turn on verbose output");
+  InstallCommandLineHandler(MyCLHandler, "-vc", "-vc", "Turn on vertex collisions");
+  InstallCommandLineHandler(MyCLHandler, "-asym", "-asym", "Turn on asymmetric pairings");
   InstallCommandLineHandler(MyCLHandler, "-astarverbose", "-astarverbose", "Turn on verbose output for A*");
   InstallCommandLineHandler(MyCLHandler, "-quiet", "-quiet", "Extreme minimal output");
   InstallCommandLineHandler(MyCLHandler, "-cat", "-cat", "Use Conflict Avoidance Table (CAT)");
   InstallCommandLineHandler(MyCLHandler, "-animate", "-animate <usecs>", "Animate CBS search");
   InstallCommandLineHandler(MyCLHandler, "-verify", "-verify", "Verify results");
+  InstallCommandLineHandler(MyCLHandler, "-toptwo", "-toptwo", "Choose top two conflict counts for agents at split");
+  InstallCommandLineHandler(MyCLHandler, "-conditional", "-conditional", "Conditional constraints");
   InstallCommandLineHandler(MyCLHandler, "-suboptimal", "-suboptimal", "Sub-optimal answers");
   InstallCommandLineHandler(MyCLHandler, "-random", "-random", "Randomize conflict resolution order");
   InstallCommandLineHandler(MyCLHandler, "-greedyCT", "-greedyCT", "Greedy sort high-level search by number of conflicts (GCBS)");
@@ -339,7 +343,6 @@ void InitGroupParams(MACBSGroup* group){
   group->ECBSheuristic=ECBSheuristic;
   group->nobypass=nobypass;
   group->verify=verify;
-  Params::greedyCT=suboptimal;
   group->quiet=quiet;
 }
 void fillWaypoints(){
@@ -405,7 +408,8 @@ void InitHeadless(){
   units.reserve(num_agents);
 
   if(noid){
-    MACBSGroup* group=groups[0]=new MACBSGroup(environs,{});
+    groups[0]=new MACBSGroup(environs,{});
+    MACBSGroup* group=groups[0];
     group->agents.resize(num_agents);
     std::iota(group->agents.begin(),group->agents.end(),0); // Add agents 0, 1, ...
     rgroups.resize(1);
@@ -445,7 +449,8 @@ void InitHeadless(){
     for(uint16_t i(0); i<num_agents; ++i){
       std::vector<std::vector<EnvironmentContainer<xyztLoc,t3DDirection>>> environ={environs[i]};
       if(Params::verbose)std::cout << "Creating group " << i << "\n";
-      MACBSGroup* group=groups[i]=new MACBSGroup(environ,{i});
+      groups[i]=new MACBSGroup(environ,{i});
+      MACBSGroup* group=groups[i];
       rgroups[i]=i;
       if(i==0 && !gui){
         Timer::Timeout func(std::bind(&processSolution, std::placeholders::_1));
@@ -470,7 +475,7 @@ void InitHeadless(){
       group->AddUnit(units[i]); // Add to the group
       if(Params::verbose)std::cout << "initial path for agent " << i << ":\n";
       if(Params::verbose)
-        for(auto const& n: *group->tree[0].paths[i])
+        for(auto const& n: *group->tree[0].paths[0])
           std::cout << n << "\n";
       if(gui){sim->AddUnit(units[i]);} // Add to the group
 
@@ -628,9 +633,21 @@ int MyCLHandler(char *argument[], int maxNumArgs){
     greedyCT = true;
     return 1;
   }
+  if(strcmp(argument[0], "-toptwo") == 0)
+  {
+    Params::topTwo = true;
+    return 1;
+  }
+  if(strcmp(argument[0], "-conditional") == 0)
+  {
+    Params::conditional=true;
+    Grid3DConstrainedEnvironment::conditional=true;
+    return 1;
+  }
   if(strcmp(argument[0], "-suboptimal") == 0)
   {
-    suboptimal = true;
+    Params::extrinsicconstraints=true;
+    Params::subopt = true;
     return 1;
   }
   if(strcmp(argument[0], "-verify") == 0)
@@ -1050,6 +1067,16 @@ int MyCLHandler(char *argument[], int maxNumArgs){
   if(strcmp(argument[0], "-astarverbose") == 0)
   {
     Params::astarverbose = true;
+    return 1;
+  }
+  if(strcmp(argument[0], "-vc") == 0)
+  {
+    Params::vc = true;
+    return 1;
+  }
+  if(strcmp(argument[0], "-asym") == 0)
+  {
+    Params::asym = true;
     return 1;
   }
   if(strcmp(argument[0], "-verbose") == 0)

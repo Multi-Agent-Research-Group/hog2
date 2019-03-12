@@ -286,6 +286,10 @@ struct xyztLoc {
   bool operator<=(xyztLoc const& other)const{return t==other.t?x==other.x?y==other.y?z<=other.z:y<=other.y:x<=other.x:t<=other.t;}
   bool operator>(xyztLoc const& other)const{return t==other.t?x==other.x?y==other.y?z>other.z:y>other.y:x>other.x:t>other.t;}
   bool operator>=(xyztLoc const& other)const{return t==other.t?x==other.x?y==other.y?z>=other.z:y>=other.y:x>=other.x:t>=other.t;}
+  void augmented(signed const* o, xyztLoc& c)const{
+    c.x=signed(x)+o[0];
+    c.y=signed(y)+o[1];
+  }
   static float TIME_RESOLUTION;
   static unsigned TIME_RESOLUTION_U;
   static double TIME_RESOLUTION_D;

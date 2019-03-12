@@ -39,7 +39,6 @@ SRC_CPP = \
 	utils/FPUtil.cpp \
 	utils/FunctionApproximator.cpp \
 	utils/GLUtil.cpp \
-	utils/IntervalTree.cpp \
 	utils/LinearRegression.cpp \
 	utils/Map3d.cpp \
 	utils/Map.cpp \

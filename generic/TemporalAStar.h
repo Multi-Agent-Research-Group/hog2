@@ -228,8 +228,9 @@ template <class state, class action, class environment, class openList>
 void TemporalAStar<state,action,environment,openList>::GetPaths(environment *_env, const state& from, const state& to, std::vector<std::vector<state>> &paths, double window, double bestf, unsigned minTime)
 {
   double nextbestf(0);
+  static std::vector<state> thePath;
   if(openClosedList.OpenSize() == 0){
-    std::vector<state> thePath;
+    thePath.resize(0);
     GetPath(_env,from,to,thePath,minTime);
     GetClosedListGCost(thePath.back(),bestf);
     paths.push_back(thePath);
@@ -239,7 +240,7 @@ void TemporalAStar<state,action,environment,openList>::GetPaths(environment *_en
   }
 
   while(fgeq(bestf+window,nextbestf)){
-    std::vector<state> thePath;
+    thePath.resize(0);
     do{
       uint64_t key(openClosedList.Peek());
       nextbestf=openClosedList.Lookup(key).g+openClosedList.Lookup(key).h;
