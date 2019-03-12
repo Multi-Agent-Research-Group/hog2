@@ -279,6 +279,28 @@ class Identical : public Constraint<State> {
 };
 
 template<typename State>
+class ConditionalIdentical : public Constraint<State> {
+  public:
+    ConditionalIdentical():Constraint<State>(){}
+    ConditionalIdentical(State const& s, bool neg=true):Constraint<State>(s,s,neg) {}
+    ConditionalIdentical(State const& start, State const& end, bool neg=true):Constraint<State>(start,end,neg,Constraint<State>::CTYPE::VERTEX) {}
+    virtual ~ConditionalIdentical(){}
+    // Check whether the action has the exact same time and to/from
+    virtual double ConflictTime(State const& from, State const& to) const {
+      // Vertex collision
+      return (from==this->start_state && to.sameLoc(this->end_state))?from.t?double(from.t)/State::TIME_RESOLUTION_D:-1.0/State::TIME_RESOLUTION_D:0;
+    }
+    virtual bool ConflictsWith(State const& from, State const& to) const {
+      // Vertex collision
+      return !ignore && (from==this->start_state && to.sameLoc(this->end_state));
+    }
+    static bool ignore;
+};
+template<typename State>
+bool ConditionalIdentical<State>::ignore=false;
+
+
+template<typename State>
 class TimeRange : public Constraint<State> {
   public:
     TimeRange():Constraint<State>(){}
@@ -313,6 +335,23 @@ class Collision : public Constraint<State> {
     virtual void OpenGLDraw(MapInterface*) const {}
     double agentRadius;
 };
+
+template<typename State>
+class Conditional : public Constraint<State> {
+  public:
+    Conditional(double radius=.25):Constraint<State>(),agentRadius(radius){}
+    Conditional(State const& start, State const& end,double radius=.25, bool neg=true):Constraint<State>(start,end,neg),agentRadius(radius){}
+    virtual ~Conditional(){}
+    // Check whether the opposing action has a conflict with this one
+    virtual double ConflictTime(State const& from, State const& to) const {return collisionTime3D(from,to,this->start_state,this->end_state,agentRadius);}
+    virtual bool ConflictsWith(State const& from, State const& to) const {return !ignore && collisionCheck3D(from,to,this->start_state,this->end_state,agentRadius);}
+    virtual bool ConflictsWith(Conditional<State> const& x) const {return collisionCheck3D(this->start_state,this->end_state,x.start_state,x.end_state,agentRadius,x.agentRadius);}
+    virtual void OpenGLDraw(MapInterface*) const {}
+    double agentRadius;
+    static bool ignore;
+};
+template<typename State>
+bool Conditional<State>::ignore=false;
 
 template<typename State>
 class Overlap : public Constraint<State> {

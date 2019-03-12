@@ -118,6 +118,8 @@ class Grid3DConstrainedEnvironment : public ConstrainedEnvironment<xyztLoc, t3DD
     void fetch32(xyztLoc const& a, xyztLoc const&b, int v, xyztLoc& c){
       a.augmented(moves32[(rev32[((b.x-a.x+3)*7+(b.y-a.y+3))]+v+32)%32],c);
     }
+  public:
+    static bool conditional;
 };
 
 // Check if an openlist node conflicts with a node from an existing path

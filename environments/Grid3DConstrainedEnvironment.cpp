@@ -42,6 +42,7 @@ void Grid3DConstrainedEnvironment::GetSuccessors(const xyztLoc &nodeID, std::vec
 {
   neighbors.resize(0);
   mapEnv->GetSuccessors(nodeID, neighbors);
+  assert(false);
 
   // TODO: remove illegal successors
   for(auto x(neighbors.begin()); x!=neighbors.end(); /*++x*/){
@@ -71,6 +72,30 @@ unsigned Grid3DConstrainedEnvironment::GetSuccessors(const xyztLoc &nodeID, xyzt
     if(!ViolatesConstraint(nodeID,neighbors[x])){
       ++y;
     }
+  }
+  // one or zero constraints means that we are possibly overconstrained
+  // Re-perform the expansion with conditional constraints turned off
+  if(conditional && y<2){
+    // In the case that there's only one action left, check if it is a wait action
+    if(y==1 && !neighbors[0].sameLoc(nodeID)){return y;}
+    Conditional<xyztLoc>::ignore=true;
+    ConditionalIdentical<xyztLoc>::ignore=true;
+    unsigned num(mapEnv->GetSuccessors(nodeID, neighbors));
+
+    // Remove any bad states
+    y=0;
+    for(unsigned x(0); x<num; ++x){
+      unsigned inc(GCost(nodeID,neighbors[x])); // GCOST=Time duration
+      if(!inc)inc=WaitTime(); // Wait action
+      neighbors[x].t=nodeID.t+inc;
+      if(x!=y)
+        neighbors[y]=neighbors[x];
+      if(!ViolatesConstraint(nodeID,neighbors[x])){
+        ++y;
+      }
+    }
+    Conditional<xyztLoc>::ignore=false;
+    ConditionalIdentical<xyztLoc>::ignore=false;
   }
   return y;
 }
@@ -326,3 +351,4 @@ void Constraint<TemporalVector3D>::OpenGLDraw(MapInterface* map) const
 	//DrawSphere(xx, yy, zz, rad/2.0); // zz-l.t*2*rad
 }*/
 
+bool Grid3DConstrainedEnvironment::conditional=false;

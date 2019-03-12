@@ -40,7 +40,6 @@ bool ECBSheuristic = false; // use ECBS heuristic at low-level
 bool randomalg = false; // Randomize tiebreaking
 bool useCAT = false; // Use conflict avoidance table
 bool verify = false;
-bool suboptimal = false;
 bool mouseTracking;
 unsigned killtime(300); // Kill after some number of seconds
 unsigned killmem(1024); // 1GB
@@ -180,7 +179,7 @@ void processSolution(double elapsed){
 
 int main(int argc, char* argv[])
 {
-  load3DCollisionTable();
+  //load3DCollisionTable();
   InstallHandlers();
   Params::precheck=0; // No precheck (default)
   ProcessCommandLineArgs(argc, argv);
@@ -297,6 +296,8 @@ void InstallHandlers()
   InstallCommandLineHandler(MyCLHandler, "-cat", "-cat", "Use Conflict Avoidance Table (CAT)");
   InstallCommandLineHandler(MyCLHandler, "-animate", "-animate <usecs>", "Animate CBS search");
   InstallCommandLineHandler(MyCLHandler, "-verify", "-verify", "Verify results");
+  InstallCommandLineHandler(MyCLHandler, "-toptwo", "-toptwo", "Choose top two conflict counts for agents at split");
+  InstallCommandLineHandler(MyCLHandler, "-conditional", "-conditional", "Conditional constraints");
   InstallCommandLineHandler(MyCLHandler, "-suboptimal", "-suboptimal", "Sub-optimal answers");
   InstallCommandLineHandler(MyCLHandler, "-random", "-random", "Randomize conflict resolution order");
   InstallCommandLineHandler(MyCLHandler, "-greedyCT", "-greedyCT", "Greedy sort high-level search by number of conflicts (GCBS)");
@@ -342,7 +343,6 @@ void InitGroupParams(MACBSGroup* group){
   group->ECBSheuristic=ECBSheuristic;
   group->nobypass=nobypass;
   group->verify=verify;
-  Params::greedyCT=suboptimal;
   group->quiet=quiet;
 }
 void fillWaypoints(){
@@ -633,9 +633,21 @@ int MyCLHandler(char *argument[], int maxNumArgs){
     greedyCT = true;
     return 1;
   }
+  if(strcmp(argument[0], "-toptwo") == 0)
+  {
+    Params::topTwo = true;
+    return 1;
+  }
+  if(strcmp(argument[0], "-conditional") == 0)
+  {
+    Params::conditional=true;
+    Grid3DConstrainedEnvironment::conditional=true;
+    return 1;
+  }
   if(strcmp(argument[0], "-suboptimal") == 0)
   {
-    suboptimal = true;
+    Params::extrinsicconstraints=true;
+    Params::subopt = true;
     return 1;
   }
   if(strcmp(argument[0], "-verify") == 0)
