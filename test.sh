@@ -21,6 +21,9 @@ CCT="${CCT:-false}"
 CTYPE="${CTYPE:-1}"
 XOR="${XOR:-false}"
 GREEDY="${GREEDY:-false}"
+SUBOPT="${SUBOPT:-false}"
+CONDITIONAL="${CONDITIONAL:-false}"
+TOPTWO="${TOPTWO:-false}"
 ID="${ID:-true}"
 RES="${RES:-10}"
 DISAPPEAR="${DISAPPEAR:-true}"
@@ -92,6 +95,27 @@ else
   GREEDY=""
 fi
 
+if [[ $CONDITIONAL = true ]]; then
+  CONDITIONAL="-conditional"
+  DESCRIP="${DESCRIP}_COND"
+else
+  CONDITIONAL=""
+fi
+
+if [[ $SUBOPT = true ]]; then
+  SUBOPT="-suboptimal"
+  DESCRIP="${DESCRIP}_SUBOPT"
+else
+  SUBOPT=""
+fi
+
+if [[ $TOPTWO = true ]]; then
+  TOPTWO="-toptwo"
+  DESCRIP="${DESCRIP}_TOPTWO"
+else
+  TOPTWO=""
+fi
+
 if [[ $XOR = true ]]; then
   XOR="-xor"
   DESCRIP="${DESCRIP}_XOR"
@@ -141,6 +165,8 @@ else
   DESCRIP="${DESCRIP}_BP"
 fi
 
+DESCRIP="${DESCRIP}r${RADIUS}"
+
 IFS=':' read -r -a DOMAIN <<< "$DOMAIN"
 IFS=':' read -r -a BFACTOR <<< "$BFACTOR"
 
@@ -177,7 +203,7 @@ for ((a=${START}; a<=${STOP}; a+=${INC})); do
           echo $cmd $FILENAME
           time $cmd >> /output/$FILENAME
         else
-          cmd="/hog2/bin/${ALG} -seed ${i} -killtime $KILLTIME -killmem $KILLMEM ${SCENPRIOR}${MOV} ${SCENARIOPREFIX}/${i}${SCENARIOSUFFIX} $BP $ASYM $VC $PC $CAT $XOR $CCT $GREEDY $ID $DISAPPEAR -resolution $RES -ctype $CTYPE -radius $RADIUS -killmem $KILLMEM -verify -quiet -nogui -mergeThreshold 9999999"
+          cmd="/hog2/bin/${ALG} -seed ${i} -killtime $KILLTIME -killmem $KILLMEM ${SCENPRIOR}${MOV} ${SCENARIOPREFIX}/${i}${SCENARIOSUFFIX} $BP $ASYM $VC $PC $CAT $XOR $CCT $CONDITIONAL $SUBOPT $TOPTWO $GREEDY $ID $DISAPPEAR -resolution $RES -ctype $CTYPE -radius $RADIUS -killmem $KILLMEM -verify -quiet -nogui -mergeThreshold 9999999"
           echo $cmd $FILENAME
           time $cmd >> /output/$FILENAME
         fi
