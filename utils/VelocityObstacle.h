@@ -72,6 +72,19 @@ inline bool get(unsigned* bitarray, size_t idx) {
 inline void set(unsigned* bitarray, size_t idx) {
   bitarray[idx / WORD_BITS] |= (1 << (idx % WORD_BITS));
 }
+std::pair<float,float> getForbiddenInterval(Vector2D const& A,
+    Vector2D const& A2,
+    Vector2D const& B,
+    Vector2D const& B2,
+    double radiusA,
+    double radiusB);
+
+std::pair<float,float> getForbiddenInterval(Vector3D const& A,
+    Vector3D const& A2,
+    Vector3D const& B,
+    Vector3D const& B2,
+    double radiusA,
+    double radiusB);
 
 double collisionImminent(Vector2D const A, Vector2D const& VA, double radiusA, double startTimeA, double endTimeA,
 Vector2D B, Vector2D const& VB, double radiusB, double startTimeB, double endTimeB);

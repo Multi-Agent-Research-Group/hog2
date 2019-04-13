@@ -25,6 +25,7 @@
 #include "PositionalUtils.h"
 #include "VelocityObstacle.h"
 #include "IntervalTree.h"
+#include <typeinfo>
 
 /*
 struct Action{
@@ -279,6 +280,30 @@ class Identical : public Constraint<State> {
 };
 
 template<typename State>
+class ProbIdentical : public Constraint<State> {
+  public:
+    ProbIdentical():Constraint<State>(){}
+    ProbIdentical(State const& s, bool neg=true):Constraint<State>(s,s,neg) {}
+    ProbIdentical(State const& start, State const& end, bool neg=true):Constraint<State>(start,end,neg,Constraint<State>::CTYPE::VERTEX) {}
+    virtual ~ProbIdentical(){}
+    // Check whether the action has the exact same time and to/from
+    virtual double ConflictTime(State const& from, State const& to) const {
+      // Vertex collision
+      return (from==this->start_state && to.sameLoc(this->end_state))?from.t?double(from.t)/State::TIME_RESOLUTION_D:-1.0/State::TIME_RESOLUTION_D:0;
+    }
+    virtual bool ConflictsWith(State const& from, State const& to) const {
+      // Vertex collision
+      return rand()%cond<prob && (from==this->start_state && to.sameLoc(this->end_state));
+    }
+    static unsigned prob;
+    static unsigned cond;
+};
+template<typename State>
+unsigned ProbIdentical<State>::prob=0;
+template<typename State>
+unsigned ProbIdentical<State>::cond=0;
+
+template<typename State>
 class ConditionalIdentical : public Constraint<State> {
   public:
     ConditionalIdentical():Constraint<State>(){}
@@ -352,6 +377,26 @@ class Conditional : public Constraint<State> {
 };
 template<typename State>
 bool Conditional<State>::ignore=false;
+
+template<typename State>
+class Probable : public Constraint<State> {
+  public:
+    Probable(double radius=.25):Constraint<State>(),agentRadius(radius){}
+    Probable(State const& start, State const& end,double radius=.25, bool neg=true):Constraint<State>(start,end,neg),agentRadius(radius){}
+    virtual ~Probable(){}
+    // Check whether the opposing action has a conflict with this one
+    virtual double ConflictTime(State const& from, State const& to) const {return collisionTime3D(from,to,this->start_state,this->end_state,agentRadius);}
+    virtual bool ConflictsWith(State const& from, State const& to) const { return rand()%cond>=prob && collisionCheck3D(from,to,this->start_state,this->end_state,agentRadius);}
+    virtual bool ConflictsWith(Probable<State> const& x) const {return collisionCheck3D(this->start_state,this->end_state,x.start_state,x.end_state,agentRadius,x.agentRadius);}
+    virtual void OpenGLDraw(MapInterface*) const {}
+    double agentRadius;
+    static unsigned prob;
+    static unsigned cond;
+};
+template<typename State>
+unsigned Probable<State>::prob=0;
+template<typename State>
+unsigned Probable<State>::cond=100;
 
 template<typename State>
 class Overlap : public Constraint<State> {
@@ -453,9 +498,16 @@ template<typename State, typename Action>
 class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
   public:
     /** Add a constraint to the model */
-    virtual void AddConstraint(Constraint<State> const* c){constraints.insert(c);}
+    virtual void AddConstraint(Constraint<State> const* c){
+      if(!constraints.insert(c)){
+        if(typeid(*c).name()[0]=='P'){
+          constraints.remove(c); // Replace with new value
+          constraints.insert(c);
+        }
+      }
+    }
     virtual void AddPositiveConstraint(Constraint<State> const* c){pconstraints.insert(c);}
-    virtual void AddConstraints(std::vector<std::unique_ptr<Constraint<State> const>> const& cs){constraints.insert(cs);}
+    //virtual void AddConstraints(std::vector<std::unique_ptr<Constraint<State> const>> const& cs){constraints.insert(cs);}
     /** Clear the constraints */
     virtual void ClearConstraints(){constraints.clear();pconstraints.clear();edgeConstraints.clear();vertexConstraints.clear();}
     /** Get the possible actions from a state */

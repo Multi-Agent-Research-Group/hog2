@@ -83,12 +83,14 @@ struct Params {
   static bool xorconstraints;
   static bool extrinsicconstraints;
   static bool mutualconstraints;
+  static bool mutualtimerange;
   static bool overlapconstraints;
   static bool verbose;
   static bool astarverbose;
   static bool asym; // Asymmetric set
   static bool vc; // vertex collisions
-  static bool subopt; // Run sub-optimal search
+  static bool overload; // Overload constraints (add extra constraints for every conflict)
+  static bool complete; // Ensure completeness (only relevant when crossconstraints=true)
   static bool topTwo; // Select top two conflicting agents in sub-optimal split
   static bool conditional; // Use conditional constraints to promote completeness
 };
@@ -107,12 +109,14 @@ bool Params::pyramidconstraints = false;
 bool Params::xorconstraints = false;
 bool Params::extrinsicconstraints = false;
 bool Params::mutualconstraints = false;
+bool Params::mutualtimerange = false;
 bool Params::overlapconstraints = false;
+bool Params::complete = false;
 bool Params::verbose = false;
 bool Params::astarverbose = false;
 bool Params::asym = false;
 bool Params::vc = false;
-bool Params::subopt = false;
+bool Params::overload = false;
 bool Params::topTwo = false;
 bool Params::conditional = false;
 
@@ -822,8 +826,7 @@ private:
       if (Params::greedyCT){
         return ( cardinal==other.cardinal ? nc == other.nc ? cost<other.cost : nc>other.nc : cardinal>other.cardinal);
       }else{
-        return ( cost==other.cost ? cardinal==other.cardinal ?
-            (nc > other.nc) : cardinal>other.cardinal : cost > other.cost);
+        return ( cost==other.cost ? (nc > other.nc) : cost > other.cost);
       }
     }
 
@@ -1023,23 +1026,22 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
 
   std::pair<unsigned,unsigned> numConflicts;
   if((bestNode!=0) && Params::cct){
-    numConflicts=FindHiPriConflictOneVsAll(tree[bestNode], tree[bestNode].con.unit1, conflicts, !Params::subopt);
+    numConflicts=FindHiPriConflictOneVsAll(tree[bestNode], tree[bestNode].con.unit1, conflicts);//, !Params::subopt);
     if(tree[bestNode].path2){
-      auto numConflicts2(FindHiPriConflictOneVsAll(tree[bestNode], tree[bestNode].con.unit2, conflicts, !Params::subopt));
+      auto numConflicts2(FindHiPriConflictOneVsAll(tree[bestNode], tree[bestNode].con.unit2, conflicts));//, !Params::subopt));
       if(numConflicts2.second>numConflicts.second)numConflicts.second=numConflicts2.second;
     }
     numConflicts.first=tree[bestNode].numCollisions();
   }else{
-    numConflicts=FindHiPriConflictAllPairs(tree[bestNode], conflicts, !Params::subopt);
+    numConflicts=FindHiPriConflictAllPairs(tree[bestNode], conflicts);//, !Params::subopt);
   }
   // If no conflicts are found in this node, then the path is done
   if (numConflicts.first == 0) {
     processSolution(CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeuristic, searchalgo>::timer->EndTimer());
     return false;
   } else {
-
     //For an unbounded sub-optimal approach, try adding all possible constraints for agent i and j...
-    if(Params::subopt){
+    if(false){ // turned off for now
       unsigned a1=0,a2=1;
       if(Params::topTwo){
         tree[bestNode].topTwo(a1,a2);
@@ -1057,14 +1059,16 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
       assert(c!=tree[bestNode].cct.end());
       for(auto const& x:c->second){
         if(conflicts[0].c.size()){
-          conflicts[0].c.emplace_back((Constraint<state>*) new Conditional<state>(tree[bestNode].paths[a2]->at(x.ix2),tree[bestNode].paths[a2]->at(x.ix2+1)));
-          conflicts[1].c.emplace_back((Constraint<state>*) new Conditional<state>(tree[bestNode].paths[a1]->at(x.ix1),tree[bestNode].paths[a1]->at(x.ix1+1)));
+          conflicts[0].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a2]->at(x.ix2),tree[bestNode].paths[a2]->at(x.ix2+1)));
+          conflicts[1].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a1]->at(x.ix1),tree[bestNode].paths[a1]->at(x.ix1+1)));
           conflicts[0].unit1=a1;
           conflicts[0].unit2=a2;
           conflicts[1].unit1=a2;
           conflicts[1].unit2=a1;
         }else{
           // Add an optimal and complete constraint for the core constraint
+          conflicts[0].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a2]->at(x.ix2),tree[bestNode].paths[a2]->at(x.ix2+1)));
+          conflicts[1].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a1]->at(x.ix1),tree[bestNode].paths[a1]->at(x.ix1+1)));
           GetBiclique(tree[bestNode].paths[a1]->at(x.ix1),tree[bestNode].paths[a1]->at(x.ix1+1),tree[bestNode].paths[a2]->at(x.ix2),tree[bestNode].paths[a2]->at(x.ix2+1),a1,a2,conflicts[0],conflicts[1]);
         }
       }
@@ -1077,7 +1081,7 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
             if(a1==ix->first.a1){
               for(auto const& x:ix->second){
                 if(Params::conditional && a!=a2){
-                  conflicts[0].c.emplace_back((Constraint<state>*) new Conditional<state>(tree[bestNode].paths[a]->at(x.ix2),tree[bestNode].paths[a]->at(x.ix2+1)));
+                  conflicts[0].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a]->at(x.ix2),tree[bestNode].paths[a]->at(x.ix2+1)));
                 }else if(Params::crossconstraints){
                   conflicts[0].c.emplace_back((Constraint<state>*) new Collision<state>(tree[bestNode].paths[a]->at(x.ix2),tree[bestNode].paths[a]->at(x.ix2+1)));
                 }else{
@@ -1088,7 +1092,7 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
             }else{
               for(auto const& x:ix->second){
                 if(Params::conditional && a!=a2){
-                  conflicts[0].c.emplace_back((Constraint<state>*) new Conditional<state>(tree[bestNode].paths[a]->at(x.ix1),tree[bestNode].paths[a]->at(x.ix1+1)));
+                  conflicts[0].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a]->at(x.ix1),tree[bestNode].paths[a]->at(x.ix1+1)));
                 }else if(Params::crossconstraints){
                   conflicts[0].c.emplace_back((Constraint<state>*) new Collision<state>(tree[bestNode].paths[a]->at(x.ix1),tree[bestNode].paths[a]->at(x.ix1+1)));
                 }else{
@@ -1104,7 +1108,7 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
             if(a2==ix->first.a1){
               for(auto const& x:ix->second){
                 if(Params::conditional && a!=a1){
-                  conflicts[1].c.emplace_back((Constraint<state>*) new Conditional<state>(tree[bestNode].paths[a]->at(x.ix2),tree[bestNode].paths[a]->at(x.ix2+1)));
+                  conflicts[1].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a]->at(x.ix2),tree[bestNode].paths[a]->at(x.ix2+1)));
                 }else if(Params::crossconstraints){
                   conflicts[1].c.emplace_back((Constraint<state>*) new Collision<state>(tree[bestNode].paths[a]->at(x.ix2),tree[bestNode].paths[a]->at(x.ix2+1)));
                 }else{
@@ -1114,7 +1118,7 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
             }else{
               for(auto const& x:ix->second){
                 if(Params::conditional && a!=a1){
-                  conflicts[1].c.emplace_back((Constraint<state>*) new Conditional<state>(tree[bestNode].paths[a]->at(x.ix1),tree[bestNode].paths[a]->at(x.ix1+1)));
+                  conflicts[1].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a]->at(x.ix1),tree[bestNode].paths[a]->at(x.ix1+1)));
                 }else if(Params::crossconstraints){
                   conflicts[1].c.emplace_back((Constraint<state>*) new Collision<state>(tree[bestNode].paths[a]->at(x.ix1),tree[bestNode].paths[a]->at(x.ix1+1)));
                 }else{
@@ -1688,6 +1692,11 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
 
 template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class singleHeuristic, class searchalgo>
 void CBSGroup<state,action,comparison,conflicttable,maplanner,singleHeuristic,searchalgo>::Init(){
+  unsigned total(0);
+  //for(auto const& p:tree[0].paths){
+    //total+=p->size();
+  //}
+  //ProbIdentical<state>::cond=Probable<state>::cond=total/tree[0].paths.size();
   /*if(Params::precheck==PRE_SAP){
     for(int i(0); i<tree[0].basepaths.size(); ++i){
       addAABBs<state,xyztAABB>(tree[0].basepaths[i],tree[0].sweep,i);
@@ -1962,6 +1971,7 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
     }
     location = tree[location].parent;
   } // while (location != 0);
+  ProbIdentical<state>::prob=Probable<state>::prob=Params::complete?numConflicts-1:0;
   return numConflicts;
 }
 
@@ -2137,7 +2147,14 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
   // Select the unit from the tree with the new constraint
   unsigned theMA(a2?tree[location].con.unit2:tree[location].con.unit1);
   if (activeMetaAgents[theMA].units.size() == 1) {
+    unsigned numConflicts(LoadConstraintsForNode(location, theMA));
     unsigned theUnit(activeMetaAgents[theMA].units[0]);
+      ProbIdentical<state>::cond=Probable<state>::cond=tree[0].paths[theUnit]->size()*tree[0].paths.size()*currentEnvironment[theUnit]->environment->branchingFactor();
+      //if(ProbIdentical<state>::cond<ProbIdentical<state>::prob)
+        //ProbIdentical<state>::prob=Probable<state>::prob=Probable<state>::prob-ProbIdentical<state>::cond;
+      //else
+        //ProbIdentical<state>::prob=Probable<state>::prob=0;
+    //std::cout << "cond: " << Probable<state>::cond << " prob: " << Probable<state>::prob << " %: " << float(Probable<state>::prob)/float(Probable<state>::cond) << "\n";
 
     // We are building path2 - allocate memory for it
     if(a2){
@@ -2145,7 +2162,6 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
       tree[location].paths[theUnit] = tree[location].path2.get();
     }
 
-    unsigned numConflicts(LoadConstraintsForNode(location, theMA));
 
     // Set the environment based on the number of conflicts
     SetEnvironment(numConflicts, theUnit); // This has to happen before calling LoadConstraints
@@ -2202,6 +2218,10 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
     if (killex != INT_MAX && TOTAL_EXPANSIONS > killex)
       processSolution(-CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeuristic, searchalgo>::timer->EndTimer());
 
+    if(tree[location].paths[theUnit]->size() < 1 && Params::complete){
+      ProbIdentical<state>::prob=Probable<state>::prob=0;
+      ReplanLeg<state,action,comparison,conflicttable,searchalgo,singleHeuristic>(c, astar, *currentEnvironment[theUnit], *tree[location].paths[theUnit], tree[location].wpts[theUnit], tree[location].con.prevWpt, tree[location].con.prevWpt+1,minTime,theUnit,replanTime,TOTAL_EXPANSIONS);
+    }
     //DoHAStar(start, goal, thePath);
     //TOTAL_EXPANSIONS += astar.GetNodesExpanded();
     //std::cout << "Replan agent: " << location << " expansions: " << astar.GetNodesExpanded() << "\n";
@@ -2602,10 +2622,10 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
   //std::cout << "sz:" << (left.size()+right.size())-std::max(left.size(),right.size())-1 << "\n";
   if(conditional){
     for(auto const& m:left){
-      c1.c.emplace_back((Constraint<state>*) new ConditionalIdentical<state>(a1,as[m]));
+      c1.c.emplace_back((Constraint<state>*) new ProbIdentical<state>(a1,as[m]));
     }
     for(auto const& m:right){
-      c2.c.emplace_back((Constraint<state>*) new ConditionalIdentical<state>(b1,bs[m]));
+      c2.c.emplace_back((Constraint<state>*) new ProbIdentical<state>(b1,bs[m]));
     }
   }else{
     for(auto const& m:left){
@@ -2789,8 +2809,10 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
               conflicts.resize(2);
               Conflict<state>& c1=conflicts[0];
               Conflict<state>& c2=conflicts[1];
-              c1.c.clear();
-              c2.c.clear();
+              if(!Params::overload){
+                c1.c.clear();
+                c2.c.clear();
+              }
               c1.prevWpt = pwptA;
               c2.prevWpt = pwptB;
               if(Params::extrinsicconstraints){
@@ -2813,8 +2835,10 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
               conflicts.resize(2);
               Conflict<state>& c1=conflicts[0];
               Conflict<state>& c2=conflicts[1];
-              c1.c.clear();
-              c2.c.clear();
+              if(!Params::overload){
+                c1.c.clear();
+                c2.c.clear();
+              }
               c1.prevWpt = pwptA;
               c2.prevWpt = pwptB;
               if(Params::extrinsicconstraints){
@@ -2883,8 +2907,10 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
               conflicts.resize(2);
               Conflict<state>& c1=conflicts[0];
               Conflict<state>& c2=conflicts[1];
-              c1.c.clear();
-              c2.c.clear();
+              if(!Params::overload){
+                c1.c.clear();
+                c2.c.clear();
+              }
               if (Params::extrinsicconstraints) {
                 state const& a1(a[xTime]);
                 state a2(a[xNextTime]);
@@ -2902,7 +2928,8 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
                   c1.c.emplace_back((Box<state>*) new Box<state>(a1, a2));
                   c2.c.emplace_back((Box<state>*) new Box<state>(b1, b2));
                 }else if(Params::crossconstraints){
-                  if(Params::asym){
+                  if(Params::asym && c1.c.size()==0){ // size=0 only when first in series or optimal...
+                    // Detect which side will have the largest set of nodes in a 1xn biclique
                     state s;
                     unsigned left(0);
                     unsigned right(0);
@@ -2973,16 +3000,151 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
                       }
                       ++i;
                     }
+float diam(agentRadius*2);
                     if(left>right){
-                      c1.c.emplace_back((Constraint<state>*) new Collision<state>(a1, a2));
-                      c2.c.emplace_back((Constraint<state>*) new Identical<state>(a1, a2));
+                      if(Params::mutualtimerange){
+                        float tdiff((a1.t-b1.t)/xyztLoc::TIME_RESOLUTION_D);
+                        // Compute the correct time range...
+                        // Start by setting the start/stop time range to be the forbidden interval for the core actions
+                        auto intvl(getForbiddenInterval(a1,a2,b1,b2,agentRadius,agentRadius));
+                        if(intvl.first==-std::numeric_limits<float>::infinity()){
+                          intvl.first=std::min(tdiff,-diam);
+                        }
+                        if(intvl.second==std::numeric_limits<float>::infinity()){
+                          intvl.second=std::max(tdiff,diam);
+                        }
+                        float t1(intvl.first);
+                        float t2(intvl.second);
+
+                        // Now narrow the interval such that all conflicting actions' intervals overlap
+                        dir=1;
+                        i=1;
+                        //Loop through actions of s clockwise
+                        while(i<bf/2){
+                          if(currentEnvironment[x]->environment->fetch(a1,a2,i*dir,s)){
+                            //Does the interval overlap with the composite interval?
+                            intvl = getForbiddenInterval(a1,s,b1,b2,agentRadius,agentRadius);
+                            // Done if no overlap with current range, or no overlap with start delay
+                            if(intvl.second < t1 || intvl.first > t2 || intvl.first>tdiff || intvl.second<tdiff ){
+                              break;
+                            }
+                            t1=std::max(t1,intvl.first);
+                            t2=std::min(t2,intvl.second);
+                          }
+                          ++i;
+                        }
+                        // Sweep the other direction
+                        dir=-1;
+                        i = 1;
+                        //Loop through actions of s
+                        while(i<bf/2-1){
+                          // Set current element if it is a valid move
+                          if(currentEnvironment[x]->environment->fetch(a1,a2,i*dir,s)){
+                            //Does the interval overlap with the composite interval?
+                            intvl = getForbiddenInterval(a1,s,b1,b2,agentRadius,agentRadius);
+                            // Done if no overlap with current range, or no overlap with start delay
+                            if(intvl.second < t1 || intvl.first > t2 || intvl.first>tdiff || intvl.second<tdiff ){
+                              break;
+                            }
+                            t1=std::max(t1,intvl.first);
+                            t2=std::min(t2,intvl.second);
+                          }
+                          ++i;
+                        }
+                        // Set relative to current time
+                        state ar1(a1);
+                        state ar2(a2);
+                        if(t2>t1){
+                          ar1.t=std::max(1.0,b1.t+t1*xyztLoc::TIME_RESOLUTION_D);
+                          ar2.t=std::max(1.0,b1.t+t2*xyztLoc::TIME_RESOLUTION_D);
+                        }
+                        c1.c.emplace_back((Constraint<state>*) new Collision<state>(a1, a2));
+if(Params::verbose)std::cout << "Adding time range constraint for" << a1 << "-->" << a2 << ": " << ar1 << "-->" << ar2 << "\n";
+                        c2.c.emplace_back((Constraint<state>*) new TimeRange<state>(ar1,ar2));
+                      }else{
+                        c1.c.emplace_back((Constraint<state>*) new Collision<state>(a1, a2));
+                        c2.c.emplace_back((Constraint<state>*) new Identical<state>(a1, a2));
+                      }
                     }else{
-                      c1.c.emplace_back((Constraint<state>*) new Identical<state>(b1, b2));
-                      c2.c.emplace_back((Constraint<state>*) new Collision<state>(b1, b2));
+                      if(Params::mutualtimerange){
+                        float tdiff((b1.t-a1.t)/xyztLoc::TIME_RESOLUTION_D);
+                        // Compute the correct time range...
+                        // Start by setting the start/stop time range to be the forbidden interval for the core actions
+                        auto intvl(getForbiddenInterval(b1,b2,a1,a2,agentRadius,agentRadius));
+                        if(intvl.first==-std::numeric_limits<float>::infinity()){
+                          intvl.first=std::min(tdiff,-diam);
+                        }
+                        if(intvl.second==std::numeric_limits<float>::infinity()){
+                          intvl.second=std::max(tdiff,diam);
+                        }
+                        float t1(intvl.first);
+                        float t2(intvl.second);
+
+                        // Now narrow the interval such that all conflicting actions' intervals overlap
+                        dir=1;
+                        i=1;
+                        //Loop through actions of s clockwise
+                        while(i<bf/2){
+                          if(currentEnvironment[y]->environment->fetch(b1,b2,i*dir,s)){
+                            //Does the interval overlap with the composite interval?
+                            intvl = getForbiddenInterval(b1,s,a1,a2,agentRadius,agentRadius);
+                            // Done if no overlap with current range, or no overlap with start delay
+                            if(intvl.second < t1 || intvl.first > t2 || intvl.first>tdiff || intvl.second<tdiff ){
+                              break;
+                            }
+                            t1=std::max(t1,intvl.first);
+                            t2=std::min(t2,intvl.second);
+                          }
+                          ++i;
+                        }
+                        // Sweep the other direction
+                        dir=-1;
+                        i = 1;
+                        //Loop through actions of s
+                        while(i<bf/2-1){
+                          // Set current element if it is a valid move
+                          if(currentEnvironment[y]->environment->fetch(b1,b2,i*dir,s)){
+                            //Does the interval overlap with the composite interval?
+                            intvl = getForbiddenInterval(b1,s,a1,a2,agentRadius,agentRadius);
+                            // Done if no overlap with current range, or no overlap with start delay
+                            if(intvl.second < t1 || intvl.first > t2 || intvl.first>tdiff || intvl.second<tdiff ){
+                              break;
+                            }
+                            t1=std::max(t1,intvl.first);
+                            t2=std::min(t2,intvl.second);
+                          }
+                          ++i;
+                        }
+                        // Set relative to current time
+                        state br1(b1);
+                        state br2(b2);
+                        if(t2>t1){
+                          br1.t=std::max(0.0,a1.t+t1*xyztLoc::TIME_RESOLUTION_D);
+                          br2.t=std::max(0.0,a1.t+t2*xyztLoc::TIME_RESOLUTION_D);
+                        }
+if(Params::verbose)std::cout << "Adding time range constraint for" << b1 << "-->" << b2 << ": " << br1 << "-->" << br2 << "\n";
+                        c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(br1, br2));
+                        c2.c.emplace_back((Constraint<state>*) new Collision<state>(b1, b2));
+                      }else{
+                        c1.c.emplace_back((Constraint<state>*) new Identical<state>(b1, b2));
+                        c2.c.emplace_back((Constraint<state>*) new Collision<state>(b1, b2));
+                      }
                     }
                   }else{
-                    c1.c.emplace_back((Constraint<state>*) new Collision<state>(a1, a2));
-                    c2.c.emplace_back((Constraint<state>*) new Collision<state>(b1, b2));
+                    if(Params::overload && c1.c.size()){ // Not the first one...
+                      c1.c.emplace_back((Constraint<state>*) new Probable<state>(a1, a2));
+                      c2.c.emplace_back((Constraint<state>*) new Probable<state>(b1, b2));
+                    }else{
+                      if(Params::complete){
+                        //c1.c.emplace_back((Constraint<state>*) new Identical<state>(b1, b2));
+                        c2.c.emplace_back((Constraint<state>*) new Identical<state>(a1, a2));
+                        c1.c.emplace_back((Constraint<state>*) new Collision<state>(a1, a2));
+                        c2.c.emplace_back((Constraint<state>*) new Probable<state>(b1, b2));
+                      }else{
+                        c1.c.emplace_back((Constraint<state>*) new Collision<state>(a1, a2));
+                        c2.c.emplace_back((Constraint<state>*) new Collision<state>(b1, b2));
+                      }
+                    }
                   }
                 }else if(Params::overlapconstraints){
                   c1.c.emplace_back((Overlap<state>*) new Overlap<state>(a1,a2));

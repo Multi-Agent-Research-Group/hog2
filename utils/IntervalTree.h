@@ -191,6 +191,10 @@ public:
         return false;
     }
 
+    bool remove(const ValueType &value){
+      return remove(Interval<ValueType>(value));
+    }
+
 
     bool remove(const Interval<ValueType> &interval)
     {
@@ -808,7 +812,7 @@ private:
     }
 
 
-    Interval<ValueType> findHighest(const Intervals &intervals) const
+    unsigned findHighest(const Intervals &intervals) const
     {
         assert(!intervals.empty());
 

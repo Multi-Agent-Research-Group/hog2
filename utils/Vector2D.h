@@ -65,6 +65,7 @@ class Vector2D {
     // Square
     inline double sq()const{ return (*this) * (*this); }
     inline double len()const{ return sqrt(sq()); }
+    inline double cross(Vector2D const& b)const{return x*b.y-y*b.x;}
 
     // Vector that is perpendicular to this vector
     inline Vector2D perp()const{return Vector2D(y,-x);}

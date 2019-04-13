@@ -132,28 +132,20 @@ inline double steps2Rad(signed steps){return steps/double(steps360)*360.*M_PI/18
 template<unsigned steps360>
 inline double steps2deg(signed steps){return steps/double(steps360)*360.;}
 
-inline double sqDistanceOfPointToLine(Vector2D v, Vector2D w, Vector2D const& p){
-  const double l2((v-w).sq());  // i.e. |w-v|^2 -  avoid a sqrt
+inline double distanceOfPointToLine(Vector3D v, Vector3D w, Vector3D const& p){
+  auto dw(w-v);
+  const double l2(dw.sq());  // i.e. |w-v|^2 -  avoid a sqrt
   if (fequal(l2,0.0)) return distanceSquared(p, v);   // v == w case
-  // Consider the line extending the segment, parameterized as v + t (w - v).
-  // We find projection of point p onto the line. 
-  // It falls where t = [(p-v) . (w-v)] / |w-v|^2
-  // We clamp t from [0,1] to handle points outside the segment vw.
-  const double t(max(0.0, min(1.0, ((p - v)*(w - v)) / l2)));
-  //const double T(((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2);
-  //const Vector2D projection((v + t) * (w - v));  // Projection falls on the segment
-  w-=v;
-  w*=t;
-  v+=w; // piecewise multiply
-  return distanceSquared(p, v);
-  //double dy(a.y-b.y);
-  //double dx(a.x-b.x);
-  //return fabs(dy*x.x-dx-x.y+a.x*b.y-a.y*b.x)/sqrt(dy*dy+dx*dx);
+  // Check whether the point lies on the line...
+  auto dp(p-v);
+  if(dp==dw || dp==-dw)return 0;
+  return dw.cross(dp).len()/dw.len();
 }
 
-inline double distanceOfPointToLine(Vector2D v, Vector2D w, Vector2D const& p){
-  return sqrt(sqDistanceOfPointToLine(v,w,p));
+inline double distanceOfPointToLine2D(Vector2D v, Vector2D w, Vector2D const& p){
+return distanceOfPointToLine(v,w,p);
 }
+
 
 // Get the coordinates of a secant line cut by a circle at center c with radius r
 inline std::pair<Vector2D,Vector2D> secantLine(Vector2D a, Vector2D b, Vector2D const& c, double r){
@@ -604,10 +596,10 @@ bool Util::sat(std::vector<state>const& a, std::vector<state>const& b, double ra
   double doubleRadius(radius*2);
   if(a.size()==1){
     if(b.size()==1) return (a[0].x==b[0].x&&a[0].y==b[0].y);
-    if(b.size()==2) return fequal(Util::sqDistanceOfPointToLine(b[0],b[1],a[0]),0);
+    if(b.size()==2) return fequal(Util::distanceOfPointToLine(b[0],b[1],a[0]),0);
     if(b.size()>=3) return Util::pointInPoly(b,a[0]);
   }else if(a.size()==2){
-    if(b.size()==1) return fequal(Util::sqDistanceOfPointToLine(a[0],a[1],b[0]),0);
+    if(b.size()==1) return fequal(Util::distanceOfPointToLine(a[0],a[1],b[0]),0);
     if(b.size()==2) return Util::linesIntersect(a[0],a[1],b[0],b[1]);
     if(b.size()>=3) return Util::lineIntersectsPoly(b,a[0],a[1]);
   }

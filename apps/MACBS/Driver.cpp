@@ -297,12 +297,13 @@ void InstallHandlers()
   InstallCommandLineHandler(MyCLHandler, "-animate", "-animate <usecs>", "Animate CBS search");
   InstallCommandLineHandler(MyCLHandler, "-verify", "-verify", "Verify results");
   InstallCommandLineHandler(MyCLHandler, "-toptwo", "-toptwo", "Choose top two conflict counts for agents at split");
-  InstallCommandLineHandler(MyCLHandler, "-conditional", "-conditional", "Conditional constraints");
+  InstallCommandLineHandler(MyCLHandler, "-complete", "-complete", "Ensure completeness when using suboptimal switch");
+  InstallCommandLineHandler(MyCLHandler, "-overload", "-overload", "Add additional constriants during conflict check");
   InstallCommandLineHandler(MyCLHandler, "-suboptimal", "-suboptimal", "Sub-optimal answers");
   InstallCommandLineHandler(MyCLHandler, "-random", "-random", "Randomize conflict resolution order");
   InstallCommandLineHandler(MyCLHandler, "-greedyCT", "-greedyCT", "Greedy sort high-level search by number of conflicts (GCBS)");
   InstallCommandLineHandler(MyCLHandler, "-xor", "-xor", "Use XOR constraints");
-  InstallCommandLineHandler(MyCLHandler, "-ctype", "-ctype", "Constraint type: \n\t1: identical constraints\n\t2: Pyramid constraints\n\t3: Collision constraints (sub-optimal)\n\t4: Time range constraints (sub-optimal)\n\t5: Mutual Conflict set constraints\n\t6: Overlap Constraints\n\t7:Box constraints (sub-optimal)");
+  InstallCommandLineHandler(MyCLHandler, "-ctype", "-ctype", "Constraint type: \n\t1: identical constraints\n\t2: Pyramid constraints\n\t3: Collision constraints (sub-optimal)\n\t4: Time range constraints (sub-optimal)\n\t5: Mutual Conflict set constraints\n\t6: Overlap Constraints\n\t7:Box constraints (sub-optimal)\n\t8:1xn TimeRange");
   InstallCommandLineHandler(MyCLHandler, "-pc", "-pc", "prioritize conflicts");
   InstallCommandLineHandler(MyCLHandler, "-cct", "-cct", "Conflict count table");
   InstallCommandLineHandler(MyCLHandler, "-uniqcost", "-uniqcost <value>", "Use randomized unique costs up to <value>");
@@ -525,6 +526,7 @@ bool detectIndependence(){
             rgroups[ag]=rgroups[i];
             //maxnagents=std::max(group[i]->agents.size(),maxnagents);
           }
+          groups[rgroups[i]]->Init();
           if(Params::verbose)std::cout << "Group " << rgroups[i] << " now has: \n";
           k=0;
           if(Params::verbose)for(auto ag:groups[rgroups[i]]->agents){
@@ -638,16 +640,21 @@ int MyCLHandler(char *argument[], int maxNumArgs){
     Params::topTwo = true;
     return 1;
   }
-  if(strcmp(argument[0], "-conditional") == 0)
+  if(strcmp(argument[0], "-complete") == 0)
   {
-    Params::conditional=true;
-    Grid3DConstrainedEnvironment::conditional=true;
+    Params::complete=true;
+    return 1;
+  }
+  if(strcmp(argument[0], "-overload") == 0)
+  {
+    Params::overload=true;
     return 1;
   }
   if(strcmp(argument[0], "-suboptimal") == 0)
   {
+    Params::conditional=true;
+    Grid3DConstrainedEnvironment::conditional=true;
     Params::extrinsicconstraints=true;
-    Params::subopt = true;
     return 1;
   }
   if(strcmp(argument[0], "-verify") == 0)
@@ -852,6 +859,11 @@ int MyCLHandler(char *argument[], int maxNumArgs){
         break;
       case 7:
         Params::boxconstraints=true;
+        Params::extrinsicconstraints=true;
+        break;
+      case 8:
+        Params::crossconstraints=true;
+        Params::mutualtimerange=true;
         Params::extrinsicconstraints=true;
         break;
       default:

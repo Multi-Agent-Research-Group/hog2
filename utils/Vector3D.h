@@ -49,6 +49,7 @@ class Vector3D {
     // Square
     inline double sq(){ return (*this) * (*this); }
     inline double len(){ return sqrt(sq()); }
+    inline Vector3D cross(Vector3D const& b)const{return Vector3D(y*b.z-z*b.y, z*b.x-x*b.z, x*b.y-y*b.x);}
 
     inline Vector3D operator/(const double num)const{return Vector3D(x/num, y/num, z/num);}
 
