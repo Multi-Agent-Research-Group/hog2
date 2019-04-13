@@ -2918,12 +2918,12 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
                 state b2(b[yNextTime]);
                 //a1.t=ctime*state::TIME_RESOLUTION_U;
                 //b1.t=ctime*state::TIME_RESOLUTION_U;
-                if(a1.sameLoc(a2)){
+                /*if(a1.sameLoc(a2)){
                   a2.t=b2.t;//+currentEnvironment[x]->environment->WaitTime();
                 }
                 if(b1.sameLoc(b2)){
                   b2.t=a2.t;//+currentEnvironment[x]->environment->WaitTime();
-                }
+                }*/
                 if(Params::boxconstraints){
                   c1.c.emplace_back((Box<state>*) new Box<state>(a1, a2));
                   c2.c.emplace_back((Box<state>*) new Box<state>(b1, b2));

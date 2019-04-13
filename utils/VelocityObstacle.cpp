@@ -1228,18 +1228,20 @@ double radiusB){
     if(VB.x==0 && VB.y==0){
       if(DAB.sq()<rsq) return {-std::numeric_limits<float>::infinity(),std::numeric_limits<float>::infinity()}; //Overlapping and waiting
     }else{ return {std::numeric_limits<float>::infinity(),-std::numeric_limits<float>::infinity()};} // Not overlapping and waiting
-    // Compute the interval that agent B passes over agent A
+    // Compute the interval until agent B passes over agent A
     double d(Util::distanceOfPointToLine(B,B2,A));
     d*=d;
-    double v(sqrt(rsq-d)); // orthogonal distance between centers at start of impact
-    double dc(sqrt(DAB.sq()-d)); // Distance between centers along trajectory line
-    return {dc-v,dc+v}; // Distance between lines is close enough to crash.
+    if(d<rsq){
+      double v(sqrt(rsq-d)); // orthogonal distance between centers at start of impact
+      return {-std::numeric_limits<float>::infinity(),sqrt(DAB.sq()-d)+v}; // Distance from line is close enough to crash.
+    }else{ return {std::numeric_limits<float>::infinity(),-std::numeric_limits<float>::infinity()};} // never conflicting
   }else if(VB.x==0 && VB.y==0){
     double d(Util::distanceOfPointToLine(A,A2,B));
     d*=d;
-    double v(sqrt(rsq-d)); // orthogonal distance between centers at start of impact
-    double dc(sqrt(DAB.sq()-d)); // Distance between centers along trajectory line
-    return {dc-v,dc+v}; // Distance between lines is close enough to crash.
+    if(d<rsq){
+      double v(sqrt(rsq-d)); // orthogonal distance between centers at start of impact
+      return {-std::numeric_limits<float>::infinity(),sqrt(DAB.sq()-d)+v}; // Distance from line is close enough to crash.
+    }else{ return {std::numeric_limits<float>::infinity(),-std::numeric_limits<float>::infinity()};} // never conflicting
   }
 
   double AVA(A*VA);
@@ -1312,21 +1314,23 @@ double radiusB){
   if(VA.x==0 && VA.y==0){
     if(VB.x==0 && VB.y==0){
       if(DAB.sq()<rsq) return {-std::numeric_limits<float>::infinity(),std::numeric_limits<float>::infinity()}; //Overlapping and waiting
-      else{ return {std::numeric_limits<float>::infinity(),-std::numeric_limits<float>::infinity()};} // Not overlapping and waiting
-    }
-    // Compute the interval that agent B passes over agent A
+    }else{ return {std::numeric_limits<float>::infinity(),-std::numeric_limits<float>::infinity()};} // Not overlapping and waiting
+    // Compute the interval until agent B passes over agent A
     double d(Util::distanceOfPointToLine(B,B2,A));
     d*=d;
-    double v(sqrt(rsq-d)); // orthogonal distance between centers at start of impact
-    double dc(sqrt(DAB.sq()-d)); // Distance between centers along trajectory line
-    return {dc-v,dc+v}; // Distance between lines is close enough to crash.
+    if(d<rsq){
+      double v(sqrt(rsq-d)); // orthogonal distance between centers at start of impact
+      return {-std::numeric_limits<float>::infinity(),sqrt(DAB.sq()-d)+v}; // Distance from line is close enough to crash.
+    }else{ return {std::numeric_limits<float>::infinity(),-std::numeric_limits<float>::infinity()};} // never conflicting
   }else if(VB.x==0 && VB.y==0){
     double d(Util::distanceOfPointToLine(A,A2,B));
     d*=d;
-    double v(sqrt(rsq-d)); // orthogonal distance between centers at start of impact
-    double dc(sqrt(DAB.sq()-d)); // Distance between centers along trajectory line
-    return {dc-v,dc+v}; // Distance between lines is close enough to crash.
+    if(d<rsq){
+      double v(sqrt(rsq-d)); // orthogonal distance between centers at start of impact
+      return {-std::numeric_limits<float>::infinity(),sqrt(DAB.sq()-d)+v}; // Distance from line is close enough to crash.
+    }else{ return {std::numeric_limits<float>::infinity(),-std::numeric_limits<float>::infinity()};} // never conflicting
   }
+
 
   double AVA(A*VA);
   double BVA(B*VA);
