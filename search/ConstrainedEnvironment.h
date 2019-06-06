@@ -25,6 +25,7 @@
 #include "PositionalUtils.h"
 #include "VelocityObstacle.h"
 #include "IntervalTree.h"
+#include "Vector2D.h"
 #include <typeinfo>
 
 /*

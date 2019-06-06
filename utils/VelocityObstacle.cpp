@@ -1359,6 +1359,98 @@ double radiusB){
   //return {center_y-delta,center_y+delta};
 }
 
+std::pair<float,float> getForbiddenInterval(Vector3D const& A,
+Vector3D const& A2,
+float startTimeA,
+float endTimeA,
+float radiusA,
+Vector3D const& B,
+Vector3D const& B2,
+float startTimeB,
+float endTimeB,
+float radiusB){
+  Vector3D VA(A2-A);
+  Vector3D VB(B2-B);
+  Vector3D DAB(B-A);
+  // Assume unit speed...
+  VA.Normalize();
+  VB.Normalize();
+  double r(radiusA+radiusB);
+  double rsq(r*r);
+  Vector3D DVAB(VB-VA);
+
+  if(A==B && A2==B2){
+    return {-std::numeric_limits<float>::infinity(),std::numeric_limits<float>::infinity()}; //Overlapping and waiting
+  }
+  // Are they parallel?
+  if(fequal(DVAB.x,0.0) && fequal(DVAB.y,0.0)){
+    // If they are currently overlapping, they will do so forever, otherwise, they never will
+    double d(Util::distanceOfPointToLine(A,A2,B));
+    d*=d;
+    if(d<rsq){
+      double v(sqrt(rsq-d)); // orthogonal distance between centers at start of impact
+      double dc(sqrt(DAB.sq()-d)); // Distance between centers along trajectory line
+      return {startTimeB+dc-v,dc+v}; // Distance between lines is close enough to crash.
+    }else{ return {std::numeric_limits<float>::infinity(),-std::numeric_limits<float>::infinity()};} // Parallel, never conflicting
+  }
+  // Are they opposing?
+  if(VA==-VB){
+    double d(Util::distanceOfPointToLine(A,A2,B));
+    d*=d;
+    if(d<rsq){
+      double v(sqrt(rsq-d)); // orthogonal distance between centers at start of impact
+      return {-std::numeric_limits<float>::infinity(),sqrt(DAB.sq()-d)+v}; // Distance between lines is close enough to crash.
+    }else{ return {std::numeric_limits<float>::infinity(),-std::numeric_limits<float>::infinity()};} // Parallel, never conflicting
+  }
+  // Is one agent waiting?
+  if(VA.x==0 && VA.y==0){
+    if(VB.x==0 && VB.y==0){
+      if(DAB.sq()<rsq) return {-std::numeric_limits<float>::infinity(),std::numeric_limits<float>::infinity()}; //Overlapping and waiting
+    }else{ return {std::numeric_limits<float>::infinity(),-std::numeric_limits<float>::infinity()};} // Not overlapping and waiting
+    // Compute the interval until agent B passes over agent A
+    double d(Util::distanceOfPointToLine(B,B2,A));
+    d*=d;
+    if(d<rsq){
+      double v(sqrt(rsq-d)); // orthogonal distance between centers at start of impact
+      return {-std::numeric_limits<float>::infinity(),sqrt(DAB.sq()-d)+v}; // Distance from line is close enough to crash.
+    }else{ return {std::numeric_limits<float>::infinity(),-std::numeric_limits<float>::infinity()};} // never conflicting
+  }else if(VB.x==0 && VB.y==0){
+    double d(Util::distanceOfPointToLine(A,A2,B));
+    d*=d;
+    if(d<rsq){
+      double v(sqrt(rsq-d)); // orthogonal distance between centers at start of impact
+      return {-std::numeric_limits<float>::infinity(),sqrt(DAB.sq()-d)+v}; // Distance from line is close enough to crash.
+    }else{ return {std::numeric_limits<float>::infinity(),-std::numeric_limits<float>::infinity()};} // never conflicting
+  }
+
+
+  double AVA(A*VA);
+  double BVA(B*VA);
+  double AVB(A*VB);
+  double BVB(B*VB);
+
+  double a(DVAB*DVAB); // Dot product
+  //b has the effect of rotating the conic
+  double b(2.0*(VA*VA - VA*VB));
+  double c(VA*VA);
+  double d(2.0*(BVB - BVA + AVA - AVB));
+  double e(-2.0*BVA+2.0*AVA);
+  double f(DAB*DAB - rsq);
+
+  // this conic is guaranteed to be an ellipse because both a and c are positive (they are squares)
+  double dscr2(4.0*a*c-b*b);
+  // The following equations are from:
+  // https://math.stackexchange.com/questions/616645/determining-the-major-minor-axes-of-an-ellipse-from-general-form
+  double g(b*d-2.0*a*e);
+  double center_y(g/dscr2);
+  double g2(2.0*g);
+  double delta(sqrt(g2*g2+4.0*dscr2*(d*d-4*a*f))/(2*dscr2));
+  // interval for agent A:
+  return {-center_y-delta,-center_y+delta};
+  // interval for agent B:
+  //return {center_y-delta,center_y+delta};
+}
+
 double getCollisionInterval3D(Vector3D const& A1, Vector3D const& A2, Vector3D const& B1, Vector3D const& B2, double radiusA, double radiusB){
   double r(radiusA+radiusB-2*TOLERANCE); // Combined radius
   Vector3D VA(A2-A1);

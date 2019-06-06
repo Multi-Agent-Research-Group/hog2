@@ -26,6 +26,7 @@ PROJECTS = \
   utils \
   apps/icts \
   apps/MACBS \
+  apps/NSF \
   apps/MAAStar \
   #search \
   #apps/experimental \
