@@ -34,6 +34,7 @@
 #include "Utilities.h"
 #include <sstream>
 
+std::string mapdir("/hog2/benchmarks/maps");
 extern double agentRadius;
 bool greedyCT = false; // use greedy heuristic at the high-level
 bool ECBSheuristic = false; // use ECBS heuristic at low-level
@@ -174,7 +175,7 @@ void processSolution(double elapsed){
   std::cout << total << ",";
   std::cout << MACBSGroup::constraintsz/std::max(1ul,MACBSGroup::constrainttot)<< std::endl;
   if (!gui)
-    exit(0);
+    exit(elapsed>0?0:1);
 }
 
 int main(int argc, char* argv[])
@@ -303,8 +304,9 @@ void InstallHandlers()
   InstallCommandLineHandler(MyCLHandler, "-random", "-random", "Randomize conflict resolution order");
   InstallCommandLineHandler(MyCLHandler, "-greedyCT", "-greedyCT", "Greedy sort high-level search by number of conflicts (GCBS)");
   InstallCommandLineHandler(MyCLHandler, "-xor", "-xor", "Use XOR constraints");
-  InstallCommandLineHandler(MyCLHandler, "-ctype", "-ctype", "Constraint type: \n\t1: identical constraints\n\t2: Pyramid constraints\n\t3: Collision constraints (sub-optimal)\n\t4: Time range constraints (sub-optimal)\n\t5: Mutual Conflict set constraints\n\t6: Overlap Constraints\n\t7:Box constraints (sub-optimal)\n\t8:1xn TimeRange");
+  InstallCommandLineHandler(MyCLHandler, "-ctype", "-ctype", "Constraint type: \n\t1: identical constraints\n\t2: Pyramid constraints\n\t3: Collision constraints (sub-optimal)\n\t4: Time range constraints (sub-optimal)\n\t5: Mutual Conflict set constraints\n\t6: Overlap Constraints\n\t7:Box constraints (sub-optimal)\n\t8:1xn TimeRange\n\t9:nxm TimeRange");
   InstallCommandLineHandler(MyCLHandler, "-pc", "-pc", "prioritize conflicts");
+  InstallCommandLineHandler(MyCLHandler, "-apriori", "-apriori", "Use a-priori computed conflict detection");
   InstallCommandLineHandler(MyCLHandler, "-cct", "-cct", "Conflict count table");
   InstallCommandLineHandler(MyCLHandler, "-uniqcost", "-uniqcost <value>", "Use randomized unique costs up to <value>");
   InstallCommandLineHandler(MyCLHandler, "-skip", "-skip", "Ship-ahead logic");
@@ -672,9 +674,12 @@ int MyCLHandler(char *argument[], int maxNumArgs){
     randomalg = true;
     return 1;
   }
+  if(strcmp(argument[0], "-mapdir") == 0){
+    mapdir=argument[1];
+    return 2;
+  }
   if(strcmp(argument[0], "-scenfile") == 0)
   {
-    std::string pathprefix("../../"); // Because I always run from the build directory...
     if(num_agents==0){
       std::cout<<"-nagents must be specified before -scenfile\n";
       exit(1);
@@ -686,7 +691,8 @@ int MyCLHandler(char *argument[], int maxNumArgs){
       exit(1);
     }
     mapfile=sl.GetNthExperiment(0).GetMapName();
-    mapfile.insert(0,pathprefix); // Add prefix
+    mapfile.insert(0,"/"); // Add prefix
+    mapfile.insert(0,mapdir); // Add prefix
     Map3D* map=new Map3D(mapfile.c_str(),dtedfile.c_str());
     if(!envdata.size()){
       for(int i(0); i<num_agents; ++i){
@@ -832,6 +838,7 @@ int MyCLHandler(char *argument[], int maxNumArgs){
     Params::timerangeconstraints=false;
     Params::pyramidconstraints=false;
     Params::mutualconstraints=false;
+    Params::mutualtimerange=false;
     Params::overlapconstraints=false;
     Params::identicalconstraints=false;
     Params::extrinsicconstraints=false;
@@ -866,6 +873,9 @@ int MyCLHandler(char *argument[], int maxNumArgs){
         Params::mutualtimerange=true;
         Params::extrinsicconstraints=true;
         break;
+      case 9:
+        Params::mutualtimerange=true;
+        break;
       default:
         Params::identicalconstraints=true;
         break;
@@ -875,6 +885,18 @@ int MyCLHandler(char *argument[], int maxNumArgs){
   if(strcmp(argument[0], "-skip") == 0)
   {
     Params::skip = true;
+    return 1;
+  }
+  if(strcmp(argument[0], "-apriori") == 0)
+  {
+    if(environs.empty()){
+      std::cout<<"-scenfile must be specified before -apriori\n";
+      exit(1);
+    }
+    Params::apriori = true;
+    loadCollisionTable<Vector3D>(Params::array, Params::indices, Params::ivls,
+                       environs[0][0].environment->branchingFactor(),
+                       xyztLoc::TIME_RESOLUTION_U, agentRadius, agentRadius);
     return 1;
   }
   if(strcmp(argument[0], "-pc") == 0)

@@ -27,6 +27,7 @@
 //#include <CGAL/intersections.h>
 //#include <CGAL/Boolean_set_operations_2.h>
 #include "VelocityObstacle.h"
+#include "CollisionDetection.h"
 #include "Timer.h"
 #include <gtest/gtest.h>
 #include <map>

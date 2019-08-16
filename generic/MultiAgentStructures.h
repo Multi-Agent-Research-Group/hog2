@@ -23,7 +23,7 @@
 #define MultiAgentStructures_H
 
 #include "GenericSearchAlgorithm.h"
-#include "VelocityObstacle.h"
+#include "CollisionDetection.h"
 #include "NonUnitTimeCAT.h"
 #include "UnitTimeCAT.h"
 #include <set>

@@ -11,7 +11,7 @@
 struct node_t{
   node_t():x(-1),y(-1),t(-1),id(-1),nc(0){}
   node_t(unsigned xx, unsigned yy, unsigned i, unsigned tt=0):x(xx),y(yy),id(i),t(tt),nc(0){}
-  node_t(node_t const& n, unsigned tt=0):x(n.x),y(n.y),id(n.id),t(tt),nc(0){}
+  node_t(node_t const& n, unsigned tt=0):x(n.x),y(n.y),id(n.id),t(tt?tt:n.t),nc(0){}
   operator TemporalVector3D()const{return TemporalVector3D(x,y,0,t/TIME_RESOLUTION_D);}
   operator Vector3D()const{return Vector3D(x,y,0);}
   explicit operator TemporalVector()const{return TemporalVector(x,y,t/TIME_RESOLUTION_D);}
@@ -94,7 +94,7 @@ class DigraphEnvironment: public ConstrainedEnvironment<node_t, int>{
   inline bool GetIgnoreTime()const{return ignoreTime;}
   inline uint64_t GetStateHash(node_t const& state)const{
     if(ignoreTime)return state.id;
-    return (state.id << 20) & state.t;
+    return (state.id << 20) | state.t;
   }
 
   virtual void GetSuccessors(const node_t &node, std::vector<node_t>& neighbors) const{

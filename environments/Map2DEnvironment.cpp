@@ -1242,7 +1242,7 @@ std::string MapEnvironment::SVGDraw()
 	{
 		for (int x = 0; x < map->GetMapWidth(); x++)
 		{
-			bool draw = true;
+			//bool draw = true;
 			if (map->GetTerrainType(x, y) == kGround)
 			{
 				recColor c = {0.9, 0.9, 0.9};
@@ -1268,7 +1268,7 @@ std::string MapEnvironment::SVGDraw()
 				s += "\n";
 			}
 			else {
-				draw = false;
+				//draw = false;
 			}
 		}
 	}

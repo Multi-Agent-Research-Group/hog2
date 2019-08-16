@@ -23,7 +23,7 @@
 #define GRID_STATES_H__
 
 #include "Map.h"
-#include "VelocityObstacle.h"
+#include "CollisionDetection.h"
 #include "ConstrainedEnvironment.h"
 // Utility function
 void GLDrawCircle(GLfloat x, GLfloat y, GLfloat radius);

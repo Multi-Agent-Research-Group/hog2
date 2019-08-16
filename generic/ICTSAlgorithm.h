@@ -32,7 +32,7 @@
 #include <iterator>
 #include <algorithm>
 #include <functional>
-#include "VelocityObstacle.h"
+#include "CollisionDetection.h"
 #include "TemplateAStar.h"
 #include "Heuristic.h"
 #include "MultiAgentStructures.h"

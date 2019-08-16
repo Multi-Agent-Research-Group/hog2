@@ -36,7 +36,7 @@
 #include <algorithm>
 #include <functional>
 #include "Map2DEnvironment.h"
-#include "VelocityObstacle.h"
+#include "CollisionDetection.h"
 #include "PEAStar.h"
 #include "TemplateAStar.h"
 #include "Heuristic.h"
@@ -773,7 +773,7 @@ bool jointDFS2(MultiEdge const& r, uint32_t d, Solution solution, std::vector<So
       // Check for solution
       bool done(true);
       for(auto const& g:a){
-        if(!g.second->depth==MAXTIME){
+        if(g.second->depth!=MAXTIME){
           done=false;
           break;
         }

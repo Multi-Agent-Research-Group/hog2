@@ -356,7 +356,7 @@ bool TemporalAStar<state,action,environment,openList>::DoSingleSearchStep(std::v
   //double H(openClosedList.Lookup(nodeid).h);
   // Check for fcost > optCost and return early if we think there is no other solution
 
-  if(verbose)std::cout << "Expanding: " << openClosedList.Lookup(nodeid).data << " with f:" << openClosedList.Lookup(nodeid).g+openClosedList.Lookup(nodeid).h << std::endl;
+  if(verbose)std::cout << "Expanding: " << openClosedList.Lookup(nodeid).data << "(" << std::hex << env->GetStateHash(openClosedList.Lookup(nodeid).data) << std::dec << ") with f:" << openClosedList.Lookup(nodeid).g+openClosedList.Lookup(nodeid).h << std::endl;
   unsigned nSuccessors((env->*SuccessorFunc)(openClosedList.Lookup(nodeid).data, neighbors));
   if(stopAfterGoal){
     if(env->GoalTest(openClosedList.Lookup(nodeid).data, goal)){
@@ -437,7 +437,7 @@ bool TemporalAStar<state,action,environment,openList>::DoSingleSearchStep(std::v
     switch (neighborLoc[x])
     {
       case kClosedList:
-        if(verbose)std::cout << "Closed\n";
+        if(verbose)std::cout << "Already Closed ("<<std::hex<<env->GetStateHash(neighbors[x])<<std::dec<<") " << neighbors[x] << (G+edgeCosts[x]) << "+" << (weight*hCosts[x]) << "=" << (G+edgeCosts[x]+weight*hCosts[x]) << "\n";
         //edgeCost = env->GCost(openClosedList.Lookup(nodeid).data, neighbors[x]);
         //				std::cout << "Already closed\n";
         break;

@@ -26,7 +26,7 @@
 #include "Unit.h"
 #include "UnitGroup.h"
 #include "ConstrainedEnvironment.h"
-#include "VelocityObstacle.h"
+#include "CollisionDetection.h"
 //#include "TemplateIntervalTree.h"
 #include "MultiAgentStructures.h"
 #include "GridStates.h"
@@ -41,7 +41,7 @@
 #define RIGHT_CARDINAL 4
 #define BOTH_CARDINAL  (LEFT_CARDINAL|RIGHT_CARDINAL)
 
-float collisionTime(0);
+float collisionTimeTotal(0);
 float planTime(0);
 float replanTime(0);
 float bypassplanTime(0);
@@ -789,7 +789,7 @@ void CBSGroup<state,action,comparison,conflicttable,searchalgo>::processSolution
   std::cout << planTime << ",";
   std::cout << replanTime << ",";
   std::cout << bypassplanTime << ",";
-  std::cout << collisionTime << ",";
+  std::cout << collisionTimeTotal << ",";
   std::cout << TOTAL_EXPANSIONS << ",";
   std::cout << tree.size() << ",";
   std::cout << cost << ","; 
@@ -1299,7 +1299,7 @@ std::pair<unsigned,unsigned> CBSGroup<state,action,comparison,conflicttable,sear
     }
     //if((best.first.second&BOTH_CARDINAL)==BOTH_CARDINAL)break;
   }
-  collisionTime+=tmr.EndTimer();
+  collisionTimeTotal+=tmr.EndTimer();
   c1=best.second.first;
   c2=best.second.second;
   return best.first;

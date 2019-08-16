@@ -15,7 +15,7 @@
 
 #include "Map2DEnvironment.h"
 #include "Vector2D.h"
-#include "VelocityObstacle.h"
+#include "CollisionDetection.h"
 #include "ConstrainedEnvironment.h"
 #include "PositionalUtils.h"
 #include "TemplateAStar.h"

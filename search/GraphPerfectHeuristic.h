@@ -44,7 +44,7 @@ class GraphPerfectHeuristic: public Heuristic<node_t> {
         bool originalIgnoreTime(e->GetIgnoreTime());
         e->SetIgnoreTime(true); // Otherwise the search would never terminate
         //std::cout << "Loading heuristic\n";
-        astar.SetVerbose(false);
+        astar.SetVerbose(true);
         astar.SetHeuristic(new ZeroHeuristic<node_t>);
         astar.SetStopAfterGoal(false); // Search the entire space
         // Now perform a search to get all costs

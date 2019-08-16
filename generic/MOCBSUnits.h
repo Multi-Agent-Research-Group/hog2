@@ -38,7 +38,7 @@
 #include "Unit.h"
 #include "UnitGroup.h"
 #include "ConstrainedEnvironment.h"
-#include "VelocityObstacle.h"
+#include "CollisionDetection.h"
 //#include "TemplateIntervalTree.h"
 #include "TemplateAStar.h"
 #include "Heuristic.h"

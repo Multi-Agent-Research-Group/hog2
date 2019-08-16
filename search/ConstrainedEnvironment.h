@@ -23,7 +23,7 @@
 #include "MapInterface.h"
 #include "SearchEnvironment.h"
 #include "PositionalUtils.h"
-#include "VelocityObstacle.h"
+#include "CollisionDetection.h"
 #include "IntervalTree.h"
 #include "Vector2D.h"
 #include <typeinfo>
@@ -584,8 +584,8 @@ class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
     virtual void SetIgnoreHeading(bool i){}
     virtual bool GetIgnoreHeading()const{return false;}
     virtual bool collisionCheck(const State &s1, const State &d1, float r1, const State &s2, const State &d2, float r2)=0;
-    virtual bool fetch(State const& a, State const&b, int i, State& c){}
-    virtual unsigned branchingFactor(){}
+    virtual bool fetch(State const& a, State const&b, int i, State& c){return false;}
+    virtual unsigned branchingFactor(){return 0;}
 
     State theGoal;
     IntervalTree<Constraint<State>> constraints;

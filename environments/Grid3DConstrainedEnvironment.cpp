@@ -21,7 +21,7 @@
  */
 
 #include "Grid3DConstrainedEnvironment.h"
-#include "VelocityObstacle.h"
+#include "CollisionDetection.h"
 
 /*bool operator==(const xyztLoc &l1, const xyztLoc &l2)
 {

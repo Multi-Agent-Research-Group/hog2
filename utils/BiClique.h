@@ -6,8 +6,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <vector>
-#include <deque>
+#include <queue>
 #include <algorithm>
+#include <string.h>
 
 namespace BiClique{
 
@@ -28,7 +29,7 @@ namespace BiClique{
 
   // A utility function for testing and returning bicliques
   // of specified size
-  bool testFeasibility(
+  static bool testFeasibility(
       std::vector<std::vector<unsigned>> L,
       std::vector<std::vector<unsigned>> R,
       std::pair<unsigned,unsigned> const& start,
@@ -146,7 +147,7 @@ namespace BiClique{
   // for the right-hand side of the graph. Numbers in each adjacency list must
   // match the indices of vertices in the respective adjacency list.
   // the result will be a list of edges in the biclique.
-  void findBiClique(
+  static void findBiClique(
       std::vector<std::vector<unsigned>> const& L,
       std::vector<std::vector<unsigned>> const& R,
       std::pair<unsigned,unsigned> const& start,

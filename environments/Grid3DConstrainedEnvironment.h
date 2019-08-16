@@ -14,7 +14,7 @@
 
 #include "Grid3DEnvironment.h"
 #include "Vector3D.h"
-#include "VelocityObstacle.h"
+#include "CollisionDetection.h"
 #include "ConstrainedEnvironment.h"
 #include "PositionalUtils.h"
 #include "TemplateAStar.h"

@@ -38,7 +38,7 @@
 #include "Unit.h"
 #include "UnitGroup.h"
 #include "ConstrainedEnvironment.h"
-#include "VelocityObstacle.h"
+#include "CollisionDetection.h"
 #include "GridStates.h"
 #include "MultiAgentStructures.h"
 #include "TemporalAStar2.h"
@@ -84,6 +84,7 @@ struct Params {
   static bool extrinsicconstraints;
   static bool mutualconstraints;
   static bool mutualtimerange;
+  static bool apriori;
   static bool overlapconstraints;
   static bool verbose;
   static bool astarverbose;
@@ -93,6 +94,9 @@ struct Params {
   static bool complete; // Ensure completeness (only relevant when crossconstraints=true)
   static bool topTwo; // Select top two conflicting agents in sub-optimal split
   static bool conditional; // Use conditional constraints to promote completeness
+  static std::vector<unsigned> array;
+  static std::vector<unsigned> indices;
+  static std::vector<float> ivls;
 };
 
 unsigned Params::precheck = 0;
@@ -110,6 +114,7 @@ bool Params::xorconstraints = false;
 bool Params::extrinsicconstraints = false;
 bool Params::mutualconstraints = false;
 bool Params::mutualtimerange = false;
+bool Params::apriori = false;
 bool Params::overlapconstraints = false;
 bool Params::complete = false;
 bool Params::verbose = false;
@@ -119,6 +124,9 @@ bool Params::vc = false;
 bool Params::overload = false;
 bool Params::topTwo = false;
 bool Params::conditional = false;
+std::vector<unsigned> Params::array;
+std::vector<unsigned> Params::indices;
+std::vector<float> Params::ivls;
 
 template<class state>
 struct CompareLowGCost {
@@ -1692,7 +1700,7 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
 
 template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class singleHeuristic, class searchalgo>
 void CBSGroup<state,action,comparison,conflicttable,maplanner,singleHeuristic,searchalgo>::Init(){
-  unsigned total(0);
+  //unsigned total(0);
   //for(auto const& p:tree[0].paths){
     //total+=p->size();
   //}
@@ -3000,13 +3008,17 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
                       }
                       ++i;
                     }
-float diam(agentRadius*2);
+                    float at(a1.t/xyztLoc::TIME_RESOLUTION_D);
+                    float a2t(a2.t/xyztLoc::TIME_RESOLUTION_D);
+                    float bt(b1.t/xyztLoc::TIME_RESOLUTION_D);
+                    float b2t(b2.t/xyztLoc::TIME_RESOLUTION_D);
+                    float diam(agentRadius*2);
                     if(left>right){
                       if(Params::mutualtimerange){
-                        float tdiff((a1.t-b1.t)/xyztLoc::TIME_RESOLUTION_D);
+                        float tdiff(at-bt);
                         // Compute the correct time range...
                         // Start by setting the start/stop time range to be the forbidden interval for the core actions
-                        auto intvl(getForbiddenInterval(a1,a2,b1,b2,agentRadius,agentRadius));
+                        auto intvl(getForbiddenInterval(a1,a2,at,a2t,agentRadius,b1,b2,bt,b2t,agentRadius));
                         if(intvl.first==-std::numeric_limits<float>::infinity()){
                           intvl.first=std::min(tdiff,-diam);
                         }
@@ -3023,7 +3035,7 @@ float diam(agentRadius*2);
                         while(i<bf/2){
                           if(currentEnvironment[x]->environment->fetch(a1,a2,i*dir,s)){
                             //Does the interval overlap with the composite interval?
-                            intvl = getForbiddenInterval(a1,s,b1,b2,agentRadius,agentRadius);
+                            intvl = getForbiddenInterval(a1,s,at,s.t/xyztLoc::TIME_RESOLUTION_D,agentRadius,b1,b2,bt,b2t,agentRadius);
                             // Done if no overlap with current range, or no overlap with start delay
                             if(intvl.second < t1 || intvl.first > t2 || intvl.first>tdiff || intvl.second<tdiff ){
                               break;
@@ -3041,7 +3053,7 @@ float diam(agentRadius*2);
                           // Set current element if it is a valid move
                           if(currentEnvironment[x]->environment->fetch(a1,a2,i*dir,s)){
                             //Does the interval overlap with the composite interval?
-                            intvl = getForbiddenInterval(a1,s,b1,b2,agentRadius,agentRadius);
+                            intvl = getForbiddenInterval(a1,s,at,s.t/xyztLoc::TIME_RESOLUTION_D,agentRadius,b1,b2,bt,b2t,agentRadius);
                             // Done if no overlap with current range, or no overlap with start delay
                             if(intvl.second < t1 || intvl.first > t2 || intvl.first>tdiff || intvl.second<tdiff ){
                               break;
@@ -3067,10 +3079,10 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << a1 << "-->
                       }
                     }else{
                       if(Params::mutualtimerange){
-                        float tdiff((b1.t-a1.t)/xyztLoc::TIME_RESOLUTION_D);
+                        float tdiff(bt-at);
                         // Compute the correct time range...
                         // Start by setting the start/stop time range to be the forbidden interval for the core actions
-                        auto intvl(getForbiddenInterval(b1,b2,a1,a2,agentRadius,agentRadius));
+                        auto intvl(getForbiddenInterval(b1,b2,bt,b2t,agentRadius,a1,a2,at,a2t,agentRadius));
                         if(intvl.first==-std::numeric_limits<float>::infinity()){
                           intvl.first=std::min(tdiff,-diam);
                         }
@@ -3087,7 +3099,7 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << a1 << "-->
                         while(i<bf/2){
                           if(currentEnvironment[y]->environment->fetch(b1,b2,i*dir,s)){
                             //Does the interval overlap with the composite interval?
-                            intvl = getForbiddenInterval(b1,s,a1,a2,agentRadius,agentRadius);
+                            intvl = getForbiddenInterval(b1,s,bt,s.t/xyztLoc::TIME_RESOLUTION_D,agentRadius,a1,a2,at,a2t,agentRadius);
                             // Done if no overlap with current range, or no overlap with start delay
                             if(intvl.second < t1 || intvl.first > t2 || intvl.first>tdiff || intvl.second<tdiff ){
                               break;
@@ -3105,7 +3117,7 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << a1 << "-->
                           // Set current element if it is a valid move
                           if(currentEnvironment[y]->environment->fetch(b1,b2,i*dir,s)){
                             //Does the interval overlap with the composite interval?
-                            intvl = getForbiddenInterval(b1,s,a1,a2,agentRadius,agentRadius);
+                            intvl = getForbiddenInterval(b1,s,bt,s.t/xyztLoc::TIME_RESOLUTION_D,agentRadius,a1,a2,at,a2t,agentRadius);
                             // Done if no overlap with current range, or no overlap with start delay
                             if(intvl.second < t1 || intvl.first > t2 || intvl.first>tdiff || intvl.second<tdiff ){
                               break;
@@ -3146,6 +3158,81 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << b1 << "-->
                       }
                     }
                   }
+                }else if(Params::mutualtimerange){
+                  state const& a1(a[xTime]);
+                  state const& a2(a[xNextTime]);
+                  state const& b1(b[yTime]);
+                  state const& b2(b[yNextTime]);
+                  const unsigned bf(currentEnvironment[x]->environment->branchingFactor());
+                  static std::vector<unsigned> left;
+                  left.resize(0);
+                  static std::vector<unsigned> right;
+                  right.resize(0);
+                  static std::vector<std::pair<float,float>> livls;
+                  livls.resize(0);
+                  static std::vector<std::pair<float,float>> rivls;
+                  rivls.resize(0);
+                  if(Params::apriori){
+                    getVertexAnnotatedBiclique(a1,a2,b1,b2,
+                                               a1.t/state::TIME_RESOLUTION_D,
+                                               a2.t/state::TIME_RESOLUTION_D,
+                                               b1.t/state::TIME_RESOLUTION_D,
+                                               b2.t/state::TIME_RESOLUTION_D,
+                                               Params::array, Params::indices,
+                                               Params::ivls, left, right, livls, rivls,
+                                               bf);
+                    bool swap=false, ortho=false, y=false;
+                    locationIndex(a2,a1,swap,ortho,y,bf); // Get rotation params from reverse action
+                    state src;
+                    state dest;
+                    for(unsigned i(0); i<left.size(); ++i){
+                      auto move(getMirroredMove(left[i],swap,ortho,y,bf));
+                      fetch(a1,move,dest,bf);
+                      src.x=a1.x;
+                      src.y=a1.y;
+                      src.t=a1.t+livls[i].first*state::TIME_RESOLUTION_D;
+                      dest.t=a1.t+livls[i].second*state::TIME_RESOLUTION_D;
+                      c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
+                    }
+                    // Do the same for the other side of biclique...
+                    swap=false; ortho=false; y=false;
+                    locationIndex(b2,b1,swap,ortho,y,bf); // Get rotation params from reverse action
+                    for(unsigned i(0); i<right.size(); ++i){
+                      auto move(getMirroredMove(right[i],swap,ortho,y,bf));
+                      fetch(b1,move,dest,bf);
+                      src.x=b1.x;
+                      src.y=b1.y;
+                      src.t=b1.t+rivls[i].first*state::TIME_RESOLUTION_D;
+                      dest.t=b1.t+rivls[i].second*state::TIME_RESOLUTION_D;
+                      c2.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
+                    }
+                  }else{
+                    getVertexAnnotatedBiclique(a1,a2,b1,b2,
+                                               a1.t/state::TIME_RESOLUTION_D,
+                                               a2.t/state::TIME_RESOLUTION_D,
+                                               b1.t/state::TIME_RESOLUTION_D,
+                                               b2.t/state::TIME_RESOLUTION_D,
+                                               left, right, livls, rivls,
+                                               bf);
+                    state src;
+                    state dest;
+                    for(unsigned i(0); i<left.size(); ++i){
+                      fetch(a1,left[i],dest,bf);
+                      src.x=a1.x;
+                      src.y=a1.y;
+                      src.t=a1.t+livls[i].first*state::TIME_RESOLUTION_D;
+                      dest.t=a1.t+livls[i].second*state::TIME_RESOLUTION_D;
+                      c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
+                    }
+                    for(unsigned i(0); i<right.size(); ++i){
+                      fetch(b1,right[i],dest,bf);
+                      src.x=b1.x;
+                      src.y=b1.y;
+                      src.t=b1.t+livls[i].first*state::TIME_RESOLUTION_D;
+                      dest.t=b1.t+livls[i].second*state::TIME_RESOLUTION_D;
+                      c2.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
+                    }
+                  }
                 }else if(Params::overlapconstraints){
                   c1.c.emplace_back((Overlap<state>*) new Overlap<state>(a1,a2));
                   c2.c.emplace_back((Overlap<state>*) new Overlap<state>(b1,b2));
@@ -3166,31 +3253,11 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << b1 << "-->
                   state b1(b[yTime]);
                   state b2(b[yNextTime]);
                   //std::cout << "Collision at: " << x << ": " << a1 << "-->" << a2 << ", " << y << ": " << b1 << " " << b2 << "\n";
-                  auto intvl(collisionInterval3D(a1,a2,b1,b2,agentRadius));
-                  double duration(std::min((unsigned)floor(intvl.second*state::TIME_RESOLUTION_U),a2.t)-std::max(a1.t,(unsigned)ceil(intvl.first*state::TIME_RESOLUTION_U)));
-                  if(duration<a1.t)
-                    a1.t-=duration;
-                  else
-                    a1.t=0;
-                  a2.t=a[xTime].t+duration;
-                  //std::cout << "Block " << a1.t << "-->"<<a[xTime].t<<"-->"<<a2.t<<"\n";
-
-                  duration=std::min((unsigned)floor(intvl.second*state::TIME_RESOLUTION_U),b2.t)-std::max(b1.t,(unsigned)ceil(intvl.first*state::TIME_RESOLUTION_U));
-                  if(duration<b1.t)
-                    b1.t-=duration;
-                  else
-                    b1.t=0;
-                  b2.t=b[yTime].t+duration;
-                  //std::cout << "Block " << b1.t << "-->"<<b[yTime].t<<"-->"<<b2.t<<"\n";
-
-                  if(a1.t<0)a1.t=TOLERANCE;
-                  if(b1.t<0)b1.t=TOLERANCE;
-                  //assert(a1.t<a2.t);
-                  //assert(b1.t<b2.t);
-                  assert(a1.t<=a[xTime].t);
-                  assert(a2.t>=a[xTime].t);
-                  assert(b1.t<=b[yTime].t);
-                  assert(b2.t>=b[yTime].t);
+                  auto intvl(getForbiddenInterval(a1,a2,a1.t/state::TIME_RESOLUTION_D,a2.t/state::TIME_RESOLUTION_D,agentRadius,b1,b2,b1.t/state::TIME_RESOLUTION_D,b2.t/state::TIME_RESOLUTION_D,agentRadius));
+                  a1.t=intvl.first*state::TIME_RESOLUTION_D;
+                  a2.t=intvl.second*state::TIME_RESOLUTION_D;
+                  b2.t=-intvl.first*state::TIME_RESOLUTION_D;
+                  b1.t=-intvl.second*state::TIME_RESOLUTION_D;
                   c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(a1, a2));
                   c2.c.emplace_back((Constraint<state>*) new TimeRange<state>(b1, b2));
                 }else if(Params::mutualconstraints){

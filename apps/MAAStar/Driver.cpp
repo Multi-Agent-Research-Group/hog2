@@ -35,7 +35,7 @@
 #include <iterator>
 #include <algorithm>
 #include <functional>
-#include "VelocityObstacle.h"
+#include "CollisionDetection.h"
 #include "PEAStar.h"
 #include "TemplateAStar.h"
 #include "Heuristic.h"

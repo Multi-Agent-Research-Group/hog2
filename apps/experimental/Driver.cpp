@@ -36,7 +36,7 @@
 #include <algorithm>
 #include <functional>
 #include "Grid3DConstrainedEnvironment.h"
-#include "VelocityObstacle.h"
+#include "CollisionDetection.h"
 #include "PEAStar.h"
 #include "TemplateAStar.h"
 #include "Heuristic.h"
