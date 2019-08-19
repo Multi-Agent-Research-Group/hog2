@@ -129,6 +129,7 @@ namespace BiClique{
             right.push_back(a);
           }
           left.reserve(k);
+          left.push_back(start.first);
           for(unsigned i(0); i<k; ++i){
             left.push_back(d[i]);
           }

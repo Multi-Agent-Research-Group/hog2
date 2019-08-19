@@ -36,6 +36,7 @@ class Vector3D {
     inline void Set(double _x, double _y, double _z) { x=_x; y=_y; z=_z; }
 
     inline bool operator==(const Vector3D &rhs)const{return (fequal(x,rhs.x)&&fequal(y,rhs.y)&&fequal(z,rhs.z));}
+    inline bool sameLoc(const Vector3D &rhs)const{return (fequal(x,rhs.x)&&fequal(y,rhs.y)&&fequal(z,rhs.z));}
     inline bool operator<(const Vector3D &rhs)const{return fequal(x,rhs.x)?(fequal(y,rhs.y)?fless(z,rhs.z):fless(y,rhs.y)):fless(x,rhs.x);}
 
     // Dot product

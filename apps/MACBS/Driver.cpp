@@ -269,6 +269,7 @@ void InstallHandlers()
   InstallCommandLineHandler(MyCLHandler, "-nagents", "-nagents <number>", "Select the number of agents.");
   InstallCommandLineHandler(MyCLHandler, "-nsubgoals", "-nsubgoals <number>,<number>", "Select the min,max number of subgoals per agent.");
   InstallCommandLineHandler(MyCLHandler, "-seed", "-seed <number>", "Seed for random number generator (defaults to clock)");
+  InstallCommandLineHandler(MyCLHandler, "-mapdir", "-mapdir <dir>", "Directory of maps, e.g. DAO maps");
   InstallCommandLineHandler(MyCLHandler, "-nobypass", "-nobypass", "Turn off bypass option");
   InstallCommandLineHandler(MyCLHandler, "-noid", "-noid", "Turn off independence detection");
   InstallCommandLineHandler(MyCLHandler, "-record", "-record", "Record frames");

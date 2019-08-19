@@ -2919,7 +2919,7 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
                 c1.c.clear();
                 c2.c.clear();
               }
-              if (Params::extrinsicconstraints) {
+              if(Params::extrinsicconstraints) {
                 state const& a1(a[xTime]);
                 state a2(a[xNextTime]);
                 state const& b1(b[yTime]);
@@ -3158,81 +3158,6 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << b1 << "-->
                       }
                     }
                   }
-                }else if(Params::mutualtimerange){
-                  state const& a1(a[xTime]);
-                  state const& a2(a[xNextTime]);
-                  state const& b1(b[yTime]);
-                  state const& b2(b[yNextTime]);
-                  const unsigned bf(currentEnvironment[x]->environment->branchingFactor());
-                  static std::vector<unsigned> left;
-                  left.resize(0);
-                  static std::vector<unsigned> right;
-                  right.resize(0);
-                  static std::vector<std::pair<float,float>> livls;
-                  livls.resize(0);
-                  static std::vector<std::pair<float,float>> rivls;
-                  rivls.resize(0);
-                  if(Params::apriori){
-                    getVertexAnnotatedBiclique(a1,a2,b1,b2,
-                                               a1.t/state::TIME_RESOLUTION_D,
-                                               a2.t/state::TIME_RESOLUTION_D,
-                                               b1.t/state::TIME_RESOLUTION_D,
-                                               b2.t/state::TIME_RESOLUTION_D,
-                                               Params::array, Params::indices,
-                                               Params::ivls, left, right, livls, rivls,
-                                               bf);
-                    bool swap=false, ortho=false, y=false;
-                    locationIndex(a2,a1,swap,ortho,y,bf); // Get rotation params from reverse action
-                    state src;
-                    state dest;
-                    for(unsigned i(0); i<left.size(); ++i){
-                      auto move(getMirroredMove(left[i],swap,ortho,y,bf));
-                      fetch(a1,move,dest,bf);
-                      src.x=a1.x;
-                      src.y=a1.y;
-                      src.t=a1.t+livls[i].first*state::TIME_RESOLUTION_D;
-                      dest.t=a1.t+livls[i].second*state::TIME_RESOLUTION_D;
-                      c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
-                    }
-                    // Do the same for the other side of biclique...
-                    swap=false; ortho=false; y=false;
-                    locationIndex(b2,b1,swap,ortho,y,bf); // Get rotation params from reverse action
-                    for(unsigned i(0); i<right.size(); ++i){
-                      auto move(getMirroredMove(right[i],swap,ortho,y,bf));
-                      fetch(b1,move,dest,bf);
-                      src.x=b1.x;
-                      src.y=b1.y;
-                      src.t=b1.t+rivls[i].first*state::TIME_RESOLUTION_D;
-                      dest.t=b1.t+rivls[i].second*state::TIME_RESOLUTION_D;
-                      c2.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
-                    }
-                  }else{
-                    getVertexAnnotatedBiclique(a1,a2,b1,b2,
-                                               a1.t/state::TIME_RESOLUTION_D,
-                                               a2.t/state::TIME_RESOLUTION_D,
-                                               b1.t/state::TIME_RESOLUTION_D,
-                                               b2.t/state::TIME_RESOLUTION_D,
-                                               left, right, livls, rivls,
-                                               bf);
-                    state src;
-                    state dest;
-                    for(unsigned i(0); i<left.size(); ++i){
-                      fetch(a1,left[i],dest,bf);
-                      src.x=a1.x;
-                      src.y=a1.y;
-                      src.t=a1.t+livls[i].first*state::TIME_RESOLUTION_D;
-                      dest.t=a1.t+livls[i].second*state::TIME_RESOLUTION_D;
-                      c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
-                    }
-                    for(unsigned i(0); i<right.size(); ++i){
-                      fetch(b1,right[i],dest,bf);
-                      src.x=b1.x;
-                      src.y=b1.y;
-                      src.t=b1.t+livls[i].first*state::TIME_RESOLUTION_D;
-                      dest.t=b1.t+livls[i].second*state::TIME_RESOLUTION_D;
-                      c2.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
-                    }
-                  }
                 }else if(Params::overlapconstraints){
                   c1.c.emplace_back((Overlap<state>*) new Overlap<state>(a1,a2));
                   c2.c.emplace_back((Overlap<state>*) new Overlap<state>(b1,b2));
@@ -3412,6 +3337,81 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << b1 << "-->
                   }
                   for(auto const& m:right){
                     c2.c.emplace_back((Constraint<state>*) new Identical<state>(b1,bs[m]));
+                  }
+                }else if(Params::mutualtimerange){
+                  state const& a1(a[xTime]);
+                  state const& a2(a[xNextTime]);
+                  state const& b1(b[yTime]);
+                  state const& b2(b[yNextTime]);
+                  const unsigned bf(currentEnvironment[x]->environment->branchingFactor());
+                  static std::vector<unsigned> left;
+                  left.resize(0);
+                  static std::vector<unsigned> right;
+                  right.resize(0);
+                  static std::vector<std::pair<float,float>> livls;
+                  livls.resize(0);
+                  static std::vector<std::pair<float,float>> rivls;
+                  rivls.resize(0);
+                  if(Params::apriori){
+                    getVertexAnnotatedBiclique(a1,a2,b1,b2,
+                                               a1.t/state::TIME_RESOLUTION_D,
+                                               a2.t/state::TIME_RESOLUTION_D,
+                                               b1.t/state::TIME_RESOLUTION_D,
+                                               b2.t/state::TIME_RESOLUTION_D,
+                                               Params::array, Params::indices,
+                                               Params::ivls, left, right, livls, rivls,
+                                               bf);
+                    bool swap=false, ortho=false, y=false;
+                    locationIndex(a2,a1,swap,ortho,y,bf); // Get rotation params from reverse action
+                    state src;
+                    state dest;
+                    for(unsigned i(0); i<left.size(); ++i){
+                      auto move(getMirroredMove(left[i],swap,ortho,y,bf));
+                      fetch(a1,move,dest,bf);
+                      src.x=a1.x;
+                      src.y=a1.y;
+                      src.t=a1.t+livls[i].first*state::TIME_RESOLUTION_D;
+                      dest.t=a1.t+livls[i].second*state::TIME_RESOLUTION_D;
+                      c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
+                    }
+                    // Do the same for the other side of biclique...
+                    swap=false; ortho=false; y=false;
+                    locationIndex(b2,b1,swap,ortho,y,bf); // Get rotation params from reverse action
+                    for(unsigned i(0); i<right.size(); ++i){
+                      auto move(getMirroredMove(right[i],swap,ortho,y,bf));
+                      fetch(b1,move,dest,bf);
+                      src.x=b1.x;
+                      src.y=b1.y;
+                      src.t=b1.t+rivls[i].first*state::TIME_RESOLUTION_D;
+                      dest.t=b1.t+rivls[i].second*state::TIME_RESOLUTION_D;
+                      c2.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
+                    }
+                  }else{
+                    getVertexAnnotatedBiclique(a1,a2,b1,b2,
+                                               a1.t/state::TIME_RESOLUTION_D,
+                                               a2.t/state::TIME_RESOLUTION_D,
+                                               b1.t/state::TIME_RESOLUTION_D,
+                                               b2.t/state::TIME_RESOLUTION_D,
+                                               left, right, livls, rivls,
+                                               bf);
+                    state src;
+                    state dest;
+                    for(unsigned i(0); i<left.size(); ++i){
+                      fetch(a1,left[i],dest,bf);
+                      src.x=a1.x;
+                      src.y=a1.y;
+                      src.t=a1.t+livls[i].first*state::TIME_RESOLUTION_D;
+                      dest.t=a1.t+livls[i].second*state::TIME_RESOLUTION_D;
+                      c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
+                    }
+                    for(unsigned i(0); i<right.size(); ++i){
+                      fetch(b1,right[i],dest,bf);
+                      src.x=b1.x;
+                      src.y=b1.y;
+                      src.t=b1.t+rivls[i].first*state::TIME_RESOLUTION_D;
+                      dest.t=b1.t+rivls[i].second*state::TIME_RESOLUTION_D;
+                      c2.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
+                    }
                   }
                 }else{
                   c1.c.emplace_back((Constraint<state>*) new Identical<state>(a[xTime], a[xNextTime]));

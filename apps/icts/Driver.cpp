@@ -47,6 +47,7 @@
 
 #define  INF 0xffffffff
 
+std::string mapdir("/hog2/benchmarks/maps");
 // for agents to stay at goal
 double MAXTIME=0xffffffff; // 20 bits worth
 // for inflation of floats to avoid rounding errors
@@ -220,8 +221,9 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
 void InstallHandlers()
 {
   InstallCommandLineHandler(MyCLHandler, "-dimensions", "-dimensions width,length,height", "Set the length,width and height of the environment (max 65K,65K,1024).");
-  InstallCommandLineHandler(MyCLHandler, "-scenfile", "-scenfile", "Scenario file to use");
-  InstallCommandLineHandler(MyCLHandler, "-mapfile", "-mapfile", "Map file to use");
+  InstallCommandLineHandler(MyCLHandler, "-scenfile", "-scenfile <filename>", "Scenario file to use");
+  InstallCommandLineHandler(MyCLHandler, "-mapdir", "-mapdir <dir>", "Map dir associated with scenarios");
+  InstallCommandLineHandler(MyCLHandler, "-mapfile", "-mapfile <map>", "Map file to use");
   InstallCommandLineHandler(MyCLHandler, "-agentType", "-agentType [5,9,25,49]","Set the agent movement model");
   InstallCommandLineHandler(MyCLHandler, "-probfile", "-probfile", "Load MAPF instance from file");
   InstallCommandLineHandler(MyCLHandler, "-killtime", "-killtime [value]", "Kill after this many seconds");
@@ -2136,6 +2138,11 @@ int MyCLHandler(char *argument[], int maxNumArgs)
     height = i;
     return 2;
   }
+  if(strcmp(argument[0], "-mapdir") == 0)
+  {
+    mapdir=argument[1];
+    return 2;
+  }
   if(strcmp(argument[0], "-scenfile") == 0)
   {
     if(n==0){
@@ -2148,9 +2155,9 @@ int MyCLHandler(char *argument[], int maxNumArgs)
       std::cout<<"No experiments in this scenario file or invalid file.\n";
       exit(1);
     }
-    std::string pathprefix("../../"); // Because I always run from the build directory...
     mapfile=sl.GetNthExperiment(0).GetMapName();
-    mapfile.insert(0,pathprefix); // Add prefix
+    mapfile.insert(0,"/"); // Add prefix
+    mapfile.insert(0,mapdir); // Add prefix
 
     assert(n<=sl.GetNumExperiments());
     for(int i(0); i<n; ++i){
