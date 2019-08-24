@@ -23,6 +23,16 @@
 
 float Util::closestDistanceBetweenLineSegments(Vector3D const& s1, Vector3D const& d1, Vector3D const& s2, Vector3D const& d2)
 {
+  if(s1==s2) return 0;
+  if(s1==d2) return 0;
+  if(d1==s2) return 0;
+  if(d1==d2) return 0;
+  if(s1==d1){
+    return distanceOfPointToLineSegment(s2,d2,s1);
+  }
+  if(s2==d2){
+    return distanceOfPointToLineSegment(s1,d1,s2);
+  }
   Vector3D u(d1-s1);
   Vector3D v(d2-s2);
   Vector3D w(s1-s2);

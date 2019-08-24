@@ -32,6 +32,7 @@
 #include "DigraphEnvironment.h"
 #include "Utilities.h"
 #include <sstream>
+#include <fstream>
 
 extern double agentRadius;
 bool greedyCT = false; // use greedy heuristic at the high-level

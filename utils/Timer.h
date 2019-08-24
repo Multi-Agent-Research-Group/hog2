@@ -35,6 +35,7 @@ public:
         typedef std::chrono::seconds Interval;
         typedef std::function<void(double)> Timeout;
 	Timer();
+        ~Timer();
 	
 	void StartTimeout(const Interval &interval,
                const Timeout &timeout);

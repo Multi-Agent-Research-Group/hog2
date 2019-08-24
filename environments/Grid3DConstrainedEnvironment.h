@@ -91,7 +91,7 @@ class Grid3DConstrainedEnvironment : public ConstrainedEnvironment<xyztLoc, t3DD
       return c.x<mapEnv->GetMap()->GetMapWidth() && c.y<mapEnv->GetMap()->GetMapHeight();
     }
     virtual unsigned branchingFactor(){
-      static const unsigned conn(std::pow(2,mapEnv->GetConnectedness()+2));
+      static const unsigned conn(std::pow(2,mapEnv->GetConnectedness()+2)+(mapEnv->GetWaitAllowed()?1:0));
       return conn;
     }
   private:
@@ -167,7 +167,7 @@ class TieBreaking3D {
             currentEnv->GetStateFromHash(m.hash2,n);
             //n.t=m.stop;
             collchecks++;
-            nc1+=checkForConflict(parent1,&i1.data,&p,&n);
+            nc1+=checkForConflict(parent1,&i1.data,&p,&n,agentRadius);
             //if(!nc1){std::cout << "NO ";}
             //std::cout << "conflict(1): " << i1.data << " " << n << "\n";
           }
@@ -193,7 +193,7 @@ class TieBreaking3D {
             currentEnv->GetStateFromHash(m.hash2,n);
             //n.t=m.stop;
             collchecks++;
-            nc2+=checkForConflict(parent2,&i2.data,&p,&n);
+            nc2+=checkForConflict(parent2,&i2.data,&p,&n,agentRadius);
             //if(!nc2){std::cout << "NO ";}
             //std::cout << "conflict(2): " << i2.data << " " << n << "\n";
           }
@@ -229,6 +229,7 @@ class TieBreaking3D {
     static bool randomalg;
     static bool useCAT;
     static NonUnitTimeCAT<state,action>* CAT; // Conflict Avoidance Table
+    static double agentRadius;
 };
 
 template <typename state, typename action>
@@ -243,6 +244,8 @@ template <typename state, typename action>
 bool TieBreaking3D<state,action>::randomalg=false;
 template <typename state, typename action>
 bool TieBreaking3D<state,action>::useCAT=false;
+template <typename state, typename action>
+double TieBreaking3D<state,action>::agentRadius=0.25;
 template <typename state, typename action>
 NonUnitTimeCAT<state,action>* TieBreaking3D<state,action>::CAT=0;
 
@@ -275,7 +278,7 @@ class UnitTieBreaking3D {
                 p=&(CAT->get(agent,(i1.data.t-xyztLoc::TIME_RESOLUTION_U)/xyztLoc::TIME_RESOLUTION_D));
               state const& n=CAT->get(agent,i1.data.t/xyztLoc::TIME_RESOLUTION_D);
               collchecks++;
-              nc1+=checkForTheConflict(parent1,&i1.data,p,&n);
+              nc1+=checkForTheConflict(parent1,&i1.data,p,&n,agentRadius);
             }
             // Set the number of conflicts in the data object
             i1.data.nc=nc1;
@@ -296,7 +299,7 @@ class UnitTieBreaking3D {
                 p=&(CAT->get(agent,(i2.data.t-xyztLoc::TIME_RESOLUTION_U)/xyztLoc::TIME_RESOLUTION_D));
               state const& n=CAT->get(agent,i2.data.t/xyztLoc::TIME_RESOLUTION_D);
               collchecks++;
-              nc2+=checkForTheConflict(parent2,&i2.data,p,&n);
+              nc2+=checkForTheConflict(parent2,&i2.data,p,&n,agentRadius);
             }
             // Set the number of conflicts in the data object
             i2.data.nc=nc2;
@@ -323,6 +326,7 @@ class UnitTieBreaking3D {
     static unsigned collchecks;
     static bool randomalg;
     static bool useCAT;
+    static double agentRadius;
     static UnitTimeCAT<state,action>* CAT; // Conflict Avoidance Table
 };
 
@@ -338,6 +342,8 @@ template <typename state, typename action>
 bool UnitTieBreaking3D<state,action>::randomalg=false;
 template <typename state, typename action>
 bool UnitTieBreaking3D<state,action>::useCAT=false;
+template <typename state, typename action>
+double UnitTieBreaking3D<state,action>::agentRadius=0.25;
 template <typename state, typename action>
 UnitTimeCAT<state,action>* UnitTieBreaking3D<state,action>::CAT=0;
 

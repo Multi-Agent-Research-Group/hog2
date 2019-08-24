@@ -28,14 +28,14 @@ PROJECTS = \
   apps/MACBS \
   apps/NSF \
   apps/MAAStar \
+  test/utils \
+  #test/collisiondetection \
   #search \
   #apps/experimental \
   #apps/mapUtils \
   #apps/3dmaps \
   #apps/MAIDAStar \
   #test/mapf \
-  #test/utils \
-  #test/collisiondetection \
   #test/environments \
   #apps/MAPF \
   #apps/aacbs \

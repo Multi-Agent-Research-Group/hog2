@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <vector>
-#include <queue>
+#include <set>
 #include <algorithm>
 #include <string.h>
 
@@ -46,6 +46,26 @@ namespace BiClique{
       return false;
     }
 
+    
+    /*std::cout << "Before prune\n";
+    {
+      std::cout << "L:\n";
+      for(auto const& a:L){
+        for(auto const& b:a){
+          std::cout << b << " ";
+        }
+        std::cout << "\n";
+      }
+      std::cout << "R:\n";
+      for(auto const& a:R){
+        for(auto const& b:a){
+          std::cout << b << " ";
+        }
+        std::cout << "\n";
+      }
+      std::cout << "\n";
+    }*/
+
     // Histograms for the count of nodes that  are referenced by index
     bool changed(true);
     unsigned lNodes(0);
@@ -55,7 +75,7 @@ namespace BiClique{
       lNodes=0;
       rNodes=0;
       // Prune out all edges that have a degree that is too small
-      for(unsigned i(0); i<R[start.second].size(); ++i){
+      for(unsigned i(0); i<L.size(); ++i){
         if(L[i].size()){
           if(L[i].size()<lDegree){
             changed=true;
@@ -68,7 +88,7 @@ namespace BiClique{
           }
         }
       }
-      for(unsigned i(0); i<L[start.first].size(); ++i){
+      for(unsigned i(0); i<R.size(); ++i){
         if(R[i].size()){
           if(R[i].size()<rDegree){
             changed=true;
@@ -82,6 +102,26 @@ namespace BiClique{
         }
       }
     }
+    /*
+    std::cout << "After prune\n";
+    {
+      std::cout << "L:\n";
+      for(auto const& a:L){
+        for(auto const& b:a){
+          std::cout << b << " ";
+        }
+        std::cout << "\n";
+      }
+      std::cout << "R:\n";
+      for(auto const& a:R){
+        for(auto const& b:a){
+          std::cout << b << " ";
+        }
+        std::cout << "\n";
+      }
+      std::cout << "\n";
+    }*/
+
     if(lNodes==rDegree && rNodes==lDegree){
       left.reserve(R[start.second].size());
       for(auto const& a:R[start.second]){
@@ -100,7 +140,7 @@ namespace BiClique{
     static std::vector<unsigned> d;
     d.resize(0);
     d.reserve(R[start.second].size());
-    for(unsigned j(0); j<R[start.second].size(); ++j){
+    for(unsigned j(0); j<L.size(); ++j){
       if(j!=start.first && L[j].size()){
         d.push_back(j);
       }
@@ -155,32 +195,6 @@ namespace BiClique{
       std::vector<unsigned>& left,
       std::vector<unsigned>& right){
     unsigned minimum(std::max(L[start.first].size()+1,R[start.first].size()+1));
-    
-    /*for(auto const& f:L){
-      unsigned j(0);
-      for(unsigned i(0); i<R.size(); ++i){
-      if(j>=f.size() || i<f[j]){std::cout << "0 ";}
-      else{std::cout << "1 "; ++j;}
-      }
-      std::cout << "\n";
-      }
-      {
-      std::cout << "L:\n";
-      for(auto const& a:L){
-      for(auto const& b:a){
-      std::cout << b << " ";
-      }
-      std::cout << "\n";
-      }
-      std::cout << "R:\n";
-      for(auto const& a:R){
-      for(auto const& b:a){
-      std::cout << b << " ";
-      }
-      std::cout << "\n";
-      }
-      std::cout << "\n";
-      }*/
 
 // Omitting this part because we assume that no nodes are disconnected from start
 /*
@@ -282,9 +296,10 @@ namespace BiClique{
     static std::vector<unsigned> histR;
     histR.resize(R[start.second].size()+1);
     memset(&histR[0], 0, sizeof(histR[0]) * histR.size());
-    std::queue<std::pair<unsigned,unsigned>> q;
+    auto comp([](std::pair<unsigned,unsigned> const& a, std::pair<unsigned,unsigned> const& b) { return (a.first*a.second > b.first*b.second);});
+    std::set<std::pair<unsigned,unsigned>,decltype(comp)> q(comp);
     // Cumulative histogram - the number of vertices with degX or above.
-    for(unsigned l(0); l<R[start.second].size(); ++l){
+    for(unsigned l(0); l<L.size(); ++l){
       //if(l.size()>=R.size())
         //std::cout << "bad "<<l.size()<<">="<<R.size()<<"\n";
       histL[L[l].size()]++;
@@ -292,7 +307,7 @@ namespace BiClique{
     for(int i(histL.size()-1); i>1; --i){
       histL[i-1]+=histL[i];
     }
-    for(unsigned r(0); r<L[start.first].size(); ++r){
+    for(unsigned r(0); r<R.size(); ++r){
       //if(r.size()>=L.size())
         //std::cout << "bad "<<r.size()<<">="<<L.size()<<"\n";
       histR[R[r].size()]++;
@@ -304,7 +319,16 @@ namespace BiClique{
         q.emplace(num--,i);
       }
     }
-    q.emplace(R[start.second].size()>L[start.first].size()?1:L[start.first].size(),R[start.second].size()>L[start.first].size()?R[start.second].size():1);
+    if(q.empty()){
+      q.emplace(L[start.first].size(),R[start.second].size());
+    }
+    if(R[start.second].size()>L[start.first].size()){
+      q.emplace(1,R[start.second].size());
+    }else if(R[start.second].size()<L[start.first].size()){
+      q.emplace(L[start.first].size(),1);
+    }
+    q.emplace(1,1);
+    //q.emplace(R[start.second].size()>L[start.first].size()?1:L[start.first].size(),R[start.second].size()>L[start.first].size()?1:R[start.second].size());
     //std::cout << "q:\n";
     //for(auto const& p:possibilities){
       //std::cout << p.first << "," << p.second << "\n";
@@ -323,9 +347,19 @@ namespace BiClique{
     //auto cmp = [](std::pair<unsigned,unsigned> left, std::pair<unsigned,unsigned> right) { return left.first*left.second<right.first*right.second;};
     //std::priority_queue<std::pair<unsigned,unsigned>, std::vector<std::pair<unsigned,unsigned>>, decltype(cmp)> q(cmp);
     while(!q.empty()){
-      lDegree=q.front().first;
-      rDegree=q.front().second;
-      q.pop();
+      lDegree=q.begin()->first;
+      rDegree=q.begin()->second;
+      q.erase(q.begin());
+      if(!testFeasibility(L,R,start,lDegree,rDegree,histL,histR,left,right)){
+        // minus one from l
+        unsigned n(lDegree-1);
+        q.emplace(n,rDegree);
+        // minus one from r
+        n=rDegree-1;
+        q.emplace(lDegree,n);
+      }else{
+        break;
+      }
       if(rDegree==1){
         if(lDegree == 1){
           left.push_back(start.first);
@@ -347,10 +381,6 @@ namespace BiClique{
           left.push_back(a);
         }
         return;
-      }
-      //std::cout << "trying " << lDegree << "," << rDegree << "\n";
-      if(testFeasibility(L,R,start,lDegree,rDegree,histL,histR,left,right)){
-        break;
       }
     }
   }

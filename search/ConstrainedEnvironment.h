@@ -200,7 +200,7 @@ class XORIdentical : public XOR<State> {
 template<typename State>
 class Vertex : public Constraint<State> {
   public:
-    Vertex(State const& start,double radius=.25, bool neg=true):Constraint<State>(start,start,neg,Constraint<State>::CTYPE::VERTEX){}
+    Vertex(State const& start,bool neg=true):Constraint<State>(start,start,neg,Constraint<State>::CTYPE::VERTEX){}
     virtual ~Vertex(){}
     // Check whether the action has the exact same time and to/from
     virtual double ConflictTime(State const& from, State const& to) const {
@@ -220,7 +220,7 @@ template<typename State>
 class EndVertex : public Constraint<State> {
   public:
     //EndVertex(double diam=.5):Constraint<State>(),agentDiameter(diam*State::TIME_RESOLUTION_D){}
-    EndVertex(State const& start,double radius=.25, bool neg=true):Constraint<State>(start,start,neg,Constraint<State>::CTYPE::VERTEX){}//,agentDiameter(radius*2.0*State::TIME_RESOLUTION_D){}
+    EndVertex(State const& start,bool neg=true):Constraint<State>(start,start,neg,Constraint<State>::CTYPE::VERTEX){}//,agentDiameter(radius*2.0*State::TIME_RESOLUTION_D){}
     virtual ~EndVertex(){}
     // Check whether the action has the exact same time and to/from
     virtual double ConflictTime(State const& from, State const& to) const {
@@ -242,8 +242,8 @@ class EndVertex : public Constraint<State> {
 template<typename State>
 class StartVertex : public Constraint<State> {
   public:
-    //StartVertex(double radius=.25):Constraint<State>(),agentDiameter(diam*State::TIME_RESOLUTION_D){}
-    StartVertex(State const& start,double radius=.25, bool neg=true):Constraint<State>(start,start,neg,Constraint<State>::CTYPE::VERTEX){}//,agentDiameter(radius*2.0*State::TIME_RESOLUTION_D){}
+    //StartVertex(double radius):Constraint<State>(),agentDiameter(diam*State::TIME_RESOLUTION_D){}
+    StartVertex(State const& start,bool neg=true):Constraint<State>(start,start,neg,Constraint<State>::CTYPE::VERTEX){}//,agentDiameter(radius*2.0*State::TIME_RESOLUTION_D){}
     virtual ~StartVertex(){}
     // Check whether the action has the exact same time and to/from
     virtual double ConflictTime(State const& from, State const& to) const {
@@ -351,8 +351,8 @@ class TimeRange : public Constraint<State> {
 template<typename State>
 class Collision : public Constraint<State> {
   public:
-    Collision(double radius=.25):Constraint<State>(),agentRadius(radius){}
-    Collision(State const& start, State const& end,double radius=.25, bool neg=true):Constraint<State>(start,end,neg),agentRadius(radius){}
+    Collision(double radius):Constraint<State>(),agentRadius(radius){}
+    Collision(State const& start, State const& end,double radius, bool neg=true):Constraint<State>(start,end,neg),agentRadius(radius){}
     virtual ~Collision(){}
     // Check whether the opposing action has a conflict with this one
     virtual double ConflictTime(State const& from, State const& to) const {return collisionTime3D(from,to,this->start_state,this->end_state,agentRadius);}
@@ -365,8 +365,8 @@ class Collision : public Constraint<State> {
 template<typename State>
 class Conditional : public Constraint<State> {
   public:
-    Conditional(double radius=.25):Constraint<State>(),agentRadius(radius){}
-    Conditional(State const& start, State const& end,double radius=.25, bool neg=true):Constraint<State>(start,end,neg),agentRadius(radius){}
+    Conditional(double radius):Constraint<State>(),agentRadius(radius){}
+    Conditional(State const& start, State const& end,double radius, bool neg=true):Constraint<State>(start,end,neg),agentRadius(radius){}
     virtual ~Conditional(){}
     // Check whether the opposing action has a conflict with this one
     virtual double ConflictTime(State const& from, State const& to) const {return collisionTime3D(from,to,this->start_state,this->end_state,agentRadius);}
@@ -382,8 +382,8 @@ bool Conditional<State>::ignore=false;
 template<typename State>
 class Probable : public Constraint<State> {
   public:
-    Probable(double radius=.25):Constraint<State>(),agentRadius(radius){}
-    Probable(State const& start, State const& end,double radius=.25, bool neg=true):Constraint<State>(start,end,neg),agentRadius(radius){}
+    Probable(double radius):Constraint<State>(),agentRadius(radius){}
+    Probable(State const& start, State const& end,double radius, bool neg=true):Constraint<State>(start,end,neg),agentRadius(radius){}
     virtual ~Probable(){}
     // Check whether the opposing action has a conflict with this one
     virtual double ConflictTime(State const& from, State const& to) const {return collisionTime3D(from,to,this->start_state,this->end_state,agentRadius);}
@@ -402,23 +402,22 @@ unsigned Probable<State>::cond=100;
 template<typename State>
 class Overlap : public Constraint<State> {
   public:
-    Overlap(double radius=.25):Constraint<State>(),agentRadius(radius){}
-    Overlap(State const& start, State const& end,double radius=.25, bool neg=true):Constraint<State>(start,end,neg),agentRadius(radius){}
+    Overlap():Constraint<State>(){}
+    Overlap(State const& start, State const& end,bool neg=true):Constraint<State>(start,end,neg){}
     virtual ~Overlap(){}
     // Check whether the opposing action has a conflict with this one
     virtual double ConflictTime(State const& from, State const& to) const {return Util::linesIntersect<Vector2D>(Vector2D(this->start_state),Vector2D(this->end_state),Vector2D(from),Vector2D(to));}
     virtual bool ConflictsWith(State const& from, State const& to) const {return Util::linesIntersect<Vector2D>(Vector2D(this->start_state),Vector2D(this->end_state),Vector2D(from),Vector2D(to));}
     virtual bool ConflictsWith(Overlap<State> const& x) const {return Util::linesIntersect<Vector2D>(Vector2D(this->start_state),Vector2D(this->end_state),Vector2D(x.start_state),Vector2D(x.end_state));}
     virtual void OpenGLDraw(MapInterface*) const {}
-    double agentRadius;
 };
 
 template<typename State>
 class XORCollision : public XOR<State> {
   public:
-    XORCollision(double radius=.25):Constraint<State>(),agentRadius(radius){}
-    XORCollision(State const& start, State const& end,double radius=.25, bool neg=true):Constraint<State>(start,end,neg){}
-    XORCollision(State const& start, State const& end, State const& s2, State const& e2, bool neg=true, double radius=.25):XOR<State>(start,end,s2,e2,neg),agentRadius(radius){}
+    XORCollision(double radius):Constraint<State>(),agentRadius(radius){}
+    XORCollision(State const& start, State const& end,double radius, bool neg=true):Constraint<State>(start,end,neg){}
+    XORCollision(State const& start, State const& end, State const& s2, State const& e2, double radius, bool neg=true):XOR<State>(start,end,s2,e2,neg),agentRadius(radius){}
     virtual ~XORCollision(){}
     virtual Constraint<State>* Swap()const{return new XORCollision<State>(this->pos_start,this->pos_end,this->start_state,this->end_state,this->negative);}
     // Check whether the opposing action has a conflict with this one
@@ -434,8 +433,8 @@ class XORCollision : public XOR<State> {
 template<typename State>
 class Pyramid : public Constraint<State> {
   public:
-    Pyramid(double radius=.25):Constraint<State>(),agentRadius(radius){}
-    Pyramid(State const& start, State const& end, unsigned st, double radius=.25, bool neg=true):Constraint<State>(start,end,neg),agentRadius(radius),stime(st){}
+    Pyramid(double radius):Constraint<State>(),agentRadius(radius){}
+    Pyramid(State const& start, State const& end, unsigned st, double radius, bool neg=true):Constraint<State>(start,end,neg),agentRadius(radius),stime(st){}
     virtual ~Pyramid(){}
     virtual bool ConflictsWith(State const& s) const {return 0;} // Vertex collisions are ignored
     // Check whether the opposing action has a conflict with this one

@@ -32,6 +32,7 @@
 #include <stack>
 #include <unordered_map>
 #include <sstream>
+#include <fstream>
 #include <iterator>
 #include <algorithm>
 #include <functional>

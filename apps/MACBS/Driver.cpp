@@ -33,6 +33,7 @@
 #include "Grid3DConstrainedEnvironment.h"
 #include "Utilities.h"
 #include <sstream>
+#include <fstream>
 
 std::string mapdir("/hog2/benchmarks/maps");
 extern double agentRadius;
@@ -399,8 +400,10 @@ void InitHeadless(){
   ace=(Grid3DConstrainedEnvironment*)environs[0].rbegin()->environment;
   UnitTieBreaking3D<xyztLoc,t3DDirection>::randomalg=randomalg;
   UnitTieBreaking3D<xyztLoc,t3DDirection>::useCAT=useCAT;
+  UnitTieBreaking3D<xyztLoc,t3DDirection>::agentRadius=agentRadius;
   TieBreaking3D<xyztLoc,t3DDirection>::randomalg=randomalg;
   TieBreaking3D<xyztLoc,t3DDirection>::useCAT=useCAT;
+  TieBreaking3D<xyztLoc,t3DDirection>::agentRadius=agentRadius;
 
   if(gui){
     sim = new UnitSim(ace);

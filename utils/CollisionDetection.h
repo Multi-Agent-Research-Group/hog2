@@ -25,6 +25,7 @@
 #include "Vector2D.h"
 #include "Vector3D.h"
 #include "PositionalUtils.h"
+#include "PrintUtils.h"
 #include <iostream>
 #include "BiClique.h"
 #include <vector>
@@ -1536,11 +1537,104 @@ static unsigned getMirroredMove(unsigned movenum, bool swap, bool ortho, bool y,
     unsigned eighth(conn/8);
     if(movenum<(3*eighth)){
       movenum+=(3*eighth-movenum)*2;
+      movenum%=conn;
     }else if(movenum>(3*eighth) && movenum<(7*eighth)){
-      movenum-=(movenum-3*eighth)*2;
+      movenum-=(movenum-3*eighth)*2-conn;
+      movenum%=conn;
+    }else if(movenum>(7*eighth)){
+      movenum-=(movenum-7*eighth)*2;
     }
   }
   return movenum;
+}
+
+//Invert mirroring
+static unsigned invertMirroredMove(unsigned movenum, bool swap, bool ortho, bool y, unsigned conn){
+  conn=conn-1;
+  if(movenum==conn){ // wait action...
+    return movenum;
+  }
+  if(y){ // Mirror over y axis
+    unsigned eighth(conn/8);
+    if(movenum<(3*eighth)){
+      movenum+=(3*eighth-movenum)*2;
+    }else if(movenum>(3*eighth) && movenum<(7*eighth)){
+      movenum-=(movenum-3*eighth)*2-conn;
+      movenum%=conn;
+    }else if(movenum>(7*eighth)){
+      movenum-=(movenum-7*eighth)*2;
+    }
+  }
+  unsigned half(conn/2);
+  if(swap){ // Mirror across the orthogonal (negative slope line)
+    unsigned quarter(conn/4);
+    unsigned threequarter(quarter*3);
+    if(movenum>quarter){
+      if(movenum <= half){
+        movenum -= (movenum-quarter)*2;
+      }else if(movenum<threequarter){
+        movenum += (threequarter-movenum)*2;
+      }else if(movenum>threequarter){
+        movenum -= (movenum-threequarter)*2;
+      }
+    }else if(movenum<quarter){
+        movenum += (quarter-movenum)*2;
+    }
+  }
+  if(ortho){
+    if(movenum >0 && movenum<half){ // Mirror across the diagonal (positive slope line)
+      movenum += (half-movenum)*2;
+      movenum%=conn;
+    }else if(movenum>half){
+      movenum -= (movenum-half)*2;
+    }
+  }
+  return movenum;
+}
+
+static inline unsigned getDist(unsigned bf){
+  switch(bf){
+    case 32:
+    case 33:
+    case 48:
+    case 49:
+      return 6;
+      break;
+    case 16:
+    case 17:
+    case 24:
+    case 25:
+      return 4;
+        break;
+    default:
+      return 2;
+  }
+}
+
+// Number of mirrored start points
+static unsigned getNumCases(unsigned conn){
+  switch(conn){
+    case 48:
+    case 32:
+    case 33:
+    case 49:
+      return 28;
+      break;
+    case 16:
+    case 17:
+    case 24:
+    case 25:
+      return 15;
+      break;
+    case 8:
+    case 9:
+      return 6;
+      break;
+    default:
+      unsigned n(sqrt(conn-1));
+      return ((n+1)*(n+2))/2;
+      break;
+  }
 }
 
 // Get index in grid:
@@ -1571,9 +1665,9 @@ static unsigned getMirroredMove(unsigned movenum, bool swap, bool ortho, bool y,
 // 3-1 TTPs = basic fighter maneuvers
 template <typename state>
 signed locationIndex(state a, state b, bool& swap, bool& ortho, bool& y, unsigned conn){
-  static const unsigned dist(sqrt(conn-1));
+  const unsigned dist(getDist(conn));
   if(a==b){
-    return ((dist+1)*(dist+2))/2 -1;
+    return getNumCases(conn)-1;
   }
   signed dx(a.x-b.x);
   signed dy(a.y-b.y);
@@ -1601,12 +1695,37 @@ signed locationIndex(state a, state b, bool& swap, bool& ortho, bool& y, unsigne
     a.x-=(a.x-dist)*2;
     y=true;
   }
-  return a.x+a.y*(dist+1)-a.y;
+  if(dist==2){
+    return a.x+a.y*dist;
+  }
+  else{
+    dx=abs(dx);
+    dy=abs(dy);
+    if(dx<dy){
+      auto tmp(dx);
+      dx=dy;
+      dy=tmp;
+    }
+    static const unsigned moves17[5][5]={{14, 0,0,0,0},
+                                         {13,12,0,0,0},
+                                         {11,10,9,0,0},
+                                         {8, 7, 6,5,0},
+                                         {4, 3, 2,1,0}};
+    static const unsigned moves33[7][7]={{27, 0, 0, 0, 0, 0,0},
+                                         {26,25, 0, 0, 0, 0,0},
+                                         {24,23,22, 0, 0, 0,0},
+                                         {21,20,19,18, 0, 0,0},
+                                         {17,16,15,14,13, 0,0},
+                                         {12,11,10, 9, 8, 7,0},
+                                         { 6, 5, 4, 3, 2, 1,0}};
+    if(dist==4)return moves17[dx][dy];
+    if(dist==6)return moves33[dx][dy];
+  }
 }
 
 template <typename state>
 static void fromLocationIndex(signed ix, state& a, state& b, unsigned conn){
-  static unsigned dist(sqrt(conn-1));
+  unsigned dist(getDist(conn));
   b.x=b.y=dist;
   a.x=a.y=0;
   for(int i(0); i<dist+1; ++i){
@@ -1714,45 +1833,19 @@ static float fetch(state const& a, int offset, state& b, unsigned conn=8U){
   }
 }
 
-// Number of mirrored start points
-static unsigned getNumCases(unsigned conn){
-  switch(conn){
-    case 48:
-    case 32:
-    case 33:
-    case 49:
-      return 15;
-      break;
-    case 16:
-    case 17:
-    case 24:
-    case 25:
-      return 10;
-      break;
-    case 8:
-    case 9:
-      return 6;
-      break;
-    default:
-      unsigned n(sqrt(conn-1));
-      return ((n+1)*(n+2))/2;
-      break;
-  }
-}
 // A ranking function for two actions
 template <typename state>
-static signed getCaseNumber(state const& A1, state const& A2, state const& B1, state const& B2, unsigned& moveA, unsigned& moveB, unsigned conn){
-  static unsigned plusWait(pow(2,int(log(conn)/log(2)))+1); // 2^k
-  static unsigned num(getNumCases(conn));
+static signed getCaseNumber(state const& A1, state const& A2, state const& B1, state const& B2, unsigned& moveA, unsigned& moveB, unsigned bf){
+  unsigned num(getNumCases(bf));
   bool swap=false,ortho=false,y=false;
-  auto li(locationIndex(A1,B1,swap,ortho,y,conn));
+  auto li(locationIndex(A1,B1,swap,ortho,y,bf));
   if(li<0) return -1;
   //unsigned moveA((swap)?getMirroredMove(moveNum(B1,B2,0,conn),swap,ortho,y,conn):getMirroredMove(moveNum(A1,A2,0,conn),swap,ortho,y,conn));
   //unsigned moveB((swap)?getMirroredMove(moveNum(A1,A2,0,conn),swap,ortho,y,conn):getMirroredMove(moveNum(B1,B2,0,conn),swap,ortho,y,conn));
-  moveA=getMirroredMove(moveNum(A1,A2,0,conn),swap,ortho,y,conn);
-  moveB=getMirroredMove(moveNum(B1,B2,0,conn),swap,ortho,y,conn);
-  //std::cout << "case num " << li << " " << moveA << " " << num << " " << moveB << " " << plusWait << " : " << (li + moveA*num + moveB*num*plusWait) <<"\n";
-  return li + moveA*num + moveB*num*plusWait; 
+  moveA=getMirroredMove(moveNum(A1,A2,0,bf),swap,ortho,y,bf);
+  moveB=getMirroredMove(moveNum(B1,B2,0,bf),swap,ortho,y,bf);
+  //std::cout << "case num " << li << " " << moveA << " " << num << " " << moveB << " " << bf << " : " << (li + moveA*num + moveB*num*bf) <<"\n";
+  return li + moveA*num + moveB*num*bf; 
 }
 
 static void encodeIvls(std::vector<std::vector<std::pair<float,float>>> const& input,
@@ -1779,7 +1872,7 @@ static bool collisionCheck3DAPriori(std::vector<unsigned> const& array,
   unsigned moveA=0,moveB=0;
   auto ix(getCaseNumber(a1,a2,b1,b2,moveA,moveB,branchingFactor)); // Index into the biclique array
   unsigned num(indices[ix]); // Index into the intervals array
-  static unsigned numCases(indices.size());
+  unsigned numCases(indices.size());
   unsigned aix(0);
   unsigned bix(0);
   // TODO: a fast way to count number of bits...
@@ -1947,7 +2040,7 @@ void getBiclique(state const& a1,
         unsigned j(brmap[jj]);
         state b;
         float endB(fetch(b1,j,b,branchingFactor));
-        auto ivl(getForbiddenInterval(a1,a,0,endA+startTimeA,rA,b1,b,0,endB-startTimeB,rB));
+        auto ivl(getForbiddenInterval(a1,a,0,endA,rA,b1,b,0,endB,rB));
         if(ivl.first<ivl.second && !(core.first>ivl.second || core.second < ivl.first)){
           //std::cout << ax1 << "<->" << as[a] << " " << bx1 << "<->" << bs[b] << " => "; 
           //if(collisionCheck3D(ax1, as[a], bx1, bs[b], agentRadius))
@@ -2017,72 +2110,120 @@ static void getVertexAnnotatedBiclique(unsigned coreA,
                                        unsigned branchingFactor,
                                        float rA=0.25,
                                        float rB=0.25){
-  auto delay(startTimeB-startTimeA);
+  auto delay(startTimeA-startTimeB);
   auto const& core(ivls[coreA][coreB]);
   if(delay<core.first || delay>core.second){ // We shouldn't be calling this function with a bad delay, but just in case...
     left.clear();
     right.clear();
+    livls.clear();
+    rivls.clear();
+    //delay=-delay;
+    //if(delay<core.first || delay>core.second){ // We shouldn't be calling this function with a bad delay, but just in case...
+    std::cerr << "Warning: You called getVertexAnnotatedBiclique() on a pair of actions that do not conflict! --> delay " << delay << " ivl " << core.first << "," << core.second << std::endl;
+    //assert(!"Delay doesn't match interval!");
+    //}
     return;
   }
   livls.resize(left.size(),{-std::numeric_limits<float>::infinity(),std::numeric_limits<float>::infinity()});
   rivls.resize(right.size(),{-std::numeric_limits<float>::infinity(),std::numeric_limits<float>::infinity()});
-  std::map<unsigned,unsigned> lcount;
-  std::map<unsigned,unsigned> rcount;
-  unsigned ml(0);
-  signed mlx(-1);
-  unsigned mr(0);
-  signed mrx(-1);
-  unsigned l1(0);
-  for(unsigned l(0); l<left.size(); ++l, ++l1){
-    unsigned r1(0);
-    for(unsigned r(0); r<right.size(); ++r, ++r1){
-      auto const& ivl(ivls[l1][r1]);
-      if(ivl.first<delay && ivl.second>delay){
-        livls[l].first=std::max(ivl.first,livls[l].first);
-        livls[l].second=std::min(ivl.second,livls[l].second);
-        rivls[r].first=std::max(-ivl.second,rivls[r].first);
-        rivls[r].second=std::min(-ivl.first,rivls[r].second);
-      }else{
-        if(left.size()==1){
+  if(left.size()==1){
+    for(unsigned l(0); l<left.size(); ++l){
+      unsigned r1(0);
+      for(unsigned r(0); r<right.size(); ++r, ++r1){
+        auto const& ivl(ivls[l][r1]);
+        if(ivl.first<delay && ivl.second>delay){
+          livls[l].first=std::max(ivl.first,livls[l].first);
+          livls[l].second=std::min(ivl.second,livls[l].second);
+          rivls[r].first=std::max(-ivl.second,rivls[r].first);
+          rivls[r].second=std::min(-ivl.first,rivls[r].second);
+        }else{
           // remove from right
+          if(r<coreB)coreB--;
           right.erase(right.begin()+r);
           rivls.erase(rivls.begin()+r);
           --r;
-        }else if(right.size()==1){
+        }
+      }
+    }
+  }else if(right.size()==1){
+    unsigned l1(0);
+    for(unsigned l(0); l<left.size(); ++l, ++l1){
+      for(unsigned r(0); r<right.size(); ++r){
+        auto const& ivl(ivls[l1][r]);
+        if(ivl.first<delay && ivl.second>delay){
+          livls[l].first=std::max(ivl.first,livls[l].first);
+          livls[l].second=std::min(ivl.second,livls[l].second);
+          rivls[r].first=std::max(-ivl.second,rivls[r].first);
+          rivls[r].second=std::min(-ivl.first,rivls[r].second);
+        }else{
+          if(l<coreA)coreA--;
           // remove from left
           left.erase(left.begin()+l);
           livls.erase(livls.begin()+l);
           --l;
-        }else{
-          // Count it
-          if(l!=coreA && lcount[l1]+1 > ml){
-            ml=++lcount[l1];
-            mlx=l;
-          }
-          if(r!=coreB && rcount[r1]+1 > mr){
-            mr=++rcount[r1];
-            mrx=r;
-          }
         }
       }
     }
-  }
-  // If any intervals didn't contain the delay value, they must be removed
-  if(ml || mr){
-    livls.clear();
-    rivls.clear();
-    auto nivls(ivls); // Make a copy
-    if(ml>mr || (ml==mr && left.size()>right.size())){
-      left.erase(left.begin()+mlx);
-      nivls.erase(nivls.begin()+mlx);
-    }else{
-      for(auto& l:nivls){
-        l.erase(l.begin()+mrx);
+  }else{
+    static std::vector<std::vector<unsigned>> fwd;
+    fwd.resize(0);
+    fwd.resize(left.size());
+    static std::vector<std::vector<unsigned>> rwd;
+    rwd.resize(0);
+    rwd.resize(right.size());
+    bool rebuildBiclique(false);
+    for(unsigned l(0); l<left.size(); ++l){
+      fwd[l].reserve(right.size());
+      for(unsigned r(0); r<right.size(); ++r){
+        auto const& ivl(ivls[l][r]);
+        if(ivl.first<delay && ivl.second>delay){
+          fwd[l].push_back(r);
+          rwd[r].push_back(l);
+          if(!rebuildBiclique){
+            livls[l].first=std::max(ivl.first,livls[l].first);
+            livls[l].second=std::min(ivl.second,livls[l].second);
+            rivls[r].first=std::max(-ivl.second,rivls[r].first);
+            rivls[r].second=std::min(-ivl.first,rivls[r].second);
+          }
+        }else{
+          rebuildBiclique=true;
+        }
       }
-      right.erase(right.begin()+mrx);
     }
-    getVertexAnnotatedBiclique(coreA, coreB, startTimeA, endTimeA, startTimeB, endTimeB, left, right, nivls, livls, rivls, branchingFactor, rA, rB);
+    if(rebuildBiclique){
+      auto lorig(left); // Capture the original move numbers
+      auto rorig(right);
+      left.clear();
+      right.clear();
+      livls.clear();
+      rivls.clear();
+      // Populate left,right with the biclique indices
+      if(fwd.size()<=rwd.size()){
+        BiClique::findBiClique(fwd,rwd,{coreA,coreB},left,right);
+      }else{
+        BiClique::findBiClique(rwd,fwd,{coreB,coreA},right,left);
+      }
+      livls.resize(left.size(),{-std::numeric_limits<float>::infinity(),std::numeric_limits<float>::infinity()});
+      rivls.resize(right.size(),{-std::numeric_limits<float>::infinity(),std::numeric_limits<float>::infinity()});
+      for(unsigned l(0); l<left.size(); ++l){
+        for(unsigned r(0); r<right.size(); ++r){
+          // Get intersection of vertex-wise intervals
+          auto const& ivl(ivls[left[l]][right[r]]);
+          livls[l].first=std::max(ivl.first,livls[l].first);
+          livls[l].second=std::min(ivl.second,livls[l].second);
+          rivls[r].first=std::max(-ivl.second,rivls[r].first);
+          rivls[r].second=std::min(-ivl.first,rivls[r].second);
+        }
+        // Convert to move number
+        left[l]=lorig[left[l]];
+      }
+      // Convert to move numbers
+      for(auto& r:right){
+        r=rorig[r];
+      }
+    }
   }
+  std::cout << "After filter on delay: " << delay << "\ncore: " << core << "\nleft: " << left << "\nright: " << right << "\nlivls: " << livls << "\nrivls: " << rivls << "\n";
 }
 
 template <typename state>
@@ -2105,90 +2246,100 @@ static void getVertexAnnotatedBiclique(state const& a,
   if(left.empty())return;
   std::sort(left.begin(),left.end());
   std::sort(right.begin(),right.end());
-  auto s(moveNum(b,b2,0,branchingFactor));
-  auto f(std::lower_bound(right.begin(),right.end(),moveNum(b,b2,0,branchingFactor)));
+  //auto s(moveNum(b,b2,0,branchingFactor));
+  //auto f(std::lower_bound(right.begin(),right.end(),moveNum(b,b2,0,branchingFactor)));
+  //std::cout<<"core: " << a << "-->" << a2 << ", " << b << "-->" << b2 << "\n";
   unsigned ixA(std::lower_bound(left.begin(),left.end(),moveNum(a,a2,0,branchingFactor))-left.begin());
   unsigned ixB(std::lower_bound(right.begin(),right.end(),moveNum(b,b2,0,branchingFactor))-right.begin());
   std::vector<std::vector<std::pair<float,float>>> ivls;
   getEdgeAnnotatedBiclique(a,a2,b,b2,left,right,ivls,branchingFactor,rA,rB);
+  std::cout << "From scratch:\n";
+  std::cout << "left: " << left << "\nright: " << right << "\nintervals: "<<ivls << "\n";
   getVertexAnnotatedBiclique(ixA,ixB,startTimeA,endTimeA,startTimeB,endTimeB,left,right,ivls,livls,rivls,branchingFactor,rA,rB);
 }
 
 template <typename state>
-static void loadCollisionTable(std::vector<unsigned>& array, std::vector<unsigned>& indices, std::vector<float>& ivls, unsigned conn=8, unsigned resolution=10, float rA=0.25, float rB=0.25, bool force=false){
+static void loadCollisionTable(std::vector<unsigned>& array, std::vector<unsigned>& indices, std::vector<float>& ivls, unsigned bf=9, unsigned resolution=10, float rA=0.25, float rB=0.25, bool force=false){
   char fname[128];
   char fname2[128];
-  unsigned k(log(conn)/log(2)); // Number of bits in conn
-  unsigned exconn(pow(2,k)); // 2^k
-  unsigned num(getNumCases(conn));
+  unsigned num(getNumCases(bf));
   // Number of mirrored start points X connectivity X connectivity X number of bits in conn
-  unsigned plusWait(exconn+1);
-  unsigned numCases(num*plusWait*plusWait);
+  unsigned numCases(num*bf*bf);
   // Each entry consists of 1 bit for each move from A, 1 bit for each move from B, and all of their forbidden intervals
-  array.resize((numCases*(plusWait*2))/sizeof(unsigned)+1,0);
+  array.resize((numCases*(bf*2))/sizeof(unsigned)+1,0);
   indices.resize(numCases);
 
-  sprintf(fname,"collision%02d-bicliques_r%0.2f_r%0.2f.dat",exconn,rA,rB);
-  sprintf(fname2,"collision%02d-intervals_r%0.2f_r%0.2f.dat",exconn,rA,rB);
+  sprintf(fname,"collision%02d-bicliques_r%0.2f_r%0.2f.dat",bf-1,rA,rB);
+  sprintf(fname2,"collision%02d-intervals_r%0.2f_r%0.2f.dat",bf-1,rA,rB);
   FILE* f(fopen(fname,"rb"));
   FILE* f2(fopen(fname2,"rb"));
   if(!force && f && f2){
     fread(array.data(),sizeof(unsigned),array.size(),f);
     fclose(f);
     unsigned total(0);
-    for(auto const& a:array){
-      total+=__builtin_popcount(a);
-    }
-    ivls.resize(total);
-    total=0;
-    for(unsigned i(0); i<numCases; ++i){
-      indices[i]=total;
-      for(unsigned j(0); j<(plusWait*2); ++j){
-        total+=get(array.data(),i+j*numCases);
+    for(unsigned caseNum(0); caseNum<num; ++caseNum){
+      for(unsigned i(0); i<bf; ++i){
+        for(unsigned j(0); j<bf; ++j){
+          unsigned ix(caseNum+i*num+j*num*bf);
+          indices[ix]=total;
+          unsigned ltot(0);
+          unsigned rtot(0);
+          for(unsigned l(0); l<bf; ++l){
+            ltot+=get(array.data(),ix+l*numCases);
+          }
+          for(unsigned r(0); r<bf; ++r){
+            rtot+=get(array.data(),ix+(r+bf)*numCases);
+          }
+          total+=2*ltot*rtot;
+        }
       }
     }
+    ivls.resize(total);
     fread(ivls.data(),sizeof(float),ivls.size(),f2);
     fclose(f2);
   }else{
+    //std::map<unsigned,unsigned> assn;
     state a,b;
-    fromLocationIndex(0,a,b,conn-1);
+    fromLocationIndex(0,a,b,bf-1);
     // pre-load bs ...  they are always the same ("b" is the center point, "a" is relative)
-    state bs[plusWait];
-    for(int j(0); j<plusWait; ++j){
-      fetch(b,j,bs[j],conn);
+    state bs[bf];
+    for(int j(0); j<bf; ++j){
+      fetch(b,j,bs[j],bf);
     }
     for(unsigned caseNum(0); caseNum<num; ++caseNum){
-      fromLocationIndex(caseNum,a,b,conn-1);
-      for(unsigned i(0); i<plusWait; ++i){
+      fromLocationIndex(caseNum,a,b,bf-1);
+      for(unsigned i(0); i<bf; ++i){
         state a2;
-        float endA(fetch(a,i,a2,plusWait));
-        for(unsigned j(0); j<plusWait; ++j){
+        float endA(fetch(a,i,a2,bf));
+        for(unsigned j(0); j<bf; ++j){
           state b2;
-          float endB(fetch(b,j,b2,plusWait));
+          float endB(fetch(b,j,b2,bf));
           // Debug
           //bool printme(fequal(b.x,2.0) && fequal(b.y,2.0) && fequal(b2.x,2.0) && fequal(b2.y,1.0) && fequal(a.x,2.0) && fequal(a.y,1.0) && fequal(a2.x,2.0) && fequal(a2.y,2.0));
-          unsigned ix(caseNum+i*num+j*num*plusWait);
+          unsigned ix(caseNum+i*num+j*num*bf);
           //printme=(ix==75);
           //bool printme(true);
           //if(printme)std::cout << a << "-->" << a2 << ", " << b << "-->" << b2 << "\n";
           std::vector<unsigned> left;
           std::vector<unsigned> right;
           std::vector<std::vector<std::pair<float,float>>> tivls;
-          getBiclique(a,a2,b,b2,0,endA,0,endB,left,right,plusWait,rA,rB);
+          getBiclique(a,a2,b,b2,0,endA,0,endB,left,right,bf,rA,rB);
           std::sort(left.begin(),left.end());
           std::sort(right.begin(),right.end());
-          getEdgeAnnotatedBiclique(a,a2,b,b2,left,right,tivls,plusWait,rA,rB);
+          getEdgeAnnotatedBiclique(a,a2,b,b2,left,right,tivls,bf,rA,rB);
           //std::cout << "assign " << ix << "\n";
           for(auto const& l:left){
             set(array.data(),ix+l*numCases);
             //if(printme)std::cout << "setting (left) [" << l << "] " << caseNum << " " << i << " " << j << " : " <<  ix+l*numCases <<"\n";
           }
           for(auto const& r:right){
-            set(array.data(),ix+(r+plusWait)*numCases);
-            //if(printme)std::cout << "setting (right) [" << r << "] " << caseNum << " " << i << " " << j << " : " <<  ix+(r+plusWait)*numCases <<"\n";
+            set(array.data(),ix+(r+bf)*numCases);
+            //if(printme)std::cout << "setting (right) [" << r << "] " << caseNum << " " << i << " " << j << " : " <<  ix+(r+bf)*numCases <<"\n";
           }
           //if(printme)std::cout << "index: " << ivls.size() << "\n";
+          //if(assn.find(ix)!=assn.end()&&"This assignment has already taken place!");
           indices[ix]=ivls.size();
+          //assn[ix]=ivls.size();
           //if(printme){
             //std::cout << "ivls index: " << ivls.size() << "\n";
             //for(int q(0); q<tivls.size(); ++q){
@@ -2240,7 +2391,7 @@ static void getVertexAnnotatedBiclique(state const& a,
     rivls.clear();
     return;
   }
-  static unsigned numCases(indices.size());
+  unsigned numCases(indices.size());
   unsigned aix(0);
   unsigned bix(0);
   for(unsigned i(0); i<branchingFactor; ++i){
@@ -2260,10 +2411,11 @@ static void getVertexAnnotatedBiclique(state const& a,
     }
   }
   if(left.size()==0)return;
-  std::vector<std::vector<std::pair<float,float>>> intervals;
+  static std::vector<std::vector<std::pair<float,float>>> intervals;
   intervals.resize(left.size());
   unsigned num(indices[ix]);
   for(auto& l:intervals){
+    l.resize(0);
     l.reserve(right.size());
     for(unsigned r(0); r<right.size(); ++r){
       //std::cout << "ivls["<<num<<","<<(num+1)<<"]="<<ivls[num]<<","<<ivls[num+1]<<"\n";
@@ -2271,7 +2423,41 @@ static void getVertexAnnotatedBiclique(state const& a,
       num+=2;
     }
   }
+  std::cout << "From disk:\n";
+  std::cout << "left: " << left << "\nright: " << right << "\nintervals: "<<intervals << "\n";
 
+  /*{
+    //TODO: make sure that the biclique is the same, because the core action is not there...
+    std::vector<unsigned> left1;
+    std::vector<unsigned> right1;
+    getBiclique(a,a2,b,b2,startTimeA,endTimeA,startTimeB,endTimeB,left1,right1,branchingFactor,rA,rB);
+    std::sort(left1.begin(),left1.end());
+    std::sort(right1.begin(),right1.end());
+    if(left!=left1 || right!=right1){
+      std::cout << "No match for biclique\n";
+      std::cout << left << "!=" << left1 << "\n (or) \n";
+      std::cout << right << "!=" << right1 << "\n";
+      getBiclique(a,a2,b,b2,startTimeA,endTimeA,startTimeB,endTimeB,left1,right1,branchingFactor,rA,rB);
+    }
+    if(std::find(left.begin(),left.end(),moveA)==left.end()){
+      std::cout << "Left core action not in biclique\n";
+      std::cout << left << " missing " << moveA << "\n";
+    }
+    if(std::find(right.begin(),right.end(),moveB)==right.end()){
+      std::cout << "right core action not in biclique\n";
+      std::cout << right << " missing " << moveB << "\n";
+    }
+    auto ivl(getForbiddenInterval(a,a2,0,endTimeA-startTimeA,rA,b,b2,0,endTimeB-startTimeB,rB));
+    auto ivlr(getForbiddenInterval(a,a2,0,endTimeA-startTimeA,.25,b,b2,0,endTimeB-startTimeB,.25));
+    auto ivl2(intervals[aix][bix]);
+    auto delay(startTimeA-startTimeB);
+    if(fabs(ivl.first-ivl2.first)>.01 || fabs(ivl.second-ivl2.second)>.01){
+      std::cout << "cached interval " << ivl2.first << "," << ivl2.second << "; does not match computed: " <<ivl.first << "," << ivl.second << "\n";
+    }
+    if(delay<ivl2.first || delay>ivl2.second){
+      std::cout << "delay:" << delay << "is not in the interval " << ivl2.first << "," << ivl2.second << "\n";
+    }
+  }*/
   getVertexAnnotatedBiclique(aix,bix,startTimeA,endTimeA,startTimeB,endTimeA,left,right,intervals,livls,rivls,branchingFactor,rA,rB);
 }
 

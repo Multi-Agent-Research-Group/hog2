@@ -23,6 +23,7 @@
 #include "Map3d.h"
 #include "GLUtil.h"
 #include <cstdlib>
+#include <cstdio>
 #include <cstring>
 #include "dtedreader.h"
 #include "Vector3D.h"
@@ -100,7 +101,7 @@ void Map3D::Load(const char *filename, const char *dtedfile)
   }
 
   if(!readdted1(dtedfile,elevation,width,height,0,0,depth)){
-    printf("Dted not loaded\n");
+    fprintf(stderr,"Dted not loaded\n");
   }
 
 
@@ -161,7 +162,7 @@ void Map3D::loadOctile(FILE *f, float** elevation){
           break;
         case 'T': // Elevated terrain
           elev[x][y]=elevation[x][y];
-          type[x][y]=kGround;
+          type[x][y]=kTrees;
           break;
         case '\n':
         case '\r':

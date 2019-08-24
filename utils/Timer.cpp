@@ -1,11 +1,13 @@
 #include "Timer.h"
 
-Timer::Timer()
-{
-  elapsedTime = 0;
-  running = false;
+Timer::Timer():elapsedTime(0),running(false){
 }
 
+Timer::~Timer(){
+  if(running){
+    th.detach();
+  }
+}
 
 // Have the timer run a function after an interval
 void Timer::StartTimeout(const Interval &interval,
@@ -16,12 +18,12 @@ void Timer::StartTimeout(const Interval &interval,
 
   th = std::thread([=]()
   {
-    while(running) {
+    //while(running) {
       std::this_thread::sleep_for(interval);
       TimeCut();
       timeout(GetElapsedTime()*-1.0);
-    }
-  });       
+    //}
+  });
 }
 
 void Timer::StartTimer()
@@ -41,19 +43,11 @@ double Timer::TimeCut()
 
 double Timer::EndTimer()
 {
-  if(running){
-    running = false;
-    //th.join();
-  }
   return TimeCut();
 }
 
 uint64_t Timer::EndTimerNanos()
 {
-  if(running){
-    running = false;
-    //th.join();
-  }
   auto stopTime =  std::chrono::high_resolution_clock::now();
   auto difference = stopTime - startTime;
   return std::chrono::duration_cast<std::chrono::nanoseconds>(difference).count();

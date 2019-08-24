@@ -5,6 +5,7 @@
 #include "ConstrainedEnvironment.h"
 #include "Utilities.h"
 #include <sstream>
+#include <fstream>
 #include <iostream>
 #include "Map3d.h"
 
@@ -256,7 +257,7 @@ class TieBreaking3D {
               currentEnv->GetStateFromHash(m.hash2,n);
               //n.t=m.stop;
               collchecks++;
-              nc1+=checkForConflict(parent1,&i1.data,&p,&n);
+              nc1+=checkForConflict(parent1,&i1.data,&p,&n,agentRadius);
               //if(!nc1){std::cout << "NO ";}
               //std::cout << "conflict(1): " << i1.data << " " << n << "\n";
             }
@@ -282,7 +283,7 @@ class TieBreaking3D {
               currentEnv->GetStateFromHash(m.hash2,n);
               //n.t=m.stop;
               collchecks++;
-              nc2+=checkForConflict(parent2,&i2.data,&p,&n);
+              nc2+=checkForConflict(parent2,&i2.data,&p,&n,agentRadius);
               //if(!nc2){std::cout << "NO ";}
               //std::cout << "conflict(2): " << i2.data << " " << n << "\n";
             }
@@ -412,6 +413,7 @@ class UnitTieBreaking3D {
     static unsigned collchecks;
     static bool randomalg;
     static bool useCAT;
+    static double agentRadius;
     static UnitTimeCAT<state,action>* CAT; // Conflict Avoidance Table
 };
 
@@ -427,6 +429,8 @@ template <typename state, typename action>
 bool UnitTieBreaking3D<state,action>::randomalg=false;
 template <typename state, typename action>
 bool UnitTieBreaking3D<state,action>::useCAT=false;
+template <typename state, typename action>
+double UnitTieBreaking3D<state,action>::agentRadius=0.25;
 template <typename state, typename action>
 UnitTimeCAT<state,action>* UnitTieBreaking3D<state,action>::CAT=0;
 

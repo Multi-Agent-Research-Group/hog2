@@ -252,6 +252,7 @@ public:
         std::vector<std::vector<std::pair<xyztLoc,double>>> solution;
         void findIntervals(xyztLoc curNode, std::vector<std::pair<double,double>>& intervals, std::vector<double>& EAT, int w) const;
         inline void SetWaitAllowed(){waitAllowed=true;}
+        inline bool GetWaitAllowed(){return waitAllowed;}
         inline void SetSurface(bool v){surface=v;}
         inline void SetMaxCost(uint64_t v){maxcost=v;}
         inline void SetUniqueCosts(bool v){uniquecosts=v;}

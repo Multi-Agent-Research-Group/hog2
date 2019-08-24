@@ -5,7 +5,8 @@ ulimit -c 0
 ALG="${ALG:-MACBS}"
 BINDIR="${BINDIR:-/hog2/bin}"
 #NAGENTS="${NAGENTS:-100}"
-DOMAIN="${DOMAIN:-Berlin_1_256-random,2,1000,1:Boston_0_256-random,2,1000,1:Paris_1_256-random,2,1000,1:brc202d-random,2,1000,1:den312d-random,2,1000,1:den520d-random,2,1000,1:empty-16-16-random,2,128,1:empty-32-32-random,2,512,1:empty-48-48-random,2,1000,1:empty-8-8-random,2,32,,1:ht_chantry-random,2,1000,1:ht_mansion_n-random,2,1000,1:lak303d-random,2,1000,1:lt_gallowstemplar_n-random,2,1000,1:maze-128-128-10-random,2,1000,1:maze-128-128-2-random,2,1000,1:maze-32-32-2-random,2,333,1:maze-32-32-4-random,2,395,1:orz900d-random,2,1000,1:ost003d-random,2,1000,1:random-32-32-10-random,2,461,1:random-32-32-20-random,2,409,1:random-64-64-10-random,2,1000,1:random-64-64-20-random,2,1000,1:room-32-32-4-random,2,341,1:room-64-64-16-random,2,1000,1:room-64-64-8-random,2,1000,1:w_woundedcoast-random,2,1000,1}"
+DOMAINTYPE="${DOMAINTYPE:-random}"
+DOMAIN="${DOMAIN:-Berlin_1_256-@,2,1000,1:Boston_0_256-@,2,1000,1:Paris_1_256-@,2,1000,1:brc202d-@,2,1000,1:den312d-@,2,1000,1:den520d-@,2,1000,1:empty-16-16-@,2,128,1:empty-32-32-@,2,512,1:empty-48-48-@,2,1000,1:empty-8-8-@,2,32,,1:ht_chantry-@,2,1000,1:ht_mansion_n-@,2,1000,1:lak303d-@,2,1000,1:lt_gallowstemplar_n-@,2,1000,1:maze-128-128-10-@,2,1000,1:maze-128-128-2-@,2,1000,1:maze-32-32-2-@,2,333,1:maze-32-32-4-@,2,395,1:orz900d-@,2,1000,1:ost003d-@,2,1000,1:@-32-32-10-@,2,461,1:@-32-32-20-@,2,409,1:@-64-64-10-@,2,1000,1:@-64-64-20-@,2,1000,1:room-32-32-4-@,2,341,1:room-64-64-16-@,2,1000,1:room-64-64-8-@,2,1000,1:w_woundedcoast-@,2,1000,1}"
 TRIALS="${TRIALS:-25}"
 KILLTIME="${KILLTIME:-30}"
 KILLMEM="${KILLMEM:-8000}"
@@ -31,6 +32,7 @@ ID="${ID:-true}"
 RES="${RES:-10}"
 DISAPPEAR="${DISAPPEAR:-true}"
 SUFFIX="${SUFFIX:-}"
+APRIORI="${APRIORI:-false}"
 
 DESCRIP=""
 case $CTYPE in
@@ -54,6 +56,9 @@ case $CTYPE in
   ;;
 8)
   DESCRIP="1xNTIME"
+  ;;
+9)
+  DESCRIP="MxNTIME"
   ;;
 *)
   DESCRIP="IDENT"
@@ -86,6 +91,13 @@ if [[ $DISAPPEAR = true ]]; then
   DESCRIP="${DESCRIP}_DIS"
 else
   DISAPPEAR=""
+fi
+
+if [[ $APRIORI = true ]]; then
+  APRIORI="-apriori"
+else
+  DESCRIP="${DESCRIP}_APRIORI"
+  APRIORI=""
 fi
 
 if [[ $ID = false ]]; then
@@ -189,7 +201,7 @@ IFS=':' read -r -a BFACTOR <<< "$BFACTOR"
 for d in "${!DOMAIN[@]}"; do
   dom=${DOMAIN[$d]}
   IFS=',' read -r -a dom <<< "$dom"
-  dname=${dom[0]}
+  dname=$(echo ${dom[0]} | sed "s/@/${DOMAINTYPE}/")
   START=${dom[1]}
   STOP=${dom[2]}
   INC=${dom[3]}
@@ -206,20 +218,24 @@ for d in "${!DOMAIN[@]}"; do
         SCENARIOPREFIX="-probfile /hog2/instances/64x64/1000"
         SCENARIOSUFFIX=".csv -dimensions 64,64,1"
       else
-        SCENARIOPREFIX="-scenfile /hog2/benchmarks/scen-random"
+        SCENARIOPREFIX=$( echo "-scenfile /hog2/benchmarks/scen-@" | sed "s/@/${DOMAINTYPE}/")
         SCENARIOSUFFIX=".scen"
       fi
 
       for ((a=${START}; a<=${STOP}; a+=${INC})); do
         SCENPRIOR="-nagents ${a} "
-        FILENAME=$(printf "${ALG}_${dname}_${DESCRIP}_%02d_%03d.txt" ${BFACTOR[$b]} ${a})
+        FILENAME=$(printf "${ALG}_${dname}_${DESCRIP}_%02d_%03d.txt" ${BFACTOR[$b]} ${i})
         if [[ ${ALG} == "icts" ]]; then
           MOV="-agentType ${BFACTOR[$b]}"
-          cmd="${BINDIR}/${ALG} -w ${W} -seed ${i} -mode b -killtime $KILLTIME -killmem $KILLMEM ${MOV} ${SCENPRIOR}${SCENARIOPREFIX}/${dname}-${i}${SCENARIOSUFFIX} $ID $DISAPPEAR -timeRes $RES -radius $RADIUS -verify -quiet -nogui"
+          cmd="${BINDIR}/${ALG} -w ${W} -seed ${a} -mode b -killtime $KILLTIME -killmem $KILLMEM ${MOV} ${SCENPRIOR}${SCENARIOPREFIX}/${dname}-${i}${SCENARIOSUFFIX} $ID $DISAPPEAR -timeRes $RES -radius $RADIUS -verify -quiet -nogui"
           echo $cmd $FILENAME
           time $cmd >> /output/$FILENAME
+          if [ $? -ne 0 ]; then
+            echo "Exited at ${a}"
+            break
+          fi
         else
-          cmd="${BINDIR}/${ALG} -seed ${i} -killtime $KILLTIME -killmem $KILLMEM ${SCENPRIOR}${MOV} ${SCENARIOPREFIX}/${dname}-${i}${SCENARIOSUFFIX} $BP $ASYM $VC $PC $CAT $XOR $CCT $COMPLETE $OVERLOAD $SUBOPT $TOPTWO $GREEDY $ID $DISAPPEAR -resolution $RES -ctype $CTYPE -radius $RADIUS -killmem $KILLMEM -verify -quiet -nogui -mergeThreshold 9999999"
+          cmd="${BINDIR}/${ALG} -seed ${a} -killtime $KILLTIME -killmem $KILLMEM ${SCENPRIOR}${MOV} ${SCENARIOPREFIX}/${dname}-${i}${SCENARIOSUFFIX} $BP $ASYM $VC $PC $CAT $XOR $CCT $COMPLETE $OVERLOAD $SUBOPT $TOPTWO $GREEDY $ID $APRIORI $DISAPPEAR -resolution $RES -ctype $CTYPE -radius $RADIUS -killmem $KILLMEM -verify -quiet -nogui -mergeThreshold 9999999"
           echo "$cmd >> $FILENAME"
           time $cmd >> /output/$FILENAME
           if [ $? -ne 0 ]; then

@@ -23,6 +23,7 @@
 #include "Common.h"
 #include "Driver.h"
 #include <memory>
+#include <fstream>
 #include <iostream>
 #include <bitset>
 #include <iomanip>
@@ -1487,11 +1488,12 @@ void printResults(){
   //std::cout << elapsed << " elapsed";
   //std::cout << std::endl;
   //total += elapsed;
-  std::cout << "seed:filepath,Connectedness,ICTSNode::count,jointnodes,largestJoint,largestbranch,branchingfactor,Node::count,maxnagents,minsingle,maxsingle,minjoint,maxjoint,fullCollChecks,collChecks,total,mddTime,pairwiseTime,jointTime,nogoodTime,certifyTime,collTime,nacts,cost\n";
-  std::cout << seed << ":" << filepath << "," << int(env->GetConnectedness()) << "," << ICTSNode::count << "," << jointnodes << "," <<largestJoint << "," << largestbranch << "," << (double(jointnodes)/double(jointexpansions)) << "," << Node::count << "," << maxnagents << "," << minsingle << "," << maxsingle << "," << minjoint << "," << maxjoint << "," << fullCollChecks << "," << collChecks << "," << total << "," << mddTime << "," << pairwiseTime << "," << jointTime << "," << nogoodTime << "," << certifyTime << "," << collTime << "," << nacts << "," << cost;
+  std::cout << "seed:totalTime,filepath,Connectedness,ICTSNode::count,jointnodes,largestJoint,largestbranch,branchingfactor,Node::count,maxnagents,minsingle,maxsingle,minjoint,maxjoint,fullCollChecks,collChecks,mddTime,pairwiseTime,jointTime,nogoodTime,certifyTime,collTime,nacts,cost\n";
+  std::cout << seed << ":" << total << "," << filepath << "," << int(env->GetConnectedness()) << "," << ICTSNode::count << "," << jointnodes << "," <<largestJoint << "," << largestbranch << "," << (double(jointnodes)/double(jointexpansions)) << "," << Node::count << "," << maxnagents << "," << minsingle << "," << maxsingle << "," << minjoint << "," << maxjoint << "," << fullCollChecks << "," << collChecks << "," << mddTime << "," << pairwiseTime << "," << jointTime << "," << nogoodTime << "," << certifyTime << "," << collTime << "," << nacts << "," << cost;
   if(total >= killtime)std::cout << " failure";
   std::cout << std::endl;
   if(total>=killtime)exit(1);
+  else exit(0);
 }
 
 // Scan the candidate answers and merge a non-conflicting answer set in with

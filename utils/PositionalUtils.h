@@ -132,6 +132,21 @@ inline double steps2Rad(signed steps){return steps/double(steps360)*360.*M_PI/18
 template<unsigned steps360>
 inline double steps2deg(signed steps){return steps/double(steps360)*360.;}
 
+inline double distanceOfPointToLineSegment(Vector3D a, Vector3D b, Vector3D const& v){
+  auto ab(b-a);
+  auto av(v-a);
+
+  if(av*ab <= 0.0)   // Point is lagging behind start of the segment, so perpendicular distance is not viable.
+    return av.len(); // Use distance to start of segment instead.
+
+  auto bv(v-b);
+  if (bv*ab >= 0.0)  // Point is advanced past the end of the segment, so perpendicular distance is not viable.
+    return bv.len(); // Use distance to end of the segment instead.
+
+  // Point is within the line segment's start/finish boundaries, so perpendicular distance is viable.
+  return (ab.cross(av)).len() / ab.len() ;      // Perpendicular distance of point to segment.
+}
+
 inline double distanceOfPointToLine(Vector3D v, Vector3D w, Vector3D const& p){
   auto dw(w-v);
   const double l2(dw.sq());  // i.e. |w-v|^2 -  avoid a sqrt
@@ -398,7 +413,7 @@ bool Util::fatLinesIntersect(state const& A1, state const& A2, double r1, state 
 
 template <typename state>
 bool Util::fatLinesIntersect(state const& A1, state const& A2, double r1, state const& B1, state const& B2, double r2){
-  return fleq(closestDistanceBetweenLineSegments(A1,A2,B1,B2),r1+r2);
+  return fless(closestDistanceBetweenLineSegments(A1,A2,B1,B2),r1+r2);
 }
 
 // For convex polygons only...

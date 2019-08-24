@@ -1067,16 +1067,16 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
       assert(c!=tree[bestNode].cct.end());
       for(auto const& x:c->second){
         if(conflicts[0].c.size()){
-          conflicts[0].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a2]->at(x.ix2),tree[bestNode].paths[a2]->at(x.ix2+1)));
-          conflicts[1].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a1]->at(x.ix1),tree[bestNode].paths[a1]->at(x.ix1+1)));
+          conflicts[0].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a2]->at(x.ix2),tree[bestNode].paths[a2]->at(x.ix2+1),agentRadius));
+          conflicts[1].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a1]->at(x.ix1),tree[bestNode].paths[a1]->at(x.ix1+1),agentRadius));
           conflicts[0].unit1=a1;
           conflicts[0].unit2=a2;
           conflicts[1].unit1=a2;
           conflicts[1].unit2=a1;
         }else{
           // Add an optimal and complete constraint for the core constraint
-          conflicts[0].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a2]->at(x.ix2),tree[bestNode].paths[a2]->at(x.ix2+1)));
-          conflicts[1].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a1]->at(x.ix1),tree[bestNode].paths[a1]->at(x.ix1+1)));
+          conflicts[0].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a2]->at(x.ix2),tree[bestNode].paths[a2]->at(x.ix2+1),agentRadius));
+          conflicts[1].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a1]->at(x.ix1),tree[bestNode].paths[a1]->at(x.ix1+1),agentRadius));
           GetBiclique(tree[bestNode].paths[a1]->at(x.ix1),tree[bestNode].paths[a1]->at(x.ix1+1),tree[bestNode].paths[a2]->at(x.ix2),tree[bestNode].paths[a2]->at(x.ix2+1),a1,a2,conflicts[0],conflicts[1]);
         }
       }
@@ -1089,9 +1089,9 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
             if(a1==ix->first.a1){
               for(auto const& x:ix->second){
                 if(Params::conditional && a!=a2){
-                  conflicts[0].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a]->at(x.ix2),tree[bestNode].paths[a]->at(x.ix2+1)));
+                  conflicts[0].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a]->at(x.ix2),tree[bestNode].paths[a]->at(x.ix2+1),agentRadius));
                 }else if(Params::crossconstraints){
-                  conflicts[0].c.emplace_back((Constraint<state>*) new Collision<state>(tree[bestNode].paths[a]->at(x.ix2),tree[bestNode].paths[a]->at(x.ix2+1)));
+                  conflicts[0].c.emplace_back((Constraint<state>*) new Collision<state>(tree[bestNode].paths[a]->at(x.ix2),tree[bestNode].paths[a]->at(x.ix2+1),agentRadius));
                 }else{
                   conflicts[0].c.emplace_back((Constraint<state>*) new Identical<state>(tree[bestNode].paths[a1]->at(x.ix1),tree[bestNode].paths[a1]->at(x.ix1+1)));
                 }
@@ -1100,9 +1100,9 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
             }else{
               for(auto const& x:ix->second){
                 if(Params::conditional && a!=a2){
-                  conflicts[0].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a]->at(x.ix1),tree[bestNode].paths[a]->at(x.ix1+1)));
+                  conflicts[0].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a]->at(x.ix1),tree[bestNode].paths[a]->at(x.ix1+1),agentRadius));
                 }else if(Params::crossconstraints){
-                  conflicts[0].c.emplace_back((Constraint<state>*) new Collision<state>(tree[bestNode].paths[a]->at(x.ix1),tree[bestNode].paths[a]->at(x.ix1+1)));
+                  conflicts[0].c.emplace_back((Constraint<state>*) new Collision<state>(tree[bestNode].paths[a]->at(x.ix1),tree[bestNode].paths[a]->at(x.ix1+1),agentRadius));
                 }else{
                   conflicts[0].c.emplace_back((Constraint<state>*) new Identical<state>(tree[bestNode].paths[a1]->at(x.ix2),tree[bestNode].paths[a1]->at(x.ix2+1)));
                 }
@@ -1116,9 +1116,9 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
             if(a2==ix->first.a1){
               for(auto const& x:ix->second){
                 if(Params::conditional && a!=a1){
-                  conflicts[1].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a]->at(x.ix2),tree[bestNode].paths[a]->at(x.ix2+1)));
+                  conflicts[1].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a]->at(x.ix2),tree[bestNode].paths[a]->at(x.ix2+1),agentRadius));
                 }else if(Params::crossconstraints){
-                  conflicts[1].c.emplace_back((Constraint<state>*) new Collision<state>(tree[bestNode].paths[a]->at(x.ix2),tree[bestNode].paths[a]->at(x.ix2+1)));
+                  conflicts[1].c.emplace_back((Constraint<state>*) new Collision<state>(tree[bestNode].paths[a]->at(x.ix2),tree[bestNode].paths[a]->at(x.ix2+1),agentRadius));
                 }else{
                   conflicts[1].c.emplace_back((Constraint<state>*) new Identical<state>(tree[bestNode].paths[a2]->at(x.ix1),tree[bestNode].paths[a2]->at(x.ix1+1)));
                 }
@@ -1126,9 +1126,9 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
             }else{
               for(auto const& x:ix->second){
                 if(Params::conditional && a!=a1){
-                  conflicts[1].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a]->at(x.ix1),tree[bestNode].paths[a]->at(x.ix1+1)));
+                  conflicts[1].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a]->at(x.ix1),tree[bestNode].paths[a]->at(x.ix1+1),agentRadius));
                 }else if(Params::crossconstraints){
-                  conflicts[1].c.emplace_back((Constraint<state>*) new Collision<state>(tree[bestNode].paths[a]->at(x.ix1),tree[bestNode].paths[a]->at(x.ix1+1)));
+                  conflicts[1].c.emplace_back((Constraint<state>*) new Collision<state>(tree[bestNode].paths[a]->at(x.ix1),tree[bestNode].paths[a]->at(x.ix1+1),agentRadius));
                 }else{
                   conflicts[1].c.emplace_back((Constraint<state>*) new Identical<state>(tree[bestNode].paths[a2]->at(x.ix2),tree[bestNode].paths[a2]->at(x.ix2+1)));
                 }
@@ -1149,20 +1149,17 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
     //c2.unit1=tmp;
     // Notify the user of the conflict
     if (!quiet){
-      if(Params::extrinsicconstraints)
-        std::cout << "TREE " << bestNode << "(" << tree[bestNode].parent << ") "
-          << (numConflicts.second == 7 ?
-              "CARDINAL" :
-              (numConflicts.second == 3 ? "LEFT-CARDINAL" : (numConflicts.second == 5 ? "RIGHT-CARDINAL" : "NON-CARDINAL")))
-          << " conflict found between MA " << conflicts[0].unit1 << " and MA " << conflicts[0].unit2 << " @:" << conflicts[1].c[0]->start() << "-->"
-          << conflicts[1].c[0]->end() << " and " << conflicts[0].c[0]->start() << "-->" << conflicts[0].c[0]->end() << " NC " << numConflicts.first << " prev-W\n";
-      else
-        std::cout << "TREE " << bestNode << "(" << tree[bestNode].parent << ") "
-          << (numConflicts.second == 7 ?
-              "CARDINAL" :
-              (numConflicts.second == 3 ? "LEFT-CARDINAL" : (numConflicts.second == 5 ? "RIGHT-CARDINAL" : "NON-CARDINAL")))
-          << " conflict found between MA " << conflicts[0].unit1 << " and MA " << conflicts[0].unit2 << " @:" << conflicts[0].c[0]->start() << "-->"
-          << conflicts[0].c[0]->end() << " and " << conflicts[1].c[0]->start() << "-->" << conflicts[1].c[0]->end() << " NC " << numConflicts.first << " prev-W\n";
+      std::cout << "TREE " << bestNode << "(" << tree[bestNode].parent << ")\n";
+      if(Params::verbose){
+        std::cout << " Left child: "<< conflicts[0].unit1 <<"\n";
+        for(auto const& c:conflicts[0].c){
+          std::cout << "    " << c->start() << "-->" << c->end() << "\n";
+        }
+        std::cout << " Right child: "<< conflicts[1].unit1 <<"\n";
+        for(auto const& c:conflicts[1].c){
+          std::cout << "    " << c->start() << "-->" << c->end() << "\n";
+        }
+      }
     }
     //if(Params::verbose){
     //std::cout << c1.unit1 << ":\n";
@@ -2318,9 +2315,9 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
   const unsigned diam(agentRadius*2*state::TIME_RESOLUTION_D);
   if(Params::vc){
     if(ax2.sameLoc(bx2) && abs(ax2.t-bx2.t)<diam){ // Vertex collision
-      constraints.emplace_back((Constraint<state>*) new EndVertex<state>(ax2));
+      constraints.emplace_back((Constraint<state>*) new EndVertex<state>(ax2,agentRadius));
     }else if(ax1.sameLoc(bx1) && abs(ax1.t-bx1.t)<diam){
-      constraints.emplace_back((Constraint<state>*) new StartVertex<state>(ax1));
+      constraints.emplace_back((Constraint<state>*) new StartVertex<state>(ax1,agentRadius));
     }
   }
   if(!constraints.size()){
@@ -2335,12 +2332,12 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
         if(asym){
           constraints.emplace_back((Constraint<state>*) new Identical<state>(ax1,ax2));
         }else{
-          constraints.emplace_back((Constraint<state>*) new Collision<state>(bx1,b2));
+          constraints.emplace_back((Constraint<state>*) new Collision<state>(bx1,b2,agentRadius));
         }
       }else if(Params::overlapconstraints){
-        constraints.emplace_back((Overlap<state>*) new Overlap<state>(bx1,b2));
+        constraints.emplace_back((Overlap<state>*) new Overlap<state>(bx1,b2,agentRadius));
       }else if(Params::pyramidconstraints){
-        constraints.emplace_back((Constraint<state>*) new Pyramid<state>(bx1,b2,ax1.t));
+        constraints.emplace_back((Constraint<state>*) new Pyramid<state>(bx1,b2,ax1.t,agentRadius));
       }
     } else {
       if(Params::identicalconstraints){
@@ -2803,6 +2800,7 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
         }else{conf=BOTH_CARDINAL;}
         // Have we increased from non-cardinal to semi-cardinal or both-cardinal?
         if (NO_CONFLICT == ctype || ((ctype <= NON_CARDINAL) && conf) || BOTH_CARDINAL == conf) {
+          if(conf==BOTH_CARDINAL && !Params::overload)update=false; // We won't need to add any more constraints after this
           ctype = conf + 1;
 
           const unsigned diam(agentRadius*2*state::TIME_RESOLUTION_D);
@@ -3070,11 +3068,11 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
                           ar1.t=std::max(1.0,b1.t+t1*xyztLoc::TIME_RESOLUTION_D);
                           ar2.t=std::max(1.0,b1.t+t2*xyztLoc::TIME_RESOLUTION_D);
                         }
-                        c1.c.emplace_back((Constraint<state>*) new Collision<state>(a1, a2));
+                        c1.c.emplace_back((Constraint<state>*) new Collision<state>(a1, a2,agentRadius));
 if(Params::verbose)std::cout << "Adding time range constraint for" << a1 << "-->" << a2 << ": " << ar1 << "-->" << ar2 << "\n";
                         c2.c.emplace_back((Constraint<state>*) new TimeRange<state>(ar1,ar2));
                       }else{
-                        c1.c.emplace_back((Constraint<state>*) new Collision<state>(a1, a2));
+                        c1.c.emplace_back((Constraint<state>*) new Collision<state>(a1, a2,agentRadius));
                         c2.c.emplace_back((Constraint<state>*) new Identical<state>(a1, a2));
                       }
                     }else{
@@ -3136,25 +3134,25 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << a1 << "-->
                         }
 if(Params::verbose)std::cout << "Adding time range constraint for" << b1 << "-->" << b2 << ": " << br1 << "-->" << br2 << "\n";
                         c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(br1, br2));
-                        c2.c.emplace_back((Constraint<state>*) new Collision<state>(b1, b2));
+                        c2.c.emplace_back((Constraint<state>*) new Collision<state>(b1, b2,agentRadius));
                       }else{
                         c1.c.emplace_back((Constraint<state>*) new Identical<state>(b1, b2));
-                        c2.c.emplace_back((Constraint<state>*) new Collision<state>(b1, b2));
+                        c2.c.emplace_back((Constraint<state>*) new Collision<state>(b1, b2,agentRadius));
                       }
                     }
                   }else{
                     if(Params::overload && c1.c.size()){ // Not the first one...
-                      c1.c.emplace_back((Constraint<state>*) new Probable<state>(a1, a2));
-                      c2.c.emplace_back((Constraint<state>*) new Probable<state>(b1, b2));
+                      c1.c.emplace_back((Constraint<state>*) new Probable<state>(a1, a2, agentRadius));
+                      c2.c.emplace_back((Constraint<state>*) new Probable<state>(b1, b2, agentRadius));
                     }else{
                       if(Params::complete){
                         //c1.c.emplace_back((Constraint<state>*) new Identical<state>(b1, b2));
                         c2.c.emplace_back((Constraint<state>*) new Identical<state>(a1, a2));
-                        c1.c.emplace_back((Constraint<state>*) new Collision<state>(a1, a2));
-                        c2.c.emplace_back((Constraint<state>*) new Probable<state>(b1, b2));
+                        c1.c.emplace_back((Constraint<state>*) new Collision<state>(a1, a2,agentRadius));
+                        c2.c.emplace_back((Constraint<state>*) new Probable<state>(b1, b2, agentRadius));
                       }else{
-                        c1.c.emplace_back((Constraint<state>*) new Collision<state>(a1, a2));
-                        c2.c.emplace_back((Constraint<state>*) new Collision<state>(b1, b2));
+                        c1.c.emplace_back((Constraint<state>*) new Collision<state>(a1, a2,agentRadius));
+                        c2.c.emplace_back((Constraint<state>*) new Collision<state>(b1, b2,agentRadius));
                       }
                     }
                   }
@@ -3162,8 +3160,8 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << b1 << "-->
                   c1.c.emplace_back((Overlap<state>*) new Overlap<state>(a1,a2));
                   c2.c.emplace_back((Overlap<state>*) new Overlap<state>(b1,b2));
                 }else if(Params::pyramidconstraints){
-                  c1.c.emplace_back((Constraint<state>*) new Pyramid<state>(a1, a2, b1.t));
-                  c2.c.emplace_back((Constraint<state>*) new Pyramid<state>(b1, b2, a1.t));
+                  c1.c.emplace_back((Constraint<state>*) new Pyramid<state>(a1, a2, b1.t, agentRadius));
+                  c2.c.emplace_back((Constraint<state>*) new Pyramid<state>(b1, b2, a1.t, agentRadius));
                 }
                 c1.unit1 = y;
                 c1.unit2 = x;
@@ -3177,12 +3175,17 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << b1 << "-->
                   state a2(a[xNextTime]);
                   state b1(b[yTime]);
                   state b2(b[yNextTime]);
+                  float startB(signed(a1.t-b1.t)/state::TIME_RESOLUTION_D);
+                  float durA((a2.t-a1.t)/state::TIME_RESOLUTION_D);
+                  float durB((b2.t-b1.t)/state::TIME_RESOLUTION_D);
                   //std::cout << "Collision at: " << x << ": " << a1 << "-->" << a2 << ", " << y << ": " << b1 << " " << b2 << "\n";
-                  auto intvl(getForbiddenInterval(a1,a2,a1.t/state::TIME_RESOLUTION_D,a2.t/state::TIME_RESOLUTION_D,agentRadius,b1,b2,b1.t/state::TIME_RESOLUTION_D,b2.t/state::TIME_RESOLUTION_D,agentRadius));
-                  a1.t=intvl.first*state::TIME_RESOLUTION_D;
-                  a2.t=intvl.second*state::TIME_RESOLUTION_D;
-                  b2.t=-intvl.first*state::TIME_RESOLUTION_D;
-                  b1.t=-intvl.second*state::TIME_RESOLUTION_D;
+                  auto intvl(getForbiddenInterval(a1,a2,0,durA,agentRadius,b1,b2,startB,startB+durB,agentRadius));
+                  //auto intvl(getForbiddenInterval(a1,a2,a1.t/state::TIME_RESOLUTION_D,a2.t/state::TIME_RESOLUTION_D,agentRadius,b1,b2,b1.t/state::TIME_RESOLUTION_D,b2.t/state::TIME_RESOLUTION_D,agentRadius));
+                  //std::cout << "the interval for " << a1 << "-->" << a2 << "," << b1 << "-->" << b2 << ": " << intvl.first << "," << intvl.second << "\n";
+                  a2.t=a1.t+intvl.second*state::TIME_RESOLUTION_D;
+                  b2.t=a1.t-intvl.first*state::TIME_RESOLUTION_D;
+                  b1.t=a1.t-intvl.second*state::TIME_RESOLUTION_D;
+                  a1.t+=intvl.first*state::TIME_RESOLUTION_D;
                   c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(a1, a2));
                   c2.c.emplace_back((Constraint<state>*) new TimeRange<state>(b1, b2));
                 }else if(Params::mutualconstraints){
@@ -3344,6 +3347,8 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << b1 << "-->
                   state const& b1(b[yTime]);
                   state const& b2(b[yNextTime]);
                   const unsigned bf(currentEnvironment[x]->environment->branchingFactor());
+                  auto moveA(moveNum(a1,a2,0,bf));
+                  auto moveB(moveNum(b1,b2,0,bf));
                   static std::vector<unsigned> left;
                   left.resize(0);
                   static std::vector<unsigned> right;
@@ -3360,32 +3365,62 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << b1 << "-->
                                                b2.t/state::TIME_RESOLUTION_D,
                                                Params::array, Params::indices,
                                                Params::ivls, left, right, livls, rivls,
-                                               bf);
+                                               bf,agentRadius,agentRadius);
+                    /*std::vector<unsigned> left1;
+                    std::vector<unsigned> right1;
+                    std::vector<std::pair<float,float>> livls1;
+                    std::vector<std::pair<float,float>> rivls1;
+                    getVertexAnnotatedBiclique(a1,a2,b1,b2,
+                                               a1.t/state::TIME_RESOLUTION_D,
+                                               a2.t/state::TIME_RESOLUTION_D,
+                                               b1.t/state::TIME_RESOLUTION_D,
+                                               b2.t/state::TIME_RESOLUTION_D,
+                                               left1, right1, livls1, rivls1,
+                                               bf,agentRadius,agentRadius);
+                     */
                     bool swap=false, ortho=false, y=false;
-                    locationIndex(a2,a1,swap,ortho,y,bf); // Get rotation params from reverse action
+                    locationIndex(a1,b1,swap,ortho,y,bf); // Get rotation params from reverse action
                     state src;
                     state dest;
+                    //bool found(false);
                     for(unsigned i(0); i<left.size(); ++i){
-                      auto move(getMirroredMove(left[i],swap,ortho,y,bf));
+                      auto move(invertMirroredMove(left[i],swap,ortho,y,bf));
+                      //if(std::find(left1.begin(),left1.end(),move)==left1.end()){
+                        //assert(!"Integrity of biclique is bad");
+                      //}
                       fetch(a1,move,dest,bf);
                       src.x=a1.x;
                       src.y=a1.y;
-                      src.t=a1.t+livls[i].first*state::TIME_RESOLUTION_D;
-                      dest.t=a1.t+livls[i].second*state::TIME_RESOLUTION_D;
+                      src.t=std::max(0.0,b1.t+floor(livls[i].first*state::TIME_RESOLUTION_D));
+                      dest.t=std::max(0.0,b1.t+ceil(livls[i].second*state::TIME_RESOLUTION_D));
+                      if(dest.t==src.t)dest.t++;
+                      assert(src.t<=a1.t && dest.t>=a1.t);
+                      //if(moveA==move)found=true;
                       c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
                     }
+                    //assert(found&&"Core action A was not added!");
+                    //found=false;
                     // Do the same for the other side of biclique...
-                    swap=false; ortho=false; y=false;
-                    locationIndex(b2,b1,swap,ortho,y,bf); // Get rotation params from reverse action
+                    //swap=false; ortho=false; y=false;
+                    //locationIndex(b2,b1,swap,ortho,y,bf); // Get rotation params from reverse action
                     for(unsigned i(0); i<right.size(); ++i){
-                      auto move(getMirroredMove(right[i],swap,ortho,y,bf));
+                      //auto move(getMirroredMove(right[i],swap,ortho,y,bf));
+                      auto move(invertMirroredMove(right[i],swap,ortho,y,bf));
+                      //if(std::find(right1.begin(),right1.end(),move)==right1.end()){
+                        //assert(!"Integrity of biclique is bad");
+                      //}
                       fetch(b1,move,dest,bf);
                       src.x=b1.x;
                       src.y=b1.y;
-                      src.t=b1.t+rivls[i].first*state::TIME_RESOLUTION_D;
-                      dest.t=b1.t+rivls[i].second*state::TIME_RESOLUTION_D;
+                      // Yes, a1.t is correct (delays are relative to a1)
+                      src.t=std::max(0.0,a1.t+floor(rivls[i].first*state::TIME_RESOLUTION_D));
+                      dest.t=std::max(0.0,a1.t+ceil(rivls[i].second*state::TIME_RESOLUTION_D));
+                      if(dest.t==src.t)dest.t++;
+                      assert(src.t<=b1.t && dest.t>=b1.t);
+                      //if(moveB==move)found=true;
                       c2.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
                     }
+                    //assert(found&&"Core action B was not added!");
                   }else{
                     getVertexAnnotatedBiclique(a1,a2,b1,b2,
                                                a1.t/state::TIME_RESOLUTION_D,
@@ -3393,23 +3428,28 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << b1 << "-->
                                                b1.t/state::TIME_RESOLUTION_D,
                                                b2.t/state::TIME_RESOLUTION_D,
                                                left, right, livls, rivls,
-                                               bf);
+                                               bf,agentRadius,agentRadius);
                     state src;
                     state dest;
                     for(unsigned i(0); i<left.size(); ++i){
                       fetch(a1,left[i],dest,bf);
                       src.x=a1.x;
                       src.y=a1.y;
-                      src.t=a1.t+livls[i].first*state::TIME_RESOLUTION_D;
-                      dest.t=a1.t+livls[i].second*state::TIME_RESOLUTION_D;
+                      src.t=std::max(0.0,b1.t+floor(livls[i].first*state::TIME_RESOLUTION_D));
+                      dest.t=std::max(0.0,b1.t+ceil(livls[i].second*state::TIME_RESOLUTION_D));
+                      if(dest.t==src.t)dest.t++;
+                      assert(src.t<=a1.t && dest.t>=a1.t);
                       c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
                     }
                     for(unsigned i(0); i<right.size(); ++i){
                       fetch(b1,right[i],dest,bf);
                       src.x=b1.x;
                       src.y=b1.y;
-                      src.t=b1.t+rivls[i].first*state::TIME_RESOLUTION_D;
-                      dest.t=b1.t+rivls[i].second*state::TIME_RESOLUTION_D;
+                      // Yes, a1.t is correct (delays are relative to a1)
+                      src.t=std::max(0.0,a1.t+floor(rivls[i].first*state::TIME_RESOLUTION_D));
+                      dest.t=std::max(0.0,a1.t+ceil(rivls[i].second*state::TIME_RESOLUTION_D));
+                      if(dest.t==src.t)dest.t++;
+                      assert(src.t<=b1.t && dest.t>=b1.t);
                       c2.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
                     }
                   }
