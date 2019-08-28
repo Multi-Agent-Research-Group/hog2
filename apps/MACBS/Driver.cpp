@@ -175,8 +175,8 @@ void processSolution(double elapsed){
   std::cout << cost / xyztLoc::TIME_RESOLUTION_D << ",";
   std::cout << total << ",";
   std::cout << MACBSGroup::constraintsz/std::max(1ul,MACBSGroup::constrainttot)<< std::endl;
-  if (!gui)
-    exit(elapsed>0?0:1);
+  if (!gui && elapsed<0)
+    exit(1);
 }
 
 int main(int argc, char* argv[])
@@ -223,6 +223,7 @@ int main(int argc, char* argv[])
     //std::cout << n << "\n";
     //}
   }
+  return 0;
 }
 
 

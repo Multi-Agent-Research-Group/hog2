@@ -3393,8 +3393,10 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << b1 << "-->
                       src.y=a1.y;
                       src.t=std::max(0.0,b1.t+floor(livls[i].first*state::TIME_RESOLUTION_D));
                       dest.t=std::max(0.0,b1.t+ceil(livls[i].second*state::TIME_RESOLUTION_D));
-                      if(dest.t==src.t)dest.t++;
-                      assert(src.t<=a1.t && dest.t>=a1.t);
+                      if(src.t>a1.t)src.t=a1.t;
+                      if(dest.t<=src.t)dest.t=src.t+1;
+                      //if(dest.t==src.t)dest.t++;
+                      //assert(src.t<=a1.t && dest.t>=a1.t);
                       //if(moveA==move)found=true;
                       c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
                     }
@@ -3415,8 +3417,9 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << b1 << "-->
                       // Yes, a1.t is correct (delays are relative to a1)
                       src.t=std::max(0.0,a1.t+floor(rivls[i].first*state::TIME_RESOLUTION_D));
                       dest.t=std::max(0.0,a1.t+ceil(rivls[i].second*state::TIME_RESOLUTION_D));
-                      if(dest.t==src.t)dest.t++;
-                      assert(src.t<=b1.t && dest.t>=b1.t);
+                      if(src.t>b1.t)src.t=b1.t;
+                      if(dest.t<=src.t)dest.t=src.t+1;
+                      //assert(src.t<=b1.t && dest.t>=b1.t);
                       //if(moveB==move)found=true;
                       c2.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
                     }

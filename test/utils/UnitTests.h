@@ -238,31 +238,47 @@ TEST(RankingTest, MoveNumber){
 }
 
 TEST(RankingTest, mirrorUnmirror){
-  Vector3D a1;
-  Vector3D b1(2,2,0);
-  for(unsigned ax(0); ax<5; ++ax){
-    a1.x=ax;
-    for(unsigned ay(0); ay<5; ++ay){
-      a1.y=ay;
-      for(unsigned i(0); i<9; ++i){
-        Vector3D a2;
-        fetch(a1,i,a2,9);
-        for(unsigned j(0); j<9; ++j){
-          Vector3D b2;
-          fetch(b1,j,b2,9);
-          bool swap=false, ortho=false, y=false;
-          locationIndex(a1,b1,swap,ortho,y,9);
-          auto moveA(moveNum(a1,a2,0,9));
-          ASSERT_EQ(i,moveA);
-          auto mirroredA(getMirroredMove(i,swap,ortho,y,9));
-          auto unmirroredA(invertMirroredMove(mirroredA,swap,ortho,y,9));
-          if(unmirroredA!=i){
-            (invertMirroredMove(mirroredA,swap,ortho,y,9));
+  {
+    Vector3D a1;
+    Vector3D b1(2,2,0);
+    for(unsigned ax(0); ax<5; ++ax){
+      a1.x=ax;
+      for(unsigned ay(0); ay<5; ++ay){
+        a1.y=ay;
+        for(unsigned i(0); i<9; ++i){
+          Vector3D a2;
+          fetch(a1,i,a2,9);
+          for(unsigned j(0); j<9; ++j){
+            Vector3D b2;
+            fetch(b1,j,b2,9);
+            bool swap=false, ortho=false, y=false;
+            locationIndex(a1,b1,swap,ortho,y,9);
+            auto moveA(moveNum(a1,a2,0,9));
+            ASSERT_EQ(i,moveA);
+            auto mirroredA(getMirroredMove(i,swap,ortho,y,9));
+            auto unmirroredA(invertMirroredMove(mirroredA,swap,ortho,y,9));
+            if(unmirroredA!=i){
+              (invertMirroredMove(mirroredA,swap,ortho,y,9));
+            }
+            EXPECT_EQ(unmirroredA,i);
           }
-          EXPECT_EQ(unmirroredA,i);
         }
       }
     }
+  }
+  {
+    Vector3D a1(4, 4, 0);Vector3D a2(3, 4, 0);Vector3D b1(3, 3, 0);Vector3D b2(3, 4, 0);
+    bool swap=false, ortho=false, y=false;
+    locationIndex(a1,b1,swap,ortho,y,17);
+    auto moveA(moveNum(a1,a2,0,17));
+    ASSERT_EQ(2,moveA);
+    auto moveB(moveNum(b1,b2,0,17));
+    ASSERT_EQ(6,moveB);
+    auto mirroredA(getMirroredMove(moveA,swap,ortho,y,17));
+    ASSERT_EQ(6,mirroredA);
+    auto mirroredB(getMirroredMove(moveB,swap,ortho,y,17));
+    ASSERT_EQ(2,mirroredB);
+
   }
 }
 
@@ -361,34 +377,34 @@ void assertCorrectExtraction(Vector3D const& a1, Vector3D const& a2, Vector3D co
   for(unsigned i(0); i<left.size(); ++i){
     std::cout << left[i] << ": " << livls[i].first << "," <<livls[i].second << " vs " << left1[i] << ": " << livls1[i].first << "," << livls1[i].second << "\n";
   }*/
-  if(left.size()==left1.size())
-  for(unsigned i(0); i<left.size(); ++i){
-    auto ptr(std::find_if(livls.begin(),livls.end(),[&](std::pair<float,float> const& b){return fabs(livls1[i].first-b.first)<0.01 && fabs(livls1[i].second-b.second)<0.01;}));
-    EXPECT_TRUE(ptr!=livls.end());
-    if(ptr==livls.end()){
-      std::cout << "Vector3D a1"<<a1 <<";Vector3D a2"<<a2 <<";Vector3D b1"<<b1<<";Vector3D b2"<<b2<<";\n";
-      std::cout << livls1[i] << "not in " << livls << "\n";
-    }
-    livls.erase(ptr);
+  //if(left.size()==left1.size())
+  //for(unsigned i(0); i<left.size(); ++i){
+    //auto ptr(std::find_if(livls.begin(),livls.end(),[&](std::pair<float,float> const& b){return fabs(livls1[i].first-b.first)<0.01 && fabs(livls1[i].second-b.second)<0.01;}));
+    //EXPECT_TRUE(ptr!=livls.end());
+    //if(ptr==livls.end()){
+      //std::cout << "Vector3D a1"<<a1 <<";Vector3D a2"<<a2 <<";Vector3D b1"<<b1<<";Vector3D b2"<<b2<<";\n";
+      //std::cout << livls1[i] << "not in " << livls << "\n";
+    //}
+    //livls.erase(ptr);
     //EXPECT_NEAR(livls[i].first,livls1[i].first,.01);
     //EXPECT_NEAR(livls[i].second,livls1[i].second,.01);
-  }
+  //}
   /*std::cout << "RIGHT:\n";
   for(unsigned i(0); i<right.size(); ++i){
     std::cout << right[i] << ": " << rivls[i].first << "," <<rivls[i].second << " vs " << right1[i] << ": " << rivls1[i].first << "," << rivls1[i].second << "\n";
   }*/
-  if(right.size()==right1.size())
-  for(unsigned i(0); i<right.size(); ++i){
-    auto ptr(std::find_if(rivls.begin(),rivls.end(),[&](std::pair<float,float> const& b){return fabs(rivls1[i].first-b.first)<0.01 && fabs(rivls1[i].second-b.second)<0.01;}));
-    EXPECT_TRUE(ptr!=rivls.end());
-    if(ptr==rivls.end()){
-      std::cout << "Vector3D a1"<<a1 <<";Vector3D a2"<<a2 <<";Vector3D b1"<<b1<<";Vector3D b2"<<b2<<";\n";
-      std::cout << rivls1[i] << "not in " << rivls << "\n";
-    }
-    rivls.erase(ptr);
+  //if(right.size()==right1.size())
+  //for(unsigned i(0); i<right.size(); ++i){
+    //auto ptr(std::find_if(rivls.begin(),rivls.end(),[&](std::pair<float,float> const& b){return fabs(rivls1[i].first-b.first)<0.01 && fabs(rivls1[i].second-b.second)<0.01;}));
+    //EXPECT_TRUE(ptr!=rivls.end());
+    //if(ptr==rivls.end()){
+      //std::cout << "Vector3D a1"<<a1 <<";Vector3D a2"<<a2 <<";Vector3D b1"<<b1<<";Vector3D b2"<<b2<<";\n";
+      //std::cout << rivls1[i] << "not in " << rivls << "\n";
+    //}
+    //rivls.erase(ptr);
     //EXPECT_NEAR(rivls[i].first,rivls1[i].first,.01);
     //EXPECT_NEAR(rivls[i].second,rivls1[i].second,.01);
-  }
+  //}
 }
 
 TEST(ForbiddenInterval, Nominal){
@@ -1200,11 +1216,51 @@ TEST(interval, getIntervals3){
   ASSERT_EQ(livls.size()+rivls.size(),livls1.size()+rivls1.size());
 }
 
+void doBicliques(Vector3D & a1,
+                 Vector3D & a2,
+                 Vector3D & b1,
+                 Vector3D & b2,
+                 unsigned bf){
+  std::vector<unsigned> left;
+  std::vector<unsigned> right;
+  getBiclique(a1,a2,b1,b2,0,std::max(1.0,(a1-a2).len()),0,std::max(1.0,(b1-b2).len()),left,right,bf,.25,.25);
+  bool swap=false, ortho=false, y=false;
+  auto li(locationIndex(a1,b1,swap,ortho,y,bf));
+  auto moveA(moveNum(a1,a2,0,bf));
+  auto moveB(moveNum(b1,b2,0,bf));
+  fromLocationIndex(li,a1,b1,bf-1);
+  auto mirroredA(getMirroredMove(moveA,swap,ortho,y,bf));
+  auto mirroredB(getMirroredMove(moveB,swap,ortho,y,bf));
+  fetch(a1,mirroredA,a2,bf);
+  fetch(b1,mirroredB,b2,bf);
+  std::vector<unsigned> left1;
+  std::vector<unsigned> right1;
+  getBiclique(a1,a2,b1,b2,0,std::max(1.0,(a1-a2).len()),0,std::max(1.0,(b1-b2).len()),left1,right1,bf,.25,.25);
+  EXPECT_EQ(left.size()+right.size(),left1.size()+right1.size());
+}
+
 TEST(Biclique, loadFromFile25){
   std::vector<unsigned> array;
   std::vector<unsigned> indices;
   std::vector<float> ivls;
   loadCollisionTable<Vector3D>(array, indices, ivls, 17, 10, .25, .25);//, true);
+  {
+    Vector3D a1(14, 5, 0);Vector3D a2(13, 7, 0);Vector3D b1(14, 6, 0);Vector3D b2(15, 4, 0);
+    doBicliques(a1,a2,b1,b2,17);
+    assertCorrectExtraction(a1,a2,b1,b2,array,indices,ivls,17);
+  }
+  {
+    Vector3D b1(4, 4, 0);Vector3D b2(3, 4, 0);Vector3D a1(2, 4, 0);Vector3D a2(3, 4, 0);
+    assertCorrectExtraction(a1,a2,b1,b2,array,indices,ivls,17);
+  }
+  {
+    Vector3D b1(4, 4, 0);Vector3D b2(3, 4, 0);Vector3D a1(3, 3, 0);Vector3D a2(3, 4, 0);
+    assertCorrectExtraction(a1,a2,b1,b2,array,indices,ivls,17);
+  }
+  {
+    Vector3D a1(4, 4, 0);Vector3D a2(3, 4, 0);Vector3D b1(3, 3, 0);Vector3D b2(3, 4, 0);
+    assertCorrectExtraction(a1,a2,b1,b2,array,indices,ivls,17);
+  }
   {
     Vector3D a1(7, 12, 0);Vector3D a2(5, 11, 0);Vector3D b1(7, 11, 0);Vector3D b2(6, 12, 0);
     assertCorrectExtraction(a1,a2,b1,b2,array,indices,ivls,17);
@@ -1244,5 +1300,29 @@ TEST(Biclique, loadFromFile25){
     assertCorrectExtraction(a1,a2,b1,b2,array,indices,ivls,17);
   }
 }
-
+TEST(Biclique, loadFromFile49){
+  std::vector<unsigned> array;
+  std::vector<unsigned> indices;
+  std::vector<float> ivls;
+  loadCollisionTable<Vector3D>(array, indices, ivls, 33, 10, .25, .25);//, true);
+  {
+    Vector3D a1(16, 10, 0);Vector3D a2(14, 9, 0);Vector3D b1(15, 11, 0);Vector3D b2(14, 9, 0);
+    doBicliques(a1,a2,b1,b2,17);
+    assertCorrectExtraction(a1,a2,b1,b2,array,indices,ivls,33);
+  }
+  {
+    Vector3D a1(17, 18, 0);Vector3D a2(19, 21, 0);Vector3D b1(20, 16, 0);Vector3D b2(17, 17, 0);
+    assertCorrectExtraction(a1,a2,b1,b2,array,indices,ivls,33);
+  }
+  for(unsigned i(0); i<10000; ++i){
+    Vector3D a1(rand()%14+7,rand()%14+7,0);
+    Vector3D a2;
+    fetch(a1,rand()%33,a2,33);
+    Vector3D b1(rand()%14+7,rand()%14+7,0);
+    Vector3D b2;
+    fetch(b1,rand()%33,b2,33);
+    //std::cout<<a1<<a2<<b1<<b2<<"\n";
+    assertCorrectExtraction(a1,a2,b1,b2,array,indices,ivls,33);
+  }
+}
 #endif

@@ -2062,6 +2062,11 @@ void getBiclique(state const& a1,
     }else{
       BiClique::findBiClique(rwd,fwd,{conf.second,conf.first},right,left);
     }
+    //if(std::max(fwd.size(),rwd.size())==std::max(left.size()+1,right.size()+1)){
+      //std::cout << branchingFactor<<"SAME\n";
+    //}else{
+      //std::cout << branchingFactor<<"DIFF\n";
+    //}
     // Revert back to the original indices
     for(auto& m:left){
       m=armap[m];
@@ -2119,7 +2124,7 @@ static void getVertexAnnotatedBiclique(unsigned coreA,
     rivls.clear();
     //delay=-delay;
     //if(delay<core.first || delay>core.second){ // We shouldn't be calling this function with a bad delay, but just in case...
-    std::cerr << "Warning: You called getVertexAnnotatedBiclique() on a pair of actions that do not conflict! --> delay " << delay << " ivl " << core.first << "," << core.second << std::endl;
+    //std::cerr << "Warning: You called getVertexAnnotatedBiclique() on a pair of actions that do not conflict! --> delay " << delay << " ivl " << core.first << "," << core.second << std::endl;
     //assert(!"Delay doesn't match interval!");
     //}
     return;
@@ -2191,12 +2196,16 @@ static void getVertexAnnotatedBiclique(unsigned coreA,
       }
     }
     if(rebuildBiclique){
-      auto lorig(left); // Capture the original move numbers
-      auto rorig(right);
+      //std::cout << "about to do it!\n";
+      static std::vector<unsigned> lorig;
+      lorig=left; // Capture the original move numbers
+      static std::vector<unsigned> rorig;
+      rorig=right;
       left.clear();
       right.clear();
       livls.clear();
       rivls.clear();
+      //std::cout << "did it\n";
       // Populate left,right with the biclique indices
       if(fwd.size()<=rwd.size()){
         BiClique::findBiClique(fwd,rwd,{coreA,coreB},left,right);
@@ -2223,7 +2232,7 @@ static void getVertexAnnotatedBiclique(unsigned coreA,
       }
     }
   }
-  std::cout << "After filter on delay: " << delay << "\ncore: " << core << "\nleft: " << left << "\nright: " << right << "\nlivls: " << livls << "\nrivls: " << rivls << "\n";
+  //std::cout << "After filter on delay: " << delay << "\ncore: " << core << "\nleft: " << left << "\nright: " << right << "\nlivls: " << livls << "\nrivls: " << rivls << "\n";
 }
 
 template <typename state>
@@ -2253,8 +2262,8 @@ static void getVertexAnnotatedBiclique(state const& a,
   unsigned ixB(std::lower_bound(right.begin(),right.end(),moveNum(b,b2,0,branchingFactor))-right.begin());
   std::vector<std::vector<std::pair<float,float>>> ivls;
   getEdgeAnnotatedBiclique(a,a2,b,b2,left,right,ivls,branchingFactor,rA,rB);
-  std::cout << "From scratch:\n";
-  std::cout << "left: " << left << "\nright: " << right << "\nintervals: "<<ivls << "\n";
+  //std::cout << "From scratch:\n";
+  //std::cout << "left: " << left << "\nright: " << right << "\nintervals: "<<ivls << "\n";
   getVertexAnnotatedBiclique(ixA,ixB,startTimeA,endTimeA,startTimeB,endTimeB,left,right,ivls,livls,rivls,branchingFactor,rA,rB);
 }
 
@@ -2306,6 +2315,7 @@ static void loadCollisionTable(std::vector<unsigned>& array, std::vector<unsigne
     for(int j(0); j<bf; ++j){
       fetch(b,j,bs[j],bf);
     }
+    std::map<unsigned,unsigned> sizes;
     for(unsigned caseNum(0); caseNum<num; ++caseNum){
       fromLocationIndex(caseNum,a,b,bf-1);
       for(unsigned i(0); i<bf; ++i){
@@ -2327,6 +2337,11 @@ static void loadCollisionTable(std::vector<unsigned>& array, std::vector<unsigne
           std::sort(left.begin(),left.end());
           std::sort(right.begin(),right.end());
           getEdgeAnnotatedBiclique(a,a2,b,b2,left,right,tivls,bf,rA,rB);
+          if(left.size()>right.size()){
+            sizes[right.size()*1000+left.size()]++;
+          }else{
+            sizes[left.size()*1000+right.size()]++;
+          }
           //std::cout << "assign " << ix << "\n";
           for(auto const& l:left){
             set(array.data(),ix+l*numCases);
@@ -2353,6 +2368,15 @@ static void loadCollisionTable(std::vector<unsigned>& array, std::vector<unsigne
         }
       }
     }
+    std::cout << "BICLIQUE SIZES:\n";
+    unsigned numtotal(0);
+    unsigned total(0);
+    for(auto const& m:sizes){
+      std::cout << m.first/1000 << "x" << m.first%1000 <<": "<<m.second << "\n";
+      total+=m.first/1000 + m.first%1000;
+      numtotal++;
+    }
+    std::cout << total;
 
     f=fopen(fname,"wb");
     fwrite(array.data(),sizeof(unsigned),array.size(),f);
@@ -2423,8 +2447,8 @@ static void getVertexAnnotatedBiclique(state const& a,
       num+=2;
     }
   }
-  std::cout << "From disk:\n";
-  std::cout << "left: " << left << "\nright: " << right << "\nintervals: "<<intervals << "\n";
+  //std::cout << "From disk:\n";
+  //std::cout << "left: " << left << "\nright: " << right << "\nintervals: "<<intervals << "\n";
 
   /*{
     //TODO: make sure that the biclique is the same, because the core action is not there...
