@@ -42,7 +42,7 @@ namespace BiClique{
 //std::cout << "Trying " << lDegree << " " << rDegree << "\n";
     assert(lDegree>0);
     assert(rDegree>0);
-    if(histL[lDegree]<rDegree || histR[rDegree]<lDegree){
+    if(histL[lDegree]<rDegree || histR[rDegree]<lDegree || L[start.first].size()<lDegree || R[start.second].size()<rDegree){
       return false;
     }
 
@@ -78,6 +78,7 @@ namespace BiClique{
       for(unsigned i(0); i<L.size(); ++i){
         if(L[i].size()){
           if(L[i].size()<lDegree){
+            if(i==start.first)return false;
             changed=true;
             for(auto j:L[i]){
               R[j].erase(std::remove(R[j].begin(),R[j].end(),i),R[j].end());
@@ -91,6 +92,7 @@ namespace BiClique{
       for(unsigned i(0); i<R.size(); ++i){
         if(R[i].size()){
           if(R[i].size()<rDegree){
+            if(i==start.second)return false;
             changed=true;
             for(auto j:R[i]){
               L[j].erase(std::remove(L[j].begin(),L[j].end(),i),L[j].end());
@@ -102,8 +104,8 @@ namespace BiClique{
         }
       }
     }
-    /*
-    std::cout << "After prune\n";
+    
+    /*std::cout << "After prune\n";
     {
       std::cout << "L:\n";
       for(auto const& a:L){

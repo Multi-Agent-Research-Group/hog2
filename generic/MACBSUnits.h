@@ -2812,6 +2812,7 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
             state const& b2(b[yNextTime]);
             if(a2.sameLoc(b2) && abs(a2.t-b2.t)<diam){ // Vertex collision
               vc=true;
+//std::cout << "vc!\n";
               conflicts.resize(2);
               Conflict<state>& c1=conflicts[0];
               Conflict<state>& c2=conflicts[1];
@@ -2838,6 +2839,7 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
               }
             }else if(a1.sameLoc(b1) && abs(a1.t-b1.t)<diam){
               vc=true;
+//std::cout << "vc!\n";
               conflicts.resize(2);
               Conflict<state>& c1=conflicts[0];
               Conflict<state>& c2=conflicts[1];
@@ -3342,6 +3344,7 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << b1 << "-->
                     c2.c.emplace_back((Constraint<state>*) new Identical<state>(b1,bs[m]));
                   }
                 }else if(Params::mutualtimerange){
+//std::cout << "mxntime\n";
                   state const& a1(a[xTime]);
                   state const& a2(a[xNextTime]);
                   state const& b1(b[yTime]);
@@ -3380,7 +3383,7 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << b1 << "-->
                      */
                     bool swap=false, ortho=false, y=false;
                     locationIndex(a1,b1,swap,ortho,y,bf); // Get rotation params from reverse action
-                    state src;
+                    state src(a1);
                     state dest;
                     //bool found(false);
                     for(unsigned i(0); i<left.size(); ++i){
@@ -3389,8 +3392,8 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << b1 << "-->
                         //assert(!"Integrity of biclique is bad");
                       //}
                       fetch(a1,move,dest,bf);
-                      src.x=a1.x;
-                      src.y=a1.y;
+                      //src.x=a1.x;
+                      //src.y=a1.y;
                       src.t=std::max(0.0,b1.t+floor(livls[i].first*state::TIME_RESOLUTION_D));
                       dest.t=std::max(0.0,b1.t+ceil(livls[i].second*state::TIME_RESOLUTION_D));
                       if(src.t>a1.t)src.t=a1.t;
@@ -3400,11 +3403,22 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << b1 << "-->
                       //if(moveA==move)found=true;
                       c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
                     }
+                    // In case left was empty...
+                    if(left.empty()){
+                      auto intvl(getForbiddenInterval(a1,a2,a1.t/xyztLoc::TIME_RESOLUTION_D,a2.t/xyztLoc::TIME_RESOLUTION_D,
+                            agentRadius,b1,b2,b1.t/state::TIME_RESOLUTION_D,b2.t/state::TIME_RESOLUTION_D,agentRadius));
+                      // Done if no overlap with current range, or no overlap with start delay
+                      src.t=std::max(0.0,b1.t+floor(intvl.first*state::TIME_RESOLUTION_D));
+                      dest=a2;
+                      dest.t=std::max(0.0,b1.t+ceil(intvl.second*state::TIME_RESOLUTION_D));
+                      c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
+                    }
                     //assert(found&&"Core action A was not added!");
                     //found=false;
                     // Do the same for the other side of biclique...
                     //swap=false; ortho=false; y=false;
                     //locationIndex(b2,b1,swap,ortho,y,bf); // Get rotation params from reverse action
+                    src=b1;
                     for(unsigned i(0); i<right.size(); ++i){
                       //auto move(getMirroredMove(right[i],swap,ortho,y,bf));
                       auto move(invertMirroredMove(right[i],swap,ortho,y,bf));
@@ -3412,8 +3426,8 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << b1 << "-->
                         //assert(!"Integrity of biclique is bad");
                       //}
                       fetch(b1,move,dest,bf);
-                      src.x=b1.x;
-                      src.y=b1.y;
+                      //src.x=b1.x;
+                      //src.y=b1.y;
                       // Yes, a1.t is correct (delays are relative to a1)
                       src.t=std::max(0.0,a1.t+floor(rivls[i].first*state::TIME_RESOLUTION_D));
                       dest.t=std::max(0.0,a1.t+ceil(rivls[i].second*state::TIME_RESOLUTION_D));
@@ -3422,6 +3436,15 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << b1 << "-->
                       //assert(src.t<=b1.t && dest.t>=b1.t);
                       //if(moveB==move)found=true;
                       c2.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
+                    }
+                    if(right.empty()){
+                      auto intvl(getForbiddenInterval(b1,b2,b1.t/xyztLoc::TIME_RESOLUTION_D,b2.t/xyztLoc::TIME_RESOLUTION_D,
+                            agentRadius,a1,a2,a1.t/state::TIME_RESOLUTION_D,a2.t/state::TIME_RESOLUTION_D,agentRadius));
+                      // Done if no overlap with current range, or no overlap with start delay
+                      src.t=std::max(0.0,a1.t+floor(intvl.first*state::TIME_RESOLUTION_D));
+                      dest=b2;
+                      dest.t=std::max(0.0,a1.t+ceil(intvl.second*state::TIME_RESOLUTION_D));
+                      c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
                     }
                     //assert(found&&"Core action B was not added!");
                   }else{
@@ -3440,8 +3463,17 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << b1 << "-->
                       src.y=a1.y;
                       src.t=std::max(0.0,b1.t+floor(livls[i].first*state::TIME_RESOLUTION_D));
                       dest.t=std::max(0.0,b1.t+ceil(livls[i].second*state::TIME_RESOLUTION_D));
-                      if(dest.t==src.t)dest.t++;
-                      assert(src.t<=a1.t && dest.t>=a1.t);
+                      if(src.t>a1.t)src.t=a1.t;
+                      if(dest.t<=src.t)dest.t=src.t+1;
+                      c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
+                    }
+                    if(left.empty()){
+                      auto intvl(getForbiddenInterval(a1,a2,a1.t/xyztLoc::TIME_RESOLUTION_D,a2.t/xyztLoc::TIME_RESOLUTION_D,
+                            agentRadius,b1,b2,b1.t/state::TIME_RESOLUTION_D,b2.t/state::TIME_RESOLUTION_D,agentRadius));
+                      // Done if no overlap with current range, or no overlap with start delay
+                      src.t=std::max(0.0,b1.t+floor(intvl.first*state::TIME_RESOLUTION_D));
+                      dest=a2;
+                      dest.t=std::max(0.0,b1.t+ceil(intvl.second*state::TIME_RESOLUTION_D));
                       c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
                     }
                     for(unsigned i(0); i<right.size(); ++i){
@@ -3451,9 +3483,18 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << b1 << "-->
                       // Yes, a1.t is correct (delays are relative to a1)
                       src.t=std::max(0.0,a1.t+floor(rivls[i].first*state::TIME_RESOLUTION_D));
                       dest.t=std::max(0.0,a1.t+ceil(rivls[i].second*state::TIME_RESOLUTION_D));
-                      if(dest.t==src.t)dest.t++;
-                      assert(src.t<=b1.t && dest.t>=b1.t);
+                      if(src.t>a1.t)src.t=a1.t;
+                      if(dest.t<=src.t)dest.t=src.t+1;
                       c2.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
+                    }
+                    if(right.empty()){
+                      auto intvl(getForbiddenInterval(b1,b2,b1.t/xyztLoc::TIME_RESOLUTION_D,b2.t/xyztLoc::TIME_RESOLUTION_D,
+                            agentRadius,a1,a2,a1.t/state::TIME_RESOLUTION_D,a2.t/state::TIME_RESOLUTION_D,agentRadius));
+                      // Done if no overlap with current range, or no overlap with start delay
+                      src.t=std::max(0.0,a1.t+floor(intvl.first*state::TIME_RESOLUTION_D));
+                      dest=b2;
+                      dest.t=std::max(0.0,a1.t+ceil(intvl.second*state::TIME_RESOLUTION_D));
+                      c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
                     }
                   }
                 }else{
@@ -3477,6 +3518,7 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << b1 << "-->
       }else{
         //std::cout << "Already found a cardinal conflict - "<<x<<","<<y<<" - no check for cardinality being performed...\n";
       }
+      assert(conflicts[0].c.size() && conflicts[1].c.size());
     }
 
     // Increment the counters based on the time
