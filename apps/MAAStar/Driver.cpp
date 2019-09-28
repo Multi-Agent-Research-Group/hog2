@@ -283,7 +283,7 @@ bool checkAnswer(Solution<xytLoc> const& answer){
 bool detectIndependence(Solution<xytLoc>& solution, std::vector<Group*>& group, std::unordered_set<Group*>& groups){
   bool independent(true);
   // Check all pairs for collision
-  uint32_t minTime(-1);
+  //uint32_t minTime(-1);
   for(int i(0); i<solution.size(); ++i){
     for(int j(i+1); j<solution.size(); ++j){
       // check collision between i and j
@@ -406,7 +406,7 @@ std::pair<uint32_t,uint32_t> mergeSolution(std::vector<Solution<xytLoc>>& answer
   costs[0]=computeSolutionCost(answers[0]);
   for(int i(1); i<answers.size(); ++i){
     costs[i]=computeSolutionCost(answers[i]);
-    if(allSame&&!costs[0]==costs[i]){allSame=false;}
+    if(allSame&&costs[0]!=costs[i]){allSame=false;}
   }
   if(!allSame){
     // Sort the cost indices
@@ -731,7 +731,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
     filepath=argument[1];
     std::ifstream ss(argument[1]);
     int x,y;
-    uint32_t t(0.0);
+    float t(0.0);
     std::string line;
     n=0;
     while(std::getline(ss, line)){

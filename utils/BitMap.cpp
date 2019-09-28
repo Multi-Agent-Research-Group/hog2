@@ -12,6 +12,7 @@
 
 BitMapPic::BitMapPic(const char *file)
 {
+	bytesReversed = false;
 	Load(file);
 }
 

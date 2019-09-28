@@ -1697,8 +1697,7 @@ signed locationIndex(state a, state b, bool& swap, bool& ortho, bool& y, unsigne
   }
   if(dist==2){
     return a.x+a.y*dist;
-  }
-  else{
+  }else{
     dx=abs(dx);
     dy=abs(dy);
     if(dx<dy){
@@ -1721,6 +1720,7 @@ signed locationIndex(state a, state b, bool& swap, bool& ortho, bool& y, unsigne
     if(dist==4)return moves17[dx][dy];
     if(dist==6)return moves33[dx][dy];
   }
+  assert(!"Error: location index not found");
 }
 
 template <typename state>

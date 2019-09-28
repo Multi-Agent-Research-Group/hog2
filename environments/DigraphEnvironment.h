@@ -1,13 +1,15 @@
 #ifndef DigraphEnvironment_h_
 #define DigraphEnvironment_h_
+#include "GLUtil.h"
 #include <vector>
-#include <map>
+#include <unordered_map>
 #include "ConstrainedEnvironment.h"
 #include "Utilities.h"
 #include <sstream>
 #include <fstream>
 #include <iostream>
-#include "Map3d.h"
+#include "Map.h"
+#include <valgrind/memcheck.h>
 
 struct node_t{
   node_t():x(-1),y(-1),t(-1),id(-1),nc(0){}
@@ -47,11 +49,20 @@ struct edge_t{
   size_t operator==(edge_t const&pt)const{return pt.a1==a1 && pt.a2==a2;}
   size_t operator()(edge_t const&pt)const{return pt.a1+pt.a2*0xffff;}
   bool operator<(edge_t const&pt)const{return pt.a1==a1?a2<pt.a2:a1<pt.a1;}
+  static uint64_t getKey(unsigned a1, unsigned a2){return a1<a2?a1*0xffff+a2:a2*0xffff+a1;}
 };
 
 class DigraphEnvironment: public ConstrainedEnvironment<node_t, int>{
   public:
-  DigraphEnvironment(char const* vfile, char const* efile):width(0),height(0){
+  DigraphEnvironment(char const* vfile, char const* efile, bool bidir=true, bool selfloops=true){
+VALGRIND_CHECK_VALUE_IS_DEFINED(nodes);
+VALGRIND_CHECK_VALUE_IS_DEFINED(adj);
+VALGRIND_CHECK_VALUE_IS_DEFINED(weight);
+VALGRIND_CHECK_VALUE_IS_DEFINED(width);
+VALGRIND_CHECK_VALUE_IS_DEFINED(height);
+VALGRIND_CHECK_VALUE_IS_DEFINED(map);
+
+    if(nodes.size()){return;} // already loaded!
     nodes.reserve(255);
     adj.reserve(512);
     std::ifstream vs(vfile);
@@ -63,10 +74,18 @@ class DigraphEnvironment: public ConstrainedEnvironment<node_t, int>{
       is >> n >> c;
       auto cs(Util::split(c,','));
       if(nodes.size()<n+1){nodes.resize(n+1);}
+      if(adj.size()<n+1){adj.resize(n+1);}
       nodes[n]=node_t(atoi(cs[0].c_str()),atoi(cs[1].c_str()),n);
       width=std::max(width,nodes[n].x);
       height=std::max(height,nodes[n].y);
+      if(selfloops){
+        adj[n].push_back(n); // Self-loop
+        weight[edge_t::getKey(n,n)]=node_t::TIME_RESOLUTION_U;
+        auto const& v(weight.find(edge_t::getKey(n,n)));
+        assert(v!=weight.end());
+      }
     }
+    assert(weight.find(edge_t::getKey(88,88))!=weight.end());
     std::ifstream es(efile);
     while(std::getline(es, line)){
       std::istringstream is(line);
@@ -78,18 +97,34 @@ class DigraphEnvironment: public ConstrainedEnvironment<node_t, int>{
       assert(n2<nodes.size() && nodes[n2]!=node_t());
       if(adj.size()<std::max(n1,n2)+1){adj.resize(std::max(n1,n2)+1);}
       adj[n1].push_back(n2);
-      adj[n2].push_back(n1);
-      weight.emplace(edge_t(n1,n2),Util::distance(nodes[n1].x,nodes[n1].y,nodes[n2].x,nodes[n2].y)*node_t::TIME_RESOLUTION_D);
+      if(bidir)
+        adj[n2].push_back(n1);
+      auto dist(Util::distance(nodes[n1].x,nodes[n1].y,nodes[n2].x,nodes[n2].y)*node_t::TIME_RESOLUTION_D);
+      auto hash(edge_t::getKey(n1,n2));
+      if(weight.find(edge_t::getKey(n1,n2))!=weight.end()){
+        assert(!"already inserted");
+      }
+      //std::cout << e.a1 << "," << e.a2 << ":" << dist << "[" << node_t::TIME_RESOLUTION_D <<"\n";
+      weight[hash]=dist;
     }
-    map.reset(new Map3D(width,height,1));
+    //for(auto const& e:weight){
+      //std::cout << e.first/0xffff << "," << e.first%0xffff << ":" << e.second << "[" << node_t::TIME_RESOLUTION_D <<"\n";
+    //}
+    /*for(int i(0); i<adj.size(); ++i){
+      for(auto a:adj[i]){
+        //std::cout << i << "," << a << "\n";
+        assert(weight.find(edge_t::getKey(i,a))!=weight.end());
+      }
+    }*/
+    map.reset(new Map(width,height));
   }
-  std::vector<node_t> nodes;
-  std::vector<std::vector<uint16_t>> adj;
-  std::map<edge_t,uint16_t> weight;
+  static std::vector<node_t> nodes;
+  static std::vector<std::vector<uint16_t>> adj;
+  static std::unordered_map<uint64_t,uint32_t> weight;
+  static unsigned width, height;
+  static std::unique_ptr<Map> map;
   node_t goal;
-  unsigned width, height;
   bool ignoreTime=false;
-  std::unique_ptr<Map3D> map;
 
   inline void SetIgnoreTime(bool v){ignoreTime=v;}
   inline bool GetIgnoreTime()const{return ignoreTime;}
@@ -131,16 +166,34 @@ class DigraphEnvironment: public ConstrainedEnvironment<node_t, int>{
 void OpenGLDraw() const
 {
   map->OpenGLDraw();
+  glColor4f(0, 0, 0, 1);
+  signed i(-1);
+  for(auto const& a:adj){
+    ++i;
+    GLdouble x1, y1, z1, rad;
+    map->GetOpenGLCoord(nodes[i].x, nodes[i].y, -.05, x1, y1, z1, rad);
+    for(auto const& n:a){
+
+      glBegin(GL_LINES);
+      glVertex3f(x1, y1, z1);
+
+      GLdouble x2, y2, z2, rad;
+      map->GetOpenGLCoord(nodes[n].x, nodes[n].y, -.05, x2, y2, z2, rad);
+      glVertex3f(x2, y2, z2);
+      glEnd();
+    }
+    DrawFmtTextCentered(x1,y1,-.05,0.02,"%d",nodes[i].id);
+  }
 }
 
-void OpenGLDraw(const node_t& s, const node_t& e, float perc) const
+void OpenGLDraw(const node_t& s, const node_t& e, float perc, float radius) const
 {
   GLfloat r, g, b, t;
   GetColor(r, g, b, t);
   GLdouble xx, yy, zz, rad;
   map->GetOpenGLCoord((1-perc)*s.x+perc*e.x, (1-perc)*s.y+perc*e.y, .1, xx, yy, zz, rad);
   glColor4f(r, g, b, t);
-  DrawSphere(xx, yy, zz, rad/2.0); // zz-s.t*2*rad
+  DrawSphere(xx, yy, zz, rad*radius); // zz-s.t*2*rad
 }
 
 void OpenGLDraw(const node_t& l) const
@@ -176,14 +229,16 @@ void GLDrawLine(const node_t &x, const node_t &y) const
 virtual unsigned GetSuccessors(const node_t &node, node_t* neighbors) const{
   unsigned sz(0);
   // Assume waiting is allowed
-  if(!ignoreTime){
-    node_t wait(node,node.t+node_t::TIME_RESOLUTION_D);
-    if(!ViolatesConstraint(node,wait)){
-      neighbors[sz++]=wait;
-    }
-  }
+  //if(!ignoreTime){
+    //node_t wait(node,node.t+node_t::TIME_RESOLUTION_D);
+    //if(!ViolatesConstraint(node,wait)){
+      //neighbors[sz++]=wait;
+    //}
+  //}
   for(auto const& a:adj[node.id]){
-    node_t nn(nodes[a],node.t+weight.find(edge_t(node.id,a))->second);
+    auto const& v(weight.find(edge_t::getKey(node.id,a)));
+    assert(v!=weight.end());
+    node_t nn(nodes[a],node.t+v->second);
     if(!ViolatesConstraint(node,nn)){
       neighbors[sz++]=nn;
     }
@@ -202,7 +257,7 @@ virtual double GCost(const node_t& node, const int& ignored) const{
 // Staying at the goal costs nothing
 virtual double GCost(const node_t& node1, const node_t& node2)const{
   assert(node1.id==node2.id || std::find(adj[node1.id].begin(),adj[node1.id].end(),node2.id)!=adj[node1.id].end());
-  return node1.id==node2.id ? node1.id==goal.id ? 0 : node_t::TIME_RESOLUTION_D : weight.find({node1.id,node2.id})->second;
+  return node1.id==node2.id ? node1.id==goal.id ? 0 : node_t::TIME_RESOLUTION_D : weight.find(edge_t::getKey(node1.id,node2.id))->second;
 }
 
 virtual double HCost(const node_t& node1, const node_t& node2)const{
@@ -222,6 +277,13 @@ bool collisionCheck(const node_t &s1, const node_t &d1, float r1, const node_t &
   //return collisionCheck(s1,d1,s2,d2,double(r1),double(r2));
 }
 };
+
+std::vector<node_t> DigraphEnvironment::nodes;
+std::vector<std::vector<uint16_t>> DigraphEnvironment::adj;
+std::unordered_map<uint64_t,uint32_t> DigraphEnvironment::weight;
+unsigned DigraphEnvironment::width=0;
+unsigned DigraphEnvironment::height=0;
+std::unique_ptr<Map> DigraphEnvironment::map;
 
 template <typename state, typename action>
 class TieBreaking3D {

@@ -38,8 +38,8 @@ void InitTextures()
 {
 	if (wall == -1)
 	{
-		BitMapPic p("/Users/nathanst/hog2/textures/u.bmp");
-		p.Save("/Users/nathanst/hog2/textures/out.bmp");
+		BitMapPic p("eia.bmp");
+		p.Save("out.bmp");
 		// Use OpenGL ES to generate a name for the texture.
 		glGenTextures(1, &wall);
 		// Bind the texture name. 
@@ -93,22 +93,24 @@ Tile::Tile()
 * A map is an array of tiles according to the height and width of the map.
 */
 Map::Map(long _width, long _height)
-:width(_width), height(_height)
+:width(_height), height(_height), noobs(true)
 {
-	mapType = kOctile;
-	tileSet = kFall;
-	map_name[0] = 0;
-	sizeMultiplier = 1;
-	land = new Tile *[width];
-	//	for (int x = 0; x < 8; x++)
-	//		g[x] = 0;
-	for (int x = 0; x < width; x++) land[x] = new Tile [height];
-	drawLand = true;
-	dList = 0;
-	updated = true;
-	revision = 0;
-	//	numAbstractions = 1;
-	//	pathgraph = 0;
+  InitTextures();
+
+  mapType = kOctile;
+  tileSet = kFall;
+  map_name[0] = 0;
+  sizeMultiplier = 1;
+  land = new Tile *[2];
+  //	for (int x = 0; x < 8; x++)
+  //		g[x] = 0;
+  for (int x = 0; x < 2; x++) land[x] = new Tile [2];
+  drawLand = true;
+  dList = 0;
+  updated = true;
+  revision = 0;
+  //	numAbstractions = 1;
+  //	pathgraph = 0;
 }
 
 /** 
@@ -1798,15 +1800,44 @@ void Map::OpenGLDraw(tDisplay how) const
 			{
 				drawLandQuickly();
 			}
-			else {
-				for (int y = 0; y < height; y++)
-				{
-					for (int x = 0; x < width; x++)
-					{
-						DrawTile(&land[x][y], x, y, how);
-					}
-				}
-			}
+                        else {
+                          if(noobs){ // just draw one huge tile
+                            GLdouble xx=0, yy=0, zz=0, rr=1;
+                            glNormal3d(0, 0, -1);
+                            glColor3f(1, 1, 1);
+
+                            float l=0, r=.5, u=.5, b=1;
+
+                            glEnable(GL_TEXTURE_2D);
+                            glBindTexture(GL_TEXTURE_2D, wall);
+
+                            glBegin(GL_QUADS);
+
+                            glTexCoord2f(0.0f, 0.0f); glVertex3f(-1.0f, -1.0f,  0.0f);  // Bottom Left Of The Texture and Quad
+                            glTexCoord2f(1.0f, 0.0f); glVertex3f( 1.0f, -1.0f,  0.0f);  // Bottom Right Of The Texture and Quad
+                            glTexCoord2f(1.0f, 1.0f); glVertex3f( 1.0f,  1.0f,  0.0f);  // Top Right Of The Texture and Quad
+                            glTexCoord2f(0.0f, 1.0f); glVertex3f(-1.0f,  1.0f,  0.0f);  // Top Left Of The Texture and Quad
+                            //glTexCoord2f(l,b);
+                            //glVertex3f(xx-rr, yy-rr, /*-2*rr*/-rr);
+                            //glTexCoord2f(l,u);
+                            //glVertex3f(xx-rr, yy+rr, /*-2*rr*/-rr);
+                            //glTexCoord2f(r,u);
+                            //glVertex3f(xx+rr, yy+rr, /*-2*rr*/-rr);
+                            //glTexCoord2f(r,b);
+                            //glVertex3f(xx+rr, yy-rr, /*-2*rr*/-rr);
+
+                            glEnd();
+                            glDisable(GL_TEXTURE_2D);
+                          }else{
+                            for (int y = 0; y < height; y++)
+                            {
+                              for (int x = 0; x < width; x++)
+                              {
+                                DrawTile(&land[x][y], x, y, how);
+                              }
+                            }
+                          }
+                        }
 			glEndList();
 			// printf("Done\n");
 		}
@@ -1863,7 +1894,7 @@ bool Map::GetOpenGLCoord(float _x, float _y, GLdouble &x, GLdouble &y, GLdouble 
 		_scale = 1/(double)width;
 	x = (2*_x-width)*_scale;
 	y = (2*_y-height)*_scale;
-	z = -(double)0.5*(land[iX][iY].tile1.corners[0]+land[iX][iY].tile2.corners[0])*(_scale);//+(double)land[_x][_y].tile1.corners[1]/(2*_scale));
+	z = -.1;//(double)0.5*(land[iX][iY].tile1.corners[0]+land[iX][iY].tile2.corners[0])*(_scale);//+(double)land[_x][_y].tile1.corners[1]/(2*_scale));
 	radius = _scale;
 	return true;
 }

@@ -104,6 +104,7 @@ public:
 	virtual void OpenGLDraw(const state&) const = 0;
 	/** Draw the transition at some percentage 0...1 between two states */
 	virtual void OpenGLDraw(const state&, const state&, float) const {}
+	virtual void OpenGLDraw(const state&, const state&, float, float) const {}
 	virtual void OpenGLDraw(const state&, const action&) const = 0;
 	virtual void GLLabelState(const state&, const char *) const {} // draw label over state
 	virtual void GLDrawLine(const state &x, const state &y) const {}

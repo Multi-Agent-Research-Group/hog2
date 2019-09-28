@@ -170,12 +170,12 @@ void MultiAgentEnvironment<state,action,environment>::GetSuccessors(const MAStat
   uint32_t md(0xffffffff); // Min depth of successors
   //Add in successors for parents who are equal to the min
   k=0;
-  bool first(true);
+  //bool first(true);
   for(auto const& a: s){
     std::vector<state> output;
     if(k==minindex){
     //if(first && a.second.t<=sd){
-      first=false;
+      //first=false;
       std::vector<typename state::first_type> n;
       env[k]->GetSuccessors(a.second,n);
       if(env[k]->GoalTest(a.second,env[k]->getGoal())){
@@ -265,7 +265,7 @@ template<typename state, typename action, typename environment>
 uint64_t MultiAgentEnvironment<state,action,environment>::GetStateHash(const MAState<state> &node) const
 {
   // Implement the FNV-1a hash http://www.isthe.com/chongo/tech/comp/fnv/index.html
-  uint64_t h(14695981039346656037); // Offset basis
+  uint64_t h(14695981039346656037UL); // Offset basis
   unsigned i(0);
   for(auto const& v : node){
     uint64_t h1(env[i++]->GetStateHash(v.second));

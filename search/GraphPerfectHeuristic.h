@@ -44,8 +44,9 @@ class GraphPerfectHeuristic: public Heuristic<node_t> {
         bool originalIgnoreTime(e->GetIgnoreTime());
         e->SetIgnoreTime(true); // Otherwise the search would never terminate
         //std::cout << "Loading heuristic\n";
-        astar.SetVerbose(true);
-        astar.SetHeuristic(new ZeroHeuristic<node_t>);
+        //astar.SetVerbose(true);
+        std::unique_ptr<ZeroHeuristic<node_t>> h(new ZeroHeuristic<node_t>);
+        astar.SetHeuristic(h.get());
         astar.SetStopAfterGoal(false); // Search the entire space
         // Now perform a search to get all costs
         // NOTE: This should be a reverse-search, but our agents are holonomic
@@ -53,12 +54,14 @@ class GraphPerfectHeuristic: public Heuristic<node_t> {
         std::vector<node_t> path;
         astar.GetPath(e,goal,s1,path);
         for(auto const& n:e->nodes){
-          uint64_t h1(e->GetStateHash(n));
-          uint64_t id1;
-          if(kClosedList==astar.GetOpenList()->Lookup(h1,id1))
-            list[n.id]=astar.GetOpenList()->Lookat(id1).g;
-          else
-            list[n.id]=INF;
+          if(n.id<list.size()){
+            uint64_t h1(e->GetStateHash(n));
+            uint64_t id1;
+            if(kClosedList==astar.GetOpenList()->Lookup(h1,id1))
+              list[n.id]=astar.GetOpenList()->Lookat(id1).g;
+            else
+              list[n.id]=INF;
+          }
         }
         e->SetIgnoreTime(originalIgnoreTime);
         loaded=true;

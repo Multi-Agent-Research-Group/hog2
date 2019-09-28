@@ -47,6 +47,15 @@ class Map3D : public MapInterface{
   Map3D(const char *filename, const char *dtedfile, unsigned md=20);
   Map3D(Map3D *);
   Map3D *Clone() { return new Map3D(this); }
+  ~Map3D(){
+    for(int i(0); i<width; ++i){
+      delete[] elev[i];
+      delete[] type[i];
+    }
+    delete [] elev;
+    delete[] type;
+  }
+
   enum tTerrain {
     kOutOfBounds =0x0, // not part of map
     kOutOfBounds2=0x1, // not part of map - different color

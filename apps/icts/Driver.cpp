@@ -71,7 +71,7 @@ struct MDDStats{
 
 struct JointStats{
   std::vector<MDDStats> mdds;
-  unsigned depth;
+  size_t depth;
   unsigned count;
   unsigned goals;
   double branchingfactor;
@@ -654,6 +654,7 @@ struct stackObj{
 
 // Return true if we get to the desired depth
 // Check goal inside loop
+/*
 bool jointDFS2(MultiEdge const& r, uint32_t d, Solution solution, std::vector<Solution>& solutions, std::vector<Node*>& toDelete, uint32_t& best, uint32_t bestSeen, unsigned recursions=1, bool suboptimal=false, bool checkOnly=false){
   jointnodes++;
 
@@ -686,15 +687,15 @@ bool jointDFS2(MultiEdge const& r, uint32_t d, Solution solution, std::vector<So
     uint32_t md(INF); // Min depth of successors
     //Add in successors for parents who are equal to the min
     for(auto const& a: s){
-      /*if(epp){
-        if(a.second->nogood){
-          if(verbose)std::cout << *a.second << " is no good.\n";
-          return false; // If any  of these are "no good" just exit now
-        }else{
-          // The fact that we are evaluating this node means that all components were unified with something
-          if(checkOnly)a.second->unified=true;
-        }
-      }*/
+      //if(epp){
+        //if(a.second->nogood){
+          //if(verbose)std::cout << *a.second << " is no good.\n";
+          //return false; // If any  of these are "no good" just exit now
+        //}else{
+          //// The fact that we are evaluating this node means that all components were unified with something
+          //if(checkOnly)a.second->unified=true;
+        //}
+      //}
       MultiEdge output;
       if(a.second->depth<=sd){
         //std::cout << "Keep Successors of " << *a.second << "\n";
@@ -824,7 +825,9 @@ bool jointDFS2(MultiEdge const& r, uint32_t d, Solution solution, std::vector<So
     }
     solutions.push_back(solution);
   }
+  return false;
 }
+*/
 
 // Return true if we get to the desired depth
 bool jointDFS(MultiEdge const& s, uint32_t d, Solution solution, std::vector<Solution>& solutions, std::vector<Node*>& toDelete, uint32_t& best, uint32_t& bestSeen, std::vector<std::vector<uint64_t>*>& good, std::vector<std::vector<uint64_t>>& unified, unsigned recursions=1, bool suboptimal=false, bool checkOnly=false){
@@ -1133,7 +1136,7 @@ struct ICTSNode{
 
       Timer timer;
       timer.StartTimer();
-      unsigned p(Node::count);
+      //unsigned p(Node::count);
       GetMDD(i,ids[i],instance.first[i],instance.second[i],dag[i],root,costs[i]+sizes[i],best[i],dagsize[i]);
       if(crazystats){
         stats.mdds[i]={mdddepth,dag[i].size(),mddgoals,((double)mddbranchingfactor)/((double)mddnonleaf)};
@@ -1352,7 +1355,7 @@ struct ICTSNodePtrComp
 bool detectIndependence(Solution& solution, std::vector<Group*>& group, std::unordered_set<Group*>& groups){
   bool independent(true);
   // Check all pairs for collision
-  uint32_t minTime(-1);
+  //uint32_t minTime(-1);
   for(int i(0); i<solution.size(); ++i){
     for(int j(i+1); j<solution.size(); ++j){
       // check collision between i and j
@@ -1523,7 +1526,7 @@ std::pair<uint32_t,uint32_t> mergeSolution(std::vector<Solution>& answers, Solut
   costs[0]=computeSolutionCost(answers[0]);
   for(int i(1); i<answers.size(); ++i){
     costs[i]=computeSolutionCost(answers[i]);
-    if(allSame&&!costs[0]==costs[i]){allSame=false;}
+    if(allSame&&costs[0]!=costs[i]){allSame=false;}
   }
   if(!allSame){
     // Sort the cost indices
@@ -1809,10 +1812,9 @@ int main(int argc, char ** argv){
 
         std::vector<std::set<Node*,NodePtrComp>> answer;
         std::vector<ICTSNode*> toDelete;
-        uint32_t lastPlateau(q.top()->lb());
+        //uint32_t lastPlateau(q.top()->lb());
         uint32_t bestMergedCost(INF);
-        uint32_t delta(0.0);
-        bool findOptimal(false);
+        //bool findOptimal(false);
         //clearNoGoods();
         while(q.size()){
           // Keep searching until we've found a candidate with greater cost than 'best'
@@ -2097,7 +2099,7 @@ int MyCLHandler(char *argument[], int maxNumArgs)
     filepath=argument[1];
     std::ifstream ss(argument[1]);
     int x,y;
-    uint32_t t(0.0);
+    float t(0.0);
     std::string line;
     int tn(0);
     while(std::getline(ss, line)){

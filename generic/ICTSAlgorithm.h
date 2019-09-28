@@ -738,8 +738,8 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
 
     void GetSolution(std::vector<EnvironmentContainer<state,action>*> const& env, MultiAgentState<state> const& start, MultiAgentState<state> const& goal, Solution<state>& solution, std::string& hint){
       for(int i(0);i<env.size(); ++i){
-        envs.push_back(env[i]->environment);
-        heuristics.push_back(env[i]->heuristic);
+        envs.push_back(env[i]->environment.get());
+        heuristics.push_back(env[i]->heuristic.get());
       }
 
       custom_priority_queue<std::unique_ptr<ICTSNode>,ICTSNodePtrComp> q;

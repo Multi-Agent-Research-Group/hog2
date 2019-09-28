@@ -255,6 +255,7 @@ private:
 	void paintRoomInside(int x, int y);
 	void drawLandQuickly() const;
 	int width, height;
+        bool noobs=false;
 	Tile **land;
 	bool drawLand;
 	mutable GLuint dList;

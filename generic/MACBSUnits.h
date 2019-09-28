@@ -243,7 +243,7 @@ void GetFullPath(CBSUnit<state, action, comparison, conflicttable, searchalgo>* 
 
   // Perform search for all legs
   unsigned offset(0);
-  comparison::currentEnv = (ConstrainedEnvironment<state, action>*) env.environment;
+  comparison::currentEnv = (ConstrainedEnvironment<state, action>*) env.environment.get();
   if (comparison::useCAT) {
     comparison::openList = astar.GetOpenList();
     comparison::currentAgent = agent;
@@ -259,14 +259,14 @@ void GetFullPath(CBSUnit<state, action, comparison, conflicttable, searchalgo>* 
     tmr.StartTimer();
     if(env.heuristic){ //There is a specific heuristic that we should use
       if(i==fpts->size()-2){
-        astar.SetHeuristic(env.heuristic);
+        astar.SetHeuristic(env.heuristic.get());
       }else{
         singleHeuristic* h(nullptr);
          // TODO fix this so we get a unique key (its ok for xyztLoc, but not others.)
 	uint64_t key(*((uint64_t*)&goal));
 	auto hh(heuristics.find(key));
         if(hh==heuristics.end()){
-          h=new singleHeuristic(env.environment->GetMap(),env.environment);
+          h=new singleHeuristic(env.environment->GetMap(),env.environment.get());
 	  heuristics[key].reset(h);
         }else{
           h=hh->second.get();
@@ -276,7 +276,7 @@ void GetFullPath(CBSUnit<state, action, comparison, conflicttable, searchalgo>* 
     }
     static std::vector<state> path;
     path.resize(0);
-    astar.GetPath(env.environment, start, goal, path, goal.t?goal.t:minTime);
+    astar.GetPath(env.environment.get(), start, goal, path, goal.t?goal.t:minTime);
     replanTime += tmr.EndTimer();
     if(Params::verbose)std::cout << start <<"-->"<<goal<<" took: " << tmr.EndTimer() << std::endl;
 
@@ -333,7 +333,7 @@ void ReplanLeg(CBSUnit<state, action, comparison, conflicttable, searchalgo>* c,
   env.environment->setGoal(goal);
   Timer tmr;
   tmr.StartTimer();
-  astar.GetPath(env.environment, start, goal, path, minTime);
+  astar.GetPath(env.environment.get(), start, goal, path, minTime);
   replanTime += tmr.EndTimer();
   //std::cout << "Replan took: " << tmr.EndTimer() << std::endl;
   //std::cout << "New leg " << path.size() << "\n";
@@ -933,7 +933,7 @@ void CBSUnit<state, action, comparison, conflicttable, searchalgo>::OpenGLDraw(
     if (si->GetSimulationTime() * state::TIME_RESOLUTION_D <= stop_t.t
         && si->GetSimulationTime() * state::TIME_RESOLUTION_D >= start_t.t) {
       float perc = (stop_t.t - si->GetSimulationTime() * state::TIME_RESOLUTION_D) / (stop_t.t - start_t.t);
-      ae->OpenGLDraw(stop_t, start_t, perc);
+      ae->OpenGLDraw(stop_t, start_t, perc, agentRadius);
       //Constraint<state> c(stop_t, start_t);
       //glColor3f(1, 0, 0);
       //c.OpenGLDraw();
@@ -966,7 +966,7 @@ template<typename state, typename action, typename comparison, typename conflict
 void CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeuristic, searchalgo>::ClearEnvironmentConstraints(
     unsigned metaagent) {
   for (unsigned agent : activeMetaAgents[metaagent].units) {
-    for (EnvironmentContainer<state, action> env : this->environments[agent]) {
+    for (auto& env : this->environments[agent]) {
       env.environment->ClearConstraints();
     }
   }
@@ -977,7 +977,7 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
     Constraint<state>* c, unsigned metaagent, bool negative) {
   //if(verbose)std::cout << "Add constraint " << c.start_state << "-->" << c.end_state << "\n";
   for (unsigned agent : activeMetaAgents[metaagent].units) {
-    for (EnvironmentContainer<state, action> env : this->environments[agent]) {
+    for (auto const& env : this->environments[agent]) {
       if(negative)
         env.environment->AddConstraint(c);
       else
@@ -1000,11 +1000,11 @@ CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeuristic, s
   // Sort the environment container by the number of conflicts
   unsigned agent(0);
   for (auto& environs : environvec) {
-    std::sort(environs.begin(), environs.end(),
+    /*std::sort(environs.begin(), environs.end(),
         [](const EnvironmentContainer<state,action>& a, const EnvironmentContainer<state,action>& b) -> bool
         {
           return a.threshold < b.threshold;
-        });
+        });*/
     environments.push_back(environs);
     // Set the current environment to that with 0 conflicts
     SetEnvironment(0, agent);
@@ -1743,7 +1743,7 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
   if (!set)
     assert(false && "No env was set - you need -cutoffs of zero...");
 
-  astar.SetHeuristic(currentEnvironment[agent]->heuristic);
+  astar.SetHeuristic(currentEnvironment[agent]->heuristic.get());
   astar.SetWeight(currentEnvironment[agent]->astar_weight);
   astar.SetGoalSteps(!disappearAtGoal && !Params::extrinsicconstraints);
 }
@@ -1815,7 +1815,7 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
   if(comparison::useCAT && this->GetNumMembers() < 2){
     tree[0].cat = conflicttable();
   // We add the optimal path to the root of the tree
-    tree[0].cat.insert(*tree[0].paths.back(), currentEnvironment[theUnit]->environment, tree[0].paths.size() - 1);
+    tree[0].cat.insert(*tree[0].paths.back(), currentEnvironment[theUnit]->environment.get(), tree[0].paths.size() - 1);
   }
   //StayAtGoal(0); // Do this every time a unit is added because these updates are taken into consideration by the CAT
 
@@ -1877,7 +1877,7 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
   if(comparison::useCAT && this->GetNumMembers() < 2){
     tree[0].cat = conflicttable();
   // We add the optimal path to the root of the tree
-    tree[0].cat.insert(*tree[0].paths.back(), currentEnvironment[theUnit]->environment, tree[0].paths.size() - 1);
+    tree[0].cat.insert(*tree[0].paths.back(), currentEnvironment[theUnit]->environment.get(), tree[0].paths.size() - 1);
   }
   //StayAtGoal(0); // Do this every time a unit is added because these updates are taken into consideration by the CAT
 
@@ -2038,7 +2038,7 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
   Timer tmr;
   tmr.StartTimer();
   SetEnvironment(numConflicts.first, theUnit);
-  astar.GetPath(currentEnvironment[theUnit]->environment, start, goal, path, minTime); // Get the path with the new constraint
+  astar.GetPath(currentEnvironment[theUnit]->environment.get(), start, goal, path, minTime); // Get the path with the new constraint
   bypassplanTime += tmr.EndTimer();
   if (path.size() == 0) {
     return false;
@@ -2104,7 +2104,7 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
         processSolution(CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeuristic, searchalgo>::timer->EndTimer());
         break;
       }
-    } while (fleq(astar.GetNextPath(currentEnvironment[theUnit]->environment, start, goal, path, minTime), cost));
+    } while (fleq(astar.GetNextPath(currentEnvironment[theUnit]->environment.get(), start, goal, path, minTime), cost));
   }
   TOTAL_EXPANSIONS += astar.GetNodesExpanded();
   if (killex != INT_MAX && TOTAL_EXPANSIONS > killex)
@@ -2188,13 +2188,13 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
     //astar.GetPath(currentEnvironment[theUnit]->environment, start, goal, thePath);
     //std::vector<state> thePath(tree[location].paths[theUnit]);
     comparison::openList = astar.GetOpenList();
-    comparison::currentEnv = (ConstrainedEnvironment<state, action>*) currentEnvironment[theUnit]->environment;
+    comparison::currentEnv = (ConstrainedEnvironment<state, action>*) currentEnvironment[theUnit]->environment.get();
     comparison::currentAgent = theUnit;
     comparison::CAT = &(tree[location].cat);
     comparison::CAT->set(&tree[location].paths);
 
     if (comparison::useCAT) {
-      comparison::CAT->remove(*tree[location].paths[theUnit], currentEnvironment[theUnit]->environment, theUnit);
+      comparison::CAT->remove(*tree[location].paths[theUnit], currentEnvironment[theUnit]->environment.get(), theUnit);
     }
 
     unsigned minTime(0);
@@ -2245,7 +2245,7 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
     // Add the path back to the tree (new constraint included)
     //tree[location].paths[theUnit].resize(0);
     if (comparison::useCAT)
-      comparison::CAT->insert(*tree[location].paths[theUnit], currentEnvironment[theUnit]->environment, theUnit);
+      comparison::CAT->insert(*tree[location].paths[theUnit], currentEnvironment[theUnit]->environment.get(), theUnit);
 
     /*for(int i(0); i<thePath.size(); ++i) {
       tree[location].paths[theUnit].push_back(thePath[i]);
@@ -2300,7 +2300,7 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
         // Add the path back to the tree (new constraint included)
         //tree[location].paths[theUnit].resize(0);
         if (comparison::useCAT)
-          comparison::CAT->insert(*tree[location].paths[theUnit], currentEnvironment[theUnit]->environment, theUnit);
+          comparison::CAT->insert(*tree[location].paths[theUnit], currentEnvironment[theUnit]->environment.get(), theUnit);
       }
     } else {
       tree[location].satisfiable = false;
@@ -2456,7 +2456,7 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
   for(auto const& constraint:constraints){
     currentEnvironment[x]->environment->AddConstraint(constraint.get());
   }
-  astar.SetHeuristic(currentEnvironment[x]->heuristic);
+  astar.SetHeuristic(currentEnvironment[x]->heuristic.get());
 
   double origcost(currentEnvironment[x]->environment->GetPathLength(*location.paths[x]));
 
@@ -3350,8 +3350,8 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << b1 << "-->
                   state const& b1(b[yTime]);
                   state const& b2(b[yNextTime]);
                   const unsigned bf(currentEnvironment[x]->environment->branchingFactor());
-                  auto moveA(moveNum(a1,a2,0,bf));
-                  auto moveB(moveNum(b1,b2,0,bf));
+                  //auto moveA(moveNum(a1,a2,0,bf));
+                  //auto moveB(moveNum(b1,b2,0,bf));
                   static std::vector<unsigned> left;
                   left.resize(0);
                   static std::vector<unsigned> right;

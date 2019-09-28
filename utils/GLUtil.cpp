@@ -31,6 +31,7 @@
 #include <assert.h>
 #include <vector>
 #include <cstring>
+#include <stdarg.h>
 
 bool fastCrossTest(float p0_x, float p0_y, float p1_x, float p1_y, 
 				   float p2_x, float p2_y, float p3_x, float p3_y, float *i_x, float *i_y);
@@ -872,4 +873,15 @@ void DrawTextCentered(double x, double y, double z, double scale, const char *st
 	glEnable(GL_LIGHTING);
 	//glTranslatef(-x/width+0.5, -y/height+0.5, 0);
 	glPopMatrix();
+}
+
+void DrawFmtTextCentered(double x, double y, double z, double scale, char const*const pFmtText, ...){
+  char pTemp[32];
+
+  //Pass these virtual arguments to vsprintf ()
+  va_list vaList ;
+  va_start (vaList, pFmtText) ;
+  int const TextLen = vsprintf (pTemp, pFmtText, vaList) ;
+  va_end (vaList) ;
+  DrawTextCentered(x,y,z,scale,pTemp);
 }

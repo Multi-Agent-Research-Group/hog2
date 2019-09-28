@@ -398,7 +398,7 @@ void fillWaypoints(){
 
 
 void InitHeadless(){
-  ace=(Grid3DConstrainedEnvironment*)environs[0].rbegin()->environment;
+  ace=(Grid3DConstrainedEnvironment*)environs[0].rbegin()->environment.get();
   UnitTieBreaking3D<xyztLoc,t3DDirection>::randomalg=randomalg;
   UnitTieBreaking3D<xyztLoc,t3DDirection>::useCAT=useCAT;
   UnitTieBreaking3D<xyztLoc,t3DDirection>::agentRadius=agentRadius;
@@ -814,7 +814,7 @@ int MyCLHandler(char *argument[], int maxNumArgs){
         newEnv->WaitTime(wait);
         ev.emplace_back(e.name,newEnv,new Map3dPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),e.threshold,e.weight);
       }
-      environs.push_back(ev);
+      environs.emplace_back(ev);
       ++agent;
     }
 
@@ -988,7 +988,7 @@ int MyCLHandler(char *argument[], int maxNumArgs){
           }
           ev.emplace_back(e.name,newEnv,new Map3dPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),e.threshold,e.weight);
         }
-        environs.push_back(ev);
+        environs.emplace_back(ev);
         agent++;
       }
     }else{
@@ -1058,7 +1058,7 @@ int MyCLHandler(char *argument[], int maxNumArgs){
           ev.emplace_back("3dtwo",newEnv,new MapPerfectHeuristic<xyztLoc,t3DDirection>(map,newEnv),cutoffs[7],weights[7]);
         }
         if(maxcost){me->SetUniqueCosts(true);me->SetMaxCost(maxcost);}
-        environs.push_back(ev);
+        environs.emplace_back(ev);
       }
     }
     return 2;
@@ -1400,7 +1400,7 @@ int MyCLHandler(char *argument[], int maxNumArgs){
         newEnv->WaitTime(wait);
         newEnv->GetMapEnv()->setGoal(waypoints[agent][1]);
       }
-      environs.push_back(ev);
+      environs.emplace_back(ev);
       agent++;
     }
     return 2;

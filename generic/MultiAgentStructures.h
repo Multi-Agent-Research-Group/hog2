@@ -38,14 +38,15 @@ typedef std::set<IntervalData> ConflictSet;
 
 template<typename state, typename action>
 struct EnvironmentContainer {
-  EnvironmentContainer() : name("NULL ENV"), environment(nullptr), heuristic(nullptr), threshold(0), astar_weight(1.0f) {
+  EnvironmentContainer() : name("NULL ENV"), threshold(0), astar_weight(1.0f) {
     std::cout << "stuff\n";
   }
+  //EnvironmentContainer(EnvironmentContainer const& other) : name(other.name), environment(new auto(*other.environment.get())), heuristic(new auto(*other.heuristic.get())), threshold(other.threshold), astar_weight(other.astar_weight) {}
   EnvironmentContainer(std::string n, ConstrainedEnvironment<state,action>* e, Heuristic<state>* h, uint32_t conf, float a) : name(n), environment(e), heuristic(h), threshold(conf), astar_weight(a) {}
   void SetupSearch(GenericSearchAlgorithm<state,action,ConstrainedEnvironment<state,action>>& srch){if(heuristic)srch.SetHeuristic(heuristic); srch.SetWeight(astar_weight);}
   std::string name;
-  ConstrainedEnvironment<state,action>* environment;
-  Heuristic<state>* heuristic; // This could be an array if we are planning for multiple legs
+  std::shared_ptr<ConstrainedEnvironment<state,action>> environment;
+  std::shared_ptr<Heuristic<state>> heuristic; // This could be an array if we are planning for multiple legs
   unsigned threshold;
   float astar_weight;
 };

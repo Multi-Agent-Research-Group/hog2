@@ -84,7 +84,7 @@ UnitSim *sim = 0;
 //typedef CBSGroup<node_t,int,UnitTieBreaking3D<node_t,int>,UnitTimeCAT<node_t,int>,ICTSAlgorithm<node_t,int>> MACBSGroup;
 typedef CBSUnit<node_t,int,TieBreaking3D<node_t,int>,NonUnitTimeCAT<node_t,int>> MACBSUnit;
 typedef CBSGroup<node_t,int,TieBreaking3D<node_t,int>,NonUnitTimeCAT<node_t,int>,ICTSAlgorithm<node_t,int>,GraphPerfectHeuristic> MACBSGroup;
-std::unordered_map<unsigned,MACBSGroup*> groups;
+std::unordered_map<unsigned,std::unique_ptr<MACBSGroup>> groups;
 std::vector<unsigned> rgroups;
 std::vector<MACBSUnit*> units;
 
@@ -359,7 +359,7 @@ void fillWaypoints(){
       bool conflict(true);
       while(conflict){
         conflict=false;
-        node_t start(((DigraphEnvironment*)environs[0][0].environment)->nodes[rand() % ((DigraphEnvironment*)environs[0][0].environment)->nodes.size()]);
+        node_t start(((DigraphEnvironment*)environs[0][0].environment.get())->nodes[rand() % ((DigraphEnvironment*)environs[0][0].environment.get())->nodes.size()]);
         for (int j = 0; j < waypoints.size()-1; j++)
         {
           if(waypoints[j].size()>n)
@@ -390,7 +390,7 @@ void fillWaypoints(){
 
 
 void InitHeadless(){
-  ace=(DigraphEnvironment*)environs[0].rbegin()->environment;
+  ace=(DigraphEnvironment*)environs[0].rbegin()->environment.get();
   UnitTieBreaking3D<node_t,int>::randomalg=randomalg;
   UnitTieBreaking3D<node_t,int>::useCAT=useCAT;
   TieBreaking3D<node_t,int>::randomalg=randomalg;
@@ -406,8 +406,8 @@ void InitHeadless(){
   units.reserve(num_agents);
 
   if(noid){
-    groups[0]=new MACBSGroup(environs,{});
-    MACBSGroup* group=groups[0];
+    groups[0].reset(new MACBSGroup(environs,{}));
+    MACBSGroup* group=groups[0].get();
     group->agents.resize(num_agents);
     std::iota(group->agents.begin(),group->agents.end(),0); // Add agents 0, 1, ...
     rgroups.resize(1);
@@ -447,8 +447,8 @@ void InitHeadless(){
     for(uint16_t i(0); i<num_agents; ++i){
       std::vector<std::vector<EnvironmentContainer<node_t,int>>> environ={environs[i]};
       if(Params::verbose)std::cout << "Creating group " << i << "\n";
-      groups[i]=new MACBSGroup(environ,{i});
-      MACBSGroup* group=groups[i];
+      groups[i].reset(new MACBSGroup(environ,{i}));
+      MACBSGroup* group=groups[i].get();
       rgroups[i]=i;
       if(i==0 && !gui){
         Timer::Timeout func(std::bind(&processSolution, std::placeholders::_1));
@@ -502,7 +502,7 @@ bool detectIndependence(){
           }
           // Combine groups i and j
           //groups[i]=new MACBSGroup(environs,groups[i]->agents);
-          MACBSGroup* toDelete(groups[rgroups[j]]);
+          //MACBSGroup* toDelete(groups[rgroups[j]]);
           //MACBSGroup* toDelete2(groups[i]);
           if(groups.find(rgroups[j])==groups.end()){
             std::cout << "ERROR: agent "<<j<<" belongs to group "<<rgroups[j]<<" but group not found\n";
@@ -538,7 +538,7 @@ bool detectIndependence(){
             }*/
           if(Params::verbose)std::cout << origgroup << "erased\n";
           groups.erase(origgroup);
-          delete toDelete;
+          //delete toDelete;
           break;
         }
         if (solution[i][a].t < solution[j][b].t) {
@@ -888,10 +888,10 @@ int MyCLHandler(char *argument[], int maxNumArgs){
       std::vector<node_t> wpts;
       std::istringstream is(line);
       is >> a >> b;
-      wpts.push_back(((DigraphEnvironment*)environs[0][0].environment)->nodes[a]);
-      wpts.push_back(((DigraphEnvironment*)environs[0][0].environment)->nodes[b]);
+      wpts.push_back(((DigraphEnvironment*)environs[0][0].environment.get())->nodes[a]);
+      wpts.push_back(((DigraphEnvironment*)environs[0][0].environment.get())->nodes[b]);
       waypoints.push_back(wpts);
-      ((DigraphEnvironment*)environs[agents][0].environment)->goal=waypoints[agents][1];
+      ((DigraphEnvironment*)environs[agents][0].environment.get())->goal=waypoints[agents][1];
       agents++;
       if(num_agents>0 && agents==num_agents){num_agents=agents;break;}
     }
@@ -966,7 +966,7 @@ int MyCLHandler(char *argument[], int maxNumArgs){
       std::vector<EnvironmentContainer<node_t,int>> ev;
       auto newEnv = new DigraphEnvironment(files[0].c_str(),files[1].c_str());
       ev.emplace_back("graph",newEnv,new GraphPerfectHeuristic(0,newEnv),0,1.0);
-      environs.push_back(ev);
+      environs.emplace_back(ev);
       agent++;
     }
     return 2;

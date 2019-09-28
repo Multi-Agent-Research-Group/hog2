@@ -196,7 +196,7 @@ namespace BiClique{
       std::pair<unsigned,unsigned> const& start,
       std::vector<unsigned>& left,
       std::vector<unsigned>& right){
-    unsigned minimum(std::max(L[start.first].size()+1,R[start.first].size()+1));
+    //unsigned minimum(std::max(L[start.first].size()+1,R[start.first].size()+1));
 
 // Omitting this part because we assume that no nodes are disconnected from start
 /*

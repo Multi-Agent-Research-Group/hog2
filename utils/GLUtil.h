@@ -161,6 +161,7 @@ void OutlineRect(GLdouble left, GLdouble top, GLdouble right, GLdouble bottom, d
 
 void DrawText(double x, double y, double z, double scale, const char *res);
 void DrawTextCentered(double x, double y, double z, double scale, const char *res);
+void DrawFmtTextCentered(double x, double y, double z, double scale, char const*const pFmtTxt, ...);
 
 
 namespace colors

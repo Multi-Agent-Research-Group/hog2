@@ -810,7 +810,6 @@ double Grid3DEnvironment::GCost(const xyztLoc &l1, const xyztLoc &l2) const
   static const float SQRT_22(round(sqrt(22)*multiplier));
   static const float SQRT_27(round(sqrt(27)*multiplier));
   switch(connectedness){
-    case 0:{return l1.sameLoc(getGoal()) && l1.sameLoc(l2)?0:multiplier;}
     case 1:{
              unsigned v(abs(l1.x-l2.x)+abs(l1.y-l2.y)+abs(l1.z-l2.z));
              switch(v){
@@ -877,6 +876,7 @@ double Grid3DEnvironment::GCost(const xyztLoc &l1, const xyztLoc &l2) const
              }else{return l1.sameLoc(getGoal()) && l1.sameLoc(l2)?0:multiplier;}
            }
   }
+  return l1.sameLoc(getGoal()) && l1.sameLoc(l2)?0:multiplier;
 }
 
 bool Grid3DEnvironment::LineOfSight(const xyztLoc &node, const xyztLoc &goal) const{
@@ -1022,9 +1022,9 @@ void Grid3DEnvironment::GLDrawLine(const xyztLoc &a, const xyztLoc &b) const
 	map->GetOpenGLCoord(a.x, a.y, xx1, yy1, zz1, rad);
 	map->GetOpenGLCoord(b.x, b.y, xx2, yy2, zz2, rad);
 	
-	double angle = atan2(yy1-yy2, xx1-xx2);
-	double xoff = sin(2*PI-angle)*rad*0.1;
-	double yoff = cos(2*PI-angle)*rad*0.1;
+	//double angle = atan2(yy1-yy2, xx1-xx2);
+	//double xoff = sin(2*PI-angle)*rad*0.1;
+	//double yoff = cos(2*PI-angle)*rad*0.1;
 
 	
 	

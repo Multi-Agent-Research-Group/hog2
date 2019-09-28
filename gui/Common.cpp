@@ -23,6 +23,7 @@
 #include <vector>
 #include <stdio.h>
 #include <stdint.h>
+#include <memory>
 
 #include "GLUtil.h"
 #include "Trackball.h"
@@ -37,11 +38,11 @@ const recVec gOrigin(0.0, 0.0, 0.0);
 
 using namespace std;
 
-static std::vector<commandLineCallbackData *> commandLineCallbacks;
-static std::vector<joystickCallbackData *> joystickCallbacks;
-static std::vector<mouseCallbackData *> mouseCallbacks;
-static std::vector<windowCallbackData *> windowCallbacks;
-static std::vector<frameCallbackData *> glDrawCallbacks;
+static std::vector<std::unique_ptr<commandLineCallbackData>> commandLineCallbacks;
+static std::vector<std::unique_ptr<joystickCallbackData>> joystickCallbacks;
+static std::vector<std::unique_ptr<mouseCallbackData>> mouseCallbacks;
+static std::vector<std::unique_ptr<windowCallbackData>> windowCallbacks;
+static std::vector<std::unique_ptr<frameCallbackData>> glDrawCallbacks;
 
 static keyboardCallbackData *keyboardCallbacks[256] = 
 { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -121,7 +122,7 @@ bool DoKeyboardCallbacks(pRecContext pContextInfo, unsigned char keyHit, tKeyboa
 
 void InstallFrameHandler(FrameCallback glCall, unsigned long windowID, void *userdata)
 {
-	glDrawCallbacks.push_back(new frameCallbackData(glCall, windowID, userdata));	
+	glDrawCallbacks.emplace_back(new frameCallbackData(glCall, windowID, userdata));	
 }
 
 void RemoveFrameHandler(FrameCallback glCall, unsigned long windowID, void *userdata)
@@ -132,9 +133,7 @@ void RemoveFrameHandler(FrameCallback glCall, unsigned long windowID, void *user
 				(glDrawCallbacks[x]->userData == userdata) &&
 				(glDrawCallbacks[x]->windowID == windowID))
 		{
-			delete glDrawCallbacks[x];
-			glDrawCallbacks[x] = glDrawCallbacks[glDrawCallbacks.size()-1];
-			glDrawCallbacks.pop_back();
+			glDrawCallbacks.erase(glDrawCallbacks.begin()+x);
 		}
 	}
 }
@@ -152,7 +151,7 @@ void HandleFrame(pRecContext pContextInfo, int viewport)
 
 void InstallJoystickHandler(JoystickCallback jC, void *userdata)
 {
-	joystickCallbacks.push_back(new joystickCallbackData(jC, userdata));	
+	joystickCallbacks.emplace_back(new joystickCallbackData(jC, userdata));	
 }
 
 void RemoveJoystickHandler(JoystickCallback jC, void *userdata)
@@ -162,9 +161,7 @@ void RemoveJoystickHandler(JoystickCallback jC, void *userdata)
 		if ((joystickCallbacks[x]->jC == jC) &&
 				(joystickCallbacks[x]->userData == userdata))
 		{
-			delete joystickCallbacks[x];
-			joystickCallbacks[x] = joystickCallbacks[joystickCallbacks.size()-1];
-			joystickCallbacks.pop_back();
+			joystickCallbacks.erase(joystickCallbacks.begin()+x);
 		}
 	}
 }
@@ -181,7 +178,7 @@ void HandleJoystickMovement(pRecContext pContextInfo, double panX, double panY)
 void InstallCommandLineHandler(CommandLineCallback CLC,
 															 const char *arg, const char *param, const char *usage)
 {
-	commandLineCallbacks.push_back(new commandLineCallbackData(CLC, arg, param, usage));
+	commandLineCallbacks.emplace_back(new commandLineCallbackData(CLC, arg, param, usage));
 }
 
 void PrintCommandLineArguments()
@@ -227,7 +224,7 @@ void ProcessCommandLineArgs(int argc, char *argv[])
 
 void InstallMouseClickHandler(MouseCallback mC)
 {
-	mouseCallbacks.push_back(new mouseCallbackData(mC));
+	mouseCallbacks.emplace_back(new mouseCallbackData(mC));
 }
 
 void RemoveMouseClickHandler(MouseCallback mC)
@@ -236,9 +233,7 @@ void RemoveMouseClickHandler(MouseCallback mC)
 	{
 		if (mouseCallbacks[x]->mC == mC)
 		{
-			delete mouseCallbacks[x];
-			mouseCallbacks[x] = mouseCallbacks[mouseCallbacks.size()-1];
-			mouseCallbacks.pop_back();
+			mouseCallbacks.erase(mouseCallbacks.begin()+x);
 		}
 	}
 }
@@ -259,7 +254,7 @@ bool HandleMouseClick(pRecContext pContextInfo, int x, int y, point3d where,
 
 void InstallWindowHandler(WindowCallback wC)
 {
-	windowCallbacks.push_back(new windowCallbackData(wC));
+	windowCallbacks.emplace_back(new windowCallbackData(wC));
 }
 
 void RemoveWindowHandler(WindowCallback wC)
@@ -268,9 +263,7 @@ void RemoveWindowHandler(WindowCallback wC)
 	{
 		if (windowCallbacks[x]->wC == wC)
 		{
-			delete windowCallbacks[x];
-			windowCallbacks[x] = windowCallbacks[windowCallbacks.size()-1];
-			windowCallbacks.pop_back();
+			windowCallbacks.erase(windowCallbacks.begin()+x);
 		}
 	}
 }
