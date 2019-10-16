@@ -885,3 +885,67 @@ void DrawFmtTextCentered(double x, double y, double z, double scale, char const*
   va_end (vaList) ;
   DrawTextCentered(x,y,z,scale,pTemp);
 }
+
+
+// Modified src from qt5 - released under GPL
+// https://code.woboq.org/qt5/qtbase/src/gui/painting/qpainterpath.cpp.html
+
+int getBezierPt( int n1 , int n2 , float perc )
+{
+    int diff = n2 - n1;
+
+    return n1 + ( diff * perc );
+}    
+
+// From https://stackoverflow.com/questions/37642168/how-to-convert-quadratic-bezier-curve-code-into-cubic-bezier-curve/37642695#37642695
+
+void cubicTo(float const& x1, float const& y1, // point 1
+float const& x2, float const& y2, // control point 1
+float const& x3, float const& y3, // control point 2
+float const& x4, float const& y4,
+float* xs, float* ys,
+float numItrs){ // point 2
+  float const inc(1.0/numItrs);
+  unsigned k(0);
+  for(float i(0); i<1; i+=inc){
+    // The Green Lines
+    xa = getPt( x1 , x2 , i );
+    ya = getPt( y1 , y2 , i );
+    xb = getPt( x2 , x3 , i );
+    yb = getPt( y2 , y3 , i );
+    xc = getPt( x3 , x4 , i );
+    yc = getPt( y3 , y4 , i );
+
+    // The Blue Line
+    xm = getPt( xa , xb , i );
+    ym = getPt( ya , yb , i );
+    xn = getPt( xb , xc , i );
+    yn = getPt( yb , yc , i );
+
+    // The Black Dot
+    xs[k] = getPt( xm , xn , i );
+    ys[k++] = getPt( ym , yn , i );
+  }
+}
+
+// From https://stackoverflow.com/questions/785097/how-do-i-implement-a-b%C3%A9zier-curve-in-c
+
+void drawQuadBezier(float const& x1, float const& y1, // point 1
+float const& x2, float const& y2, // control point 1
+float const& x3, float const& y3, // point 2
+float* xs, float* ys,
+unsigned numItrs){
+  float const inc(1.0/numItrs);
+  unsigned k(0);
+  for(float i(0); i<1; i+=inc){
+    // Interpolation line
+    xa = getPt( x1 , x2 , i );
+    ya = getPt( y1 , y2 , i );
+    xb = getPt( x2 , x3 , i );
+    yb = getPt( y2 , y3 , i );
+
+    // Point
+    xs[k] = getPt( xa , xb , i );
+    ys[k++] = getPt( ya , yb , i );
+  }
+}
