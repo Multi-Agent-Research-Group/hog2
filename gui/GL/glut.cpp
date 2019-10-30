@@ -32,6 +32,7 @@ void gluLookAt (GLdouble eyeX, GLdouble eyeY, GLdouble eyeZ,
 void glutBitmapCharacter(void *font, int character) { }
 int glutBitmapWidth(void *font, int character) { return 0; }
 void glutStrokeCharacter(void *font, int character) { }
+void glutStrokeRoman(void *font, int character) { }
 int glutStrokeWidth(void *font, int character) { return 0; }
 int glutBitmapLength(void *font, const unsigned char *string) { return 0; }
 int glutStrokeLength(void *font, const unsigned char *string) { return 0; }

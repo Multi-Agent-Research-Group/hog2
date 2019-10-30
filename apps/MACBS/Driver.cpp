@@ -310,6 +310,7 @@ void InstallHandlers()
   InstallCommandLineHandler(MyCLHandler, "-ctype", "-ctype", "Constraint type: \n\t1: identical constraints\n\t2: Pyramid constraints\n\t3: Collision constraints (sub-optimal)\n\t4: Time range constraints (sub-optimal)\n\t5: Mutual Conflict set constraints\n\t6: Overlap Constraints\n\t7:Box constraints (sub-optimal)\n\t8:1xn TimeRange\n\t9:nxm TimeRange");
   InstallCommandLineHandler(MyCLHandler, "-pc", "-pc", "prioritize conflicts");
   InstallCommandLineHandler(MyCLHandler, "-apriori", "-apriori", "Use a-priori computed conflict detection");
+  InstallCommandLineHandler(MyCLHandler, "-extended", "-extended", "Use extended area a-priori computed conflict detection");
   InstallCommandLineHandler(MyCLHandler, "-cct", "-cct", "Conflict count table");
   InstallCommandLineHandler(MyCLHandler, "-uniqcost", "-uniqcost <value>", "Use randomized unique costs up to <value>");
   InstallCommandLineHandler(MyCLHandler, "-skip", "-skip", "Ship-ahead logic");
@@ -890,6 +891,19 @@ int MyCLHandler(char *argument[], int maxNumArgs){
   if(strcmp(argument[0], "-skip") == 0)
   {
     Params::skip = true;
+    return 1;
+  }
+  if(strcmp(argument[0], "-extended") == 0)
+  {
+    if(environs.empty()){
+      std::cout<<"-scenfile must be specified before -extended\n";
+      exit(1);
+    }
+    Params::apriori = true;
+    Params::extended = true;
+    loadExtendedAreaCollisionTable<Vector3D>(Params::array, Params::indices, Params::ivls,
+                                             environs[0][0].environment->branchingFactor(),
+                                             xyztLoc::TIME_RESOLUTION_U, agentRadius, agentRadius);
     return 1;
   }
   if(strcmp(argument[0], "-apriori") == 0)

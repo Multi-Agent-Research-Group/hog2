@@ -85,6 +85,7 @@ struct Params {
   static bool mutualconstraints;
   static bool mutualtimerange;
   static bool apriori;
+  static bool extended;
   static bool overlapconstraints;
   static bool verbose;
   static bool astarverbose;
@@ -115,6 +116,7 @@ bool Params::extrinsicconstraints = false;
 bool Params::mutualconstraints = false;
 bool Params::mutualtimerange = false;
 bool Params::apriori = false;
+bool Params::extended = false;
 bool Params::overlapconstraints = false;
 bool Params::complete = false;
 bool Params::verbose = false;
@@ -2745,7 +2747,7 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
       //std::cout << "bad\n";
     //}
     //if(Params::boxconstraints?Box<state>(a[xTime], a[xNextTime]).ConflictsWith(b[yTime], b[yNextTime]):collisionCheck3DAPriori(a[xTime], a[xNextTime], b[yTime], b[yNextTime], agentRadius)){
-    if(Params::boxconstraints?Box<state>(a[xTime], a[xNextTime]).ConflictsWith(b[yTime], b[yNextTime]):collisionCheck3D(a[xTime], a[xNextTime], b[yTime], b[yNextTime], agentRadius)){
+    if(Params::boxconstraints?Box<state>(a[xTime], a[xNextTime]).ConflictsWith(b[yTime], b[yNextTime]):collisionCheck3D(a[xTime], a[xNextTime], b[yTime], b[yNextTime], agentRadius,agentRadius)){
       ++conflict.first;
       if(Params::cct){
         location.setcct(x,y,xTime,yTime);
@@ -3361,92 +3363,212 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << b1 << "-->
                   static std::vector<std::pair<float,float>> rivls;
                   rivls.resize(0);
                   if(Params::apriori){
-                    getVertexAnnotatedBiclique(a1,a2,b1,b2,
-                                               a1.t/state::TIME_RESOLUTION_D,
-                                               a2.t/state::TIME_RESOLUTION_D,
-                                               b1.t/state::TIME_RESOLUTION_D,
-                                               b2.t/state::TIME_RESOLUTION_D,
-                                               Params::array, Params::indices,
-                                               Params::ivls, left, right, livls, rivls,
-                                               bf,agentRadius,agentRadius);
-                    /*std::vector<unsigned> left1;
-                    std::vector<unsigned> right1;
-                    std::vector<std::pair<float,float>> livls1;
-                    std::vector<std::pair<float,float>> rivls1;
-                    getVertexAnnotatedBiclique(a1,a2,b1,b2,
-                                               a1.t/state::TIME_RESOLUTION_D,
-                                               a2.t/state::TIME_RESOLUTION_D,
-                                               b1.t/state::TIME_RESOLUTION_D,
-                                               b2.t/state::TIME_RESOLUTION_D,
-                                               left1, right1, livls1, rivls1,
-                                               bf,agentRadius,agentRadius);
-                     */
-                    bool swap=false, ortho=false, y=false;
-                    locationIndex(a1,b1,swap,ortho,y,bf); // Get rotation params from reverse action
-                    state src(a1);
-                    state dest;
-                    //bool found(false);
-                    for(unsigned i(0); i<left.size(); ++i){
-                      auto move(invertMirroredMove(left[i],swap,ortho,y,bf));
-                      //if(std::find(left1.begin(),left1.end(),move)==left1.end()){
+                    if(Params::extended){
+                      signed d(getDist(bf));
+                      auto span(d*2+1);
+                      getExtendedAreaVertexAnnotatedBiclique(a1,a2,b1,b2,
+                                                 a1.t/state::TIME_RESOLUTION_D,
+                                                 a2.t/state::TIME_RESOLUTION_D,
+                                                 b1.t/state::TIME_RESOLUTION_D,
+                                                 b2.t/state::TIME_RESOLUTION_D,
+                                                 Params::array, Params::indices,
+                                                 Params::ivls, left, right, livls, rivls,
+                                                 bf,span*span,agentRadius,agentRadius);
+                      /*std::vector<unsigned> left1;
+                        std::vector<unsigned> right1;
+                        std::vector<std::pair<float,float>> livls1;
+                        std::vector<std::pair<float,float>> rivls1;
+                        getExtendedAreaVertexAnnotatedBiclique(a1,a2,b1,b2,
+                        a1.t/state::TIME_RESOLUTION_D,
+                        a2.t/state::TIME_RESOLUTION_D,
+                        b1.t/state::TIME_RESOLUTION_D,
+                        b2.t/state::TIME_RESOLUTION_D,
+                        left1, right1, livls1, rivls1,
+                        bf,agentRadius,agentRadius);
+                       */
+                      bool swap=false, ortho=false, y=false;
+                      locationIndex(a1,b1,swap,ortho,y,bf); // Get rotation params from reverse action
+                      state dest;
+                      bool found(false);
+                      unsigned p,q;
+                      signed xx,yy;
+                      for(unsigned i(0); i<left.size(); ++i){
+                        p=left[i]/bf;
+                        q=left[i]%bf;
+                        xx=p%span;
+                        yy=p/span;
+                        state src(a1);
+                        src.x+=xx-d; // relative to a1
+                        if(signed(src.x)<0)continue;
+                        src.y+=yy-d; // relative to a1
+                        if(signed(src.y)<0)continue;
+
+                        auto move(invertMirroredMove(q,swap,ortho,y,bf));
+                        //if(std::find(left1.begin(),left1.end(),move)==left1.end()){
                         //assert(!"Integrity of biclique is bad");
-                      //}
-                      fetch(a1,move,dest,bf);
-                      //src.x=a1.x;
-                      //src.y=a1.y;
-                      src.t=std::max(0.0,b1.t+floor(livls[i].first*state::TIME_RESOLUTION_D));
-                      dest.t=std::max(0.0,b1.t+ceil(livls[i].second*state::TIME_RESOLUTION_D));
-                      if(src.t>a1.t)src.t=a1.t;
-                      if(dest.t<=src.t)dest.t=src.t+1;
-                      //if(dest.t==src.t)dest.t++;
-                      //assert(src.t<=a1.t && dest.t>=a1.t);
-                      //if(moveA==move)found=true;
-                      c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
-                    }
-                    // In case left was empty...
-                    if(left.empty()){
-                      auto intvl(getForbiddenInterval(a1,a2,a1.t/xyztLoc::TIME_RESOLUTION_D,a2.t/xyztLoc::TIME_RESOLUTION_D,
-                            agentRadius,b1,b2,b1.t/state::TIME_RESOLUTION_D,b2.t/state::TIME_RESOLUTION_D,agentRadius));
-                      // Done if no overlap with current range, or no overlap with start delay
-                      src.t=std::max(0.0,b1.t+floor(intvl.first*state::TIME_RESOLUTION_D));
-                      dest=a2;
-                      dest.t=std::max(0.0,b1.t+ceil(intvl.second*state::TIME_RESOLUTION_D));
-                      c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
-                    }
-                    //assert(found&&"Core action A was not added!");
-                    //found=false;
-                    // Do the same for the other side of biclique...
-                    //swap=false; ortho=false; y=false;
-                    //locationIndex(b2,b1,swap,ortho,y,bf); // Get rotation params from reverse action
-                    src=b1;
-                    for(unsigned i(0); i<right.size(); ++i){
-                      //auto move(getMirroredMove(right[i],swap,ortho,y,bf));
-                      auto move(invertMirroredMove(right[i],swap,ortho,y,bf));
-                      //if(std::find(right1.begin(),right1.end(),move)==right1.end()){
+                        //}
+                        fetch(src,move,dest,bf);
+                        //src.x=a1.x;
+                        //src.y=a1.y;
+                        src.t=std::max(0.0,b1.t+floor(livls[i].first*state::TIME_RESOLUTION_D));
+                        dest.t=std::max(0.0,b1.t+ceil(livls[i].second*state::TIME_RESOLUTION_D));
+                        if(src.t>a1.t)src.t=a1.t;
+                        if(dest.t<=src.t)dest.t=src.t+1;
+                        //if(dest.t==src.t)dest.t++;
+                        //assert(src.t<=a1.t && dest.t>=a1.t);
+                        //if(moveA==move)found=true;
+                        if(src.sameLoc(a1) && dest.sameLoc(a2)) found=true;
+                        c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
+                      }
+                      // In case left was empty...
+                      if(left.empty()){
+                        auto intvl(getForbiddenInterval(a1,a2,a1.t/xyztLoc::TIME_RESOLUTION_D,a2.t/xyztLoc::TIME_RESOLUTION_D,
+                                                        agentRadius,b1,b2,b1.t/state::TIME_RESOLUTION_D,b2.t/state::TIME_RESOLUTION_D,agentRadius));
+                        // Done if no overlap with current range, or no overlap with start delay
+                        auto src(a1);
+                        src.t=std::max(0.0,b1.t+floor(intvl.first*state::TIME_RESOLUTION_D));
+                        dest=a2;
+                        dest.t=std::max(0.0,b1.t+ceil(intvl.second*state::TIME_RESOLUTION_D));
+                        if(src.t>a1.t)src.t=a1.t;
+                        if(dest.t<=src.t)dest.t=src.t+1;
+                        if(src.sameLoc(a1) && dest.sameLoc(a2)) found=true;
+                        c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
+                      }
+                      assert(found&&"Core action A was not added!");
+                      found=false;
+                      // Do the same for the other side of biclique...
+                      //swap=false; ortho=false; y=false;
+                      //locationIndex(b2,b1,swap,ortho,y,bf); // Get rotation params from reverse action
+                      for(unsigned i(0); i<right.size(); ++i){
+                        p=right[i]/bf;
+                        q=right[i]%bf;
+                        xx=p%span;
+                        yy=p/span;
+                        state src(b1);
+                        src.x+=xx-d; // relative to b1
+                        if(signed(src.x)<0)continue;
+                        src.y+=yy-d; // relative to b1
+                        if(signed(src.y)<0)continue;
+                        //auto move(getMirroredMove(right[i],swap,ortho,y,bf));
+                        auto move(invertMirroredMove(q,swap,ortho,y,bf));
+                        //if(std::find(right1.begin(),right1.end(),move)==right1.end()){
                         //assert(!"Integrity of biclique is bad");
-                      //}
-                      fetch(b1,move,dest,bf);
-                      //src.x=b1.x;
-                      //src.y=b1.y;
-                      // Yes, a1.t is correct (delays are relative to a1)
-                      src.t=std::max(0.0,a1.t+floor(rivls[i].first*state::TIME_RESOLUTION_D));
-                      dest.t=std::max(0.0,a1.t+ceil(rivls[i].second*state::TIME_RESOLUTION_D));
-                      if(src.t>b1.t)src.t=b1.t;
-                      if(dest.t<=src.t)dest.t=src.t+1;
-                      //assert(src.t<=b1.t && dest.t>=b1.t);
-                      //if(moveB==move)found=true;
-                      c2.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
+                        //}
+                        fetch(src,move,dest,bf);
+                        //src.x=b1.x;
+                        //src.y=b1.y;
+                        // Yes, a1.t is correct (delays are relative to a1)
+                        src.t=std::max(0.0,a1.t+floor(rivls[i].first*state::TIME_RESOLUTION_D));
+                        dest.t=std::max(0.0,a1.t+ceil(rivls[i].second*state::TIME_RESOLUTION_D));
+                        if(src.t>b1.t)src.t=b1.t;
+                        if(dest.t<=src.t)dest.t=src.t+1;
+                        //assert(src.t<=b1.t && dest.t>=b1.t);
+                        //if(moveB==move)found=true;
+                        if(src.sameLoc(b1) && dest.sameLoc(b2)) found=true;
+                        c2.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
+                      }
+                      if(right.empty()){
+                        auto intvl(getForbiddenInterval(b1,b2,b1.t/xyztLoc::TIME_RESOLUTION_D,b2.t/xyztLoc::TIME_RESOLUTION_D,
+                                                        agentRadius,a1,a2,a1.t/state::TIME_RESOLUTION_D,a2.t/state::TIME_RESOLUTION_D,agentRadius));
+                        // Done if no overlap with current range, or no overlap with start delay
+                        auto src(b1);
+                        src.t=std::max(0.0,a1.t+floor(intvl.first*state::TIME_RESOLUTION_D));
+                        dest=b2;
+                        dest.t=std::max(0.0,a1.t+ceil(intvl.second*state::TIME_RESOLUTION_D));
+                        if(src.t>b1.t)src.t=b1.t;
+                        if(dest.t<=src.t)dest.t=src.t+1;
+                        if(src.sameLoc(b1) && dest.sameLoc(b2)) found=true;
+                        c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
+                      }
+                      assert(found&&"Core action B was not added!");
+                    }else{
+                      getVertexAnnotatedBiclique(a1,a2,b1,b2,
+                                                 a1.t/state::TIME_RESOLUTION_D,
+                                                 a2.t/state::TIME_RESOLUTION_D,
+                                                 b1.t/state::TIME_RESOLUTION_D,
+                                                 b2.t/state::TIME_RESOLUTION_D,
+                                                 Params::array, Params::indices,
+                                                 Params::ivls, left, right, livls, rivls,
+                                                 bf,agentRadius,agentRadius);
+                      /*std::vector<unsigned> left1;
+                        std::vector<unsigned> right1;
+                        std::vector<std::pair<float,float>> livls1;
+                        std::vector<std::pair<float,float>> rivls1;
+                        getVertexAnnotatedBiclique(a1,a2,b1,b2,
+                        a1.t/state::TIME_RESOLUTION_D,
+                        a2.t/state::TIME_RESOLUTION_D,
+                        b1.t/state::TIME_RESOLUTION_D,
+                        b2.t/state::TIME_RESOLUTION_D,
+                        left1, right1, livls1, rivls1,
+                        bf,agentRadius,agentRadius);
+                       */
+                      bool swap=false, ortho=false, y=false;
+                      locationIndex(a1,b1,swap,ortho,y,bf); // Get rotation params from reverse action
+                      state src(a1);
+                      state dest;
+                      //bool found(false);
+                      for(unsigned i(0); i<left.size(); ++i){
+                        auto move(invertMirroredMove(left[i],swap,ortho,y,bf));
+                        //if(std::find(left1.begin(),left1.end(),move)==left1.end()){
+                        //assert(!"Integrity of biclique is bad");
+                        //}
+                        fetch(a1,move,dest,bf);
+                        //src.x=a1.x;
+                        //src.y=a1.y;
+                        src.t=std::max(0.0,b1.t+floor(livls[i].first*state::TIME_RESOLUTION_D));
+                        dest.t=std::max(0.0,b1.t+ceil(livls[i].second*state::TIME_RESOLUTION_D));
+                        if(src.t>a1.t)src.t=a1.t;
+                        if(dest.t<=src.t)dest.t=src.t+1;
+                        //if(dest.t==src.t)dest.t++;
+                        //assert(src.t<=a1.t && dest.t>=a1.t);
+                        //if(moveA==move)found=true;
+                        c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
+                      }
+                      // In case left was empty...
+                      if(left.empty()){
+                        auto intvl(getForbiddenInterval(a1,a2,a1.t/xyztLoc::TIME_RESOLUTION_D,a2.t/xyztLoc::TIME_RESOLUTION_D,
+                                                        agentRadius,b1,b2,b1.t/state::TIME_RESOLUTION_D,b2.t/state::TIME_RESOLUTION_D,agentRadius));
+                        // Done if no overlap with current range, or no overlap with start delay
+                        src.t=std::max(0.0,b1.t+floor(intvl.first*state::TIME_RESOLUTION_D));
+                        dest=a2;
+                        dest.t=std::max(0.0,b1.t+ceil(intvl.second*state::TIME_RESOLUTION_D));
+                        c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
+                      }
+                      //assert(found&&"Core action A was not added!");
+                      //found=false;
+                      // Do the same for the other side of biclique...
+                      //swap=false; ortho=false; y=false;
+                      //locationIndex(b2,b1,swap,ortho,y,bf); // Get rotation params from reverse action
+                      src=b1;
+                      for(unsigned i(0); i<right.size(); ++i){
+                        //auto move(getMirroredMove(right[i],swap,ortho,y,bf));
+                        auto move(invertMirroredMove(right[i],swap,ortho,y,bf));
+                        //if(std::find(right1.begin(),right1.end(),move)==right1.end()){
+                        //assert(!"Integrity of biclique is bad");
+                        //}
+                        fetch(b1,move,dest,bf);
+                        //src.x=b1.x;
+                        //src.y=b1.y;
+                        // Yes, a1.t is correct (delays are relative to a1)
+                        src.t=std::max(0.0,a1.t+floor(rivls[i].first*state::TIME_RESOLUTION_D));
+                        dest.t=std::max(0.0,a1.t+ceil(rivls[i].second*state::TIME_RESOLUTION_D));
+                        if(src.t>b1.t)src.t=b1.t;
+                        if(dest.t<=src.t)dest.t=src.t+1;
+                        //assert(src.t<=b1.t && dest.t>=b1.t);
+                        //if(moveB==move)found=true;
+                        c2.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
+                      }
+                      if(right.empty()){
+                        auto intvl(getForbiddenInterval(b1,b2,b1.t/xyztLoc::TIME_RESOLUTION_D,b2.t/xyztLoc::TIME_RESOLUTION_D,
+                                                        agentRadius,a1,a2,a1.t/state::TIME_RESOLUTION_D,a2.t/state::TIME_RESOLUTION_D,agentRadius));
+                        // Done if no overlap with current range, or no overlap with start delay
+                        src.t=std::max(0.0,a1.t+floor(intvl.first*state::TIME_RESOLUTION_D));
+                        dest=b2;
+                        dest.t=std::max(0.0,a1.t+ceil(intvl.second*state::TIME_RESOLUTION_D));
+                        c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
+                      }
+                      //assert(found&&"Core action B was not added!");
                     }
-                    if(right.empty()){
-                      auto intvl(getForbiddenInterval(b1,b2,b1.t/xyztLoc::TIME_RESOLUTION_D,b2.t/xyztLoc::TIME_RESOLUTION_D,
-                            agentRadius,a1,a2,a1.t/state::TIME_RESOLUTION_D,a2.t/state::TIME_RESOLUTION_D,agentRadius));
-                      // Done if no overlap with current range, or no overlap with start delay
-                      src.t=std::max(0.0,a1.t+floor(intvl.first*state::TIME_RESOLUTION_D));
-                      dest=b2;
-                      dest.t=std::max(0.0,a1.t+ceil(intvl.second*state::TIME_RESOLUTION_D));
-                      c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
-                    }
-                    //assert(found&&"Core action B was not added!");
                   }else{
                     getVertexAnnotatedBiclique(a1,a2,b1,b2,
                                                a1.t/state::TIME_RESOLUTION_D,

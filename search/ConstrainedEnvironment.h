@@ -356,8 +356,8 @@ class Collision : public Constraint<State> {
     virtual ~Collision(){}
     // Check whether the opposing action has a conflict with this one
     virtual double ConflictTime(State const& from, State const& to) const {return collisionTime3D(from,to,this->start_state,this->end_state,agentRadius);}
-    virtual bool ConflictsWith(State const& from, State const& to) const {return collisionCheck3D(from,to,this->start_state,this->end_state,agentRadius);}
-    virtual bool ConflictsWith(Collision<State> const& x) const {return collisionCheck3D(this->start_state,this->end_state,x.start_state,x.end_state,agentRadius,x.agentRadius);}
+    virtual bool ConflictsWith(State const& from, State const& to) const {return collisionCheck3D(from,to,this->start_state,this->end_state,agentRadius,agentRadius);}
+    virtual bool ConflictsWith(Collision<State> const& x) const {return collisionCheck3D(this->start_state,this->end_state,x.start_state,x.end_state,agentRadius,x.agentRadius,agentRadius);}
     virtual void OpenGLDraw(MapInterface*) const {}
     double agentRadius;
 };
@@ -370,8 +370,8 @@ class Conditional : public Constraint<State> {
     virtual ~Conditional(){}
     // Check whether the opposing action has a conflict with this one
     virtual double ConflictTime(State const& from, State const& to) const {return collisionTime3D(from,to,this->start_state,this->end_state,agentRadius);}
-    virtual bool ConflictsWith(State const& from, State const& to) const {return !ignore && collisionCheck3D(from,to,this->start_state,this->end_state,agentRadius);}
-    virtual bool ConflictsWith(Conditional<State> const& x) const {return collisionCheck3D(this->start_state,this->end_state,x.start_state,x.end_state,agentRadius,x.agentRadius);}
+    virtual bool ConflictsWith(State const& from, State const& to) const {return !ignore && collisionCheck3D(from,to,this->start_state,this->end_state,agentRadius,agentRadius);}
+    virtual bool ConflictsWith(Conditional<State> const& x) const {return collisionCheck3D(this->start_state,this->end_state,x.start_state,x.end_state,agentRadius,x.agentRadius,agentRadius);}
     virtual void OpenGLDraw(MapInterface*) const {}
     double agentRadius;
     static bool ignore;
@@ -387,8 +387,8 @@ class Probable : public Constraint<State> {
     virtual ~Probable(){}
     // Check whether the opposing action has a conflict with this one
     virtual double ConflictTime(State const& from, State const& to) const {return collisionTime3D(from,to,this->start_state,this->end_state,agentRadius);}
-    virtual bool ConflictsWith(State const& from, State const& to) const { return rand()%cond>=prob && collisionCheck3D(from,to,this->start_state,this->end_state,agentRadius);}
-    virtual bool ConflictsWith(Probable<State> const& x) const {return collisionCheck3D(this->start_state,this->end_state,x.start_state,x.end_state,agentRadius,x.agentRadius);}
+    virtual bool ConflictsWith(State const& from, State const& to) const { return rand()%cond>=prob && collisionCheck3D(from,to,this->start_state,this->end_state,agentRadius,agentRadius);}
+    virtual bool ConflictsWith(Probable<State> const& x) const {return collisionCheck3D(this->start_state,this->end_state,x.start_state,x.end_state,agentRadius,x.agentRadius,agentRadius);}
     virtual void OpenGLDraw(MapInterface*) const {}
     double agentRadius;
     static unsigned prob;
@@ -422,8 +422,8 @@ class XORCollision : public XOR<State> {
     virtual Constraint<State>* Swap()const{return new XORCollision<State>(this->pos_start,this->pos_end,this->start_state,this->end_state,this->negative);}
     // Check whether the opposing action has a conflict with this one
     virtual double ConflictTime(State const& from, State const& to) const {return collisionTime3D(from,to,this->start_state,this->end_state,agentRadius);}
-    virtual bool ConflictsWith(State const& from, State const& to) const {return collisionCheck3D(from,to,this->start_state,this->end_state,agentRadius);}
-    virtual bool ConflictsWith(XORCollision<State> const& x) const {return collisionCheck3D(this->start_state,this->end_state,x.start_state,x.end_state,agentRadius,x.agentRadius);}
+    virtual bool ConflictsWith(State const& from, State const& to) const {return collisionCheck3D(from,to,this->start_state,this->end_state,agentRadius,agentRadius);}
+    virtual bool ConflictsWith(XORCollision<State> const& x) const {return collisionCheck3D(this->start_state,this->end_state,x.start_state,x.end_state,agentRadius,x.agentRadius,agentRadius);}
     virtual void OpenGLDraw(MapInterface*) const {}
     double agentRadius;
     State pos_start;
@@ -464,7 +464,7 @@ class CollisionDetector : public ConflictDetector<State> {
   public:
     CollisionDetector(double radius):ConflictDetector<State>(),agentRadius(radius){}
     inline virtual bool HasConflict(State const& A1, State const& A2, State const& B1, State const& B2)const{
-      return collisionCheck3D(A1,A2,B1,B2,agentRadius);
+      return collisionCheck3D(A1,A2,B1,B2,agentRadius,agentRadius);
     }
     inline virtual Constraint<State>* GetConstraint(State const& A1, State const& A2, State const& B1, State const& B2)const{
        return new Collision<State>(B1,B2,agentRadius);
@@ -568,6 +568,9 @@ class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
       Identical<State> tmp(from,to);
       constraints.findOverlapping((Constraint<State>*)&tmp,cs);
       for(auto const& s:cs){
+        if(s->start_state.sameLoc(from) && s->end_state.sameLoc(to)){
+          std::cout << "Matched " << from << "-->" << to << " with " << s->start_state << "-->" << s->end_state << " out of "<<cs.size() << "/"<<constraints.size() << " matches\n";
+        } 
         if(s->ConflictsWith(from,to))return true;
       }
       return false;

@@ -95,8 +95,8 @@ fi
 
 if [[ $APRIORI = true ]]; then
   APRIORI="-apriori"
-else
   DESCRIP="${DESCRIP}_APRIORI"
+else
   APRIORI=""
 fi
 
@@ -222,25 +222,36 @@ for d in "${!DOMAIN[@]}"; do
         SCENARIOSUFFIX=".scen"
       fi
 
-      for ((a=${START}; a<=${STOP}; a+=${INC})); do
+      a=2
+      last=512
+      min=$a
+      while [[ $last -ne $(( $min+1 )) ]]; do
+      #for ((a=${START}; a<=${STOP}; a+=${INC})); do
         SCENPRIOR="-nagents ${a} "
         FILENAME=$(printf "${ALG}_${dname}_${DESCRIP}_%02d_%03d.txt" ${BFACTOR[$b]} ${i})
         if [[ ${ALG} == "icts" ]]; then
           MOV="-agentType ${BFACTOR[$b]}"
           cmd="${BINDIR}/${ALG} -w ${W} -seed ${a} -mode b -killtime $KILLTIME -killmem $KILLMEM ${MOV} ${SCENPRIOR}${SCENARIOPREFIX}/${dname}-${i}${SCENARIOSUFFIX} $ID $DISAPPEAR -timeRes $RES -radius $RADIUS -verify -quiet -nogui"
           echo $cmd $FILENAME
-          time $cmd >> /output/$FILENAME
-          if [ $? -ne 0 ]; then
-            echo "Exited at ${a}"
-            break
-          fi
+          stdbuf -oL $cmd >> /output/$FILENAME
         else
-          cmd="${BINDIR}/${ALG} -seed ${a} -killtime $KILLTIME -killmem $KILLMEM ${SCENPRIOR}${MOV} ${SCENARIOPREFIX}/${dname}-${i}${SCENARIOSUFFIX} $BP $ASYM $VC $PC $CAT $XOR $CCT $COMPLETE $OVERLOAD $SUBOPT $TOPTWO $GREEDY $ID $APRIORI $DISAPPEAR -resolution $RES -ctype $CTYPE -radius $RADIUS -killmem $KILLMEM -verify -quiet -nogui -mergeThreshold 9999999"
+          cmd="${BINDIR}/${ALG} -seed ${a} -killtime $KILLTIME -killmem $KILLMEM ${SCENPRIOR}${MOV} ${SCENARIOPREFIX}/${dname}-${i}${SCENARIOSUFFIX} $BP $ASYM $VC $PC $CAT $XOR $CCT $COMPLETE $OVERLOAD $SUBOPT $TOPTWO $GREEDY $ID $DISAPPEAR -resolution $RES -ctype $CTYPE -radius $RADIUS -killmem $KILLMEM -verify -quiet -nogui -mergeThreshold 9999999 $APRIORI"
           echo "$cmd >> $FILENAME"
-          time $cmd >> /output/$FILENAME
-          if [ $? -ne 0 ]; then
-            echo "Exited at ${a}"
-            break
+          stdbuf -oL $cmd >> /output/$FILENAME
+
+          if [ $? -eq 0 ]; then
+            min=$a
+            if [[ $(( $a*2 )) -lt $last ]]; then
+              a=$(( $a*2 ))
+            else
+              a=$(( ($a + $last)/2 ))
+            fi
+          else
+            last=$a
+            a=$(( ($min + $last)/2 ))
+          fi
+          if [[ $min -gt $a ]]; then
+            a=$(( $min +1 ))
           fi
         fi
       done

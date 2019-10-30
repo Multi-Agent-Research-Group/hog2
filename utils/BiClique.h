@@ -153,6 +153,13 @@ namespace BiClique{
     unsigned k(rDegree-1); // minus 1 because we always include the start vertex
     static std::vector<unsigned> cmn(L[start.first]); // Start test with this...
     static std::vector<unsigned> tmp;
+
+    // Punt!
+    left=L[start.first];
+    right.push_back(start.second);
+    return true;
+
+    // The following might be required, but is too expensive.
     do {
       //for(auto const& g:d)
         //std::cout << g << " ";

@@ -1662,7 +1662,6 @@ static unsigned getNumCases(unsigned conn){
 // 0  1  2
 //----------------
 // Simultaneously, return ops that happened to translate (swap,ortho,y)
-// 3-1 TTPs = basic fighter maneuvers
 template <typename state>
 signed locationIndex(state a, state b, bool& swap, bool& ortho, bool& y, unsigned conn){
   const unsigned dist(getDist(conn));
@@ -1725,13 +1724,14 @@ signed locationIndex(state a, state b, bool& swap, bool& ortho, bool& y, unsigne
 
 template <typename state>
 static void fromLocationIndex(signed ix, state& a, state& b, unsigned conn){
+  const unsigned offset(100);
   unsigned dist(getDist(conn));
-  b.x=b.y=dist;
-  a.x=a.y=0;
+  b.x=b.y=dist+offset;
+  a.x=a.y=offset;
   for(int i(0); i<dist+1; ++i){
-    a.y=i;
+    a.y=i+offset;
     for(int j(0); j<dist+1-i; ++j){
-      a.x=j+i;
+      a.x=j+i+offset;
       if(--ix<0)break;
     }
     if(ix<0)break;
@@ -1848,6 +1848,7 @@ static signed getCaseNumber(state const& A1, state const& A2, state const& B1, s
   return li + moveA*num + moveB*num*bf; 
 }
 
+// Flatten a vector of a vector of pairs into a single vector
 static void encodeIvls(std::vector<std::vector<std::pair<float,float>>> const& input,
                        std::vector<float>& output){
   if(input.size()){
@@ -2078,6 +2079,183 @@ void getBiclique(state const& a1,
 }
 
 template <typename state>
+void getExtendedAreaBiclique(state const& a1,
+                 state const& a2,
+                 state const& b1,
+                 state const& b2,
+                 float startTimeA,
+                 float endTimeA,
+                 float startTimeB,
+                 float endTimeB,
+                 std::vector<unsigned>& left,
+                 std::vector<unsigned>& right,
+                 unsigned branchingFactor,
+                 float rA=0.25,
+                 float rB=0.25){
+  auto core(getForbiddenInterval(a1,a2,0,endTimeA-startTimeA,rA,b1,b2,0,endTimeB-startTimeB,rB));
+  //std::cout << "getExtendedAreaBiclique("<<a1<<","<<a2<<","<<b1<<","<<b2<<","<<startTimeA<<","<<endTimeA<<","<<startTimeB<<","<<endTimeB<<","<<branchingFactor<<","<<rA<<","<<rB<<")=<"<<core.first<<","<<core.second<<">,";
+  if(core.first<core.second){
+    // There is a collision. Now, we have to check surrounding moves in order to build the biclique and set the bits.
+    // Set the core actions
+    // Determine the mutually conflicting set...
+    static std::vector<std::vector<unsigned>> fwd;
+    fwd.resize(0);
+    fwd.resize(1,std::vector<unsigned>(1)); // The 0th element is the collsion between a1,b1.
+    fwd.reserve(branchingFactor);
+    static std::vector<std::vector<unsigned>> rwd;
+    rwd.resize(0);
+    rwd.resize(1,std::vector<unsigned>(1));
+    rwd.reserve(branchingFactor);
+    signed d(getDist(branchingFactor));
+    auto span(d*2+1);
+    auto spansq(span*span);
+    signed x,y,ix;
+    unsigned amap[4096];
+    unsigned bmap[4096];
+    static std::vector<unsigned> armap;
+    armap.resize(1,1);
+    armap.reserve(branchingFactor*span);
+    static std::vector<unsigned> brmap;
+    brmap.resize(1,1);
+    brmap.reserve(branchingFactor*span);
+    static std::pair<unsigned,unsigned> conf(0,0);
+    ////////////////////////////////////////////////////////////////
+    // Determine the set of actions that conflict with the core pair
+    // This is the left side of the bipartite graph
+    ////////////////////////////////////////////////////////////////
+    // For each position relative to a1
+    // Number from bottom left to upper right
+    for(unsigned p(0); p<spansq; ++p){ 
+      x=p%span;
+      y=p/span;
+      state as(a1);
+      as.x+=x-d; // relative to a1
+      as.y+=y-d; // relative to a1
+      for(unsigned i(0); i<branchingFactor; ++i){
+        state a;
+        float end(fetch(as,i,a,branchingFactor));
+        auto ivl(getForbiddenInterval(as,a,0,end,rA,b1,b2,0,endTimeB-startTimeB,rB));
+        if(ivl.first<ivl.second && !(core.first>ivl.second || core.second < ivl.first)){
+          //std::cout << ax1 << "<->" << as[a] << " " << bx1 << "<->" << bx2 << " => "; 
+          //if(collisionCheck3D(ax1, as[a], bx1, bx2, agentRadius))
+          //if(collisionCheck3DAPriori(ax1, as[a], bx1, bx2, agentRadius))
+          //std::cout << "CRASH\n";
+          ix=p*branchingFactor+i;
+          if(a2.sameLoc(a) && as.sameLoc(a1)){
+            amap[ix]=0;
+            armap[0]=ix;
+            //std::cout << "A " << ix << "\n";
+          }else{
+            amap[ix]=fwd.size();
+            armap.push_back(ix);
+            fwd.push_back(std::vector<unsigned>(1));
+            rwd[0].push_back(amap[ix]);
+          }
+        }
+        //else{std::cout << "NO CRASH\n";}
+      }
+    }
+    ////////////////////////////////////////////////////////////////
+    // Determine the set of actions that conflict with the core pair
+    // This is the right side of the bipartite graph
+    ////////////////////////////////////////////////////////////////
+    for(unsigned p(0); p<spansq; ++p){ 
+      x=p%span;
+      y=p/span;
+      state bs(b1);
+      bs.x+=x-d; // relative to b1
+      bs.y+=y-d; // relative to b1
+      for(unsigned i(0); i<branchingFactor; ++i){
+        state b;
+        float end(fetch(bs,i,b,branchingFactor));
+        auto ivl(getForbiddenInterval(a1,a2,0,endTimeA-startTimeA,rA,bs,b,0,end,rB));
+        if(ivl.first<ivl.second && !(core.first>ivl.second || core.second < ivl.first)){
+          //std::cout << ax1 << "<->" << as[a] << " " << bx1 << "<->" << bx2 << " => "; 
+          //if(collisionCheck3D(ax1, as[a], bx1, bx2, agentRadius))
+          //if(collisionCheck3DAPriori(ax1, as[a], bx1, bx2, agentRadius))
+          //std::cout << "CRASH\n";
+          ix=p*branchingFactor+i;
+          if(b2.sameLoc(b) && bs.sameLoc(b1)){
+            bmap[ix]=0;
+            brmap[0]=ix;
+            //std::cout << "B " << ix << "\n";
+          }else{
+            bmap[ix]=rwd.size();
+            brmap.push_back(ix);
+            rwd.push_back(std::vector<unsigned>(1));
+            fwd[0].push_back(bmap[ix]);
+          }
+        }
+        //else{std::cout << "NO CRASH\n";}
+      }
+    }
+
+    ////////////////////////////////////////////////////////////////
+    // Determine the edges (actions that conflict with each other)
+    ////////////////////////////////////////////////////////////////
+    unsigned p(0);
+    unsigned i(0);
+    for(unsigned ii(1); ii<armap.size(); ++ii){
+      p=armap[ii]/branchingFactor;
+      i=armap[ii]%branchingFactor;
+      x=p%span;
+      y=p/span;
+      state as(a1);
+      as.x+=x-d; // relative to a1
+      as.y+=y-d; // relative to a1
+      state a;
+      float endA(fetch(as,i,a,branchingFactor));
+      for(unsigned jj(1); jj<brmap.size(); ++jj){
+        p=brmap[jj]/branchingFactor;
+        i=brmap[jj]%branchingFactor;
+        x=p%span;
+        y=p/span;
+        state bs(b1);
+        bs.x+=x-d; // relative to a1
+        bs.y+=y-d; // relative to a1
+        state b;
+        float endB(fetch(b1,i,b,branchingFactor));
+        auto ivl(getForbiddenInterval(a1,a,0,endA,rA,b1,b,0,endB,rB));
+        if(ivl.first<ivl.second && !(core.first>ivl.second || core.second < ivl.first)){
+          //std::cout << ax1 << "<->" << as[a] << " " << bx1 << "<->" << bs[b] << " => "; 
+          //if(collisionCheck3D(ax1, as[a], bx1, bs[b], agentRadius))
+          //if(collisionCheck3DAPriori(ax1, as[a], bx1, bs[b], agentRadius))
+          //std::cout << "CRASH: ["<<amap[a]<<"]="<<bmap[b] <<"\n";
+          fwd[amap[armap[ii]]].push_back(bmap[brmap[jj]]);
+          rwd[bmap[brmap[jj]]].push_back(amap[armap[ii]]);
+        }
+        //else{std::cout << "NO CRASH\n";}
+      }
+    }
+    ////////////////////////////////////////////////////////////////
+    // Find a max-vertex biclique in the bipartite graph
+    ////////////////////////////////////////////////////////////////
+    left.resize(0);
+    left.reserve(fwd.size());
+    right.resize(0);
+    right.reserve(rwd.size());
+    if(fwd.size()<=rwd.size()){
+      BiClique::findBiClique(fwd,rwd,conf,left,right);
+    }else{
+      BiClique::findBiClique(rwd,fwd,{conf.second,conf.first},right,left);
+    }
+    //if(std::max(fwd.size(),rwd.size())==std::max(left.size()+1,right.size()+1)){
+      //std::cout << branchingFactor<<"SAME\n";
+    //}else{
+      //std::cout << branchingFactor<<"DIFF\n";
+    //}
+    // Revert back to the original indices
+    for(auto& m:left){
+      m=armap[m];
+    }
+    for(auto& m:right){
+      m=brmap[m];
+    }
+  }
+  //std::cout << left<<", "<<right<<"\n";
+}
+
+template <typename state>
 void getEdgeAnnotatedBiclique(state const& a,
                               state const& a2,
                               state const& b,
@@ -2101,7 +2279,182 @@ void getEdgeAnnotatedBiclique(state const& a,
   }
 }
 
+template <typename state>
+void getExtendedAreaEdgeAnnotatedBiclique(state const& a,
+                              state const& a2,
+                              state const& b,
+                              state const& b2,
+                              std::vector<unsigned> const& left,
+                              std::vector<unsigned> const& right,
+                              std::vector<std::vector<std::pair<float,float>>>& ivls,
+                              unsigned branchingFactor,
+                              float rA=0.25,
+                              float rB=0.25){
+  ivls.resize(left.size());
+  auto d(getDist(branchingFactor));
+  auto span(d*2+1);
+  unsigned p,i,x,y;
+  for(unsigned l(0); l<left.size(); ++l){
+    p=left[l]/branchingFactor;
+    i=left[l]%branchingFactor;
+    x=p%span;
+    y=p/span;
+    state as(a);
+    as.x+=x-d; // relative to a1
+    as.y+=y-d; // relative to a1
+    state A2;
+    float endA(fetch(as,i,A2,branchingFactor));
+    ivls[l].resize(right.size(),{-std::numeric_limits<float>::infinity(),std::numeric_limits<float>::infinity()});
+    for(unsigned r(0); r<right.size(); ++r){
+      p=right[r]/branchingFactor;
+      i=right[r]%branchingFactor;
+      x=p%span;
+      y=p/span;
+      state bs(b);
+      bs.x+=x-d; // relative to b1
+      bs.y+=y-d; // relative to b1
+      state B2;
+      float endB(fetch(b,i,B2,branchingFactor));
+      ivls[l][r]=getForbiddenInterval(a,A2,0,endA,rA,b,B2,0,endB,rB);
+    }
+  }
+}
+
 static void getVertexAnnotatedBiclique(unsigned coreA,
+                                       unsigned coreB,
+                                       float startTimeA,
+                                       float endTimeA,
+                                       float startTimeB,
+                                       float endTimeB,
+                                       std::vector<unsigned>& left,
+                                       std::vector<unsigned>& right,
+                                       std::vector<std::vector<std::pair<float,float>>> const& ivls,
+                                       std::vector<std::pair<float,float>>& livls,
+                                       std::vector<std::pair<float,float>>& rivls,
+                                       unsigned branchingFactor,
+                                       float rA=0.25,
+                                       float rB=0.25){
+  auto delay(startTimeA-startTimeB);
+  auto const& core(ivls[coreA][coreB]);
+  if(delay<core.first || delay>core.second){ // We shouldn't be calling this function with a bad delay, but just in case...
+    left.clear();
+    right.clear();
+    livls.clear();
+    rivls.clear();
+    //delay=-delay;
+    //if(delay<core.first || delay>core.second){ // We shouldn't be calling this function with a bad delay, but just in case...
+    //std::cerr << "Warning: You called getVertexAnnotatedBiclique() on a pair of actions that do not conflict! --> delay " << delay << " ivl " << core.first << "," << core.second << std::endl;
+    //assert(!"Delay doesn't match interval!");
+    //}
+    return;
+  }
+  livls.resize(left.size(),{-std::numeric_limits<float>::infinity(),std::numeric_limits<float>::infinity()});
+  rivls.resize(right.size(),{-std::numeric_limits<float>::infinity(),std::numeric_limits<float>::infinity()});
+  if(left.size()==1){
+    for(unsigned l(0); l<left.size(); ++l){
+      unsigned r1(0);
+      for(unsigned r(0); r<right.size(); ++r, ++r1){
+        auto const& ivl(ivls[l][r1]);
+        if(ivl.first<delay && ivl.second>delay){
+          livls[l].first=std::max(ivl.first,livls[l].first);
+          livls[l].second=std::min(ivl.second,livls[l].second);
+          rivls[r].first=std::max(-ivl.second,rivls[r].first);
+          rivls[r].second=std::min(-ivl.first,rivls[r].second);
+        }else{
+          // remove from right
+          if(r<coreB)coreB--;
+          right.erase(right.begin()+r);
+          rivls.erase(rivls.begin()+r);
+          --r;
+        }
+      }
+    }
+  }else if(right.size()==1){
+    unsigned l1(0);
+    for(unsigned l(0); l<left.size(); ++l, ++l1){
+      for(unsigned r(0); r<right.size(); ++r){
+        auto const& ivl(ivls[l1][r]);
+        if(ivl.first<delay && ivl.second>delay){
+          livls[l].first=std::max(ivl.first,livls[l].first);
+          livls[l].second=std::min(ivl.second,livls[l].second);
+          rivls[r].first=std::max(-ivl.second,rivls[r].first);
+          rivls[r].second=std::min(-ivl.first,rivls[r].second);
+        }else{
+          if(l<coreA)coreA--;
+          // remove from left
+          left.erase(left.begin()+l);
+          livls.erase(livls.begin()+l);
+          --l;
+        }
+      }
+    }
+  }else{
+    static std::vector<std::vector<unsigned>> fwd;
+    fwd.resize(0);
+    fwd.resize(left.size());
+    static std::vector<std::vector<unsigned>> rwd;
+    rwd.resize(0);
+    rwd.resize(right.size());
+    bool rebuildBiclique(false);
+    for(unsigned l(0); l<left.size(); ++l){
+      fwd[l].reserve(right.size());
+      for(unsigned r(0); r<right.size(); ++r){
+        auto const& ivl(ivls[l][r]);
+        if(ivl.first<delay && ivl.second>delay){
+          fwd[l].push_back(r);
+          rwd[r].push_back(l);
+          if(!rebuildBiclique){
+            livls[l].first=std::max(ivl.first,livls[l].first);
+            livls[l].second=std::min(ivl.second,livls[l].second);
+            rivls[r].first=std::max(-ivl.second,rivls[r].first);
+            rivls[r].second=std::min(-ivl.first,rivls[r].second);
+          }
+        }else{
+          rebuildBiclique=true;
+        }
+      }
+    }
+    if(rebuildBiclique){
+      //std::cout << "about to do it!\n";
+      static std::vector<unsigned> lorig;
+      lorig=left; // Capture the original move numbers
+      static std::vector<unsigned> rorig;
+      rorig=right;
+      left.clear();
+      right.clear();
+      livls.clear();
+      rivls.clear();
+      //std::cout << "did it\n";
+      // Populate left,right with the biclique indices
+      if(fwd.size()<=rwd.size()){
+        BiClique::findBiClique(fwd,rwd,{coreA,coreB},left,right);
+      }else{
+        BiClique::findBiClique(rwd,fwd,{coreB,coreA},right,left);
+      }
+      livls.resize(left.size(),{-std::numeric_limits<float>::infinity(),std::numeric_limits<float>::infinity()});
+      rivls.resize(right.size(),{-std::numeric_limits<float>::infinity(),std::numeric_limits<float>::infinity()});
+      for(unsigned l(0); l<left.size(); ++l){
+        for(unsigned r(0); r<right.size(); ++r){
+          // Get intersection of vertex-wise intervals
+          auto const& ivl(ivls[left[l]][right[r]]);
+          livls[l].first=std::max(ivl.first,livls[l].first);
+          livls[l].second=std::min(ivl.second,livls[l].second);
+          rivls[r].first=std::max(-ivl.second,rivls[r].first);
+          rivls[r].second=std::min(-ivl.first,rivls[r].second);
+        }
+        // Convert to move number
+        left[l]=lorig[left[l]];
+      }
+      // Convert to move numbers
+      for(auto& r:right){
+        r=rorig[r];
+      }
+    }
+  }
+  //std::cout << "After filter on delay: " << delay << "\ncore: " << core << "\nleft: " << left << "\nright: " << right << "\nlivls: " << livls << "\nrivls: " << rivls << "\n";
+}
+
+static void getExtendedAreaVertexAnnotatedBiclique(unsigned coreA,
                                        unsigned coreB,
                                        float startTimeA,
                                        float endTimeA,
@@ -2268,6 +2621,38 @@ static void getVertexAnnotatedBiclique(state const& a,
 }
 
 template <typename state>
+static void getExtendedAreaVertexAnnotatedBiclique(state const& a,
+                                state const& a2,
+                                state const& b,
+                                state const& b2,
+                                float startTimeA,
+                                float endTimeA,
+                                float startTimeB,
+                                float endTimeB,
+                                std::vector<unsigned>& left,
+                                std::vector<unsigned>& right,
+                                std::vector<std::pair<float,float>>& livls,
+                                std::vector<std::pair<float,float>>& rivls,
+                                unsigned branchingFactor,
+                                float rA=0.25,
+                                float rB=0.25){
+  getExtendedAreaBiclique(a,a2,b,b2,startTimeA,endTimeA,startTimeB,endTimeB,left,right,branchingFactor,rA,rB);
+  if(left.empty())return;
+  std::sort(left.begin(),left.end());
+  std::sort(right.begin(),right.end());
+  //auto s(moveNum(b,b2,0,branchingFactor));
+  //auto f(std::lower_bound(right.begin(),right.end(),moveNum(b,b2,0,branchingFactor)));
+  //std::cout<<"core: " << a << "-->" << a2 << ", " << b << "-->" << b2 << "\n";
+  unsigned ixA(std::lower_bound(left.begin(),left.end(),moveNum(a,a2,0,branchingFactor))-left.begin());
+  unsigned ixB(std::lower_bound(right.begin(),right.end(),moveNum(b,b2,0,branchingFactor))-right.begin());
+  std::vector<std::vector<std::pair<float,float>>> ivls;
+  getExtendedAreaEdgeAnnotatedBiclique(a,a2,b,b2,left,right,ivls,branchingFactor,rA,rB);
+  //std::cout << "From scratch:\n";
+  //std::cout << "left: " << left << "\nright: " << right << "\nintervals: "<<ivls << "\n";
+  getExtendedAreaVertexAnnotatedBiclique(ixA,ixB,startTimeA,endTimeA,startTimeB,endTimeB,left,right,ivls,livls,rivls,branchingFactor,rA,rB);
+}
+
+template <typename state>
 static void loadCollisionTable(std::vector<unsigned>& array, std::vector<unsigned>& indices, std::vector<float>& ivls, unsigned bf=9, unsigned resolution=10, float rA=0.25, float rB=0.25, bool force=false){
   char fname[128];
   char fname2[128];
@@ -2332,10 +2717,10 @@ static void loadCollisionTable(std::vector<unsigned>& array, std::vector<unsigne
           //if(printme)std::cout << a << "-->" << a2 << ", " << b << "-->" << b2 << "\n";
           std::vector<unsigned> left;
           std::vector<unsigned> right;
-          std::vector<std::vector<std::pair<float,float>>> tivls;
           getBiclique(a,a2,b,b2,0,endA,0,endB,left,right,bf,rA,rB);
           std::sort(left.begin(),left.end());
           std::sort(right.begin(),right.end());
+          std::vector<std::vector<std::pair<float,float>>> tivls;
           getEdgeAnnotatedBiclique(a,a2,b,b2,left,right,tivls,bf,rA,rB);
           if(left.size()>right.size()){
             sizes[right.size()*1000+left.size()]++;
@@ -2384,6 +2769,163 @@ static void loadCollisionTable(std::vector<unsigned>& array, std::vector<unsigne
     f2=fopen(fname2,"wb");
     fwrite(ivls.data(),sizeof(float),ivls.size(),f2);
     fclose(f);
+  }
+}
+
+template <typename state>
+static void loadExtendedAreaCollisionTable(std::vector<unsigned>& array, std::vector<unsigned>& indices, std::vector<float>& ivls, unsigned bf=9, unsigned resolution=10, float rA=0.25, float rB=0.25, bool force=false){
+  char fname[128];
+  char fname2[128];
+  char fname3[128];
+  unsigned num(getNumCases(bf));
+  // Number of mirrored start points X connectivity X connectivity X number of bits in conn
+  unsigned numCases(num*bf*bf);
+  // Each entry consists of 1 bit for each move from A, 1 bit for each move from B, and all of their forbidden intervals
+  unsigned d(getDist(bf));
+  unsigned span(d*2+1);
+  unsigned spansq(span*span);
+  array.resize((numCases*(spansq*bf*2))/sizeof(unsigned)+1,0);
+  indices.resize(numCases);
+
+  sprintf(fname,"collision%02d-ex-bicliques_r%0.2f_r%0.2f.dat",bf-1,rA,rB);
+  sprintf(fname2,"collision%02d-ex-intervals_r%0.2f_r%0.2f.dat",bf-1,rA,rB);
+  sprintf(fname3,"collision%02d-ex-indices_r%0.2f_r%0.2f.dat",bf-1,rA,rB);
+  FILE* f(fopen(fname,"rb"));
+  FILE* f2(fopen(fname2,"rb"));
+  FILE* f3(fopen(fname3,"rb"));
+  if(!force && f && f2 && f3){
+    fread(array.data(),sizeof(unsigned),array.size(),f);
+    fclose(f);
+    /*unsigned total(0);
+    for(unsigned caseNum(0); caseNum<num; ++caseNum){
+      for(unsigned i(0); i<bf; ++i){
+        for(unsigned j(0); j<bf; ++j){
+          unsigned ix(caseNum+i*num+j*num*bf);
+          indices[ix]=total;
+          unsigned ltot(0);
+          unsigned rtot(0);
+          for(unsigned l(0); l<bf*spansq; ++l){
+            ltot+=get(array.data(),ix+l*numCases);
+          }
+          for(unsigned r(0); r<bf*spansq; ++r){
+            rtot+=get(array.data(),ix+(r+bf*spansq)*numCases);
+          }
+          total+=2*ltot*rtot;
+        }
+      }
+    }*/
+    ivls.reserve(array.size());
+    float buf[2];
+    while(fread(buf,sizeof(float),2,f2)==2){
+      ivls.push_back(buf[0]);
+      ivls.push_back(buf[1]);
+    }
+    fclose(f2);
+    assert(indices.size()==fread(indices.data(),sizeof(unsigned),indices.size(),f3));
+    fclose(f3);
+  }else{
+    //std::map<unsigned,unsigned> assn;
+    state a,b;
+    fromLocationIndex(0,a,b,bf-1);
+    // pre-load bs ...  they are always the same ("b" is the center point, "a" is relative)
+    state bs[bf];
+    for(int j(0); j<bf; ++j){
+      fetch(b,j,bs[j],bf);
+    }
+    std::map<unsigned,unsigned> sizes;
+    for(unsigned caseNum(0); caseNum<num; ++caseNum){
+      std::cout << "Case " << caseNum << " of " << num << "\n";
+      fromLocationIndex(caseNum,a,b,bf-1);
+      for(unsigned i(0); i<bf; ++i){
+        state a2;
+        float endA(fetch(a,i,a2,bf));
+        for(unsigned j(0); j<bf; ++j){
+          state b2;
+          float endB(fetch(b,j,b2,bf));
+          // Debug
+          bool printme(fequal(b2.x,104.0) && fequal(b2.y,103.0) && fequal(a.x,103.00) && fequal(a.y,103.0) && fequal(a2.x,105.0) && fequal(a2.y,104.0));
+          unsigned ix(caseNum+i*num+j*num*bf);
+          //printme=(ix==75);
+          //bool printme(true);
+          //if(printme)std::cout << a << "-->" << a2 << ", " << b << "-->" << b2 << "\n";
+          std::vector<unsigned> left;
+          std::vector<unsigned> right;
+          //std::cout << i<<"<"<<j<<"\n";
+          getExtendedAreaBiclique(a,a2,b,b2,0,endA,0,endB,left,right,bf,rA,rB);
+          std::sort(left.begin(),left.end());
+          std::sort(right.begin(),right.end());
+          std::vector<std::vector<std::pair<float,float>>> tivls;
+          getExtendedAreaEdgeAnnotatedBiclique(a,a2,b,b2,left,right,tivls,bf,rA,rB);
+          if(left.size()>right.size()){
+            sizes[right.size()*1000+left.size()]++;
+          }else{
+            sizes[left.size()*1000+right.size()]++;
+          }
+          //std::cout << "assign " << ix << "\n";
+          for(auto const& l:left){
+            set(array.data(),ix+l*numCases);
+            if(printme)std::cout << "setting (left) [" << l << "] " << ix << " " << l << " " << numCases << " : " <<  ix+l*numCases <<"\n";
+          }
+          for(auto const& r:right){
+            set(array.data(),ix+(r+bf*spansq)*numCases);
+            if(printme)std::cout << "setting (right) [" << r << "] " << ix << " " << r << " " << numCases << " " << bf*spansq << " : " <<  ix+(r+bf*spansq)*numCases <<"\n";
+          }
+          //if(printme)std::cout << "index: " << ivls.size() << "\n";
+          //if(assn.find(ix)!=assn.end()&&"This assignment has already taken place!");
+          indices[ix]=ivls.size();
+          //assn[ix]=ivls.size();
+          //if(printme){
+            //std::cout << "ivls index: " << ivls.size() << "\n";
+            //for(int q(0); q<tivls.size(); ++q){
+              //std::cout << q << ":\n";
+              //for(int r(0); r<tivls[q].size(); ++r){
+                //std::cout << "  j: " << tivls[q][r].first << "," << tivls[q][r].second << "\n";
+              //}
+            //}
+          //}
+          encodeIvls(tivls,ivls); // Flatten
+        }
+      }
+    }
+    std::cout << "BICLIQUE SIZES:\n";
+    unsigned numtotal(0);
+    unsigned total(0);
+    for(auto const& m:sizes){
+      std::cout << m.first/1000 << "x" << m.first%1000 <<": "<<m.second << "\n";
+      total+=m.first/1000 + m.first%1000;
+      numtotal++;
+    }
+    std::cout << total;
+    /*{
+      std::vector<unsigned> array2((numCases*(spansq*bf*2))/sizeof(unsigned)+1);
+      std::vector<unsigned> indices2(numCases);
+      std::vector<float> ivls2;
+
+      assert(array2.size()==fread(array2.data(),sizeof(unsigned),array2.size(),f));
+      fclose(f);
+      float buf[2];
+      while(fread(buf,sizeof(float),2,f2)==2){
+        ivls2.resize(ivls2.size()+2);
+        ivls2.push_back(buf[0]);
+        ivls2.push_back(buf[1]);
+      }
+      fclose(f2);
+      assert(indices2.size()==fread(indices2.data(),sizeof(unsigned),indices2.size(),f3));
+      fclose(f3);
+      assert(array.size()==array2.size());
+      assert(indices.size()==indices2.size());
+      assert(ivls.size()==ivls2.size());
+    }*/
+
+    f=fopen(fname,"wb");
+    fwrite(array.data(),sizeof(unsigned),array.size(),f);
+    fclose(f);
+    f2=fopen(fname2,"wb");
+    fwrite(ivls.data(),sizeof(float),ivls.size(),f2);
+    fclose(f2);
+    f3=fopen(fname3,"wb");
+    fwrite(indices.data(),sizeof(float),indices.size(),f3);
+    fclose(f3);
   }
 }
 
@@ -2484,6 +3026,124 @@ static void getVertexAnnotatedBiclique(state const& a,
   }*/
   getVertexAnnotatedBiclique(aix,bix,startTimeA,endTimeA,startTimeB,endTimeA,left,right,intervals,livls,rivls,branchingFactor,rA,rB);
 }
+
+template <typename state>
+static void getExtendedAreaVertexAnnotatedBiclique(state const& a,
+                                state const& a2,
+                                state const& b,
+                                state const& b2,
+                                float startTimeA,
+                                float endTimeA,
+                                float startTimeB,
+                                float endTimeB,
+                                std::vector<unsigned> const& array,
+                                std::vector<unsigned> const& indices,
+                                std::vector<float> const& ivls,
+                                std::vector<unsigned>& left, // out
+                                std::vector<unsigned>& right, // out
+                                std::vector<std::pair<float,float>>& livls, // out
+                                std::vector<std::pair<float,float>>& rivls,
+                                unsigned branchingFactor,
+                                unsigned spansq,
+                                float rA=0.25,
+                                float rB=0.25){
+  unsigned moveA=0,moveB=0;
+  auto ix(getCaseNumber(a,a2,b,b2,moveA,moveB,branchingFactor));
+  auto d(getDist(branchingFactor));
+  // find center of grid
+  // 
+  // +-+-+-+
+  // | | | |
+  // +-+=+-+
+  // | |x| |
+  // +-+-+-+
+  // | | | |
+  // +-+-+-+
+  const unsigned centerLoc(branchingFactor*(d*d*2+d*2));
+  moveA+=centerLoc;
+  moveB+=centerLoc;
+  if(ix<0){
+    left.clear();
+    right.clear();
+    livls.clear();
+    rivls.clear();
+    return;
+  }
+  unsigned numCases(indices.size());
+  unsigned aix(0);
+  unsigned bix(0);
+  left.reserve(branchingFactor*spansq);
+  right.reserve(branchingFactor*spansq);
+  for(unsigned i(0); i<branchingFactor*spansq; ++i){
+    //std::cout << "get " << (ix+i*numCases) << "\n";
+    if(get(array.data(),ix+i*numCases)){
+      //std::cout << "!!!!got " << (ix+i*numCases) << "\n";
+      if(i==moveA){
+        aix=left.size();
+      }
+      left.push_back(i);
+    }
+    //std::cout << "get " << (ix+(branchingFactor*spansq+i)*numCases) << "\n";
+    if(get(array.data(),ix+(branchingFactor*spansq+i)*numCases)){
+      //std::cout << "!!!!got " << (ix+(branchingFactor*spansq+i)*numCases) << "\n";
+      //std::cout << "get " << (ix+(branchingFactor+i)*numCases) << "\n";
+      if(i==moveB){
+        bix=right.size();
+      }
+      right.push_back(i);
+    }
+  }
+  if(left.size()==0)return;
+  static std::vector<std::vector<std::pair<float,float>>> intervals;
+  intervals.resize(left.size());
+  unsigned num(indices[ix]);
+  for(auto& l:intervals){
+    l.resize(0);
+    l.reserve(right.size());
+    for(unsigned r(0); r<right.size(); ++r){
+      //std::cout << "ivls["<<num<<","<<(num+1)<<"]="<<ivls[num]<<","<<ivls[num+1]<<"\n";
+      l.emplace_back(ivls[num],ivls[num+1]);
+      num+=2;
+    }
+  }
+  //std::cout << "From disk:\n";
+  //std::cout << "left: " << left << "\nright: " << right << "\nintervals: "<<intervals << "\n";
+
+  /*{
+    //TODO: make sure that the biclique is the same, because the core action is not there...
+    std::vector<unsigned> left1;
+    std::vector<unsigned> right1;
+    getExtendedAreaBiclique(a,a2,b,b2,startTimeA,endTimeA,startTimeB,endTimeB,left1,right1,branchingFactor,rA,rB);
+    std::sort(left1.begin(),left1.end());
+    std::sort(right1.begin(),right1.end());
+    if(left!=left1 || right!=right1){
+      std::cout << "No match for biclique\n";
+      std::cout << left << "!=" << left1 << "\n (or) \n";
+      std::cout << right << "!=" << right1 << "\n";
+      getBiclique(a,a2,b,b2,startTimeA,endTimeA,startTimeB,endTimeB,left1,right1,branchingFactor,rA,rB);
+    }
+    if(std::find(left.begin(),left.end(),moveA)==left.end()){
+      std::cout << "Left core action not in biclique\n";
+      std::cout << left << " missing " << moveA << "\n";
+    }
+    if(std::find(right.begin(),right.end(),moveB)==right.end()){
+      std::cout << "right core action not in biclique\n";
+      std::cout << right << " missing " << moveB << "\n";
+    }
+    auto ivl(getForbiddenInterval(a,a2,0,endTimeA-startTimeA,rA,b,b2,0,endTimeB-startTimeB,rB));
+    auto ivlr(getForbiddenInterval(a,a2,0,endTimeA-startTimeA,.25,b,b2,0,endTimeB-startTimeB,.25));
+    auto ivl2(intervals[aix][bix]);
+    auto delay(startTimeA-startTimeB);
+    if(fabs(ivl.first-ivl2.first)>.01 || fabs(ivl.second-ivl2.second)>.01){
+      std::cout << "cached interval " << ivl2.first << "," << ivl2.second << "; does not match computed: " <<ivl.first << "," << ivl.second << "\n";
+    }
+    if(delay<ivl2.first || delay>ivl2.second){
+      std::cout << "delay:" << delay << "is not in the interval " << ivl2.first << "," << ivl2.second << "\n";
+    }
+  }*/
+  getExtendedAreaVertexAnnotatedBiclique(aix,bix,startTimeA,endTimeA,startTimeB,endTimeA,left,right,intervals,livls,rivls,branchingFactor,rA,rB);
+}
+
 
 
 #endif
