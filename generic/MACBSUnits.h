@@ -3478,7 +3478,7 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << b1 << "-->
                         if(src.t>b1.t)src.t=b1.t;
                         if(dest.t<=src.t)dest.t=src.t+1;
                         if(src.sameLoc(b1) && dest.sameLoc(b2)) found=true;
-                        c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
+                        c2.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
                       }
                       assert(found&&"Core action B was not added!");
                     }else{

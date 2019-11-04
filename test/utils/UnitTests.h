@@ -771,7 +771,7 @@ TEST(PositionalUtils, distanceToLine){
   float d(Util::distanceOfPointToLine(A1,A2,B));
   ASSERT_DOUBLE_EQ(float(sqrt(2.0f)/2.0f),d);
 }
-
+/*
 TEST(CompactBiclique, testUnrank){
   Vector2D a,b;
   fromLocationIndex(10,a,b,24);
@@ -1020,6 +1020,7 @@ TEST(Biclique, annotatedBiclique2x2){
   ASSERT_EQ(left.size(),livls.size());
   ASSERT_EQ(right.size(),rivls.size());
 }
+*/
 
 TEST(Fetch, testFetch){
   Vector3D a(5,5,0);
@@ -1034,6 +1035,7 @@ TEST(Fetch, testFetch){
   }
 }
 
+/*
 TEST(Biclique, loadFromFile9){
   std::vector<unsigned> array;
   std::vector<unsigned> indices;
@@ -1324,5 +1326,49 @@ TEST(Biclique, loadFromFile49){
     //std::cout<<a1<<a2<<b1<<b2<<"\n";
     assertCorrectExtraction(a1,a2,b1,b2,array,indices,ivls,33);
   }
+}*/
+
+TEST(biclique, assertCore){
+  Vector3D a1(91,128,0);
+  Vector3D a2(92,127,0);
+  Vector3D b1(92,128,0);
+  Vector3D b2(91,128,0);
+  float startA(36.4);
+  float stopA(37.8);
+  float startB(36.6);
+  float stopB(37.6);
+  std::vector<unsigned> left;
+  std::vector<unsigned> right;
+  std::vector<std::pair<float,float>> livls;
+  std::vector<std::pair<float,float>> rivls;
+  getExtendedAreaVertexAnnotatedBiclique(a1,a2,b1,b2,
+                                         startA,stopA,startB,stopB,
+                                         left, right, livls, rivls,
+                                         17,.35,.35);
+  int d=4;
+  int span=9;
+  int bf=17;
+  bool swap=false, ortho=false, y=false;
+  locationIndex(a1,b1,swap,ortho,y,bf); // Get rotation params from reverse action
+  Vector3D dest;
+  bool found(false);
+  unsigned p,q;
+  signed xx,yy;
+  for(unsigned i(0); i<left.size(); ++i){
+    p=left[i]/bf;
+    q=left[i]%bf;
+    xx=p%span;
+    yy=p/span;
+    Vector3D src(a1);
+    src.x+=xx-d; // relative to a1
+    if(signed(src.x)<0)continue;
+    src.y+=yy-d; // relative to a1
+    if(signed(src.y)<0)continue;
+
+    //auto move(invertMirroredMove(q,swap,ortho,y,bf));
+    fetch(src,q,dest,bf);
+    if(src.sameLoc(a1) && dest.sameLoc(a2)) found=true;
+  }
+  ASSERT_TRUE(found);
 }
 #endif

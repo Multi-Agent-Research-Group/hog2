@@ -568,9 +568,9 @@ class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
       Identical<State> tmp(from,to);
       constraints.findOverlapping((Constraint<State>*)&tmp,cs);
       for(auto const& s:cs){
-        if(s->start_state.sameLoc(from) && s->end_state.sameLoc(to)){
-          std::cout << "Matched " << from << "-->" << to << " with " << s->start_state << "-->" << s->end_state << " out of "<<cs.size() << "/"<<constraints.size() << " matches\n";
-        } 
+        //if(s->start_state.sameLoc(from) && s->end_state.sameLoc(to)){
+          //std::cout << "Matched " << from << "-->" << to << " with " << s->start_state << "-->" << s->end_state << " out of "<<cs.size() << "/"<<constraints.size() << " matches\n";
+        //} 
         if(s->ConflictsWith(from,to))return true;
       }
       return false;

@@ -155,9 +155,9 @@ namespace BiClique{
     static std::vector<unsigned> tmp;
 
     // Punt!
-    left=L[start.first];
-    right.push_back(start.second);
-    return true;
+    //right=L[start.first];
+    //left.push_back(start.first);
+    return false;
 
     // The following might be required, but is too expensive.
     do {
@@ -203,7 +203,7 @@ namespace BiClique{
       std::pair<unsigned,unsigned> const& start,
       std::vector<unsigned>& left,
       std::vector<unsigned>& right){
-    //unsigned minimum(std::max(L[start.first].size()+1,R[start.first].size()+1));
+    unsigned minimum(std::max(L[start.first].size()+1,R[start.first].size()+1));
 
 // Omitting this part because we assume that no nodes are disconnected from start
 /*
@@ -298,6 +298,14 @@ namespace BiClique{
         return;
       }
     }
+    if(lDegree==1){
+      right.push_back(start.second);
+      left.reserve(R[start.second].size());
+      for(auto const& a:R[start.second]){
+        left.push_back(a);
+      }
+      return;
+    }
 
     static std::vector<unsigned> histL;
     histL.resize(R.size()+1);
@@ -358,18 +366,27 @@ namespace BiClique{
     while(!q.empty()){
       lDegree=q.begin()->first;
       rDegree=q.begin()->second;
-      q.erase(q.begin());
-      if(!testFeasibility(L,R,start,lDegree,rDegree,histL,histR,left,right)){
-        // minus one from l
-        unsigned n(lDegree-1);
-        if(n>0)
-          q.emplace(n,rDegree);
-        // minus one from r
-        n=rDegree-1;
-        if(n>0)
-          q.emplace(lDegree,n);
+
+      if(lDegree+rDegree <= minimum){
+        if(L[start.first].size()>R[start.second].size()){
+          lDegree=1; rDegree=R[start.second].size();
+        }else{
+          lDegree=L[start.first].size(); rDegree=1;
+        }
       }else{
-        break;
+        q.erase(q.begin());
+        if(!testFeasibility(L,R,start,lDegree,rDegree,histL,histR,left,right)){
+          // minus one from l
+          unsigned n(lDegree-1);
+          if(n>0)
+            q.emplace(n,rDegree);
+          // minus one from r
+          n=rDegree-1;
+          if(n>0)
+            q.emplace(lDegree,n);
+        }else{
+          break;
+        }
       }
       if(rDegree==1){
         if(lDegree == 1){

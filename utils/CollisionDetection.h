@@ -1592,7 +1592,7 @@ static unsigned invertMirroredMove(unsigned movenum, bool swap, bool ortho, bool
   return movenum;
 }
 
-static inline unsigned getDist(unsigned bf){
+static inline signed getDist(unsigned bf){
   switch(bf){
     case 32:
     case 33:
@@ -1664,7 +1664,7 @@ static unsigned getNumCases(unsigned conn){
 // Simultaneously, return ops that happened to translate (swap,ortho,y)
 template <typename state>
 signed locationIndex(state a, state b, bool& swap, bool& ortho, bool& y, unsigned conn){
-  const unsigned dist(getDist(conn));
+  const auto dist(getDist(conn));
   if(a==b){
     return getNumCases(conn)-1;
   }
@@ -1725,7 +1725,7 @@ signed locationIndex(state a, state b, bool& swap, bool& ortho, bool& y, unsigne
 template <typename state>
 static void fromLocationIndex(signed ix, state& a, state& b, unsigned conn){
   const unsigned offset(100);
-  unsigned dist(getDist(conn));
+  auto dist(getDist(conn));
   b.x=b.y=dist+offset;
   a.x=a.y=offset;
   for(int i(0); i<dist+1; ++i){
@@ -2110,8 +2110,12 @@ void getExtendedAreaBiclique(state const& a1,
     auto span(d*2+1);
     auto spansq(span*span);
     signed x,y,ix;
-    unsigned amap[4096];
-    unsigned bmap[4096];
+    static std::vector<unsigned> amap;
+    amap.resize(0);
+    amap.reserve(spansq*branchingFactor*branchingFactor);
+    static std::vector<unsigned> bmap;
+    bmap.resize(0);
+    bmap.reserve(spansq*branchingFactor*branchingFactor);
     static std::vector<unsigned> armap;
     armap.resize(1,1);
     armap.reserve(branchingFactor*span);
@@ -2293,7 +2297,7 @@ void getExtendedAreaEdgeAnnotatedBiclique(state const& a,
   ivls.resize(left.size());
   auto d(getDist(branchingFactor));
   auto span(d*2+1);
-  unsigned p,i,x,y;
+  signed p,i,x,y;
   for(unsigned l(0); l<left.size(); ++l){
     p=left[l]/branchingFactor;
     i=left[l]%branchingFactor;
@@ -2638,18 +2642,18 @@ static void getExtendedAreaVertexAnnotatedBiclique(state const& a,
                                 float rB=0.25){
   getExtendedAreaBiclique(a,a2,b,b2,startTimeA,endTimeA,startTimeB,endTimeB,left,right,branchingFactor,rA,rB);
   if(left.empty())return;
-  std::sort(left.begin(),left.end());
-  std::sort(right.begin(),right.end());
+  //std::sort(left.begin(),left.end());
+  //std::sort(right.begin(),right.end());
   //auto s(moveNum(b,b2,0,branchingFactor));
   //auto f(std::lower_bound(right.begin(),right.end(),moveNum(b,b2,0,branchingFactor)));
   //std::cout<<"core: " << a << "-->" << a2 << ", " << b << "-->" << b2 << "\n";
-  unsigned ixA(std::lower_bound(left.begin(),left.end(),moveNum(a,a2,0,branchingFactor))-left.begin());
-  unsigned ixB(std::lower_bound(right.begin(),right.end(),moveNum(b,b2,0,branchingFactor))-right.begin());
+  //unsigned ixA(std::lower_bound(left.begin(),left.end(),moveNum(a,a2,0,branchingFactor))-left.begin());
+  //unsigned ixB(std::lower_bound(right.begin(),right.end(),moveNum(b,b2,0,branchingFactor))-right.begin());
   std::vector<std::vector<std::pair<float,float>>> ivls;
   getExtendedAreaEdgeAnnotatedBiclique(a,a2,b,b2,left,right,ivls,branchingFactor,rA,rB);
   //std::cout << "From scratch:\n";
   //std::cout << "left: " << left << "\nright: " << right << "\nintervals: "<<ivls << "\n";
-  getExtendedAreaVertexAnnotatedBiclique(ixA,ixB,startTimeA,endTimeA,startTimeB,endTimeB,left,right,ivls,livls,rivls,branchingFactor,rA,rB);
+  getExtendedAreaVertexAnnotatedBiclique(0,0,startTimeA,endTimeA,startTimeB,endTimeB,left,right,ivls,livls,rivls,branchingFactor,rA,rB);
 }
 
 template <typename state>
@@ -2781,7 +2785,7 @@ static void loadExtendedAreaCollisionTable(std::vector<unsigned>& array, std::ve
   // Number of mirrored start points X connectivity X connectivity X number of bits in conn
   unsigned numCases(num*bf*bf);
   // Each entry consists of 1 bit for each move from A, 1 bit for each move from B, and all of their forbidden intervals
-  unsigned d(getDist(bf));
+  auto d(getDist(bf));
   unsigned span(d*2+1);
   unsigned spansq(span*span);
   array.resize((numCases*(spansq*bf*2))/sizeof(unsigned)+1,0);
@@ -2843,7 +2847,7 @@ static void loadExtendedAreaCollisionTable(std::vector<unsigned>& array, std::ve
           state b2;
           float endB(fetch(b,j,b2,bf));
           // Debug
-          bool printme(fequal(b2.x,104.0) && fequal(b2.y,103.0) && fequal(a.x,103.00) && fequal(a.y,103.0) && fequal(a2.x,105.0) && fequal(a2.y,104.0));
+          //bool printme(fequal(b2.x,104.0) && fequal(b2.y,103.0) && fequal(a.x,103.00) && fequal(a.y,103.0) && fequal(a2.x,105.0) && fequal(a2.y,104.0));
           unsigned ix(caseNum+i*num+j*num*bf);
           //printme=(ix==75);
           //bool printme(true);
@@ -2864,11 +2868,11 @@ static void loadExtendedAreaCollisionTable(std::vector<unsigned>& array, std::ve
           //std::cout << "assign " << ix << "\n";
           for(auto const& l:left){
             set(array.data(),ix+l*numCases);
-            if(printme)std::cout << "setting (left) [" << l << "] " << ix << " " << l << " " << numCases << " : " <<  ix+l*numCases <<"\n";
+            //if(printme)std::cout << "setting (left) [" << l << "] " << ix << " " << l << " " << numCases << " : " <<  ix+l*numCases <<"\n";
           }
           for(auto const& r:right){
             set(array.data(),ix+(r+bf*spansq)*numCases);
-            if(printme)std::cout << "setting (right) [" << r << "] " << ix << " " << r << " " << numCases << " " << bf*spansq << " : " <<  ix+(r+bf*spansq)*numCases <<"\n";
+            //if(printme)std::cout << "setting (right) [" << r << "] " << ix << " " << r << " " << numCases << " " << bf*spansq << " : " <<  ix+(r+bf*spansq)*numCases <<"\n";
           }
           //if(printme)std::cout << "index: " << ivls.size() << "\n";
           //if(assn.find(ix)!=assn.end()&&"This assignment has already taken place!");
