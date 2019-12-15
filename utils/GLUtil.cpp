@@ -890,26 +890,23 @@ void DrawFmtTextCentered(double x, double y, double z, double scale, char const*
 // Modified src from qt5 - released under GPL
 // https://code.woboq.org/qt5/qtbase/src/gui/painting/qpainterpath.cpp.html
 
-int getPt( int n1 , int n2 , float perc )
-{
-    int diff = n2 - n1;
-
-    return n1 + ( diff * perc );
+GLdouble getPt( GLdouble n1 , GLdouble n2 , GLdouble perc ){
+  return n1 + ( (n2-n1) * perc );
 }    
 
 // From https://stackoverflow.com/questions/37642168/how-to-convert-quadratic-bezier-curve-code-into-cubic-bezier-curve/37642695#37642695
 
-void cubicTo(float const& x1, float const& y1, // point 1
-float const& x2, float const& y2, // control point 1
-float const& x3, float const& y3, // control point 2
-float const& x4, float const& y4,
-float* xs, float* ys,
-float numItrs=10){
-  float const inc(1.0/numItrs);
+void drawCubicBezier(GLdouble const& x1, GLdouble const& y1, // point 1
+GLdouble const& x2, GLdouble const& y2, // control point 1
+GLdouble const& x3, GLdouble const& y3, // control point 2
+GLdouble const& x4, GLdouble const& y4, // point 2
+std::vector<std::array<GLdouble,3>>& pts, GLdouble zval,
+GLdouble numItrs){
+  pts.resize(numItrs+1);
+  GLdouble const inc(1.0/numItrs);
   unsigned k(0);
-  float xa,ya,xb,yb,xc,yc;
-  for(float i(0); i<1; i+=inc){
-    // The Green Lines
+  GLdouble xa,ya,xb,yb,xc,yc;
+  for(GLdouble i(0); i<1; i+=inc){
     xa = getPt( x1 , x2 , i );
     ya = getPt( y1 , y2 , i );
     xb = getPt( x2 , x3 , i );
@@ -917,29 +914,29 @@ float numItrs=10){
     xc = getPt( x3 , x4 , i );
     yc = getPt( y3 , y4 , i );
 
-    // The Blue Line
     xa = getPt( xa , xb , i );
     ya = getPt( ya , yb , i );
     xb = getPt( xb , xc , i );
     yb = getPt( yb , yc , i );
 
-    // The Black Dot
-    xs[k] = getPt( xa , xb , i );
-    ys[k++] = getPt( ya , yb , i );
+    pts[k][0] = getPt( xa , xb , i );
+    pts[k][1] = getPt( ya , yb , i );
+    pts[k++][2] = zval;
   }
 }
 
 // From https://stackoverflow.com/questions/785097/how-do-i-implement-a-b%C3%A9zier-curve-in-c
 
-void drawQuadBezier(float const& x1, float const& y1, // point 1
-float const& x2, float const& y2, // control point 1
-float const& x3, float const& y3, // point 2
-float* xs, float* ys,
-float numItrs=10){
-  float const inc(1.0/numItrs);
+void drawQuadBezier(GLdouble const& x1, GLdouble const& y1, // point 1
+GLdouble const& x2, GLdouble const& y2, // control point 1
+GLdouble const& x3, GLdouble const& y3, // point 2
+std::vector<std::array<GLdouble,3>>& pts, GLdouble zval,
+GLdouble numItrs){
+  pts.resize(numItrs+1);
+  GLdouble const inc(1.0/numItrs);
   unsigned k(0);
-  float xa,ya,xb,yb;
-  for(float i(0); i<1; i+=inc){
+  GLdouble xa,ya,xb,yb;
+  for(GLdouble i(0); i<1; i+=inc){
     // Interpolation line
     xa = getPt( x1 , x2 , i );
     ya = getPt( y1 , y2 , i );
@@ -947,7 +944,8 @@ float numItrs=10){
     yb = getPt( y2 , y3 , i );
 
     // Point
-    xs[k] = getPt( xa , xb , i );
-    ys[k++] = getPt( ya , yb , i );
+    pts[k][0] = getPt( xa , xb , i );
+    pts[k][1] = getPt( ya , yb , i );
+    pts[k++][2] = zval;
   }
 }
