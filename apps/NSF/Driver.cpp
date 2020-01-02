@@ -28,13 +28,14 @@
 #include "UnitTimeCAT.h"
 #include "ICTSAlgorithm.h"
 #include "GraphPerfectHeuristic.h"
-//#include "AirplaneConstrained.h"
+#include "apt.h"
 #include "DigraphEnvironment.h"
 #include "Utilities.h"
 #include <sstream>
 #include <fstream>
 
 extern double agentRadius;
+std::vector<AptFeature> features;
 bool greedyCT = false; // use greedy heuristic at the high-level
 bool ECBSheuristic = false; // use ECBS heuristic at low-level
 bool randomalg = false; // Randomize tiebreaking
@@ -281,6 +282,7 @@ void InstallHandlers()
   InstallCommandLineHandler(MyCLHandler, "-mapfile", "-mapfile", "Map file to use");
   InstallCommandLineHandler(MyCLHandler, "-dtedfile", "-dtedfile", "Map file to use");
   InstallCommandLineHandler(MyCLHandler, "-scenfile", "-scenfile", "Scenario file to use");
+  InstallCommandLineHandler(MyCLHandler, "-aptfile", "-aptfile", "XPlane apt file to use");
   InstallCommandLineHandler(MyCLHandler, "-mergeThreshold", "-mergeThreshold", "Number of conflicts to tolerate between meta-agents before merging");
   InstallCommandLineHandler(MyCLHandler, "-radius", "-radius <value>", "Radius in units of agent");
   InstallCommandLineHandler(MyCLHandler, "-resolution", "-resolution <value>", "Inverse resolution of time/cost");
@@ -669,6 +671,11 @@ int MyCLHandler(char *argument[], int maxNumArgs){
     randomalg = true;
     return 1;
   }
+  if(strcmp(argument[0], "-aptfile") == 0)
+  {
+    parseAptFile(argument[1],features);
+    return 2;
+  }
   if(strcmp(argument[0], "-dtedfile") == 0)
   {
     // If this flag is used, assume there is no scenfile flag
@@ -964,7 +971,12 @@ int MyCLHandler(char *argument[], int maxNumArgs){
     while(agent<num_agents){
       // Add environments
       std::vector<EnvironmentContainer<node_t,int>> ev;
-      auto newEnv = new DigraphEnvironment(files[0].c_str(),files[1].c_str());
+      DigraphEnvironment* newEnv;
+      if(files.size()>2){
+        newEnv = new DigraphEnvironment(files[0].c_str(),files[1].c_str(),files[2].c_str());
+      }else{
+        newEnv = new DigraphEnvironment(files[0].c_str(),files[1].c_str(),0);
+      }
       ev.emplace_back("graph",newEnv,new GraphPerfectHeuristic(0,newEnv),0,1.0);
       environs.emplace_back(ev);
       agent++;
