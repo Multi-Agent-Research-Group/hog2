@@ -108,7 +108,7 @@ float rotatePoint(float& x, float& y, float cx, float cy, float theta){
   y = sinT * dx + cosT * dy + cy;
 }
 
-void parseAptFile(std::string const& fname, FeatureList& features, float theta=-10){
+void parseAptFile(std::string const& fname, FeatureList& features, float ytrans=0.0035, float scale=1.08, float theta=0){
   theta*=M_PI/180.0; // to rads
   static float const DEG2M(111319.488);
 
@@ -274,24 +274,28 @@ void parseAptFile(std::string const& fname, FeatureList& features, float theta=-
         break;
     }
   }
+  // Allow extra translation on y-axis...
+  minLat+=ytrans;
+
   // Convert to local tangent plane coords
   float cLat((maxLat+minLat)/2.0);
   float cLon((maxLon+minLon)/2.0);
   float cosLat(cos((cLat*M_PI)/180.0)); // convert to radians
   float cx((cLon-minLon)*cosLat*DEG2M);
   float cy((cLat-minLat)*DEG2M);
+
   for(auto& f:features){
     for(auto& n:f.nodes){
       n[0]-=minLat; // Make relative to min
-      n[0]*=DEG2M; // Convert to meters
+      n[0]*=DEG2M*scale; // Convert to meters
       n[1]-=minLon;
-      n[1]*=cosLat*DEG2M;
+      n[1]*=cosLat*DEG2M*scale;
       rotatePoint(n[1],n[0],cx,cy,theta);
       if(n[2]){ // leave zeroes alone
         n[2]-=minLat;
-        n[2]*=DEG2M;
+        n[2]*=DEG2M*scale;
         n[3]-=minLon;
-        n[3]*=cosLat*DEG2M;
+        n[3]*=cosLat*DEG2M*scale;
         rotatePoint(n[3],n[2],cx,cy,theta);
       }
     }

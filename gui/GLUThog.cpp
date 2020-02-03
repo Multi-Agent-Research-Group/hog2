@@ -753,6 +753,9 @@ void buildGL(void)
 	glEnable(GL_DEPTH_TEST);
 
 	glShadeModel(GL_SMOOTH);    
+// This may not be necessary
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+
 	glPolygonMode(GL_FRONT_AND_BACK,GL_FILL);
 	glFrontFace(GL_CCW);
 	glPolygonOffset (1.0, 1.0);

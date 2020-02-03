@@ -30,6 +30,8 @@
 #include "BiClique.h"
 #include <vector>
 #include <map>
+#include <math.h>
+#include <cmath>
 #include <unordered_set>
 #include <unordered_map>
 
@@ -1337,7 +1339,7 @@ getForbiddenIntervalGeneralCase(Vector3D const& A,
       if(collisionTimeApex>(durB-dur)){
         auto delays(getDelay(fx1,fy1,fx2,fy2,(durB-dur)+delayEnd,focrad));
         //std::cout << "diff: " << delays.first << "," << delays.second << "\n";
-        if(!isnan(delays.first)){
+        if(!std::isnan(delays.first)){
           delayEnd=delays.first;
         }
       }
@@ -1345,12 +1347,12 @@ getForbiddenIntervalGeneralCase(Vector3D const& A,
         // Does applying the delay make the collision time end too early?
         auto delays(getDelay(fx1,fy1,fx2,fy2,durB+delayStart,focrad));
         //std::cout << "end: " << delays.first << "," << delays.second << "\n";
-        if(!isnan(delays.first)){
+        if(!std::isnan(delays.first)){
           delayStart=delays.first;
         }else{
           auto delays(getDelay(fx1,fy1,fx2,fy2,durB+delayEnd,focrad));
           //std::cout << "end2: " << delays.first << "," << delays.second << "\n";
-          if(!isnan(delays.first))
+          if(!std::isnan(delays.first))
             delayStart=delays.first;
         }
       }

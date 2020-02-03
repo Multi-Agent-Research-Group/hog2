@@ -22,8 +22,19 @@
 #ifndef PRINT_UTILS__
 #define PRINT_UTILS__
 
+#include <array>
 #include <vector>
 #include <utility>
+
+template <typename T, size_t N>
+inline std::ostream& operator <<(std::ostream & out, std::array<T,N> const& v){
+  if(v.empty())return out;
+  out<<"["<<*v.cbegin();
+  for(auto e(v.cbegin()+1); e!=v.end(); ++e)
+    out << "," << *e;
+  out<<"]";
+  return out;
+}
 
 template <typename T>
 inline std::ostream& operator <<(std::ostream & out, std::vector<T> const& v){

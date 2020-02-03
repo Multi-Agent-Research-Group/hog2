@@ -28,7 +28,7 @@ void __stdcall tessErrorCB(GLenum errorCode)
 
 void __stdcall glVertex3dv( const GLdouble *v )
 {
-    std::cout << "{"<<*v<<","<<(*(v+1))<<","<<Z<<"},\n";
+    //std::cout << "{"<<*v<<","<<(*(v+1))<<","<<Z<<"},\n";
     glVertex3d(*v,*(v+1),Z);//(-4.7,-1.3,1,-4.7,-1.4,0)
 }
 
@@ -192,6 +192,8 @@ class DigraphEnvironment: public ConstrainedEnvironment<node_t, int>{
 void OpenGLDraw() const
 {
   map->OpenGLDraw();
+  std::vector<std::array<GLdouble,3>> v;
+  v.reserve(100);
   // Draw feature polygons
   GLdouble v1[3]={0,0,0};
   GLdouble v2[3]={0,0,0};
@@ -203,27 +205,27 @@ void OpenGLDraw() const
         //glLineWidth(f.lwd);
         glBegin(GL_POLYGON);
         map->GetOpenGLCoord(f.nodes[0][1],f.nodes[0][0],-.04, v1[0], v1[1], v1[2], rad);
-        glVertex3f(v1[0], v1[1], z);
+        glVertex3f(v1[0], -v1[1], z);
         map->GetOpenGLCoord(f.nodes[0][3],f.nodes[0][2],-.04, v1[0], v1[1], v1[2], rad);
-        glVertex3f(v1[0], v1[1], z);
+        glVertex3f(v1[0], -v1[1], z);
         map->GetOpenGLCoord(f.nodes[1][3],f.nodes[1][2],-.04, v1[0], v1[1], v1[2], rad);
-        glVertex3f(v1[0], v1[1], z);
+        glVertex3f(v1[0], -v1[1], z);
         map->GetOpenGLCoord(f.nodes[1][1],f.nodes[1][0],-.04, v1[0], v1[1], v1[2], rad);
-        glVertex3f(v1[0], v1[1], z);
+        glVertex3f(v1[0], -v1[1], z);
         glEnd();
       break;
       case apt_taxi_new:
       {
-std::cout << f.name << "\n";
+//std::cout << f.name << "\n";
         GLdouble p[3]={0,0,z};
         GLdouble pb[3]={0,0,z};
         GLdouble b[3]={0,0,z};
 
         std::vector<std::array<GLdouble,3>> pts(11);
-        std::string sep1("");
-        std::string sep2("");
-        std::stringstream cx;
-        std::stringstream cy;
+        //std::string sep1("");
+        //std::string sep2("");
+        //std::stringstream cx;
+        //std::stringstream cy;
 
 
         GLUtesselator *tess(gluNewTess());
@@ -234,12 +236,19 @@ std::cout << f.name << "\n";
         gluTessCallback ( tess, GLU_TESS_END,    ( void ( __stdcall *) ( void ))glEnd       );
 
         gluTessBeginPolygon(tess, NULL);
-        std::cout << "gluTessBeginContour(tess)\n";
+        //std::cout << "gluTessBeginContour(tess)\n";
         gluTessBeginContour(tess);
+        auto prev(f.nodes.front());
+        v2[0]=v2[1]=0.0;
+        v.resize(0);
         for(auto const& n:f.nodes){
+          //std::cout << "Dist: " << Util::distance(n[0],n[1],prev[0],prev[1]) << "\n";
+          prev=n;
           memset(b, 0, sizeof(b)); // Reset bezier point
-          pts.clear();
+          pts.resize(0);
           map->GetOpenGLCoord(n[1],n[0],-.04, v1[0], v1[1], v1[2], rad);
+          //v2[0]+=v1[0];
+          //v2[1]+=v1[1];
           //std::cout << "point " << v1[0] << "," << v1[1];
           if(n[2]){
             map->GetOpenGLCoord(n[3],n[2],-.04, b[0], b[1], b[2], rad);
@@ -249,33 +258,45 @@ std::cout << f.name << "\n";
             if(pb[0]){
               drawCubicBezier(p[0],p[1],pb[0],pb[1],mx,my,v1[0],v1[1],pts,z,10);
               for(unsigned i(0); i<pts.size(); ++i){
-                //std::cout<<"gluTessVertex(tess, pts[i].data(), NULL);\n";
-                gluTessVertex(tess, pts[i].data(), pts[i].data());
+                //std::cout<<"gluTessVertex(tess, "<<pts[i]<<", NULL);\n";
+                v.resize(v.size()+1);
+                v.back()[0]=v1[0];
+                v.back()[1]=-v1[1];
+                v.back()[2]=Z;
+                //std::cout<<"gluTessVertex(tess, "<<v.back()<<", NULL);\n";
+                gluTessVertex(tess, v.back().data(), v.back().data());
+                //gluTessVertex(tess, pts[i].data(), pts[i].data());
                 //glVertex3f(xs[i], ys[i], -.04);
               }
-              for(unsigned i(0); i<pts.size(); ++i){
-                cx << sep1 << pts[i][0];
-                sep1=",";
-              }
-              for(unsigned i(0); i<pts.size(); ++i){
-                cy << sep2 << pts[i][1];
-                sep2=",";
-              }
+              //for(unsigned i(0); i<pts.size(); ++i){
+                //cx << sep1 << pts[i][0];
+                //sep1=",";
+              //}
+              //for(unsigned i(0); i<pts.size(); ++i){
+                //cy << sep2 << pts[i][1];
+                //sep2=",";
+              //}
             }else{
               drawQuadBezier(p[0],p[1],mx,my,v1[0],v1[1],pts,z,10);
               for(unsigned i(0); i<pts.size(); ++i){
-                //std::cout<<"gluTessVertex(tess, pts[i].data(), NULL);\n";
-                gluTessVertex(tess, pts[i].data(), pts[i].data());
+                //std::cout<<"gluTessVertex(tess, "<<pts[i]<<", NULL);\n";
+                v.resize(v.size()+1);
+                v.back()[0]=v1[0];
+                v.back()[1]=-v1[1];
+                v.back()[2]=Z;
+                //std::cout<<"gluTessVertex(tess, "<<v.back()<<", NULL);\n";
+                gluTessVertex(tess, v.back().data(), v.back().data());
+                //gluTessVertex(tess, pts[i].data(), pts[i].data());
                 //glVertex3f(xs[i], ys[i], -.04);
               }
-              for(unsigned i(0); i<pts.size(); ++i){
-                cx << sep1 << pts[i][0];
-                sep1=",";
-              }
-              for(unsigned i(0); i<pts.size(); ++i){
-                cy << sep2 << pts[i][1];
-                sep2=",";
-              }
+              //for(unsigned i(0); i<pts.size(); ++i){
+                //cx << sep1 << pts[i][0];
+                //sep1=",";
+              //}
+              //for(unsigned i(0); i<pts.size(); ++i){
+                //cy << sep2 << pts[i][1];
+                //sep2=",";
+              //}
             }
             /*}else if(pb[0]){
               drawQuadBezier(p[0],p[1],pb[0],pb[1],v1[0],v2[0],xs.data(),ys.data(),10);
@@ -292,18 +313,24 @@ std::cout << f.name << "\n";
               }*/
         }else{
           //std::cout<<"gluTessVertex(tess, v1, NULL);\n";
-          gluTessVertex(tess, v1, v1);
+          v.resize(v.size()+1);
+          v.back()[0]=v1[0];
+          v.back()[1]=-v1[1];
+          v.back()[2]=Z;
+          //std::cout<<"gluTessVertex(tess, "<<v.back()<<", NULL);\n";
+          gluTessVertex(tess, v.back().data(), v.back().data());
           //glVertex3f(v1[0],v1[1],-.04);
-          cx << sep1 << v1[0];
-          sep1=",";
-          cy << sep2 << v1[1];
-          sep2=",";
+          //cx << sep1 << v1[0];
+          //sep1=",";
+          //cy << sep2 << v1[1];
+          //sep2=",";
         }
         std::copy(std::begin(v1), std::end(v1), std::begin(p));
         std::copy(std::begin(b), std::end(b), std::begin(pb));
 
-        std::cout << "\n";
+        //std::cout << "\n";
         }
+        //DrawFmtTextCentered(v2[0]/f.nodes.size(),-v2[1]/f.nodes.size(),-.05,0.02,"%s",f.name.c_str());
         if(f.closed){
           //map->GetOpenGLCoord(f.nodes[0][1],f.nodes[0][0],-.04, v1[0], v1[1], v1[2], rad);
           //std::cout<<"gluTessVertex(tess, v1, NULL);\n";
@@ -316,7 +343,7 @@ std::cout << f.name << "\n";
         }
         //std::cout << "px=c("<<cx.str()<<")\npy=c("<<cy.str();
         //std::cout << ")\nplot(px,py,type='b')\n\n";
-        std::cout << "gluTessEndContour(tess)\n";
+        //std::cout << "gluTessEndContour(tess)\n";
         gluTessEndContour(tess);
         gluTessEndPolygon(tess);
         gluDeleteTess(tess);
