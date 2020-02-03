@@ -3193,7 +3193,7 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << b1 << "-->
                   c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(a1, a2));
                   c2.c.emplace_back((Constraint<state>*) new TimeRange<state>(b1, b2));
                 }else if(Params::mutualconstraints){
-//GetBiclique(a[xTime],a[xNextTime],b[yTime],b[yNextTime],x,y,c1,c2);
+                  //GetBiclique(a[xTime],a[xNextTime],b[yTime],b[yNextTime],x,y,c1,c2);
                   state const& a1(a[xTime]);
                   state const& a2(a[xNextTime]);
                   state const& b1(b[yTime]);
@@ -3208,7 +3208,7 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << b1 << "-->
                   as[ai++]=a2;
                   unsigned bi(0);
                   bs[bi++]=b2;
-                  
+
                   //Assume all agents ahve the same bf
                   const unsigned bf(currentEnvironment[x]->environment->branchingFactor());
 
@@ -3254,7 +3254,7 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << b1 << "-->
                               //std::cout << "b"<<bi << "collides with core\n";
                               //if(collisionCheck3DAPriori(a1, as[ai], b1, bs[bi], agentRadius))
                               if(collisionCheck3D(a1, as[ai], b1, bs[bi], agentRadius)){
-                              //std::cout << "a"<<ai << " collides with b"<<bi << "\n";
+                                //std::cout << "a"<<ai << " collides with b"<<bi << "\n";
                                 rwd[bi].push_back(ai);
                                 fwd[ai].push_back(bi);
                                 bi++;
@@ -3305,7 +3305,7 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << b1 << "-->
                               //std::cout << "b"<<bi << "collides with core\n";
                               //if(collisionCheck3DAPriori(a1, as[ai], b1, bs[bi], agentRadius))
                               if(collisionCheck3D(a1, as[ai], b1, bs[bi], agentRadius)){
-                              //std::cout << "a"<<ai << " collides with b"<<bi << "\n";
+                                //std::cout << "a"<<ai << " collides with b"<<bi << "\n";
                                 rwd[bi].push_back(ai);
                                 fwd[ai].push_back(bi);
                                 bi++;
@@ -3338,7 +3338,7 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << b1 << "-->
                   }else{
                     BiClique::findBiClique(rwd,fwd,{conf.second,conf.first},right,left);
                   }
-//std::cout << "sz:" << (left.size()+right.size())-std::max(left.size(),right.size())-1 << "\n";
+                  //std::cout << "sz:" << (left.size()+right.size())-std::max(left.size(),right.size())-1 << "\n";
                   for(auto const& m:left){
                     c1.c.emplace_back((Constraint<state>*) new Identical<state>(a1,as[m]));
                   }
@@ -3386,101 +3386,118 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << b1 << "-->
                         left1, right1, livls1, rivls1,
                         bf,agentRadius,agentRadius);
                        */
-                      bool swap=false, ortho=false, y=false;
-                      locationIndex(a1,b1,swap,ortho,y,bf); // Get rotation params from reverse action
-                      state dest;
-                      bool found(false);
-                      unsigned p,q;
-                      signed xx,yy;
-                      for(unsigned i(0); i<left.size(); ++i){
-                        p=left[i]/bf;
-                        q=left[i]%bf;
-                        xx=p%span;
-                        yy=p/span;
-                        state src(a1);
-                        src.x+=xx-d; // relative to a1
-                        if(signed(src.x)<0)continue;
-                        src.y+=yy-d; // relative to a1
-                        if(signed(src.y)<0)continue;
+                      if(left.size()==1){
+                        c1.c.emplace_back((Constraint<state>*) new Identical<state>(a1, a2));
+                        if(right.size()==1){
+                          c2.c.emplace_back((Constraint<state>*) new Identical<state>(b1, b2));
+                        }else{
+                          c2.c.emplace_back((Constraint<state>*) new Collision<state>(a1, a2,agentRadius));
+                        }
+                      }else if(right.size()==1){
+                          c2.c.emplace_back((Constraint<state>*) new Identical<state>(b1, b2));
+                          c1.c.emplace_back((Constraint<state>*) new Collision<state>(b1, b2,agentRadius));
+                      }else{
 
-                        auto move(invertMirroredMove(q,swap,ortho,y,bf));
-                        //if(std::find(left1.begin(),left1.end(),move)==left1.end()){
-                        //assert(!"Integrity of biclique is bad");
-                        //}
-                        fetch(src,move,dest,bf);
-                        //src.x=a1.x;
-                        //src.y=a1.y;
-                        src.t=std::max(0.0,b1.t+floor(livls[i].first*state::TIME_RESOLUTION_D));
-                        dest.t=std::max(0.0,b1.t+ceil(livls[i].second*state::TIME_RESOLUTION_D));
-                        if(src.t>a1.t)src.t=a1.t;
-                        if(dest.t<=src.t)dest.t=src.t+1;
-                        //if(dest.t==src.t)dest.t++;
-                        //assert(src.t<=a1.t && dest.t>=a1.t);
-                        //if(moveA==move)found=true;
-                        if(src.sameLoc(a1) && dest.sameLoc(a2)) found=true;
-                        c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
+                        bool swap=false, ortho=false, y=false;
+                        locationIndex(a1,b1,swap,ortho,y,bf); // Get rotation params from reverse action
+                        state dest;
+                        bool found(false);
+                        unsigned p,q;
+                        signed xx,yy;
+                        for(unsigned i(0); i<left.size(); ++i){
+                          p=left[i]/bf;
+                          q=left[i]%bf;
+                          xx=p%span;
+                          yy=p/span;
+                          state src(a1);
+                          src.x+=xx-d; // relative to a1
+                          if(signed(src.x)<0)continue;
+                          src.y+=yy-d; // relative to a1
+                          if(signed(src.y)<0)continue;
+
+                          auto move(invertMirroredMove(q,swap,ortho,y,bf));
+                          //if(std::find(left1.begin(),left1.end(),move)==left1.end()){
+                          //assert(!"Integrity of biclique is bad");
+                          //}
+                          fetch(src,move,dest,bf);
+                          //src.x=a1.x;
+                          //src.y=a1.y;
+                          src.t=std::max(0.0,b1.t+floor(livls[i].first*state::TIME_RESOLUTION_D));
+                          dest.t=std::max(0.0,b1.t+ceil(livls[i].second*state::TIME_RESOLUTION_D));
+                          if(src.t>a1.t)src.t=a1.t;
+                          if(dest.t<=src.t)dest.t=src.t+1;
+                          //if(dest.t==src.t)dest.t++;
+                          //assert(src.t<=a1.t && dest.t>=a1.t);
+                          //if(moveA==move)found=true;
+                          if(src.sameLoc(a1) && dest.sameLoc(a2)) found=true;
+                          c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
+                        }
+                        // In case left was empty...
+                        if(left.empty()){
+                          std::cout << "BICLIQUE: " << left.size() << " " << right.size() << "\n";
+                          assert(false&&"left side of biclique was empty");
+                          auto intvl(getForbiddenInterval(a1,a2,a1.t/xyztLoc::TIME_RESOLUTION_D,a2.t/xyztLoc::TIME_RESOLUTION_D,
+                                                          agentRadius,b1,b2,b1.t/state::TIME_RESOLUTION_D,b2.t/state::TIME_RESOLUTION_D,agentRadius));
+                          // Done if no overlap with current range, or no overlap with start delay
+                          auto src(a1);
+                          src.t=std::max(0.0,b1.t+floor(intvl.first*state::TIME_RESOLUTION_D));
+                          dest=a2;
+                          dest.t=std::max(0.0,b1.t+ceil(intvl.second*state::TIME_RESOLUTION_D));
+                          if(src.t>a1.t)src.t=a1.t;
+                          if(dest.t<=src.t)dest.t=src.t+1;
+                          if(src.sameLoc(a1) && dest.sameLoc(a2)) found=true;
+                          c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
+                        }
+                        assert(found&&"Core action A was not added!");
+                        found=false;
+                        // Do the same for the other side of biclique...
+                        //swap=false; ortho=false; y=false;
+                        //locationIndex(b2,b1,swap,ortho,y,bf); // Get rotation params from reverse action
+                        for(unsigned i(0); i<right.size(); ++i){
+                          p=right[i]/bf;
+                          q=right[i]%bf;
+                          xx=p%span;
+                          yy=p/span;
+                          state src(b1);
+                          src.x+=xx-d; // relative to b1
+                          if(signed(src.x)<0)continue;
+                          src.y+=yy-d; // relative to b1
+                          if(signed(src.y)<0)continue;
+                          //auto move(getMirroredMove(right[i],swap,ortho,y,bf));
+                          auto move(invertMirroredMove(q,swap,ortho,y,bf));
+                          //if(std::find(right1.begin(),right1.end(),move)==right1.end()){
+                          //assert(!"Integrity of biclique is bad");
+                          //}
+                          fetch(src,move,dest,bf);
+                          //src.x=b1.x;
+                          //src.y=b1.y;
+                          // Yes, a1.t is correct (delays are relative to a1)
+                          src.t=std::max(0.0,a1.t+floor(rivls[i].first*state::TIME_RESOLUTION_D));
+                          dest.t=std::max(0.0,a1.t+ceil(rivls[i].second*state::TIME_RESOLUTION_D));
+                          if(src.t>b1.t)src.t=b1.t;
+                          if(dest.t<=src.t)dest.t=src.t+1;
+                          //assert(src.t<=b1.t && dest.t>=b1.t);
+                          //if(moveB==move)found=true;
+                          if(src.sameLoc(b1) && dest.sameLoc(b2)) found=true;
+                          c2.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
+                        }
+                        if(right.empty()){
+                          std::cout << "BICLIQUE: " << left.size() << " " << right.size() << "\n";
+                          assert(false&&"right side of biclique was empty");
+                          auto intvl(getForbiddenInterval(b1,b2,b1.t/xyztLoc::TIME_RESOLUTION_D,b2.t/xyztLoc::TIME_RESOLUTION_D,
+                                                          agentRadius,a1,a2,a1.t/state::TIME_RESOLUTION_D,a2.t/state::TIME_RESOLUTION_D,agentRadius));
+                          // Done if no overlap with current range, or no overlap with start delay
+                          auto src(b1);
+                          src.t=std::max(0.0,a1.t+floor(intvl.first*state::TIME_RESOLUTION_D));
+                          dest=b2;
+                          dest.t=std::max(0.0,a1.t+ceil(intvl.second*state::TIME_RESOLUTION_D));
+                          if(src.t>b1.t)src.t=b1.t;
+                          if(dest.t<=src.t)dest.t=src.t+1;
+                          if(src.sameLoc(b1) && dest.sameLoc(b2)) found=true;
+                          c2.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
+                        }
+                        assert(found&&"Core action B was not added!");
                       }
-                      // In case left was empty...
-                      if(left.empty()){
-                        auto intvl(getForbiddenInterval(a1,a2,a1.t/xyztLoc::TIME_RESOLUTION_D,a2.t/xyztLoc::TIME_RESOLUTION_D,
-                                                        agentRadius,b1,b2,b1.t/state::TIME_RESOLUTION_D,b2.t/state::TIME_RESOLUTION_D,agentRadius));
-                        // Done if no overlap with current range, or no overlap with start delay
-                        auto src(a1);
-                        src.t=std::max(0.0,b1.t+floor(intvl.first*state::TIME_RESOLUTION_D));
-                        dest=a2;
-                        dest.t=std::max(0.0,b1.t+ceil(intvl.second*state::TIME_RESOLUTION_D));
-                        if(src.t>a1.t)src.t=a1.t;
-                        if(dest.t<=src.t)dest.t=src.t+1;
-                        if(src.sameLoc(a1) && dest.sameLoc(a2)) found=true;
-                        c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
-                      }
-                      assert(found&&"Core action A was not added!");
-                      found=false;
-                      // Do the same for the other side of biclique...
-                      //swap=false; ortho=false; y=false;
-                      //locationIndex(b2,b1,swap,ortho,y,bf); // Get rotation params from reverse action
-                      for(unsigned i(0); i<right.size(); ++i){
-                        p=right[i]/bf;
-                        q=right[i]%bf;
-                        xx=p%span;
-                        yy=p/span;
-                        state src(b1);
-                        src.x+=xx-d; // relative to b1
-                        if(signed(src.x)<0)continue;
-                        src.y+=yy-d; // relative to b1
-                        if(signed(src.y)<0)continue;
-                        //auto move(getMirroredMove(right[i],swap,ortho,y,bf));
-                        auto move(invertMirroredMove(q,swap,ortho,y,bf));
-                        //if(std::find(right1.begin(),right1.end(),move)==right1.end()){
-                        //assert(!"Integrity of biclique is bad");
-                        //}
-                        fetch(src,move,dest,bf);
-                        //src.x=b1.x;
-                        //src.y=b1.y;
-                        // Yes, a1.t is correct (delays are relative to a1)
-                        src.t=std::max(0.0,a1.t+floor(rivls[i].first*state::TIME_RESOLUTION_D));
-                        dest.t=std::max(0.0,a1.t+ceil(rivls[i].second*state::TIME_RESOLUTION_D));
-                        if(src.t>b1.t)src.t=b1.t;
-                        if(dest.t<=src.t)dest.t=src.t+1;
-                        //assert(src.t<=b1.t && dest.t>=b1.t);
-                        //if(moveB==move)found=true;
-                        if(src.sameLoc(b1) && dest.sameLoc(b2)) found=true;
-                        c2.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
-                      }
-                      if(right.empty()){
-                        auto intvl(getForbiddenInterval(b1,b2,b1.t/xyztLoc::TIME_RESOLUTION_D,b2.t/xyztLoc::TIME_RESOLUTION_D,
-                                                        agentRadius,a1,a2,a1.t/state::TIME_RESOLUTION_D,a2.t/state::TIME_RESOLUTION_D,agentRadius));
-                        // Done if no overlap with current range, or no overlap with start delay
-                        auto src(b1);
-                        src.t=std::max(0.0,a1.t+floor(intvl.first*state::TIME_RESOLUTION_D));
-                        dest=b2;
-                        dest.t=std::max(0.0,a1.t+ceil(intvl.second*state::TIME_RESOLUTION_D));
-                        if(src.t>b1.t)src.t=b1.t;
-                        if(dest.t<=src.t)dest.t=src.t+1;
-                        if(src.sameLoc(b1) && dest.sameLoc(b2)) found=true;
-                        c2.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
-                      }
-                      assert(found&&"Core action B was not added!");
                     }else{
                       getVertexAnnotatedBiclique(a1,a2,b1,b2,
                                                  a1.t/state::TIME_RESOLUTION_D,
@@ -3502,72 +3519,84 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << b1 << "-->
                         left1, right1, livls1, rivls1,
                         bf,agentRadius,agentRadius);
                        */
-                      bool swap=false, ortho=false, y=false;
-                      locationIndex(a1,b1,swap,ortho,y,bf); // Get rotation params from reverse action
-                      state src(a1);
-                      state dest;
-                      //bool found(false);
-                      for(unsigned i(0); i<left.size(); ++i){
-                        auto move(invertMirroredMove(left[i],swap,ortho,y,bf));
-                        //if(std::find(left1.begin(),left1.end(),move)==left1.end()){
-                        //assert(!"Integrity of biclique is bad");
-                        //}
-                        fetch(a1,move,dest,bf);
-                        //src.x=a1.x;
-                        //src.y=a1.y;
-                        src.t=std::max(0.0,b1.t+floor(livls[i].first*state::TIME_RESOLUTION_D));
-                        dest.t=std::max(0.0,b1.t+ceil(livls[i].second*state::TIME_RESOLUTION_D));
-                        if(src.t>a1.t)src.t=a1.t;
-                        if(dest.t<=src.t)dest.t=src.t+1;
-                        //if(dest.t==src.t)dest.t++;
-                        //assert(src.t<=a1.t && dest.t>=a1.t);
-                        //if(moveA==move)found=true;
-                        c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
+                      if(left.size()==1){
+                        c1.c.emplace_back((Constraint<state>*) new Identical<state>(a1, a2));
+                        if(right.size()==1){
+                          c2.c.emplace_back((Constraint<state>*) new Identical<state>(b1, b2));
+                        }else{
+                          c2.c.emplace_back((Constraint<state>*) new Collision<state>(a1, a2,agentRadius));
+                        }
+                      }else if(right.size()==1){
+                        c2.c.emplace_back((Constraint<state>*) new Identical<state>(b1, b2));
+                        c1.c.emplace_back((Constraint<state>*) new Collision<state>(b1, b2,agentRadius));
+                      }else{
+                        bool swap=false, ortho=false, y=false;
+                        locationIndex(a1,b1,swap,ortho,y,bf); // Get rotation params from reverse action
+                        state src(a1);
+                        state dest;
+                        //bool found(false);
+                        for(unsigned i(0); i<left.size(); ++i){
+                          auto move(invertMirroredMove(left[i],swap,ortho,y,bf));
+                          //if(std::find(left1.begin(),left1.end(),move)==left1.end()){
+                          //assert(!"Integrity of biclique is bad");
+                          //}
+                          fetch(a1,move,dest,bf);
+                          //src.x=a1.x;
+                          //src.y=a1.y;
+                          src.t=std::max(0.0,b1.t+floor(livls[i].first*state::TIME_RESOLUTION_D));
+                          dest.t=std::max(0.0,b1.t+ceil(livls[i].second*state::TIME_RESOLUTION_D));
+                          if(src.t>a1.t)src.t=a1.t;
+                          if(dest.t<=src.t)dest.t=src.t+1;
+                          //if(dest.t==src.t)dest.t++;
+                          //assert(src.t<=a1.t && dest.t>=a1.t);
+                          //if(moveA==move)found=true;
+                          c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
+                        }
+                        // In case left was empty...
+                        if(left.empty()){
+                          auto intvl(getForbiddenInterval(a1,a2,a1.t/xyztLoc::TIME_RESOLUTION_D,a2.t/xyztLoc::TIME_RESOLUTION_D,
+                                                          agentRadius,b1,b2,b1.t/state::TIME_RESOLUTION_D,b2.t/state::TIME_RESOLUTION_D,agentRadius));
+                          // Done if no overlap with current range, or no overlap with start delay
+                          src.t=std::max(0.0,b1.t+floor(intvl.first*state::TIME_RESOLUTION_D));
+                          dest=a2;
+                          dest.t=std::max(0.0,b1.t+ceil(intvl.second*state::TIME_RESOLUTION_D));
+                          c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
+                        }
+                        //assert(found&&"Core action A was not added!");
+                        //found=false;
+                        // Do the same for the other side of biclique...
+                        //swap=false; ortho=false; y=false;
+                        //locationIndex(b2,b1,swap,ortho,y,bf); // Get rotation params from reverse action
+                        src=b1;
+                        for(unsigned i(0); i<right.size(); ++i){
+                          //auto move(getMirroredMove(right[i],swap,ortho,y,bf));
+                          auto move(invertMirroredMove(right[i],swap,ortho,y,bf));
+                          //if(std::find(right1.begin(),right1.end(),move)==right1.end()){
+                          //assert(!"Integrity of biclique is bad");
+                          //}
+                          fetch(b1,move,dest,bf);
+                          //src.x=b1.x;
+                          //src.y=b1.y;
+                          // Yes, a1.t is correct (delays are relative to a1)
+                          src.t=std::max(0.0,a1.t+floor(rivls[i].first*state::TIME_RESOLUTION_D));
+                          dest.t=std::max(0.0,a1.t+ceil(rivls[i].second*state::TIME_RESOLUTION_D));
+                          if(src.t>b1.t)src.t=b1.t;
+                          if(dest.t<=src.t)dest.t=src.t+1;
+                          //assert(src.t<=b1.t && dest.t>=b1.t);
+                          //if(moveB==move)found=true;
+                          c2.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
+                        }
+                        if(right.empty()){
+                          auto intvl(getForbiddenInterval(b1,b2,b1.t/xyztLoc::TIME_RESOLUTION_D,b2.t/xyztLoc::TIME_RESOLUTION_D,
+                                                          agentRadius,a1,a2,a1.t/state::TIME_RESOLUTION_D,a2.t/state::TIME_RESOLUTION_D,agentRadius));
+                          // Done if no overlap with current range, or no overlap with start delay
+                          src.t=std::max(0.0,a1.t+floor(intvl.first*state::TIME_RESOLUTION_D));
+                          dest=b2;
+                          dest.t=std::max(0.0,a1.t+ceil(intvl.second*state::TIME_RESOLUTION_D));
+                          c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
+                        }
+                        //assert(found&&"Core action B was not added!");
                       }
-                      // In case left was empty...
-                      if(left.empty()){
-                        auto intvl(getForbiddenInterval(a1,a2,a1.t/xyztLoc::TIME_RESOLUTION_D,a2.t/xyztLoc::TIME_RESOLUTION_D,
-                                                        agentRadius,b1,b2,b1.t/state::TIME_RESOLUTION_D,b2.t/state::TIME_RESOLUTION_D,agentRadius));
-                        // Done if no overlap with current range, or no overlap with start delay
-                        src.t=std::max(0.0,b1.t+floor(intvl.first*state::TIME_RESOLUTION_D));
-                        dest=a2;
-                        dest.t=std::max(0.0,b1.t+ceil(intvl.second*state::TIME_RESOLUTION_D));
-                        c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
-                      }
-                      //assert(found&&"Core action A was not added!");
-                      //found=false;
-                      // Do the same for the other side of biclique...
-                      //swap=false; ortho=false; y=false;
-                      //locationIndex(b2,b1,swap,ortho,y,bf); // Get rotation params from reverse action
-                      src=b1;
-                      for(unsigned i(0); i<right.size(); ++i){
-                        //auto move(getMirroredMove(right[i],swap,ortho,y,bf));
-                        auto move(invertMirroredMove(right[i],swap,ortho,y,bf));
-                        //if(std::find(right1.begin(),right1.end(),move)==right1.end()){
-                        //assert(!"Integrity of biclique is bad");
-                        //}
-                        fetch(b1,move,dest,bf);
-                        //src.x=b1.x;
-                        //src.y=b1.y;
-                        // Yes, a1.t is correct (delays are relative to a1)
-                        src.t=std::max(0.0,a1.t+floor(rivls[i].first*state::TIME_RESOLUTION_D));
-                        dest.t=std::max(0.0,a1.t+ceil(rivls[i].second*state::TIME_RESOLUTION_D));
-                        if(src.t>b1.t)src.t=b1.t;
-                        if(dest.t<=src.t)dest.t=src.t+1;
-                        //assert(src.t<=b1.t && dest.t>=b1.t);
-                        //if(moveB==move)found=true;
-                        c2.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
-                      }
-                      if(right.empty()){
-                        auto intvl(getForbiddenInterval(b1,b2,b1.t/xyztLoc::TIME_RESOLUTION_D,b2.t/xyztLoc::TIME_RESOLUTION_D,
-                                                        agentRadius,a1,a2,a1.t/state::TIME_RESOLUTION_D,a2.t/state::TIME_RESOLUTION_D,agentRadius));
-                        // Done if no overlap with current range, or no overlap with start delay
-                        src.t=std::max(0.0,a1.t+floor(intvl.first*state::TIME_RESOLUTION_D));
-                        dest=b2;
-                        dest.t=std::max(0.0,a1.t+ceil(intvl.second*state::TIME_RESOLUTION_D));
-                        c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
-                      }
-                      //assert(found&&"Core action B was not added!");
                     }
                   }else{
                     getVertexAnnotatedBiclique(a1,a2,b1,b2,

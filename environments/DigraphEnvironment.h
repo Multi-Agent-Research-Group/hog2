@@ -15,6 +15,9 @@
 #ifndef _WIN32
 #define __stdcall
 #endif
+
+#define Z -.04
+
 void __stdcall tessErrorCB(GLenum errorCode)
 {
     const GLubyte *errorStr;
@@ -25,7 +28,8 @@ void __stdcall tessErrorCB(GLenum errorCode)
 
 void __stdcall glVertex3dv( const GLdouble *v )
 {
-    glVertex3d(*v,*(v+1),*(v+2));
+    std::cout << "{"<<*v<<","<<(*(v+1))<<","<<Z<<"},\n";
+    glVertex3d(*v,*(v+1),Z);//(-4.7,-1.3,1,-4.7,-1.4,0)
 }
 
 
@@ -191,7 +195,7 @@ void OpenGLDraw() const
   // Draw feature polygons
   GLdouble v1[3]={0,0,0};
   GLdouble v2[3]={0,0,0};
-  GLdouble rad;
+  GLdouble rad=0,z=-.04;
   for(auto const& f:features){
     glColor4f(f.r,f.g,f.b,1);
     switch(f.featuretype){
@@ -199,21 +203,21 @@ void OpenGLDraw() const
         //glLineWidth(f.lwd);
         glBegin(GL_POLYGON);
         map->GetOpenGLCoord(f.nodes[0][1],f.nodes[0][0],-.04, v1[0], v1[1], v1[2], rad);
-        glVertex3f(v1[0], v1[1], -.04);
+        glVertex3f(v1[0], v1[1], z);
         map->GetOpenGLCoord(f.nodes[0][3],f.nodes[0][2],-.04, v1[0], v1[1], v1[2], rad);
-        glVertex3f(v1[0], v1[1], -.04);
+        glVertex3f(v1[0], v1[1], z);
         map->GetOpenGLCoord(f.nodes[1][3],f.nodes[1][2],-.04, v1[0], v1[1], v1[2], rad);
-        glVertex3f(v1[0], v1[1], -.04);
+        glVertex3f(v1[0], v1[1], z);
         map->GetOpenGLCoord(f.nodes[1][1],f.nodes[1][0],-.04, v1[0], v1[1], v1[2], rad);
-        glVertex3f(v1[0], v1[1], -.04);
+        glVertex3f(v1[0], v1[1], z);
         glEnd();
       break;
       case apt_taxi_new:
       {
 std::cout << f.name << "\n";
-        GLdouble p[3]={0,0,0};
-        GLdouble pb[3]={0,0,0};
-        GLdouble b[3]={0,0,0};
+        GLdouble p[3]={0,0,z};
+        GLdouble pb[3]={0,0,z};
+        GLdouble b[3]={0,0,z};
 
         std::vector<std::array<GLdouble,3>> pts(11);
         std::string sep1("");
@@ -236,16 +240,16 @@ std::cout << f.name << "\n";
           memset(b, 0, sizeof(b)); // Reset bezier point
           pts.clear();
           map->GetOpenGLCoord(n[1],n[0],-.04, v1[0], v1[1], v1[2], rad);
-          std::cout << "point " << v1[0] << "," << v1[1];
+          //std::cout << "point " << v1[0] << "," << v1[1];
           if(n[2]){
             map->GetOpenGLCoord(n[3],n[2],-.04, b[0], b[1], b[2], rad);
             GLdouble mx(2.0*v1[0] - b[0]);
             GLdouble my(2.0*v1[1] - b[1]);
-            std::cout << " mirror " << mx << "," << my;
+            //std::cout << " mirror " << mx << "," << my;
             if(pb[0]){
-              drawCubicBezier(p[0],p[1],pb[0],pb[1],mx,my,v1[0],v1[1],pts,-.04,10);
+              drawCubicBezier(p[0],p[1],pb[0],pb[1],mx,my,v1[0],v1[1],pts,z,10);
               for(unsigned i(0); i<pts.size(); ++i){
-                std::cout<<"gluTessVertex(tess, pts[i].data(), NULL);\n";
+                //std::cout<<"gluTessVertex(tess, pts[i].data(), NULL);\n";
                 gluTessVertex(tess, pts[i].data(), pts[i].data());
                 //glVertex3f(xs[i], ys[i], -.04);
               }
@@ -258,9 +262,9 @@ std::cout << f.name << "\n";
                 sep2=",";
               }
             }else{
-              drawQuadBezier(p[0],p[1],mx,my,v1[0],v1[1],pts,-.04,10);
+              drawQuadBezier(p[0],p[1],mx,my,v1[0],v1[1],pts,z,10);
               for(unsigned i(0); i<pts.size(); ++i){
-                std::cout<<"gluTessVertex(tess, pts[i].data(), NULL);\n";
+                //std::cout<<"gluTessVertex(tess, pts[i].data(), NULL);\n";
                 gluTessVertex(tess, pts[i].data(), pts[i].data());
                 //glVertex3f(xs[i], ys[i], -.04);
               }
@@ -287,7 +291,7 @@ std::cout << f.name << "\n";
               sep2=",";
               }*/
         }else{
-          std::cout<<"gluTessVertex(tess, v1, NULL);\n";
+          //std::cout<<"gluTessVertex(tess, v1, NULL);\n";
           gluTessVertex(tess, v1, v1);
           //glVertex3f(v1[0],v1[1],-.04);
           cx << sep1 << v1[0];
@@ -310,8 +314,8 @@ std::cout << f.name << "\n";
           //cy << sep2 << v1[1];
                 //sep2=",";
         }
-        std::cout << "px=c("<<cx.str()<<")\npy=c("<<cy.str();
-        std::cout << ")\nplot(px,py,type='b')\n\n";
+        //std::cout << "px=c("<<cx.str()<<")\npy=c("<<cy.str();
+        //std::cout << ")\nplot(px,py,type='b')\n\n";
         std::cout << "gluTessEndContour(tess)\n";
         gluTessEndContour(tess);
         gluTessEndPolygon(tess);
