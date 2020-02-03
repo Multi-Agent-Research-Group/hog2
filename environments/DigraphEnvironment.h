@@ -9,10 +9,28 @@
 #include <fstream>
 #include <iostream>
 #include "Map.h"
+#include "apt.h"
 #include <valgrind/memcheck.h>
 
+#ifndef _WIN32
+#define __stdcall
+#endif
+void __stdcall tessErrorCB(GLenum errorCode)
+{
+    const GLubyte *errorStr;
+
+    errorStr = gluErrorString(errorCode);
+    std::cerr << "[ERROR]: " << errorStr << std::endl;
+}
+
+void __stdcall glVertex3dv( const GLdouble *v )
+{
+    glVertex3d(*v,*(v+1),*(v+2));
+}
+
+
 struct node_t{
-  node_t():x(-1),y(-1),t(-1),id(-1),nc(0){}
+  node_t():x(-1),y(-1),t(-1),id(-1),nc(0U){}
   node_t(unsigned xx, unsigned yy, unsigned i, unsigned tt=0):x(xx),y(yy),id(i),t(tt),nc(0){}
   node_t(node_t const& n, unsigned tt=0):x(n.x),y(n.y),id(n.id),t(tt?tt:n.t),nc(0){}
   operator TemporalVector3D()const{return TemporalVector3D(x,y,0,t/TIME_RESOLUTION_D);}
@@ -54,14 +72,17 @@ struct edge_t{
 
 class DigraphEnvironment: public ConstrainedEnvironment<node_t, int>{
   public:
-  DigraphEnvironment(char const* vfile, char const* efile, bool bidir=true, bool selfloops=true){
-VALGRIND_CHECK_VALUE_IS_DEFINED(nodes);
-VALGRIND_CHECK_VALUE_IS_DEFINED(adj);
-VALGRIND_CHECK_VALUE_IS_DEFINED(weight);
-VALGRIND_CHECK_VALUE_IS_DEFINED(width);
-VALGRIND_CHECK_VALUE_IS_DEFINED(height);
-VALGRIND_CHECK_VALUE_IS_DEFINED(map);
+  DigraphEnvironment(char const* vfile, char const* efile, char const* afile, bool bidir=true, bool selfloops=true){
+  VALGRIND_CHECK_VALUE_IS_DEFINED(nodes);
+  VALGRIND_CHECK_VALUE_IS_DEFINED(adj);
+  VALGRIND_CHECK_VALUE_IS_DEFINED(weight);
+  VALGRIND_CHECK_VALUE_IS_DEFINED(width);
+  VALGRIND_CHECK_VALUE_IS_DEFINED(height);
+  VALGRIND_CHECK_VALUE_IS_DEFINED(map);
 
+    if(afile && features.empty()){
+      parseAptFile(afile,features); // Load airport features
+    }
     if(nodes.size()){return;} // already loaded!
     nodes.reserve(255);
     adj.reserve(512);
@@ -123,6 +144,7 @@ VALGRIND_CHECK_VALUE_IS_DEFINED(map);
   static std::unordered_map<uint64_t,uint32_t> weight;
   static unsigned width, height;
   static std::unique_ptr<Map> map;
+  static FeatureList features;
   node_t goal;
   bool ignoreTime=false;
 
@@ -166,23 +188,154 @@ VALGRIND_CHECK_VALUE_IS_DEFINED(map);
 void OpenGLDraw() const
 {
   map->OpenGLDraw();
+  // Draw feature polygons
+  GLdouble v1[3]={0,0,0};
+  GLdouble v2[3]={0,0,0};
+  GLdouble rad;
+  for(auto const& f:features){
+    glColor4f(f.r,f.g,f.b,1);
+    switch(f.featuretype){
+      case apt_rwy_new:
+        //glLineWidth(f.lwd);
+        glBegin(GL_POLYGON);
+        map->GetOpenGLCoord(f.nodes[0][1],f.nodes[0][0],-.04, v1[0], v1[1], v1[2], rad);
+        glVertex3f(v1[0], v1[1], -.04);
+        map->GetOpenGLCoord(f.nodes[0][3],f.nodes[0][2],-.04, v1[0], v1[1], v1[2], rad);
+        glVertex3f(v1[0], v1[1], -.04);
+        map->GetOpenGLCoord(f.nodes[1][3],f.nodes[1][2],-.04, v1[0], v1[1], v1[2], rad);
+        glVertex3f(v1[0], v1[1], -.04);
+        map->GetOpenGLCoord(f.nodes[1][1],f.nodes[1][0],-.04, v1[0], v1[1], v1[2], rad);
+        glVertex3f(v1[0], v1[1], -.04);
+        glEnd();
+      break;
+      case apt_taxi_new:
+      {
+std::cout << f.name << "\n";
+        GLdouble p[3]={0,0,0};
+        GLdouble pb[3]={0,0,0};
+        GLdouble b[3]={0,0,0};
+
+        std::vector<std::array<GLdouble,3>> pts(11);
+        std::string sep1("");
+        std::string sep2("");
+        std::stringstream cx;
+        std::stringstream cy;
+
+
+        GLUtesselator *tess(gluNewTess());
+        assert(tess);
+        gluTessCallback ( tess, GLU_TESS_BEGIN,  ( void ( __stdcall *) ( void ))glBegin     );
+        gluTessCallback ( tess, GLU_TESS_VERTEX, ( void ( __stdcall *) ( void ))glVertex3dv );
+        gluTessCallback ( tess, GLU_TESS_ERROR, ( void ( __stdcall *) ( void ))tessErrorCB );
+        gluTessCallback ( tess, GLU_TESS_END,    ( void ( __stdcall *) ( void ))glEnd       );
+
+        gluTessBeginPolygon(tess, NULL);
+        std::cout << "gluTessBeginContour(tess)\n";
+        gluTessBeginContour(tess);
+        for(auto const& n:f.nodes){
+          memset(b, 0, sizeof(b)); // Reset bezier point
+          pts.clear();
+          map->GetOpenGLCoord(n[1],n[0],-.04, v1[0], v1[1], v1[2], rad);
+          std::cout << "point " << v1[0] << "," << v1[1];
+          if(n[2]){
+            map->GetOpenGLCoord(n[3],n[2],-.04, b[0], b[1], b[2], rad);
+            GLdouble mx(2.0*v1[0] - b[0]);
+            GLdouble my(2.0*v1[1] - b[1]);
+            std::cout << " mirror " << mx << "," << my;
+            if(pb[0]){
+              drawCubicBezier(p[0],p[1],pb[0],pb[1],mx,my,v1[0],v1[1],pts,-.04,10);
+              for(unsigned i(0); i<pts.size(); ++i){
+                std::cout<<"gluTessVertex(tess, pts[i].data(), NULL);\n";
+                gluTessVertex(tess, pts[i].data(), pts[i].data());
+                //glVertex3f(xs[i], ys[i], -.04);
+              }
+              for(unsigned i(0); i<pts.size(); ++i){
+                cx << sep1 << pts[i][0];
+                sep1=",";
+              }
+              for(unsigned i(0); i<pts.size(); ++i){
+                cy << sep2 << pts[i][1];
+                sep2=",";
+              }
+            }else{
+              drawQuadBezier(p[0],p[1],mx,my,v1[0],v1[1],pts,-.04,10);
+              for(unsigned i(0); i<pts.size(); ++i){
+                std::cout<<"gluTessVertex(tess, pts[i].data(), NULL);\n";
+                gluTessVertex(tess, pts[i].data(), pts[i].data());
+                //glVertex3f(xs[i], ys[i], -.04);
+              }
+              for(unsigned i(0); i<pts.size(); ++i){
+                cx << sep1 << pts[i][0];
+                sep1=",";
+              }
+              for(unsigned i(0); i<pts.size(); ++i){
+                cy << sep2 << pts[i][1];
+                sep2=",";
+              }
+            }
+            /*}else if(pb[0]){
+              drawQuadBezier(p[0],p[1],pb[0],pb[1],v1[0],v2[0],xs.data(),ys.data(),10);
+              for(unsigned i(0); i<xs.size(); ++i){
+              glVertex3f(xs[i], ys[i], -.04);
+              }
+              for(unsigned i(0); i<xs.size(); ++i){
+              cx << sep1 << xs[i];
+              sep1=",";
+              }
+              for(unsigned i(0); i<xs.size(); ++i){
+              cy << sep2 << ys[i];
+              sep2=",";
+              }*/
+        }else{
+          std::cout<<"gluTessVertex(tess, v1, NULL);\n";
+          gluTessVertex(tess, v1, v1);
+          //glVertex3f(v1[0],v1[1],-.04);
+          cx << sep1 << v1[0];
+          sep1=",";
+          cy << sep2 << v1[1];
+          sep2=",";
+        }
+        std::copy(std::begin(v1), std::end(v1), std::begin(p));
+        std::copy(std::begin(b), std::end(b), std::begin(pb));
+
+        std::cout << "\n";
+        }
+        if(f.closed){
+          //map->GetOpenGLCoord(f.nodes[0][1],f.nodes[0][0],-.04, v1[0], v1[1], v1[2], rad);
+          //std::cout<<"gluTessVertex(tess, v1, NULL);\n";
+          //gluTessVertex(tess, v1, v1);
+          //glVertex3f(v1[0], v1[1], -.04);
+          //cx << sep1 << v1[0];
+                //sep1=",";
+          //cy << sep2 << v1[1];
+                //sep2=",";
+        }
+        std::cout << "px=c("<<cx.str()<<")\npy=c("<<cy.str();
+        std::cout << ")\nplot(px,py,type='b')\n\n";
+        std::cout << "gluTessEndContour(tess)\n";
+        gluTessEndContour(tess);
+        gluTessEndPolygon(tess);
+        gluDeleteTess(tess);
+      }
+      break;
+    }
+  }
+  // Draw taxiway lines
   glColor4f(0, 0, 0, 1);
+  glLineWidth(1.0);
   signed i(-1);
   for(auto const& a:adj){
     ++i;
-    GLdouble x1, y1, z1, rad;
-    map->GetOpenGLCoord(nodes[i].x, nodes[i].y, -.05, x1, y1, z1, rad);
+    map->GetOpenGLCoord(nodes[i].x, nodes[i].y, -.05, v1[0], v1[1], v1[2], rad);
     for(auto const& n:a){
 
       glBegin(GL_LINES);
-      glVertex3f(x1, y1, z1);
-
-      GLdouble x2, y2, z2, rad;
-      map->GetOpenGLCoord(nodes[n].x, nodes[n].y, -.05, x2, y2, z2, rad);
-      glVertex3f(x2, y2, z2);
+      glVertex3f(v1[0], v1[1], v1[2]);
+      map->GetOpenGLCoord(nodes[n].x, nodes[n].y, -.05, v2[0], v2[1], v2[2], rad);
+      glVertex3f(v2[0], v2[1], v2[2]);
       glEnd();
     }
-    DrawFmtTextCentered(x1,y1,-.05,0.02,"%d",nodes[i].id);
+    DrawFmtTextCentered(v1[0],v1[1],-.05,0.02,"%d",nodes[i].id);
   }
 }
 
@@ -278,6 +431,7 @@ bool collisionCheck(const node_t &s1, const node_t &d1, float r1, const node_t &
 }
 };
 
+FeatureList DigraphEnvironment::features;
 std::vector<node_t> DigraphEnvironment::nodes;
 std::vector<std::vector<uint16_t>> DigraphEnvironment::adj;
 std::unordered_map<uint64_t,uint32_t> DigraphEnvironment::weight;

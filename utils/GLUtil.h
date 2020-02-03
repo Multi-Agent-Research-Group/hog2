@@ -27,6 +27,8 @@
 
 #include "FPUtil.h"
 #include <ostream>
+#include <vector>
+#include <array>
 
 #ifdef __APPLE__
 #include "TargetConditionals.h"
@@ -63,6 +65,7 @@
 
 //#pragma mark -
 //#pragma mark OpenGL structures:
+
 
 static const double TWOPI = 6.283185307179586476925287;
 static const double PI = 3.141592653589793238462643;
@@ -163,6 +166,17 @@ void DrawText(double x, double y, double z, double scale, const char *res);
 void DrawTextCentered(double x, double y, double z, double scale, const char *res);
 void DrawFmtTextCentered(double x, double y, double z, double scale, char const*const pFmtTxt, ...);
 
+void drawQuadBezier(GLdouble const& x1, GLdouble const& y1, // point 1
+GLdouble const& x2, GLdouble const& y2, // control point 1
+GLdouble const& x3, GLdouble const& y3, // point 2
+std::vector<std::array<GLdouble,3>>& pts, GLdouble zval,
+GLdouble numItrs=10);
+void drawCubicBezier(GLdouble const& x1, GLdouble const& y1, // point 1
+GLdouble const& x2, GLdouble const& y2, // control point 1
+GLdouble const& x3, GLdouble const& y3, // control point 2
+GLdouble const& x4, GLdouble const& y4, // point 2
+std::vector<std::array<GLdouble,3>>& pts, GLdouble zval,
+GLdouble numItrs=10);
 
 namespace colors
 {
