@@ -1216,7 +1216,7 @@ getForbiddenIntervalIncremental(Vector3D const& A,
                      float radiusB,
                      float delayStart,
                      float delayEnd,
-                     float res=0.001){
+                     float res=0.0001){
   float dur(endTimeA-startTimeA);
   float durB(endTimeB-startTimeB);
     for(float i(delayStart+res); i<delayEnd; i+=res){
@@ -1246,9 +1246,11 @@ getForbiddenIntervalGeneralCase(Vector3D const& A,
                      float durB,
                      Vector3D const& DAB, // A-B
                      Vector3D const& DVAB, // VA-VB
-                     float r, // (rA+rB)
+                     float rA,
+                     float rB,
+                     float rsq, // Adjusted for minus epsilon
                      float res=0.001){
-  float rsq(r*r);
+  float r(rA+rB);
   float AVA(A*VA);
   float BVA(B*VA);
   float AVB(A*VB);
@@ -1284,7 +1286,7 @@ getForbiddenIntervalGeneralCase(Vector3D const& A,
   float db2a(Util::distanceOfPointToLine(A,A2,B2));
   if(da1b<r || da2b<r || db1a<r || db2a<r){
     //std::cout << da1b << " " << da2b << " " << db1a << " " << db2a << "\n";
-    return getForbiddenIntervalIncremental(A,VA,0,dur,r/2.0,B,VB,0,durB,r/2.0,-delayEnd,-delayStart,res);
+    return getForbiddenIntervalIncremental(A,VA,0,dur,rA,B,VB,0,durB,rB,-delayEnd,-delayStart,res);
     //std::cout << "SPECIAL CASE\n";
     //for(float i(delayStart+res); i<delayEnd; i+=res){
       //if(collisionImminent(A,VA,r/2.0,0,dur,B,VB,r/2.0,i,i+durB)){
@@ -1374,6 +1376,8 @@ getForbiddenInterval(Vector3D const& A,
                      float startTimeB,
                      float endTimeB,
                      float radiusB,
+                     float speedA=1.0,
+                     float speedB=1.0,
                      float res=0.001){
   Vector3D VA(A2-A);
   Vector3D VB(B2-B);
@@ -1382,11 +1386,13 @@ getForbiddenInterval(Vector3D const& A,
   // Assume unit speed...
   VA.Normalize();
   VB.Normalize();
-  float r(radiusA+radiusB);
+  auto nva(VA); // Pure normal vectors (no speed adj)
+  auto nvb(VB);
+  float r(radiusA+radiusB-2*TOLERANCE);
   float rsq(r*r);
   Vector3D DVAB(VB-VA);
 
-  if(!Util::fatLinesIntersect(A,A2,radiusA,B,B2,radiusB)){
+  if(!Util::fatLinesIntersect(A,A2,radiusA-TOLERANCE,B,B2,radiusB-TOLERANCE)){
     return {std::numeric_limits<float>::infinity(),-std::numeric_limits<float>::infinity()}; // never conflicting
   }
   // Is one agent waiting?
@@ -1424,78 +1430,20 @@ getForbiddenInterval(Vector3D const& A,
     }else{ return {std::numeric_limits<float>::infinity(),-std::numeric_limits<float>::infinity()};} // never conflicting
   }
 
-  // Are they parallel?
-  if(fequal(DVAB.x,0.0) && fequal(DVAB.y,0.0)){
-    // If they are currently overlapping, they will do so forever, otherwise, they never will
-    float d(Util::distanceOfPointToLine(A,A2,B));
-    d*=d;
-    if(d<rsq){
-      float v(sqrt(rsq-d)); // translational orthogonal distance between centers at start of impact
-      float ds(DAB.sq()); // Sq. distance between starts
-      float dc(sqrt(ds-d)); // Distance between starts along trajectory line
-      // Determine if A is "in front of" B
-      Vector3D DA(A2-A);
-      float costheta(DAB*DA/(DAB.len()*DA.len()));
-      if(costheta>0){
-        return {std::max(startTimeB-dc-v,-endTimeA),std::min(startTimeB-dc+v,endTimeB)};
-      }else if(costheta<0){
-        return {std::max(startTimeB+dc-v,-endTimeA),std::min(startTimeB+dc+v,endTimeB)};
-      }
-      return {startTimeB-v,std::min(startTimeB+v,endTimeB)}; // Distance between lines is close enough to crash.
-    }else{ return {std::numeric_limits<float>::infinity(),-std::numeric_limits<float>::infinity()};} // Parallel, never conflicting
+  // Are motions exactly parallel or opposing?
+  if(nva==nvb || nva==-nvb){
+    float durB(endTimeB-startTimeB);
+    return getForbiddenIntervalIncremental(A,VA,0,dur,radiusA,B,VB,0,durB,radiusB,-std::max(dur,durB),std::max(dur,durB),res);
   }
-  // Are they opposing?
-  if(VA==-VB){
-    float d(Util::distanceOfPointToLine(A,A2,B));
-    d*=d;
-    if(d<rsq){
-      float v(sqrt(rsq-d)); // translational distance between centers at start of impact
-
-      auto ES(B-A2);
-      auto SE(B2-A);
-
-      float dep(sqrt(ES.sq()-d)); // distance required for A to be orthogonal with start of B
-      float dp(sqrt(SE.sq()-d)); // distance required for A to be orthogonal with end of B
-
-      float start(0.0f);
-      float end(0.0f);
-
-      Vector3D DA(A2-A);
-      if(SE.len()<=r){
-        end=endTimeB;
-      }else{
-        float costheta(SE*DA/(SE.len()*DA.len()));
-        if(costheta>=0){
-          end=endTimeB-dp+v;
-        }else{
-          end=endTimeB-dp+v;
-        }
-      }
-
-      // Determine if A2 is "behind" B
-      if(ES.len()<=r){
-        start=startTimeB-dur;
-      }else{
-        float costheta(ES*DA/(ES.len()*DA.len()));
-        if(costheta>0){ // Acute angle
-          start=startTimeB-dur+dep-v;
-        }else{
-          start=startTimeB-dur+dep-v;
-        }
-      }
-      return {start,end};
-    }else{ return {std::numeric_limits<float>::infinity(),-std::numeric_limits<float>::infinity()};} // Parallel, never conflicting
-  }
-
 
   // General case
   float durB(endTimeB-startTimeB);
   if(durB<dur){
     //std::cout << "SWAPPED!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
-    auto intvl(getForbiddenIntervalGeneralCase(B,B2,VB,durB,A,A2,VA,dur,DAB,DVAB,r));
+    auto intvl(getForbiddenIntervalGeneralCase(B,B2,VB,durB,A,A2,VA,dur,DAB,DVAB,radiusA,radiusB,rsq));
     return {-intvl.second,-intvl.first};
   }
-  return getForbiddenIntervalGeneralCase(A,A2,VA,dur,B,B2,VB,durB,DAB,DVAB,r);
+  return getForbiddenIntervalGeneralCase(A,A2,VA,dur,B,B2,VB,durB,DAB,DVAB,radiusA,radiusB,rsq);
 }
 
 // Get mirrored move number assuming that the start point is mirrored

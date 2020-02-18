@@ -575,6 +575,22 @@ class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
       }
       return false;
     }
+    virtual inline void WaitTimes(const State& from, const State &to, std::set<float>& times) const {
+      //Get wait times for this state
+      if(constraints.empty() || from.sameLoc(to))return;
+      static typename IntervalTree<Constraint<State>>::Intervals cs;
+      cs.resize(0);
+      Identical<State> tmp(to,to);
+      constraints.findOverlapping((Constraint<State>*)&tmp,cs);
+      for(auto const& s:cs){
+        auto t1(s->start_state.t);
+        auto t2(s->end_state.t);
+        if(s->start_state.sameLoc(to) && from.t>=t1 && from.t<=t2){
+          times.insert(s->end_state.t-from.t);
+          std::cout << "Allowing wait time of " << (s->end_state.t-from.t) << " at " << from << "because of time range constraint " << s->start_state << "-->" << s->end_state << " for "<< to << "\n";
+        } 
+      }
+    }
     virtual void GLDrawLine(const State &x, const State &y) const{}
     virtual void GLDrawPath(const std::vector<State> &p, const std::vector<State> &waypoints) const{
       if(p.size()<2) return;

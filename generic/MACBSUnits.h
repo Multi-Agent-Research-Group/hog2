@@ -2349,7 +2349,7 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
         state a2(ax2);
         state b1(bx1);
         state b2(bx2);
-        auto intvl(collisionInterval3D(a1,a2,b1,b2,agentRadius));
+        auto intvl(getForbiddenInterval(a1,a2,a1.t,a2.t,agentRadius,b1,b2,b1.t,b2.t,agentRadius));
         a2.t-=intvl.second*state::TIME_RESOLUTION_U-a1.t;
         a1.t-=intvl.first*state::TIME_RESOLUTION_U-a1.t;
         //b2.t-=intvl.second*state::TIME_RESOLUTION_U-b1.t;
@@ -2755,11 +2755,13 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
       if(!update && !countall){
         //std::cout << "Exiting conf check loop (!countall && !update) "<<x<<","<<y<<" - \n";
         break;} // We don't care about anything except whether there is at least one conflict
-      if(Params::verbose)
+      if(Params::verbose){
         std::cout << conflict.first << " conflicts; #"
           << x << ":" << a[xTime] << "-->" << a[xNextTime]
           << " #" << y << ":"
           << b[yTime] << "-->" << b[yNextTime] << "\n";
+        collisionCheck3D(a[xTime], a[xNextTime], b[yTime], b[yNextTime], agentRadius,agentRadius);
+      }
       if(update) { // Keep updating until we find a both-cardinal conflict
         // Determine conflict type
         unsigned conf(NO_CONFLICT);
@@ -3179,17 +3181,19 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << b1 << "-->
                   state a2(a[xNextTime]);
                   state b1(b[yTime]);
                   state b2(b[yNextTime]);
-                  float startB(signed(a1.t-b1.t)/state::TIME_RESOLUTION_D);
                   float durA((a2.t-a1.t)/state::TIME_RESOLUTION_D);
                   float durB((b2.t-b1.t)/state::TIME_RESOLUTION_D);
                   //std::cout << "Collision at: " << x << ": " << a1 << "-->" << a2 << ", " << y << ": " << b1 << " " << b2 << "\n";
-                  auto intvl(getForbiddenInterval(a1,a2,0,durA,agentRadius,b1,b2,startB,startB+durB,agentRadius));
+                  auto intvl(getForbiddenInterval(a1,a2,0,durA,agentRadius,b1,b2,0,durB,agentRadius));
                   //auto intvl(getForbiddenInterval(a1,a2,a1.t/state::TIME_RESOLUTION_D,a2.t/state::TIME_RESOLUTION_D,agentRadius,b1,b2,b1.t/state::TIME_RESOLUTION_D,b2.t/state::TIME_RESOLUTION_D,agentRadius));
                   //std::cout << "the interval for " << a1 << "-->" << a2 << "," << b1 << "-->" << b2 << ": " << intvl.first << "," << intvl.second << "\n";
-                  a2.t=a1.t+intvl.second*state::TIME_RESOLUTION_D;
+                  a2.t=b1.t+intvl.second*state::TIME_RESOLUTION_D;
                   b2.t=a1.t-intvl.first*state::TIME_RESOLUTION_D;
+                  auto tmp(b1.t);
                   b1.t=a1.t-intvl.second*state::TIME_RESOLUTION_D;
-                  a1.t+=intvl.first*state::TIME_RESOLUTION_D;
+                  a1.t=tmp+intvl.first*state::TIME_RESOLUTION_D;
+assert(a1.t<=a[xTime].t && a2.t >= a[xTime].t);
+assert(b1.t<=b[yTime].t && b2.t >= b[yTime].t);
                   c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(a1, a2));
                   c2.c.emplace_back((Constraint<state>*) new TimeRange<state>(b1, b2));
                 }else if(Params::mutualconstraints){

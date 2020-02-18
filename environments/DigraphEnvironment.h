@@ -412,13 +412,9 @@ void GLDrawLine(const node_t &x, const node_t &y) const
 
 virtual unsigned GetSuccessors(const node_t &node, node_t* neighbors) const{
   unsigned sz(0);
-  // Assume waiting is allowed
-  //if(!ignoreTime){
-    //node_t wait(node,node.t+node_t::TIME_RESOLUTION_D);
-    //if(!ViolatesConstraint(node,wait)){
-      //neighbors[sz++]=wait;
-    //}
-  //}
+  // Add wait actions
+  std::set<float> times;
+  node_t wait(node);
   for(auto const& a:adj[node.id]){
     auto const& v(weight.find(edge_t::getKey(node.id,a)));
     assert(v!=weight.end());
@@ -426,6 +422,17 @@ virtual unsigned GetSuccessors(const node_t &node, node_t* neighbors) const{
     if(!ViolatesConstraint(node,nn)){
       neighbors[sz++]=nn;
     }
+    WaitTimes(node,nn,times);
+    for(auto const& t:times){
+      wait.t=node.t+t;
+      if(!ViolatesConstraint(node,wait)){
+        std::cout << "WAIT " << node << "-->" << wait << "\n";
+        neighbors[sz++]=wait;
+      }else{
+        std::cout << "Can't WAIT " << node << "-->" << wait << "\n";
+      }
+    }
+    times.clear();
   }
   return sz;
 }
