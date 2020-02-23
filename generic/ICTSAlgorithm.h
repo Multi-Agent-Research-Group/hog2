@@ -20,6 +20,9 @@
  *
  */
 
+#ifndef __ICTSAlgorithm_H__
+#define __ICTSAlgorithm_H__
+
 #include "Common.h"
 #include <memory>
 #include <iostream>
@@ -958,3 +961,4 @@ uint64_t ICTSAlgorithm<state,action>::Node::count(0);
 template<typename state, typename action>
 uint64_t ICTSAlgorithm<state,action>::ICTSNode::count(0);
 
+#endif

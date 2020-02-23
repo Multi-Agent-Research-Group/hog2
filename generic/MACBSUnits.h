@@ -2747,7 +2747,8 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
       //std::cout << "bad\n";
     //}
     //if(Params::boxconstraints?Box<state>(a[xTime], a[xNextTime]).ConflictsWith(b[yTime], b[yNextTime]):collisionCheck3DAPriori(a[xTime], a[xNextTime], b[yTime], b[yNextTime], agentRadius)){
-    if(Params::boxconstraints?Box<state>(a[xTime], a[xNextTime]).ConflictsWith(b[yTime], b[yNextTime]):collisionCheck3D(a[xTime], a[xNextTime], b[yTime], b[yNextTime], agentRadius,agentRadius)){
+    //if(Params::boxconstraints?Box<state>(a[xTime], a[xNextTime]).ConflictsWith(b[yTime], b[yNextTime]):collisionCheck3D(a[xTime], a[xNextTime], b[yTime], b[yNextTime], agentRadius,agentRadius)){
+    if(collisionCheck3D(a[xTime], a[xNextTime], b[yTime], b[yNextTime], agentRadius,agentRadius)){
       ++conflict.first;
       if(Params::cct){
         location.setcct(x,y,xTime,yTime);
@@ -2767,6 +2768,8 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
         unsigned conf(NO_CONFLICT);
         //std::cout << "CONFLICT: " <<x<<","<<y<<"\n";
 
+        if(Params::mutexProp){
+        }
         if(Params::prioritizeConf){
           // Prepare for re-planning the paths
           if(!quiet) std::cout << "Cardinal check\n";
