@@ -658,6 +658,11 @@ int MyCLHandler(char *argument[], int maxNumArgs){
     Params::overload=true;
     return 1;
   }
+  if(strcmp(argument[0], "-nomutex") == 0)
+  {
+    Params::mutexprop=false;
+    return 1;
+  }
   if(strcmp(argument[0], "-suboptimal") == 0)
   {
     Params::conditional=true;

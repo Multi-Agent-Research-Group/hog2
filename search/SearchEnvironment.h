@@ -93,7 +93,7 @@ public:
 
 	virtual uint64_t GetActionHash(action act) const = 0;
 
-	virtual double GetPathLength(std::vector<state> &neighbors);
+	virtual double GetPathLength(std::vector<state> const& neighbors);
 
 	virtual OccupancyInterface<state,action> *GetOccupancyInfo()
 	{ return 0; }
@@ -139,7 +139,7 @@ action SearchEnvironment<state,action>::GetAction(const state &s1, const state &
 }
 
 template <class state, class action>
-double SearchEnvironment<state,action>::GetPathLength(std::vector<state> &neighbors)
+double SearchEnvironment<state,action>::GetPathLength(std::vector<state> const& neighbors)
 {
 	double length = 0;
 	for (unsigned int x = 1; x < neighbors.size(); x++)

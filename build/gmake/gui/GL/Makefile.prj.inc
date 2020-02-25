@@ -33,6 +33,7 @@ default : all
 
 SRC_CPP = \
   gui/GL/gl.cpp \
+  gui/GL/glu.cpp \
   gui/GL/glut.cpp \
   gui/GL/freeglut.cpp
 

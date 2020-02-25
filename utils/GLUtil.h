@@ -36,6 +36,7 @@
 
 #ifdef NO_OPENGL
 #include "gl.h"
+#include "glu.h"
 #include "glut.h"
 #else
 

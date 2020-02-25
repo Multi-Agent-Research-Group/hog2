@@ -754,7 +754,7 @@ void buildGL(void)
 
 	glShadeModel(GL_SMOOTH);    
 // This may not be necessary
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+        //glPixelStore(GL_UNPACK_ALIGNMENT, 4);
 
 	glPolygonMode(GL_FRONT_AND_BACK,GL_FILL);
 	glFrontFace(GL_CCW);

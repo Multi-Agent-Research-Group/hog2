@@ -35,6 +35,8 @@
 #include "MultiAgentStructures.h"
 #include "Utilities.h"
 
+extern bool verbose;
+
 template <typename state>
 struct Node;
 
@@ -51,7 +53,7 @@ struct Node{
 
   Node(){count++;}
   template <typename action>
-  Node(state a, uint32_t d, SearchEnvironment<state, action> const* env):n(a),hash((env->GetStateHash(a)<<32)|d),depth(d),id(0),optimal(false){count++;}
+  Node(state a, uint64_t d, SearchEnvironment<state, action> const* env):n(a),hash((d<<32)|env->GetStateHash(a)),id(0),optimal(false){count++;}
   //Node(state a, float d):n(a),depth(d*state::TIME_RESOLUTION_U),optimal(false),unified(false),nogood(false){count++;}
   state n;
   uint64_t hash;
@@ -71,23 +73,14 @@ struct Node{
   bool operator==(Node const& other)const{return n.sameLoc(other.n)&&Depth()==other.Depth();}
 };
 
-struct agentpair_t{
-  agentpair_t():a1(0xffff),a2(0xffff){}
-  agentpair_t(unsigned i1, unsigned i2):a1(i1),a2(i2){if(a2<a1){a1=i2;a2=i1;}}
-  uint16_t a1;
-  uint16_t a2;
-  size_t operator==(agentpair_t const&pt)const{return pt.a1==a1 && pt.a2==a2;}
-  size_t operator()(agentpair_t const&pt)const{return pt.a1+pt.a2*0xffff;}
-};
 template <typename state>
-typedef std::vector<Node<state>*> Path;
+using MultiState = std::vector<Node<state>*>; // rank=agent num
 template <typename state>
-typedef std::vector<Node<state>*> MultiState; // rank=agent num
+using MultiEdge = std::vector<std::pair<Node<state>*,Node<state>*>>; // rank=agent num
+
 template <typename state>
-typedef std::vector<std::pair<Node<state>*,Node<state>*>> MultiEdge; // rank=agent num
-template <typename state>
-unsigned MinValue(MultiEdge const& m){
-  unsigned v(INF);
+unsigned MinValue(MultiEdge<state> const& m){
+  unsigned v(INT_MAX);
   for(auto const& n:m){
     v=std::min(v,n.first->Depth());
   }
@@ -96,12 +89,11 @@ unsigned MinValue(MultiEdge const& m){
 template <typename state>
 struct MultiEdgeCmp
 {
-  bool operator<(MultiEdge const& lhs, MultiEdge const& rhs) const  { return MinValue(lhs)<MinValue(rhs);}
+  bool operator()(MultiEdge<state> const& lhs, MultiEdge<state> const& rhs) const  { return MinValue(lhs)<MinValue(rhs);}
 };
-typedef std::vector<std::array<Node<state>*,4>> Mutexes; // rank=agent num
-typedef std::map<agentpair_t,std::vector<uint64_t>> MutexMap; // rank=agent num
+
 template <typename state>
-typedef std::unordered_map<uint64_t,Node<state>> DAG;
+using DAG = std::unordered_map<uint64_t,Node<state>>;
 
 template <typename state>
 static inline std::ostream& operator << (std::ostream& ss, Node<state> const& n){
@@ -117,7 +109,7 @@ static inline std::ostream& operator << (std::ostream& ss, Node<state> const* n)
 
 
 template <typename state, typename action>
-bool LimitedDFS(state const& start, state const& end, DAG& dag, Node<state>*& root, uint32_t depth, uint32_t maxDepth, uint32_t& best, SearchEnvironment<state,action> const* env, std::map<uint64_t,bool>& singleTransTable, unsigned recursions=1, bool disappear=true){
+bool LimitedDFS(state const& start, state const& end, DAG<state>& dag, Node<state>*& root, uint32_t depth, uint32_t maxDepth, uint32_t& best, SearchEnvironment<state,action> const* env, std::map<uint64_t,bool>& singleTransTable, unsigned recursions=1, bool disappear=true){
   if(verbose)std::cout << std::string(recursions,' ') << start << "g:" << (maxDepth-depth) << " h:" << (int)(env->HCost(start,end)*state::TIME_RESOLUTION_U) << " f:" << ((maxDepth-depth)+(int)(env->HCost(start,end)*state::TIME_RESOLUTION_U)) << "\n";
   if(depth<0 || maxDepth-depth+(int)(env->HCost(start,end)*state::TIME_RESOLUTION_U)>maxDepth){ // Note - this only works for an admissible heuristic.
     //if(verbose)std::cout << "pruned " << start << depth <<" "<< (maxDepth-depth+(int)(env->HCost(start,end)*state::TIME_RESOLUTION_U))<<">"<<maxDepth<<"\n";
@@ -131,7 +123,6 @@ bool LimitedDFS(state const& start, state const& end, DAG& dag, Node<state>*& ro
   //std::cout << "\n";
 
   if(env->GoalTest(start,end)){
-    mddgoals++;
     singleTransTable[hash]=true;
       //std::cout << n<<"\n";
     n.id=dag.size()+1;
@@ -218,31 +209,29 @@ bool LimitedDFS(state const& start, state const& end, DAG& dag, Node<state>*& ro
 
 
 template <typename state, typename action>
-void GetMDD(unsigned agent,state const& start, state const& end, DAG& dag, MultiState& root, int depth, uint32_t& best, uint32_t& dagsize, SearchEnvironment<state,action>* env){
-  root[agent]=nullptr;
+void getMDD(state const& start, state const& end, DAG<state>& dag, Node<state> *& root, int depth, uint32_t& best, SearchEnvironment<state,action>* env){
   if(verbose)std::cout << "MDD up to depth: " << depth << start << "-->" << end << "\n";
   static std::map<uint64_t,bool> singleTransTable;
   singleTransTable.clear();
-  LimitedDFS(start,end,dag,root[agent],depths[agent],depths[agent],best,env,singleTransTable);
-  if(verbose)std::cout << "Finally set root to: " << (uint64_t)root[agent] << "\n";
-  if(verbose)std::cout << root[agent] << "\n";
+  LimitedDFS(start,end,dag,root,depth,depth,best,env,singleTransTable);
+  //if(verbose)std::cout << "Finally set root to: " << (uint64_t)root[agent] << "\n";
+  if(verbose)std::cout << root << "\n";
 }
 
 template <typename state>
-void generatePermutations(std::vector<MultiEdge>& positions, std::vector<MultiEdge>& result, Mutexes& mutexes, MutexMap& mutexmap, int agent, MultiEdge const& current, uint32_t lastTime,bool update=true) {
+void generatePermutations(std::vector<MultiEdge<state>>& positions, std::vector<MultiEdge<state>>& result, int agent, MultiEdge<state> const& current, uint32_t lastTime, std::vector<float> const& radii, bool update=true) {
   if(agent == positions.size()) {
     result.push_back(current);
     if(verbose)std::cout << "Generated joint move:\n";
     if(verbose)for(auto edge:current){
       std::cout << *edge.first << "-->" << *edge.second << "\n";
     }
-    jointnodes++;
     return;
   }
 
   for(int i = 0; i < positions[agent].size(); ++i) {
     //std::cout << "AGENT "<< i<<":\n";
-    MultiEdge copy(current);
+    MultiEdge<state> copy(current);
     bool found(false);
     for(int j(0); j<current.size(); ++j){
       if((positions[agent][i].first->Depth()==current[j].first->Depth() &&
@@ -259,21 +248,14 @@ void generatePermutations(std::vector<MultiEdge>& positions, std::vector<MultiEd
         VA.Normalize();
         Vector2D VB(current[j].second->n.x-current[j].first->n.x,current[j].second->n.y-current[j].first->n.y);
         VB.Normalize();
-        if(collisionImminent(A,VA,agentRadius,positions[agent][i].first->Depth()/state::TIME_RESOLUTION_D,positions[agent][i].second->Depth()/state::TIME_RESOLUTION_D,B,VB,agentRadius,current[j].first->Depth()/state::TIME_RESOLUTION_D,current[j].second->Depth()/state::TIME_RESOLUTION_D)){
+        if(collisionImminent(A,VA,radii[agent],positions[agent][i].first->Depth()/state::TIME_RESOLUTION_D,positions[agent][i].second->Depth()/state::TIME_RESOLUTION_D,B,VB,radii[j],current[j].first->Depth()/state::TIME_RESOLUTION_D,current[j].second->Depth()/state::TIME_RESOLUTION_D)){
           found=true;
           //checked.insert(hash);
         }
         if(found){
           if(update){
-            agentpair_t p(agent,j);
-            mutexmap[p]=mutexes.size();
             positions[agent][i].first->mutexes[current[j].first,current[j].second]=positions[agent][i].second;
             current[j].first->mutexes[positions[agent][i].first,positions[agent][i].second]=current[j].second;
-            if(p.a1==agent){
-              mutexes.emplace_back(positions[agent][i].first,positions[agent][i].second,current[j].first,current[j].second);
-            }else{
-              mutexes.emplace_back(current[j].first,current[j].second,positions[agent][i].first,positions[agent][i].second);
-            }
           }
           if(verbose)std::cout << "Collision averted: " << *positions[agent][i].first << "-->" << *positions[agent][i].second << " " << *current[j].first << "-->" << *current[j].second << "\n";
           break;
@@ -282,22 +264,8 @@ void generatePermutations(std::vector<MultiEdge>& positions, std::vector<MultiEd
       }
       if(found) continue; // Don't record pair if it was infeasible...
       copy.push_back(positions[agent][i]);
-      generatePermutations(positions, result, agent + 1, copy,lastTime);
+      generatePermutations(positions, result, agent + 1, copy,lastTime,radii);
     }
-  }
-}
-
-// Compute hash for transposition table
-void getHash(MultiEdge const&a,std::string& hash){
-  int i(0);
-  for(auto v:a){
-    uint64_t h1(v.second->Hash());
-    uint8_t c[sizeof(uint64_t)];
-    memcpy(c,&h1,sizeof(uint64_t));
-    for(unsigned j(0); j<sizeof(uint64_t); ++j){
-      hash[i*sizeof(uint64_t)+j]=((int)c[j])?c[j]:1; // Replace null-terminators in the middle of the string
-    }
-    ++i;
   }
 }
 
@@ -323,11 +291,12 @@ set_1.erase(it1, set_1.end());
 }
 
 template <typename state, typename action>
-bool getMutexes(MultiEdge const& n, std::vector<state> const& goal, std::vector<SearchEnvironment<state,action>> const& env, std::vector<Node*>& toDelete, unsigned recursions=1){
+bool getMutexes(MultiEdge<state> const& n, std::vector<state> const& goal, std::vector<SearchEnvironment<state,action>*> const& env, std::vector<Node<state>*>& toDelete, std::vector<float> const& radii, bool disappear=true, bool OD=false){
   bool result(false);
+  static int MAXTIME(1000*state::TIME_RESOLUTION_U);
   static std::unordered_map<std::string,bool> visited;
   visited.clear();
-  static std::priority_queue<MultiEdge,MultiEdgeCmp> q;
+  static std::priority_queue<MultiEdge<state>,std::vector<MultiEdge<state>>,MultiEdgeCmp<state>> q;
   q.clear();
   q.push(n);
 
@@ -341,9 +310,9 @@ bool getMutexes(MultiEdge const& n, std::vector<state> const& goal, std::vector<
 
 // Look for propagated mutexes...
 // For each pair of actions in s:
-    static std::vector<std::pair<Node*,Node*>> mpj;
-    static std::vector<std::pair<Node*,Node*>> intersection;
-    static std::vector<std::pair<Node*,Node*>> stuff;
+    static std::vector<std::pair<Node<state>*,Node<state>*>> mpj;
+    static std::vector<std::pair<Node<state>*,Node<state>*>> intersection;
+    static std::vector<std::pair<Node<state>*,Node<state>*>> stuff;
     for(int i(0); i<s.size()-1; ++i){
       for(int j(i+1); j<s.size(); ++j){
         mpj.clear();
@@ -378,7 +347,7 @@ bool getMutexes(MultiEdge const& n, std::vector<state> const& goal, std::vector<
           // Get mutexes from first parent
           auto parent(s[i].first->parents.begin());
           intersection.reserve((*parent)->mutexes.size());
-          for(auto const& mi:(*parents)->mutexes){
+          for(auto const& mi:(*parent)->mutexes){
             if(mi.second==s[i].first){
               intersection.push_back(mi.first);
             }
@@ -406,7 +375,7 @@ bool getMutexes(MultiEdge const& n, std::vector<state> const& goal, std::vector<
           // Get mutexes from first parent
           auto parent(s[j].first->parents.begin());
           intersection.reserve((*parent)->mutexes.size());
-          for(auto const& mj:(*parents)->mutexes){
+          for(auto const& mj:(*parent)->mutexes){
             if(mj.second==s[j].first){
               intersection.push_back(mj.first);
             }
@@ -442,7 +411,7 @@ bool getMutexes(MultiEdge const& n, std::vector<state> const& goal, std::vector<
     if(done){result=true;}
 
     // Find minimum depth of current edges
-    uint32_t sd(INF);
+    uint32_t sd(INT_MAX);
     unsigned minindex(0);
     int k(0);
     for(auto const& a: s){
@@ -456,11 +425,15 @@ bool getMutexes(MultiEdge const& n, std::vector<state> const& goal, std::vector<
     }
     //std::cout << "min-depth: " << sd << "\n";
 
-    uint32_t md(INF); // Min depth of successors
+    //Get successors into a vector
+    std::vector<MultiEdge<state>> successors;
+    successors.reserve(s.size());
+
+    uint32_t md(INT_MAX); // Min depth of successors
     //Add in successors for parents who are equal to the min
     k=0;
     for(auto const& a: s){
-      MultiEdge output;
+      MultiEdge<state> output;
       if((OD && (k==minindex /* || a.second->depth==0*/)) || (!OD && a.second->depth<=sd)){
         //std::cout << "Keep Successors of " << *a.second << "\n";
         for(auto const& b: a.second->successors){
@@ -478,7 +451,7 @@ bool getMutexes(MultiEdge const& n, std::vector<state> const& goal, std::vector<
         if(disappear){
           output.emplace_back(a.second,a.second); // Stay, but don't increase time
         }else{
-          output.emplace_back(a.second,new Node(a.second->n,MAXTIME,env));
+          output.emplace_back(a.second,new Node<state>(a.second->n,MAXTIME,env));
           //if(verbose)std::cout << "Wait " << *output.back().second << "\n";
           toDelete.push_back(output.back().second);
         }
@@ -496,12 +469,12 @@ bool getMutexes(MultiEdge const& n, std::vector<state> const& goal, std::vector<
         }
       }
     }
-    static std::vector<MultiEdge> crossProduct;
+    static std::vector<MultiEdge<state>> crossProduct;
     crossProduct.clear();
-    MultiEdge tmp;
+    MultiEdge<state> tmp;
 
     // This call also computes initial mutexes
-    generatePermutations(successors,crossProduct,mutexes,mutexmap,0,tmp,sd);
+    generatePermutations(successors,crossProduct,0,tmp,sd,radii);
     for(auto& a: crossProduct){
       k=0;
       // Compute hash for transposition table
@@ -528,7 +501,7 @@ bool getMutexes(MultiEdge const& n, std::vector<state> const& goal, std::vector<
 // Return true if we get to the desired depth
 /*
 template <typename state, typename action>
-bool getInitialMutexes(MultiEdge const& s, uint32_t d, std::vector<state> const& goal, std::vector<SearchEnvironment<state,action>> const& env, Mutexes& mutexes, MutexMap& mutexmap, std::vector<Node*>& toDelete, unsigned recursions=1){
+bool getInitialMutexes(MultiEdge<state> const& s, uint32_t d, std::vector<state> const& goal, std::vector<SearchEnvironment<state,action>> const& env, Mutexes& mutexes, MutexMap& mutexmap, std::vector<Node*>& toDelete, unsigned recursions=1){
   // Compute hash for transposition table
   std::string hash(s.size()*sizeof(uint64_t),1);
   int k(0);
@@ -564,11 +537,11 @@ bool getInitialMutexes(MultiEdge const& s, uint32_t d, std::vector<state> const&
   if(done){return true;}
 
   //Get successors into a vector
-  static std::vector<MultiEdge> successors;
+  static std::vector<MultiEdge<state>> successors;
   successors.clear();
 
   // Find minimum depth of current edges
-  uint32_t sd(INF);
+  uint32_t sd(INT_MAX);
   unsigned minindex(0);
   k=0;
   for(auto const& a: s){
@@ -582,11 +555,11 @@ bool getInitialMutexes(MultiEdge const& s, uint32_t d, std::vector<state> const&
   }
   //std::cout << "min-depth: " << sd << "\n";
 
-  uint32_t md(INF); // Min depth of successors
+  uint32_t md(INT_MAX); // Min depth of successors
   //Add in successors for parents who are equal to the min
   k=0;
   for(auto const& a: s){
-    MultiEdge output;
+    MultiEdge<state> output;
     if((OD && (k==minindex )) || (!OD && a.second->depth<=sd)){
       //std::cout << "Keep Successors of " << *a.second << "\n";
       for(auto const& b: a.second->successors){
@@ -622,9 +595,9 @@ bool getInitialMutexes(MultiEdge const& s, uint32_t d, std::vector<state> const&
       }
     }
   }
-  static std::vector<MultiEdge> crossProduct;
+  static std::vector<MultiEdge<state>> crossProduct;
   crossProduct.clear();
-  MultiEdge tmp;
+  MultiEdge<state> tmp;
   generatePermutations(successors,crossProduct,mutexes,mutexmap,0,tmp,sd);
 
   bool value(false);

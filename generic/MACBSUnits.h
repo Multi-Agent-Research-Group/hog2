@@ -45,6 +45,7 @@
 #include "Heuristic.h"
 #include "BiClique.h"
 #include "Timer.h"
+#include "MutexProp.h"
 #include <string.h>
 #include <unordered_map>
 #include <math.h>
@@ -95,6 +96,7 @@ struct Params {
   static bool complete; // Ensure completeness (only relevant when crossconstraints=true)
   static bool topTwo; // Select top two conflicting agents in sub-optimal split
   static bool conditional; // Use conditional constraints to promote completeness
+  static bool mutexprop; // Use mutex propagation logic
   static std::vector<unsigned> array;
   static std::vector<unsigned> indices;
   static std::vector<float> ivls;
@@ -126,6 +128,7 @@ bool Params::vc = false;
 bool Params::overload = false;
 bool Params::topTwo = false;
 bool Params::conditional = false;
+bool Params::mutexprop = true;
 std::vector<unsigned> Params::array;
 std::vector<unsigned> Params::indices;
 std::vector<float> Params::ivls;
@@ -2768,7 +2771,32 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
         unsigned conf(NO_CONFLICT);
         //std::cout << "CONFLICT: " <<x<<","<<y<<"\n";
 
-        if(Params::mutexProp){
+        if(Params::mutexprop){
+          static std::vector<Node<xyztLoc>*> toDelete;
+          toDelete.clear();
+          static MultiState<xyztLoc> root;
+          static MultiEdge<xyztLoc> start;
+          static std::vector<DAG<xyztLoc>> dags;
+          root.resize(2);
+          start.resize(2);
+          dags.resize(2);
+          auto cost1(currentEnvironment[x]->environment->GetPathLength(a));
+          auto cost2(currentEnvironment[y]->environment->GetPathLength(b));
+          uint32_t best1(INT_MAX);
+          uint32_t best2(INT_MAX);
+          getMDD(location.wpts[x][0],location.wpts[x][1],dags[0],root[0],cost1,best1,currentEnvironment[x]->environment);
+          getMDD(location.wpts[y][0],location.wpts[y][1],dags[1],root[1],cost2,best2,currentEnvironment[y]->environment);
+          root[0]={start[0],start[0]};
+          root[1]={start[1],start[1]};
+          std::vector<state> goals={location.wpts[x][1],location.wpts[y][1]};
+          std::vector<SearchEnvironment<state,action>*> env={currentEnvironment[x]->environment,currentEnvironment[y]->environment};
+          std::vector<float> radii={
+            (CBSUnit<state, action, comparison, conflicttable, searchalgo>*) this->GetMember(x),
+            (CBSUnit<state, action, comparison, conflicttable, searchalgo>*) this->GetMember(y)};
+          auto hasSolution(getMutexes(root, goals, env, toDelete, radii, Params::disappearAtGoal));
+          for(auto & d:toDelete){
+            delete d;
+          }
         }
         if(Params::prioritizeConf){
           // Prepare for re-planning the paths
