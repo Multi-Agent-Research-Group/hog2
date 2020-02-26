@@ -68,7 +68,6 @@ class CBSUnit;
 template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class singleHeuristic, class searchalgo>
 class CBSGroup;
 
-extern double agentRadius;
 struct Params {
   static unsigned precheck;
   static bool cct;
@@ -392,8 +391,8 @@ template<typename state, typename action, typename comparison, typename conflict
     state, action, ConstrainedEnvironment<state, action>, AStarOpenClosed<state, comparison>>>
 class CBSUnit: public Unit<state, action, ConstrainedEnvironment<state, action>> {
 public:
-  CBSUnit(std::vector<state> const &gs, float viz = 0)
-      : start(0), goal(1), current(gs[0]), waypoints(gs), visibility(viz) ,number(-1){
+  CBSUnit(std::vector<state> const &gs, float r, float viz = 0)
+      : start(0), goal(1), current(gs[0]), waypoints(gs), radius(r), visibility(viz) ,number(-1){
   }
   const char *GetName() {
     return "CBSUnit";
@@ -453,6 +452,7 @@ public:
   float getVisibility() const {
     return visibility;
   }
+  float radius;
 
 private:
   unsigned start, goal;
@@ -574,14 +574,14 @@ struct CBSTreeNode {
         }
       }
     }
-  bool hasOverlap(unsigned a, unsigned b) const {
+  bool hasOverlap(unsigned a, unsigned b, float radiusA, float radiusB) const {
     if (Params::precheck == 1) {
       return (polygons[a]->at(0).x <= polygons[b]->at(1).x && polygons[a]->at(1).x >= polygons[b]->at(0).x)
         && (polygons[a]->at(0).y <= polygons[b]->at(1).y && polygons[a]->at(1).y >= polygons[b]->at(0).y);
       //&& (polygons[a]->at(0).z <= polygons[b]->at(1).z && polygons[a]->at(1).z >= polygons[b]->at(0).z);
     } else if (Params::precheck == 2) {
       // Detect polygonal overlap
-      return Util::sat<Vector2D>(*polygons[a],*polygons[b],agentRadius);
+      return Util::sat<Vector2D>(*polygons[a],*polygons[b],radiusA,radiusB);
     }
     return true; // default
   }
@@ -749,16 +749,6 @@ static std::ostream& operator <<(std::ostream & out, const CBSTreeNode<state, co
   return out;
 }
 
-template<class T, class C>//, class Cmp>
-struct ClearablePQ:public std::priority_queue<T,C>{
-  void clear(){
-    //std::cout << "Clearing pq\n";
-    //while(this->size()){std::cout<<this->size()<<"\n";this->pop();}
-    this->c.resize(0);
-  }
-  C& getContainer() { return this->c; }
-};
-
 typedef std::vector<uint16_t> Group;
 
 template<typename state, typename action, typename comparison, typename conflicttable, class maplanner, class singleHeuristic,
@@ -865,6 +855,7 @@ public:
   /* Code for dealing with multiple environments */
   std::vector<EnvironmentContainer<state, action>*> currentEnvironment;
   std::vector<std::vector<EnvironmentContainer<state, action>>> environments;
+  std::vector<float> radii;
   bool planFinished;
   unsigned bestNode;
 
@@ -938,7 +929,7 @@ void CBSUnit<state, action, comparison, conflicttable, searchalgo>::OpenGLDraw(
     if (si->GetSimulationTime() * state::TIME_RESOLUTION_D <= stop_t.t
         && si->GetSimulationTime() * state::TIME_RESOLUTION_D >= start_t.t) {
       float perc = (stop_t.t - si->GetSimulationTime() * state::TIME_RESOLUTION_D) / (stop_t.t - start_t.t);
-      ae->OpenGLDraw(stop_t, start_t, perc, agentRadius);
+      ae->OpenGLDraw(stop_t, start_t, perc, radius);
       //Constraint<state> c(stop_t, start_t);
       //glColor3f(1, 0, 0);
       //c.OpenGLDraw();
@@ -1072,16 +1063,16 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
       assert(c!=tree[bestNode].cct.end());
       for(auto const& x:c->second){
         if(conflicts[0].c.size()){
-          conflicts[0].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a2]->at(x.ix2),tree[bestNode].paths[a2]->at(x.ix2+1),agentRadius));
-          conflicts[1].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a1]->at(x.ix1),tree[bestNode].paths[a1]->at(x.ix1+1),agentRadius));
+          conflicts[0].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a2]->at(x.ix2),tree[bestNode].paths[a2]->at(x.ix2+1),radii[a1]));
+          conflicts[1].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a1]->at(x.ix1),tree[bestNode].paths[a1]->at(x.ix1+1),radii[a2]));
           conflicts[0].unit1=a1;
           conflicts[0].unit2=a2;
           conflicts[1].unit1=a2;
           conflicts[1].unit2=a1;
         }else{
           // Add an optimal and complete constraint for the core constraint
-          conflicts[0].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a2]->at(x.ix2),tree[bestNode].paths[a2]->at(x.ix2+1),agentRadius));
-          conflicts[1].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a1]->at(x.ix1),tree[bestNode].paths[a1]->at(x.ix1+1),agentRadius));
+          conflicts[0].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a2]->at(x.ix2),tree[bestNode].paths[a2]->at(x.ix2+1),radii[a2]));
+          conflicts[1].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a1]->at(x.ix1),tree[bestNode].paths[a1]->at(x.ix1+1),radii[a1]));
           GetBiclique(tree[bestNode].paths[a1]->at(x.ix1),tree[bestNode].paths[a1]->at(x.ix1+1),tree[bestNode].paths[a2]->at(x.ix2),tree[bestNode].paths[a2]->at(x.ix2+1),a1,a2,conflicts[0],conflicts[1]);
         }
       }
@@ -1094,9 +1085,9 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
             if(a1==ix->first.a1){
               for(auto const& x:ix->second){
                 if(Params::conditional && a!=a2){
-                  conflicts[0].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a]->at(x.ix2),tree[bestNode].paths[a]->at(x.ix2+1),agentRadius));
+                  conflicts[0].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a]->at(x.ix2),tree[bestNode].paths[a]->at(x.ix2+1),radii[a]));
                 }else if(Params::crossconstraints){
-                  conflicts[0].c.emplace_back((Constraint<state>*) new Collision<state>(tree[bestNode].paths[a]->at(x.ix2),tree[bestNode].paths[a]->at(x.ix2+1),agentRadius));
+                  conflicts[0].c.emplace_back((Constraint<state>*) new Collision<state>(tree[bestNode].paths[a]->at(x.ix2),tree[bestNode].paths[a]->at(x.ix2+1),radii[a]));
                 }else{
                   conflicts[0].c.emplace_back((Constraint<state>*) new Identical<state>(tree[bestNode].paths[a1]->at(x.ix1),tree[bestNode].paths[a1]->at(x.ix1+1)));
                 }
@@ -1105,9 +1096,9 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
             }else{
               for(auto const& x:ix->second){
                 if(Params::conditional && a!=a2){
-                  conflicts[0].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a]->at(x.ix1),tree[bestNode].paths[a]->at(x.ix1+1),agentRadius));
+                  conflicts[0].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a]->at(x.ix1),tree[bestNode].paths[a]->at(x.ix1+1),radii[a]));
                 }else if(Params::crossconstraints){
-                  conflicts[0].c.emplace_back((Constraint<state>*) new Collision<state>(tree[bestNode].paths[a]->at(x.ix1),tree[bestNode].paths[a]->at(x.ix1+1),agentRadius));
+                  conflicts[0].c.emplace_back((Constraint<state>*) new Collision<state>(tree[bestNode].paths[a]->at(x.ix1),tree[bestNode].paths[a]->at(x.ix1+1),radii[a]));
                 }else{
                   conflicts[0].c.emplace_back((Constraint<state>*) new Identical<state>(tree[bestNode].paths[a1]->at(x.ix2),tree[bestNode].paths[a1]->at(x.ix2+1)));
                 }
@@ -1121,9 +1112,9 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
             if(a2==ix->first.a1){
               for(auto const& x:ix->second){
                 if(Params::conditional && a!=a1){
-                  conflicts[1].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a]->at(x.ix2),tree[bestNode].paths[a]->at(x.ix2+1),agentRadius));
+                  conflicts[1].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a]->at(x.ix2),tree[bestNode].paths[a]->at(x.ix2+1),radii[a]));
                 }else if(Params::crossconstraints){
-                  conflicts[1].c.emplace_back((Constraint<state>*) new Collision<state>(tree[bestNode].paths[a]->at(x.ix2),tree[bestNode].paths[a]->at(x.ix2+1),agentRadius));
+                  conflicts[1].c.emplace_back((Constraint<state>*) new Collision<state>(tree[bestNode].paths[a]->at(x.ix2),tree[bestNode].paths[a]->at(x.ix2+1),radii[a]));
                 }else{
                   conflicts[1].c.emplace_back((Constraint<state>*) new Identical<state>(tree[bestNode].paths[a2]->at(x.ix1),tree[bestNode].paths[a2]->at(x.ix1+1)));
                 }
@@ -1131,9 +1122,9 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
             }else{
               for(auto const& x:ix->second){
                 if(Params::conditional && a!=a1){
-                  conflicts[1].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a]->at(x.ix1),tree[bestNode].paths[a]->at(x.ix1+1),agentRadius));
+                  conflicts[1].c.emplace_back((Constraint<state>*) new Probable<state>(tree[bestNode].paths[a]->at(x.ix1),tree[bestNode].paths[a]->at(x.ix1+1),radii[a]));
                 }else if(Params::crossconstraints){
-                  conflicts[1].c.emplace_back((Constraint<state>*) new Collision<state>(tree[bestNode].paths[a]->at(x.ix1),tree[bestNode].paths[a]->at(x.ix1+1),agentRadius));
+                  conflicts[1].c.emplace_back((Constraint<state>*) new Collision<state>(tree[bestNode].paths[a]->at(x.ix1),tree[bestNode].paths[a]->at(x.ix1+1),radii[a]));
                 }else{
                   conflicts[1].c.emplace_back((Constraint<state>*) new Identical<state>(tree[bestNode].paths[a2]->at(x.ix2),tree[bestNode].paths[a2]->at(x.ix2+1)));
                 }
@@ -1649,7 +1640,7 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
         auto bp(tree[bestNode].paths[y]->begin());
         auto b(bp + 1);
         while (a != tree[bestNode].paths[x]->end() && b != tree[bestNode].paths[y]->end()) {
-          if(collisionCheck3D(*ap, *a, *bp, *b, agentRadius)){
+          if(collisionCheck3D(*ap, *a, *bp, *b, radii[x],radii[y])){
             valid = false;
             std::cout << "ERROR: Solution invalid; collision at: " << x << ":" << *ap << "-->" << *a << ", " << y << ":"
               << *bp << "-->" << *b << std::endl;
@@ -1763,6 +1754,7 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
 
   CBSUnit<state, action, comparison, conflicttable, searchalgo> *c = (CBSUnit<state, action, comparison, conflicttable,
       searchalgo>*) u;
+  radii.push_back(c->radius);
   unsigned theUnit(this->GetNumMembers());
   c->setUnitNumber(theUnit);
   // Add the new unit to the group, and construct an CBSUnit
@@ -2317,12 +2309,12 @@ template<typename state, typename action, typename comparison, typename conflict
 bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeuristic, searchalgo>::IsCardinal(int x, state const& ax1, state const& ax2, int y, state const& bx1, state const& bx2, bool asym){
   CBSTreeNode<state, conflicttable>& location=tree[bestNode];
   std::vector<std::unique_ptr<Constraint<state>>> constraints;
-  const unsigned diam(agentRadius*2*state::TIME_RESOLUTION_D);
+  const unsigned diam((radii[x]+radii[y])*state::TIME_RESOLUTION_D);
   if(Params::vc){
     if(ax2.sameLoc(bx2) && abs(ax2.t-bx2.t)<diam){ // Vertex collision
-      constraints.emplace_back((Constraint<state>*) new EndVertex<state>(ax2,agentRadius));
+      constraints.emplace_back((Constraint<state>*) new EndVertex<state>(ax2,radii[x]));
     }else if(ax1.sameLoc(bx1) && abs(ax1.t-bx1.t)<diam){
-      constraints.emplace_back((Constraint<state>*) new StartVertex<state>(ax1,agentRadius));
+      constraints.emplace_back((Constraint<state>*) new StartVertex<state>(ax1,radii[x]));
     }
   }
   if(!constraints.size()){
@@ -2337,12 +2329,12 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
         if(asym){
           constraints.emplace_back((Constraint<state>*) new Identical<state>(ax1,ax2));
         }else{
-          constraints.emplace_back((Constraint<state>*) new Collision<state>(bx1,b2,agentRadius));
+          constraints.emplace_back((Constraint<state>*) new Collision<state>(bx1,b2,radii[x]));
         }
       }else if(Params::overlapconstraints){
-        constraints.emplace_back((Overlap<state>*) new Overlap<state>(bx1,b2,agentRadius));
+        constraints.emplace_back((Overlap<state>*) new Overlap<state>(bx1,b2,radii[x]));
       }else if(Params::pyramidconstraints){
-        constraints.emplace_back((Constraint<state>*) new Pyramid<state>(bx1,b2,ax1.t,agentRadius));
+        constraints.emplace_back((Constraint<state>*) new Pyramid<state>(bx1,b2,ax1.t,radii[x]));
       }
     } else {
       if(Params::identicalconstraints){
@@ -2352,7 +2344,7 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
         state a2(ax2);
         state b1(bx1);
         state b2(bx2);
-        auto intvl(getForbiddenInterval(a1,a2,a1.t,a2.t,agentRadius,b1,b2,b1.t,b2.t,agentRadius));
+        auto intvl(getForbiddenInterval(a1,a2,a1.t,a2.t,radii[x],b1,b2,b1.t,b2.t,radii[y]));
         a2.t-=intvl.second*state::TIME_RESOLUTION_U-a1.t;
         a1.t-=intvl.first*state::TIME_RESOLUTION_U-a1.t;
         //b2.t-=intvl.second*state::TIME_RESOLUTION_U-b1.t;
@@ -2393,8 +2385,8 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
         static std::pair<unsigned,unsigned> conf(0,0);
         for(unsigned a(0); a<na; ++a){
           //std::cout << ax1 << "<->" << as[a] << " " << bx1 << "<->" << bx2 << " => "; 
-          if(collisionCheck3D(ax1, as[a], bx1, bx2, agentRadius)){
-          //if(collisionCheck3DAPriori(ax1, as[a], bx1, bx2, agentRadius))
+          if(collisionCheck3D(ax1, as[a], bx1, bx2, radii[x],radii[y])){
+          //if(collisionCheck3DAPriori(ax1, as[a], bx1, bx2, radii[x],radii[y]))
             //std::cout << "CRASH\n";
             if(ax2==as[a]){
               amap[a]=0;
@@ -2410,8 +2402,8 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
         }
         for(unsigned b(0); b<nb; ++b){
           //std::cout << ax1 << "<->" << ax2 << " " << bx1 << "<->" << bs[b] << " => "; 
-          if(collisionCheck3D(ax1, ax2, bx1, bs[b], agentRadius)){
-          //if(collisionCheck3DAPriori(ax1, ax2, bx1, bs[b], agentRadius))
+          if(collisionCheck3D(ax1, ax2, bx1, bs[b], radii[x],radii[y])){
+          //if(collisionCheck3DAPriori(ax1, ax2, bx1, bs[b], radii[x],radii[y]))
             //std::cout << "CRASH\n";
             if(bx2==bs[b]){
               bmap[b]=0;
@@ -2430,8 +2422,8 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
           for(unsigned j(1); j<brmap.size(); ++j){
             unsigned b(brmap[j]);
             //std::cout << ax1 << "<->" << as[a] << " " << bx1 << "<->" << bs[b] << " => "; 
-            if(collisionCheck3D(ax1, as[a], bx1, bs[b], agentRadius)){
-            //if(collisionCheck3DAPriori(ax1, as[a], bx1, bs[b], agentRadius))
+            if(collisionCheck3D(ax1, as[a], bx1, bs[b], radii[x],radii[y])){
+            //if(collisionCheck3DAPriori(ax1, as[a], bx1, bs[b], radii[x],radii[y]))
               //std::cout << "CRASH: ["<<amap[a]<<"]="<<bmap[b] <<"\n";
               fwd[amap[a]].push_back(bmap[b]);
               rwd[bmap[b]].push_back(amap[a]);
@@ -2523,8 +2515,8 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
     // Set current element if it is a valid move
     if(currentEnvironment[x]->environment->fetch(a1,a2,i*adir,as[ai])){
       //Does it collide with the core action of b?
-      //if(collisionCheck3DAPriori(a1, as[ai], b1, b2, agentRadius))
-      if(collisionCheck3D(a1, as[ai], b1, b2, agentRadius)){
+      //if(collisionCheck3DAPriori(a1, as[ai], b1, b2, radii[x],radii[y]))
+      if(collisionCheck3D(a1, as[ai], b1, b2, radii[x],radii[y])){
         fwd[ai].push_back(0);
         rwd[0].push_back(ai);
         //std::cout << "a"<<ai << "collides with core\n";
@@ -2535,16 +2527,16 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
           // Set current element if it is a valid move
           if(currentEnvironment[y]->environment->fetch(b1,b2,j*bdir,bs[bi])){
             //Does it collide with the core action of a?
-            //if(!bc[bi] && collisionCheck3DAPriori(a1, a2, b1, bs[bi], agentRadius))
-            if(!bc[bi] && collisionCheck3D(a1, a2, b1, bs[bi], agentRadius)){
+            //if(!bc[bi] && collisionCheck3DAPriori(a1, a2, b1, bs[bi], radii[x],radii[y]))
+            if(!bc[bi] && collisionCheck3D(a1, a2, b1, bs[bi], radii[x],radii[y])){
               rwd[bi].push_back(0);
               fwd[0].push_back(bi);
             }
             bc[bi]=1;
             if(rwd[bi].size()){
               //std::cout << "b"<<bi << "collides with core\n";
-              //if(collisionCheck3DAPriori(a1, as[ai], b1, bs[bi], agentRadius))
-              if(collisionCheck3D(a1, as[ai], b1, bs[bi], agentRadius)){
+              //if(collisionCheck3DAPriori(a1, as[ai], b1, bs[bi], radii[x],radii[y]))
+              if(collisionCheck3D(a1, as[ai], b1, bs[bi], radii[x],radii[y])){
                 //std::cout << "a"<<ai << " collides with b"<<bi << "\n";
                 rwd[bi].push_back(ai);
                 fwd[ai].push_back(bi);
@@ -2574,8 +2566,8 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
     // Set current element if it is a valid move
     if(currentEnvironment[x]->environment->fetch(a1,a2,i*adir,as[ai])){
       //Does it collide with the core action of b?
-      //if(collisionCheck3DAPriori(a1, as[ai], b1, b2, agentRadius))
-      if(collisionCheck3D(a1, as[ai], b1, b2, agentRadius)){
+      //if(collisionCheck3DAPriori(a1, as[ai], b1, b2, radii[x],radii[y]))
+      if(collisionCheck3D(a1, as[ai], b1, b2, radii[x],radii[y])){
         fwd[ai].push_back(0);
         rwd[0].push_back(ai);
         //std::cout << "a"<<ai << "collides with core\n";
@@ -2586,16 +2578,16 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
           // Set current element if it is a valid move
           if(currentEnvironment[y]->environment->fetch(b1,b2,j*bdir,bs[bi])){
             //Does it collide with the core action of a?
-            //if(!bc[bi] && collisionCheck3DAPriori(a1, a2, b1, bs[bi], agentRadius))
-            if(!bc[bi] && collisionCheck3D(a1, a2, b1, bs[bi], agentRadius)){
+            //if(!bc[bi] && collisionCheck3DAPriori(a1, a2, b1, bs[bi], radii[x],radii[y]))
+            if(!bc[bi] && collisionCheck3D(a1, a2, b1, bs[bi], radii[x],radii[y])){
               rwd[bi].push_back(0);
               fwd[0].push_back(bi);
             }
             bc[bi]=1;
             if(rwd[bi].size()){
               //std::cout << "b"<<bi << "collides with core\n";
-              //if(collisionCheck3DAPriori(a1, as[ai], b1, bs[bi], agentRadius))
-              if(collisionCheck3D(a1, as[ai], b1, bs[bi], agentRadius)){
+              //if(collisionCheck3DAPriori(a1, as[ai], b1, bs[bi], radii[x],radii[y]))
+              if(collisionCheck3D(a1, as[ai], b1, bs[bi], radii[x],radii[y])){
                 //std::cout << "a"<<ai << " collides with b"<<bi << "\n";
                 rwd[bi].push_back(ai);
                 fwd[ai].push_back(bi);
@@ -2743,15 +2735,15 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
     //state const& aGoal(a[wa[pwptA + 1]]);
     //state const& bGoal(b[wb[pwptB + 1]]);
     collchecks++;
-    //if(collisionCheck3DAPriori(a[xTime], a[xNextTime], b[yTime], b[yNextTime], agentRadius) !=
-        //collisionCheck3D(a[xTime], a[xNextTime], b[yTime], b[yNextTime], agentRadius)){
-      //bool ap=collisionCheck3DAPriori(a[xTime], a[xNextTime], b[yTime], b[yNextTime], agentRadius);
-      //bool cc=collisionCheck3D(a[xTime], a[xNextTime], b[yTime], b[yNextTime], agentRadius);
+    //if(collisionCheck3DAPriori(a[xTime], a[xNextTime], b[yTime], b[yNextTime], radii[x],radii[y]) !=
+        //collisionCheck3D(a[xTime], a[xNextTime], b[yTime], b[yNextTime], radii[x],radii[y])){
+      //bool ap=collisionCheck3DAPriori(a[xTime], a[xNextTime], b[yTime], b[yNextTime], radii[x],radii[y]);
+      //bool cc=collisionCheck3D(a[xTime], a[xNextTime], b[yTime], b[yNextTime], radii[x],radii[y]);
       //std::cout << "bad\n";
     //}
-    //if(Params::boxconstraints?Box<state>(a[xTime], a[xNextTime]).ConflictsWith(b[yTime], b[yNextTime]):collisionCheck3DAPriori(a[xTime], a[xNextTime], b[yTime], b[yNextTime], agentRadius)){
-    //if(Params::boxconstraints?Box<state>(a[xTime], a[xNextTime]).ConflictsWith(b[yTime], b[yNextTime]):collisionCheck3D(a[xTime], a[xNextTime], b[yTime], b[yNextTime], agentRadius,agentRadius)){
-    if(collisionCheck3D(a[xTime], a[xNextTime], b[yTime], b[yNextTime], agentRadius,agentRadius)){
+    //if(Params::boxconstraints?Box<state>(a[xTime], a[xNextTime]).ConflictsWith(b[yTime], b[yNextTime]):collisionCheck3DAPriori(a[xTime], a[xNextTime], b[yTime], b[yNextTime], radii[x],radii[y])){
+    //if(Params::boxconstraints?Box<state>(a[xTime], a[xNextTime]).ConflictsWith(b[yTime], b[yNextTime]):collisionCheck3D(a[xTime], a[xNextTime], b[yTime], b[yNextTime], radii[x],radii[y],radii[x],radii[y])){
+    if(collisionCheck3D(a[xTime], a[xNextTime], b[yTime], b[yNextTime], radii[x],radii[y])){
       ++conflict.first;
       if(Params::cct){
         location.setcct(x,y,xTime,yTime);
@@ -2764,7 +2756,7 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
           << x << ":" << a[xTime] << "-->" << a[xNextTime]
           << " #" << y << ":"
           << b[yTime] << "-->" << b[yNextTime] << "\n";
-        collisionCheck3D(a[xTime], a[xNextTime], b[yTime], b[yNextTime], agentRadius,agentRadius);
+        collisionCheck3D(a[xTime], a[xNextTime], b[yTime], b[yNextTime], radii[x], radii[y]);
       }
       if(update) { // Keep updating until we find a both-cardinal conflict
         // Determine conflict type
@@ -2772,11 +2764,12 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
         //std::cout << "CONFLICT: " <<x<<","<<y<<"\n";
 
         if(Params::mutexprop){
-          static std::vector<Node<xyztLoc>*> toDelete;
+          // Set up a bunch of stuff
+          static std::vector<Node<state>*> toDelete;
           toDelete.clear();
-          static MultiState<xyztLoc> root;
-          static MultiEdge<xyztLoc> start;
-          static std::vector<DAG<xyztLoc>> dags;
+          static MultiState<state> root;
+          static MultiEdge<state> start;
+          static std::vector<DAG<state>> dags;
           root.resize(2);
           start.resize(2);
           dags.resize(2);
@@ -2784,18 +2777,94 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
           auto cost2(currentEnvironment[y]->environment->GetPathLength(b));
           uint32_t best1(INT_MAX);
           uint32_t best2(INT_MAX);
-          getMDD(location.wpts[x][0],location.wpts[x][1],dags[0],root[0],cost1,best1,currentEnvironment[x]->environment);
-          getMDD(location.wpts[y][0],location.wpts[y][1],dags[1],root[1],cost2,best2,currentEnvironment[y]->environment);
-          root[0]={start[0],start[0]};
-          root[1]={start[1],start[1]};
-          std::vector<state> goals={location.wpts[x][1],location.wpts[y][1]};
-          std::vector<SearchEnvironment<state,action>*> env={currentEnvironment[x]->environment,currentEnvironment[y]->environment};
-          std::vector<float> radii={
-            (CBSUnit<state, action, comparison, conflicttable, searchalgo>*) this->GetMember(x),
-            (CBSUnit<state, action, comparison, conflicttable, searchalgo>*) this->GetMember(y)};
-          auto hasSolution(getMutexes(root, goals, env, toDelete, radii, Params::disappearAtGoal));
-          for(auto & d:toDelete){
-            delete d;
+          auto u1((CBSUnit<state, action, comparison, conflicttable, searchalgo>*)this->GetMember(x));
+          auto u2((CBSUnit<state, action, comparison, conflicttable, searchalgo>*)this->GetMember(y));
+          std::vector<state> goals={u1->GetWaypoint(1),u2->GetWaypoint(1)};
+          std::vector<ConstrainedEnvironment<state,action>*> env(2);
+          env[0]=currentEnvironment[x]->environment.get();
+          env[1]=currentEnvironment[y]->environment.get();
+          std::vector<float> radi={radii[x],radii[y]};
+          std::vector<std::vector<std::unique_ptr<Constraint<state>>>> constraints(2);
+          static std::vector<std::vector<std::pair<state,state>>> actions(2);
+          // edges[agent][actioni]-->[actionj,actionj,...]
+          static std::vector<std::vector<std::vector<unsigned>>> edges(2);
+
+          bool hasSolution(false);
+          unsigned increment=state::TIME_RESOLUTION_U;
+          do{
+            actions[0].clear();actions[1].clear();
+            edges[0].clear();edges[1].clear();
+            // Re-initialize DAGs
+            root[0]=root[1]=nullptr;
+            dags[0].clear();dags[1].clear();
+            // Create MDDs
+            getMDD(u1->GetWaypoint(0),u1->GetWaypoint(1),dags[0],root[0],cost1,best1,currentEnvironment[x]->environment.get());
+            getMDD(u2->GetWaypoint(0),u2->GetWaypoint(1),dags[1],root[1],cost2,best2,currentEnvironment[y]->environment.get());
+            // Check if there's a solution
+            start[0]={root[0],root[0]};
+            start[1]={root[1],root[1]};
+            hasSolution=getMutexes(start, goals, env, toDelete, actions, edges, radi, disappearAtGoal);
+            for(auto & d:toDelete){
+              delete d;
+            }
+            // Prepare for the next increment if necessary
+            cost1=best1+increment;
+            cost2=best2+increment;
+            // Find biclique(s) involving actions that terminate at the goal(s)
+            static std::vector<unsigned> left;
+            left.resize(0);
+            left.reserve(actions[0].size());
+            static std::vector<unsigned> right;
+            right.resize(0);
+            right.reserve(actions[1].size());
+            
+            auto g1(std::find_if(actions[0].begin(), actions[0].end(),
+                [&](const std::pair<state,state>& s) { return s.second.sameLoc(goals[0]) && s.second.t==best1;}));
+            std::vector<unsigned> ends1;
+            while(g1!=actions[0].end()){
+              ends1.push_back(g1-actions[0].begin());
+              // Are there any more actions that terminate at the goal?
+              g1=std::find_if(g1+1, actions[0].end(),
+                  [&](const std::pair<state,state>& s) { return s.second.sameLoc(goals[0]) && s.second.t==best1;});
+            }
+            auto g2(std::find_if(actions[1].begin(), actions[1].end(),
+                [&](const std::pair<state,state>& s) { return s.second.sameLoc(goals[1]) && s.second.t==best2;}));
+            std::vector<unsigned> ends2;
+            while(g2!=actions[1].end()){
+              ends2.push_back(g2-actions[1].begin());
+              // Are there any more actions that terminate at the goal?
+              g2=std::find_if(g2+1, actions[1].end(),
+                  [&](const std::pair<state,state>& s) { return s.second.sameLoc(goals[1]) && s.second.t==best2;});
+            }
+            if(ends1.size()&&ends2.size()){
+              for(auto const& i:ends1){
+                for(auto const& j:ends2){
+                  if(edges[1][j].size()<=edges[0][i].size()){
+                    BiClique::findBiClique(edges[i],edges[j],{i,j},left,right);
+                  }else{
+                    BiClique::findBiClique(edges[j],edges[i],{j,i},right,left);
+                  }
+                }
+              }
+            }
+            // Then add constraints and start over.
+            for(auto const& l:left){
+              constraints[0].emplace_back((Constraint<state>*) new Identical<state>(actions[0][l].first,actions[0][l].second));
+              env[0]->AddConstraint(constraints[0].back().get());
+            }
+            for(auto const& l:right){
+              constraints[1].emplace_back((Constraint<state>*) new Identical<state>(actions[1][l].first,actions[1][l].second));
+              env[1]->AddConstraint(constraints[1].back().get());
+            }
+          }while(!hasSolution);
+          conflicts.resize(2);
+          Conflict<state>& c1=conflicts[0];
+          Conflict<state>& c2=conflicts[1];
+          for(auto& c:constraints[0]){
+            c1.c.emplace_back(c.release());
+          }
+          for(auto& c:constraints[1]){
+            c2.c.emplace_back(c.release());
           }
         }
         if(Params::prioritizeConf){
@@ -2838,7 +2907,7 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
           if(conf==BOTH_CARDINAL && !Params::overload)update=false; // We won't need to add any more constraints after this
           ctype = conf + 1;
 
-          const unsigned diam(agentRadius*2*state::TIME_RESOLUTION_D);
+          const unsigned diam((radii[x]+radii[y])*state::TIME_RESOLUTION_D);
           bool vc(false);
           if(Params::vc){
             state const& a1(a[xTime]);
@@ -2986,8 +3055,8 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
                       // Set current element if it is a valid move
                       if(currentEnvironment[x]->environment->fetch(a1,a2,i*dir,s)){
                         //Does it collide with the core action of b?
-                        //if(collisionCheck3DAPriori(a1, s, b1, b2, agentRadius))
-                        if(collisionCheck3D(a1, s, b1, b2, agentRadius)){
+                        //if(collisionCheck3DAPriori(a1, s, b1, b2, radii[x], radii[y]))
+                        if(collisionCheck3D(a1, s, b1, b2, radii[x], radii[y])){
                           ++left;
                         }else{ // No collision with core
                           break;
@@ -3003,8 +3072,8 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
                       // Set current element if it is a valid move
                       if(currentEnvironment[x]->environment->fetch(a1,a2,i*dir,s)){
                         //Does it collide with the core action of b?
-                        //if(collisionCheck3DAPriori(a1, s, b1, b2, agentRadius))
-                        if(collisionCheck3D(a1, s, b1, b2, agentRadius)){
+                        //if(collisionCheck3DAPriori(a1, s, b1, b2, radii[x], radii[y]))
+                        if(collisionCheck3D(a1, s, b1, b2, radii[x], radii[y])){
                           ++left;
                         }else{ // No collision with core
                           break;
@@ -3018,8 +3087,8 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
                       // Set current element if it is a valid move
                       if(currentEnvironment[y]->environment->fetch(b1,b2,i*dir,s)){
                         //Does it collide with the core action of a?
-                        //if(collisionCheck3DAPriori(a1, a2, b1, s, agentRadius))
-                        if(collisionCheck3D(a1, a2, b1, s, agentRadius)){
+                        //if(collisionCheck3DAPriori(a1, a2, b1, s, radii[x], radii[y]))
+                        if(collisionCheck3D(a1, a2, b1, s, radii[x], radii[y])){
                           right++;
                         }else{ // No collision with core
                           break;
@@ -3034,8 +3103,8 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
                       // Set current element if it is a valid move
                       if(currentEnvironment[y]->environment->fetch(b1,b2,i*dir,s)){
                         //Does it collide with the core action of a?
-                        //if(collisionCheck3DAPriori(a1, a2, b1, s, agentRadius))
-                        if(collisionCheck3D(a1, a2, b1, s, agentRadius)){
+                        //if(collisionCheck3DAPriori(a1, a2, b1, s, radii[x], radii[y]))
+                        if(collisionCheck3D(a1, a2, b1, s, radii[x], radii[y])){
                           right++;
                         }else{ // No collision with core
                           break;
@@ -3043,17 +3112,17 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
                       }
                       ++i;
                     }
-                    float at(a1.t/xyztLoc::TIME_RESOLUTION_D);
-                    float a2t(a2.t/xyztLoc::TIME_RESOLUTION_D);
-                    float bt(b1.t/xyztLoc::TIME_RESOLUTION_D);
-                    float b2t(b2.t/xyztLoc::TIME_RESOLUTION_D);
-                    float diam(agentRadius*2);
+                    float at(a1.t/state::TIME_RESOLUTION_D);
+                    float a2t(a2.t/state::TIME_RESOLUTION_D);
+                    float bt(b1.t/state::TIME_RESOLUTION_D);
+                    float b2t(b2.t/state::TIME_RESOLUTION_D);
+                    float diam(radii[x]+radii[y]);
                     if(left>right){
                       if(Params::mutualtimerange){
                         float tdiff(at-bt);
                         // Compute the correct time range...
                         // Start by setting the start/stop time range to be the forbidden interval for the core actions
-                        auto intvl(getForbiddenInterval(a1,a2,at,a2t,agentRadius,b1,b2,bt,b2t,agentRadius));
+                        auto intvl(getForbiddenInterval(a1,a2,at,a2t,radii[x],b1,b2,bt,b2t,radii[y]));
                         if(intvl.first==-std::numeric_limits<float>::infinity()){
                           intvl.first=std::min(tdiff,-diam);
                         }
@@ -3070,7 +3139,7 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
                         while(i<bf/2){
                           if(currentEnvironment[x]->environment->fetch(a1,a2,i*dir,s)){
                             //Does the interval overlap with the composite interval?
-                            intvl = getForbiddenInterval(a1,s,at,s.t/xyztLoc::TIME_RESOLUTION_D,agentRadius,b1,b2,bt,b2t,agentRadius);
+                            intvl = getForbiddenInterval(a1,s,at,s.t/state::TIME_RESOLUTION_D,radii[x],b1,b2,bt,b2t,radii[y]);
                             // Done if no overlap with current range, or no overlap with start delay
                             if(intvl.second < t1 || intvl.first > t2 || intvl.first>tdiff || intvl.second<tdiff ){
                               break;
@@ -3088,7 +3157,7 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
                           // Set current element if it is a valid move
                           if(currentEnvironment[x]->environment->fetch(a1,a2,i*dir,s)){
                             //Does the interval overlap with the composite interval?
-                            intvl = getForbiddenInterval(a1,s,at,s.t/xyztLoc::TIME_RESOLUTION_D,agentRadius,b1,b2,bt,b2t,agentRadius);
+                            intvl = getForbiddenInterval(a1,s,at,s.t/state::TIME_RESOLUTION_D,radii[x],b1,b2,bt,b2t,radii[y]);
                             // Done if no overlap with current range, or no overlap with start delay
                             if(intvl.second < t1 || intvl.first > t2 || intvl.first>tdiff || intvl.second<tdiff ){
                               break;
@@ -3102,14 +3171,14 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
                         state ar1(a1);
                         state ar2(a2);
                         if(t2>t1){
-                          ar1.t=std::max(1.0,b1.t+t1*xyztLoc::TIME_RESOLUTION_D);
-                          ar2.t=std::max(1.0,b1.t+t2*xyztLoc::TIME_RESOLUTION_D);
+                          ar1.t=std::max(1.0,b1.t+t1*state::TIME_RESOLUTION_D);
+                          ar2.t=std::max(1.0,b1.t+t2*state::TIME_RESOLUTION_D);
                         }
-                        c1.c.emplace_back((Constraint<state>*) new Collision<state>(a1, a2,agentRadius));
+                        c1.c.emplace_back((Constraint<state>*) new Collision<state>(a1, a2,radii[x]));
 if(Params::verbose)std::cout << "Adding time range constraint for" << a1 << "-->" << a2 << ": " << ar1 << "-->" << ar2 << "\n";
                         c2.c.emplace_back((Constraint<state>*) new TimeRange<state>(ar1,ar2));
                       }else{
-                        c1.c.emplace_back((Constraint<state>*) new Collision<state>(a1, a2,agentRadius));
+                        c1.c.emplace_back((Constraint<state>*) new Collision<state>(a1, a2,radii[x]));
                         c2.c.emplace_back((Constraint<state>*) new Identical<state>(a1, a2));
                       }
                     }else{
@@ -3117,7 +3186,7 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << a1 << "-->
                         float tdiff(bt-at);
                         // Compute the correct time range...
                         // Start by setting the start/stop time range to be the forbidden interval for the core actions
-                        auto intvl(getForbiddenInterval(b1,b2,bt,b2t,agentRadius,a1,a2,at,a2t,agentRadius));
+                        auto intvl(getForbiddenInterval(b1,b2,bt,b2t,radii[x],a1,a2,at,a2t,radii[y]));
                         if(intvl.first==-std::numeric_limits<float>::infinity()){
                           intvl.first=std::min(tdiff,-diam);
                         }
@@ -3134,7 +3203,7 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << a1 << "-->
                         while(i<bf/2){
                           if(currentEnvironment[y]->environment->fetch(b1,b2,i*dir,s)){
                             //Does the interval overlap with the composite interval?
-                            intvl = getForbiddenInterval(b1,s,bt,s.t/xyztLoc::TIME_RESOLUTION_D,agentRadius,a1,a2,at,a2t,agentRadius);
+                            intvl = getForbiddenInterval(b1,s,bt,s.t/state::TIME_RESOLUTION_D,radii[x],a1,a2,at,a2t,radii[y]);
                             // Done if no overlap with current range, or no overlap with start delay
                             if(intvl.second < t1 || intvl.first > t2 || intvl.first>tdiff || intvl.second<tdiff ){
                               break;
@@ -3152,7 +3221,7 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << a1 << "-->
                           // Set current element if it is a valid move
                           if(currentEnvironment[y]->environment->fetch(b1,b2,i*dir,s)){
                             //Does the interval overlap with the composite interval?
-                            intvl = getForbiddenInterval(b1,s,bt,s.t/xyztLoc::TIME_RESOLUTION_D,agentRadius,a1,a2,at,a2t,agentRadius);
+                            intvl = getForbiddenInterval(b1,s,bt,s.t/state::TIME_RESOLUTION_D,radii[x],a1,a2,at,a2t,radii[y]);
                             // Done if no overlap with current range, or no overlap with start delay
                             if(intvl.second < t1 || intvl.first > t2 || intvl.first>tdiff || intvl.second<tdiff ){
                               break;
@@ -3166,30 +3235,30 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << a1 << "-->
                         state br1(b1);
                         state br2(b2);
                         if(t2>t1){
-                          br1.t=std::max(0.0,a1.t+t1*xyztLoc::TIME_RESOLUTION_D);
-                          br2.t=std::max(0.0,a1.t+t2*xyztLoc::TIME_RESOLUTION_D);
+                          br1.t=std::max(0.0,a1.t+t1*state::TIME_RESOLUTION_D);
+                          br2.t=std::max(0.0,a1.t+t2*state::TIME_RESOLUTION_D);
                         }
 if(Params::verbose)std::cout << "Adding time range constraint for" << b1 << "-->" << b2 << ": " << br1 << "-->" << br2 << "\n";
                         c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(br1, br2));
-                        c2.c.emplace_back((Constraint<state>*) new Collision<state>(b1, b2,agentRadius));
+                        c2.c.emplace_back((Constraint<state>*) new Collision<state>(b1, b2,radii[x]));
                       }else{
                         c1.c.emplace_back((Constraint<state>*) new Identical<state>(b1, b2));
-                        c2.c.emplace_back((Constraint<state>*) new Collision<state>(b1, b2,agentRadius));
+                        c2.c.emplace_back((Constraint<state>*) new Collision<state>(b1, b2,radii[y]));
                       }
                     }
                   }else{
                     if(Params::overload && c1.c.size()){ // Not the first one...
-                      c1.c.emplace_back((Constraint<state>*) new Probable<state>(a1, a2, agentRadius));
-                      c2.c.emplace_back((Constraint<state>*) new Probable<state>(b1, b2, agentRadius));
+                      c1.c.emplace_back((Constraint<state>*) new Probable<state>(a1, a2, radii[x]));
+                      c2.c.emplace_back((Constraint<state>*) new Probable<state>(b1, b2, radii[y]));
                     }else{
                       if(Params::complete){
                         //c1.c.emplace_back((Constraint<state>*) new Identical<state>(b1, b2));
                         c2.c.emplace_back((Constraint<state>*) new Identical<state>(a1, a2));
-                        c1.c.emplace_back((Constraint<state>*) new Collision<state>(a1, a2,agentRadius));
-                        c2.c.emplace_back((Constraint<state>*) new Probable<state>(b1, b2, agentRadius));
+                        c1.c.emplace_back((Constraint<state>*) new Collision<state>(a1, a2,radii[x]));
+                        c2.c.emplace_back((Constraint<state>*) new Probable<state>(b1, b2, radii[y]));
                       }else{
-                        c1.c.emplace_back((Constraint<state>*) new Collision<state>(a1, a2,agentRadius));
-                        c2.c.emplace_back((Constraint<state>*) new Collision<state>(b1, b2,agentRadius));
+                        c1.c.emplace_back((Constraint<state>*) new Collision<state>(a1, a2,radii[x]));
+                        c2.c.emplace_back((Constraint<state>*) new Collision<state>(b1, b2,radii[y]));
                       }
                     }
                   }
@@ -3197,8 +3266,8 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << b1 << "-->
                   c1.c.emplace_back((Overlap<state>*) new Overlap<state>(a1,a2));
                   c2.c.emplace_back((Overlap<state>*) new Overlap<state>(b1,b2));
                 }else if(Params::pyramidconstraints){
-                  c1.c.emplace_back((Constraint<state>*) new Pyramid<state>(a1, a2, b1.t, agentRadius));
-                  c2.c.emplace_back((Constraint<state>*) new Pyramid<state>(b1, b2, a1.t, agentRadius));
+                  c1.c.emplace_back((Constraint<state>*) new Pyramid<state>(a1, a2, b1.t, radii[x]));
+                  c2.c.emplace_back((Constraint<state>*) new Pyramid<state>(b1, b2, a1.t, radii[y]));
                 }
                 c1.unit1 = y;
                 c1.unit2 = x;
@@ -3215,8 +3284,8 @@ if(Params::verbose)std::cout << "Adding time range constraint for" << b1 << "-->
                   float durA((a2.t-a1.t)/state::TIME_RESOLUTION_D);
                   float durB((b2.t-b1.t)/state::TIME_RESOLUTION_D);
                   //std::cout << "Collision at: " << x << ": " << a1 << "-->" << a2 << ", " << y << ": " << b1 << " " << b2 << "\n";
-                  auto intvl(getForbiddenInterval(a1,a2,0,durA,agentRadius,b1,b2,0,durB,agentRadius));
-                  //auto intvl(getForbiddenInterval(a1,a2,a1.t/state::TIME_RESOLUTION_D,a2.t/state::TIME_RESOLUTION_D,agentRadius,b1,b2,b1.t/state::TIME_RESOLUTION_D,b2.t/state::TIME_RESOLUTION_D,agentRadius));
+                  auto intvl(getForbiddenInterval(a1,a2,0,durA,radii[x],b1,b2,0,durB,radii[y]));
+                  //auto intvl(getForbiddenInterval(a1,a2,a1.t/state::TIME_RESOLUTION_D,a2.t/state::TIME_RESOLUTION_D,radii[x],b1,b2,b1.t/state::TIME_RESOLUTION_D,b2.t/state::TIME_RESOLUTION_D,radii[y]));
                   //std::cout << "the interval for " << a1 << "-->" << a2 << "," << b1 << "-->" << b2 << ": " << intvl.first << "," << intvl.second << "\n";
                   a2.t=b1.t+intvl.second*state::TIME_RESOLUTION_D;
                   b2.t=a1.t-intvl.first*state::TIME_RESOLUTION_D;
@@ -3267,8 +3336,8 @@ assert(b1.t<=b[yTime].t && b2.t >= b[yTime].t);
                     // Set current element if it is a valid move
                     if(currentEnvironment[x]->environment->fetch(a1,a2,i*adir,as[ai])){
                       //Does it collide with the core action of b?
-                      //if(collisionCheck3DAPriori(a1, as[ai], b1, b2, agentRadius))
-                      if(collisionCheck3D(a1, as[ai], b1, b2, agentRadius)){
+                      //if(collisionCheck3DAPriori(a1, as[ai], b1, b2, radii[x]))
+                      if(collisionCheck3D(a1, as[ai], b1, b2, radii[x], radii[y])){
                         fwd[ai].push_back(0);
                         rwd[0].push_back(ai);
                         //std::cout << "a"<<ai << "collides with core\n";
@@ -3279,16 +3348,16 @@ assert(b1.t<=b[yTime].t && b2.t >= b[yTime].t);
                           // Set current element if it is a valid move
                           if(currentEnvironment[y]->environment->fetch(b1,b2,j*bdir,bs[bi])){
                             //Does it collide with the core action of a?
-                            //if(!bc[bi] && collisionCheck3DAPriori(a1, a2, b1, bs[bi], agentRadius))
-                            if(!bc[bi] && collisionCheck3D(a1, a2, b1, bs[bi], agentRadius)){
+                            //if(!bc[bi] && collisionCheck3DAPriori(a1, a2, b1, bs[bi], radii[x], radii[y]))
+                            if(!bc[bi] && collisionCheck3D(a1, a2, b1, bs[bi], radii[x], radii[y])){
                               rwd[bi].push_back(0);
                               fwd[0].push_back(bi);
                             }
                             bc[bi]=1;
                             if(rwd[bi].size()){
                               //std::cout << "b"<<bi << "collides with core\n";
-                              //if(collisionCheck3DAPriori(a1, as[ai], b1, bs[bi], agentRadius))
-                              if(collisionCheck3D(a1, as[ai], b1, bs[bi], agentRadius)){
+                              //if(collisionCheck3DAPriori(a1, as[ai], b1, bs[bi], radii[x], radii[y]))
+                              if(collisionCheck3D(a1, as[ai], b1, bs[bi], radii[x], radii[y])){
                                 //std::cout << "a"<<ai << " collides with b"<<bi << "\n";
                                 rwd[bi].push_back(ai);
                                 fwd[ai].push_back(bi);
@@ -3318,8 +3387,8 @@ assert(b1.t<=b[yTime].t && b2.t >= b[yTime].t);
                     // Set current element if it is a valid move
                     if(currentEnvironment[x]->environment->fetch(a1,a2,i*adir,as[ai])){
                       //Does it collide with the core action of b?
-                      //if(collisionCheck3DAPriori(a1, as[ai], b1, b2, agentRadius))
-                      if(collisionCheck3D(a1, as[ai], b1, b2, agentRadius)){
+                      //if(collisionCheck3DAPriori(a1, as[ai], b1, b2, radii[x], radii[y]))
+                      if(collisionCheck3D(a1, as[ai], b1, b2, radii[x], radii[y])){
                         fwd[ai].push_back(0);
                         rwd[0].push_back(ai);
                         //std::cout << "a"<<ai << "collides with core\n";
@@ -3330,16 +3399,16 @@ assert(b1.t<=b[yTime].t && b2.t >= b[yTime].t);
                           // Set current element if it is a valid move
                           if(currentEnvironment[y]->environment->fetch(b1,b2,j*bdir,bs[bi])){
                             //Does it collide with the core action of a?
-                            //if(!bc[bi] && collisionCheck3DAPriori(a1, a2, b1, bs[bi], agentRadius))
-                            if(!bc[bi] && collisionCheck3D(a1, a2, b1, bs[bi], agentRadius)){
+                            //if(!bc[bi] && collisionCheck3DAPriori(a1, a2, b1, bs[bi], radii[x], radii[y]))
+                            if(!bc[bi] && collisionCheck3D(a1, a2, b1, bs[bi], radii[x], radii[y])){
                               rwd[bi].push_back(0);
                               fwd[0].push_back(bi);
                             }
                             bc[bi]=1;
                             if(rwd[bi].size()){
                               //std::cout << "b"<<bi << "collides with core\n";
-                              //if(collisionCheck3DAPriori(a1, as[ai], b1, bs[bi], agentRadius))
-                              if(collisionCheck3D(a1, as[ai], b1, bs[bi], agentRadius)){
+                              //if(collisionCheck3DAPriori(a1, as[ai], b1, bs[bi], radii[x], radii[y]))
+                              if(collisionCheck3D(a1, as[ai], b1, bs[bi], radii[x], radii[y])){
                                 //std::cout << "a"<<ai << " collides with b"<<bi << "\n";
                                 rwd[bi].push_back(ai);
                                 fwd[ai].push_back(bi);
@@ -3408,7 +3477,7 @@ assert(b1.t<=b[yTime].t && b2.t >= b[yTime].t);
                                                  b2.t/state::TIME_RESOLUTION_D,
                                                  Params::array, Params::indices,
                                                  Params::ivls, left, right, livls, rivls,
-                                                 bf,span*span,agentRadius,agentRadius);
+                                                 bf,span*span,radii[x], radii[y]);
                       /*std::vector<unsigned> left1;
                         std::vector<unsigned> right1;
                         std::vector<std::pair<float,float>> livls1;
@@ -3419,18 +3488,18 @@ assert(b1.t<=b[yTime].t && b2.t >= b[yTime].t);
                         b1.t/state::TIME_RESOLUTION_D,
                         b2.t/state::TIME_RESOLUTION_D,
                         left1, right1, livls1, rivls1,
-                        bf,agentRadius,agentRadius);
+                        bf,radii[x],radii[y]);
                        */
                       if(left.size()==1){
                         c1.c.emplace_back((Constraint<state>*) new Identical<state>(a1, a2));
                         if(right.size()==1){
                           c2.c.emplace_back((Constraint<state>*) new Identical<state>(b1, b2));
                         }else{
-                          c2.c.emplace_back((Constraint<state>*) new Collision<state>(a1, a2,agentRadius));
+                          c2.c.emplace_back((Constraint<state>*) new Collision<state>(a1, a2,radii[x]));
                         }
                       }else if(right.size()==1){
                           c2.c.emplace_back((Constraint<state>*) new Identical<state>(b1, b2));
-                          c1.c.emplace_back((Constraint<state>*) new Collision<state>(b1, b2,agentRadius));
+                          c1.c.emplace_back((Constraint<state>*) new Collision<state>(b1, b2,radii[y]));
                       }else{
 
                         bool swap=false, ortho=false, y=false;
@@ -3471,8 +3540,8 @@ assert(b1.t<=b[yTime].t && b2.t >= b[yTime].t);
                         if(left.empty()){
                           std::cout << "BICLIQUE: " << left.size() << " " << right.size() << "\n";
                           assert(false&&"left side of biclique was empty");
-                          auto intvl(getForbiddenInterval(a1,a2,a1.t/xyztLoc::TIME_RESOLUTION_D,a2.t/xyztLoc::TIME_RESOLUTION_D,
-                                                          agentRadius,b1,b2,b1.t/state::TIME_RESOLUTION_D,b2.t/state::TIME_RESOLUTION_D,agentRadius));
+                          auto intvl(getForbiddenInterval(a1,a2,a1.t/state::TIME_RESOLUTION_D,a2.t/state::TIME_RESOLUTION_D,
+                                                          radii[x],b1,b2,b1.t/state::TIME_RESOLUTION_D,b2.t/state::TIME_RESOLUTION_D,radii[y]));
                           // Done if no overlap with current range, or no overlap with start delay
                           auto src(a1);
                           src.t=std::max(0.0,b1.t+floor(intvl.first*state::TIME_RESOLUTION_D));
@@ -3519,8 +3588,8 @@ assert(b1.t<=b[yTime].t && b2.t >= b[yTime].t);
                         if(right.empty()){
                           std::cout << "BICLIQUE: " << left.size() << " " << right.size() << "\n";
                           assert(false&&"right side of biclique was empty");
-                          auto intvl(getForbiddenInterval(b1,b2,b1.t/xyztLoc::TIME_RESOLUTION_D,b2.t/xyztLoc::TIME_RESOLUTION_D,
-                                                          agentRadius,a1,a2,a1.t/state::TIME_RESOLUTION_D,a2.t/state::TIME_RESOLUTION_D,agentRadius));
+                          auto intvl(getForbiddenInterval(b1,b2,b1.t/state::TIME_RESOLUTION_D,b2.t/state::TIME_RESOLUTION_D,
+                                                          radii[x],a1,a2,a1.t/state::TIME_RESOLUTION_D,a2.t/state::TIME_RESOLUTION_D,radii[y]));
                           // Done if no overlap with current range, or no overlap with start delay
                           auto src(b1);
                           src.t=std::max(0.0,a1.t+floor(intvl.first*state::TIME_RESOLUTION_D));
@@ -3541,7 +3610,7 @@ assert(b1.t<=b[yTime].t && b2.t >= b[yTime].t);
                                                  b2.t/state::TIME_RESOLUTION_D,
                                                  Params::array, Params::indices,
                                                  Params::ivls, left, right, livls, rivls,
-                                                 bf,agentRadius,agentRadius);
+                                                 bf,radii[x],radii[y]);
                       /*std::vector<unsigned> left1;
                         std::vector<unsigned> right1;
                         std::vector<std::pair<float,float>> livls1;
@@ -3552,18 +3621,18 @@ assert(b1.t<=b[yTime].t && b2.t >= b[yTime].t);
                         b1.t/state::TIME_RESOLUTION_D,
                         b2.t/state::TIME_RESOLUTION_D,
                         left1, right1, livls1, rivls1,
-                        bf,agentRadius,agentRadius);
+                        bf,radii[x],radii[y]);
                        */
                       if(left.size()==1){
                         c1.c.emplace_back((Constraint<state>*) new Identical<state>(a1, a2));
                         if(right.size()==1){
                           c2.c.emplace_back((Constraint<state>*) new Identical<state>(b1, b2));
                         }else{
-                          c2.c.emplace_back((Constraint<state>*) new Collision<state>(a1, a2,agentRadius));
+                          c2.c.emplace_back((Constraint<state>*) new Collision<state>(a1, a2,radii[x]));
                         }
                       }else if(right.size()==1){
                         c2.c.emplace_back((Constraint<state>*) new Identical<state>(b1, b2));
-                        c1.c.emplace_back((Constraint<state>*) new Collision<state>(b1, b2,agentRadius));
+                        c1.c.emplace_back((Constraint<state>*) new Collision<state>(b1, b2,radii[y]));
                       }else{
                         bool swap=false, ortho=false, y=false;
                         locationIndex(a1,b1,swap,ortho,y,bf); // Get rotation params from reverse action
@@ -3589,8 +3658,8 @@ assert(b1.t<=b[yTime].t && b2.t >= b[yTime].t);
                         }
                         // In case left was empty...
                         if(left.empty()){
-                          auto intvl(getForbiddenInterval(a1,a2,a1.t/xyztLoc::TIME_RESOLUTION_D,a2.t/xyztLoc::TIME_RESOLUTION_D,
-                                                          agentRadius,b1,b2,b1.t/state::TIME_RESOLUTION_D,b2.t/state::TIME_RESOLUTION_D,agentRadius));
+                          auto intvl(getForbiddenInterval(a1,a2,a1.t/state::TIME_RESOLUTION_D,a2.t/state::TIME_RESOLUTION_D,
+                                                          radii[x],b1,b2,b1.t/state::TIME_RESOLUTION_D,b2.t/state::TIME_RESOLUTION_D,radii[y]));
                           // Done if no overlap with current range, or no overlap with start delay
                           src.t=std::max(0.0,b1.t+floor(intvl.first*state::TIME_RESOLUTION_D));
                           dest=a2;
@@ -3622,8 +3691,8 @@ assert(b1.t<=b[yTime].t && b2.t >= b[yTime].t);
                           c2.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
                         }
                         if(right.empty()){
-                          auto intvl(getForbiddenInterval(b1,b2,b1.t/xyztLoc::TIME_RESOLUTION_D,b2.t/xyztLoc::TIME_RESOLUTION_D,
-                                                          agentRadius,a1,a2,a1.t/state::TIME_RESOLUTION_D,a2.t/state::TIME_RESOLUTION_D,agentRadius));
+                          auto intvl(getForbiddenInterval(b1,b2,b1.t/state::TIME_RESOLUTION_D,b2.t/state::TIME_RESOLUTION_D,
+                                                          radii[x],a1,a2,a1.t/state::TIME_RESOLUTION_D,a2.t/state::TIME_RESOLUTION_D,radii[y]));
                           // Done if no overlap with current range, or no overlap with start delay
                           src.t=std::max(0.0,a1.t+floor(intvl.first*state::TIME_RESOLUTION_D));
                           dest=b2;
@@ -3640,7 +3709,7 @@ assert(b1.t<=b[yTime].t && b2.t >= b[yTime].t);
                                                b1.t/state::TIME_RESOLUTION_D,
                                                b2.t/state::TIME_RESOLUTION_D,
                                                left, right, livls, rivls,
-                                               bf,agentRadius,agentRadius);
+                                               bf,radii[x],radii[y]);
                     state src;
                     state dest;
                     for(unsigned i(0); i<left.size(); ++i){
@@ -3654,8 +3723,8 @@ assert(b1.t<=b[yTime].t && b2.t >= b[yTime].t);
                       c1.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
                     }
                     if(left.empty()){
-                      auto intvl(getForbiddenInterval(a1,a2,a1.t/xyztLoc::TIME_RESOLUTION_D,a2.t/xyztLoc::TIME_RESOLUTION_D,
-                            agentRadius,b1,b2,b1.t/state::TIME_RESOLUTION_D,b2.t/state::TIME_RESOLUTION_D,agentRadius));
+                      auto intvl(getForbiddenInterval(a1,a2,a1.t/state::TIME_RESOLUTION_D,a2.t/state::TIME_RESOLUTION_D,
+                            radii[x],b1,b2,b1.t/state::TIME_RESOLUTION_D,b2.t/state::TIME_RESOLUTION_D,radii[y]));
                       // Done if no overlap with current range, or no overlap with start delay
                       src.t=std::max(0.0,b1.t+floor(intvl.first*state::TIME_RESOLUTION_D));
                       dest=a2;
@@ -3674,8 +3743,8 @@ assert(b1.t<=b[yTime].t && b2.t >= b[yTime].t);
                       c2.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
                     }
                     if(right.empty()){
-                      auto intvl(getForbiddenInterval(b1,b2,b1.t/xyztLoc::TIME_RESOLUTION_D,b2.t/xyztLoc::TIME_RESOLUTION_D,
-                            agentRadius,a1,a2,a1.t/state::TIME_RESOLUTION_D,a2.t/state::TIME_RESOLUTION_D,agentRadius));
+                      auto intvl(getForbiddenInterval(b1,b2,b1.t/state::TIME_RESOLUTION_D,b2.t/state::TIME_RESOLUTION_D,
+                            radii[x],a1,a2,a1.t/state::TIME_RESOLUTION_D,a2.t/state::TIME_RESOLUTION_D,radii[y]));
                       // Done if no overlap with current range, or no overlap with start delay
                       src.t=std::max(0.0,a1.t+floor(intvl.first*state::TIME_RESOLUTION_D));
                       dest=b2;
@@ -3772,7 +3841,7 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
             location.sweep[a].lowerBound.y<=(*c)->upperBound.y &&
             location.sweep[a].upperBound.y>=(*c)->lowerBound.y){
           // Decide if this is a cardinal conflict
-          if(Params::boxconstraints?Box<state>(location.sweep[a].start, location.sweep[a].end).ConflictsWith(location.sweep[b].start,location.sweep[b].end):collisionCheck3D(location.sweep[a].start, location.sweep[a].end,location.sweep[b].start,location.sweep[b].end, agentRadius)){
+          if(Params::boxconstraints?Box<state>(location.sweep[a].start, location.sweep[a].end).ConflictsWith(location.sweep[b].start,location.sweep[b].end):collisionCheck3D(location.sweep[a].start, location.sweep[a].end,location.sweep[b].start,location.sweep[b].end, radii[x],radii[y])){
             ++conflict.first;
             if(!update && !countall){return conflict;} // We don't care about anything except whether there is at least one conflict
             if (Params::verbose)
@@ -3889,7 +3958,7 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
         location.sweep[a].lowerBound.y<=path[b].upperBound.y &&
         location.sweep[a].upperBound.y>=path[b].lowerBound.y){
       // Decide if this is a cardinal conflict
-      if(Params::boxconstraints?Box<state>(location.sweep[a].start, location.sweep[a].end).ConflictsWith(location.sweep[b].start,location.sweep[b].end):collisionCheck3D(location.sweep[a].start, location.sweep[a].end,location.sweep[b].start,location.sweep[b].end, agentRadius)){
+      if(Params::boxconstraints?Box<state>(location.sweep[a].start, location.sweep[a].end).ConflictsWith(location.sweep[b].start,location.sweep[b].end):collisionCheck3D(location.sweep[a].start, location.sweep[a].end,location.sweep[b].start,location.sweep[b].end, radii[x],radii[y])){
         ++conflict.first;
         if(!update && !countall){break;} // We don't care about anything except whether there is at least one conflict
         if (Params::verbose)
@@ -3989,7 +4058,7 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
       for (unsigned y : activeMetaAgents.at(agent).units) {
         // This call will update "best" with the number of conflicts and
         // with the *most* cardinal conflicts
-        if(location.hasOverlap(x, y)) {
+        if(location.hasOverlap(x, y, radii[x], radii[y])) {
           // Augment paths to have same end time if necessary,
           // Either add a wait action of sufficient length or
           // Extend an existing wait action to the necessary length
@@ -4115,7 +4184,7 @@ std::pair<unsigned, unsigned> CBSGroup<state, action, comparison, conflicttable,
         for (unsigned y : activeMetaAgents.at(b).units) {
           // This call will update "best" with the number of conflicts and
           // with the *most* cardinal conflicts
-          if (location.hasOverlap(x, y)) {
+          if (location.hasOverlap(x, y, radii[x], radii[y])) {
             // Augment paths to have same end time if necessary,
             // Either add a wait action of sufficient length or
             // Extend an existing wait action to the necessary length

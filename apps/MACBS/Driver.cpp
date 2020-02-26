@@ -35,6 +35,7 @@
 #include <sstream>
 #include <fstream>
 
+bool verbose=false;
 std::string mapdir("/hog2/benchmarks/maps");
 extern double agentRadius;
 bool greedyCT = false; // use greedy heuristic at the high-level
@@ -127,7 +128,7 @@ void processSolution(double elapsed){
         auto bp(solution[y].begin());
         auto b(bp + 1);
         while (a != solution[x].end() && b != solution[y].end()) {
-          if (collisionCheck3D(*ap, *a, *bp, *b, agentRadius)){
+          if (collisionCheck3D(*ap, *a, *bp, *b, units[x]->radius, units[y]->radius)){
             valid = false;
             std::cout << "ERROR: Solution invalid; collision at: " << x << ":" << *ap << "-->" << *a << ", " << y << ":"
               << *bp << "-->" << *b << std::endl;
@@ -442,7 +443,7 @@ void InitHeadless(){
           std::cout << a << " ";
         std::cout << std::endl;
       }
-      units.push_back(new MACBSUnit(waypoints[i],softEff));
+      units.push_back(new MACBSUnit(waypoints[i],agentRadius,softEff));
       units[i]->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
       group->AddUnit(units[i]); // Add to the group
       if(Params::verbose)std::cout << "initial path for agent " << i << ":\n";
@@ -504,7 +505,7 @@ bool detectIndependence(){
       auto a(1);
       auto b(1);
       while(a < solution[i].size() && b < solution[j].size()) {
-        if(collisionCheck3D(solution[i][a-1], solution[i][a], solution[j][b-1], solution[j][b], agentRadius)){
+        if(collisionCheck3D(solution[i][a-1], solution[i][a], solution[j][b-1], solution[j][b], units[i]->radius, units[j]->radius)){
           independent = false;
           if(Params::verbose)std::cout << "NOT INDEPENDENT: " << i << ":" << solution[i][a-1] << "-->" << solution[i][a] << ", " << j << ":"
             << solution[j][b-1] << "-->" << solution[j][b] << std::endl;
@@ -1140,6 +1141,7 @@ int MyCLHandler(char *argument[], int maxNumArgs){
   if(strcmp(argument[0], "-verbose") == 0)
   {
     Params::verbose = true;
+    verbose = true;
     return 1;
   }
   if(strcmp(argument[0], "-disappear") == 0)

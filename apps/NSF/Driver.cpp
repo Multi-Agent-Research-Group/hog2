@@ -34,6 +34,7 @@
 #include <sstream>
 #include <fstream>
 
+bool verbose(false);
 extern double agentRadius;
 std::vector<AptFeature> features;
 bool greedyCT = false; // use greedy heuristic at the high-level
@@ -816,7 +817,7 @@ int MyCLHandler(char *argument[], int maxNumArgs){
   }
   if(strcmp(argument[0], "-verbose") == 0)
   {
-    Params::verbose = true;
+    Params::verbose = verbose = true;
     return 1;
   }
   if(strcmp(argument[0], "-disappear") == 0)

@@ -42,7 +42,7 @@ void Grid3DConstrainedEnvironment::GetSuccessors(const xyztLoc &nodeID, std::vec
 {
   neighbors.resize(0);
   mapEnv->GetSuccessors(nodeID, neighbors);
-  assert(false);
+  assert(false); // Don't call this one, call the next one which modifies an array!
 
   // TODO: remove illegal successors
   for(auto x(neighbors.begin()); x!=neighbors.end(); /*++x*/){
