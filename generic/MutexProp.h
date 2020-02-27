@@ -154,8 +154,7 @@ bool LimitedDFS(state const& start, state const& end, DAG<state>& dag, Node<stat
     return true;
   }
 
-  static std::vector<state> successors;
-  successors.resize(64);
+  std::vector<state> successors(64);
   unsigned sz(env->GetSuccessors(start,&successors[0]));
   successors.resize(sz);
   bool result(false);
@@ -228,6 +227,13 @@ void generatePermutations(std::vector<MultiEdge<state>>& positions, std::vector<
     if(verbose)for(auto edge:current){
       std::cout << *edge.first << "-->" << *edge.second << "\n";
     }
+    std::cout << "CrossProduct:\n";
+    for(auto const& c:result){
+      if(verbose)for(auto edge:c){
+        std::cout << *edge.first << "-->" << *edge.second << " ";
+      }
+      std::cout <<"\n";
+    }
     return;
   }
 
@@ -269,7 +275,7 @@ void generatePermutations(std::vector<MultiEdge<state>>& positions, std::vector<
     }
     if(found) continue; // Don't record pair if it was infeasible...
     copy.push_back(positions[agent][i]);
-    generatePermutations(positions, result, agent + 1, copy,lastTime,radii);
+    generatePermutations(positions, result, agent + 1, copy,lastTime,radii,acts);
   }
 }
 
@@ -311,6 +317,8 @@ bool getMutexes(MultiEdge<state> const& n, std::vector<state> const& goal, std::
   static const int MAXTIME(1000*state::TIME_RESOLUTION_U);
   static std::unordered_map<std::string,bool> visited;
   visited.clear();
+  static std::vector<std::set<Node<state>*>> acts(n.size()-1);
+  for(auto& a:acts){a.clear();}
   static ClearablePQ<MultiEdge<state>,std::vector<MultiEdge<state>>,MultiEdgeCmp<state>> q;
   q.clear();
   q.push(n);
@@ -318,15 +326,22 @@ bool getMutexes(MultiEdge<state> const& n, std::vector<state> const& goal, std::
   while(q.size()){
     auto s(q.top());
     q.pop();
+    std::cout << "s:\n";
+    for(auto const& g:s){
+      std::cout << g.first->n << "-->" << g.second->n << " ";
+    }
+    std::cout << "\n";
+    
 
     bool done(true);
     unsigned agent(0);
     for(auto const& g:s){
       if(!env[agent]->GoalTest(g.second->n,goal[agent])){
         done=false;
+        std::cout << " no goal...\n";
         break;
-        agent++;
       }
+      agent++;
     }
     if(done){result=true;}
 
@@ -396,9 +411,8 @@ bool getMutexes(MultiEdge<state> const& n, std::vector<state> const& goal, std::
     static MultiEdge<state> tmp; tmp.clear();
 
     // This call also computes initial mutexes
-    static std::vector<std::set<Node<state>*>> acts(n.size()-1);
-    for(auto& a:acts){a.clear();}
     generatePermutations(successors,crossProduct,0,tmp,sd,radii,acts);
+    std::cout << "cross product size: " << crossProduct.size() << "\n";
     // Since we're visiting these in time-order, all parent nodes of this node
     // have been seen and their initial mutexes have been computed. Therefore
     // we can compute propagated mutexes and inherited mutexes at the same time.
@@ -502,8 +516,8 @@ bool getMutexes(MultiEdge<state> const& n, std::vector<state> const& goal, std::
     for(auto& a: crossProduct){
       k=0;
       // Compute hash for transposition table
-      std::string hash(s.size()*sizeof(uint64_t),1);
-      for(auto v:s){
+      std::string hash(a.size()*sizeof(uint64_t),1);
+      for(auto v:a){
         uint64_t h1(v.second->Hash());
         uint8_t c[sizeof(uint64_t)];
         memcpy(c,&h1,sizeof(uint64_t));
@@ -515,7 +529,18 @@ bool getMutexes(MultiEdge<state> const& n, std::vector<state> const& goal, std::
       // Have we visited this node already?
       if(visited.find(hash)==visited.end()){
         visited[hash]=true;
+        std::cout << "pushing:\n";
+        for(auto const& g:a){
+          std::cout << g.first->n << "-->" << g.second->n << " ";
+        }
+        std::cout << "\n";
         q.push(a);
+      }else{
+        std::cout << "NOT pushing:\n";
+        for(auto const& g:a){
+          std::cout << g.first->n << "-->" << g.second->n << " ";
+        }
+        std::cout << "\n";
       }
     }
   }
@@ -551,6 +576,8 @@ bool getMutexes(MultiEdge<state> const& n, std::vector<state> const& goal, std::
     }
     ++k;
   }
+  k=0;
+  std::cout << "edges: " << edges << "\n";
   return result;
 }
 

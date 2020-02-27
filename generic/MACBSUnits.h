@@ -2792,6 +2792,7 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
           bool hasSolution(false);
           unsigned increment=state::TIME_RESOLUTION_U;
           do{
+            best1=best2=INT_MAX;
             actions[0].clear();actions[1].clear();
             edges[0].clear();edges[1].clear();
             // Re-initialize DAGs
@@ -2804,6 +2805,7 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
             start[0]={root[0],root[0]};
             start[1]={root[1],root[1]};
             hasSolution=getMutexes(start, goals, env, toDelete, actions, edges, radi, disappearAtGoal);
+            std::cout << "Solution found: " << hasSolution << "\n";
             for(auto & d:toDelete){
               delete d;
             }
@@ -2847,13 +2849,16 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
                 }
               }
             }
+            std::cout << "Found biclique: " << left << " " << right << "\n";
             // Then add constraints and start over.
             for(auto const& l:left){
               constraints[0].emplace_back((Constraint<state>*) new Identical<state>(actions[0][l].first,actions[0][l].second));
+              std::cout << "Add constraint to env 0: " << actions[0][l] << "\n";
               env[0]->AddConstraint(constraints[0].back().get());
             }
             for(auto const& l:right){
               constraints[1].emplace_back((Constraint<state>*) new Identical<state>(actions[1][l].first,actions[1][l].second));
+              std::cout << "Add constraint to env 1: " << actions[0][l] << "\n";
               env[1]->AddConstraint(constraints[1].back().get());
             }
           }while(!hasSolution);
