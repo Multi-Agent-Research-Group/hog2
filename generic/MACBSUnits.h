@@ -127,7 +127,7 @@ bool Params::vc = false;
 bool Params::overload = false;
 bool Params::topTwo = false;
 bool Params::conditional = false;
-bool Params::mutexprop = true;
+bool Params::mutexprop = false;
 std::vector<unsigned> Params::array;
 std::vector<unsigned> Params::indices;
 std::vector<float> Params::ivls;
@@ -1834,6 +1834,7 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
   CBSUnit<state, action, comparison, conflicttable, searchalgo> *c = (CBSUnit<state, action, comparison, conflicttable, searchalgo>*) u;
   unsigned theUnit(this->GetNumMembers());
   c->setUnitNumber(theUnit);
+  radii.push_back(c->radius);
   // Add the new unit to the group
   UnitGroup<state, action, ConstrainedEnvironment<state, action>>::AddUnit(u);
 
@@ -2799,8 +2800,14 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
             root[0]=root[1]=nullptr;
             dags[0].clear();dags[1].clear();
             // Create MDDs
-            getMDD(u1->GetWaypoint(0),u1->GetWaypoint(1),dags[0],root[0],cost1,best1,currentEnvironment[x]->environment.get());
-            getMDD(u2->GetWaypoint(0),u2->GetWaypoint(1),dags[1],root[1],cost2,best2,currentEnvironment[y]->environment.get());
+            if(!getMDD(u1->GetWaypoint(0),u1->GetWaypoint(1),dags[0],root[0],cost1,best1,currentEnvironment[x]->environment.get())){
+              cost1+=increment;
+              continue;
+            }
+            if(!getMDD(u2->GetWaypoint(0),u2->GetWaypoint(1),dags[1],root[1],cost2,best2,currentEnvironment[y]->environment.get())){
+              cost2+=increment;
+              continue;
+            }
             // Check if there's a solution
             start[0]={root[0],root[0]};
             start[1]={root[1],root[1]};
@@ -2841,10 +2848,10 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
             if(ends1.size()&&ends2.size()){
               for(auto const& i:ends1){
                 for(auto const& j:ends2){
-                  if(edges[1][j].size()<=edges[0][i].size()){
-                    BiClique::findBiClique(edges[i],edges[j],{i,j},left,right);
+                  if(edges[1].size()<=edges[0].size()){
+                    BiClique::findBiClique(edges[0],edges[1],{i,j},left,right);
                   }else{
-                    BiClique::findBiClique(edges[j],edges[i],{j,i},right,left);
+                    BiClique::findBiClique(edges[1],edges[0],{j,i},right,left);
                   }
                 }
               }

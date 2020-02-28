@@ -480,7 +480,7 @@ void InitHeadless(){
         std::cout << std::endl;
       }
       float softEff(.9);
-      units.push_back(new MACBSUnit(waypoints[i],softEff));
+      units.push_back(new MACBSUnit(waypoints[i],agentRadius,softEff));
       units[i]->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
       group->AddUnit(units[i]); // Add to the group
       if(Params::verbose)std::cout << "initial path for agent " << i << ":\n";
@@ -657,11 +657,6 @@ int MyCLHandler(char *argument[], int maxNumArgs){
   if(strcmp(argument[0], "-overload") == 0)
   {
     Params::overload=true;
-    return 1;
-  }
-  if(strcmp(argument[0], "-nomutex") == 0)
-  {
-    Params::mutexprop=false;
     return 1;
   }
   if(strcmp(argument[0], "-suboptimal") == 0)
@@ -887,6 +882,9 @@ int MyCLHandler(char *argument[], int maxNumArgs){
         break;
       case 9:
         Params::mutualtimerange=true;
+        break;
+      case 10:
+        Params::mutexprop=true;
         break;
       default:
         Params::identicalconstraints=true;

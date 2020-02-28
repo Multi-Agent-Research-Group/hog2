@@ -210,13 +210,13 @@ bool LimitedDFS(state const& start, state const& end, DAG<state>& dag, Node<stat
 
 
 template <typename state, typename action>
-void getMDD(state const& start, state const& end, DAG<state>& dag, Node<state> *& root, int depth, uint32_t& best, ConstrainedEnvironment<state,action>* env){
+bool getMDD(state const& start, state const& end, DAG<state>& dag, Node<state> *& root, int depth, uint32_t& best, ConstrainedEnvironment<state,action>* env){
   if(verbose)std::cout << "MDD up to depth: " << depth << start << "-->" << end << "\n";
   static std::map<uint64_t,bool> singleTransTable;
   singleTransTable.clear();
-  LimitedDFS(start,end,dag,root,depth,depth,best,env,singleTransTable);
+  return LimitedDFS(start,end,dag,root,depth,depth,best,env,singleTransTable);
   //if(verbose)std::cout << "Finally set root to: " << (uint64_t)root[agent] << "\n";
-  if(verbose)std::cout << root << "\n";
+  //if(verbose)std::cout << root << "\n";
 }
 
 template <typename state>
@@ -557,7 +557,7 @@ bool getMutexes(MultiEdge<state> const& n, std::vector<state> const& goal, std::
           ix1=actions[k].size();
           actions[k].push_back(act);
         }else{
-          ix1=actions[k].begin()-itr;
+          ix1=itr-actions[k].begin();
         }
         act={m.first.first->n,m.first.second->n};
         itr=std::find(actions[k+1].begin(),actions[k+1].end(),act);
@@ -565,7 +565,7 @@ bool getMutexes(MultiEdge<state> const& n, std::vector<state> const& goal, std::
           ix2=actions[k+1].size();
           actions[k+1].emplace_back(m.first.first->n,m.first.second->n);
         }else{
-          ix2=actions[k+1].begin()-itr;
+          ix2=itr-actions[k+1].begin();
         }
         // TODO: can't represent a k-partite graph unless agent id is stored with action #
         if(edges[k].size()<ix1+1){edges[k].resize(ix1+1);}
