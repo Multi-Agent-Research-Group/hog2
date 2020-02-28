@@ -267,6 +267,7 @@ void generatePermutations(std::vector<MultiEdge<state>>& positions, std::vector<
       if(conflict){
         if(update){
           acts[j].insert(current[j].first);
+          std::cout << "Initial mutex: " << current[j].first->n << "-->"<< current[j].second->n <<", " << positions[agent][i].first->n << "-->"<< positions[agent][i].second->n << "\n";
           positions[agent][i].first->mutexes[{current[j].first,current[j].second}]=positions[agent][i].second;
           current[j].first->mutexes[{positions[agent][i].first,positions[agent][i].second}]=current[j].second;
         }
@@ -448,6 +449,7 @@ bool getMutexes(MultiEdge<state> const& n, std::vector<state> const& goal, std::
           // get a propagated mutex :)
           if(found){
             acts[i].insert(s[i].first); // Add to set of states which have mutexed actions
+            std::cout << "Propagated mutex: " << s[i].first->n << "-->"<< s[i].second->n <<", " << s[j].first->n << "-->"<< s[j].second->n << "\n";
             s[i].first->mutexes[s[j]]=s[i].second;
             s[j].first->mutexes[s[i]]=s[j].second;
           }
@@ -479,6 +481,7 @@ bool getMutexes(MultiEdge<state> const& n, std::vector<state> const& goal, std::
         }
         // Add inherited mutexes
         for(auto const& mu:intersection){
+            std::cout << "Inherited mutex: " << s[i].first->n << "-->"<< s[i].second->n <<", " << mu.first->n << "-->"<< mu.second->n << "\n";
           s[i].first->mutexes[mu]=s[i].second;
           acts[i].insert(s[i].first); // Add to set of states which have mutexed actions
         }
@@ -522,7 +525,7 @@ bool getMutexes(MultiEdge<state> const& n, std::vector<state> const& goal, std::
         uint8_t c[sizeof(uint64_t)];
         memcpy(c,&h1,sizeof(uint64_t));
         for(unsigned j(0); j<sizeof(uint64_t); ++j){
-          hash[k*sizeof(uint64_t)+j]=((int)c[j])?c[j]:1; // Replace null-terminators in the middle of the string
+          hash[k*sizeof(uint64_t)+j]=((int)c[j])?c[j]:0xff; // Replace null-terminators in the middle of the string
         }
         ++k;
       }
@@ -533,15 +536,18 @@ bool getMutexes(MultiEdge<state> const& n, std::vector<state> const& goal, std::
         for(auto const& g:a){
           std::cout << g.first->n << "-->" << g.second->n << " ";
         }
-        std::cout << "\n";
         q.push(a);
       }else{
         std::cout << "NOT pushing:\n";
         for(auto const& g:a){
           std::cout << g.first->n << "-->" << g.second->n << " ";
         }
-        std::cout << "\n";
       }
+      std::cout << "HASH: ";
+      for(auto const& c:hash){
+        std::cout << +c << ",";
+      }
+      std::cout << "\n";
     }
   }
   // Create k-partite graph

@@ -2848,15 +2848,19 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
             if(ends1.size()&&ends2.size()){
               for(auto const& i:ends1){
                 for(auto const& j:ends2){
-                  if(edges[1].size()<=edges[0].size()){
-                    BiClique::findBiClique(edges[0],edges[1],{i,j},left,right);
-                  }else{
-                    BiClique::findBiClique(edges[1],edges[0],{j,i},right,left);
+                  if(std::find(edges[0][i].begin(),edges[0][i].end(),j)!=edges[0][i].end() &&
+                     std::find(edges[1][j].begin(),edges[1][j].end(),i)!=edges[1][j].end()){
+                    if(edges[1].size()<=edges[0].size()){
+                      BiClique::findBiClique(edges[0],edges[1],{i,j},left,right);
+                      std::cout << "Found biclique: ("<< i << "," << j << ") " << left << " " << right << "\n";
+                    }else{
+                      BiClique::findBiClique(edges[1],edges[0],{j,i},right,left);
+                      std::cout << "Found biclique: ("<< i << "," << j << ") " << left << " " << right << "\n";
+                    }
                   }
                 }
               }
             }
-            std::cout << "Found biclique: " << left << " " << right << "\n";
             // Then add constraints and start over.
             for(auto const& l:left){
               constraints[0].emplace_back((Constraint<state>*) new Identical<state>(actions[0][l].first,actions[0][l].second));
@@ -2872,11 +2876,20 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
           conflicts.resize(2);
           Conflict<state>& c1=conflicts[0];
           Conflict<state>& c2=conflicts[1];
-          for(auto& c:constraints[0]){
-            c1.c.emplace_back(c.release());
-          }
-          for(auto& c:constraints[1]){
-            c2.c.emplace_back(c.release());
+          if(constraints[0].size()==1 && constraints[1].size()==1){
+            // Do a 1xN Biclique
+            state const& a1(a[xTime]);
+            state const& a2(a[xNextTime]);
+            c1.c.emplace_back((Constraint<state>*) new Collision<state>(a1, a2,radii[x]));
+            // TODO Change this to a time-range constraint
+            c2.c.emplace_back((Constraint<state>*) new Identical<state>(a1, a2));
+          }else{
+            for(auto& c:constraints[0]){
+              c1.c.emplace_back(c.release());
+            }
+            for(auto& c:constraints[1]){
+              c2.c.emplace_back(c.release());
+            }
           }
         }
         if(Params::prioritizeConf){
