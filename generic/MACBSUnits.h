@@ -2776,6 +2776,8 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
           dags.resize(2);
           auto cost1(currentEnvironment[x]->environment->GetPathLength(a));
           auto cost2(currentEnvironment[y]->environment->GetPathLength(b));
+          auto minCost1(cost1-1);
+          auto minCost2(cost2-1);
           uint32_t best1(INT_MAX);
           uint32_t best2(INT_MAX);
           auto u1((CBSUnit<state, action, comparison, conflicttable, searchalgo>*)this->GetMember(x));
@@ -2800,14 +2802,18 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
             root[0]=root[1]=nullptr;
             dags[0].clear();dags[1].clear();
             // Create MDDs
-            if(!getMDD(u1->GetWaypoint(0),u1->GetWaypoint(1),dags[0],root[0],cost1,best1,currentEnvironment[x]->environment.get())){
+            if(!getMDD(u1->GetWaypoint(0),u1->GetWaypoint(1),dags[0],root[0],minCost1,cost1,best1,currentEnvironment[x]->environment.get())){
+              minCost1=cost1;
               cost1+=increment;
               continue;
             }
-            if(!getMDD(u2->GetWaypoint(0),u2->GetWaypoint(1),dags[1],root[1],cost2,best2,currentEnvironment[y]->environment.get())){
+            std::cout << "MDD1:\n" << root[0] << "\n";
+            if(!getMDD(u2->GetWaypoint(0),u2->GetWaypoint(1),dags[1],root[1],minCost2,cost2,best2,currentEnvironment[y]->environment.get())){
+              minCost2=cost2;
               cost2+=increment;
               continue;
             }
+            std::cout << "MDD2:\n" << root[0] << "\n";
             // Check if there's a solution
             start[0]={root[0],root[0]};
             start[1]={root[1],root[1]};
@@ -2817,7 +2823,9 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
               delete d;
             }
             // Prepare for the next increment if necessary
+            minCost1=cost1;
             cost1=best1+increment;
+            minCost2=cost2;
             cost2=best2+increment;
             // Find biclique(s) involving actions that terminate at the goal(s)
             static std::vector<unsigned> left;

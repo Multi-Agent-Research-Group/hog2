@@ -61,7 +61,7 @@ struct Node{
   //bool connected()const{return parents.size()+successors.size();}
   std::set<Node*> parents;
   std::set<Node*> successors;
-  std::map<std::pair<Node*,Node*>,Node*> mutexes; // [op.s1,op.s2]=(self)-->succ[i]
+  std::map<Node*,std::set<std::pair<Node*,Node*>>> mutexes; // [op.s1,op.s2]=(self)-->succ[i]
   inline uint64_t Hash()const{return hash;}
   inline uint32_t Depth()const{return n.t;}
   inline void Print(std::ostream& ss, int d=0) const {
@@ -110,7 +110,7 @@ static inline std::ostream& operator << (std::ostream& ss, Node<state> const* n)
 
 
 template <typename state, typename action>
-bool LimitedDFS(state const& start, state const& end, DAG<state>& dag, Node<state>*& root, uint32_t depth, uint32_t maxDepth, uint32_t& best, ConstrainedEnvironment<state,action> const* env, std::map<uint64_t,bool>& singleTransTable, unsigned recursions=1, bool disappear=true){
+bool LimitedDFS(state const& start, state const& end, DAG<state>& dag, Node<state>*& root, uint32_t depth, uint32_t minDepth, uint32_t maxDepth, uint32_t& best, ConstrainedEnvironment<state,action> const* env, std::map<uint64_t,bool>& singleTransTable, unsigned recursions=1, bool disappear=true){
   if(verbose)std::cout << std::string(recursions,' ') << start << "g:" << (maxDepth-depth) << " h:" << (int)(env->HCost(start,end)) << " f:" << ((maxDepth-depth)+(int)(env->HCost(start,end))) << "\n";
   if(depth<0 || maxDepth-depth+(int)(env->HCost(start,end))>maxDepth){ // Note - this only works for an admissible heuristic.
     //if(verbose)std::cout << "pruned " << start << depth <<" "<< (maxDepth-depth+(int)(env->HCost(start,end)))<<">"<<maxDepth<<"\n";
@@ -147,10 +147,10 @@ bool LimitedDFS(state const& start, state const& end, DAG<state>& dag, Node<stat
       dag[chash].parents.insert(parent);
       parent=&dag[chash];
     }
-    best=std::min(best,parent->Depth());
-    //std::cout << "found d\n";
-    //costt[(int)maxDepth].insert(d);
-    if(verbose)std::cout << "ABEST "<<best<<"\n";
+    if(parent->Depth()>minDepth){
+      best=std::min(best,parent->Depth());
+    }
+    if(verbose)std::cout << "BEST "<<best<< ">" << minDepth << "\n";
     return true;
   }
 
@@ -162,7 +162,7 @@ bool LimitedDFS(state const& start, state const& end, DAG<state>& dag, Node<stat
     int ddiff(std::max(Util::distance(node.x,node.y,start.x,start.y),1.0)*state::TIME_RESOLUTION_U);
     //std::cout << std::string(std::max(0,(maxDepth-(depth-ddiff))),' ') << "MDDEVAL " << start << "-->" << node << "\n";
     //if(verbose)std::cout<<node<<": --\n";
-    if(LimitedDFS(node,end,dag,root,depth-ddiff,maxDepth,best,env,singleTransTable,recursions+1,disappear)){
+    if(LimitedDFS(node,end,dag,root,depth-ddiff,minDepth,maxDepth,best,env,singleTransTable,recursions+1,disappear)){
       singleTransTable[hash]=true;
       if(dag.find(hash)==dag.end()){
         //std::cout << n<<"\n";
@@ -210,11 +210,11 @@ bool LimitedDFS(state const& start, state const& end, DAG<state>& dag, Node<stat
 
 
 template <typename state, typename action>
-bool getMDD(state const& start, state const& end, DAG<state>& dag, Node<state> *& root, int depth, uint32_t& best, ConstrainedEnvironment<state,action>* env){
+bool getMDD(state const& start, state const& end, DAG<state>& dag, Node<state> *& root, uint32_t minDepth, uint32_t depth, uint32_t& best, ConstrainedEnvironment<state,action>* env){
   if(verbose)std::cout << "MDD up to depth: " << depth << start << "-->" << end << "\n";
   static std::map<uint64_t,bool> singleTransTable;
   singleTransTable.clear();
-  return LimitedDFS(start,end,dag,root,depth,depth,best,env,singleTransTable);
+  return LimitedDFS(start,end,dag,root,depth,minDepth,depth,best,env,singleTransTable);
   //if(verbose)std::cout << "Finally set root to: " << (uint64_t)root[agent] << "\n";
   //if(verbose)std::cout << root << "\n";
 }
@@ -266,10 +266,11 @@ void generatePermutations(std::vector<MultiEdge<state>>& positions, std::vector<
       }
       if(conflict){
         if(update){
-          acts[j].insert(current[j].first);
           std::cout << "Initial mutex: " << current[j].first->n << "-->"<< current[j].second->n <<", " << positions[agent][i].first->n << "-->"<< positions[agent][i].second->n << "\n";
-          positions[agent][i].first->mutexes[{current[j].first,current[j].second}]=positions[agent][i].second;
-          current[j].first->mutexes[{positions[agent][i].first,positions[agent][i].second}]=current[j].second;
+          acts[j].insert(current[j].first);
+          //acts[agent].insert(positions[agent][i].first);
+          positions[agent][i].first->mutexes[positions[agent][i].second].emplace(current[j].first,current[j].second);
+          current[j].first->mutexes[current[j].second].emplace(positions[agent][i].first,positions[agent][i].second);
         }
         if(verbose)std::cout << "Collision averted: " << *positions[agent][i].first << "-->" << *positions[agent][i].second << " " << *current[j].first << "-->" << *current[j].second << "\n";
       } else if(verbose)std::cout << "generating: " << *positions[agent][i].first << "-->" << *positions[agent][i].second << " " << *current[j].first << "-->" << *current[j].second << "\n";
@@ -423,95 +424,118 @@ bool getMutexes(MultiEdge<state> const& n, std::vector<state> const& goal, std::
     static std::vector<std::pair<Node<state>*,Node<state>*>> mpj;
     static std::vector<std::pair<Node<state>*,Node<state>*>> intersection;
     static std::vector<std::pair<Node<state>*,Node<state>*>> stuff;
-    for(int i(0); i<acts.size()-1; ++i){
-      for(int j(i+1); j<acts.size(); ++j){
-        mpj.clear();
-        // Get list of pi's mutexes with pjs
-        for(auto const& pi:s[i].first->parents){
-          
-          for(auto const& mi:pi->mutexes){
-            acts[i].insert(pi); // Add to set of states which have mutexed actions
-            if(mi.second==s[i].first){
-              mpj.emplace_back(mi.first); // Add pointers to pjs
+    for(int i(0); i<s.size()-1; ++i){
+      if(s[i].first->parents.size()){
+        std::cout << s[i].first->n << " has " << s[i].first->parents.size() << " parents\n";
+        for(int j(i+1); j<s.size(); ++j){
+          std::cout << "Check versus " << s[j].first->n << "\n";
+          mpj.clear();
+          // Get list of pi's mutexes with pjs
+          for(auto const& pi:s[i].first->parents){
+            std::cout << "Parent has " << pi->mutexes.size() << " mutexes\n";
+
+            for(auto const& mi:pi->mutexes){
+              acts[i].insert(pi); // Add to set of states which have mutexed actions
+              if(mi.first==s[i].first){ // Does the edge from the parent end at this vertex?
+                for(auto const& mu:mi.second){
+                  if(mu.second==s[j].first){ // Does the mutexed edge end at the appropriate vertex?
+                    std::cout << "This parent (" << pi->n << ") has a mutex that coincides: " << mu.first->n << "-->" << mu.second->n << "\n";
+                    mpj.emplace_back(mu); // Add pointers to pjs
+                  }else{
+                    std::cout << "This mutex: " << mu.first->n << "-->" << mu.second->n << " does not coincide\n";
+                  }
+                }
+              }else{
+                std::cout << pi->n << "-->" << mi.first->n << " is not the right mutexed action\n";
+              }
             }
           }
-        }
-        // Now check if all pjs are mutexed with the set
-        if(s[j].first->parents.size()==mpj.size() && mpj.size()){
-          bool found(true);
-          for(auto const& m:mpj){
-            if(std::find(s[j].first->parents.begin(),s[j].first->parents.end(),m.first)==s[j].first->parents.end()){
-              found=false;
-              break;
+          // Now check if all pjs are mutexed with the set
+          if(s[j].first->parents.size()==mpj.size() && mpj.size()){
+            std::cout << "Parents size matches the number of mutexes ("<<mpj.size()<<")\n";
+            bool found(true);
+            for(auto const& m:mpj){
+              if(std::find(s[j].first->parents.begin(),s[j].first->parents.end(),m.first)==s[j].first->parents.end()){
+                found=false;
+                break;
+              }
+            }
+            // Because all of the parents of i and j are mutexed, i and j
+            // get a propagated mutex :)
+            if(found){
+              acts[i].insert(s[i].first); // Add to set of states which have mutexed actions
+              std::cout << "Propagated mutex: " << s[i].first->n << "-->"<< s[i].second->n <<", " << s[j].first->n << "-->"<< s[j].second->n << "\n";
+              s[i].first->mutexes[s[i].second].insert(s[j]);
+              s[j].first->mutexes[s[j].second].insert(s[i]);
             }
           }
-          // Because all of the parents of i and j are mutexed, i and j
-          // get a propagated mutex :)
-          if(found){
-            acts[i].insert(s[i].first); // Add to set of states which have mutexed actions
-            std::cout << "Propagated mutex: " << s[i].first->n << "-->"<< s[i].second->n <<", " << s[j].first->n << "-->"<< s[j].second->n << "\n";
-            s[i].first->mutexes[s[j]]=s[i].second;
-            s[j].first->mutexes[s[i]]=s[j].second;
-          }
-        }
-        intersection.clear();
-        // Finally, see if we can add inherited mutexes
-        // TODO: Might need to be a set union for non-cardinals
-        if(s[i].first->parents.size()){
-          // Get mutexes from first parent
-          auto parent(s[i].first->parents.begin());
-          intersection.reserve((*parent)->mutexes.size());
-          for(auto const& mi:(*parent)->mutexes){
-            if(mi.second==s[i].first){
-              intersection.push_back(mi.first);
-            }
-          }
-          ++parent;
-          // Now intersect the remaining parents' sets
-          while(parent!=s[i].first->parents.end()){
-            stuff.clear();
+          intersection.clear();
+          // Finally, see if we can add inherited mutexes
+          // TODO: Might need to be a set union for non-cardinals
+          if(s[i].first->parents.size()){
+            // Get mutexes from first parent
+            auto parent(s[i].first->parents.begin());
+            intersection.reserve((*parent)->mutexes.size());
             for(auto const& mi:(*parent)->mutexes){
-              if(mi.second==s[i].first){
-                stuff.push_back(mi.first);
+              if(mi.first==s[i].first){
+                for(auto const& mu:mi.second){
+                  intersection.push_back(mu);
+                }
               }
             }
-            inplace_intersection(intersection,stuff);
             ++parent;
+            // Now intersect the remaining parents' sets
+            while(parent!=s[i].first->parents.end()){
+              stuff.clear();
+              for(auto const& mi:(*parent)->mutexes){
+                if(mi.first==s[i].first){
+                  for(auto const& mu:mi.second){
+                    stuff.push_back(mu);
+                  }
+                }
+              }
+              inplace_intersection(intersection,stuff);
+              ++parent;
+            }
           }
-        }
-        // Add inherited mutexes
-        for(auto const& mu:intersection){
+          // Add inherited mutexes
+          for(auto const& mu:intersection){
             std::cout << "Inherited mutex: " << s[i].first->n << "-->"<< s[i].second->n <<", " << mu.first->n << "-->"<< mu.second->n << "\n";
-          s[i].first->mutexes[mu]=s[i].second;
-          acts[i].insert(s[i].first); // Add to set of states which have mutexed actions
-        }
-        // Do the same for agent j
-        intersection.clear();
-        if(s[j].first->parents.size()){
-          // Get mutexes from first parent
-          auto parent(s[j].first->parents.begin());
-          intersection.reserve((*parent)->mutexes.size());
-          for(auto const& mj:(*parent)->mutexes){
-            if(mj.second==s[j].first){
-              intersection.push_back(mj.first);
-            }
+            s[i].first->mutexes[s[i].second].insert(mu);
+            acts[i].insert(s[i].first); // Add to set of states which have mutexed actions
           }
-          ++parent;
-          // Now intersect the remaining parents' sets
-          while(parent!=s[j].first->parents.end()){
-            stuff.clear();
+          // Do the same for agent j
+          intersection.clear();
+          if(s[j].first->parents.size()){
+            // Get mutexes from first parent
+            auto parent(s[j].first->parents.begin());
+            intersection.reserve((*parent)->mutexes.size());
             for(auto const& mj:(*parent)->mutexes){
-              if(mj.second==s[j].first){
-                stuff.push_back(mj.first);
+              if(mj.first==s[j].first){
+                for(auto const& mu:mj.second){
+                  intersection.push_back(mu);
+                }
               }
             }
-            inplace_intersection(intersection,stuff);
             ++parent;
+            // Now intersect the remaining parents' sets
+            while(parent!=s[j].first->parents.end()){
+              stuff.clear();
+              for(auto const& mj:(*parent)->mutexes){
+                if(mj.first==s[j].first){
+                  for(auto const& mu:mj.second){
+                    stuff.push_back(mu);
+                  }
+                }
+              }
+              inplace_intersection(intersection,stuff);
+              ++parent;
+            }
           }
-        }
-        // Add inherited mutexes
-        for(auto const& mu:intersection){
-          s[j].first->mutexes[mu]=s[j].second;
+          // Add inherited mutexes
+          for(auto const& mu:intersection){
+            s[j].first->mutexes[s[j].second].insert(mu);
+          }
         }
       }
     }
@@ -555,7 +579,7 @@ bool getMutexes(MultiEdge<state> const& n, std::vector<state> const& goal, std::
   for(auto const& act:acts){
     for(auto const& a:act){
       for(auto const& m:a->mutexes){
-        std::pair<state,state> act(a->n,m.second->n);
+        std::pair<state,state> act(a->n,m.first->n);
         unsigned ix1(0);
         unsigned ix2(0);
         auto itr(std::find(actions[k].begin(),actions[k].end(),act));
@@ -565,13 +589,15 @@ bool getMutexes(MultiEdge<state> const& n, std::vector<state> const& goal, std::
         }else{
           ix1=itr-actions[k].begin();
         }
-        act={m.first.first->n,m.first.second->n};
-        itr=std::find(actions[k+1].begin(),actions[k+1].end(),act);
-        if(itr==actions[k+1].end()){
-          ix2=actions[k+1].size();
-          actions[k+1].emplace_back(m.first.first->n,m.first.second->n);
-        }else{
-          ix2=itr-actions[k+1].begin();
+        for(auto const& o:m.second){
+          act={o.first->n,o.second->n};
+          itr=std::find(actions[k+1].begin(),actions[k+1].end(),act);
+          if(itr==actions[k+1].end()){
+            ix2=actions[k+1].size();
+            actions[k+1].push_back(act);
+          }else{
+            ix2=itr-actions[k+1].begin();
+          }
         }
         // TODO: can't represent a k-partite graph unless agent id is stored with action #
         if(edges[k].size()<ix1+1){edges[k].resize(ix1+1);}
