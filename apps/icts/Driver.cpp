@@ -878,8 +878,19 @@ bool jointDFS(MultiEdge const& s, uint32_t d, Solution solution, std::vector<Sol
   uint32_t cost(INF);
   if(!checkOnly){
     cost=computeSolutionCost(solution);
-    if(best<cost) return false;
+  }else{
+    k=0;
+    for(auto const& g:s){
+      solution[k].reserve(2);
+      solution[k].push_back(g.first);
+      solution[k].push_back(g.second);
+      ++k;
+    }
+    cost=computeSolutionCost(solution);
   }
+
+  if(best<cost) return false;
+
   bool done(true);
   for(auto const& g:s){
     if(g.second->depth!=MAXTIME){
@@ -1864,59 +1875,60 @@ int main(int argc, char ** argv){
                 break;
               }
             }
-          }
-          if(cardinal.size()){
-            for(auto const& i:cardinal){
-              std::vector<uint32_t> sz(parent->sizes);
-              if(weight) step=std::max(INFLATION,(weight-1.0)*parent->lb()/double(n));
-              if(!quiet)std::cout << "step " << step << "\n";
-              sz[i]+=step;
-              std::stringstream sv;
-              join(sv,sz);
-              if(deconf.find(sv.str())==deconf.end()){
-                ICTSNode* tmp(new ICTSNode(parent,i,sz[i]));
-                if(!quiet){
-                  std::cout << "push ";
-                  for(auto const& a: tmp->sizes){
-                    std::cout << a << " ";
+          }else{ // If the node was valid, no splitting of it is necessary (since it would only increase cost).
+            if(cardinal.size()){
+              for(auto const& i:cardinal){
+                std::vector<uint32_t> sz(parent->sizes);
+                if(weight) step=std::max(INFLATION,(weight-1.0)*parent->lb()/double(n));
+                if(!quiet)std::cout << "step " << step << "\n";
+                sz[i]+=step;
+                std::stringstream sv;
+                join(sv,sz);
+                if(deconf.find(sv.str())==deconf.end()){
+                  ICTSNode* tmp(new ICTSNode(parent,i,sz[i]));
+                  if(!quiet){
+                    std::cout << "push ";
+                    for(auto const& a: tmp->sizes){
+                      std::cout << a << " ";
+                    }
+                    std::cout << "\n";
+                    //best: 5.82843 6.65685 5.41421
+                    //best: 5.82843 6.65685 5.24264
+                    std::cout << "  best: ";
+                    for(auto b:tmp->best)std::cout << b << " ";
+                    std::cout << "\n";
+                    std::cout << "  SIC: " << tmp->lb() << std::endl;
                   }
-                  std::cout << "\n";
-                  //best: 5.82843 6.65685 5.41421
-                  //best: 5.82843 6.65685 5.24264
-                  std::cout << "  best: ";
-                  for(auto b:tmp->best)std::cout << b << " ";
-                  std::cout << "\n";
-                  std::cout << "  SIC: " << tmp->lb() << std::endl;
+                  q.push(tmp);
+                  deconf.insert(sv.str());
                 }
-                q.push(tmp);
-                deconf.insert(sv.str());
               }
-            }
-          }else{
-            for(int i(0); i<parent->sizes.size(); ++i){
-              std::vector<uint32_t> sz(parent->sizes);
-              if(weight) step=std::max(INFLATION,(weight-1.0)*parent->lb()/double(n));
-              if(!quiet)std::cout << "step " << step << "\n";
-              sz[i]+=step;
-              std::stringstream sv;
-              join(sv,sz);
-              if(deconf.find(sv.str())==deconf.end()){
-                ICTSNode* tmp(new ICTSNode(parent,i,sz[i]));
-                if(!quiet){
-                  std::cout << "push ";
-                  for(auto const& a: tmp->sizes){
-                    std::cout << a << " ";
+            }else{
+              for(int i(0); i<parent->sizes.size(); ++i){
+                std::vector<uint32_t> sz(parent->sizes);
+                if(weight) step=std::max(INFLATION,(weight-1.0)*parent->lb()/double(n));
+                if(!quiet)std::cout << "step " << step << "\n";
+                sz[i]+=step;
+                std::stringstream sv;
+                join(sv,sz);
+                if(deconf.find(sv.str())==deconf.end()){
+                  ICTSNode* tmp(new ICTSNode(parent,i,sz[i]));
+                  if(!quiet){
+                    std::cout << "push ";
+                    for(auto const& a: tmp->sizes){
+                      std::cout << a << " ";
+                    }
+                    std::cout << "\n";
+                    //best: 5.82843 6.65685 5.41421
+                    //best: 5.82843 6.65685 5.24264
+                    std::cout << "  best: ";
+                    for(auto b:tmp->best)std::cout << b << " ";
+                    std::cout << "\n";
+                    std::cout << "  SIC: " << tmp->lb() << std::endl;
                   }
-                  std::cout << "\n";
-                  //best: 5.82843 6.65685 5.41421
-                  //best: 5.82843 6.65685 5.24264
-                  std::cout << "  best: ";
-                  for(auto b:tmp->best)std::cout << b << " ";
-                  std::cout << "\n";
-                  std::cout << "  SIC: " << tmp->lb() << std::endl;
+                  q.push(tmp);
+                  deconf.insert(sv.str());
                 }
-                q.push(tmp);
-                deconf.insert(sv.str());
               }
             }
           }

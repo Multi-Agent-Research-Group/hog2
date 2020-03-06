@@ -73,7 +73,7 @@ class Map3dPerfectHeuristic: public Heuristic<state> {
         elapsed+=tmr.EndTimer();
       }
       assert(s2.sameLoc(goal));
-      return list[s1.x*m->GetMapHeight()*depth+s1.y*depth+s1.z];
+      return list[s1.x*m->GetMapHeight()*depth+s1.y*depth+s1.z]/state::TIME_RESOLUTION;
     }
     mutable double elapsed;
 

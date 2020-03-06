@@ -77,7 +77,24 @@ uint64_t Node<state>::count = 0;
 template <typename state>
 using MultiState = std::vector<Node<state>*>; // rank=agent num
 template <typename state>
-using MultiEdge = std::vector<std::pair<Node<state>*,Node<state>*>>; // rank=agent num
+struct MultiEdge{
+  MultiEdge():feasible(true){}
+  void resize(size_t s){e.resize(s);}
+  std::pair<Node<state>*,Node<state>*> operator[](unsigned i)const{return e[i];}
+  std::pair<Node<state>*,Node<state>*>& operator[](unsigned i){return e[i];}
+  typename std::vector<std::pair<Node<state>*,Node<state>*>>::const_iterator begin()const{return e.begin();}
+  typename std::vector<std::pair<Node<state>*,Node<state>*>>::const_iterator end()const{return e.end();}
+  typename std::vector<std::pair<Node<state>*,Node<state>*>>::iterator begin(){return e.begin();}
+  typename std::vector<std::pair<Node<state>*,Node<state>*>>::iterator end(){return e.end();}
+  size_t size()const{return e.size();}
+  bool empty()const{return e.empty();}
+  void clear(){e.clear();}
+  void emplace_back(Node<state>* a,Node<state>* b){e.emplace_back(a,b);}
+  void push_back(std::pair<Node<state>*,Node<state>*> const& a){e.push_back(a);}
+  std::pair<Node<state>*,Node<state>*>& back(){return e.back();}
+  std::vector<std::pair<Node<state>*,Node<state>*>> e;
+  bool feasible;
+};
 
 template <typename state>
 unsigned MinValue(MultiEdge<state> const& m){
@@ -275,9 +292,12 @@ void generatePermutations(std::vector<MultiEdge<state>>& positions, std::vector<
         if(verbose)std::cout << "Collision averted: " << *positions[agent][i].first << "-->" << *positions[agent][i].second << " " << *current[j].first << "-->" << *current[j].second << "\n";
       } else if(verbose)std::cout << "generating: " << *positions[agent][i].first << "-->" << *positions[agent][i].second << " " << *current[j].first << "-->" << *current[j].second << "\n";
     }
-    if(found) continue; // Don't record pair if it was infeasible...
+    if(found){
+      copy.feasible=false;
+      if(!update) continue; // Don't record pair if it was infeasible...
+    }
     copy.push_back(positions[agent][i]);
-    generatePermutations(positions, result, agent + 1, copy,lastTime,radii,acts);
+    generatePermutations(positions, result, agent + 1, copy,lastTime,radii,acts,update);
   }
 }
 
@@ -314,7 +334,7 @@ struct ClearablePQ:public std::priority_queue<T,C,Cmp>{
 
 
 template <typename state, typename action>
-bool getMutexes(MultiEdge<state> const& n, std::vector<state> const& goal, std::vector<ConstrainedEnvironment<state,action>*> const& env, std::vector<Node<state>*>& toDelete, std::vector<std::vector<std::pair<state,state>>>& actions, std::vector<std::vector<std::vector<unsigned>>>& edges, std::vector<float> const& radii, bool disappear=true, bool OD=false){
+bool getMutexes(MultiEdge<state> const& n, std::vector<state> const& goal, std::vector<ConstrainedEnvironment<state,action>*> const& env, std::vector<Node<state>*>& toDelete, std::vector<std::vector<std::pair<state,state>>>& actions, std::vector<std::vector<std::vector<unsigned>>>& edges, std::vector<std::vector<unsigned>>& goalEdges, std::vector<uint32_t> const& costs, std::vector<float> const& radii, bool disappear=true, bool OD=false){
   bool result(false);
   static const int MAXTIME(1000*state::TIME_RESOLUTION_U);
   static std::unordered_map<std::string,bool> visited;
@@ -332,18 +352,19 @@ bool getMutexes(MultiEdge<state> const& n, std::vector<state> const& goal, std::
     for(auto const& g:s){
       std::cout << g.first->n << "-->" << g.second->n << " ";
     }
-    std::cout << "\n";
+    std::cout << "(feasible=" << s.feasible << ")\n";
     
-
-    bool done(true);
+    bool done(s.feasible);
     unsigned agent(0);
-    for(auto const& g:s){
-      if(!env[agent]->GoalTest(g.second->n,goal[agent])){
-        done=false;
-        std::cout << " no goal...\n";
-        break;
+    if(done){
+      for(auto const& g:s){
+        if(!env[agent]->GoalTest(g.second->n,goal[agent])){
+          done=false;
+          std::cout << " no goal...\n";
+          break;
+        }
+        agent++;
       }
-      agent++;
     }
     if(done){result=true;}
 
@@ -411,6 +432,7 @@ bool getMutexes(MultiEdge<state> const& n, std::vector<state> const& goal, std::
     static std::vector<MultiEdge<state>> crossProduct;
     crossProduct.clear();
     static MultiEdge<state> tmp; tmp.clear();
+    tmp.feasible=s.feasible;
 
     // This call also computes initial mutexes
     generatePermutations(successors,crossProduct,0,tmp,sd,radii,acts);
@@ -500,7 +522,7 @@ bool getMutexes(MultiEdge<state> const& n, std::vector<state> const& goal, std::
           }
           // Add inherited mutexes
           for(auto const& mu:intersection){
-            std::cout << "Inherited mutex: " << s[i].first->n << "-->"<< s[i].second->n <<", " << mu.first->n << "-->"<< mu.second->n << "\n";
+            std::cout << "Inherited mutex [i]: " << s[i].first->n << "-->"<< s[i].second->n <<", " << mu.first->n << "-->"<< mu.second->n << "\n";
             s[i].first->mutexes[s[i].second].insert(mu);
             acts[i].insert(s[i].first); // Add to set of states which have mutexed actions
           }
@@ -534,6 +556,7 @@ bool getMutexes(MultiEdge<state> const& n, std::vector<state> const& goal, std::
           }
           // Add inherited mutexes
           for(auto const& mu:intersection){
+            std::cout << "Inherited mutex [j]: " << s[j].first->n << "-->"<< s[j].second->n <<", " << mu.first->n << "-->"<< mu.second->n << "\n";
             s[j].first->mutexes[s[j].second].insert(mu);
           }
         }
@@ -543,7 +566,7 @@ bool getMutexes(MultiEdge<state> const& n, std::vector<state> const& goal, std::
     for(auto& a: crossProduct){
       k=0;
       // Compute hash for transposition table
-      std::string hash(a.size()*sizeof(uint64_t),1);
+      std::string hash(a.size()*sizeof(uint64_t)+1,1);
       for(auto v:a){
         uint64_t h1(v.second->Hash());
         uint8_t c[sizeof(uint64_t)];
@@ -553,6 +576,7 @@ bool getMutexes(MultiEdge<state> const& n, std::vector<state> const& goal, std::
         }
         ++k;
       }
+      hash.push_back(a.feasible?'f':'i');
       // Have we visited this node already?
       if(visited.find(hash)==visited.end()){
         visited[hash]=true;
@@ -578,6 +602,9 @@ bool getMutexes(MultiEdge<state> const& n, std::vector<state> const& goal, std::
   int k(0);
   for(auto const& act:acts){
     for(auto const& a:act){
+      if(a->mutexes.size()==0){
+        std::cout << "ERROR: Action recorded without mutexes!\n";
+      }
       for(auto const& m:a->mutexes){
         std::pair<state,state> act(a->n,m.first->n);
         unsigned ix1(0);
@@ -585,25 +612,38 @@ bool getMutexes(MultiEdge<state> const& n, std::vector<state> const& goal, std::
         auto itr(std::find(actions[k].begin(),actions[k].end(),act));
         if(itr==actions[k].end()){
           ix1=actions[k].size();
+          std::cout << "Add action["<<k<<"]="<<act<<"=["<<ix1<<"]\n";
           actions[k].push_back(act);
         }else{
           ix1=itr-actions[k].begin();
+        }
+        if(act.second.t==costs[k] && // Has the right goal cost
+           act.second.sameLoc(goal[k]) && // action terminates at the goal
+           (!act.second.sameLoc(act.first))){ // does not wait at goal (otherwise, act.first would be a better soln)
+          goalEdges[k].push_back(ix1);
         }
         for(auto const& o:m.second){
           act={o.first->n,o.second->n};
           itr=std::find(actions[k+1].begin(),actions[k+1].end(),act);
           if(itr==actions[k+1].end()){
             ix2=actions[k+1].size();
+            std::cout << "Add action["<<k+1<<"]="<<act<<"=["<<ix2<<"]\n";
             actions[k+1].push_back(act);
           }else{
             ix2=itr-actions[k+1].begin();
           }
+          if(act.second.t==costs[k+1] && // Has the right goal cost
+             act.second.sameLoc(goal[k+1]) && // action terminates at the goal
+             (!act.second.sameLoc(act.first))){ // does not wait at goal (otherwise, act.first would be a better soln)
+            goalEdges[k+1].push_back(ix2);
+          }
+          // TODO: can't represent a k-partite graph unless agent id is stored with action #
+          if(edges[k].size()<ix1+1){edges[k].resize(ix1+1);}
+          edges[k][ix1].push_back(ix2);
+
+          if(edges[k+1].size()<ix2+1){edges[k+1].resize(ix2+1);}
+          edges[k+1][ix2].push_back(ix1);
         }
-        // TODO: can't represent a k-partite graph unless agent id is stored with action #
-        if(edges[k].size()<ix1+1){edges[k].resize(ix1+1);}
-        edges[k][ix1].push_back(ix2);
-        if(edges[k+1].size()<ix2+1){edges[k+1].resize(ix2+1);}
-        edges[k+1][ix2].push_back(ix1);
       }
     }
     ++k;
