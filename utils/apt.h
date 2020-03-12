@@ -99,7 +99,7 @@ void surfaceToRGB(unsigned s, float& r, float& g, float& b){
 
 typedef std::vector<AptFeature> FeatureList;
 
-float rotatePoint(float& x, float& y, float cx, float cy, float theta){
+void rotatePoint(float& x, float& y, float cx, float cy, float theta){
   auto cosT(cos(theta));
   auto sinT(sin(theta));
   auto dx(x-cx);

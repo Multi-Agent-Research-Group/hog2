@@ -287,25 +287,27 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
 
     // Perform conflict check by moving forward in time at increments of the smallest time step
     // Test the efficiency of VO vs. time-vector approach
-    void GetMDD(unsigned agent,state const& start, state const& end, DAG& dag, MultiState& root, int depth, uint32_t& best, uint32_t& dagsize, SearchEnvironment<state,action>* env){
+    bool GetMDD(unsigned agent,state const& start, state const& end, DAG& dag, MultiState& root, int depth, uint32_t& best, uint32_t& dagsize, SearchEnvironment<state,action>* env){
       root[agent]=nullptr;
       if(verbose)std::cout << "MDD up to depth: " << depth << start << "-->" << end << "\n";
       uint64_t hash(((uint32_t) depth)<<8|agent);
       bool found(mddcache.find(hash)!=mddcache.end());
       if(verbose)std::cout << "lookup "<< (found?"found":"missed") << "\n";
-      if(!found){
-        LimitedDFS(start,end,dag,root[agent],depth,depth,best,envs[agent],agent);
+      if (!found) {
         singleTransTable.clear();
-        mddcache[hash]=root[agent];
-        lbcache[hash]=best;
-        mscache[hash]=dagsize=dag.size();
+        if (LimitedDFS(start, end, dag, root[agent], depth, depth, best, envs[agent], agent)) {
+          mddcache[hash] = root[agent];
+          lbcache[hash] = best;
+          mscache[hash] = dagsize = dag.size();
+          return true;
+        }
       }else{
         root[agent]=mddcache[hash];
         best=lbcache[hash];
         dagsize=mscache[hash];
+        return true;
       }
-      if(verbose)std::cout << "Finally set root to: " << (uint64_t)root[agent] << "\n";
-      if(verbose)std::cout << root[agent] << "\n";
+      return false;
     }
 
     void generatePermutations(std::vector<MultiEdge>& positions, std::vector<MultiEdge>& result, int agent, MultiEdge const& current, uint32_t lastTime) {

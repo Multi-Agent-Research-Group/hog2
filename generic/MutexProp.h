@@ -39,13 +39,6 @@ extern bool verbose;
 template <typename state>
 struct Node;
 
-// Used for std::set
-template <typename state>
-struct NodePtrComp
-{
-  bool operator()(const Node<state>* lhs, const Node<state>* rhs) const  { return lhs->Hash()<rhs->Hash(); }
-};
-
 template <typename state>
 struct Node{
   static uint64_t count;
@@ -77,24 +70,38 @@ uint64_t Node<state>::count = 0;
 template <typename state>
 using MultiState = std::vector<Node<state>*>; // rank=agent num
 template <typename state>
+using Edge = std::pair<Node<state>*,Node<state>*>;
+
+template <typename state>
 struct MultiEdge{
   MultiEdge():feasible(true){}
   void resize(size_t s){e.resize(s);}
-  std::pair<Node<state>*,Node<state>*> operator[](unsigned i)const{return e[i];}
-  std::pair<Node<state>*,Node<state>*>& operator[](unsigned i){return e[i];}
-  typename std::vector<std::pair<Node<state>*,Node<state>*>>::const_iterator begin()const{return e.begin();}
-  typename std::vector<std::pair<Node<state>*,Node<state>*>>::const_iterator end()const{return e.end();}
-  typename std::vector<std::pair<Node<state>*,Node<state>*>>::iterator begin(){return e.begin();}
-  typename std::vector<std::pair<Node<state>*,Node<state>*>>::iterator end(){return e.end();}
+  Edge<state> operator[](unsigned i)const{return e[i];}
+  Edge<state>& operator[](unsigned i){return e[i];}
+  typename std::vector<Edge<state>>::const_iterator begin()const{return e.begin();}
+  typename std::vector<Edge<state>>::const_iterator end()const{return e.end();}
+  typename std::vector<Edge<state>>::iterator begin(){return e.begin();}
+  typename std::vector<Edge<state>>::iterator end(){return e.end();}
   size_t size()const{return e.size();}
   bool empty()const{return e.empty();}
   void clear(){e.clear();}
   void emplace_back(Node<state>* a,Node<state>* b){e.emplace_back(a,b);}
-  void push_back(std::pair<Node<state>*,Node<state>*> const& a){e.push_back(a);}
-  std::pair<Node<state>*,Node<state>*>& back(){return e.back();}
-  std::vector<std::pair<Node<state>*,Node<state>*>> e;
+  void push_back(Edge<state> const& a){e.push_back(a);}
+  Edge<state>& back(){return e.back();}
+  std::vector<Edge<state>> e;
   bool feasible;
 };
+
+template <typename state>
+static inline bool operator<(Edge<state> const& lhs, Edge<state> const& rhs){return lhs.first->Depth()==rhs.first->Depth()?lhs.second->Depth()<rhs.second->Depth():lhs.first->Depth()<rhs.first->Depth();}
+
+template <typename state>
+struct NodeRevCmp{
+  inline bool operator()(Node<state> const* lhs, Node<state> const* rhs) { return rhs->Depth() < lhs->Depth(); }
+};
+
+template <typename state>
+using ActionSet = std::set<Node<state>*, NodeRevCmp<state>>;
 
 template <typename state>
 unsigned MinValue(MultiEdge<state> const& m){
@@ -237,7 +244,14 @@ bool getMDD(state const& start, state const& end, DAG<state>& dag, Node<state> *
 }
 
 template <typename state>
-void generatePermutations(std::vector<MultiEdge<state>>& positions, std::vector<MultiEdge<state>>& result, int agent, MultiEdge<state> const& current, uint32_t lastTime, std::vector<float> const& radii, std::vector<std::set<Node<state>*>>& acts, bool update=true) {
+void generatePermutations(std::vector<MultiEdge<state>>& positions,
+std::vector<MultiEdge<state>>& result,
+int agent,
+MultiEdge<state> const& current,
+uint32_t lastTime,
+std::vector<float> const& radii,
+std::vector<ActionSet<state>>& acts,
+bool update=true) {
   if(agent == positions.size()) {
     result.push_back(current);
     if(verbose)std::cout << "Generated joint move:\n";
@@ -285,7 +299,7 @@ void generatePermutations(std::vector<MultiEdge<state>>& positions, std::vector<
         if(update){
           std::cout << "Initial mutex: " << current[j].first->n << "-->"<< current[j].second->n <<", " << positions[agent][i].first->n << "-->"<< positions[agent][i].second->n << "\n";
           acts[j].insert(current[j].first);
-          //acts[agent].insert(positions[agent][i].first);
+          acts[agent].insert(positions[agent][i].first);
           positions[agent][i].first->mutexes[positions[agent][i].second].emplace(current[j].first,current[j].second);
           current[j].first->mutexes[current[j].second].emplace(positions[agent][i].first,positions[agent][i].second);
         }
@@ -334,12 +348,25 @@ struct ClearablePQ:public std::priority_queue<T,C,Cmp>{
 
 
 template <typename state, typename action>
-bool getMutexes(MultiEdge<state> const& n, std::vector<state> const& goal, std::vector<ConstrainedEnvironment<state,action>*> const& env, std::vector<Node<state>*>& toDelete, std::vector<std::vector<std::pair<state,state>>>& actions, std::vector<std::vector<std::vector<unsigned>>>& edges, std::vector<std::vector<unsigned>>& goalEdges, std::vector<uint32_t> const& costs, std::vector<float> const& radii, bool disappear=true, bool OD=false){
+bool getMutexes(MultiEdge<state> const& n,
+std::vector<state> const& goal,
+std::vector<ConstrainedEnvironment<state,action>*> const& env,
+std::vector<Node<state>*>& toDelete,
+std::vector<std::vector<Edge<state>>>& actions,
+std::vector<std::vector<std::vector<unsigned>>>& edges,
+std::vector<std::vector<unsigned>>& goalEdges,
+std::vector<uint32_t> const& costs,
+std::vector<float> const& radii,
+bool disappear=true, bool OD=false){
   bool result(false);
   static const int MAXTIME(1000*state::TIME_RESOLUTION_U);
   static std::unordered_map<std::string,bool> visited;
   visited.clear();
-  static std::vector<std::set<Node<state>*>> acts(n.size()-1);
+  // Sort actions in reverse time order
+  struct edgeCmp{
+    inline bool operator()(Node<state>* lhs, Node<state>* rhs){return rhs->Depth()<lhs->Depth();}
+  };
+  static std::vector<ActionSet<state>> acts(n.size());
   for(auto& a:acts){a.clear();}
   static ClearablePQ<MultiEdge<state>,std::vector<MultiEdge<state>>,MultiEdgeCmp<state>> q;
   q.clear();
@@ -443,9 +470,9 @@ bool getMutexes(MultiEdge<state> const& n, std::vector<state> const& goal, std::
 
     // Look for propagated mutexes...
     // For each pair of actions in s:
-    static std::vector<std::pair<Node<state>*,Node<state>*>> mpj;
-    static std::vector<std::pair<Node<state>*,Node<state>*>> intersection;
-    static std::vector<std::pair<Node<state>*,Node<state>*>> stuff;
+    static std::vector<Edge<state>> mpj;
+    static std::vector<Edge<state>> intersection;
+    static std::vector<Edge<state>> stuff;
     for(int i(0); i<s.size()-1; ++i){
       if(s[i].first->parents.size()){
         std::cout << s[i].first->n << " has " << s[i].first->parents.size() << " parents\n";
@@ -489,6 +516,8 @@ bool getMutexes(MultiEdge<state> const& n, std::vector<state> const& goal, std::
               std::cout << "Propagated mutex: " << s[i].first->n << "-->"<< s[i].second->n <<", " << s[j].first->n << "-->"<< s[j].second->n << "\n";
               s[i].first->mutexes[s[i].second].insert(s[j]);
               s[j].first->mutexes[s[j].second].insert(s[i]);
+              acts[i].insert(s[i].first); // Add to set of states which have mutexed actions
+              acts[j].insert(s[j].first); // Add to set of states which have mutexed actions
             }
           }
           intersection.clear();
@@ -525,6 +554,7 @@ bool getMutexes(MultiEdge<state> const& n, std::vector<state> const& goal, std::
             std::cout << "Inherited mutex [i]: " << s[i].first->n << "-->"<< s[i].second->n <<", " << mu.first->n << "-->"<< mu.second->n << "\n";
             s[i].first->mutexes[s[i].second].insert(mu);
             acts[i].insert(s[i].first); // Add to set of states which have mutexed actions
+            acts[j].insert(mu.first); // Add to set of states which have mutexed actions
           }
           // Do the same for agent j
           intersection.clear();
@@ -599,56 +629,42 @@ bool getMutexes(MultiEdge<state> const& n, std::vector<state> const& goal, std::
     }
   }
   // Create k-partite graph
-  int k(0);
-  for(auto const& act:acts){
-    for(auto const& a:act){
-      if(a->mutexes.size()==0){
+  for (int k(0); k < acts.size(); ++k) {
+    for (auto const& a : acts[k]) {
+      if (a->mutexes.size() == 0) {
         std::cout << "ERROR: Action recorded without mutexes!\n";
       }
-      for(auto const& m:a->mutexes){
-        std::pair<state,state> act(a->n,m.first->n);
+      for (auto const& m : a->mutexes) {
+        Edge<state> act(a, m.first);
         unsigned ix1(0);
-        unsigned ix2(0);
-        auto itr(std::find(actions[k].begin(),actions[k].end(),act));
-        if(itr==actions[k].end()){
-          ix1=actions[k].size();
-          std::cout << "Add action["<<k<<"]="<<act<<"=["<<ix1<<"]\n";
+        auto itr(std::find(actions[k].begin(), actions[k].end(), act));
+        if (itr == actions[k].end()) {
+          ix1 = actions[k].size();
+          std::cout << "Add action[" << k << "]=" << act.first->n << "-->" << act.second->n << "=[" << ix1 << "]\n";
           actions[k].push_back(act);
-        }else{
-          ix1=itr-actions[k].begin();
+        } else {
+          ix1 = itr - actions[k].begin();
         }
-        if(act.second.t==costs[k] && // Has the right goal cost
-           act.second.sameLoc(goal[k]) && // action terminates at the goal
-           (!act.second.sameLoc(act.first))){ // does not wait at goal (otherwise, act.first would be a better soln)
+        if (act.second->Depth() == costs[k] &&         // Has the right goal cost
+            act.second->n.sameLoc(goal[k]) &&          // action terminates at the goal
+            (!act.second->n.sameLoc(act.first->n))) {  // does not wait at goal (otherwise, act.first would be a better soln)
           goalEdges[k].push_back(ix1);
-        }
-        for(auto const& o:m.second){
-          act={o.first->n,o.second->n};
-          itr=std::find(actions[k+1].begin(),actions[k+1].end(),act);
-          if(itr==actions[k+1].end()){
-            ix2=actions[k+1].size();
-            std::cout << "Add action["<<k+1<<"]="<<act<<"=["<<ix2<<"]\n";
-            actions[k+1].push_back(act);
-          }else{
-            ix2=itr-actions[k+1].begin();
-          }
-          if(act.second.t==costs[k+1] && // Has the right goal cost
-             act.second.sameLoc(goal[k+1]) && // action terminates at the goal
-             (!act.second.sameLoc(act.first))){ // does not wait at goal (otherwise, act.first would be a better soln)
-            goalEdges[k+1].push_back(ix2);
-          }
-          // TODO: can't represent a k-partite graph unless agent id is stored with action #
-          if(edges[k].size()<ix1+1){edges[k].resize(ix1+1);}
-          edges[k][ix1].push_back(ix2);
-
-          if(edges[k+1].size()<ix2+1){edges[k+1].resize(ix2+1);}
-          edges[k+1][ix2].push_back(ix1);
         }
       }
     }
-    ++k;
   }
-  k=0;
+  edges[0].resize(actions[0].size());
+  edges[1].resize(actions[1].size());
+  for (unsigned a(0); a < actions[0].size(); ++a) {
+    for (auto const& m : actions[0][a].first->mutexes) {
+      if (m.first == actions[0][a].second) {
+        auto ix2(std::find(actions[1].begin(),
+        actions[1].end(), actions[0][a]) - actions[1].begin());
+        edges[0][a].push_back(ix2);
+        edges[1][ix2].push_back(a);
+      }
+    }
+  }
   std::cout << "edges: " << edges << "\n";
   return result;
 }

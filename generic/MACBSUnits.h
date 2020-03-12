@@ -2789,7 +2789,7 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
           env[1]=currentEnvironment[y]->environment.get();
           std::vector<float> radi={radii[x],radii[y]};
           std::vector<std::vector<std::unique_ptr<Constraint<state>>>> constraints(2);
-          static std::vector<std::vector<std::pair<state,state>>> actions(2);
+          static std::vector<std::vector<Edge<state>>> actions(2);
           // edges[agent][actioni]-->[actionj,actionj,...]
           static std::vector<std::vector<std::vector<unsigned>>> edges(2);
           static std::vector<std::vector<unsigned>> goalEdges(2);
@@ -2847,9 +2847,9 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
             root[0]=root[1]=nullptr;
             dags[0].clear();dags[1].clear();
             minCost1=costs[0]-increment;
-            cost1=costs[0];
+            cost1=costs[0]-1; // Minus epsilon so that we can guarantee a cardinal conflict
             minCost2=costs[1]-increment;
-            cost2=costs[1];
+            cost2=costs[1]-1;
             // Create MDDs
             while(!getMDD(u1->GetWaypoint(0),u1->GetWaypoint(1),dags[0],root[0],minCost1,cost1,best1,currentEnvironment[x]->environment.get())){
               minCost1=cost1;
@@ -2864,9 +2864,9 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
               root[1]=nullptr;
               dags[1].clear();
             }
+            std::cout << "MDD2:\n" << root[1] << "\n";
             costs[0]=best1;
             costs[1]=best2;
-            std::cout << "MDD2:\n" << root[1] << "\n";
             start[0]={root[0],root[0]};
             start[1]={root[1],root[1]};
             hasSolution=getMutexes(start, goals, env, toDelete, actions, edges, goalEdges, costs, radi, disappearAtGoal);
@@ -2874,7 +2874,7 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
             for(auto & d:toDelete){
               delete d;
             }
-            assert(hasSolution); // Because we did a check for these costs already, there MUST be a solution at this cost
+            //assert(hasSolution); // Because we did a check for these costs already, there MUST be a solution at this cost
           }
           // Find biclique(s) involving actions that terminate at the goal(s)
           static std::vector<unsigned> left;
@@ -2883,33 +2883,54 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
           static std::vector<unsigned> right;
           right.resize(0);
           right.reserve(actions[1].size());
-          
-          if(goalEdges[0].size()&&goalEdges[1].size()){
-            for(auto const& i:goalEdges[0]){
-              for(auto const& j:goalEdges[1]){
-                if(std::find(edges[0][i].begin(),edges[0][i].end(),j)!=edges[0][i].end() &&
-                   std::find(edges[1][j].begin(),edges[1][j].end(),i)!=edges[1][j].end()){
-                  if(edges[1].size()<=edges[0].size()){
-                    BiClique::findBiClique(edges[0],edges[1],{i,j},left,right);
-                    std::cout << "Found biclique: ("<< i << "," << j << ") " << left << " " << right << "\n";
-                  }else{
-                    BiClique::findBiClique(edges[1],edges[0],{j,i},right,left);
-                    std::cout << "Found biclique: ("<< i << "," << j << ") " << left << " " << right << "\n";
+
+          if (goalEdges[0].size() && goalEdges[1].size()) {
+            for (auto const& i : goalEdges[0]) {
+              for (auto const& j : goalEdges[1]) {
+                if (std::find(edges[0][i].begin(), edges[0][i].end(), j) != edges[0][i].end() &&
+                    std::find(edges[1][j].begin(), edges[1][j].end(), i) != edges[1][j].end()) {
+                  if (edges[1].size() <= edges[0].size()) {
+                    BiClique::findBiClique(edges[0], edges[1], {i, j}, left, right);
+                    std::cout << "Found biclique: (" << i << "," << j << ") " << left << " " << right << "\n";
+                  } else {
+                    BiClique::findBiClique(edges[1], edges[0], {j, i}, right, left);
+                    std::cout << "Found biclique: (" << i << "," << j << ") " << left << " " << right << "\n";
                   }
                 }
               }
             }
           }
-          // TODO: remove redundancies
+          // Remove redundancies: Any edge which has all parents mutexed can be removed.
+          for (int i(0); i < actions.size(); ++i) {
+            unsigned k(0);
+            for (auto edge(actions[i].begin()); edge != actions[i].end(); ++edge){
+              bool all(true);
+              // Check that all parents of this edge are in the mutexed list
+              for(auto const& p:edge->first->parents){
+                if(std::find(actions[i].begin(),actions[i].end(),std::make_pair(p,edge->first))==actions[i].end()){
+                  all=false;
+                  break;
+                }
+              }
+              if(all){
+                if (i == 0) {
+                  left.erase(std::remove(left.begin(), left.end(), k), left.end());
+                } else {
+                  right.erase(std::remove(right.begin(), right.end(), k), right.end());
+                }
+              }
+              ++k;
+            }
+          }
 
           // Then add constraints and start over.
           for(auto const& l:left){
-            constraints[0].emplace_back((Constraint<state>*) new Identical<state>(actions[0][l].first,actions[0][l].second));
+            constraints[0].emplace_back((Constraint<state>*) new Identical<state>(actions[0][l].first->n,actions[0][l].second->n));
             std::cout << "Add constraint to env 0: " << actions[0][l] << "\n";
             //env[0]->AddConstraint(constraints[0].back().get());
           }
           for(auto const& l:right){
-            constraints[1].emplace_back((Constraint<state>*) new Identical<state>(actions[1][l].first,actions[1][l].second));
+            constraints[1].emplace_back((Constraint<state>*) new Identical<state>(actions[1][l].first->n,actions[1][l].second->n));
             std::cout << "Add constraint to env 1: " << actions[0][l] << "\n";
             //env[1]->AddConstraint(constraints[1].back().get());
           }
