@@ -97,7 +97,7 @@ static inline bool operator<(Edge<state> const& lhs, Edge<state> const& rhs){ret
 
 template <typename state>
 struct NodeRevCmp{
-  inline bool operator()(Node<state> const* lhs, Node<state> const* rhs) { return rhs->Depth() < lhs->Depth(); }
+  inline bool operator()(Node<state> const* lhs, Node<state> const* rhs) { return lhs->Depth() < rhs->Depth(); }
 };
 
 template <typename state>
@@ -134,7 +134,18 @@ static inline std::ostream& operator << (std::ostream& ss, Node<state> const* n)
 
 
 template <typename state, typename action>
-bool LimitedDFS(state const& start, state const& end, DAG<state>& dag, Node<state>*& root, uint32_t depth, uint32_t minDepth, uint32_t maxDepth, uint32_t& best, ConstrainedEnvironment<state,action> const* env, std::map<uint64_t,bool>& singleTransTable, unsigned recursions=1, bool disappear=true){
+bool LimitedDFS(state const& start,
+state const& end,
+DAG<state>& dag,
+Node<state>*& root,
+uint32_t depth,
+uint32_t minDepth,
+uint32_t maxDepth,
+uint32_t& best,
+ConstrainedEnvironment<state,action> const* env,
+std::map<uint64_t,bool>& singleTransTable,
+bool& blocked, // Goal couldn't be reached because of no successors (not depth limits)
+unsigned recursions=1, bool disappear=true){
   if(verbose)std::cout << std::string(recursions,' ') << start << "g:" << (maxDepth-depth) << " h:" << (int)(env->HCost(start,end)) << " f:" << ((maxDepth-depth)+(int)(env->HCost(start,end))) << "\n";
   if(depth<0 || maxDepth-depth+(int)(env->HCost(start,end))>maxDepth){ // Note - this only works for an admissible heuristic.
     //if(verbose)std::cout << "pruned " << start << depth <<" "<< (maxDepth-depth+(int)(env->HCost(start,end)))<<">"<<maxDepth<<"\n";
@@ -175,18 +186,23 @@ bool LimitedDFS(state const& start, state const& end, DAG<state>& dag, Node<stat
       best=std::min(best,parent->Depth());
     }
     if(verbose)std::cout << "BEST "<<best<< ">" << minDepth << "\n";
+    blocked=false;
     return true;
   }
 
   std::vector<state> successors(64);
   unsigned sz(env->GetSuccessors(start,&successors[0]));
+  if(sz==0){
+    blocked=true;
+    return false;
+  }
   successors.resize(sz);
   bool result(false);
   for(auto const& node: successors){
     int ddiff(std::max(Util::distance(node.x,node.y,start.x,start.y),1.0)*state::TIME_RESOLUTION_U);
     //std::cout << std::string(std::max(0,(maxDepth-(depth-ddiff))),' ') << "MDDEVAL " << start << "-->" << node << "\n";
     //if(verbose)std::cout<<node<<": --\n";
-    if(LimitedDFS(node,end,dag,root,depth-ddiff,minDepth,maxDepth,best,env,singleTransTable,recursions+1,disappear)){
+    if(LimitedDFS(node,end,dag,root,depth-ddiff,minDepth,maxDepth,best,env,singleTransTable,blocked,recursions+1,disappear)){
       singleTransTable[hash]=true;
       if(dag.find(hash)==dag.end()){
         //std::cout << n<<"\n";
@@ -234,11 +250,20 @@ bool LimitedDFS(state const& start, state const& end, DAG<state>& dag, Node<stat
 
 
 template <typename state, typename action>
-bool getMDD(state const& start, state const& end, DAG<state>& dag, Node<state> *& root, uint32_t minDepth, uint32_t depth, uint32_t& best, ConstrainedEnvironment<state,action>* env){
+bool getMDD(state const& start,
+state const& end,
+DAG<state>& dag,
+Node<state> *& root,
+uint32_t minDepth,
+uint32_t depth,
+uint32_t& best,
+ConstrainedEnvironment<state,action>* env,
+bool& blocked){
+  blocked=false;
   if(verbose)std::cout << "MDD up to depth: " << depth << start << "-->" << end << "\n";
   static std::map<uint64_t,bool> singleTransTable;
   singleTransTable.clear();
-  return LimitedDFS(start,end,dag,root,depth,minDepth,depth,best,env,singleTransTable);
+  return LimitedDFS(start,end,dag,root,depth,minDepth,depth,best,env,singleTransTable,blocked);
   //if(verbose)std::cout << "Finally set root to: " << (uint64_t)root[agent] << "\n";
   //if(verbose)std::cout << root << "\n";
 }
@@ -274,25 +299,33 @@ bool update=true) {
     bool found(false);
     for(int j(0); j<current.size(); ++j){
       bool conflict(false);
-      if((positions[agent][i].first->Depth()==current[j].first->Depth() &&
-            positions[agent][i].first->n==current[j].first->n)||
-          (positions[agent][i].second->Depth()==current[j].second->Depth() &&
-           positions[agent][i].second->n==current[j].second->n)||
-          (positions[agent][i].first->n.sameLoc(current[j].second->n)&&
-           current[j].first->n.sameLoc(positions[agent][i].second->n))){
-        found=true;
-        conflict=true;
-      }else{
-        Vector2D A(positions[agent][i].first->n.x,positions[agent][i].first->n.y);
-        Vector2D B(current[j].first->n.x,current[j].first->n.y);
-        Vector2D VA(positions[agent][i].second->n.x-positions[agent][i].first->n.x,positions[agent][i].second->n.y-positions[agent][i].first->n.y);
-        VA.Normalize();
-        Vector2D VB(current[j].second->n.x-current[j].first->n.x,current[j].second->n.y-current[j].first->n.y);
-        VB.Normalize();
-        if(collisionImminent(A,VA,radii[agent],positions[agent][i].first->Depth()/state::TIME_RESOLUTION_D,positions[agent][i].second->Depth()/state::TIME_RESOLUTION_D,B,VB,radii[j],current[j].first->Depth()/state::TIME_RESOLUTION_D,current[j].second->Depth()/state::TIME_RESOLUTION_D)){
-          found=true;
-          conflict=true;
-          //checked.insert(hash);
+      // Sometimes, we add an instantaneous action at the goal to represent the
+      // agent disappearing at the goal. If we see this, the agent did not come into conflict
+      if (positions[agent][i].first != positions[agent][i].second &&
+          current[j].first != current[j].second) {
+            // Check easy case: agents crossing an edge in opposite directions, or
+            // leaving or arriving at a vertex at the same time
+        if ((positions[agent][i].first->Depth() == current[j].first->Depth() &&
+             positions[agent][i].first->n == current[j].first->n) ||
+            (positions[agent][i].second->Depth() == current[j].second->Depth() &&
+             positions[agent][i].second->n == current[j].second->n) ||
+            (positions[agent][i].first->n.sameLoc(current[j].second->n) &&
+             current[j].first->n.sameLoc(positions[agent][i].second->n))) {
+          found = true;
+          conflict = true;
+        } else {
+          // Check general case - Agents in "free" motion
+          Vector2D A(positions[agent][i].first->n.x, positions[agent][i].first->n.y);
+          Vector2D B(current[j].first->n.x, current[j].first->n.y);
+          Vector2D VA(positions[agent][i].second->n.x - positions[agent][i].first->n.x, positions[agent][i].second->n.y - positions[agent][i].first->n.y);
+          VA.Normalize();
+          Vector2D VB(current[j].second->n.x - current[j].first->n.x, current[j].second->n.y - current[j].first->n.y);
+          VB.Normalize();
+          if (collisionImminent(A, VA, radii[agent], positions[agent][i].first->Depth() / state::TIME_RESOLUTION_D, positions[agent][i].second->Depth() / state::TIME_RESOLUTION_D, B, VB, radii[j], current[j].first->Depth() / state::TIME_RESOLUTION_D, current[j].second->Depth() / state::TIME_RESOLUTION_D)) {
+            found = true;
+            conflict = true;
+            //checked.insert(hash);
+          }
         }
       }
       if(conflict){
@@ -354,7 +387,7 @@ std::vector<ConstrainedEnvironment<state,action>*> const& env,
 std::vector<Node<state>*>& toDelete,
 std::vector<std::vector<Edge<state>>>& actions,
 std::vector<std::vector<std::vector<unsigned>>>& edges,
-std::vector<std::vector<unsigned>>& goalEdges,
+//std::vector<std::vector<unsigned>>& goalEdges,
 std::vector<uint32_t> const& costs,
 std::vector<float> const& radii,
 bool disappear=true, bool OD=false){
@@ -474,6 +507,7 @@ bool disappear=true, bool OD=false){
     static std::vector<Edge<state>> intersection;
     static std::vector<Edge<state>> stuff;
     for(int i(0); i<s.size()-1; ++i){
+      if(s[i].first==s[i].second){continue;} // Ignore disappearing at goal
       if(s[i].first->parents.size()){
         std::cout << s[i].first->n << " has " << s[i].first->parents.size() << " parents\n";
         for(int j(i+1); j<s.size(); ++j){
@@ -553,6 +587,7 @@ bool disappear=true, bool OD=false){
           for(auto const& mu:intersection){
             std::cout << "Inherited mutex [i]: " << s[i].first->n << "-->"<< s[i].second->n <<", " << mu.first->n << "-->"<< mu.second->n << "\n";
             s[i].first->mutexes[s[i].second].insert(mu);
+            mu.first->mutexes[mu.second].insert(s[i]);
             acts[i].insert(s[i].first); // Add to set of states which have mutexed actions
             acts[j].insert(mu.first); // Add to set of states which have mutexed actions
           }
@@ -588,6 +623,9 @@ bool disappear=true, bool OD=false){
           for(auto const& mu:intersection){
             std::cout << "Inherited mutex [j]: " << s[j].first->n << "-->"<< s[j].second->n <<", " << mu.first->n << "-->"<< mu.second->n << "\n";
             s[j].first->mutexes[s[j].second].insert(mu);
+            mu.first->mutexes[mu.second].insert(s[j]);
+            acts[i].insert(mu.first); // Add to set of states which have mutexed actions
+            acts[j].insert(s[j].first); // Add to set of states which have mutexed actions
           }
         }
       }
@@ -645,11 +683,11 @@ bool disappear=true, bool OD=false){
         } else {
           ix1 = itr - actions[k].begin();
         }
-        if (act.second->Depth() == costs[k] &&         // Has the right goal cost
-            act.second->n.sameLoc(goal[k]) &&          // action terminates at the goal
-            (!act.second->n.sameLoc(act.first->n))) {  // does not wait at goal (otherwise, act.first would be a better soln)
-          goalEdges[k].push_back(ix1);
-        }
+        //if (act.second->Depth() == costs[k] &&         // Has the right goal cost
+            //act.second->n.sameLoc(goal[k]) &&          // action terminates at the goal
+            //(!act.second->n.sameLoc(act.first->n))) {  // does not wait at goal (otherwise, act.first would be a better soln)
+          //goalEdges[k].push_back(ix1);
+        //}
       }
     }
   }
@@ -658,10 +696,15 @@ bool disappear=true, bool OD=false){
   for (unsigned a(0); a < actions[0].size(); ++a) {
     for (auto const& m : actions[0][a].first->mutexes) {
       if (m.first == actions[0][a].second) {
+        for (auto const& mu : m.second) {
         auto ix2(std::find(actions[1].begin(),
-        actions[1].end(), actions[0][a]) - actions[1].begin());
-        edges[0][a].push_back(ix2);
-        edges[1][ix2].push_back(a);
+                           actions[1].end(), mu) -
+                 actions[1].begin());
+        if (ix2 < actions[1].size()) {
+          edges[0][a].push_back(ix2);
+          edges[1][ix2].push_back(a);
+        }
+      }
       }
     }
   }

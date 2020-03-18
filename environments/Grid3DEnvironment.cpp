@@ -931,7 +931,7 @@ bool Grid3DEnvironment::LineOfSight(const std::pair<xyztLoc,xyztLoc> &node, cons
 bool Grid3DEnvironment::GoalTest(const xyztLoc &node, const xyztLoc &goal) const
 {
 // require goal time if specified
-	return ((node.x == goal.x) && (node.y == goal.y) && (node.z==goal.z) && (!goal.t || (node.t==goal.t)));
+	return (node.sameLoc(goal) && (!goal.t || (node.t>=goal.t)));
 }
 
 uint64_t Grid3DEnvironment::GetMaxHash() const

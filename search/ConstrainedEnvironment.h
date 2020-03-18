@@ -348,6 +348,19 @@ class TimeRange : public Constraint<State> {
     virtual void OpenGLDraw(MapInterface*) const {}
 };
 
+// Meant to constrain cost of a search to be geq time value
+template<typename State>
+class MinCost : public Constraint<State> {
+  public:
+    MinCost(State const& start):Constraint<State>(start,start){}
+    virtual ~MinCost(){}
+    // Check whether the opposing action has a conflict with this one
+    virtual double ConflictTime(State const& from, State const& to) const {return to.t>this->start_state.t;}
+    virtual bool ConflictsWith(State const& from, State const& to) const {return to.t>this->start_state.t;}
+    virtual bool ConflictsWith(MinCost<State> const& x) const {return x.end_state.t>this->start_state.t;}
+    virtual void OpenGLDraw(MapInterface*) const {}
+};
+
 template<typename State>
 class Collision : public Constraint<State> {
   public:
@@ -605,7 +618,6 @@ class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
     virtual bool fetch(State const& a, State const&b, int i, State& c){return false;}
     virtual unsigned branchingFactor(){return 0;}
 
-    State theGoal;
     IntervalTree<Constraint<State>> constraints;
     std::unordered_map<uint64_t,State> edgeConstraints;
     std::unordered_set<uint64_t> vertexConstraints;

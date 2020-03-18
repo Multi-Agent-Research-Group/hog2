@@ -107,7 +107,7 @@ void processSolution(double elapsed){
   // For every unit in the node
   bool valid(true);
   for (unsigned int x = 0; x < solution.size(); x++) {
-    cost += environs[0][0].environment->GetPathLength(solution[x]);
+    cost += environs[x][0].environment->GetPathLength(solution[x]);
     total += solution[x].size();
 
     if(!quiet){
@@ -172,7 +172,7 @@ void processSolution(double elapsed){
   std::cout << MACBSGroup::TOTAL_EXPANSIONS << ",";
   std::cout << TieBreaking3D<xyztLoc,t3DDirection>::collchecks << ",";
   std::cout << MACBSGroup::collchecks << ",";
-  std::cout << nodes << ",";
+  std::cout << nodes << ", ";
   std::cout << cost / xyztLoc::TIME_RESOLUTION_D << ",";
   std::cout << total << ",";
   std::cout << MACBSGroup::constraintsz/std::max(1ul,MACBSGroup::constrainttot)<< std::endl;

@@ -56,7 +56,7 @@ public:
 
 	/** Stores the goal for use by single-state HCost. **/
 	virtual void StoreGoal(state const& s)
-	{ bValidSearchGoal = true; searchGoal = s; }
+	{ bValidSearchGoal = true; searchGoal = origGoal = s; }
 
 	/** Clears the goal from memory. **/
 	virtual void ClearGoal()
@@ -66,11 +66,20 @@ public:
 	virtual bool IsGoalStored() const
 	{ return bValidSearchGoal; }
 
-        virtual void setGoal(state const& s){StoreGoal(s);};
-        virtual state const& getGoal()const{assert(bValidSearchGoal); return searchGoal;}
+        virtual void setGoal(state const &s) {
+          if (!bValidSearchGoal) {
+            StoreGoal(s);
+          } else {
+            searchGoal = s;
+          }
+        }
+        virtual void resetGoal() { searchGoal = origGoal; };
+	virtual state const &getGoal() const {
+		assert(bValidSearchGoal);
+		return searchGoal;
+	}
 
-
-	/** Heuristic value between two arbitrary nodes. **/
+        /** Heuristic value between two arbitrary nodes. **/
 	virtual double HCost(const state &node1, const state &node2) const = 0;
 	virtual double HCost(const state &node1, const state &node2, double parentHCost) const
 	{ return HCost(node1, node2); }
@@ -114,6 +123,7 @@ public:
 protected:
 	bool bValidSearchGoal;
 	state searchGoal;
+	state origGoal;
 	mutable recColor color;
 	mutable GLfloat transparency;
 };

@@ -1,0 +1,41 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch Main",
+            "cwd":"${workspaceFolder}/build/gmake/",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/bin/debug/MACBS",
+            "args": ["-seed", "2",
+                "-killtime", "3000",
+                   "-killmem", "16000",
+                    "-nagents", "2",
+                    "-envfile", "${workspaceFolder}/movement/env25.csv",
+                    "-scenfile", "${workspaceFolder}/benchmarks/scen-random/empty-8-8-notch.scen",
+                    "-nobypass",
+                    "-cct",
+                    "-disappear",
+                    "-resolution", "10",
+                    "-ctype", "10",
+                    "-radius", ".35",
+                    "-verify",
+                    "-verbose",
+                    "-nogui",
+                    "-cat",
+                    "-mergeThreshold", "9999999"],
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            //"preLaunchTask": "Build Debug"
+        }
+    ]
+}

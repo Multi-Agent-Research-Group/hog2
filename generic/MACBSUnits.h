@@ -965,6 +965,7 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
   for (unsigned agent : activeMetaAgents[metaagent].units) {
     for (auto& env : this->environments[agent]) {
       env.environment->ClearConstraints();
+      env.environment->resetGoal();
     }
   }
 }
@@ -975,10 +976,17 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
   //if(verbose)std::cout << "Add constraint " << c.start_state << "-->" << c.end_state << "\n";
   for (unsigned agent : activeMetaAgents[metaagent].units) {
     for (auto const& env : this->environments[agent]) {
-      if(negative)
+      if (negative)
         env.environment->AddConstraint(c);
-      else
+      else if (typeid(*c).name()[0] == 'M') {  // Assume this is a MinCost Constraint
+        if(c->start_state.t>env.environment->getGoal().t){
+          auto goal(env.environment->getGoal());
+          goal.t=c->start_state.t;
+          env.environment->setGoal(goal);
+        }
+      } else {
         env.environment->AddPositiveConstraint(c);
+      }
     }
   }
 }
@@ -1944,8 +1952,9 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
   while (location != 0) {
     if (theMA == tree[location].con.unit1) {
       numConflicts++;
-      for(auto const& c:tree[location].con.c)
+      for (auto const& c : tree[location].con.c) {
         AddEnvironmentConstraint(c.get(), theMA, true);
+      }
       if (!quiet)
         std::cout << "Adding constraint (in accumulation)["<<location<<"] " << tree[location].con.c[0]->start_state << "-->"
             << tree[location].con.c[0]->end_state << " for MA " << theMA << "\n";
@@ -2765,7 +2774,7 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
         unsigned conf(NO_CONFLICT);
         //std::cout << "CONFLICT: " <<x<<","<<y<<"\n";
 
-        if(Params::mutexprop){
+        if (Params::mutexprop) {
           // Set up a bunch of stuff
           static std::vector<Node<state>*> toDelete;
           toDelete.clear();
@@ -2777,180 +2786,234 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
           dags.resize(2);
           auto cost1(currentEnvironment[x]->environment->GetPathLength(a));
           auto cost2(currentEnvironment[y]->environment->GetPathLength(b));
-          auto minCost1(cost1-1);
-          auto minCost2(cost2-1);
+          auto minCost1(cost1 - 1);
+          auto minCost2(cost2 - 1);
           uint32_t best1(INT_MAX);
           uint32_t best2(INT_MAX);
           auto u1((CBSUnit<state, action, comparison, conflicttable, searchalgo>*)this->GetMember(x));
           auto u2((CBSUnit<state, action, comparison, conflicttable, searchalgo>*)this->GetMember(y));
-          std::vector<state> goals={u1->GetWaypoint(1),u2->GetWaypoint(1)};
-          std::vector<ConstrainedEnvironment<state,action>*> env(2);
-          env[0]=currentEnvironment[x]->environment.get();
-          env[1]=currentEnvironment[y]->environment.get();
-          std::vector<float> radi={radii[x],radii[y]};
+          std::vector<state> goals = {u1->GetWaypoint(1), u2->GetWaypoint(1)};
+          std::vector<ConstrainedEnvironment<state, action>*> env(2);
+          env[0] = currentEnvironment[x]->environment.get();
+          env[1] = currentEnvironment[y]->environment.get();
+          std::vector<float> radi = {radii[x], radii[y]};
           std::vector<std::vector<std::unique_ptr<Constraint<state>>>> constraints(2);
           static std::vector<std::vector<Edge<state>>> actions(2);
           // edges[agent][actioni]-->[actionj,actionj,...]
           static std::vector<std::vector<std::vector<unsigned>>> edges(2);
-          static std::vector<std::vector<unsigned>> goalEdges(2);
-
+          //static std::vector<std::vector<unsigned>> goalEdges(2);
 
           bool hasSolution(false);
-          unsigned increment=state::TIME_RESOLUTION_U;
-          best1=best2=INT_MAX;
-          actions[0].clear();actions[1].clear();
-          edges[0].clear();edges[1].clear();
-          goalEdges[0].clear();goalEdges[1].clear();
+          unsigned increment = state::TIME_RESOLUTION_U;
+          best1 = best2 = INT_MAX;
+          actions[0].clear();
+          actions[1].clear();
+          edges[0].clear();
+          edges[1].clear();
+          //goalEdges[0].clear();goalEdges[1].clear();
           // Re-initialize DAGs
-          root[0]=root[1]=nullptr;
-          dags[0].clear();dags[1].clear();
+          root[0] = root[1] = nullptr;
+          dags[0].clear();
+          dags[1].clear();
+          bool blocked(false);
           // Create MDDs
-          while(!getMDD(u1->GetWaypoint(0),u1->GetWaypoint(1),dags[0],root[0],minCost1,cost1,best1,currentEnvironment[x]->environment.get())){
-            minCost1=best1;
-            cost1+=increment;
-            root[0]=nullptr;
+          while (!getMDD(u1->GetWaypoint(0), u1->GetWaypoint(1), dags[0], root[0], minCost1, cost1, best1, currentEnvironment[x]->environment.get(), blocked)) {
+            if (blocked) {
+              break;
+            }
+            minCost1 = best1;
+            cost1 += increment;
+            root[0] = nullptr;
             dags[0].clear();
           }
-          std::cout << "MDD1:\n" << root[0] << "\n";
-          while(!getMDD(u2->GetWaypoint(0),u2->GetWaypoint(1),dags[1],root[1],minCost2,cost2,best2,currentEnvironment[y]->environment.get())){
-            minCost2=best2;
-            cost2+=increment;
-            root[1]=nullptr;
+          if (root[0]) std::cout << "MDD1:\n"
+                                 << root[0] << "\n";
+          while (root[0] && !getMDD(u2->GetWaypoint(0), u2->GetWaypoint(1), dags[1], root[1], minCost2, cost2, best2, currentEnvironment[y]->environment.get(), blocked)) {
+            if (blocked) {
+              break;
+            }
+            minCost2 = best2;
+            cost2 += increment;
+            root[1] = nullptr;
             dags[1].clear();
           }
-          std::cout << "MDD2:\n" << root[1] << "\n";
-          // Check if there's a solution
-          start[0]={root[0],root[0]};
-          start[1]={root[1],root[1]};
-          std::vector<uint32_t> costs={best1,best2};
-          hasSolution=getMutexes(start, goals, env, toDelete, actions, edges, goalEdges, costs, radi, disappearAtGoal);
-          std::cout << "Solution found: " << hasSolution << "\n";
-          for(auto & d:toDelete){
-            delete d;
-          }
-          if(!hasSolution){
-            std::vector<EnvironmentContainer<state,action>*> ec(2);
-            ec[0]=currentEnvironment[x];
-            ec[1]=currentEnvironment[y];
-            std::vector<state> starts={u1->GetWaypoint(0),u2->GetWaypoint(0)};
-            ICTSAlgorithm<state,action> ictsalgo(radi);
-            ictsalgo.SetVerbose(true);
-            costs[0]=0;
-            costs[1]=0;
-            ictsalgo.GetSolutionCosts(ec, starts, goals, costs);
-            // Get MDDs and mutexes again with new costs
-            best1=best2=INT_MAX;
-            actions[0].clear();actions[1].clear();
-            edges[0].clear();edges[1].clear();
-            goalEdges[0].clear();goalEdges[1].clear();
-            // Re-initialize DAGs
-            root[0]=root[1]=nullptr;
-            dags[0].clear();dags[1].clear();
-            minCost1=costs[0]-increment;
-            cost1=costs[0]-1; // Minus epsilon so that we can guarantee a cardinal conflict
-            minCost2=costs[1]-increment;
-            cost2=costs[1]-1;
-            // Create MDDs
-            while(!getMDD(u1->GetWaypoint(0),u1->GetWaypoint(1),dags[0],root[0],minCost1,cost1,best1,currentEnvironment[x]->environment.get())){
-              minCost1=cost1;
-              cost1+=increment;
-              root[0]=nullptr;
-              dags[0].clear();
-            }
-            std::cout << "MDD1:\n" << root[0] << "\n";
-            while(!getMDD(u2->GetWaypoint(0),u2->GetWaypoint(1),dags[1],root[1],minCost2,cost2,best2,currentEnvironment[y]->environment.get())){
-              minCost2=cost2;
-              cost2+=increment;
-              root[1]=nullptr;
-              dags[1].clear();
-            }
-            std::cout << "MDD2:\n" << root[1] << "\n";
-            costs[0]=best1;
-            costs[1]=best2;
-            start[0]={root[0],root[0]};
-            start[1]={root[1],root[1]};
-            hasSolution=getMutexes(start, goals, env, toDelete, actions, edges, goalEdges, costs, radi, disappearAtGoal);
+          if (!blocked) {
+            // Both MDDs are well-formed
+            if (root[1]) std::cout << "MDD2:\n"
+                                   << root[1] << "\n";
+            // Check if there's a solution
+            start[0] = {root[0], root[0]};
+            start[1] = {root[1], root[1]};
+            std::vector<uint32_t> costs = {best1, best2};
+            hasSolution = getMutexes(start, goals, env, toDelete, actions, edges,
+                                     //goalEdges,
+                                     costs, radi, disappearAtGoal);
             std::cout << "Solution found: " << hasSolution << "\n";
-            for(auto & d:toDelete){
+            for (auto& d : toDelete) {
               delete d;
             }
-            //assert(hasSolution); // Because we did a check for these costs already, there MUST be a solution at this cost
-          }
-          // Find biclique(s) involving actions that terminate at the goal(s)
-          static std::vector<unsigned> left;
-          left.resize(0);
-          left.reserve(actions[0].size());
-          static std::vector<unsigned> right;
-          right.resize(0);
-          right.reserve(actions[1].size());
+            conflicts.resize(2);
+            Conflict<state>& c1 = conflicts[0];
+            Conflict<state>& c2 = conflicts[1];
+            if (!hasSolution) {
+              std::vector<EnvironmentContainer<state, action>*> ec(2);
+              ec[0] = currentEnvironment[x];
+              ec[1] = currentEnvironment[y];
+              std::vector<state> starts = {u1->GetWaypoint(0), u2->GetWaypoint(0)};
+              ICTSAlgorithm<state, action> ictsalgo(radi);
+              ictsalgo.SetVerbose(true);
+              costs[0] = 0;
+              costs[1] = 0;
+              ictsalgo.GetSolutionCosts(ec, starts, goals, costs);
+              // Get MDDs and mutexes again with new costs
+              best1 = best2 = INT_MAX;
+              actions[0].clear();
+              actions[1].clear();
+              edges[0].clear();
+              edges[1].clear();
+              //goalEdges[0].clear();goalEdges[1].clear();
+              // Re-initialize DAGs
+              root[0] = root[1] = nullptr;
+              dags[0].clear();
+              dags[1].clear();
+              minCost1 = costs[0] - increment;
+              cost1 = costs[0] - 1;  // Minus epsilon so that we can guarantee a cardinal conflict
+              minCost2 = costs[1] - increment;
+              cost2 = costs[1] - 1;
+              // Create MDDs
+              while (!getMDD(u1->GetWaypoint(0), u1->GetWaypoint(1), dags[0], root[0], minCost1, cost1, best1, currentEnvironment[x]->environment.get(), blocked)) {
+                if (blocked) break;
+                minCost1 = cost1;
+                cost1 += increment;
+                root[0] = nullptr;
+                dags[0].clear();
+              }
+              std::cout << "MDD1:\n"
+                        << root[0] << "\n";
+              while (!getMDD(u2->GetWaypoint(0), u2->GetWaypoint(1), dags[1], root[1], minCost2, cost2, best2, currentEnvironment[y]->environment.get(), blocked)) {
+                if (blocked) break;
+                minCost2 = cost2;
+                cost2 += increment;
+                root[1] = nullptr;
+                dags[1].clear();
+              }
+              std::cout << "MDD2:\n"
+                        << root[1] << "\n";
+              costs[0] = best1;
+              costs[1] = best2;
+              start[0] = {root[0], root[0]};
+              start[1] = {root[1], root[1]};
+              hasSolution = getMutexes(start, goals, env, toDelete, actions, edges,
+                                       // goalEdges,
+                                       costs, radi, disappearAtGoal);
+              std::cout << "Solution found: " << hasSolution << "\n";
+              for (auto& d : toDelete) {
+                delete d;
+              }
+              // Add min-cost constraints (forces paths to have minimum cost).
+              state dummy(a.back());
+              dummy.t=costs[0];
+              c1.c.emplace_back((Constraint<state>*)new MinCost<state>(dummy));
+              dummy=b.back();
+              dummy.t=costs[1];
+              c2.c.emplace_back((Constraint<state>*)new MinCost<state>(dummy));
+              //assert(hasSolution); // Because we did a check for these costs already, there MUST be a solution at this cost
+            }
+            // Find biclique(s) involving actions that terminate at the goal(s)
+            static std::vector<unsigned> left;
+            left.resize(0);
+            left.reserve(actions[0].size());
+            static std::vector<unsigned> right;
+            right.resize(0);
+            right.reserve(actions[1].size());
 
-          if (goalEdges[0].size() && goalEdges[1].size()) {
-            for (auto const& i : goalEdges[0]) {
-              for (auto const& j : goalEdges[1]) {
-                if (std::find(edges[0][i].begin(), edges[0][i].end(), j) != edges[0][i].end() &&
-                    std::find(edges[1][j].begin(), edges[1][j].end(), i) != edges[1][j].end()) {
-                  if (edges[1].size() <= edges[0].size()) {
-                    BiClique::findBiClique(edges[0], edges[1], {i, j}, left, right);
-                    std::cout << "Found biclique: (" << i << "," << j << ") " << left << " " << right << "\n";
-                  } else {
-                    BiClique::findBiClique(edges[1], edges[0], {j, i}, right, left);
-                    std::cout << "Found biclique: (" << i << "," << j << ") " << left << " " << right << "\n";
+            auto aItr(std::find_if(actions[0].begin(), actions[0].end(), [&](Edge<state> const& e) { return e.first->n == a[xTime] && e.second->n == a[xNextTime]; }));
+            auto bItr(std::find_if(actions[1].begin(), actions[1].end(), [&](Edge<state> const& e) { return e.first->n == b[yTime] && e.second->n == b[yNextTime]; }));
+            int i = -1, j = -1;
+            if (aItr != actions[0].end()) {
+              i = aItr - actions[0].begin();
+            }
+            if (bItr != actions[1].end()) {
+              j = bItr - actions[1].begin();
+            }
+            if (i != -1 && j != -1) {
+              //if (goalEdges[0].size() && goalEdges[1].size()) {
+              //for (auto const& i : goalEdges[0]) {
+              //for (auto const& j : goalEdges[1]) {
+              if (std::find(edges[0][i].begin(), edges[0][i].end(), j) != edges[0][i].end() &&
+                  std::find(edges[1][j].begin(), edges[1][j].end(), i) != edges[1][j].end()) {
+                if (edges[1].size() <= edges[0].size()) {
+                  BiClique::findBiClique(edges[0], edges[1], {i, j}, left, right);
+                  std::cout << "Found biclique: (" << i << "," << j << ") " << left << " " << right << "\n";
+                } else {
+                  BiClique::findBiClique(edges[1], edges[0], {j, i}, right, left);
+                  std::cout << "Found biclique: (" << i << "," << j << ") " << left << " " << right << "\n";
+                }
+              }
+              //}
+              //}
+              //}
+            }
+            // Remove redundancies: Any edge which has all parents mutexed can be removed.
+            for (int i(0); i < actions.size(); ++i) {
+              unsigned k(0);
+              for (auto edge(actions[i].begin()); edge != actions[i].end(); ++edge) {
+                if (edge->first->parents.size()) {
+                  bool all(true);
+                  // Check that all parents of this edge are in the mutexed list
+                  for (auto const& p : edge->first->parents) {
+                    if (std::find(actions[i].begin(), actions[i].end(), std::make_pair(p, edge->first)) == actions[i].end()) {
+                      all = false;
+                      break;
+                    }
+                  }
+                  if (all) {
+                    if (i == 0) {
+                      left.erase(std::remove(left.begin(), left.end(), k), left.end());
+                    } else {
+                      right.erase(std::remove(right.begin(), right.end(), k), right.end());
+                    }
                   }
                 }
+                ++k;
               }
             }
-          }
-          // Remove redundancies: Any edge which has all parents mutexed can be removed.
-          for (int i(0); i < actions.size(); ++i) {
-            unsigned k(0);
-            for (auto edge(actions[i].begin()); edge != actions[i].end(); ++edge){
-              bool all(true);
-              // Check that all parents of this edge are in the mutexed list
-              for(auto const& p:edge->first->parents){
-                if(std::find(actions[i].begin(),actions[i].end(),std::make_pair(p,edge->first))==actions[i].end()){
-                  all=false;
-                  break;
-                }
-              }
-              if(all){
-                if (i == 0) {
-                  left.erase(std::remove(left.begin(), left.end(), k), left.end());
-                } else {
-                  right.erase(std::remove(right.begin(), right.end(), k), right.end());
-                }
-              }
-              ++k;
-            }
-          }
 
-          // Then add constraints and start over.
-          for(auto const& l:left){
-            constraints[0].emplace_back((Constraint<state>*) new Identical<state>(actions[0][l].first->n,actions[0][l].second->n));
-            std::cout << "Add constraint to env 0: " << actions[0][l] << "\n";
-            //env[0]->AddConstraint(constraints[0].back().get());
-          }
-          for(auto const& l:right){
-            constraints[1].emplace_back((Constraint<state>*) new Identical<state>(actions[1][l].first->n,actions[1][l].second->n));
-            std::cout << "Add constraint to env 1: " << actions[0][l] << "\n";
-            //env[1]->AddConstraint(constraints[1].back().get());
-          }
-          conflicts.resize(2);
-          Conflict<state>& c1=conflicts[0];
-          Conflict<state>& c2=conflicts[1];
-          if(constraints[0].size()==1 && constraints[1].size()==1){
-            // Do a 1xN Biclique
+            // Then add constraints and start over.
+            for (auto const& l : left) {
+              constraints[0].emplace_back((Constraint<state>*)new Identical<state>(actions[0][l].first->n, actions[0][l].second->n));
+              std::cout << "Add constraint to env 0: " << actions[0][l] << "\n";
+              //env[0]->AddConstraint(constraints[0].back().get());
+            }
+            for (auto const& l : right) {
+              constraints[1].emplace_back((Constraint<state>*)new Identical<state>(actions[1][l].first->n, actions[1][l].second->n));
+              std::cout << "Add constraint to env 1: " << actions[0][l] << "\n";
+              //env[1]->AddConstraint(constraints[1].back().get());
+            }
+            if (constraints[0].size() == 1 && constraints[1].size() == 1) {
+              // Do a 1xN Biclique
+              state const& a1(a[xTime]);
+              state const& a2(a[xNextTime]);
+              c1.c.emplace_back((Constraint<state>*)new Collision<state>(a1, a2, radii[x]));
+              // TODO Change this to a time-range constraint
+              c2.c.emplace_back((Constraint<state>*)new Identical<state>(a1, a2));
+            } else {
+              for (auto& c : constraints[0]) {
+                c1.c.emplace_back(c.release());
+              }
+              for (auto& c : constraints[1]) {
+                c2.c.emplace_back(c.release());
+              }
+            }
+          } else {
+            // Too many constraints have blocked us from finding the goal
+            conflicts.resize(2);
+            Conflict<state>& c1 = conflicts[0];
+            Conflict<state>& c2 = conflicts[1];
             state const& a1(a[xTime]);
             state const& a2(a[xNextTime]);
-            c1.c.emplace_back((Constraint<state>*) new Collision<state>(a1, a2,radii[x]));
-            // TODO Change this to a time-range constraint
-            c2.c.emplace_back((Constraint<state>*) new Identical<state>(a1, a2));
-          }else{
-            for(auto& c:constraints[0]){
-              c1.c.emplace_back(c.release());
-            }
-            for(auto& c:constraints[1]){
-              c2.c.emplace_back(c.release());
-            }
+            c1.c.emplace_back((Constraint<state>*)new Collision<state>(a1, a2, radii[x]));
+            c2.c.emplace_back((Constraint<state>*)new Identical<state>(a1, a2));
           }
         }
         if(Params::prioritizeConf){
