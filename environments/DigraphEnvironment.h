@@ -10,7 +10,7 @@
 #include <iostream>
 #include "Map.h"
 #include "apt.h"
-#include <valgrind/memcheck.h>
+//#include <valgrind/memcheck.h>
 
 #ifndef _WIN32
 #define __stdcall
@@ -77,12 +77,12 @@ struct edge_t{
 class DigraphEnvironment: public ConstrainedEnvironment<node_t, int>{
   public:
   DigraphEnvironment(char const* vfile, char const* efile, char const* afile, bool bidir=true, bool selfloops=true){
-  VALGRIND_CHECK_VALUE_IS_DEFINED(nodes);
-  VALGRIND_CHECK_VALUE_IS_DEFINED(adj);
-  VALGRIND_CHECK_VALUE_IS_DEFINED(weight);
-  VALGRIND_CHECK_VALUE_IS_DEFINED(width);
-  VALGRIND_CHECK_VALUE_IS_DEFINED(height);
-  VALGRIND_CHECK_VALUE_IS_DEFINED(map);
+  //VALGRIND_CHECK_VALUE_IS_DEFINED(nodes);
+  //VALGRIND_CHECK_VALUE_IS_DEFINED(adj);
+  //VALGRIND_CHECK_VALUE_IS_DEFINED(weight);
+  //VALGRIND_CHECK_VALUE_IS_DEFINED(width);
+  //VALGRIND_CHECK_VALUE_IS_DEFINED(height);
+  //VALGRIND_CHECK_VALUE_IS_DEFINED(map);
 
     if(afile && features.empty()){
       parseAptFile(afile,features); // Load airport features

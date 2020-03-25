@@ -258,12 +258,60 @@ uint32_t minDepth,
 uint32_t depth,
 uint32_t& best,
 ConstrainedEnvironment<state,action>* env,
-bool& blocked){
+bool& blocked,
+unsigned offset=0){
   blocked=false;
   if(verbose)std::cout << "MDD up to depth: " << depth << start << "-->" << end << "\n";
   static std::map<uint64_t,bool> singleTransTable;
   singleTransTable.clear();
-  return LimitedDFS(start,end,dag,root,depth,minDepth,depth,best,env,singleTransTable,blocked);
+  auto result = LimitedDFS(start,end,dag,root,depth,minDepth,depth,best,env,singleTransTable,blocked);
+  std::map<uint64_t,unsigned> m;
+  std::map<unsigned,std::vector<uint64_t>> xs;
+  std::vector<std::pair<float,float>> pos(dag.size());
+  std::vector<std::string> lab(dag.size());
+  std::cout << "g=Graph([";
+  for(auto const& n:dag){
+    if(m.find(n.first)==m.end()){
+      m[n.first]=m.size();
+    }
+    auto ix(n.second.Depth()-n.second.Depth()%state::TIME_RESOLUTION_U);
+    xs[ix].push_back(n.first);
+    lab[m[n.first]].append("\"") 
+    .append(std::to_string(n.second.n.x))
+    .append(",")
+    .append(std::to_string(n.second.n.y))
+    .append("\"");
+    for(auto const& s:n.second.successors){
+      if (m.find(s->hash) == m.end())
+      {
+        m[s->hash] = m.size();
+      }
+      std::cout<<"("<<m[n.first]+offset<<","<<m[s->hash]+offset<<"), ";
+    }
+  }
+  std::cout << "],directed=True)\n";
+
+  std::cout << "vertex_label="<<lab<<"\n";
+
+  for(auto const& x:xs){
+    unsigned ss(0);
+    for(auto const& q:x.second){
+      auto v=m[q];
+      pos[v].first=dag[q].Depth();
+      pos[v].second=ss*5;
+      ++ss;
+    }
+  }
+  std::cout << "vertex_size="<<std::vector<int>(lab.size(),50) << "\n";
+  //std::cout << "vertex_label_dist="<<std::vector<float>(lab.size(),-.5) << "\n";
+  std::cout << "layout="<<pos<<"\n";
+  std::cout << "fmt={}\n"
+            << "fmt['layout']=layout\n"
+            << "fmt['vertex_label']=vertex_label\n"
+            //<< "fmt['vertex_label_dist']=vertex_label_dist\n"
+            << "fmt['vertex_size']=vertex_size\n"
+            << "plot(g,'mdd.png',**fmt)\n";
+  return result;
   //if(verbose)std::cout << "Finally set root to: " << (uint64_t)root[agent] << "\n";
   //if(verbose)std::cout << root << "\n";
 }
@@ -707,8 +755,17 @@ bool disappear=true, bool OD=false){
       }
       }
     }
+
   }
-  std::cout << "edges: " << edges << "\n";
+  std::cout << "edges: " << edges << "\n"
+            << "e=" << edges[0] << "\n"
+            << "g=Graph(edges=[(i,j+len(e)) for i in range(len(e)) for j in e[i]])\n"
+            << "g.vs['color']=['gold' if v.index<len(e) else 'red' for v in g.vs]\n"
+            << "fmt={}\n"
+            << "fmt['vertex_label']=\n"
+            << "fmt['vertex_size']=vertex_size\n"
+            << "fmt['layout']=g.layout_bipartite([True if v.index<len(e) else False for v in g.vs])\n"
+            << "plot(g,'b.png',**fmt)\n";
   return result;
 }
 

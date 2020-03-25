@@ -2877,9 +2877,9 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
               dags[0].clear();
               dags[1].clear();
               minCost1 = costs[0] - increment;
-              cost1 = costs[0] - 1;  // Minus epsilon so that we can guarantee a cardinal conflict
+              cost1 = costs[0];// - 1;  // Minus epsilon so that we can guarantee a cardinal conflict
               minCost2 = costs[1] - increment;
-              cost2 = costs[1] - 1;
+              cost2 = costs[1];// - 1;
               // Create MDDs
               while (!getMDD(u1->GetWaypoint(0), u1->GetWaypoint(1), dags[0], root[0], minCost1, cost1, best1, currentEnvironment[x]->environment.get(), blocked)) {
                 if (blocked) break;
@@ -2953,6 +2953,8 @@ unsigned CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeu
               //}
               //}
               //}
+            }else{
+              std::cout << "Core pair not in\n";
             }
             // Remove redundancies: Any edge which has all parents mutexed can be removed.
             for (int i(0); i < actions.size(); ++i) {
