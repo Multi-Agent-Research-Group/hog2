@@ -56,7 +56,8 @@ struct TemporalAStarCompare {
 template <class state, class action, class environment, class openList=AStarOpenClosed<state, TemporalAStarCompare<state>>>
 class TemporalAStar : public GenericSearchAlgorithm<state,action,environment> {
 public:
-	TemporalAStar():env(0),totalExternalNodesExpanded(nullptr),externalExpansionLimit(INT_MAX),stopAfterGoal(true),verbose(false),weight(1),theHeuristic(0),noncritical(false),SuccessorFunc(&environment::GetSuccessors),ActionFunc(&environment::GetAction),GCostFunc(&environment::GCost){ResetNodeCount();}
+	TemporalAStar():env(0),totalExternalNodesExpanded(nullptr),externalExpansionLimit(INT_MAX),stopAfterGoal(true),verbose(false),
+	lowerlimit(true),upperlimit(false),weight(1),theHeuristic(0),noncritical(false),SuccessorFunc(&environment::GetSuccessors),ActionFunc(&environment::GetAction),GCostFunc(&environment::GCost){ResetNodeCount();}
 	virtual ~TemporalAStar() {}
 	void GetPath(environment *env, const state& from, const state& to, std::vector<state> &thePath, unsigned minTime=0);
         void GetPaths(environment *_env, const state& from, const state& to, std::vector<std::vector<state>> &paths, double window=1.0, double bestf=-1.0, unsigned minTime=0);
@@ -116,6 +117,14 @@ public:
 	inline void SetVerbose(bool val) { verbose = val; }
 	inline bool GetVerbose() { return verbose; }
 	
+	// Limit solutions only to those with f-cost <= cost limit
+	inline void SetUpperLimit(bool val) { upperlimit = val; }
+	inline bool GetUpperLimit() { return upperlimit; }
+	
+	// Limit solutions only to those with f-cost >= cost limit
+	inline void SetLowerLimit(bool val) { lowerlimit = val; }
+	inline bool GetLowerLimit() { return lowerlimit; }
+	
 	void OpenGLDraw() const;
 	void Draw() const;
 	std::string SVGDraw() const;
@@ -143,8 +152,10 @@ private:
 	environment *env;
         uint* totalExternalNodesExpanded;
         uint externalExpansionLimit;
-	bool stopAfterGoal;
+		bool stopAfterGoal;
         bool verbose;
+        bool upperlimit;
+        bool lowerlimit;
 	
 	double weight; 
 	bool goalSteps;
@@ -184,7 +195,8 @@ void TemporalAStar<state,action,environment,openList>::GetPath(environment *_env
 {
   if (theHeuristic == 0) theHeuristic = _env;
   // If the cost limit is provided, use it.
-  estimate=to.t?to.t:DBL_MAX;
+  estimate=to.t;
+  if(upperlimit&&!to.t)estimate=DBL_MAX;
 
   if (!InitializeSearch(_env, from, to, thePath,minTime))
   {	
@@ -288,7 +300,7 @@ bool TemporalAStar<state,action,environment,openList>::InitializeSearch(environm
 		return false;
 	}*/
 	
-	openClosedList.AddOpenNode(start, env->GetStateHash(start), 0, weight*theHeuristic->HCost(start, goal));
+	openClosedList.AddOpenNode(start, env->GetStateHash(start), 0, weight*theHeuristic->HCost(start, goal)*state::TIME_RESOLUTION);
 	
 	return true;
 }
@@ -301,7 +313,7 @@ bool TemporalAStar<state,action,environment,openList>::InitializeSearch(environm
 template <class state, class action, class environment, class openList>
 void TemporalAStar<state,action,environment,openList>::AddAdditionalStartState(state const& newState)
 {
-	openClosedList.AddOpenNode(newState, env->GetStateHash(newState), 0, weight*theHeuristic->HCost(start, goal));
+	openClosedList.AddOpenNode(newState, env->GetStateHash(newState), 0, weight*theHeuristic->HCost(start, goal)*state::TIME_RESOLUTION);
 }
 
 /**
@@ -312,7 +324,7 @@ void TemporalAStar<state,action,environment,openList>::AddAdditionalStartState(s
 template <class state, class action, class environment, class openList>
 void TemporalAStar<state,action,environment,openList>::AddAdditionalStartState(state const& newState, double cost)
 {
-	openClosedList.AddOpenNode(newState, env->GetStateHash(newState), cost, weight*theHeuristic->HCost(start, goal));
+	openClosedList.AddOpenNode(newState, env->GetStateHash(newState), cost, weight*theHeuristic->HCost(start, goal)*state::TIME_RESOLUTION);
 }
 
 /**
@@ -359,7 +371,7 @@ bool TemporalAStar<state,action,environment,openList>::DoSingleSearchStep(std::v
   if(verbose)std::cout << "Expanding: " << openClosedList.Lookup(nodeid).data << "(" << std::hex << env->GetStateHash(openClosedList.Lookup(nodeid).data) << std::dec << ") with f:" << openClosedList.Lookup(nodeid).g+openClosedList.Lookup(nodeid).h << std::endl;
   unsigned nSuccessors((env->*SuccessorFunc)(openClosedList.Lookup(nodeid).data, neighbors));
   if(stopAfterGoal){
-    if(env->GoalTest(openClosedList.Lookup(nodeid).data, goal)){
+    if(env->GoalTest(openClosedList.Lookup(nodeid).data, goal) && (!lowerlimit || fgeq(G,estimate))){
       if(openClosedList.Lookup(nodeid).data.t>=minTime)
       {
         ExtractPathToStartFromID(nodeid, thePath);
@@ -422,7 +434,7 @@ bool TemporalAStar<state,action,environment,openList>::DoSingleSearchStep(std::v
     if(neighborLoc[x] != kNotFound)
       h=openClosedList.Lookup(theID).h;
     else
-      h=theHeuristic->HCost(neighbors[x], goal);
+      h=theHeuristic->HCost(neighbors[x], goal)*state::TIME_RESOLUTION;
     hCosts[x]=h;
 
   }
@@ -457,14 +469,17 @@ bool TemporalAStar<state,action,environment,openList>::DoSingleSearchStep(std::v
         }
         break;
       case kNotFound:
-        if(fleq(G+edgeCosts[x]+weight*hCosts[x],estimate)){
-          if(verbose)std::cout << "Add node ("<<std::hex<<env->GetStateHash(neighbors[x])<<std::dec<<") to open " << neighbors[x] << (G+edgeCosts[x]) << "+" << (weight*hCosts[x]) << "=" << (G+edgeCosts[x]+weight*hCosts[x]) << "\n";
+        if(verbose)std::cout << "Add node? ("<<std::hex<<env->GetStateHash(neighbors[x])<<std::dec<<") to open " << neighbors[x] << (G+edgeCosts[x]) << "+" << (weight*hCosts[x]) << "=" << (G+edgeCosts[x]+weight*hCosts[x]) << " ";
+        if(!upperlimit || fleq(G+edgeCosts[x]+weight*hCosts[x],estimate)){
+			if(verbose) std::cout << "<="<<estimate<<"\n";
           openClosedList.AddOpenNode(neighbors[x],
               env->GetStateHash(neighbors[x]),
               G+edgeCosts[x],
               weight*hCosts[x],
               nodeid);
-        }
+        }else{
+			if(verbose) std::cout << ">"<<estimate<<"\n";
+		}
     }
   }
   if(!stopAfterGoal && openClosedList.OpenSize() == 0)

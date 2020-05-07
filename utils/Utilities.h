@@ -29,6 +29,32 @@
 #include <sys/resource.h>
 
 namespace Util{
+
+template <typename I>
+constexpr std::reverse_iterator<I> make_reverse_iter(I i){
+  return std::reverse_iterator<I>(i);
+}
+
+// Compute max over a vector
+template <typename T>
+T max(std::vector<T> const& v){
+	T m(0);
+	for(auto const& vv:v){
+		m=std::max(m,vv);
+	}
+	return m;
+}
+
+// Compute max over a vector of vectors
+template <typename T>
+T max(std::vector<std::vector<T>> const& v){
+	T m(0);
+	for(auto const& vv:v){
+		m=std::max(m,max(vv));
+	}
+	return m;
+}
+
   // Set upper limit on memory consumption
   void setmemlimit(rlim_t megabytes)
   {

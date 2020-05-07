@@ -2,7 +2,78 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Launch Main",
+            "name": "CBICS Rect-5",
+            "cwd":"${workspaceFolder}/build/gmake/",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/bin/debug/CBICS",
+            "args": ["-seed", "2",
+                "-killtime", "3000",
+                   "-killmem", "16000",
+                    "-nagents", "2",
+                    "-envfile", "${workspaceFolder}/movement/env5.csv",
+                    "-scenfile", "${workspaceFolder}/benchmarks/scen-random/rect.scen",
+                    "-nobypass",
+                    "-cct",
+                    "-disappear",
+                    "-resolution", "10",
+                    "-ctype", "10",
+                    "-astarverbose",
+                    "-radius", ".35",
+                    "-verify",
+                    "-verbose",
+                    "-nogui",
+                    "-cat"],
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            //"preLaunchTask": "Build Debug"
+        },
+        {
+            "name": "CBICS cross-5",
+            "cwd":"${workspaceFolder}/build/gmake/",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/bin/debug/CBICS",
+            "args": ["-seed", "2",
+                "-killtime", "3000",
+                   "-killmem", "16000",
+                    "-nagents", "2",
+                    "-envfile", "${workspaceFolder}/movement/env5.csv",
+                    "-scenfile", "${workspaceFolder}/benchmarks/scen-random/cross.scen",
+                    "-nobypass",
+                    "-cct",
+                    "-disappear",
+                    "-resolution", "10",
+                    "-ctype", "10",
+                    "-astarverbose",
+                    "-radius", ".35",
+                    "-verify",
+                    "-verbose",
+                    "-nogui",
+                    "-cat"],
+            "stopAtEntry": false,
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            //"preLaunchTask": "Build Debug"
+        },{
+            "name": "MACBS",
             "cwd":"${workspaceFolder}/build/gmake/",
             "type": "cppdbg",
             "request": "launch",
@@ -11,13 +82,14 @@
                 "-killtime", "3000",
                    "-killmem", "16000",
                     "-nagents", "2",
-                    "-envfile", "${workspaceFolder}/movement/env9.csv",
-                    "-scenfile", "${workspaceFolder}/benchmarks/scen-random/empty-8-8-cross.scen",
+                    "-envfile", "${workspaceFolder}/movement/env5.csv",
+                    "-scenfile", "${workspaceFolder}/benchmarks/scen-random/rect.scen",
                     "-nobypass",
                     "-cct",
                     "-disappear",
                     "-resolution", "10",
                     "-ctype", "10",
+                    "-astarverbose",
                     "-radius", ".35",
                     "-verify",
                     "-verbose",
@@ -35,7 +107,6 @@
                     "ignoreFailures": true
                 }
             ],
-            //"preLaunchTask": "Build Debug"
         }
     ]
 }

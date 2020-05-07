@@ -1,9 +1,15 @@
 {
     "git.ignoreLimitWarning": true,
-    
+    "terminal.integrated.scrollback": 1000000,
     "files.watcherExclude": {
         "**/.git/objects/**": true,
         "**/.git/subtree-cache/**": true,
         "**/node_modules/*/**": true
-      }
+      },
+      "files.associations": {
+        "algorithm": "cpp",
+        "iostream": "cpp"
+      },
+      "vim.vimrc.enable": true,
+      "vim.vimrc.path": "~/.vimrc"
 }

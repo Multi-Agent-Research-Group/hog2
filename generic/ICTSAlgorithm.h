@@ -194,7 +194,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
 
     bool LimitedDFS(state const& start, state const& end, DAG& dag, Node*& root, uint32_t depth, uint32_t maxDepth, uint32_t& best, SearchEnvironment<state,action>* env, unsigned agent){
       if(depth<0 || maxDepth-depth+(int)(HCost(start,end,agent))>maxDepth){ // Note - this only works for a perfect heuristic.
-        //std::cout << " pruned " << depth <<" "<< (maxDepth-depth+(int)(env->HCost(start,end)))<<">"<<maxDepth<<"\n";
+        std::cout << " pruned " << depth <<" "<< (maxDepth-depth+(int)(env->HCost(start,end)))<<">"<<maxDepth<<"\n";
         return false;
       }
       Node n(start,GetHash(start,agent));
@@ -287,10 +287,12 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
 
     // Perform conflict check by moving forward in time at increments of the smallest time step
     // Test the efficiency of VO vs. time-vector approach
-    bool GetMDD(unsigned agent,state const& start, state const& end, DAG& dag, MultiState& root, int depth, uint32_t& best, uint32_t& dagsize, SearchEnvironment<state,action>* env){
+    bool GetMDD(unsigned agent,state const& start, state const& end, DAG& dag,
+    MultiState& root, int depth, uint32_t& best, uint32_t& dagsize,
+    SearchEnvironment<state,action>* env, unsigned size){
       root[agent]=nullptr;
       if(verbose)std::cout << "MDD up to depth: " << depth << start << "-->" << end << "\n";
-      uint64_t hash(((uint32_t) depth)<<8|agent);
+      uint64_t hash(((uint32_t) size)<<8|agent);
       bool found(mddcache.find(hash)!=mddcache.end());
       if(verbose)std::cout << "lookup "<< (found?"found":"missed") << "\n";
       if (!found) {
@@ -300,8 +302,15 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
           lbcache[hash] = best;
           mscache[hash] = dagsize = dag.size();
           return true;
+        }else{
+          // No solution found for cost
+          mddcache[hash] = 0;
+          lbcache[hash] = INFTY;
+          mscache[hash] = dagsize = 0;
+          if(verbose)std::cout << "No solution: " << depth << start << "-->" << end << "\n";
         }
       }else{
+        if(!mddcache[hash])return false;
         root[agent]=mddcache[hash];
         best=lbcache[hash];
         dagsize=mscache[hash];
@@ -590,15 +599,26 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
     }
 
     struct ICTSNode{
-      ICTSNode(ICTSAlgorithm* alg, ICTSNode* parent,int agent, uint32_t size):ictsalg(alg),instance(parent->instance),dag(parent->dag.size()),best(parent->best),dagsize(parent->dagsize),bestSeen(0),sizes(parent->sizes),root(parent->root){
-        count++;
+      ICTSNode(ICTSAlgorithm* alg, ICTSNode* parent,int agent, uint32_t size):
+      ictsalg(alg),instance(parent->instance),dag(parent->dag.size()),
+      best(parent->best),dagsize(parent->dagsize),
+      bestSeen(0),sizes(parent->sizes),root(parent->root),ok(true){
+
         sizes[agent]=size;
+        // Make sure we're not combining with bogus MDDs
+        for(unsigned i(0); i<sizes.size(); ++i){
+          uint64_t hash(((uint32_t)sizes[i]) << 8 | i);
+          if(alg->mddcache.find(hash) != alg->mddcache.end()&& !alg->mddcache[hash]){
+            ok=false;
+          }
+        }
+        count++;
         best[agent]=INFTY;
         if(alg->verbose)std::cout << "replan agent " << agent << " GetMDD("<<(alg->HCost(instance.first[agent],instance.second[agent],agent)+sizes[agent])<<")\n";
         replanned.push_back(agent);
         Timer timer;
         timer.StartTimer();
-        ictsalg->GetMDD(agent,instance.first[agent],instance.second[agent],dag[agent],root,(int)(alg->HCost(instance.first[agent],instance.second[agent],agent))+(int)(sizes[agent]),best[agent],dagsize[agent],alg->envs[agent]);
+        ok &= ictsalg->GetMDD(agent,instance.first[agent],instance.second[agent],dag[agent],root,(int)(alg->HCost(instance.first[agent],instance.second[agent],agent))+(int)(sizes[agent]),best[agent],dagsize[agent],alg->envs[agent],size);
         ictsalg->mddTime+=timer.EndTimer();
         bestSeen=std::accumulate(best.begin(),best.end(),0);
         // Replace new root node on top of old.
@@ -607,7 +627,9 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
         //if(verbose)std::cout << agent << ":\n" << root[agent] << "\n";
       }
 
-      ICTSNode(ICTSAlgorithm* alg, Instance const& inst, std::vector<uint32_t> const& s):ictsalg(alg),instance(inst),dag(s.size()),best(s.size()),dagsize(s.size()),bestSeen(0),sizes(s),root(s.size()){
+      ICTSNode(ICTSAlgorithm* alg, Instance const& inst, std::vector<uint32_t> const& s):
+      ictsalg(alg),instance(inst),dag(s.size()),best(s.size()),
+      dagsize(s.size()),bestSeen(0),sizes(s),root(s.size()),ok(true){
         count++;
         replanned.resize(s.size());
         for(int i(0); i<instance.first.size(); ++i){
@@ -619,7 +641,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
 
           Timer timer;
           timer.StartTimer();
-          ictsalg->GetMDD(i,instance.first[i],instance.second[i],dag[i],root,(int)(alg->HCost(instance.first[i],instance.second[i],i))+(int)(sizes[i]),best[i],dagsize[i],alg->envs[i]);
+          ok &= ictsalg->GetMDD(i,instance.first[i],instance.second[i],dag[i],root,(int)(alg->HCost(instance.first[i],instance.second[i],i))+(int)(sizes[i]),best[i],dagsize[i],alg->envs[i],sizes[i]);
           ictsalg->mddTime+=timer.EndTimer();
           //if(verbose)std::cout << i << ":\n" << root[i] << "\n";
         }
@@ -646,9 +668,11 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       std::vector<Node*> toDelete;
       static uint64_t count;
       std::vector<int> replanned; // Set of nodes that was just re-planned
+      bool ok; // Indicates whether all MDDs are valid
 
       // TODO add cardinal check enhancement from icts driver
       bool isValid(std::vector<MDDSolution>& answers, bool costonly=false){
+        if(!ok) return false;
         static std::vector<std::vector<uint64_t>> goods;
         if(ictsalg->epp){
           goods.resize(root.size());
@@ -767,7 +791,8 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
     void SetVerbose(bool v){verbose=v;}
     virtual unsigned GetNodesExpanded()const{return Node::count;}
 
-    void GetSolutionCosts(std::vector<EnvironmentContainer<state,action>*> const& env, MultiAgentState<state> const& start, MultiAgentState<state> const& goal, std::vector<uint32_t>& sizes){
+    bool GetSolutionCosts(std::vector<EnvironmentContainer<state,action>*> const& env, MultiAgentState<state> const& start, MultiAgentState<state> const& goal, std::vector<std::vector<uint32_t>>& costs){
+      bool found(false);
       for(int i(0);i<env.size(); ++i){
         envs.push_back(env[i]->environment.get());
         heuristics.push_back(env[i]->heuristic.get());
@@ -780,8 +805,10 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       uint64_t bestCost(0xffffffffffffffff);
       Instance inst(start,goal);
 
-      sizes.resize(start.size());
-      q.emplace(new ICTSNode(this,inst,sizes));
+      costs.resize(1);
+      auto sizes(&costs[0]);
+      sizes->resize(start.size());
+      q.emplace(new ICTSNode(this,inst,*sizes));
 
       //clearNoGoods();
       while(q.size()){
@@ -790,7 +817,8 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
         // It is impossible for a better solution to be further down in the tree - 
         // no node of cost>=best can possibly produce a child with better cost
         if(verbose)std::cout << "TOP: " << q.top()->lb() << " BEST: " << bestCost << "\n";
-        if(q.top()->lb()>=bestCost){
+        if(q.top()->lb()>bestCost){
+          found=true;
           break;
         }
         // This node could contain a solution since its lb is <=
@@ -812,20 +840,33 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
         std::vector<MDDSolution> answers;
         // If we found an answer set and any of the answers are not in conflict
         // with other paths in the solution, we can quit if the answer has a cost
-        // equal to that of the best SIC in the current plateau. Otherwise, we will
+        // less than the best SIC in the current plateau. Otherwise, we will
         // continue the ICT search until the next plateau
         if(parent->isValid(answers,true)){
           for(auto const& a:answers){
             auto cost(computeSolutionCost(a));
-            if(cost<=bestCost){
+            if(cost<bestCost){
+              costs.resize(1);
+              sizes=&costs[0];
               bestCost=cost;
-              sizes.resize(0);
+              sizes->resize(0);
+              sizes->reserve(a.size());
               for(auto const& path:a){
-                sizes.push_back(computePathCost(path));
+                sizes->push_back(computePathCost(path));
+              }
+            }else if(cost==bestCost){
+              costs.resize(costs.size()+1);
+              sizes=&costs[costs.size()-1];
+              sizes->resize(0);
+              sizes->reserve(a.size());
+              for(auto const& path:a){
+                sizes->push_back(computePathCost(path));
               }
             }
           }
-          if(suboptimal||q.empty()||q.top()->lb()>=bestCost){
+          // We can exit now if we've finished exploring the plateau
+          if(suboptimal||q.empty()||q.top()->lb()>bestCost){
+            found = true;
             break;
           }
         }else{
@@ -849,8 +890,12 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
                 std::cout << "\n";
                 std::cout << "  SIC: " << tmp->lb() << std::endl;
               }
-              q.emplace(tmp);
               deconf.insert(sv);
+              if(!tmp->ok &&
+              this->HCost(inst.first[i],inst.second[i],i)/2>tmp->sizes[i]){
+              continue;
+                }
+              q.emplace(tmp);
             }
           }
         }
@@ -860,6 +905,8 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       mddcache.clear();
       lbcache.clear();
       mscache.clear();
+      if(!found)costs.resize(0);
+      return found;
     }
 
     void GetSolution(std::vector<EnvironmentContainer<state,action>*> const& env, MultiAgentState<state> const& start, MultiAgentState<state> const& goal, Solution<state>& solution, std::string& hint){
