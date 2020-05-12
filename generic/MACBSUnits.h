@@ -3236,14 +3236,11 @@ assert(b1.t<=b[yTime].t && b2.t >= b[yTime].t);
                   auto u1((CBSUnit<state, action, comparison, conflicttable, searchalgo> *)this->GetMember(x));
                   auto u2((CBSUnit<state, action, comparison, conflicttable, searchalgo> *)this->GetMember(y));
                   std::vector<state> goals = {u1->GetWaypoint(1), u2->GetWaypoint(1)};
-                  std::vector<ConstrainedEnvironment<state, action> *> env(2);
-                  env[0] = currentEnvironment[x]->environment.get();
-                  env[1] = currentEnvironment[y]->environment.get();
                   std::vector<float> radi = {radii[x], radii[y]};
 
                   bool hasSolution(false);
                   unsigned increment(state::TIME_RESOLUTION_U);
-                  unsigned epsilon(1);
+                  //unsigned epsilon(1);
                   best1 = best2 = INT_MAX;
                   // Re-initialize DAGs
                   root[0] = root[1] = nullptr;
@@ -3316,9 +3313,10 @@ assert(b1.t<=b[yTime].t && b2.t >= b[yTime].t);
                                   << root[1] << "\n";
                         start[0] = {root[0], root[0]};
                         start[1] = {root[1], root[1]};
-                        hasSolution = getMutexes(start, goals, env, toDelete, // actions, edges,
+                        Solution<state> f;
+                        hasSolution = getMutexes(start, goals, ec, toDelete, // actions, edges,
                                                  terminals, mutexes,
-                                                 radi, disappearAtGoal);
+                                                 radi, f, disappearAtGoal);
                         std::cout << "Solution found: " << hasSolution << "\n";
                         for (auto &d : toDelete) {
                           delete d;

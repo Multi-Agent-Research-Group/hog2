@@ -153,7 +153,7 @@ void processSolution(double elapsed){
   }
   fflush(stdout);
   std::cout
-    << "elapsed,planTime,replanTime,bypassplanTime,maplanTime,collisionTime,expansions,CATcollchecks,collchecks,collisions,cost,actions,maxCSet,meanCSet\n";
+    << "elapsed,planTime,replanTime,maplanTime,collisionTime,expansions,CATcollchecks,collchecks,collisions,cost,actions,maxCSet,meanCSet\n";
   if (verify && elapsed > 0)
     std::cout << (valid ? "VALID" : "INVALID") << std::endl;
   if (elapsed < 0) {
@@ -164,7 +164,6 @@ void processSolution(double elapsed){
   }
   std::cout << CBICSGroup::planTime << ",";
   std::cout << CBICSGroup::replanTime << ",";
-  std::cout << CBICSGroup::bypassplanTime << ",";
   std::cout << CBICSGroup::collisionTime << ",";
   std::cout << CBICSGroup::TOTAL_EXPANSIONS << ",";
   std::cout << TieBreaking3D<xyztLoc,t3DDirection>::collchecks << ",";
@@ -181,7 +180,6 @@ int main(int argc, char* argv[])
 {
   //load3DCollisionTable();
   InstallHandlers();
-  Params::precheck=0; // No precheck (default)
   ProcessCommandLineArgs(argc, argv);
   Util::setmemlimit(killmem);
 
@@ -297,21 +295,15 @@ void InstallHandlers()
   InstallCommandLineHandler(MyCLHandler, "-cat", "-cat", "Use Conflict Avoidance Table (CAT)");
   InstallCommandLineHandler(MyCLHandler, "-animate", "-animate <usecs>", "Animate CBS search");
   InstallCommandLineHandler(MyCLHandler, "-verify", "-verify", "Verify results");
-  InstallCommandLineHandler(MyCLHandler, "-toptwo", "-toptwo", "Choose top two conflict counts for agents at split");
   InstallCommandLineHandler(MyCLHandler, "-complete", "-complete", "Ensure completeness when using suboptimal switch");
   InstallCommandLineHandler(MyCLHandler, "-overload", "-overload", "Add additional constriants during conflict check");
   InstallCommandLineHandler(MyCLHandler, "-suboptimal", "-suboptimal", "Sub-optimal answers");
   InstallCommandLineHandler(MyCLHandler, "-random", "-random", "Randomize conflict resolution order");
   InstallCommandLineHandler(MyCLHandler, "-greedyCT", "-greedyCT", "Greedy sort high-level search by number of conflicts (GCBS)");
-  InstallCommandLineHandler(MyCLHandler, "-xor", "-xor", "Use XOR constraints");
   InstallCommandLineHandler(MyCLHandler, "-ctype", "-ctype", "Constraint type: \n\t1: identical constraints\n\t2: Pyramid constraints\n\t3: Collision constraints (sub-optimal)\n\t4: Time range constraints (sub-optimal)\n\t5: Mutual Conflict set constraints\n\t6: Overlap Constraints\n\t7:Box constraints (sub-optimal)\n\t8:1xn TimeRange\n\t9:nxm TimeRange");
-  InstallCommandLineHandler(MyCLHandler, "-pc", "-pc", "prioritize conflicts");
-  InstallCommandLineHandler(MyCLHandler, "-apriori", "-apriori", "Use a-priori computed conflict detection");
   InstallCommandLineHandler(MyCLHandler, "-extended", "-extended", "Use extended area a-priori computed conflict detection");
-  InstallCommandLineHandler(MyCLHandler, "-cct", "-cct", "Conflict count table");
   InstallCommandLineHandler(MyCLHandler, "-uniqcost", "-uniqcost <value>", "Use randomized unique costs up to <value>");
   InstallCommandLineHandler(MyCLHandler, "-skip", "-skip", "Ship-ahead logic");
-  InstallCommandLineHandler(MyCLHandler, "-precheck", "-precheck", "Pre-check for broadphase collision 0(default)=No precheck, 1=AABB precheck, 2=Convex hull intersection check, 3=Sweep and prune");
   InstallCommandLineHandler(MyCLHandler, "-ECBSheuristic", "-ECBSheuristic", "Use heuristic in low-level search");
 
   InstallWindowHandler(MyWindowHandler);
@@ -344,7 +336,6 @@ void InitGroupParams(CBICSGroup* group){
   group->animate=animate;
   group->killex=killex;
   group->ECBSheuristic=ECBSheuristic;
-  group->nobypass=nobypass;
   group->verify=verify;
   group->quiet=quiet;
 }
@@ -637,11 +628,6 @@ int MyCLHandler(char *argument[], int maxNumArgs){
     greedyCT = true;
     return 1;
   }
-  if(strcmp(argument[0], "-toptwo") == 0)
-  {
-    Params::topTwo = true;
-    return 1;
-  }
   if(strcmp(argument[0], "-complete") == 0)
   {
     Params::complete=true;
@@ -832,7 +818,6 @@ int MyCLHandler(char *argument[], int maxNumArgs){
     //5: Box constraints (sub-optimal)
     unsigned scheme(atoi(argument[1]));
     Params::crossconstraints=false;
-    Params::boxconstraints=false;
     Params::timerangeconstraints=false;
     Params::pyramidconstraints=false;
     Params::mutualconstraints=false;
@@ -863,7 +848,6 @@ int MyCLHandler(char *argument[], int maxNumArgs){
         Params::extrinsicconstraints=true;
         break;
       case 7:
-        Params::boxconstraints=true;
         Params::extrinsicconstraints=true;
         break;
       case 8:
@@ -917,16 +901,6 @@ int MyCLHandler(char *argument[], int maxNumArgs){
   {
     Params::prioritizeConf = true;
     return 1;
-  }
-  if(strcmp(argument[0], "-cct") == 0)
-  {
-    Params::cct = true;
-    return 1;
-  }
-  if(strcmp(argument[0], "-precheck") == 0)
-  {
-    Params::precheck = atoi(argument[1]);
-    return 2;
   }
   if(strcmp(argument[0], "-mapfile") == 0)
   {
