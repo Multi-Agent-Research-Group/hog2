@@ -529,108 +529,121 @@ struct conflict_t{
   size_t operator()(conflict_t const&pt)const{return pt.ix1+pt.ix2*0xffff;}
 };
 
-template<typename state, typename conflicttable>
-struct CBSTreeNode {
+template <typename state, typename conflicttable>
+struct CBSTreeNode
+{
   CBSTreeNode()
-    : path(), parent(0), satisfiable(true), cat(), cct(){}
+      : path(), parent(0), satisfiable(true), cat(), cct() {}
   // Copy ctor takes over memory for path member
 
-  CBSTreeNode(CBSTreeNode<state, conflicttable> const& from)
-    : wpts(from.wpts), path(from.path.size()),
-    paths(from.paths), con(from.con), parent(from.parent),
-    satisfiable(from.satisfiable), cat(from.cat), cct(from.cct)
+  CBSTreeNode(CBSTreeNode<state, conflicttable> const &from)
+      : wpts(from.wpts), path(from.path.size()),
+        paths(from.paths), con(from.con), parent(from.parent),
+        satisfiable(from.satisfiable), cat(from.cat), cct(from.cct)
   {
     // Hand ownership of re-planned paths over to this new node
-    
-    for (unsigned i(0); i<con.units.size(); ++i)
+
+    for (unsigned i(0); i < con.units.size(); ++i)
     {
-      path[i].reset(path[i].release());
+      path[i].reset(from.path[i].release());
     }
   }
 
-    CBSTreeNode(CBSTreeNode<state, conflicttable> const &from, Conflict<state> const &c, unsigned p, bool s)
-        : wpts(from.wpts), path(c.units.size()),
-          paths(from.paths), con(c), parent(p),
-          satisfiable(s), cat(from.cat), cct(from.cct)
+  CBSTreeNode(CBSTreeNode<state, conflicttable> const &from, Conflict<state> const &c, unsigned p, bool s)
+      : wpts(from.wpts), path(c.units.size()),
+        paths(from.paths), con(c), parent(p),
+        satisfiable(s), cat(from.cat), cct(from.cct)
+  {
+    unsigned i(0);
+    for (auto const &u : c.units)
     {
-      unsigned i(0);
-      for (auto const &u : c.units)
-      {
-        // Allocate new mem for replanned path
-        path[i].reset(new std::vector<state>());
-        // point to new path
-        paths[u] = path[i++].get();
-      }
-      for (auto const &a : c.units)
-        clearcct(a); // Clear the cct for this unit so that we can re-count collisions
+      // Allocate new mem for replanned path
+      path[i].reset(new std::vector<state>());
+      // point to new path
+      paths[u] = path[i++].get();
     }
+    for (auto const &a : c.units)
+      clearcct(a); // Clear the cct for this unit so that we can re-count collisions
+  }
 
-  inline void getCollisionPair(unsigned& a1, unsigned& a2)const{
-    for(auto const& e:cct){
-      a1=e.first.a1;
-      a2=e.first.a2;
+  inline void getCollisionPair(unsigned &a1, unsigned &a2) const
+  {
+    for (auto const &e : cct)
+    {
+      a1 = e.first.a1;
+      a2 = e.first.a2;
       return;
     }
   }
 
-  inline bool hasCollisions()const{
+  inline bool hasCollisions() const
+  {
     return !cct.empty();
   }
 
-  inline unsigned numCollisions()const{
+  inline unsigned numCollisions() const
+  {
     unsigned total(0);
-    for(auto const& e:cct){
-      total+= e.second.size();
+    for (auto const &e : cct)
+    {
+      total += e.second.size();
     }
     return total;
   }
 
-  inline void mostConflicting(unsigned& a1, unsigned& a2)const{
+  inline void mostConflicting(unsigned &a1, unsigned &a2) const
+  {
     unsigned total1(0);
-    for(auto const& e:cct){
-      if(e.second.size()>total1){
-        a1=e.first.a1;
-        a2=e.first.a2;
+    for (auto const &e : cct)
+    {
+      if (e.second.size() > total1)
+      {
+        a1 = e.first.a1;
+        a2 = e.first.a2;
       }
     }
   }
 
-  inline void setcct(unsigned a1, unsigned a2, unsigned ix1, unsigned ix2)const{
-    agentpair_t p(a1,a2);
-    if(p.a1==a1)
-      cct[p].emplace(ix1,ix2);
+  inline void setcct(unsigned a1, unsigned a2, unsigned ix1, unsigned ix2) const
+  {
+    agentpair_t p(a1, a2);
+    if (p.a1 == a1)
+      cct[p].emplace(ix1, ix2);
     else
-      cct[p].emplace(ix2,ix1);
+      cct[p].emplace(ix2, ix1);
   }
 
-  inline void unsetcct(unsigned a1, unsigned a2, unsigned ix1, unsigned ix2)const{
-    agentpair_t p(a1,a2);
-    if(p.a1==a1)
-      cct[p].erase({ix1,ix2});
+  inline void unsetcct(unsigned a1, unsigned a2, unsigned ix1, unsigned ix2) const
+  {
+    agentpair_t p(a1, a2);
+    if (p.a1 == a1)
+      cct[p].erase({ix1, ix2});
     else
-      cct[p].erase({ix2,ix1});
+      cct[p].erase({ix2, ix1});
   }
 
-  inline void clearcct(unsigned a1)const{
-    for(unsigned a2(0);a2<paths.size();++a2){
-      auto ix(cct.find({a1,a2}));
-      if(ix != cct.end()){
+  inline void clearcct(unsigned a1) const
+  {
+    for (unsigned a2(0); a2 < paths.size(); ++a2)
+    {
+      auto ix(cct.find({a1, a2}));
+      if (ix != cct.end())
+      {
         cct.erase(ix);
       }
     }
   }
 
-  std::vector<std::vector<int> > wpts;
+  std::vector<std::vector<int>> wpts;
   mutable std::vector<std::unique_ptr<std::vector<state>>> path;
-  std::vector<std::vector<state>*> paths;
-  mutable std::unordered_map<agentpair_t,std::unordered_set<conflict_t,conflict_t>,agentpair_t> cct;
+  std::vector<std::vector<state> *> paths;
+  mutable std::unordered_map<agentpair_t, std::unordered_set<conflict_t, conflict_t>, agentpair_t> cct;
 
   Conflict<state> con;
   unsigned int parent;
   bool satisfiable;
   conflicttable cat; // Conflict avoidance table
 };
-
 
 template<typename state, typename conflicttable, class searchalgo>
 static std::ostream& operator <<(std::ostream & out, const CBSTreeNode<state, conflicttable> &act) {
@@ -697,7 +710,7 @@ private:
   bool GetConstraints(CBSTreeNode<state, conflicttable> const& location, std::vector<unsigned>const& confset, std::vector<Conflict<state>>& constraints,
   std::vector<Solution<state>> & fixed);
   unsigned FindConflictGroupAllPairs(CBSTreeNode<state, conflicttable> const& location, std::vector<unsigned>& confset);
-  unsigned FindConflictGroupOneVsAll(CBSTreeNode<state, conflicttable> const& location, unsigned x, std::vector<unsigned>& confset);
+  unsigned FindConflictGroupOneVsAll(CBSTreeNode<state, conflicttable> const& location, unsigned x, std::vector<unsigned>& confset, bool update);
       
   void SetEnvironment(unsigned agent);
   void ClearEnvironmentConstraints(unsigned agent);
@@ -792,15 +805,20 @@ template<typename state, typename action, typename comparison, typename conflict
 void CBSUnit<state, action, comparison, conflicttable, searchalgo>::OpenGLDraw(
     const ConstrainedEnvironment<state, action> *ae,
     const SimulationInfo<state, action, ConstrainedEnvironment<state, action>> *si) const {
-  GLfloat r, g, b;
-  this->GetColor(r, g, b);
-  ae->SetColor(r, g, b);
+  //GLfloat r, g, b;
+  //this->GetColor(r, g, b);
+  //ae->SetColor(r, g, b);
 
   if (myPath.size() > 1) {
     // Interpolate between the two given the timestep
     state start_t = myPath[myPath.size() - 1];
     state stop_t = myPath[myPath.size() - 2];
 
+    glLineWidth(2.0);
+    GLfloat r, g, b;
+    this->GetColor(r, g, b);
+    ae->SetColor(r, g, b);
+    ae->GLDrawPath(this->GetPath(), this->GetWaypoints());
     if (si->GetSimulationTime() * state::TIME_RESOLUTION_D <= stop_t.t
         && si->GetSimulationTime() * state::TIME_RESOLUTION_D >= start_t.t) {
       float perc = (stop_t.t - si->GetSimulationTime() * state::TIME_RESOLUTION_D) / (stop_t.t - start_t.t);
@@ -814,6 +832,9 @@ void CBSUnit<state, action, comparison, conflicttable, searchalgo>::OpenGLDraw(
       //Constraint<state> c(stop_t);
       //c.OpenGLDraw();
     }
+    //GLfloat r, g, b;
+    //this->GetColor(r, g, b);
+    //ae->SetColor(r, g, b);
   } else {
     //if (current.landed)
     //return;
@@ -883,14 +904,6 @@ CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searchalgo>:
   basepaths.resize(MAXNAGENTS);
 }
 
-template<typename T>
-void clear(std::vector<T>& v){
-  for (auto &a : v)
-  {
-    a.clear();
-  }
-}
-
 /** Get the constraints for varying cost vectors */
 template <typename state, typename action, typename comparison, typename conflicttable, class singleHeuristic, class searchalgo>
 bool CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searchalgo>::GetConstraints(
@@ -931,13 +944,15 @@ bool CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
   static std::vector<float> radi;
   radi.clear();
   radi.resize(n);
+  unsigned ix(0);
   for (auto const &a : agents)
   {
     origCost.push_back(GetEnv(a)->GetPathLength(*location.paths[a]));
     goals.push_back(this->GetUnit(a)->GetWaypoint(1));
     starts.push_back(this->GetUnit(a)->GetWaypoint(0));
     ec.push_back(this->GetUnit(a)->env);
-    radi[a] = radii[a];
+    LoadConstraintsForNode(bestNode,a);
+    radi[ix++] = radii[a];
   }
   static std::vector<unsigned> maxs;
   maxs = origCost;
@@ -952,7 +967,8 @@ bool CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
   somecosts.resize(1);
 
   ICTSAlgorithm<state, action> ictsalgo(radi);
-  ictsalgo.SetVerbose(true);
+  ictsalgo.SetVerbose(Params::astarverbose);
+  ictsalgo.SetQuiet(true);//!Params::unquiet);
   if(!ictsalgo.GetSolutionCosts(ec, starts, goals, somecosts))
   {
     return false; // Signal that no solution is possible
@@ -962,6 +978,7 @@ bool CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
   fixed.resize(somecosts.size());
   for (auto const &costs : somecosts)
   {
+    std::cout << "cost: " << costs << "\n";
     conflicts[i].units=agents;
     // Get MDDs and mutexes with new costs
     best.assign(n,INT_MAX);
@@ -988,7 +1005,7 @@ bool CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
         dags[a].clear();
         terminals[a].clear();
       }
-      std::cout << "MDD"<<a<<":\n" << root[a] << "\n";
+      if(Params::verbose)std::cout << "MDD"<<a<<":\n" << root[a] << "\n";
     }
 
     for(unsigned a(0); a<root.size(); ++a){
@@ -998,7 +1015,7 @@ bool CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
     hasSolution = getMutexes(start, goals, ec, toDelete,
                              terminals, mutexes, radi, 
                              fixed[i], disappearAtGoal);
-    std::cout << "Solution found: " << hasSolution << "\n";
+    //std::cout << "Solution found: " << hasSolution << "\n";
     for (auto &d : toDelete)
     {
       delete d;
@@ -1061,7 +1078,7 @@ bool CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
       for (auto const &m : mutexes[a])
       {
         conflicts[i].c[a].emplace_back((Constraint<state> *)new Identical<state>(m.first->n, m.second->n, agents[a]));
-        std::cout << "Add constraint to agent " << a << ": " << m.first->n << "-->" << m.second->n << "\n";
+        std::cout << "Add constraint to agent " << agents[a] << ": " << m.first->n << "-->" << m.second->n << "\n";
       }
     }
     ++i;
@@ -1092,8 +1109,8 @@ bool CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
     // Check all of the agents that were just replanned
     for (auto const &a : tree[bestNode].con.units)
     {
-      numconflicts = FindConflictGroupOneVsAll(tree[bestNode], a, conflictset);
-      if(numconflicts){break;}
+      numconflicts = FindConflictGroupOneVsAll(tree[bestNode], a, conflictset,a==tree[bestNode].con.units.back());
+      //if(numconflicts){break;} // can't do this...
     }
   }
   else
@@ -1106,11 +1123,11 @@ bool CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
     // Now figure out the cost vectors and the constraints for each of them
     std::vector<Conflict<state>> conflicts(conflictset.size());
     std::vector<Solution<state>> fixed;
-    GetConstraints(tree[bestNode], conflictset, conflicts, fixed);
+    if(GetConstraints(tree[bestNode], conflictset, conflicts, fixed)){
 
     constrainttot += conflicts.size();
 
-    if (conflicts.size() == 1)
+    if (conflicts.size() <2 && conflictset==tree[bestNode].con.units)
     {
       std::cout << "TREE " << bestNode << "(" << tree[bestNode].parent << ") OVERRIDE(bypass)\n";
       // Override with new paths...
@@ -1126,7 +1143,13 @@ bool CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
       double cost = 0;
       for (int y = 0; y < node.paths.size(); y++)
       {
-        cost += GetEnv(y)->GetPathLength(*node.paths[y]);
+        std::cout << "agent: "<< y<<"\n";
+        for(auto const& p:*node.paths[y]){
+          std::cout << p << "\n";
+        }
+        auto cc(GetEnv(y)->GetPathLength(*node.paths[y]));
+        std::cout << cc << "\n";
+        cost += cc;
       }
       // Insert back into OPEN
       openList.emplace(bestNode, cost, numconflicts);
@@ -1144,23 +1167,30 @@ bool CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
           std::cout << "  child " << i << ":\n";
         last = tree.size();
         tree.emplace_back(tree[bestNode], conflicts[i], bestNode, true);
-        for (int a(0); a < conflicts[i].c.size(); ++a)
+        for (int ix(0); ix < tree[last].con.c.size(); ++ix)
         {
-          constraintsz += conflicts[i].c[a].size();
+          auto a(tree[last].con.units[ix]);
+          constraintsz += tree[last].con.c[ix].size();
+          unsigned minTime(0);
+          // If this is the last waypoint, the plan needs to extend so that the agent sits at the final goal
+          minTime = GetMaxTime(bestNode, ix); // Take off a 1-second wait action, otherwise paths will grow over and over.
+                                             // Left node...
           if (Params::verbose)
             std::cout << "    agent " << a << ":\n";
-          for (auto const &c : conflicts[i].c[a])
+          for (auto const &c : tree[last].con.c[ix])
           {
             if (Params::verbose)
               std::cout << "      " << c->start() << "-->" << c->end() << "\n";
             if (animate)
               c->OpenGLDraw(GetEnv(a)->GetMap());
           }
-          unsigned minTime(0);
-          // If this is the last waypoint, the plan needs to extend so that the agent sits at the final goal
-          minTime = GetMaxTime(bestNode, a); // Take off a 1-second wait action, otherwise paths will grow over and over.
-                                             // Left node...
-          Replan(last, a);
+          *tree[last].paths[a]=fixed[i][ix];
+          //Replan(last, ix);
+          if (Params::verbose)
+            for (auto const &p : *tree[last].paths[a])
+            {
+              std::cout << "      " << p << "\n";
+            }
         }
         double cost = 0;
         for (int y = 0; y < tree[last].paths.size(); y++)
@@ -1174,6 +1204,7 @@ bool CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
         openList.emplace(last, cost, numconflicts);
       }
     }
+    }else{std::cout << "Agents: "<<conflictset<<"Are overconstrained!\nThis indicates that some constraints need to be removed because costs must increase.";}
   }
   else
   {
@@ -1734,6 +1765,7 @@ unsigned CBSGroup<state, action, comparison, conflicttable, singleHeuristic, sea
     collchecks++;
     if(collisionCheck3D(a[xTime], a[xNextTime], b[yTime], b[yNextTime], radii[x],radii[y])){
       location.setcct(x, y, xTime, yTime);
+      if(verbose)std::cout << "Conflict: agents=(" << x << "," << y << ") @ " << a[xTime] << "-->" << a[xNextTime]<<","<<b[yTime]<<"-->"<<b[yNextTime] << "\n";
       ++ccount;
     }
 
@@ -1770,13 +1802,14 @@ unsigned CBSGroup<state, action, comparison, conflicttable, singleHeuristic, sea
 
 
 bool isClique(std::vector<unsigned> const& store,
+unsigned n,
 std::vector<std::vector<bool>> const& graph)
 {
   // Run a loop over all the set of edges
   // for the selected vertices
-  for (unsigned i(0); i < store.size() - 1; i++)
+  for (unsigned i(0); i < n - 1; i++)
   {
-    for (unsigned j(i + 1); j < store.size(); j++)
+    for (unsigned j(i + 1); j < n; j++)
     {
       // If any edge is missing it is not a clique
       if (!graph[store[i]][store[j]])
@@ -1794,17 +1827,17 @@ std::vector<unsigned> const& d,
 unsigned s) 
 { 
 	// Check if any vertices from i+1 can be inserted 
-	for (unsigned j(i+1); j <= graph.size() - (s - l); j++) 
+	for (unsigned j(i); j <= graph.size() - (s - l); j++) 
 
 		// If the degree of the graph is sufficient
     if (d[j] >= s - 1)
     {
       // Add the vertex to store
-      store[l] = j;
+      store[l-1] = j;
       // If the graph is a clique of size < k
       // then it could lead to clique of size s
       // otherwise it can't
-      if(isClique(store, graph))
+      if(isClique(store, l, graph))
       {
         // If the length of the clique is
         // still less than the desired size
@@ -1825,12 +1858,11 @@ unsigned s)
 /** Find largest conflict group **/
 template <typename state, typename action, typename comparison, typename conflicttable, class singleHeuristic, class searchalgo>
 unsigned CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searchalgo>::FindConflictGroupOneVsAll(
-    CBSTreeNode<state, conflicttable> const &location, unsigned x, std::vector<unsigned> &confset)
+    CBSTreeNode<state, conflicttable> const &location, unsigned x, std::vector<unsigned> &confset, bool update)
 {
   if (Params::verbose)
     std::cout << "Checking for conflict groups (one vs all)\n";
 
-  unsigned total(0);
   Timer tmr;
   tmr.StartTimer();
   // For each pair of units in the group
@@ -1882,17 +1914,13 @@ unsigned CBSGroup<state, action, comparison, conflicttable, singleHeuristic, sea
         location.paths[y]->back().t = location.paths[x]->back().t;
       }
     }
-    total += CountConflicts(*location.paths[x], location.wpts[x], *location.paths[y], location.wpts[y], x, y);
-  }
-  if (!total)
-  {
-    collisionTime += tmr.EndTimer();
-    return 0;
+    CountConflicts(*location.paths[x], location.wpts[x], *location.paths[y], location.wpts[y], x, y);
   }
 
-  GetConfGroup(location,confset);
+  if (update)
+    GetConfGroup(location, confset);
   collisionTime += tmr.EndTimer();
-  return total;
+  return location.numCollisions();
 }
 
 /** Find largest conflict group **/
@@ -1988,13 +2016,13 @@ void CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
       auto p2(std::make_pair(pair.first.a2, ref.ix2));
       action2conf[p1].emplace_back(pair.first.a2, ref.ix2);
       action2conf[p2].emplace_back(pair.first.a1, ref.ix1);
-      std::max(biggest, (unsigned)action2conf[p1].size());
-      std::max(biggest, (unsigned)action2conf[p2].size());
+      biggest=std::max(biggest, (unsigned)action2conf[p1].size());
+      biggest=std::max(biggest, (unsigned)action2conf[p2].size());
     }
   }
-  std::vector<unsigned> hist(biggest);
+  std::vector<unsigned> hist(biggest+1);
   for(auto const& a:action2conf){
-    for(unsigned i(1); i<a.second.size(); ++i){
+    for(unsigned i(1); i<=a.second.size(); ++i){
       hist[i]++;
     }
   }
@@ -2023,7 +2051,7 @@ void CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
     auto initial(action2conf.begin());
     while(initial != action2conf.end())
     {
-      if(initial->second.size() < biggest+1) {
+      if(initial->second.size() < biggest) {
         ++initial;
         continue;
       }
@@ -2031,12 +2059,12 @@ void CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
       unsigned count(0);
       for (auto const &ref : initial->second)
       {
-        if (action2conf[ref].size() >= biggest+1)
+        if (action2conf[ref].size() >= biggest)
         {
           ++count;
         }
       }
-      if (count < biggest+1)
+      if (count < biggest)
       {
         ++initial;
         continue;
@@ -2049,6 +2077,10 @@ void CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
       }
       ++initial;
     }
+    if(d.empty()){
+      biggest--;
+      continue;
+    }
     std::vector<std::vector<bool>> adjmatrix(v.size(),std::vector<bool>(v.size()));
     bool proceedWithCliquefinding(true);
     for(unsigned i(0); i<v.size(); ++i){
@@ -2059,7 +2091,7 @@ void CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
         }
       }
       auto cnt(std::count(adjmatrix[i].begin(),adjmatrix[i].end(),true));
-      if(cnt<biggest+1){
+      if(cnt<biggest){
         // remove this vertex
         v.erase(v.begin()+i);
         d.erase(d.begin()+i);
@@ -2077,8 +2109,8 @@ void CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
           confset.push_back(v[b].first); // append agent number
         }
         return;
-      }
-    }
+      }else{--biggest;}
+    }else{--biggest;}
   }
 
   confset.resize(2);

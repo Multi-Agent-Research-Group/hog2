@@ -2,9 +2,9 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Build Debug",
+            "label": "Build Debug w/ Graphics",
             "type": "shell",
-            "command": "echo 'building' && cd build/gmake && make -j debug OPENGL=STUB",
+            "command": "echo 'building' && cd build/gmake && make -j debug",
             "isBackground": true,
             "group": {
                 "kind": "build",
@@ -13,11 +13,42 @@
             "problemMatcher": [
                 "$gcc"
             ]
-        },
-        {
-            "label": "Build Release",
+        },{
+            "label": "Build Debug w/o Graphics",
             "type": "shell",
-            "command": "cd build/gmake && make -j release OPENGL=STUB"
+            "command": "echo 'building' && cd build/gmake && make -j debug OPENGL=STUB",
+            "isBackground": true,
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },{
+            "label": "Build Release w/ Graphics",
+            "type": "shell",
+            "command": "echo 'building' && cd build/gmake && make -j release",
+            "isBackground": true,
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },{
+            "label": "Build Release w/o Graphics",
+            "type": "shell",
+            "command": "echo 'building' && cd build/gmake && make -j release OPENGL=STUB",
+            "isBackground": true,
+            "group": {
+                "kind": "build",
+                "isDefault": false
+            },
+            "problemMatcher": [
+                "$gcc"
+            ]
         }
     ]
 }

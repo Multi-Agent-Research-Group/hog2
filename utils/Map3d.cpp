@@ -185,21 +185,48 @@ void Map3D::loadOctile(FILE *f, float** elevation){
  * kPolygon is the default mode. The map is cached in a display list unless
  * it changes.
  */
-void Map3D::setColor(int x, int y) const{
-  switch(type[x][y]){
-    case kOutOfBounds:
-      glColor3f(0, 0, 0);
-      break;
-    case kGround:
-      glColor3f(0.6, 0.4, 0.3);
-      break;
-    case kWater:
-      glColor3f(0.0, 0.1, 0.9);
-      break;
-    default:
-      glColor3f(0.1, 0.9, 0.1);
-      break;
+void Map3D::setColor(int x, int y) const
+{
+  double red = 0, green = 0, blue = 0;
+  switch (type[x][y])
+  {
+  case kOutOfBounds:
+    red = blue = green = 0;
+    break;
+  case kWater:
+    red = 0;
+    green = (random() % 10) / 100.0;
+    blue = 1 - (random() % 10) / 100.0;
+    break;
+  case kGround:
+    red = (random() % 5 + 55) / 100.0;
+    green = (random() % 5 + 35) / 100.0;
+    blue = (random() % 5 + 25) / 100.0;
+    break;
+  case kTrees:
+    red = (random() % 10) / 100.0;
+    green = .45 - (random() % 10) / 100.0;
+    blue = (random() % 10) / 100.0;
+    break;
+  case kSwamp:
+    red = (.5 + (random() % 10 - 5) / 100.0) * 0.9;
+    green = (.25 + (random() % 10 - 5) / 100.0) * 0.9;
+    blue = (80 + random() % 10 - 5) / 100.0;
+    break;
+  case kGrass:
+    red = (random() % 10) / 100.0;
+    green = 1 - (random() % 10) / 100.0;
+    blue = (random() % 10) / 100.0;
+    break;
+  case kBlight:
+    red = (50 + random() % 10 - 5) / 100.0;
+    green = (50 + random() % 10 - 5) / 100.0;
+    blue = (50 + random() % 10 - 5) / 100.0;
+    break;
+  default:
+    break;
   }
+  glColor3f(red, green, blue);
 }
 
 void Map3D::doNormal(float x1, float y1, float z1,float x2, float y2, float z2,float x3, float y3, float z3)const{
@@ -211,6 +238,8 @@ void Map3D::doNormal(float x1, float y1, float z1,float x2, float y2, float z2,f
   glNormal3f(U.y*V.z - U.z*V.y, U.z*V.x - U.x*V.z, U.x*V.y - U.y*V.x);
 }
 
+
+
 void Map3D::OpenGLDraw() const
 {
   if(dList){
@@ -218,19 +247,19 @@ void Map3D::OpenGLDraw() const
   }else{
     dList = glGenLists(1);
     glNewList(dList, GL_COMPILE_AND_EXECUTE);
-    glEnable(GL_LIGHTING);
-    glEnable(GL_LIGHT0);
-    glEnable(GL_NORMALIZE);
-    float ambientColour[4] = {0.2f, 0.2f, 0.2f, 1.0f};
-    float diffuseColour[4] = {1.0f, 1.0f, 1.0f, 1.0f};
-    float specularColour[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+    //glEnable(GL_LIGHTING);
+    //glEnable(GL_LIGHT0);
+    //glEnable(GL_NORMALIZE);
+    //float ambientColour[4] = {0.2f, 0.2f, 0.2f, 1.0f};
+    //float diffuseColour[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+    //float specularColour[4] = {1.0f, 1.0f, 1.0f, 1.0f};
 
-    glLightfv(GL_LIGHT0, GL_AMBIENT, ambientColour);
-    glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuseColour);
-    glLightfv(GL_LIGHT0, GL_DIFFUSE, specularColour);
+    //glLightfv(GL_LIGHT0, GL_AMBIENT, ambientColour);
+    //glLightfv(GL_LIGHT0, GL_DIFFUSE, diffuseColour);
+    //glLightfv(GL_LIGHT0, GL_DIFFUSE, specularColour);
 
-    float position[4] = {0.0f, 0.0f, -2.0f, 0.0f};
-    glLightfv(GL_LIGHT0, GL_POSITION, position);
+    //float position[4] = {0.0f, 0.0f, -2.0f, 0.0f};
+    //glLightfv(GL_LIGHT0, GL_POSITION, position);
 
     GLdouble xx, yy, zz, rr;
     glBegin(GL_TRIANGLES);

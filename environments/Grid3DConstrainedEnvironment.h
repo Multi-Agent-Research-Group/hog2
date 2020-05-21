@@ -60,6 +60,7 @@ class Grid3DConstrainedEnvironment : public ConstrainedEnvironment<xyztLoc, t3DD
     void OpenGLDraw(const xyztLoc& s, const xyztLoc& t, float perc) const;
     virtual void OpenGLDraw(const xyztLoc&) const;
     virtual void OpenGLDraw(const xyztLoc&, const t3DDirection&) const;
+    virtual void OpenGLDraw(const xyztLoc &l1, const xyztLoc &l2, float pct, float r) const{mapEnv->OpenGLDraw(l1,l2,pct,r);}
     virtual void GLDrawLine(const xyztLoc &x, const xyztLoc &y) const;
     void GLDrawPath(const std::vector<xyztLoc> &p, const std::vector<xyztLoc> &waypoints) const;
     virtual Map3D* GetMap()const{return mapEnv->GetMap();}

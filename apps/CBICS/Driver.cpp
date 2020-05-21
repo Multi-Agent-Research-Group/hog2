@@ -574,7 +574,8 @@ void MyFrameHandler(unsigned long windowID, unsigned int viewport, void *)
         GLfloat r, g, b;
         u->GetColor(r, g, b);
         ace->SetColor(r,g,b);
-        ace->GLDrawPath(((CBICSUnit const*)u)->GetPath(),((CBICSUnit const*)u)->GetWaypoints());
+        u->OpenGLDraw(ace,sim->GetSimulationInfo());
+        //ace->GLDrawPath(((CBICSUnit const*)u)->GetPath(),((CBICSUnit const*)u)->GetWaypoints());
       }
     }
 
@@ -679,6 +680,7 @@ int MyCLHandler(char *argument[], int maxNumArgs){
     mapfile=sl.GetNthExperiment(0).GetMapName();
     mapfile.insert(0,"/"); // Add prefix
     mapfile.insert(0,mapdir); // Add prefix
+    //Map3D* map=new Map3D(mapfile.c_str(),dtedfile.c_str());
     Map3D* map=new Map3D(mapfile.c_str(),dtedfile.c_str());
     if(!envdata.size()){
       for(int i(0); i<num_agents; ++i){

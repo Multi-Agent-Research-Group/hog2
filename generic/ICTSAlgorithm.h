@@ -73,14 +73,12 @@ namespace std
 template<typename state, typename action>
 class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
   public:
-    ICTSAlgorithm(std::vector<float> const& radi):radii(radi),jointTime(0),pairwiseTime(0),mddTime(0),nogoodTime(0),epp(false),verbose(false),quiet(false),verify(false),jointnodes(0),step(state::TIME_RESOLUTION_U),suboptimal(false),pairwise(true){}
+    ICTSAlgorithm(std::vector<float> const& radi):radii(radi),jointTime(0),pairwiseTime(0),mddTime(0),verbose(false),quiet(false),verify(false),jointnodes(0),step(state::TIME_RESOLUTION_U),suboptimal(false),pairwise(true){}
     std::vector<float> radii;
     float jointTime;
     float pairwiseTime;
     float mddTime;
-    float nogoodTime;
 
-    bool epp;
     bool verbose;
     bool quiet;
     bool verify;
@@ -117,7 +115,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       //bool connected()const{return parents.size()+successors.size();}
       //std::unordered_set<Node*> parents;
       std::unordered_set<Node*> successors;
-      virtual uint64_t Hash()const{return hash;}//(env->GetStateHash(n)<<32) | ((uint32_t)(depth*state::TIME_RESOLUTION_U));}
+      virtual uint64_t Hash()const{return hash;}//(env->GetStateHash(n)<<32) | ((uint32_t)(depth*state::TIME_RESOLUTION_U));
       virtual uint32_t Depth()const{return n.t;}
       virtual void Print(std::ostream& ss, int d=0) const {
         ss << std::string(d/state::TIME_RESOLUTION_U,' ')<<n << std::endl;
@@ -189,12 +187,14 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
     }
 
     // Big caveat - this implementation assumes that time IS a component of the state hash
-    uint64_t GetHash(state const& n, unsigned agent){
-      return (envs[agent]->GetStateHash(n));}
+    uint64_t GetHash(state const &n, unsigned agent)
+    {
+      return (envs[agent]->GetStateHash(n));
+    }
 
     bool LimitedDFS(state const& start, state const& end, DAG& dag, Node*& root, uint32_t depth, uint32_t maxDepth, uint32_t& best, SearchEnvironment<state,action>* env, unsigned agent){
       if(depth<0 || maxDepth-depth+(int)(HCost(start,end,agent))>maxDepth){ // Note - this only works for a perfect heuristic.
-        std::cout << " pruned " << depth <<" "<< (maxDepth-depth+(int)(env->HCost(start,end)))<<">"<<maxDepth<<"\n";
+        //std::cout << " pruned " << depth <<" "<< (maxDepth-depth+(int)(env->HCost(start,end)))<<">"<<maxDepth<<"\n";
         return false;
       }
       Node n(start,GetHash(start,agent));
@@ -358,7 +358,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
     // In order for this to work, we cannot generate sets of positions, we must generate sets of actions, since at time 1.0 an action from parent A at time 0.0 may have finished, while another action from the same parent A may still be in progress. 
 
     // Return true if we get to the desired depth
-    bool jointDFS(MultiEdge const& s, uint32_t d, MDDSolution solution, std::vector<MDDSolution>& solutions, std::vector<Node*>& toDelete, uint64_t& best, uint64_t bestSeen, std::vector<std::vector<uint64_t>*>& good, std::vector<std::vector<uint64_t>>& unified, bool suboptimal=false, bool checkOnly=false){
+    bool jointDFS(MultiEdge const& s, uint32_t d, MDDSolution solution, std::vector<MDDSolution>& solutions, std::vector<Node*>& toDelete, uint64_t bestSeen, uint64_t& best, std::vector<uint32_t>& bestCosts, bool suboptimal=false, bool checkOnly=false){
       // Compute hash for transposition table
       std::string hash(s.size()*sizeof(uint64_t),1);
       int k(0);
@@ -409,33 +409,46 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
         }
         //maxCost=std::max(maxCost,g.second->Depth());
       }
-      if(done){
-        if(checkOnly){
-          k=0;
+      if (done)
+      {
+        std::vector<uint32_t> costs(s.size());
+        uint64_t cost(0);
+        if (checkOnly)
+        {
+          k = 0;
           solution.resize(s.size());
-          for(auto const& g:s){
+          for (auto const &g : s)
+          {
             solution[k].reserve(2);
             solution[k].push_back(g.first);
             solution[k].push_back(g.second);
+            costs[k] = computePathCost(solution[k]);
+            cost += costs[k];
             ++k;
           }
           solutions.clear();
           solutions.push_back(solution);
         }
-        uint32_t cost(computeSolutionCost(solution));
-        if(cost<best){
-          best=cost;
-          if(verbose)std::cout << "BEST="<<best<<std::endl;
-          if(verbose)std::cout << "BS="<<bestSeen<<std::endl;
+        if (cost < best)
+        {
+          bestCosts = costs;
+          best = cost;
+          if (verbose)
+            std::cout << "BEST=" << best << std::endl;
+          if (verbose)
+            std::cout << "BS=" << bestSeen << std::endl;
 
           // This is a leaf node
           // Copy the solution into the answer set
-          if(!checkOnly){
+          if (!checkOnly)
+          {
             // Shore up with wait actions
-            for(int i(0); i<solution.size(); ++i){
-              if(solution[i].back()->Depth()<MAXTIME){
-                state tmp(solution[i].back()->n,MAXTIME);
-                solution[i].emplace_back(new Node(tmp,GetHash(tmp,i)));
+            for (int i(0); i < solution.size(); ++i)
+            {
+              if (solution[i].back()->Depth() < MAXTIME)
+              {
+                state tmp(solution[i].back()->n, MAXTIME);
+                solution[i].emplace_back(new Node(tmp, GetHash(tmp, i)));
                 toDelete.push_back(solution[i].back());
               }
             }
@@ -460,15 +473,6 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       //Add in successors for parents who are equal to the min
       k=0;
       for(auto const& a: s){
-        if(epp){
-          if(!get(good[k]->data(),a.second->id)){
-            if(verbose)std::cout << *a.second << " is no good.\n";
-            return false; // If any  of these are "no good" just exit now
-          }else{
-            // The fact that we are evaluating this node means that all components were unified with something
-            if(checkOnly)set(unified[k].data(),a.second->id);
-          }
-        }
         MultiEdge output;
         if(a.second->Depth()<=sd){
           //std::cout << "Keep Successors of " << *a.second << "\n";
@@ -508,20 +512,20 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       bool value(false);
       for(auto& a: crossProduct){
         if(verbose)std::cout << "EVAL " << s << "-->" << a << "\n";
-        if(jointDFS(a,md,solution,solutions,toDelete,best,bestSeen,good,unified,suboptimal,checkOnly)){
+        if(jointDFS(a,md,solution,solutions,toDelete,bestSeen,best,bestCosts,suboptimal,checkOnly)){
           value=true;
           transTable[hash]=value;
           // Return first solution... (unless this is a pairwise check with pruning)
-          if(suboptimal&&!(epp&&checkOnly)) return true;
+          if(suboptimal&&!(checkOnly)) return true;
           // Return if solution is as good as any MDD
-          if((!(epp&&checkOnly))&&best==bestSeen)return true;
+          if((!(checkOnly))&&best==bestSeen)return true;
         }
       }
       transTable[hash]=value;
       return value;
     }
 
-    bool jointDFS(MultiState const& s, std::vector<MDDSolution>& solutions, std::vector<Node*>& toDelete, uint64_t bestSeen, std::vector<std::vector<uint64_t>*>& good, std::vector<std::vector<uint64_t>>& unified, bool suboptimal=false, bool checkOnly=false){
+    bool jointDFS(MultiState const& s, std::vector<MDDSolution>& solutions, std::vector<Node*>& toDelete, uint64_t bestSeen, uint64_t& best, std::vector<uint32_t>& bestCosts, bool suboptimal=false, bool checkOnly=false){
       if(verbose)std::cout << "JointDFS\n";
       MultiEdge act;
       MDDSolution solution;
@@ -534,10 +538,10 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
           solution.push_back({n});
         }
       }
-      uint64_t best(0xffffffffffffffff);
+      best=0xffffffffffffffff;
 
       transTable.clear();
-      return jointDFS(act,0.0,solution,solutions,toDelete,best,bestSeen,good,unified,suboptimal,checkOnly);
+      return jointDFS(act,0.0,solution,solutions,toDelete,bestSeen,best,bestCosts,suboptimal,checkOnly);
     }
 
     // Check that two paths have no conflicts
@@ -671,16 +675,11 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       bool ok; // Indicates whether all MDDs are valid
 
       // TODO add cardinal check enhancement from icts driver
-      bool isValid(std::vector<MDDSolution>& answers, bool costonly=false){
+      bool isValid(std::vector<MDDSolution>& answers, uint64_t& bestJoint, std::vector<uint32_t>& bestCosts, bool costonly=false){
+        bestJoint=0xffffffffffffffff;
         if(!ok) return false;
-        static std::vector<std::vector<uint64_t>> goods;
-        if(ictsalg->epp){
-          goods.resize(root.size());
-          for(int i(0); i<root.size(); ++i){
-            goods[i]=std::vector<uint64_t>(dagsize[i]/64+1,0xffffffffffffffff); // All "good"
-          }
-        }
         for(auto const& r:root){if(!r)return false;} // Make sure all MDDs have a solution
+        uint64_t increase(0);
         if(root.size()>2 && ictsalg->pairwise){
           Timer timer;
           timer.StartTimer();
@@ -692,44 +691,26 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
               tmproot[0]=root[i];
               tmproot[1]=root[j];
               std::vector<Node*> toDeleteTmp;
-              std::vector<std::vector<uint64_t>> unified(2);
-              unified[0]=std::vector<uint64_t>(goods[i].size()); // All false
-              unified[1]=std::vector<uint64_t>(goods[j].size());
-              std::vector<std::vector<uint64_t>*> tmpgood(2);
-              tmpgood[0]=&goods[i];
-              tmpgood[1]=&goods[j];
 
               // This is a satisficing search, thus we only need do a sub-optimal check
               if(ictsalg->verbose)std::cout<<"pairwise for " << i << ","<<j<<"\n";
-              if(!ictsalg->jointDFS(tmproot,answers,toDeleteTmp,INFTY,tmpgood,unified,true,true)){
+              if(!ictsalg->jointDFS(tmproot,answers,toDeleteTmp,INFTY,bestJoint,bestCosts,true,true)){
                 if(ictsalg->verbose)std::cout << "Pairwise failed\n";
                 return false;
-              }
-              // Perform a bitwise "and", to filter out nodes that were not unified
-              for(int k(0); k<goods[i].size(); ++k){
-                goods[i][k]&=unified[0][k];
-              }
-              for(int k(0); k<goods[j].size(); ++k){
-                goods[j][k]&=unified[1][k];
+              }else{
+                increase=std::max(increase,bestJoint-(best[i]+best[j]));
               }
             }
           }
           ictsalg->pairwiseTime+=timer.EndTimer();
         }
+        bestSeen+=increase;
         // Do a depth-first search; if the search terminates at a goal, its valid.
         if(ictsalg->verbose)std::cout<<"Pairwise passed\nFull check\n";
         Timer timer;
         timer.StartTimer();
-        static std::vector<std::vector<uint64_t>> unified;
-        unified.resize(root.size());
-        static std::vector<std::vector<uint64_t>*> tmpgood;
-        tmpgood.resize(root.size());
-        if(ictsalg->epp){
-          for(int i(0); i<tmpgood.size(); ++i){
-            tmpgood[i]=&goods[i];
-          }
-        }
-        if(ictsalg->jointDFS(root,answers,toDelete,lb(),tmpgood,unified,ictsalg->suboptimal,costonly)){
+        bestJoint=0xffffffffffffffff;
+        if(ictsalg->jointDFS(root,answers,toDelete,lb(),bestJoint,bestCosts,ictsalg->suboptimal,costonly)){
           ictsalg->jointTime+=timer.EndTimer();
           if(ictsalg->verbose){
             std::cout << "Answer:\n";
@@ -742,17 +723,15 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
                 }
                 std::cout << "\n";
               }
-              std::cout << "Cost: " << computeSolutionCost(answers[num]) << std::endl;
+              std::cout << "Cost: " << bestJoint << std::endl;
               if(ictsalg->verify&&!ictsalg->checkAnswer(answers[num]))std::cout<< "Failed in ICT node\n";
             }
           }
-          //clearNoGoods();
           if(ictsalg->verbose)std::cout << "Full check passed\n";
           return true;
         }
 
         if(ictsalg->verbose)std::cout << "Full check failed\n";
-        //clearNoGoods();
         return false;
       }
 
@@ -789,6 +768,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
     };
 
     void SetVerbose(bool v){verbose=v;}
+    void SetQuiet(bool v){quiet=v;}
     virtual unsigned GetNodesExpanded()const{return Node::count;}
 
     bool GetSolutionCosts(std::vector<EnvironmentContainer<state,action>*> const& env, MultiAgentState<state> const& start, MultiAgentState<state> const& goal, std::vector<std::vector<uint32_t>>& costs){
@@ -810,7 +790,6 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       sizes->resize(start.size());
       q.emplace(new ICTSNode(this,inst,*sizes));
 
-      //clearNoGoods();
       while(q.size()){
         // Keep searching until we've found a candidate with greater cost than 'best'
         // To keep going on all plateaus <= the best is how we ensure optimality
@@ -842,26 +821,22 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
         // with other paths in the solution, we can quit if the answer has a cost
         // less than the best SIC in the current plateau. Otherwise, we will
         // continue the ICT search until the next plateau
-        if(parent->isValid(answers,true)){
+        std::vector<uint32_t> slnCosts(start.size(),INFTY);
+        uint64_t cost(INFTY);
+        if(parent->isValid(answers,cost,slnCosts,true)){
+          auto cost(std::accumulate(slnCosts.begin(),slnCosts.end(),0));
           for(auto const& a:answers){
-            auto cost(computeSolutionCost(a));
             if(cost<bestCost){
               costs.resize(1);
               sizes=&costs[0];
               bestCost=cost;
               sizes->resize(0);
-              sizes->reserve(a.size());
-              for(auto const& path:a){
-                sizes->push_back(computePathCost(path));
-              }
+              sizes->insert(sizes->begin(),slnCosts.begin(),slnCosts.end());
             }else if(cost==bestCost){
               costs.resize(costs.size()+1);
               sizes=&costs[costs.size()-1];
               sizes->resize(0);
-              sizes->reserve(a.size());
-              for(auto const& path:a){
-                sizes->push_back(computePathCost(path));
-              }
+              sizes->insert(sizes->begin(),slnCosts.begin(),slnCosts.end());
             }
           }
           // We can exit now if we've finished exploring the plateau
@@ -940,7 +915,10 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
             std::vector<MDDSolution> answers;
             ICTSNode* node(new ICTSNode(this,inst,sizes));
             toDelete.emplace_back(node);
-            if(node->isValid(answers)){
+            std::vector<uint32_t> slnCosts(start.size(), INFTY);
+            uint64_t cost(INFTY);
+            if (node->isValid(answers, cost, slnCosts))
+            {
               for(auto const& a:answers){
                 auto cost(computeSolutionCost(a));
                 solution.resize(0);
@@ -955,7 +933,9 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
                 answerkey=node->key();
               }
               if(bestCost<=prevBest||suboptimal){return;}
-            }else{
+            }
+            else
+            {
               // No solution... perform the split operation
               for(int i(0); i<node->sizes.size(); ++i){
                 std::vector<uint32_t> sz(node->sizes);
@@ -976,7 +956,6 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
         q.emplace(new ICTSNode(this,inst,sizes));
       }
 
-      //clearNoGoods();
       while(q.size()){
         // Keep searching until we've found a candidate with greater cost than 'best'
         // To keep going on all plateaus <= the best is how we ensure optimality
@@ -1023,7 +1002,9 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
         // with other paths in the solution, we can quit if the answer has a cost
         // equal to that of the best SIC in the current plateau. Otherwise, we will
         // continue the ICT search until the next plateau
-        if(parent->isValid(answers)){
+        std::vector<uint32_t> slnCosts(start.size(), INFTY);
+        uint64_t cost(INFTY);
+        if (parent->isValid(answers, cost, slnCosts)){
           for(auto const& a:answers){
             auto cost(computeSolutionCost(a));
             if(cost<=bestCost){
@@ -1102,7 +1083,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
     friend std::ostream& operator << (std::ostream& ss, MultiEdge const& n){
       int i(0);
       for(auto const& a: n)
-        ss << " "<<++i<<"." << a.second->n << "@" << a.second->Depth();
+        ss << " "<<(++i)<<"." << a.second->n << "@" << a.second->Depth();
       ss << std::endl;
       /*
          for(auto const& m:n.successors)

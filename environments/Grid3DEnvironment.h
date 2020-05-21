@@ -224,7 +224,7 @@ public:
 	uint64_t GetActionHash(t3DDirection act) const;
 	virtual void OpenGLDraw() const;
 	virtual void OpenGLDraw(const xyztLoc &l) const;
-	virtual void OpenGLDraw(const xyztLoc &l1, const xyztLoc &l2, float v) const;
+	virtual void OpenGLDraw(const xyztLoc &l1, const xyztLoc &l2, float pct, float r) const;
 	virtual void OpenGLDraw(const xyztLoc &, const t3DDirection &) const;
 	virtual void GLLabelState(const xyztLoc &, const char *) const;
 	virtual void GLLabelState(const xyztLoc &s, const char *str, double scale) const;

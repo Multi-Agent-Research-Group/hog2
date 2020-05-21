@@ -967,7 +967,7 @@ void Grid3DEnvironment::OpenGLDraw(const xyztLoc &l) const
 	DrawSphere(xx, yy, zz, rad);
 }
 
-void Grid3DEnvironment::OpenGLDraw(const xyztLoc &l1, const xyztLoc &l2, float v) const
+void Grid3DEnvironment::OpenGLDraw(const xyztLoc &l1, const xyztLoc &l2, float pct, float radius) const
 {
 	GLdouble xx, yy, zz, rad;
 	GLdouble xx2, yy2, zz2;
@@ -977,13 +977,13 @@ void Grid3DEnvironment::OpenGLDraw(const xyztLoc &l1, const xyztLoc &l2, float v
 	map->GetOpenGLCoord(l1.x, l1.y, l1.z, xx, yy, zz, rad);
 	map->GetOpenGLCoord(l2.x, l2.y, l2.z, xx2, yy2, zz2, rad);
 	//	map->GetOpenGLCoord(perc*newState.x + (1-perc)*oldState.x, perc*newState.y + (1-perc)*oldState.y, xx, yy, zz, rad);
-	xx = (1-v)*xx+v*xx2;
-	yy = (1-v)*yy+v*yy2;
-	zz = (1-v)*zz+v*zz2;
-	GLfloat r, g, b, t;
-	GetColor(r, g, b, t);
-	glColor4f(r, g, b, t);
-	DrawSphere(xx, yy, zz, rad);
+	xx = (1.0-pct)*xx+pct*xx2;
+	yy = (1.0-pct)*yy+pct*yy2;
+	zz = (1.0-pct)*zz+pct*zz2;
+	//GLfloat r, g, b, t;
+	//GetColor(r, g, b, t);
+	//glColor3f(r, g, b);
+	DrawSphere(xx, yy, zz, radius*rad*2.0);
 }
 
 //void Grid3DEnvironment::OpenGLDraw(const xyztLoc &l, GLfloat r, GLfloat g, GLfloat b) const

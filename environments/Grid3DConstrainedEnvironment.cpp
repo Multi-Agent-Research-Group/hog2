@@ -272,6 +272,7 @@ void Grid3DConstrainedEnvironment::GLDrawPath(const std::vector<xyztLoc> &p, con
         if(p.size()<2) return;
         //int wpt(0);
         glLineWidth(3.0);
+        //DrawSphere(0, 0, 0, .05); // zz-l.t*2*rad
         //TODO Draw waypoints as cubes.
         for(auto a(p.begin()+1); a!=p.end(); ++a){
           GLDrawLine(*(a-1),*a);

@@ -616,6 +616,9 @@ class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
       }
     }
     virtual void GLDrawLine(const State &x, const State &y) const{}
+    virtual void OpenGLDraw() const{}
+    virtual void OpenGLDraw(const State &l1) const{}
+    virtual void OpenGLDraw(const State &l1, const State &l2, float pct, float r) const{}
     virtual void GLDrawPath(const std::vector<State> &p, const std::vector<State> &waypoints) const{
       if(p.size()<2) return;
       //TODO Draw waypoints as cubes.
