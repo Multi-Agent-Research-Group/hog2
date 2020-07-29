@@ -4,7 +4,7 @@
         {
             "label": "Build Debug w/ Graphics",
             "type": "shell",
-            "command": "echo 'building' && cd build/gmake && make -j debug",
+            "command": "echo 'building' && clear && cd build/gmake && make -j debug",
             "isBackground": true,
             "group": {
                 "kind": "build",

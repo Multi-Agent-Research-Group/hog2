@@ -28,6 +28,7 @@
 #include <iterator>
 #include <algorithm>
 #include <functional>
+#include "PairTree.h"
 #include "CollisionDetection.h"
 #include "TemplateAStar.h"
 #include "Heuristic.h"
@@ -49,6 +50,13 @@ template <typename state>
 struct Node;
 
 template <typename state>
+struct PtrCmp{
+  bool operator()(Node<state> const*const a, Node<state> const*const b){
+  return a->Depth()==b->Depth()?a->Hash()<b->Hash():a->Depth()<b->Depth();
+}
+};
+
+template <typename state>
 struct Node{
   static uint64_t count;
 
@@ -61,8 +69,8 @@ struct Node{
   uint32_t id;
   bool optimal;
   //bool connected()const{return parents.size()+successors.size();}
-  std::set<Node*> parents;
-  std::set<Node*> successors;
+  std::set<Node*,PtrCmp<state>> parents;
+  std::set<Node*,PtrCmp<state>> successors;
   std::map<Node*,std::set<std::tuple<Node*,Node*,unsigned>>> mutexes; // [self->successor]->[op.s1,op.s2,agent]
   inline uint64_t Hash()const{return hash;}
   inline uint32_t Depth()const{return n.t;}
@@ -148,7 +156,7 @@ struct MultiEdgeCmp
 };
 
 template <typename state>
-using DAG = std::unordered_map<uint64_t,Node<state>>;
+using DAG = std::map<uint64_t,Node<state>>;
 
 template <typename state>
 static inline std::ostream& operator << (std::ostream& ss, Node<state> const& n){
@@ -231,8 +239,15 @@ unsigned recursions=1, bool disappear=true){
   bool result(false);
   for(auto const& node: successors){
     int ddiff(std::max(Util::distance(node.x,node.y,start.x,start.y),1.0)*state::TIME_RESOLUTION_U);
+    bool atGoal(env->GoalTest(node, end) && node.t>=minDepth);
     //std::cout << std::string(std::max(0,(maxDepth-(depth-ddiff))),' ') << "MDDEVAL " << start << "-->" << node << "\n";
     //if(verbose)std::cout<<node<<": --\n";
+    if(atGoal && start.sameLoc(node)){
+      continue; // Never allow waiting at the goal for the final action
+      // The reason for this is because while waiting at or moving in and out of the goal location is ok,
+      // We don't want to confuse with a solution of the next lowest cost.
+      // (Adding cost to the end of the MDD doesn't help us discover new constraints)
+    }
     if(LimitedDFS(node,end,dag,root,terminals,depth-ddiff,minDepth,maxDepth,best,env,singleTransTable,blocked,recursions+1,disappear)){
       singleTransTable[hash]=true;
       if(dag.find(hash)==dag.end()){
@@ -270,7 +285,7 @@ unsigned recursions=1, bool disappear=true){
       //std::cout << "inserting " << dag[chash] << " " << &dag[chash] << "under " << *parent << "\n";
       dag[parent->Hash()].successors.insert(&dag[current->Hash()]);
       //std::cout << "at" << &dag[parent->Hash()] << "\n";
-      if (env->GoalTest(current->n, end)){
+      if(atGoal){
         terminals.emplace(parent,current);
       }
     }
@@ -349,6 +364,69 @@ unsigned offset=0){
   return result;
   //if(verbose)std::cout << "Finally set root to: " << (uint64_t)root[agent] << "\n";
   //if(verbose)std::cout << root << "\n";
+}
+
+template<typename state>
+class Action: public std::pair<state,state>{
+  public:
+    Action(state const& a, state const& b):std::pair<state,state>(a,b),t(b.t){}
+    uint32_t t;
+    bool feasible=true;
+};
+
+template <typename state>
+void generatePermutations(std::vector<MultiEdge<state>>& positions,
+std::vector<std::vector<Action<state>>>& result,
+int agent,
+std::vector<Action<state>> const& current,
+uint32_t lastTime,
+std::vector<float> const& radii){
+  if(agent == positions.size()) {
+    result.push_back(current);
+    return;
+  }
+
+  for(int i = 0; i < positions[agent].size(); ++i) {
+    //std::cout << "AGENT "<< i<<":\n";
+    std::vector<Action<state>> copy(current);
+    bool found(false);
+    for(int j(0); j<current.size(); ++j){
+      bool conflict(false);
+      // Sometimes, we add an instantaneous action at the goal to represent the
+      // agent disappearing at the goal. If we see this, the agent did not come into conflict
+      if (positions[agent][i].first != positions[agent][i].second &&
+          current[j].first != current[j].second) {
+            // Check easy case: agents crossing an edge in opposite directions, or
+            // leaving or arriving at a vertex at the same time
+        if ((positions[agent][i].first == current[j].first) ||
+            (positions[agent][i].second == current[j].second) ||
+            (positions[agent][i].first.sameLoc(current[j].second) &&
+             current[j].first.sameLoc(positions[agent][i].second))) {
+          found = true;
+          conflict = true;
+        } else {
+          // Check general case - Agents in "free" motion
+          Vector2D A(positions[agent][i].first.x, positions[agent][i].first.y);
+          Vector2D B(current[j].first.x, current[j].first.y);
+          Vector2D VA(positions[agent][i].second.x - positions[agent][i].first.x, positions[agent][i].second.y - positions[agent][i].first.y);
+          VA.Normalize();
+          Vector2D VB(current[j].second.x - current[j].first.x, current[j].second.y - current[j].first.y);
+          VB.Normalize();
+          //std::cout<<"Checking:"<<current[j].first << "-->"<< current[j].second <<", " << positions[agent][i].first << "-->"<< positions[agent][i].second << "\n";
+          if (collisionImminent(A, VA, radii[agent], positions[agent][i].first.t / state::TIME_RESOLUTION_D, positions[agent][i].second.t / state::TIME_RESOLUTION_D, B, VB, radii[j], current[j].first.t / state::TIME_RESOLUTION_D, current[j].second.t / state::TIME_RESOLUTION_D)) {
+            found = true;
+            conflict = true;
+            //checked.insert(hash);
+          }
+        }
+      }
+    }
+    if(found){
+      copy.feasible=false;
+    }
+    copy.push_back(positions[agent][i]);
+    generatePermutations(positions, result, agent + 1, copy,lastTime,radii);
+  }
 }
 
 template <typename state>
@@ -465,6 +543,220 @@ struct ClearablePQ:public std::priority_queue<T,C,Cmp>{
 };
 
 template <typename state, typename action>
+bool getTerminals(MultiEdge<state> const &n,
+                  std::vector<state> const &goal,
+                  std::vector<EnvironmentContainer<state, action> *> const &env,
+                  std::vector<Node<state> *> &toDelete,
+                  std::vector<EdgeSet<state>> &terminals,
+                  std::vector<float> const &radii,
+                  std::vector<unsigned> const &minCost,
+                  std::vector<unsigned> const& unboundedAgents,
+                  bool disappear = true, bool OD = false)
+{
+  // We are going to fill in terminals for these agents. Clear them for now...
+  for (auto const &a : unboundedAgents)
+  {
+    terminals[a].clear();
+  }
+  bool result(false);
+  static const int MAXTIME(1000 * state::TIME_RESOLUTION_U);
+  static std::map<std::string, bool> visited;
+  visited.clear();
+  // Sort actions in reverse time order
+  struct edgeCmp
+  {
+    inline bool operator()(Node<state> *lhs, Node<state> *rhs) { return rhs->Depth() < lhs->Depth(); }
+  };
+  static ClearablePQ<MultiEdge<state>, std::vector<MultiEdge<state>>, MultiEdgeCmp<state>> q;
+  q.clear();
+  q.push(n);
+  static std::vector<Mutex<state>> intersection;
+  static std::vector<Mutex<state>> stuff;
+
+  while (q.size())
+  {
+    //std::cout << "q:\n";
+    auto s(q.top());
+    q.pop();
+    /*std::cout << "s:\n";
+    for (auto const &g : s)
+    {
+      std::cout << g.first->n << "-->" << g.second->n << " ";
+    }
+    std::cout << (s.feasible ? "feasible" : "infeasible") << "\n";
+    */
+    bool done(true);
+    unsigned agent(0);
+    if (done)
+    {
+      for (auto const &g : s)
+      {
+        // Only check for the goal if this agent isn't unbounded cost
+        if (std::find(unboundedAgents.begin(), unboundedAgents.end(), agent) == unboundedAgents.end())
+        {
+          if ((!env[agent]->environment->GoalTest(g.second->n, goal[agent])) || g.second->Depth() < minCost[agent])
+          {
+            done = false;
+            //std::cout << " no goal...\n";
+            break;
+          }
+        }
+        agent++;
+      }
+    }
+    if (done)
+    {
+      for (auto const &a : unboundedAgents)
+      {
+        terminals[a].insert(s[a]);
+      }
+      result = true;
+      continue; // We found this combo, no further processing req'd
+    }
+
+    // Find minimum depth of current edges
+    uint32_t sd(INT_MAX);
+    unsigned minindex(0);
+    int k(0);
+    for (auto const &a : s)
+    {
+      if (a.second != a.first && // Ignore disappeared agents
+          a.second->Depth() < sd)
+      {
+        sd = a.second->Depth();
+        minindex = k;
+      }
+      k++;
+      //sd=min(sd,a.second->Depth());
+    }
+    if (sd == INT_MAX)
+    {
+      sd = s[minindex].second->Depth();
+    } // Can happen at root node
+    //std::cout << "min-depth: " << sd << "\n";
+
+    //Get successors into a vector
+    std::vector<MultiEdge<state>> successors;
+    successors.reserve(s.size());
+
+    uint32_t md(INT_MAX); // Min depth of successors
+    //Add in successors for parents who are equal to the min
+    k = 0;
+    for (auto const &a : s)
+    {
+      static MultiEdge<state> output;
+      output.clear();
+      if ((OD && (k == minindex /* || a.second->Depth()==0*/)) || (!OD && a.second->Depth() <= sd))
+      {
+        //std::cout << "Keep Successors of " << *a.second << "\n";
+        for (auto const &b : a.second->successors)
+        {
+          output.emplace_back(a.second, b);
+          md = min(md, b->Depth());
+        }
+      }
+      else
+      {
+        //std::cout << "Keep Just " << *a.second << "\n";
+        output.push_back(a);
+        md = min(md, a.second->Depth());
+      }
+      if (output.empty())
+      {
+        // This means that this agent has reached its goal.
+        // Stay at state...
+        if (disappear)
+        {
+          output.emplace_back(a.second, a.second); // Stay, but don't increase time
+        }
+        else
+        {
+          output.emplace_back(a.second, new Node<state>(a.second->n, MAXTIME, env[k]->environment.get()));
+          //if(verbose)std::cout << "Wait " << *output.back().second << "\n";
+          toDelete.push_back(output.back().second);
+        }
+      }
+      //std::cout << "successor  of " << s << "gets("<<*a<< "): " << output << "\n";
+      successors.push_back(output);
+      ++k;
+    }
+    //if(verbose){
+    //std::cout << "Move set\n";
+    //for(int a(0);a<successors.size(); ++a){
+    //std::cout << "agent: " << a << "\n";
+    //for(auto const& m:successors[a]){
+    //std::cout << "  " << *m.first << "-->" << *m.second << "\n";
+    //}
+    //}
+    //}
+    static std::vector<MultiEdge<state>> crossProduct;
+    crossProduct.clear();
+    static MultiEdge<state> tmp;
+    tmp.clear();
+    tmp.feasible = s.feasible;
+
+    // This call also computes initial mutexes
+    generatePermutations(successors, crossProduct, 0, tmp, sd, radii, false); // ignore infeasible combinations
+
+    for (auto &a : crossProduct)
+    {
+      a.feasible &= s.feasible;
+      k = 0;
+      // Compute hash for transposition table
+      std::string hash(a.size() * 2 * sizeof(uint64_t) + 1, 1);
+      for (auto v : a)
+      {
+        uint64_t h0(v.first->Hash());
+        uint64_t h1(v.second->Hash());
+        uint8_t c[sizeof(uint64_t) * 2];
+        memcpy(c, &h0, sizeof(uint64_t));
+        memcpy(&c[sizeof(uint64_t)], &h1, sizeof(uint64_t));
+        for (unsigned j(0); j < sizeof(uint64_t) * 2; ++j)
+        {
+          hash[k * sizeof(uint64_t) * 2 + j] = ((int)c[j]) ? c[j] : 0xff; // Replace null-terminators in the middle of the string
+        }
+        ++k;
+      }
+      hash.push_back(a.feasible ? 'f' : 'i');
+      // Have we visited this node already?
+      if (visited.find(hash) == visited.end())
+      {
+        visited[hash] = true;
+        //std::cout << "  pushing: ";
+        //for(auto const& g:a){
+        //std::cout << g.first->n << "-->" << g.second->n << " ";
+        //}
+        if (a.feasible)
+        {
+          //a.parent = &storage.back();
+          //std::cout << "(prnt: ";
+          //for (auto const &g : storage.back())
+          //{
+          //std::cout << g.first->n << "-->" << g.second->n << " ";
+          //}
+          //std::cout << ")";
+        }
+        q.push(a);
+      }
+      else
+      {
+        //std::cout << "  NOT pushing: ";
+        //for(auto const& g:a){
+        //std::cout << g.first->n << "-->" << g.second->n << " ";
+        //}
+      }
+      //std::cout << "HASH: ";
+      //for(auto const& c:hash){
+      //std::cout << +c << ",";
+      //}
+      //std::cout << " " << (a.feasible?"feasible":"infeasible");
+      //std::cout << "\n";
+    }
+  }
+  return result;
+}
+
+template <typename state, typename action>
 bool getMutexes(MultiEdge<state> const& n,
 std::vector<state> const& goal,
 std::vector<EnvironmentContainer<state,action>*> const& env,
@@ -474,11 +766,12 @@ std::vector<Node<state>*>& toDelete,
 std::vector<EdgeSet<state>>const& terminals,
 std::vector<EdgeSet<state>>& mutexes,
 std::vector<float> const& radii,
-Solution<state>& fixed,
+std::vector<unsigned> const& minCost,
+Solution<state>& fixed, unsigned minCostLimit,
 bool disappear=true, bool OD=false){
   bool result(false);
   static const int MAXTIME(1000*state::TIME_RESOLUTION_U);
-  static std::unordered_map<std::string,bool> visited;
+  static std::map<std::string,bool> visited;
   visited.clear();
   // Sort actions in reverse time order
   struct edgeCmp{
@@ -500,23 +793,27 @@ bool disappear=true, bool OD=false){
     if(s.feasible)
         storage.push_back(s);
     q.pop();
-    //std::cout << "s:\n";
-    //for(auto const& g:s){
-      //std::cout << g.first->n << "-->" << g.second->n << " ";
-    //}
-    //std::cout << (s.feasible?"feasible":"infeasible") << "\n";
-    
+    /*std::cout << "s:\n";
+    for(auto const& g:s){
+      std::cout << g.first->n << "-->" << g.second->n << " ";
+    }
+    std::cout << (s.feasible?"feasible":"infeasible") << "\n";
+    */
+
     bool done(s.feasible);
     unsigned agent(0);
     if(done){
+      unsigned cost(0);
       for(auto const& g:s){
-        if(!env[agent]->environment->GoalTest(g.second->n,goal[agent])){
+        cost+=g.second->Depth();
+        if((!env[agent]->environment->GoalTest(g.second->n,goal[agent])) || g.second->Depth()<minCost[agent]){
           done=false;
           //std::cout << " no goal...\n";
           break;
         }
         agent++;
       }
+      done&=cost>=minCostLimit; // Total cost must be high enough
     }
     if (done&&!goalref)
     {
@@ -679,7 +976,7 @@ bool disappear=true, bool OD=false){
               }
             }
             ++parent;
-            if(parent!=s[i].first->parents.end())
+            //if(parent!=s[i].first->parents.end())
             //std::cout << "  p: " << (*parent)->n.x << "," << (*parent)->n.y
               //        << "-->" << s[i].first->n.x << "," << s[i].first->n.y << "\n";
             // Now intersect the remaining parents' sets
@@ -755,7 +1052,7 @@ bool disappear=true, bool OD=false){
           }
           // Add inherited mutexes
           for(auto const& mu:intersection){
-            //std::cout << "Inherited mutex [j]: " << s[j].first->n << "-->"<< s[j].second->n <<", " << std::get<0>(mu)->n << "-->"<< std::get<1>(mu)->n << "\n";
+            //std::cout << "Inherited mutex: " << std::get<0>(mu)->n << "-->"<< std::get<1>(mu)->n <<", " << s[j].first->n << "-->"<< s[j].second->n<< "\n";
             s[j].first->mutexes[s[j].second].insert(mu);
             std::get<0>(mu)->mutexes[std::get<1>(mu)].emplace(s[j].first,s[j].second,j);
             //acts[i].insert(std::get<0>(mu)); // Add to set of states which have mutexed actions
@@ -847,7 +1144,10 @@ bool disappear=true, bool OD=false){
   // In the case of >2 agents, mutex sets from multiple agents are unioned together
   for(auto const& t:terminals){
     clear(mutex);
-    clear(tmpmu);
+    if(t.empty()){
+      std::cout << "Error: No terminals\n";
+      return false;
+    }
     auto term(t.begin());
     //std::cout << "term: " << term->first->n.x << "," << term->first->n.y
      //<< "-->" << term->second->n.x << "," << term->second->n.y << "\n";
@@ -863,6 +1163,7 @@ bool disappear=true, bool OD=false){
     ++term;
     // Now intersect the remaining terminals' sets
     while(term!=t.end()){
+    clear(tmpmu);
     //std::cout << "term: " << term->first->n.x << "," << term->first->n.y
      //<< "-->" << term->second->n.x << "," << term->second->n.y << "\n";
       for(auto const& mi:term->first->mutexes){
@@ -905,3 +1206,349 @@ bool disappear=true, bool OD=false){
   }
   return result;
 }
+
+
+// A structure which represents the current state of a pairwise search
+// It is clonable so that the search can be continued where left off
+// but with different parameters
+template <typename environ, typename state>
+struct PairwiseConstrainedSearch
+{
+  //typedef MultiCostLimitedEnvironment<Action<state>, unsigned, environ> MultiEnv;
+
+  // Initial constructor
+  // Adds a single state to the open list and sets the lower bound on cost to 0
+  PairwiseConstrainedSearch(unsigned agent1,
+                            unsigned agent2,
+                            environ const *env1,
+                            environ const *env2,
+                            double lower1,
+                            double upper1,
+                            double lower2,
+                            double upper2,
+                            state const &start1,
+                            state const &goal1,
+                            double r1,
+                            state const &start2,
+                            state const &goal2,
+                            double r2)
+      : a1(agent1),
+        a2(agent2),
+        lb1(lower1),
+        ub1(upper1),
+        lb2(lower2),
+        ub2(upper2),
+        s1(start1),
+        g1(goal1),
+        s2(start2),
+        g2(goal2),
+        intervals(2),
+        radii(2),
+        socLim(0)
+  {
+    radii[0]=r1;
+    radii[1]=r2;
+    envs = {env1, env2};
+    //env = MultiEnv(envs);
+    //open.Reset(env->GetMaxHash());
+    open.AddOpenNode(Action<state>(s1, s2),GetHash({{s1,s1},{s2,s2}}),0,
+                                   envs[0]->HCost(s1, g1) + envs[0]->HCost(s1, g2));
+    for (auto const &e : envs)
+    {
+      bf *= e->branchingFactor();
+    }
+  }
+
+  // Copy constructor
+  PairwiseConstrainedSearch(PairwiseConstrainedSearch const &from,
+                            double lower1,
+                            double upper1,
+                            double lower2,
+                            double upper2,
+                            double soclb)
+      : a1(from.a1),
+        a2(from.a2),
+        lb1(lower1),
+        ub1(upper1),
+        lb2(lower2),
+        ub2(upper2),
+        s1(from.s1),
+        g1(from.g1),
+        s2(from.s2),
+        g2(from.g2),
+        envs(from.envs),
+        //env(from.env),
+        bf(from.bf),
+        open(from.open), // Make a full copy of open
+        socLim(soclb)
+  {
+    // Make sure that the originating open list makes sense
+    if (ub1 < from.lb1 || // old lower bound is too high
+        ub2 < from.lb2)   // old lower bound is too high
+      assert(false);
+
+    // Remove and re-insert all nodes which have changed priority...
+    for (auto const &id : open.theHeap)
+    {
+      auto i1(open.Lookup(id));
+      if (greater(from.ub1, i1.g1 + i1.h1) && greater(from.ub2, i1.g2 + i1.h2) &&
+          fless(ub1, i1.g1 + i1.h1) && fless(ub2, i1.g2 + i1.h2))
+      {
+        open.KeyChanged(id);
+      }
+    }
+  }
+
+  unsigned a1, a2;             // global agent numbers
+  std::vector<environ *> envs; // environments for agents
+  //MultiEnv env;
+  double socLim;             // Plateau for sum of costs
+  double lb1, ub1, lb2, ub2; // Ind. lower and upper cost bounds
+  state s1, g1, s2, g2;
+  unsigned bf; // branching factor
+  std::vector<IntervalTree<state>> intervals;
+  IntervalTree<state> mutexes;
+  const int MAXTIME=1000 * state::TIME_RESOLUTION_U;
+  std::vector<double> radii;
+
+  class MultiAgentAStarOpenClosedData : public AStarOpenClosedData<state>
+  {
+  public:
+    MultiAgentAStarOpenClosedData() : AStarOpenClosedData<state>() {}
+    MultiAgentAStarOpenClosedData(const state &theData,
+                                  double gg1,
+                                  double gg2,
+                                  double hh1,
+                                  double hh2,
+                                  uint64_t parent,
+                                  uint64_t openLoc,
+                                  dataLocation location)
+        : AStarOpenClosedData<state>(theData, g1 + g2, h1 + h2, parent, openLoc, location), g1(gg1), g2(gg2), h1(hh1), h2(hh2) {}
+    double g1, g2, h1, h2;
+  };
+
+  // This comparison function will push candidates that are above the limits to the back.
+  // This is tricky because:
+  //    waiting at the goal adds no additional cost
+  //    we have to watch whether individual f-costs go above the limit, if they do
+  //    then there is no feasible solution inside the limits
+  // What about re-using the open list? (continuing the search where we left off)
+  //    1) the primary prioritization has now changed because of the limits so
+  //       we have to ensure that new limits are geq old limits.
+  //    2) we may be working in an old plateau still - that means that we have to ignore
+  //       everything until we reach a new plateau
+  // So we need both individual limits (for prioritization) and SOC limit (for plateau)
+  // individual lower-bounds do not sort open, but serve as goal test criteria.
+  struct AStarCompare
+  {
+    static double ub1;
+    static double ub2;
+    bool operator()(const MultiAgentAStarOpenClosedData &i1,
+                    const MultiAgentAStarOpenClosedData &i2) const
+    {
+      // Prioritize f-costs that are less than the bounds first
+      bool f1l(fless(ub1, i1.g1 + i1.h1) && fless(ub2, i1.g2 + i1.h2));
+      bool f2l(fless(ub1, i2.g1 + i2.h1) && fless(ub2, i2.g2 + i2.h2));
+      if (f1l)
+      {
+        if (f2l)
+        {
+          if (fequal(i1.g + i1.h, i2.g + i2.h))
+          {
+            return (fless(i1.g, i2.g));
+          }
+          return (fgreater(i1.g + i1.h, i2.g + i2.h));
+        }
+        return true;
+      }
+      else if (f2l)
+      {
+        return false;
+      }
+      if (fequal(i1.g + i1.h, i2.g + i2.h))
+      {
+        return (fless(i1.g, i2.g));
+      }
+      return (fgreater(i1.g + i1.h, i2.g + i2.h));
+    }
+  };
+
+  AStarOpenClosed<state, AStarCompare, MultiAgentAStarOpenClosedData> open;
+
+  uint64_t GetHash(std::vector<Action<state>> const &node)
+  {
+    // Implement the FNV-1a hash http://www.isthe.com/chongo/tech/comp/fnv/index.html
+    uint64_t h(14695981039346656037UL); // Offset basis
+    unsigned i(0);
+    for (auto const &v : node)
+    {
+      uint64_t h1(envs[i++]->GetStateHash(v.second));
+      uint8_t c[sizeof(uint64_t)];
+      memcpy(c, &h1, sizeof(uint64_t));
+      for (unsigned j(0); j < sizeof(uint64_t); ++j)
+      {
+        //hash[k*sizeof(uint64_t)+j]=((int)c[j])?c[j]:1; // Replace null-terminators in the middle of the string
+        h = h ^ c[j];          // Xor with octet
+        h = h * 1099511628211; // multiply by the FNV prime
+      }
+    }
+    return h;
+  }
+
+  void getRangesAndConstraints()
+  {
+    AStarCompare::ub1 = ub1;
+    AStarCompare::ub2 = ub2;
+  }
+
+  bool doSingleSearchStep()
+  {
+    if (!open.OpenSize())
+    {
+      return true;
+    }
+
+    // Get next candidate off open
+    uint64_t nodeid = open.Close();
+    auto &node(open.Lookup(nodeid));
+
+    // Check that we're below the bounds
+    if (ub1 < node.g1 + node.h1 || ub2 < node.g2 + node.h2)
+    {
+      open.Reopen(nodeid);
+      return true;
+    }
+
+    // Add this node to the interval tree
+    auto &s(node.data);
+    intervals.insert(&s[0]);
+    intervals.insert(&s[1]);
+    if (!s.feasible)
+    {
+      mutexes.insert(&s);
+    }
+
+    // check goal
+    if (s.feasible &&                        // Reachable
+        node.g > socLim &&                   // Must be above the frontier
+        s[0].second.t >= lb1 &&              // Must be above lower bound
+        s[1].second.t >= lb2 &&              // Must be above lower bound
+        envs[0]->GoalTest(g1, s[0].second) && // at goal
+        envs[1]->GoalTest(g2, s[1].second))   // at goal
+    {
+      return true;
+    }
+
+    // First:
+    // Find minimum time of current edges
+    double sd(DBL_MAX);
+    unsigned minindex(0);
+    double k(0);
+    for (auto const &a : s)
+    {
+      if (a.second.t < sd)
+      {
+        sd = a.second.t;
+        minindex = k;
+      }
+      k++;
+    }
+    if (sd == DBL_MAX)
+    {
+      sd = s[minindex].second.t;
+    } // Can happen at root node
+
+    //Get successors into a vector
+    successors.resize(bf);
+
+    // OD may increase the depth of search, but will decrease the branching factor.
+    // In our situation, we are sort of doing an exhaustive search and so it may not
+    // make a difference.
+    const bool OD(false); // Maybe make this a parameter later.
+    double md(DBL_MAX);   // Min depth of successors
+    //Add in successors for parents who are equal to the min
+    k = 0;
+    for (auto const &a : s)
+    {
+      static std::vector<Action<state>> output;
+      output.clear();
+      if ((OD && (k == minindex /* || a.second->Depth()==0*/)) || (!OD && a.second.t <= sd))
+      {
+        //std::cout << "Keep Successors of " << *a.second << "\n";
+        std::vector<state> succ(envs[k]->branchingFactor());
+        auto sz(envs[k]->GetSuccessors(a.second, succ));
+        for (unsigned j(0); j < sz; ++j)
+        {
+          output.emplace_back(a.second, succ[j]);
+          md = min(md, succ[j].t);
+        }
+      }
+      else
+      {
+        //std::cout << "Keep Just " << *a.second << "\n";
+        output.push_back(a);
+        md = min(md, a.second.t);
+      }
+      if (output.empty())
+      {
+        // This means that this agent has reached its goal.
+        // Stay at state...
+        //if(disappear){
+        //output.emplace_back(a.second,a.second); // Stay, but don't increase time
+        //}else{
+        auto to(a.second);
+        to.t = MAXTIME;
+        output.emplace_back(a.second, to);
+        //}
+      }
+      //std::cout << "successor  of " << s << "gets("<<*a<< "): " << output << "\n";
+      successors.push_back(output);
+      ++k;
+    }
+    static std::vector<std::vector<Action<state>>> crossProduct;
+    crossProduct.clear();
+    static std::vector<Action<state>> tmp;
+    tmp.clear();
+    tmp.feasible = s.feasible;
+
+    generatePermutations(successors, crossProduct, 0, tmp, sd, radii);
+
+    for (auto const &n : crossProduct)
+    {
+      uint64_t hash(GetHash(n));
+      uint64_t theID(0);
+      switch (open.Lookup(hash, theID))
+      {
+      case kClosedList:
+        // Closed list guy is not feasible but this one is!
+        if (!open.Lookup(theID).data.feasible && n.feasible)
+        {
+          open.Lookup(theID).parentID = nodeid;
+          //open.Reopen(theID);
+          open.Lookup(theID).data.feasible = true;
+          mutexes.remove(&open.Lookup(theID).data);
+        }
+        break;
+      case kOpenList:
+        // previously generated node is not feasible but this one is!
+        if (!open.Lookup(theID).data.feasible && n.feasible)
+        {
+          open.Lookup(theID).parentID = nodeid;
+          //open.Reopen(theID);
+          open.Lookup(theID).data.feasible = true;
+          mutexes.remove(&open.Lookup(theID).data);
+        }
+        break;
+      case kNotFound:
+        // Add to open :)
+        open.AddOpenNode(theID, hash,
+                         node.g + envs[0]->GCost(n[0].first, n[0].second) + envs[1]->GCost(n[1].first, n[1].second),
+                         envs[0]->HCost(n[0].second, g1) + envs[0]->HCost(n[1].second, g2),
+                         nodeid);
+        break;
+      }
+    }
+    return false;
+  }
+  std::vector<std::vector<Action<state>>> successors;
+};

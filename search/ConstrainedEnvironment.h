@@ -119,6 +119,12 @@ class Constraint : public DrawableConstraint{
     unsigned a;
 };
 
+template<typename State>
+static inline std::ostream& operator<<(std::ostream& os, Constraint<State> const& c){
+  c.print(os);
+  return os;
+}
+
 namespace std {
    template<typename State>
    struct less<Constraint<State> const*> {
@@ -267,6 +273,28 @@ class StartVertex : public Constraint<State> {
       return from==this->start_state;
     }
     //unsigned agentDiameter;
+};
+
+template<typename State>
+class ContingentIdentical : public Constraint<State> {
+  public:
+    ContingentIdentical():Constraint<State>(){}
+    ContingentIdentical(State const& s, bool neg=true):Constraint<State>(s,s,neg) {}
+    ContingentIdentical(State const& start, State const& end, bool neg=true):Constraint<State>(start,end,0,neg,Constraint<State>::CTYPE::VERTEX) {}
+    ContingentIdentical(State const& start, State const& end, unsigned a, bool neg=true):Constraint<State>(start,end,a,neg,Constraint<State>::CTYPE::VERTEX) {}
+    ContingentIdentical(State const& start, State const& end, unsigned a, unsigned ref, unsigned lower, unsigned upper, bool neg=true):
+    Constraint<State>(start,end,a,neg,Constraint<State>::CTYPE::VERTEX),
+    refAgent(ref),lb(lower),ub(upper) {}
+    virtual ~ContingentIdentical(){}
+    // Check whether the action has the exact same time and to/from
+    virtual double ConflictTime(State const& from, State const& to) const {
+      return (from==this->start_state && to.sameLoc(this->end_state))?from.t?double(from.t)/State::TIME_RESOLUTION_D:-1.0/State::TIME_RESOLUTION_D:0;
+    }
+    virtual bool ConflictsWith(State const& from, State const& to) const {
+      return from==this->start_state && to.sameLoc(this->end_state);
+    }
+    unsigned refAgent;
+    unsigned lb,ub; // Upper and lower cost bound for refAgent for which this constraint is valid
 };
 
 template<typename State>

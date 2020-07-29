@@ -155,7 +155,7 @@ void processSolution(double elapsed){
   }
   fflush(stdout);
   std::cout
-    << "elapsed,planTime,replanTime,bypassplanTime,maplanTime,collisionTime,expansions,CATcollchecks,collchecks,collisions,cost,actions,maxCSet,meanCSet\n";
+    << "elapsed,collisions,cost,planTime,replanTime,bypassplanTime,maplanTime,collisionTime,expansions,CATcollchecks,collchecks,actions,maxCSet,meanCSet\n";
   if (verify && elapsed > 0)
     std::cout << (valid ? "VALID" : "INVALID") << std::endl;
   if (elapsed < 0) {
@@ -164,6 +164,8 @@ void processSolution(double elapsed){
   } else {
     std::cout << seed << ":" << elapsed << ",";
   }
+  std::cout << nodes << ",";
+  std::cout << cost / xyztLoc::TIME_RESOLUTION_D << ",";
   std::cout << MACBSGroup::planTime << ",";
   std::cout << MACBSGroup::replanTime << ",";
   std::cout << MACBSGroup::bypassplanTime << ",";
@@ -172,8 +174,6 @@ void processSolution(double elapsed){
   std::cout << MACBSGroup::TOTAL_EXPANSIONS << ",";
   std::cout << TieBreaking3D<xyztLoc,t3DDirection>::collchecks << ",";
   std::cout << MACBSGroup::collchecks << ",";
-  std::cout << nodes << ", ";
-  std::cout << cost / xyztLoc::TIME_RESOLUTION_D << ",";
   std::cout << total << ",";
   std::cout << MACBSGroup::constraintsz/std::max(1ul,MACBSGroup::constrainttot)<< std::endl;
   if (!gui && elapsed<0)

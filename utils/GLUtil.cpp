@@ -743,6 +743,17 @@ void DrawSquare(GLdouble xx, GLdouble yy, GLdouble zz, GLdouble rad)
 
 }
 
+void DrawRect(GLdouble xx, GLdouble yy, GLdouble zz, GLdouble w, GLdouble h)
+{
+	glBegin(GL_TRIANGLE_STRIP);
+	glVertex3f(xx-w, yy-h, zz);
+	glVertex3f(xx+w, yy-h, zz);
+	glVertex3f(xx-w, yy+h, zz);
+	glVertex3f(xx+w, yy+h, zz);
+	glEnd();
+
+}
+
 void DrawSphere(GLdouble _x, GLdouble _y, GLdouble _z, GLdouble tRadius)
 {
 	static std::vector<double> px_cache;
@@ -856,7 +867,7 @@ void DrawTextCentered(double x, double y, double z, double scale, const char *st
 {
 	glPushMatrix();
 	
-	int width = 0;
+	int width = 10;
 	for (int which = 0; which < strlen(str); which++)
 		width += glutStrokeWidth(GLUT_STROKE_ROMAN, str[which]);
 	

@@ -52,4 +52,10 @@ inline std::ostream& operator <<(std::ostream & out, std::pair<T,U> const& v){
   return out;
 }
 
+template <typename T>
+inline std::ostream& operator <<(std::ostream & out, std::unique_ptr<T> const& v){
+  out << *v.get();
+  return out;
+}
+
 #endif

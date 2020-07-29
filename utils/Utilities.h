@@ -97,6 +97,18 @@ T max(std::vector<std::vector<T>> const& v){
   template<typename Out>
   void split(const std::string &s, char delim, Out result);
   std::vector<std::string> split(const std::string &s, char delim);
+
+template<typename T>
+bool contains(std::vector<T> const& haystack, T const& needle){
+  return std::find(haystack.begin(),haystack.end(),needle)==haystack.end();
+}
+
+template<typename T>
+signed indexOf(std::vector<T> const& haystack, T const& needle){
+  auto index(std::find(haystack.begin(),haystack.end(),needle));
+  return index==haystack.end()?-1:index-haystack.begin();
+}
+
 };
 
 template<typename Out>
@@ -114,5 +126,6 @@ std::vector<std::string> Util::split(const std::string &s, char delim) {
     split(s, delim, std::back_inserter(elems));
     return elems;
 }
+
 
 #endif

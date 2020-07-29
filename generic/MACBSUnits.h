@@ -1679,7 +1679,7 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
   if(!quiet){
     fflush(stdout);
     std::cout
-    << "elapsed,planTime,replanTime,bypassplanTime,maplanTime,collisionTime,expansions,CATcollchecks,collchecks,collisions,cost,actions,maxCSet,meanCSet\n";
+    << "elapsed,collisions,cost,planTime,replanTime,bypassplanTime,maplanTime,collisionTime,expansions,CATcollchecks,collchecks,actions,maxCSet,meanCSet\n";
     if (verify && elapsed > 0)
       std::cout << (valid ? "VALID" : "INVALID") << std::endl;
     if (elapsed < 0) {
@@ -1688,6 +1688,8 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
     } else {
       std::cout << seed << ":" << elapsed << ",";
     }
+    std::cout << tree.size() << ",";
+    std::cout << cost / state::TIME_RESOLUTION_D << ",";
     std::cout << planTime << ",";
     std::cout << replanTime << ",";
     std::cout << bypassplanTime << ",";
@@ -1696,8 +1698,6 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
     std::cout << TOTAL_EXPANSIONS << ",";
     std::cout << comparison::collchecks << ",";
     std::cout << collchecks << ",";
-    std::cout << tree.size() << ",";
-    std::cout << cost / state::TIME_RESOLUTION_D << ",";
     std::cout << total << ",";
     std::cout << constraintsz/std::max(1ul,constrainttot) << std::endl;
   }
@@ -3314,9 +3314,10 @@ assert(b1.t<=b[yTime].t && b2.t >= b[yTime].t);
                         start[0] = {root[0], root[0]};
                         start[1] = {root[1], root[1]};
                         Solution<state> f;
+                        std::vector<unsigned> mc={minCost1,minCost2};
                         hasSolution = getMutexes(start, goals, ec, toDelete, // actions, edges,
                                                  terminals, mutexes,
-                                                 radi, f, disappearAtGoal);
+                                                 radi, mc, f, disappearAtGoal);
                         std::cout << "Solution found: " << hasSolution << "\n";
                         for (auto &d : toDelete) {
                           delete d;

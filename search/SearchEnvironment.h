@@ -121,7 +121,7 @@ public:
 	virtual void SetColor(GLfloat rr, GLfloat g, GLfloat b, GLfloat t = 1.0) const { color.r = rr; color.g = g; color.b = b; transparency = t; }
 	virtual void GetColor(GLfloat& rr, GLfloat& g, GLfloat& b, GLfloat &t) const { rr=color.r; g=color.g; b=color.b; t = transparency;}
 protected:
-	bool bValidSearchGoal;
+	bool bValidSearchGoal=false;
 	state searchGoal;
 	state origGoal;
 	mutable recColor color;

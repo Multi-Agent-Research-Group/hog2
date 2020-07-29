@@ -74,7 +74,6 @@ public:
 	size_t ClosedSize() const { return size()-OpenSize(); }
 	size_t size() const { return elements.size(); }
 	//	void verifyData();
-private:
 	bool HeapifyUp(unsigned int index);
 	void HeapifyDown(unsigned int index);
 

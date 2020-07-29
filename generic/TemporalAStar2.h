@@ -60,7 +60,8 @@ public:
 	lowerlimit(true),upperlimit(false),weight(1),theHeuristic(0),noncritical(false),SuccessorFunc(&environment::GetSuccessors),ActionFunc(&environment::GetAction),GCostFunc(&environment::GCost){ResetNodeCount();}
 	virtual ~TemporalAStar() {}
 	void GetPath(environment *env, const state& from, const state& to, std::vector<state> &thePath, unsigned minTime=0);
-        void GetPaths(environment *_env, const state& from, const state& to, std::vector<std::vector<state>> &paths, double window=1.0, double bestf=-1.0, unsigned minTime=0);
+	void GetPath(environment *env, const std::vector<state>& from, const std::vector<double>& costs, const state& to, std::vector<state> &thePath, unsigned minTime=0);
+	void GetPaths(environment *_env, const state &from, const state &to, std::vector<std::vector<state>> &paths, double window = 1.0, double bestf = -1.0, unsigned minTime = 0);
 	double GetNextPath(environment *env, const state& from, const state& to, std::vector<state> &thePath, unsigned minTime=0);
 	void GetPath(environment *, const state& , const state& , std::vector<action> &);
         inline openList* GetOpenList(){return &openClosedList;}
@@ -72,6 +73,7 @@ public:
         bool noncritical;
 	
 	bool InitializeSearch(environment *env, const state& from, const state& to, std::vector<state> &thePath, unsigned minTime=0);
+	bool InitializeSearch(environment *env, state const& to, std::vector<state> &thePath, unsigned minTime=0);
 	bool DoSingleSearchStep(std::vector<state> &thePath, unsigned minTime=0);
 	void AddAdditionalStartState(state const& newState);
 	void AddAdditionalStartState(state const& newState, double cost);
@@ -207,6 +209,34 @@ void TemporalAStar<state,action,environment,openList>::GetPath(environment *_env
   }
 }
 
+/**
+ * Perform an A* search from multiple states.
+ */
+template <class state, class action, class environment, class openList>
+void TemporalAStar<state,action,environment,openList>::GetPath(environment *_env,
+const std::vector<state>& from, const std::vector<double>& cost,
+const state& to, std::vector<state> &thePath, unsigned minTime)
+{
+	if (theHeuristic == 0)
+		theHeuristic = _env;
+	// If the cost limit is provided, use it.
+	estimate = to.t;
+	if (upperlimit && !to.t)
+		estimate = DBL_MAX;
+
+	if (!InitializeSearch(_env, to, thePath, minTime))
+	{
+		return;
+	}
+	for (unsigned i(0); i < from.size(); ++i)
+	{
+		this->AddAdditionalStartState(from[i], cost[i]);
+	}
+	while (!DoSingleSearchStep(thePath, minTime))
+	{
+	}
+}
+
 /*
  * Get a set of paths in range of optimality
  */
@@ -301,6 +331,35 @@ bool TemporalAStar<state,action,environment,openList>::InitializeSearch(environm
 	}*/
 	
 	openClosedList.AddOpenNode(start, env->GetStateHash(start), 0, weight*theHeuristic->HCost(start, goal)*state::TIME_RESOLUTION);
+	
+	return true;
+}
+
+/**
+ * Initialize the A* search
+ */
+template <class state, class action, class environment, class openList>
+bool TemporalAStar<state,action,environment,openList>::InitializeSearch(environment *_env,
+state const& to,
+std::vector<state> &thePath, unsigned minTime)
+{
+	thePath.resize(0);
+	env = _env;
+	//	closedList.clear();
+	//	openQueue.reset();
+	//	assert(openQueue.size() == 0);
+	//	assert(closedList.size() == 0);
+	openClosedList.Reset(env->GetMaxHash());
+	ResetNodeCount();
+	goal = to;
+	
+	/*if (env->GoalTest(from, to) && (stopAfterGoal)) //assumes that from and to are valid states
+	{
+                thePath.push_back(start);
+		return false;
+	}*/
+	
+	//openClosedList.AddOpenNode(start, env->GetStateHash(start), 0, weight*theHeuristic->HCost(start, goal)*state::TIME_RESOLUTION);
 	
 	return true;
 }

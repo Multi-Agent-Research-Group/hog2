@@ -153,7 +153,7 @@ void processSolution(double elapsed){
   }
   fflush(stdout);
   std::cout
-    << "elapsed,planTime,replanTime,maplanTime,collisionTime,expansions,CATcollchecks,collchecks,collisions,cost,actions,maxCSet,meanCSet\n";
+    << "elapsed,collisions,cost,planTime,replanTime,maplanTime,collisionTime,expansions,CATcollchecks,collchecks,actions,maxCSet,meanCSet\n";
   if (verify && elapsed > 0)
     std::cout << (valid ? "VALID" : "INVALID") << std::endl;
   if (elapsed < 0) {
@@ -162,14 +162,14 @@ void processSolution(double elapsed){
   } else {
     std::cout << seed << ":" << elapsed << ",";
   }
+  std::cout << nodes << ",";
+  std::cout << cost / xyztLoc::TIME_RESOLUTION_D << ",";
   std::cout << CBICSGroup::planTime << ",";
   std::cout << CBICSGroup::replanTime << ",";
   std::cout << CBICSGroup::collisionTime << ",";
   std::cout << CBICSGroup::TOTAL_EXPANSIONS << ",";
   std::cout << TieBreaking3D<xyztLoc,t3DDirection>::collchecks << ",";
   std::cout << CBICSGroup::collchecks << ",";
-  std::cout << nodes << ", ";
-  std::cout << cost / xyztLoc::TIME_RESOLUTION_D << ",";
   std::cout << total << ",";
   std::cout << CBICSGroup::constraintsz/std::max(1ul,CBICSGroup::constrainttot)<< std::endl;
   if (!gui && elapsed<0)
