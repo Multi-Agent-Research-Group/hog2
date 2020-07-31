@@ -221,7 +221,7 @@ unsigned recursions=1, bool disappear=true){
       dag[chash].parents.insert(parent);
       parent=&dag[chash];
     }
-    if(parent->Depth()>minDepth){
+    if(parent->Depth()>=minDepth){
       best=std::min(best,parent->Depth());
     }
     //if(verbose)std::cout << "BEST "<<best<< ">" << minDepth << "\n";
@@ -320,7 +320,7 @@ unsigned offset=0){
   std::vector<std::pair<float,float>> pos(dag.size());
   std::vector<std::string> lab(dag.size());
   //std::cout << "g=Graph([";
-  for(auto const& n:dag){
+  /*for(auto const& n:dag){
     if(m.find(n.first)==m.end()){
       m[n.first]=m.size();
     }
@@ -338,7 +338,7 @@ unsigned offset=0){
       }
       //std::cout<<"("<<m[n.first]+offset<<","<<m[s->hash]+offset<<"), ";
     }
-  }
+  }*/
   //std::cout << "],directed=True)\n";
 
   //std::cout << "vertex_label="<<lab<<"\n";
@@ -786,6 +786,7 @@ bool disappear=true, bool OD=false){
   static std::vector<Mutex<state>> stuff;
   std::deque<MultiEdge<state>> storage;
   MultiEdge<state>* goalref(nullptr);
+  unsigned bestCost(INT_MAX);
 
   while(q.size()){
     //std::cout << "q:\n";
@@ -802,8 +803,8 @@ bool disappear=true, bool OD=false){
 
     bool done(s.feasible);
     unsigned agent(0);
+    unsigned cost(0);
     if(done){
-      unsigned cost(0);
       for(auto const& g:s){
         cost+=g.second->Depth();
         if((!env[agent]->environment->GoalTest(g.second->n,goal[agent])) || g.second->Depth()<minCost[agent]){
@@ -815,8 +816,9 @@ bool disappear=true, bool OD=false){
       }
       done&=cost>=minCostLimit; // Total cost must be high enough
     }
-    if (done&&!goalref)
+    if (done&&cost<bestCost)
     {
+      bestCost=cost;
       //std::cout << "GOAL: ";
       //for (auto const &g : storage.back())
       //{

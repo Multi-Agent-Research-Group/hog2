@@ -81,6 +81,8 @@
         "typeinfo": "cpp",
         "valarray": "cpp"
       },
+      "vim.hlsearch": true,
+      "vim.ignorecase": false,
       "vim.vimrc.enable": true,
       "vim.vimrc.path": "~/.vimrc",
       "python.autoComplete.extraPaths": [
