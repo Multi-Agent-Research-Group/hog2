@@ -85,6 +85,7 @@
       "vim.ignorecase": false,
       "vim.vimrc.enable": true,
       "vim.vimrc.path": "~/.vimrc",
+      "editor.autoClosingBrackets": "never",
       "python.autoComplete.extraPaths": [
         "/opt/ros/melodic/lib/python2.7/dist-packages"
       ]

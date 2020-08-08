@@ -316,7 +316,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
         }else{
           // No solution found for cost
           mddcache[hash] = 0;
-          lbcache[hash] = INFTY;
+          best = lbcache[hash] = INFTY+depth; // Add depth so that this node gets prioritized AFTER others of lower lb
           mscache[hash] = dagsize = 0;
           if(verbose)std::cout << "No solution: " << depth << start << "-->" << end << "\n";
         }
@@ -376,15 +376,33 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
                   bool suboptimal = false, bool checkOnly = false)
     {
       // Compute hash for transposition table
-      std::string hash(s.size()*sizeof(uint64_t),1);
+      std::string hash(s.size()*(sizeof(uint64_t)+sizeof(uint32_t)),1);
       int k(0);
       for(auto v:s){
         uint64_t h1(v.second->Hash());
         uint8_t c[sizeof(uint64_t)];
         memcpy(c,&h1,sizeof(uint64_t));
         for(unsigned j(0); j<sizeof(uint64_t); ++j){
-          hash[k*sizeof(uint64_t)+j]=((int)c[j])?c[j]:1; // Replace null-terminators in the middle of the string
+          hash[k*(sizeof(uint64_t)+sizeof(uint32_t))+j]=((int)c[j])?c[j]:1; // Replace null-terminators in the middle of the string
         }
+
+        if (v.first)
+        {
+          uint32_t h2(v.first->n.t); // Assumes time is<=32 bits.
+          memcpy(c, &h2, sizeof(uint32_t));
+          for (unsigned j(0); j < sizeof(uint32_t); ++j)
+          {
+            hash[k * (sizeof(uint64_t) + sizeof(uint32_t)) + sizeof(uint64_t) + j] = ((int)c[j]) ? c[j] : 1; // Replace null-terminators in the middle of the string
+          }
+        }
+        else
+        {
+          for (unsigned j(0); j < sizeof(uint32_t); ++j)
+          {
+            hash[k * (sizeof(uint64_t) + sizeof(uint32_t)) + sizeof(uint64_t) + j] = 1; // Replace null-terminators in the middle of the string
+          }
+        }
+        
         ++k;
       }
       if(verbose)std::cout << "saw " << s << " hash ";
@@ -897,6 +915,18 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
             break;
           }
         }else{
+          if(cost>=INFTY){
+            bool blocked(false);
+            for (int i(0); i < parent->sizes.size(); ++i)
+            {
+              if(parent->best[i]>=INFTY && parent->sizes[i]>costs[0][i]+step*3){
+                // Assume no path is findable
+                blocked = true;
+                break;
+              }
+            }
+            if(blocked) break;
+          }
           // Split the ICTS node
           for(int i(0); i<parent->sizes.size(); ++i){
             std::vector<uint32_t> sz(parent->sizes);
@@ -918,10 +948,11 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
                 std::cout << "  SIC: " << tmp->lb() << std::endl;
               }
               deconf.insert(sv);
+              /*auto hc(this->HCost(inst.first[i],inst.second[i],i)/2);
               if(!tmp->ok &&
-              this->HCost(inst.first[i],inst.second[i],i)/2>tmp->sizes[i]){
+              this->HCost(inst.first[i],inst.second[i],i)/2>=tmp->sizes[i]){
               continue;
-                }
+                }*/
               q.emplace(tmp);
             }
           }

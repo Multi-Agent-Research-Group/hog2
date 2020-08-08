@@ -370,64 +370,21 @@ template<typename state>
 class Action: public std::pair<state,state>{
   public:
     Action(state const& a, state const& b):std::pair<state,state>(a,b),t(b.t){}
+    Action():t(0){}
+    uint32_t t;
+    //bool feasible=true;
+};
+
+template<typename state>
+class ActionPair: public std::vector<Action<state>>{
+  public:
+    ActionPair():std::vector<Action<state>>(2),t(0){}
+    ActionPair(state const& a, state const& b, state const& c, state const& d):std::vector<Action<state>>(2),t(std::min(b.t,d.t)){
+    this->at(0)=Action<state>(a,b);
+    this->at(1)=Action<state>(c,d);}
     uint32_t t;
     bool feasible=true;
 };
-
-template <typename state>
-void generatePermutations(std::vector<MultiEdge<state>>& positions,
-std::vector<std::vector<Action<state>>>& result,
-int agent,
-std::vector<Action<state>> const& current,
-uint32_t lastTime,
-std::vector<float> const& radii){
-  if(agent == positions.size()) {
-    result.push_back(current);
-    return;
-  }
-
-  for(int i = 0; i < positions[agent].size(); ++i) {
-    //std::cout << "AGENT "<< i<<":\n";
-    std::vector<Action<state>> copy(current);
-    bool found(false);
-    for(int j(0); j<current.size(); ++j){
-      bool conflict(false);
-      // Sometimes, we add an instantaneous action at the goal to represent the
-      // agent disappearing at the goal. If we see this, the agent did not come into conflict
-      if (positions[agent][i].first != positions[agent][i].second &&
-          current[j].first != current[j].second) {
-            // Check easy case: agents crossing an edge in opposite directions, or
-            // leaving or arriving at a vertex at the same time
-        if ((positions[agent][i].first == current[j].first) ||
-            (positions[agent][i].second == current[j].second) ||
-            (positions[agent][i].first.sameLoc(current[j].second) &&
-             current[j].first.sameLoc(positions[agent][i].second))) {
-          found = true;
-          conflict = true;
-        } else {
-          // Check general case - Agents in "free" motion
-          Vector2D A(positions[agent][i].first.x, positions[agent][i].first.y);
-          Vector2D B(current[j].first.x, current[j].first.y);
-          Vector2D VA(positions[agent][i].second.x - positions[agent][i].first.x, positions[agent][i].second.y - positions[agent][i].first.y);
-          VA.Normalize();
-          Vector2D VB(current[j].second.x - current[j].first.x, current[j].second.y - current[j].first.y);
-          VB.Normalize();
-          //std::cout<<"Checking:"<<current[j].first << "-->"<< current[j].second <<", " << positions[agent][i].first << "-->"<< positions[agent][i].second << "\n";
-          if (collisionImminent(A, VA, radii[agent], positions[agent][i].first.t / state::TIME_RESOLUTION_D, positions[agent][i].second.t / state::TIME_RESOLUTION_D, B, VB, radii[j], current[j].first.t / state::TIME_RESOLUTION_D, current[j].second.t / state::TIME_RESOLUTION_D)) {
-            found = true;
-            conflict = true;
-            //checked.insert(hash);
-          }
-        }
-      }
-    }
-    if(found){
-      copy.feasible=false;
-    }
-    copy.push_back(positions[agent][i]);
-    generatePermutations(positions, result, agent + 1, copy,lastTime,radii);
-  }
-}
 
 template <typename state>
 void generatePermutations(std::vector<MultiEdge<state>>& positions,
@@ -1222,8 +1179,8 @@ struct PairwiseConstrainedSearch
   // Adds a single state to the open list and sets the lower bound on cost to 0
   PairwiseConstrainedSearch(unsigned agent1,
                             unsigned agent2,
-                            environ const *env1,
-                            environ const *env2,
+                            environ *env1,
+                            environ *env2,
                             double lower1,
                             double upper1,
                             double lower2,
@@ -1233,7 +1190,8 @@ struct PairwiseConstrainedSearch
                             double r1,
                             state const &start2,
                             state const &goal2,
-                            double r2)
+                            double r2,
+                            double socLb)
       : a1(agent1),
         a2(agent2),
         lb1(lower1),
@@ -1244,17 +1202,22 @@ struct PairwiseConstrainedSearch
         g1(goal1),
         s2(start2),
         g2(goal2),
-        intervals(2),
+        //intervals(2),
         radii(2),
-        socLim(0)
+        socLim(socLb),
+        bf(1)
   {
     radii[0]=r1;
     radii[1]=r2;
     envs = {env1, env2};
     //env = MultiEnv(envs);
     //open.Reset(env->GetMaxHash());
-    open.AddOpenNode(Action<state>(s1, s2),GetHash({{s1,s1},{s2,s2}}),0,
-                                   envs[0]->HCost(s1, g1) + envs[0]->HCost(s1, g2));
+    ActionPair<state> s(s1,s1, s2,s2);
+    MultiAgentAStarOpenClosedData data(s,0,0,
+                                   envs[0]->HCost(s1, g1),
+                                   envs[1]->HCost(s2, g2),
+                         0,open.theHeap.size(), kOpenList);
+    open.AddOpenNode(data,GetHash(s));
     for (auto const &e : envs)
     {
       bf *= e->branchingFactor();
@@ -1308,16 +1271,16 @@ struct PairwiseConstrainedSearch
   double lb1, ub1, lb2, ub2; // Ind. lower and upper cost bounds
   state s1, g1, s2, g2;
   unsigned bf; // branching factor
-  std::vector<IntervalTree<state>> intervals;
-  IntervalTree<state> mutexes;
+  //std::vector<IntervalTree<state>> intervals;
+  //IntervalTree<state> mutexes;
   const int MAXTIME=1000 * state::TIME_RESOLUTION_U;
   std::vector<double> radii;
 
-  class MultiAgentAStarOpenClosedData : public AStarOpenClosedData<state>
+  class MultiAgentAStarOpenClosedData : public AStarOpenClosedData<ActionPair<state>>
   {
   public:
-    MultiAgentAStarOpenClosedData() : AStarOpenClosedData<state>() {}
-    MultiAgentAStarOpenClosedData(const state &theData,
+    MultiAgentAStarOpenClosedData() : AStarOpenClosedData<ActionPair<state>>() {}
+    MultiAgentAStarOpenClosedData(const ActionPair<state> &theData,
                                   double gg1,
                                   double gg2,
                                   double hh1,
@@ -1325,9 +1288,17 @@ struct PairwiseConstrainedSearch
                                   uint64_t parent,
                                   uint64_t openLoc,
                                   dataLocation location)
-        : AStarOpenClosedData<state>(theData, g1 + g2, h1 + h2, parent, openLoc, location), g1(gg1), g2(gg2), h1(hh1), h2(hh2) {}
+        : AStarOpenClosedData<ActionPair<state>>(theData, gg1 + gg2, hh1 + hh2, parent, openLoc, location), g1(gg1), g2(gg2), h1(hh1), h2(hh2) {}
+    MultiAgentAStarOpenClosedData(const ActionPair<state> &theData,
+                                  double g,
+                                  double h,
+                                  uint64_t parent,
+                                  uint64_t openLoc,
+                                  dataLocation location)
+         {assert(!"ERROR!: 6-argument ctor is not allowed! Use the 8-arg ctor.");}
     double g1, g2, h1, h2;
   };
+
 
   // This comparison function will push candidates that are above the limits to the back.
   // This is tricky because:
@@ -1375,7 +1346,7 @@ struct PairwiseConstrainedSearch
     }
   };
 
-  AStarOpenClosed<state, AStarCompare, MultiAgentAStarOpenClosedData> open;
+  AStarOpenClosed<ActionPair<state>, AStarCompare, MultiAgentAStarOpenClosedData> open;
 
   uint64_t GetHash(std::vector<Action<state>> const &node)
   {
@@ -1401,45 +1372,63 @@ struct PairwiseConstrainedSearch
   {
     AStarCompare::ub1 = ub1;
     AStarCompare::ub2 = ub2;
+    bool go(doSingleSearchStep());
+    while(go){
+      go = doSingleSearchStep();
+    }
+  }
+
+  void costs(std::vector<double> &out) const
+  {
+    out.resize(paths.size());
+    unsigned i(0);
+    for (auto const &p : paths)
+    {
+      out[i] = envs[i]->GetPathLength(p);
+      ++i;
+    }
   }
 
   bool doSingleSearchStep()
   {
     if (!open.OpenSize())
     {
-      return true;
+      return false;
     }
 
     // Get next candidate off open
     uint64_t nodeid = open.Close();
+    // Note - this reference becomes invalid once we insert anything into open.
     auto &node(open.Lookup(nodeid));
+        //std::cout << "{d:" << node.data << "g:" << node.g1 << "+" << node.g2 << "=" << node.g << ",h" << node.h1 << "+" << node.h2 << "=" << node.h << ",p:" << node.parentID << "}\n";
 
     // Check that we're below the bounds
     if (ub1 < node.g1 + node.h1 || ub2 < node.g2 + node.h2)
     {
-      open.Reopen(nodeid);
+      //open.Reopen(nodeid);
       return true;
     }
 
     // Add this node to the interval tree
-    auto &s(node.data);
-    intervals.insert(&s[0]);
-    intervals.insert(&s[1]);
+    auto s(node.data);
+    //std::cout << "pop " << s << "\n";
+    //intervals.insert(&s[0]);
+    //intervals.insert(&s[1]);
     if (!s.feasible)
     {
-      mutexes.insert(&s);
+      //mutexes.insert(&s);
     }
 
-    // check goal
-    if (s.feasible &&                        // Reachable
-        node.g > socLim &&                   // Must be above the frontier
-        s[0].second.t >= lb1 &&              // Must be above lower bound
-        s[1].second.t >= lb2 &&              // Must be above lower bound
-        envs[0]->GoalTest(g1, s[0].second) && // at goal
-        envs[1]->GoalTest(g2, s[1].second))   // at goal
+    if (s[0].t>socLim || s[1].t>socLim)
     {
-      return true;
+      //open.Reopen(nodeid);
+      return false;
     }
+
+
+    auto G(node.g);
+    auto G1(node.g1);
+    auto G2(node.g2);
 
     // First:
     // Find minimum time of current edges
@@ -1461,7 +1450,8 @@ struct PairwiseConstrainedSearch
     } // Can happen at root node
 
     //Get successors into a vector
-    successors.resize(bf);
+    successors.clear();
+    successors.reserve(s.size());
 
     // OD may increase the depth of search, but will decrease the branching factor.
     // In our situation, we are sort of doing an exhaustive search and so it may not
@@ -1472,13 +1462,13 @@ struct PairwiseConstrainedSearch
     k = 0;
     for (auto const &a : s)
     {
-      static std::vector<Action<state>> output;
+      static ActionPair<state> output;
       output.clear();
       if ((OD && (k == minindex /* || a.second->Depth()==0*/)) || (!OD && a.second.t <= sd))
       {
         //std::cout << "Keep Successors of " << *a.second << "\n";
         std::vector<state> succ(envs[k]->branchingFactor());
-        auto sz(envs[k]->GetSuccessors(a.second, succ));
+        auto sz(envs[k]->GetSuccessors(a.second, &succ[0]));
         for (unsigned j(0); j < sz; ++j)
         {
           output.emplace_back(a.second, succ[j]);
@@ -1507,9 +1497,10 @@ struct PairwiseConstrainedSearch
       successors.push_back(output);
       ++k;
     }
-    static std::vector<std::vector<Action<state>>> crossProduct;
+    static std::vector<ActionPair<state>> crossProduct;
     crossProduct.clear();
-    static std::vector<Action<state>> tmp;
+    crossProduct.reserve(bf);
+    static ActionPair<state> tmp;
     tmp.clear();
     tmp.feasible = s.feasible;
 
@@ -1517,6 +1508,68 @@ struct PairwiseConstrainedSearch
 
     for (auto const &n : crossProduct)
     {
+      //std::cout << "succ " << n << "\n";
+      if(/*!mutexprop &&*/ !tmp.feasible){
+        continue;
+      }
+      // Remember that in some cases part of a child node is a duplicate of a parent node,
+      // account for this in gcosts
+      bool a1done(envs[0]->GoalTest(n[0].second,g1));
+      bool a2done(envs[1]->GoalTest(n[1].second,g2));
+      bool a1wait(n[0].first.sameLoc(n[0].second));
+      bool a2wait(n[1].first.sameLoc(n[1].second));
+      auto ec1(s[0]==n[0]?0.0:envs[0]->GCost(n[0].first, n[0].second));
+      auto ec2(s[1]==n[1]?0.0:envs[1]->GCost(n[1].first, n[1].second));
+      if (a2done && a1done)
+      {
+        if (a1wait)
+        {
+          // Both agents can't just sit at their goal
+          if (a2wait)
+          {
+            continue;
+          }
+          else if (G1 + state::TIME_RESOLUTION_D < lb1) // Make it cost to wait
+          {
+            ec1 = state::TIME_RESOLUTION_D;
+          }
+        }
+        else if (a2wait && G2 + state::TIME_RESOLUTION_D < lb2)
+        {
+          ec2 = state::TIME_RESOLUTION_D;
+        }
+      }
+      // Legit arrival at goal
+      // check goal
+      if (n.feasible &&                         // Reachable
+          G+ec1+ec2 >= socLim &&                    // Must be above the frontier
+          G1+ec1 >= lb1 &&               // Must be above lower bound
+          G2+ec2 >= lb2 &&               // Must be above lower bound
+          a1done && a2done) // at goal
+      {
+        // Extract the path back to the root.
+        auto tmpnode(nodeid);
+        paths.resize(open.Lookup(tmpnode).data.size());
+        paths[0].push_back(n[0].second);
+        paths[1].push_back(n[1].second);
+        do
+        {
+          for (unsigned i(0); i < open.Lookup(tmpnode).data.size(); ++i)
+          {
+            if(paths[i].back()!=open.Lookup(tmpnode).data[i].second)
+              paths[i].push_back(open.Lookup(tmpnode).data[i].second);
+          }
+          tmpnode = open.Lookup(tmpnode).parentID;
+        } while (open.Lookup(tmpnode).parentID != tmpnode);
+        for (unsigned i(0); i < open.Lookup(tmpnode).data.size(); ++i)
+        {
+          if (paths[i].back() != open.Lookup(tmpnode).data[i].second)
+            paths[i].push_back(open.Lookup(tmpnode).data[i].second);
+          std::reverse(paths[i].begin(), paths[i].end());
+        }
+
+        return false;
+      }
       uint64_t hash(GetHash(n));
       uint64_t theID(0);
       switch (open.Lookup(hash, theID))
@@ -1526,9 +1579,9 @@ struct PairwiseConstrainedSearch
         if (!open.Lookup(theID).data.feasible && n.feasible)
         {
           open.Lookup(theID).parentID = nodeid;
-          //open.Reopen(theID);
           open.Lookup(theID).data.feasible = true;
-          mutexes.remove(&open.Lookup(theID).data);
+          open.Reopen(theID);
+          //mutexes.remove(&open.Lookup(theID).data);
         }
         break;
       case kOpenList:
@@ -1538,19 +1591,100 @@ struct PairwiseConstrainedSearch
           open.Lookup(theID).parentID = nodeid;
           //open.Reopen(theID);
           open.Lookup(theID).data.feasible = true;
-          mutexes.remove(&open.Lookup(theID).data);
+          //mutexes.remove(&open.Lookup(theID).data);
         }
         break;
       case kNotFound:
+        // This is a pain, but if an agent has reached lb, it can wait at
+        // goal with no cost. Also, its last action cannot be a wait action.
         // Add to open :)
-        open.AddOpenNode(theID, hash,
-                         node.g + envs[0]->GCost(n[0].first, n[0].second) + envs[1]->GCost(n[1].first, n[1].second),
-                         envs[0]->HCost(n[0].second, g1) + envs[0]->HCost(n[1].second, g2),
-                         nodeid);
+        MultiAgentAStarOpenClosedData data(n,
+                                           G1 + ec1,
+                                           G2 + ec2,
+                                           envs[0]->HCost(n[0].second, g1),
+                                           envs[0]->HCost(n[1].second, g2),
+                                           nodeid, open.theHeap.size(), kOpenList);
+        open.AddOpenNode(data, hash);
         break;
       }
     }
-    return false;
+    return true;
   }
-  std::vector<std::vector<Action<state>>> successors;
+  std::vector<ActionPair<state>> successors;
+  std::vector<std::vector<state>> paths;
+
+void generatePermutations(std::vector<ActionPair<state>> &positions,
+                          std::vector<ActionPair<state>> &result,
+                          int agent,
+                          ActionPair<state> const &current,
+                          uint32_t lastTime,
+                          std::vector<double> const &radii)
+{
+  if (agent == positions.size())
+  {
+    result.push_back(current);
+    return;
+  }
+
+  for (int i = 0; i < positions[agent].size(); ++i)
+  {
+    //std::cout << "AGENT "<< i<<":\n";
+    ActionPair<state> copy(current);
+    bool found(false);
+    for (int j(0); j < current.size(); ++j)
+    {
+      bool conflict(false);
+      // Sometimes, we add an instantaneous action at the goal to represent the
+      // agent disappearing at the goal. If we see this, the agent did not come into conflict
+      if (positions[agent][i].first != positions[agent][i].second &&
+          current[j].first != current[j].second)
+      {
+        // Check easy case: agents crossing an edge in opposite directions, or
+        // leaving or arriving at a vertex at the same time
+        if ((positions[agent][i].first == current[j].first) ||
+            (positions[agent][i].second == current[j].second) ||
+            (positions[agent][i].first.sameLoc(current[j].second) &&
+             current[j].first.sameLoc(positions[agent][i].second)))
+        {
+          found = true;
+          conflict = true;
+        }
+        else
+        {
+          // Check general case - Agents in "free" motion
+          Vector2D A(positions[agent][i].first.x, positions[agent][i].first.y);
+          Vector2D B(current[j].first.x, current[j].first.y);
+          Vector2D VA(positions[agent][i].second.x - positions[agent][i].first.x, positions[agent][i].second.y - positions[agent][i].first.y);
+          VA.Normalize();
+          Vector2D VB(current[j].second.x - current[j].first.x, current[j].second.y - current[j].first.y);
+          VB.Normalize();
+          //std::cout<<"Checking:"<<current[j].first << "-->"<< current[j].second <<", " << positions[agent][i].first << "-->"<< positions[agent][i].second << "\n";
+          if (collisionImminent(A, VA, radii[agent], positions[agent][i].first.t / state::TIME_RESOLUTION_D, positions[agent][i].second.t / state::TIME_RESOLUTION_D, B, VB, radii[j], current[j].first.t / state::TIME_RESOLUTION_D, current[j].second.t / state::TIME_RESOLUTION_D))
+          {
+            found = true;
+            conflict = true;
+            //checked.insert(hash);
+          }
+        }
+      }
+    }
+    if (found)
+    {
+      copy.feasible = false;
+    }
+    copy.push_back(positions[agent][i]);
+    generatePermutations(positions, result, agent + 1, copy, lastTime, radii);
+  }
+}
+
 };
+template <typename environ, typename state>
+double PairwiseConstrainedSearch<environ,state>::AStarCompare::ub1 = ub1;
+template <typename environ, typename state>
+double PairwiseConstrainedSearch<environ,state>::AStarCompare::ub2 = ub2;
+
+//template <typename environ, typename state>
+//inline std::ostream &operator<<(std::ostream &os, typename PairwiseConstrainedSearch<environ, state>::MultiAgentAStarOpenClosedData const &ma)
+//{
+  //return os;
+//}
