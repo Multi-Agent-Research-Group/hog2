@@ -204,10 +204,11 @@ double Grid3DConstrainedEnvironment::GetPathLength(std::vector<xyztLoc> const& n
   // There is no cost for waiting at the goal
   double cost(0);
   for(int j(neighbors.size()-1); j>0; --j){
-    if(!neighbors[j-1].sameLoc(neighbors[j])){
-      cost += neighbors[j].t;
-      break;
-    }
+    cost+=GCost(neighbors[j-1],neighbors[j]);
+    //if(!neighbors[j-1].sameLoc(neighbors[j])){
+      //cost += neighbors[j].t;
+      //break;
+    //}
   }
   return cost;
 }

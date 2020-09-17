@@ -13,14 +13,13 @@
             "problemMatcher": [
                 "$gcc"
             ]
-        },{
+        }/*,{
             "label": "Build Debug w/o Graphics",
             "type": "shell",
             "command": "echo 'building' && cd build/gmake && make -j debug OPENGL=STUB",
             "isBackground": true,
             "group": {
-                "kind": "build",
-                "isDefault": false
+                "kind": "none"
             },
             "problemMatcher": [
                 "$gcc"
@@ -49,6 +48,6 @@
             "problemMatcher": [
                 "$gcc"
             ]
-        }
+        }*/
     ]
 }

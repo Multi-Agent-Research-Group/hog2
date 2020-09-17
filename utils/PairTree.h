@@ -2,8 +2,8 @@
 **
 ** Copyright (C) 2017 Ivan Pinezhaninov <ivan.pinezhaninov@gmail.com>
 **
-** This file is part of the IntervalTree - Red-Black balanced interval tree
-** which can be found at https://github.com/IvanPinezhaninov/IntervalTree/.
+** This file is part of the PairTree - Red-Black balanced interval tree
+** which can be found at https://github.com/IvanPinezhaninov/PairTree/.
 **
 ** THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 ** IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -16,8 +16,8 @@
 *  Modified by Thayne Walker 2019
 ******************************************************************************/
 
-#ifndef INTERVALTREE_H
-#define INTERVALTREE_H
+#ifndef PAIRTREE_H
+#define PAIRTREE_H
 
 #include <algorithm>
 #include <cassert>
@@ -26,34 +26,61 @@
 #include <utility>
 #include <vector>
 
-constexpr static const double VECTOR_RESERVE_RATE = 0.25;
-
 template <typename ValueType>
-struct Interval{
-  Interval(ValueType const* v):value(v){}
-  Interval():value(nullptr){}
-  ValueType const* value;
-  inline bool operator==(Interval<ValueType> const& rhs)const{
-    return *value==*rhs.value;
-  }
-
-  template<typename State>
-    inline bool operator<(Interval<ValueType> const& rhs)const{
-      return *value<*rhs.value;
+struct PairInterval
+{
+    PairInterval(ValueType const &v, uint16_t minimum, uint16_t maximum) : value(v), minInterval(minimum), maxInterval(maximum) {}
+    PairInterval(ValueType const &v) : value(v), minInterval(SHRT_MAX), maxInterval(0) {}
+    PairInterval() : minInterval(SHRT_MAX), maxInterval(0) {}
+    ValueType value;
+    uint16_t minInterval;
+    uint16_t maxInterval;
+    inline ValueType const *operator->() const { return &value; }
+    inline bool operator==(PairInterval<ValueType> const &rhs) const
+    {
+        return value == rhs.value;
     }
 
-  ValueType const* operator->()const{return value;}
-
+    inline bool operator<(PairInterval<ValueType> const &rhs) const
+    {
+        return value < rhs.value;
+    }
 };
 
+template <typename state> class PairIntervalCIter;
+
 template <typename ValueType>
-class IntervalTree
+class PairTree
 {
 public:
-    using Intervals = std::vector<Interval<ValueType>>;
+    using Intervals = std::vector<PairInterval<ValueType>>;
     using Values = std::vector<ValueType*>;
+    friend class PairIntervalCIter<ValueType>;
+    typedef PairIntervalCIter<ValueType> iterator;
 
-    IntervalTree() :
+    iterator begin(){return iterator(findMin(),*this,0);}
+    iterator end(){return iterator(m_nill,*this,0);}
+    iterator find(ValueType const &v)
+    {
+        if (m_root == m_nill)
+        {
+            return iterator(m_nill, *this, 0);
+        }
+        PairInterval<ValueType> interval(v);
+        auto node(findNode(m_root, interval));
+        if (node == m_nill)
+        {
+            return iterator(m_nill, *this, 0);
+        }
+        auto it(std::find(node->intervals.cbegin(), node->intervals.cend(), interval));
+        if(it==node->intervals.cend()){
+            return iterator(m_nill, *this, 0);
+        }
+
+        return iterator(node, *this, node->intervals.cbegin()-it);
+    }
+
+    PairTree() :
         m_nill(new Node()),
         m_root(m_nill),
         m_size(0)
@@ -62,18 +89,18 @@ public:
 
 
     template <typename Container>
-    IntervalTree(const Container &intervals) :
-        IntervalTree()
+    PairTree(const Container &intervals) :
+        PairTree()
     {
-        for (const Interval<ValueType> &interval : intervals) {
+        for (const PairInterval<ValueType> &interval : intervals) {
             insert(interval);
         }
     }
 
 
     template <typename ForwardIterator>
-    IntervalTree(ForwardIterator begin, ForwardIterator end) :
-        IntervalTree()
+    PairTree(ForwardIterator begin, ForwardIterator end) :
+        PairTree()
     {
         while (begin != end) {
             insert(*begin);
@@ -82,7 +109,7 @@ public:
     }
 
 
-    virtual ~IntervalTree()
+    virtual ~PairTree()
     {
         if (nullptr != m_root) {
             destroySubtree(m_root);
@@ -92,7 +119,7 @@ public:
     }
 
 
-    IntervalTree(const IntervalTree &other) :
+    PairTree(const PairTree &other) :
         m_nill(new Node()),
         m_root(copySubtree(other.m_root, other.m_nill, m_nill)),
         m_size(other.m_size)
@@ -100,7 +127,7 @@ public:
     }
 
 
-    IntervalTree(IntervalTree &&other) noexcept :
+    PairTree(PairTree &&other) noexcept :
         m_nill(other.m_nill),
         m_root(other.m_root),
         m_size(other.m_size)
@@ -110,24 +137,24 @@ public:
     }
 
 
-    IntervalTree &operator=(const IntervalTree &other)
+    PairTree &operator=(const PairTree &other)
     {
         if (this != &other) {
-            IntervalTree(other).swap(*this);
+            PairTree(other).swap(*this);
         }
 
         return *this;
     }
 
 
-    IntervalTree &operator=(IntervalTree &&other) noexcept
+    PairTree &operator=(PairTree &&other) noexcept
     {
         other.swap(*this);
         return *this;
     }
 
 
-    void swap(IntervalTree &other) noexcept
+    void swap(PairTree &other) noexcept
     {
         std::swap(m_nill, other.m_nill);
         std::swap(m_root, other.m_root);
@@ -136,16 +163,16 @@ public:
 
     void insert(const std::vector<std::unique_ptr<const ValueType>> &values){
       for(auto const& v:values){
-        insert(v.get());
+        insert(*v.get());
       }
     }
 
 
-    bool insert(const ValueType &value){
-      return insert(Interval<ValueType>(value));
+    bool insert(const ValueType &value,uint16_t minimum,uint16_t maximum){
+      return insert(PairInterval<ValueType>(value,minimum,maximum));
     }
 
-    bool insert(const Interval<ValueType> &interval)
+    bool insert(const PairInterval<ValueType> &interval)
     {
         assert(nullptr != m_root && nullptr != m_nill);
 
@@ -170,7 +197,7 @@ public:
 
         if (!isNodeHasInterval(node, interval)) {
             auto it = std::lower_bound(node->intervals.begin(), node->intervals.end(), interval,
-                                       [] (const Interval<ValueType> &lhs, const Interval<ValueType> &rhs) -> bool { return (lhs->second.t < rhs->second.t); });
+                                       [] (const PairInterval<ValueType> &lhs, const PairInterval<ValueType> &rhs) -> bool { return (lhs->second.t < rhs->second.t); });
 
             node->intervals.insert(it, interval);
 
@@ -192,11 +219,11 @@ public:
     }
 
     bool remove(const ValueType &value){
-      return remove(Interval<ValueType>(value));
+      return remove(PairInterval<ValueType>(value));
     }
 
 
-    bool remove(const Interval<ValueType> &interval)
+    bool remove(const PairInterval<ValueType> &interval)
     {
         assert(nullptr != m_root && nullptr != m_nill);
 
@@ -282,7 +309,7 @@ public:
     }
 
 
-    bool contains(const Interval<ValueType> &interval) const
+    bool contains(const PairInterval<ValueType> &interval) const
     {
         assert(nullptr != m_root && nullptr != m_nill);
 
@@ -314,13 +341,13 @@ public:
 
     void findOverlapping(ValueType const* value, Intervals &out, bool boundary = true) const
     {
-      Interval<ValueType> interval(value);
+      PairInterval<ValueType> interval(value);
       if (!out.empty()) {
         out.clear();
       }
 
       if (m_root != m_nill) {
-        subtreeOverlappingIntervals(m_root, interval, boundary, [&out] (const Interval<ValueType> &in) -> void { out.push_back(in); });
+        subtreeOverlappingIntervals(m_root, interval, boundary, [&out] (const PairInterval<ValueType> &in) -> void { out.push_back(in); });
       }
 
       out.shrink_to_fit();
@@ -329,7 +356,7 @@ public:
 
     Intervals findOverlapping(ValueType const* value, bool boundary = true) const
     {
-      Interval<ValueType> interval(value);
+      PairInterval<ValueType> interval(value);
       Intervals out;
       out.reserve(size_t(m_size * VECTOR_RESERVE_RATE));
       findOverlappingIntervals(interval, out, boundary);
@@ -337,21 +364,21 @@ public:
     }
 
 
-    void findInnerIntervals(const Interval<ValueType> &interval, Intervals &out, bool boundary = true) const
+    void findInnerIntervals(const PairInterval<ValueType> &interval, Intervals &out, bool boundary = true) const
     {
         if (!out.empty()) {
             out.clear();
         }
 
         if (m_root != m_nill) {
-            subtreeInnerIntervals(m_root, interval, boundary, [&out] (const Interval<ValueType> &in) -> void { out.push_back(in); });
+            subtreeInnerIntervals(m_root, interval, boundary, [&out] (const PairInterval<ValueType> &in) -> void { out.push_back(in); });
         }
 
         out.shrink_to_fit();
     }
 
 
-    Intervals findInnerIntervals(const Interval<ValueType> &interval, bool boundary = true) const
+    Intervals findInnerIntervals(const PairInterval<ValueType> &interval, bool boundary = true) const
     {
         Intervals out;
         out.reserve(size_t(m_size * VECTOR_RESERVE_RATE));
@@ -360,21 +387,21 @@ public:
     }
 
 
-    void findOuterIntervals(const Interval<ValueType> &interval, Intervals &out, bool boundary = true) const
+    void findOuterIntervals(const PairInterval<ValueType> &interval, Intervals &out, bool boundary = true) const
     {
         if (!out.empty()) {
             out.clear();
         }
 
         if (m_root != m_nill) {
-            subtreeOuterIntervals(m_root, interval, boundary, [&out] (const Interval<ValueType> &in) -> void { out.push_back(in); });
+            subtreeOuterIntervals(m_root, interval, boundary, [&out] (const PairInterval<ValueType> &in) -> void { out.push_back(in); });
         }
 
         out.shrink_to_fit();
     }
 
 
-    Intervals findOuterIntervals(const Interval<ValueType> &interval, bool boundary = true) const
+    Intervals findOuterIntervals(const PairInterval<ValueType> &interval, bool boundary = true) const
     {
         Intervals out;
         out.reserve(size_t(m_size * VECTOR_RESERVE_RATE));
@@ -383,21 +410,21 @@ public:
     }
 
 
-    void findIntervalsContainPoint(const Interval<ValueType> &point, Intervals &out, bool boundary = true) const
+    void findIntervalsContainPoint(const PairInterval<ValueType> &point, Intervals &out, bool boundary = true) const
     {
         if (!out.empty()) {
             out.clear();
         }
 
         if (m_root != m_nill) {
-            subtreeIntervalsContainPoint(m_root, point, boundary, [&out] (const Interval<ValueType> &in) -> void { out.push_back(in); });
+            subtreeIntervalsContainPoint(m_root, point, boundary, [&out] (const PairInterval<ValueType> &in) -> void { out.push_back(in); });
         }
 
         out.shrink_to_fit();
     }
 
 
-    Intervals findIntervalsContainPoint(const Interval<ValueType> &point, bool boundary = true) const
+    Intervals findIntervalsContainPoint(const PairInterval<ValueType> &point, bool boundary = true) const
     {
         Intervals out;
         out.reserve(size_t(m_size * VECTOR_RESERVE_RATE));
@@ -406,48 +433,48 @@ public:
     }
 
 
-    unsigned countOverlappingIntervals(const Interval<ValueType> &interval, bool boundary = true) const
+    unsigned countOverlappingIntervals(const PairInterval<ValueType> &interval, bool boundary = true) const
     {
         unsigned count = 0;
 
         if (m_root != m_nill) {
-            subtreeOverlappingIntervals(m_root, interval, boundary, [&count] (const Interval<ValueType> &) -> void { ++count; });
+            subtreeOverlappingIntervals(m_root, interval, boundary, [&count] (const PairInterval<ValueType> &) -> void { ++count; });
         }
 
         return count;
     }
 
 
-    unsigned countInnerIntervals(const Interval<ValueType> &interval, bool boundary = true) const
+    unsigned countInnerIntervals(const PairInterval<ValueType> &interval, bool boundary = true) const
     {
         unsigned count = 0;
 
         if (m_root != m_nill) {
-            subtreeInnerIntervals(m_root, interval, boundary, [&count] (const Interval<ValueType> &) -> void { ++count; });
+            subtreeInnerIntervals(m_root, interval, boundary, [&count] (const PairInterval<ValueType> &) -> void { ++count; });
         }
 
         return count;
     }
 
 
-    unsigned countOuterIntervals(const Interval<ValueType> &interval, bool boundary = true) const
+    unsigned countOuterIntervals(const PairInterval<ValueType> &interval, bool boundary = true) const
     {
         unsigned count = 0;
 
         if (m_root != m_nill) {
-            subtreeOuterIntervals(m_root, interval, boundary, [&count] (const Interval<ValueType> &) -> void { ++count; });
+            subtreeOuterIntervals(m_root, interval, boundary, [&count] (const PairInterval<ValueType> &) -> void { ++count; });
         }
 
         return count;
     }
 
 
-    unsigned countIntervalsContainPoint(const Interval<ValueType> &point, bool boundary = true) const
+    unsigned countIntervalsContainPoint(const PairInterval<ValueType> &point, bool boundary = true) const
     {
         unsigned count = 0;
 
         if (m_root != m_nill) {
-            subtreeIntervalsContainPoint(m_root, point, boundary, [&count] (const Interval<ValueType> &) -> void { ++count; });
+            subtreeIntervalsContainPoint(m_root, point, boundary, [&count] (const PairInterval<ValueType> &) -> void { ++count; });
         }
 
         return count;
@@ -460,7 +487,7 @@ public:
     }
 
 
-    unsigned size() const
+    size_t size() const
     {
         return m_size;
     }
@@ -475,24 +502,15 @@ public:
         m_size = 0;
     }
 
-
-private:
     enum class Color : char {
         Black,
         Red
     };
 
-
-    enum class Position : char {
-        Left,
-        Right
-    };
-
-
     struct Node{
         Node() = default;
 
-        Node(const Interval<ValueType> &interval, Color col, Node *nill) :
+        Node(const PairInterval<ValueType> &interval, Color col, Node *nill) :
             color(col),
             parent(nill),
             left(nill),
@@ -514,6 +532,18 @@ private:
         unsigned highest;
         Intervals intervals;
     };
+
+    Node *m_nill;
+    Node *m_root;
+
+private:
+    constexpr static const double VECTOR_RESERVE_RATE = 0.25;
+
+    enum class Position : char {
+        Left,
+        Right
+    };
+
 
 
     Node *copySubtree(Node *otherNode, Node *otherNill, Node *parent) const
@@ -553,7 +583,7 @@ private:
     }
 
 
-    Node *findNode(Node *node, const Interval<ValueType> &interval) const
+    Node *findNode(Node *node, const PairInterval<ValueType> &interval) const
     {
         assert(nullptr != node);
         assert(node != m_nill);
@@ -628,7 +658,7 @@ private:
     }
 
 
-    void createChildNode(Node *parent, const Interval<ValueType> &interval, Position position)
+    void createChildNode(Node *parent, const PairInterval<ValueType> &interval, Position position)
     {
         assert(nullptr != parent);
         assert(childNode(parent, position) == m_nill);
@@ -694,7 +724,7 @@ private:
 
 
     template <typename Callback>
-    void subtreeOverlappingIntervals(Node *node, const Interval<ValueType> &interval, bool boundary, Callback &&callback) const
+    void subtreeOverlappingIntervals(Node *node, const PairInterval<ValueType> &interval, bool boundary, Callback &&callback) const
     {
         assert(nullptr != node);
 
@@ -722,7 +752,7 @@ private:
 
 
     template <typename Callback>
-    void subtreeInnerIntervals(Node *node, const Interval<ValueType> &interval, bool boundary, Callback &&callback) const
+    void subtreeInnerIntervals(Node *node, const PairInterval<ValueType> &interval, bool boundary, Callback &&callback) const
     {
         assert(nullptr != node);
 
@@ -749,7 +779,7 @@ private:
 
 
     template <typename Callback>
-    void subtreeOuterIntervals(Node *node, const Interval<ValueType> &interval, bool boundary, Callback &&callback) const
+    void subtreeOuterIntervals(Node *node, const PairInterval<ValueType> &interval, bool boundary, Callback &&callback) const
     {
         assert(nullptr != node);
 
@@ -777,7 +807,7 @@ private:
 
 
     template <typename Callback>
-    void subtreeIntervalsContainPoint(Node *node, const Interval<ValueType> &point, bool boundary, Callback &&callback) const
+    void subtreeIntervalsContainPoint(Node *node, const PairInterval<ValueType> &point, bool boundary, Callback &&callback) const
     {
         assert(nullptr != node);
 
@@ -804,7 +834,7 @@ private:
     }
 
 
-    bool isNodeHasInterval(Node *node, const Interval<ValueType> &interval) const
+    bool isNodeHasInterval(Node *node, const PairInterval<ValueType> &interval) const
     {
         assert(nullptr != node);
 
@@ -817,7 +847,7 @@ private:
         assert(!intervals.empty());
 
         auto it = std::max_element(intervals.cbegin(), intervals.cend(),
-                                   [] (const Interval<ValueType> &lhs, const Interval<ValueType> &rhs) -> bool { return lhs->second.t < rhs->second.t; });
+                                   [] (const PairInterval<ValueType> &lhs, const PairInterval<ValueType> &rhs) -> bool { return lhs->second.t < rhs->second.t; });
 
         assert(it != intervals.cend());
 
@@ -1035,15 +1065,105 @@ private:
         }
     }
 
+    Node* findMin()const{
+        auto current(m_root);
+        auto parent(m_root);
+        while(current != m_nill){
+            parent=current;
+            current=current->left;
+        }
+        return parent;
+    }
 
-    Node *m_nill;
-    Node *m_root;
+
     unsigned m_size;
 };
 
+template <typename ValueType>
+class PairIntervalCIter
+{
+private:
+    typename PairTree<ValueType>::Node *node;
+    PairTree<ValueType> &t;
+    unsigned offset;
+
+public:
+    PairIntervalCIter(typename PairTree<ValueType>::Node *n, PairTree<ValueType> &tree, unsigned o) : node(n), t(tree), offset(o) {}
+    bool operator==(PairIntervalCIter const &itr)
+    {
+        return node == itr.node && offset == itr.offset;
+    }
+    bool operator!=(PairIntervalCIter const &itr)
+    {
+        return node != itr.node || offset != itr.offset;
+    }
+    PairIntervalCIter &operator++()
+    {
+        if (offset == node->intervals.size() - 1)
+        {
+            typename PairTree<ValueType>::Node *p;
+            if (node == t.m_nill)
+            {
+                // ++ from end(). get the root of the tree
+                node = t.m_root;
+
+                // error! ++ requested for an empty tree
+                //if (node == t.m_nill)
+                    //throw UnderflowException{};
+
+                // move to the smallest value in the tree,
+                // which is the first node inorder
+                while (node->left != t.m_nill)
+                {
+                    node = node->left;
+                }
+            }
+            else if (node->right != t.m_nill)
+            {
+                // successor is the farthest left node of
+                // right subtree
+                node = node->right;
+
+                while (node->left != t.m_nill)
+                {
+                    node = node->left;
+                }
+            }
+            else
+            {
+                // have already processed the left subtree, and
+                // there is no right subtree. move up the tree,
+                // looking for a parent for which node is a left child,
+                // stopping if the parent becomes NULL. a non-NULL parent
+                // is the successor. if parent is NULL, the original node
+                // was the last node inorder, and its successor
+                // is the end of the list
+                p = node->parent;
+                while (p != t.m_nill && node == p->right)
+                {
+                    node = p;
+                    p = p->parent;
+                }
+
+                // if we were previously at the right-most node in
+                // the tree, node = t.m_nill, and the iterator specifies
+                // the end of the list
+                node = p;
+            }
+            offset=0;
+        }
+        else
+        {
+            ++offset;
+        }
+        return *this;
+    }
+    PairInterval<ValueType> & operator*(){ return node->intervals[offset]; }
+    PairInterval<ValueType> & operator->(){ return node->intervals[offset]; }
+};
 
 template <typename ValueType>
-void swap(IntervalTree<ValueType> &lhs, IntervalTree<ValueType> &rhs)
+void swap(PairTree<ValueType> &lhs, PairTree<ValueType> &rhs)
 {
     lhs.swap(rhs);
 }

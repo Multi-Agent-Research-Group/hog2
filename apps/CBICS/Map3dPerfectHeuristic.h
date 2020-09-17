@@ -48,7 +48,8 @@ class Map3dPerfectHeuristic: public Heuristic<state> {
         TemporalAStar<state,action,Grid3DConstrainedEnvironment> astar;
         //std::cout << "Loading heuristic\n";
         //astar.SetVerbose(false);
-        astar.SetHeuristic(new ZeroHeuristic<state>);
+        ZeroHeuristic<state> z;
+        astar.SetHeuristic(&z);
         astar.SetStopAfterGoal(false); // Search the entire space
         // Now perform a search to get all costs
         // NOTE: This should be a reverse-search, but our agents are holonomic
@@ -73,7 +74,7 @@ class Map3dPerfectHeuristic: public Heuristic<state> {
         elapsed+=tmr.EndTimer();
       }
       assert(s2.sameLoc(goal));
-      return list[s1.x*m->GetMapHeight()*depth+s1.y*depth+s1.z]/state::TIME_RESOLUTION;
+      return list[s1.x*m->GetMapHeight()*depth+s1.y*depth+s1.z];
     }
     mutable double elapsed;
 

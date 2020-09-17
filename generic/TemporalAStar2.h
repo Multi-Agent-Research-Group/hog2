@@ -57,7 +57,7 @@ template <class state, class action, class environment, class openList=AStarOpen
 class TemporalAStar : public GenericSearchAlgorithm<state,action,environment> {
 public:
 	TemporalAStar():env(0),totalExternalNodesExpanded(nullptr),externalExpansionLimit(INT_MAX),stopAfterGoal(true),verbose(false),
-	lowerlimit(true),upperlimit(false),weight(1),theHeuristic(0),noncritical(false),SuccessorFunc(&environment::GetSuccessors),ActionFunc(&environment::GetAction),GCostFunc(&environment::GCost){ResetNodeCount();}
+	lowerlimit(0),upperlimit(UINT_MAX),weight(1),theHeuristic(0),noncritical(false),SuccessorFunc(&environment::GetSuccessors),ActionFunc(&environment::GetAction),GCostFunc(&environment::GCost){ResetNodeCount();}
 	virtual ~TemporalAStar() {}
 	void GetPath(environment *env, const state& from, const state& to, std::vector<state> &thePath, unsigned minTime=0);
 	void GetPath(environment *env, const std::vector<state>& from, const std::vector<double>& costs, const state& to, std::vector<state> &thePath, unsigned minTime=0);
@@ -120,11 +120,11 @@ public:
 	inline bool GetVerbose() { return verbose; }
 	
 	// Limit solutions only to those with f-cost <= cost limit
-	inline void SetUpperLimit(bool val) { upperlimit = val; }
+	inline void SetUpperLimit(unsigned val) { upperlimit = val; }
 	inline bool GetUpperLimit() { return upperlimit; }
 	
 	// Limit solutions only to those with f-cost >= cost limit
-	inline void SetLowerLimit(bool val) { lowerlimit = val; }
+	inline void SetLowerLimit(unsigned val) { lowerlimit = val; }
 	inline bool GetLowerLimit() { return lowerlimit; }
 	
 	void OpenGLDraw() const;
@@ -156,8 +156,8 @@ private:
         uint externalExpansionLimit;
 		bool stopAfterGoal;
         bool verbose;
-        bool upperlimit;
-        bool lowerlimit;
+        unsigned upperlimit;
+        unsigned lowerlimit;
 	
 	double weight; 
 	bool goalSteps;
@@ -168,7 +168,6 @@ private:
         unsigned (environment::*SuccessorFunc)(const state&, state*) const;
         action (environment::*ActionFunc)(const state&, const state&) const;
         double timeStep;
-        double estimate;
 };
 
 //static const bool verbose = false;
@@ -196,9 +195,6 @@ template <class state, class action, class environment, class openList>
 void TemporalAStar<state,action,environment,openList>::GetPath(environment *_env, const state& from, const state& to, std::vector<state> &thePath, unsigned minTime)
 {
   if (theHeuristic == 0) theHeuristic = _env;
-  // If the cost limit is provided, use it.
-  estimate=to.t;
-  if(upperlimit&&!to.t)estimate=DBL_MAX;
 
   if (!InitializeSearch(_env, from, to, thePath,minTime))
   {	
@@ -220,10 +216,6 @@ const state& to, std::vector<state> &thePath, unsigned minTime)
 	if (theHeuristic == 0)
 		theHeuristic = _env;
 	// If the cost limit is provided, use it.
-	estimate = to.t;
-	if (upperlimit && !to.t)
-		estimate = DBL_MAX;
-
 	if (!InitializeSearch(_env, to, thePath, minTime))
 	{
 		return;
@@ -290,7 +282,6 @@ double TemporalAStar<state,action,environment,openList>::GetNextPath(environment
 template <class state, class action, class environment, class openList>
 void TemporalAStar<state,action,environment,openList>::GetPath(environment *_env, const state& from, const state& to, std::vector<action> &path)
 {
-  estimate=to.t?to.t:DBL_MAX;
   std::vector<state> thePath;
   if (!InitializeSearch(_env, from, to, thePath))
   {
@@ -428,55 +419,89 @@ bool TemporalAStar<state,action,environment,openList>::DoSingleSearchStep(std::v
   // Check for fcost > optCost and return early if we think there is no other solution
 
   if(verbose)std::cout << "Expanding: " << openClosedList.Lookup(nodeid).data << "(" << std::hex << env->GetStateHash(openClosedList.Lookup(nodeid).data) << std::dec << ") with f:" << openClosedList.Lookup(nodeid).g+openClosedList.Lookup(nodeid).h << std::endl;
+  auto nn(openClosedList.Lookup(nodeid).data);
   unsigned nSuccessors((env->*SuccessorFunc)(openClosedList.Lookup(nodeid).data, neighbors));
   if(stopAfterGoal){
-    if(env->GoalTest(openClosedList.Lookup(nodeid).data, goal) && (!lowerlimit || fgeq(G,estimate))){
-      if(openClosedList.Lookup(nodeid).data.t>=minTime)
-      {
-        ExtractPathToStartFromID(nodeid, thePath);
-        // Path is backwards - reverse
-        reverse(thePath.begin(), thePath.end()); 
-        return true;
-      }else{
-        // Need an action with a good time.
-        state n=openClosedList.Lookup(nodeid).data;
-        n.t=minTime;
-        // Returns 0 if no violation, otherwise the minimum safe time (minus epsilon)
-        n.t=env->ViolatesConstraintTime(openClosedList.Lookup(nodeid).data,n);
-        if(!n.t){
-          n.t=minTime;
-          if(!goalSteps){
-            bool found(false);
-            for(unsigned x(0); x<nSuccessors; ++x){
-              if(n==neighbors[x]){
-                found=true;
-                break;
-              }
-            }
-            if(!found){
-              neighbors[nSuccessors++]=n;
-            }
-          }
-        }else{
-          //n.t-=env->WaitTime();
-          if(!goalSteps
-              && fgreater(n.t,openClosedList.Lookup(nodeid).data.t)){
-            bool found(false);
-            for(unsigned x(0); x<nSuccessors; ++x){
-              if(n==neighbors[x]){
-                found=true;
-                break;
-              }
-            }
-            if(!found){
-              neighbors[nSuccessors++]=n;
-            }
-          }
-        }
-      }
-    }else if(goal.t && openClosedList.Lookup(nodeid).data.t > goal.t){
-      return false;
-    }
+    //bool result(env->GoalTest(openClosedList.Lookup(nodeid).data, goal));
+	//bool ote(!lowerlimit || fgeq(G,estimate));
+    if(env->GoalTest(openClosedList.Lookup(nodeid).data, goal))
+	{
+		if(fgeq(G, lowerlimit))
+		{
+			if (openClosedList.Lookup(nodeid).data.t >= minTime)
+			{
+				ExtractPathToStartFromID(nodeid, thePath);
+				// Path is backwards - reverse
+				reverse(thePath.begin(), thePath.end());
+				return true;
+			}
+			else
+			{
+				// Need an action with a good time.
+				state n = openClosedList.Lookup(nodeid).data;
+				n.t = minTime;
+				// Returns 0 if no violation, otherwise the minimum safe time (minus epsilon)
+				n.t = env->ViolatesConstraintTime(openClosedList.Lookup(nodeid).data, n);
+				if (!n.t)
+				{
+					n.t = minTime;
+					if (!goalSteps)
+					{
+						bool found(false);
+						for (unsigned x(0); x < nSuccessors; ++x)
+						{
+							if (n == neighbors[x])
+							{
+								found = true;
+								break;
+							}
+						}
+						if (!found)
+						{
+							neighbors[nSuccessors++] = n;
+						}
+					}
+				}
+				else
+				{
+					//n.t-=env->WaitTime();
+					if (!goalSteps && fgreater(n.t, openClosedList.Lookup(nodeid).data.t))
+					{
+						bool found(false);
+						for (unsigned x(0); x < nSuccessors; ++x)
+						{
+							if (n == neighbors[x])
+							{
+								found = true;
+								break;
+							}
+						}
+						if (!found)
+						{
+							neighbors[nSuccessors++] = n;
+						}
+					}
+				}
+			}
+		}else if(lowerlimit){
+			// At goal but cost is too low.
+			// Disallow waiting at the goal? (or else make it cost)
+			bool found(false);
+			for (unsigned int x = 0; x < nSuccessors; x++)
+			{
+				if(neighbors[x].sameLoc(openClosedList.Lookup(nodeid).data)){
+					found=true;
+				}
+				if(found)
+				{
+					neighbors[x]=neighbors[x+1];
+				}
+			}
+			if(found) --nSuccessors;
+		}
+	} //else if(goal.t && openClosedList.Lookup(nodeid).data.t > goal.t){
+	  //return false;
+	//}
   }
 
 
@@ -493,7 +518,7 @@ bool TemporalAStar<state,action,environment,openList>::DoSingleSearchStep(std::v
     if(neighborLoc[x] != kNotFound)
       h=openClosedList.Lookup(theID).h;
     else
-      h=theHeuristic->HCost(neighbors[x], goal)*state::TIME_RESOLUTION;
+      h=theHeuristic->HCost(neighbors[x], goal);
     hCosts[x]=h;
 
   }
@@ -529,15 +554,15 @@ bool TemporalAStar<state,action,environment,openList>::DoSingleSearchStep(std::v
         break;
       case kNotFound:
         if(verbose)std::cout << "Add node? ("<<std::hex<<env->GetStateHash(neighbors[x])<<std::dec<<") to open " << neighbors[x] << (G+edgeCosts[x]) << "+" << (weight*hCosts[x]) << "=" << (G+edgeCosts[x]+weight*hCosts[x]) << " ";
-        if(!upperlimit || fleq(G+edgeCosts[x]+weight*hCosts[x],estimate)){
-			if(verbose) std::cout << "<="<<estimate<<"\n";
+        if(fleq(G+edgeCosts[x]+weight*hCosts[x],upperlimit)){
+			if(verbose) std::cout << "<="<<upperlimit<<"\n";
           openClosedList.AddOpenNode(neighbors[x],
               env->GetStateHash(neighbors[x]),
               G+edgeCosts[x],
               weight*hCosts[x],
               nodeid);
         }else{
-			if(verbose) std::cout << ">"<<estimate<<"\n";
+			if(verbose) std::cout << ">"<<upperlimit<<"\n";
 		}
     }
   }

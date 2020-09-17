@@ -34,6 +34,8 @@
 #include "Heuristic.h"
 #include "MultiAgentStructures.h"
 #include "Utilities.h"
+#include "sorted_vector.h"
+#include "TemporalAStar2.h"
 
 template<typename T>
 void clear(std::vector<T>& v){
@@ -69,8 +71,8 @@ struct Node{
   uint32_t id;
   bool optimal;
   //bool connected()const{return parents.size()+successors.size();}
-  std::set<Node*,PtrCmp<state>> parents;
-  std::set<Node*,PtrCmp<state>> successors;
+  sorted_vector<Node*,true,PtrCmp<state>> parents;
+  sorted_vector<Node*,true,PtrCmp<state>> successors;
   std::map<Node*,std::set<std::tuple<Node*,Node*,unsigned>>> mutexes; // [self->successor]->[op.s1,op.s2,agent]
   inline uint64_t Hash()const{return hash;}
   inline uint32_t Depth()const{return n.t;}
@@ -315,10 +317,10 @@ unsigned offset=0){
   static std::map<uint64_t,bool> singleTransTable;
   singleTransTable.clear();
   auto result = LimitedDFS(start,end,dag,root,terminals,depth,minDepth,depth,best,env,singleTransTable,blocked);
-  std::map<uint64_t,unsigned> m;
-  std::map<unsigned,std::vector<uint64_t>> xs;
-  std::vector<std::pair<float,float>> pos(dag.size());
-  std::vector<std::string> lab(dag.size());
+  //std::map<uint64_t,unsigned> m;
+  //std::map<unsigned,std::vector<uint64_t>> xs;
+  //std::vector<std::pair<float,float>> pos(dag.size());
+  //std::vector<std::string> lab(dag.size());
   //std::cout << "g=Graph([";
   /*for(auto const& n:dag){
     if(m.find(n.first)==m.end()){
@@ -343,7 +345,7 @@ unsigned offset=0){
 
   //std::cout << "vertex_label="<<lab<<"\n";
 
-  for(auto const& x:xs){
+  /*for(auto const& x:xs){
     unsigned ss(0);
     for(auto const& q:x.second){
       auto v=m[q];
@@ -351,7 +353,7 @@ unsigned offset=0){
       pos[v].second=ss*5;
       ++ss;
     }
-  }
+  }*/
   //std::cout << "vertex_size="<<std::vector<int>(lab.size(),50) << "\n";
   //std::cout << "vertex_label_dist="<<std::vector<float>(lab.size(),-.5) << "\n";
   //std::cout << "layout="<<pos<<"\n";
@@ -372,19 +374,80 @@ class Action: public std::pair<state,state>{
     Action(state const& a, state const& b):std::pair<state,state>(a,b),t(b.t){}
     Action():t(0){}
     uint32_t t;
-    //bool feasible=true;
+    bool operator<(Action const& other)const{
+      return this->first==other.first?this->second<other.second:this->first<other.first;
+    }
 };
 
+template <typename state> class ActionPairIter;
+template <typename state> class ActionPairCIter;
+
 template<typename state>
-class ActionPair: public std::vector<Action<state>>{
+class ActionPair: public std::pair<Action<state>,Action<state>>{
   public:
-    ActionPair():std::vector<Action<state>>(2),t(0){}
-    ActionPair(state const& a, state const& b, state const& c, state const& d):std::vector<Action<state>>(2),t(std::min(b.t,d.t)){
-    this->at(0)=Action<state>(a,b);
-    this->at(1)=Action<state>(c,d);}
+    ActionPair():std::pair<Action<state>,Action<state>>(),t(0),sz(0),feasible(true){}
+    ActionPair(Action<state>const&a,Action<state> const&b,bool f=true):std::pair<Action<state>,Action<state>>(a,b),t(std::min(a.t,b.t)),sz(2),feasible(f){}
+    ActionPair(state const& a, state const& b, state const& c, state const& d):std::pair<Action<state>,Action<state>>(Action<state>(a,b),Action<state>(c,d)),t(std::min(b.t,d.t)),sz(2),feasible(true){}
+    friend class ActionPairIter<state>;
+    friend class ActionPairCIter<state>;
+
+    typedef ActionPairIter<state> iterator;
+    typedef ActionPairCIter<state> const_iterator;
+    typedef state value_type;
+    typedef state *pointer;
+    typedef state &reference;
+    size_t size()const{return sz;}
+    iterator begin(){return iterator(*this,0);}
+    const_iterator begin()const{return const_iterator(*this,0);}
+    iterator end(){return iterator(*this,2);}
+    const_iterator end()const{return const_iterator(*this,2);}
+    Action<state>& operator[](unsigned i){assert(i<2);return i?this->second:this->first;}
+    Action<state>const& operator[](unsigned i)const{assert(i<2);return i?this->second:this->first;}
+    void clear(){sz=0;}
+    bool empty(){return sz==0;}
+    void emplace_back(state const& a, state const& b){assert(sz<2); if(sz){this->second=Action<state>(a,b);}else{this->first=Action<state>(a,b);} ++sz;}
+    void push_back(Action<state> const& a){assert(sz<2); if(sz){this->second=a;}else{this->first=a;} ++sz;}
+    bool operator<(ActionPair const& other)const{
+      return this->first==other.first?this->second<other.second:this->first<other.first;
+    }
+
+    size_t sz;
     uint32_t t;
-    bool feasible=true;
+    bool feasible; // Infeasible because of itself or parents
 };
+
+template <typename state>
+class ActionPairIter{
+  private:
+    ActionPair<state> & myPair;
+    unsigned offset;
+    public:
+    ActionPairIter(ActionPair<state> & ap, int size):myPair(ap),offset(size)
+    {
+    }
+    bool operator!=(ActionPairIter const& itr){ return offset != itr.offset;}
+    ActionPairIter& operator++(){ ++offset; return *this; }
+    ActionPairIter operator++(int){ ActionPair<state> clone(*this); ++clone.offset; return clone; }
+    Action<state> & operator*(){ return offset?myPair.second:myPair.first; }
+    Action<state> & operator->(){ return offset?myPair.second:myPair.first; }
+};
+
+template <typename state>
+class ActionPairCIter{
+  private:
+    ActionPair<state> const& myPair;
+    unsigned offset;
+    public:
+    ActionPairCIter(ActionPair<state> const& ap, int size):myPair(ap),offset(size)
+    {
+    }
+    bool operator!=(ActionPairCIter const& itr){ return offset != itr.offset;}
+    ActionPairCIter& operator++(){ ++offset; return *this; }
+    ActionPairCIter operator++(int){ ActionPair<state> clone(*this); ++clone.offset; return clone; }
+    Action<state> const& operator*(){ return offset?myPair.second:myPair.first; }
+    Action<state> const& operator->(){ return offset?myPair.second:myPair.first; }
+};
+
 
 template <typename state>
 void generatePermutations(std::vector<MultiEdge<state>>& positions,
@@ -453,6 +516,7 @@ bool update=true) {
           //acts[agent].insert(positions[agent][i].first);
           positions[agent][i].first->mutexes[positions[agent][i].second].emplace(current[j].first,current[j].second,j);
           current[j].first->mutexes[current[j].second].emplace(positions[agent][i].first,positions[agent][i].second,agent);
+          //if(current[j].first->mutexes[current[j].second].emplace(positions[agent][i].first,positions[agent][i].second,agent).second)
           //std::cout << "Initial mutex: " << current[j].first->n << "-->"<< current[j].second->n << "," << j
           //<< " " << positions[agent][i].first->n << "-->"<< positions[agent][i].second->n << "," << agent << "\n";
         }
@@ -867,6 +931,7 @@ bool disappear=true, bool OD=false){
       if(s[i].first->parents.size()){
         //std::cout << s[i].first->n << " has " << s[i].first->parents.size() << " parents\n";
         for(int j(i+1); j<s.size(); ++j){
+          if (s[j].first == s[j].second) { continue; } // Ignore disappearing at goal
           //std::cout << "Check versus " << s[j].first->n << "\n";
           mpj.clear();
           // Get list of pi's mutexes with pjs
@@ -904,8 +969,8 @@ bool disappear=true, bool OD=false){
             // Because all of the parents of i and j are mutexed, i and j
             // get a propagated mutex :)
             if(found){
+              if(s[i].first->mutexes[s[i].second].emplace(s[j].first,s[j].second,j).second)
               //std::cout << "Propagated mutex: " << s[i].first->n << "-->"<< s[i].second->n <<","<<i<< " " << s[j].first->n << "-->"<< s[j].second->n <<","<<j<<"\n";
-              s[i].first->mutexes[s[i].second].emplace(s[j].first,s[j].second,j);
               s[j].first->mutexes[s[j].second].emplace(s[i].first,s[i].second,i);
               //acts[i].insert(s[i].first); // Add to set of states which have mutexed actions
               //acts[j].insert(s[j].first); // Add to set of states which have mutexed actions
@@ -914,13 +979,13 @@ bool disappear=true, bool OD=false){
           intersection.clear();
           // Finally, see if we can add inherited mutexes
           // TODO: Might need to be a set union for non-cardinals
-          //std::cout << "check inh: " << s[i].first->n.x << "," << s[i].first->n.y
-            //        << "-->" << s[i].second->n.x << "," << s[i].second->n.y << "\n";
+          //std::cout << "check inh: " <<i<<" "<< s[i].first->n.x << "," << s[i].first->n.y
+                    //<< "-->" << s[i].second->n.x << "," << s[i].second->n.y << "\n";
           if(s[i].first->parents.size()){
             // Get mutexes from first parent
             auto parent(s[i].first->parents.begin());
             //std::cout << "  p: " << (*parent)->n.x << "," << (*parent)->n.y
-              //        << "-->" << s[i].first->n.x << "," << s[i].first->n.y << "\n";
+                      //<< "-->" << s[i].first->n.x << "," << s[i].first->n.y << "\n";
             intersection.reserve((*parent)->mutexes.size());
             for(auto const& mi:(*parent)->mutexes){
               if(mi.first==s[i].first){
@@ -935,11 +1000,11 @@ bool disappear=true, bool OD=false){
               }
             }
             ++parent;
-            //if(parent!=s[i].first->parents.end())
-            //std::cout << "  p: " << (*parent)->n.x << "," << (*parent)->n.y
-              //        << "-->" << s[i].first->n.x << "," << s[i].first->n.y << "\n";
+            if(parent!=s[i].first->parents.end())
             // Now intersect the remaining parents' sets
             while(parent!=s[i].first->parents.end()){
+            //std::cout << "  p: " << (*parent)->n.x << "," << (*parent)->n.y
+                      //<< "-->" << s[i].first->n.x << "," << s[i].first->n.y << "\n";
               stuff.clear();
               for(auto const& mi:(*parent)->mutexes){
                 if(mi.first==s[i].first){
@@ -947,35 +1012,49 @@ bool disappear=true, bool OD=false){
                   if(std::get<2>(mu)==i){
                   std::cout << "Error! agent "<< i <<" is mutexed with itself!\n";
                   }
-                    //std::cout << "    mi+: " << std::get<0>(mu)->n.x << "," << std::get<0>(mu)->n.y
-                              //<< "-->" << std::get<1>(mu)->n.x << "," << std::get<1>(mu)->n.y<< "," << std::get<2>(mu) << "\n";
+                    /*std::cout << "    mi+: " << std::get<0>(mu)->n.x << "," << std::get<0>(mu)->n.y
+                              << "-->" << std::get<1>(mu)->n.x << "," << std::get<1>(mu)->n.y<< "," << std::get<2>(mu) << "\n";
+                              */
                     stuff.push_back(mu);
                   }
                 }
               }
               inplace_intersection(intersection,stuff);
 
-              //std::cout << "  intersection:" << "\n";
-              //for (auto const &mu : intersection) {
-                //std::cout << "    m: " << std::get<0>(mu)->n.x << "," << std::get<0>(mu)->n.y
-                  //        << "-->" << std::get<1>(mu)->n.x << "," << std::get<1>(mu)->n.y << "\n";
-              //}
+              /*std::cout << "  intersection:" << "\n";
+              for (auto const &mu : intersection) {
+                std::cout << "    m: " << std::get<0>(mu)->n.x << "," << std::get<0>(mu)->n.y
+                          << "-->" << std::get<1>(mu)->n.x << "," << std::get<1>(mu)->n.y << "\n";
+              }*/
               ++parent;
             }
           }
           // Add inherited mutexes
           for(auto const& mu:intersection){
-            //std::cout << "Inherited mutex: " << s[i].first->n << "-->"<< s[i].second->n <<","<<i<<" " << std::get<0>(mu)->n << "-->"<< std::get<1>(mu)->n << ","<<std::get<2>(mu)<<"\n";
             s[i].first->mutexes[s[i].second].insert(mu);
-            std::get<0>(mu)->mutexes[std::get<1>(mu)].emplace(s[i].first,s[i].second,i);
+            /*if (s[i].first->mutexes[s[i].second].insert(mu).second)
+            {
+              std::cout << "Inherited mutex: " << s[i].first->n << "-->" << s[i].second->n << "," << i << " " << std::get<0>(mu)->n << "-->" << std::get<1>(mu)->n << "," << std::get<2>(mu) << "\n";
+              std::cout << "  FROM: ";
+              for (auto const &pp : s[i].first->parents)
+              {
+                std::cout << pp->n.x << "," << pp->n.y << "-->" << s[i].first->n.x << "," << s[i].first->n.y << "\n";
+              }
+            }*/
+            // Do we add a mutex in the reverse dir? - I don't think so.
+            //std::get<0>(mu)->mutexes[std::get<1>(mu)].emplace(s[i].first,s[i].second,i);
             //acts[i].insert(s[i].first); // Add to set of states which have mutexed actions
             //acts[j].insert(std::get<0>(mu)); // Add to set of states which have mutexed actions
           }
           // Do the same for agent j
           intersection.clear();
+          //std::cout << "check inh: " << j << " " << s[j].first->n.x << "," << s[j].first->n.y
+                    //<< "-->" << s[j].second->n.x << "," << s[j].second->n.y << "\n";
           if(s[j].first->parents.size()){
             // Get mutexes from first parent
             auto parent(s[j].first->parents.begin());
+            //std::cout << "  p: " << (*parent)->n.x << "," << (*parent)->n.y
+                      //<< "-->" << s[j].first->n.x << "," << s[j].first->n.y << "\n";
             intersection.reserve((*parent)->mutexes.size());
             for(auto const& mj:(*parent)->mutexes){
               if(mj.first==s[j].first){
@@ -992,6 +1071,8 @@ bool disappear=true, bool OD=false){
             ++parent;
             // Now intersect the remaining parents' sets
             while(parent!=s[j].first->parents.end()){
+              //std::cout << "  p: " << (*parent)->n.x << "," << (*parent)->n.y
+                        //<< "-->" << s[j].first->n.x << "," << s[j].first->n.y << "\n";
               stuff.clear();
               for(auto const& mj:(*parent)->mutexes){
                 if(mj.first==s[j].first){
@@ -1011,9 +1092,18 @@ bool disappear=true, bool OD=false){
           }
           // Add inherited mutexes
           for(auto const& mu:intersection){
-            //std::cout << "Inherited mutex: " << std::get<0>(mu)->n << "-->"<< std::get<1>(mu)->n <<", " << s[j].first->n << "-->"<< s[j].second->n<< "\n";
             s[j].first->mutexes[s[j].second].insert(mu);
-            std::get<0>(mu)->mutexes[std::get<1>(mu)].emplace(s[j].first,s[j].second,j);
+            /*if (s[j].first->mutexes[s[j].second].insert(mu).second)
+            {
+              std::cout << "Inherited mutex: " << std::get<0>(mu)->n << "-->" << std::get<1>(mu)->n << ", " << s[j].first->n << "-->" << s[j].second->n << "\n";
+              std::cout << "  FROM: ";
+              for (auto const &pp : s[j].first->parents)
+              {
+                std::cout << pp->n.x << "," << pp->n.y << "-->" << s[j].first->n.x << "," << s[j].first->n.y << "\n";
+              }
+            }*/
+            // Do we add a mutex in the reverse dir? - I don't think so.
+            //std::get<0>(mu)->mutexes[std::get<1>(mu)].emplace(s[j].first,s[j].second,j);
             //acts[i].insert(std::get<0>(mu)); // Add to set of states which have mutexed actions
             //acts[j].insert(s[j].first); // Add to set of states which have mutexed actions
           }
@@ -1104,7 +1194,7 @@ bool disappear=true, bool OD=false){
   for(auto const& t:terminals){
     clear(mutex);
     if(t.empty()){
-      std::cout << "Error: No terminals\n";
+      if(verbose)std::cout << "Error: No terminals\n";
       return false;
     }
     auto term(t.begin());
@@ -1170,17 +1260,20 @@ bool disappear=true, bool OD=false){
 // A structure which represents the current state of a pairwise search
 // It is clonable so that the search can be continued where left off
 // but with different parameters
-template <typename environ, typename state>
+template <typename environ, typename state, typename action>
 struct PairwiseConstrainedSearch
 {
   //typedef MultiCostLimitedEnvironment<Action<state>, unsigned, environ> MultiEnv;
 
+  TemporalAStar<state,action,environ> astar;
   // Initial constructor
   // Adds a single state to the open list and sets the lower bound on cost to 0
   PairwiseConstrainedSearch(unsigned agent1,
                             unsigned agent2,
                             environ *env1,
                             environ *env2,
+                            Heuristic<state> *heu1,
+                            Heuristic<state> *heu2,
                             double lower1,
                             double upper1,
                             double lower2,
@@ -1191,7 +1284,8 @@ struct PairwiseConstrainedSearch
                             state const &start2,
                             state const &goal2,
                             double r2,
-                            double socLb)
+                            double socLb,
+                            bool storeAll=false)
       : a1(agent1),
         a2(agent2),
         lb1(lower1),
@@ -1202,20 +1296,26 @@ struct PairwiseConstrainedSearch
         g1(goal1),
         s2(start2),
         g2(goal2),
-        //intervals(2),
+        intervals(2),
+        ids(2),
         radii(2),
         socLim(socLb),
-        bf(1)
+        firstsoc(INT_MAX),
+        soc(INT_MAX),
+        foundInfeasible(false),
+        bf(1),
+        all(storeAll)
   {
     radii[0]=r1;
     radii[1]=r2;
     envs = {env1, env2};
+    heus = {heu1, heu2};
     //env = MultiEnv(envs);
     //open.Reset(env->GetMaxHash());
     ActionPair<state> s(s1,s1, s2,s2);
     MultiAgentAStarOpenClosedData data(s,0,0,
-                                   envs[0]->HCost(s1, g1),
-                                   envs[1]->HCost(s2, g2),
+                                   heus[0]->HCost(s1, g1),
+                                   heus[1]->HCost(s2, g2),
                          0,open.theHeap.size(), kOpenList);
     open.AddOpenNode(data,GetHash(s));
     for (auto const &e : envs)
@@ -1242,10 +1342,14 @@ struct PairwiseConstrainedSearch
         s2(from.s2),
         g2(from.g2),
         envs(from.envs),
-        //env(from.env),
+        heus(from.heus),
         bf(from.bf),
         open(from.open), // Make a full copy of open
-        socLim(soclb)
+        socLim(soclb),
+        foundInfeasible(false),
+        firstsoc(INT_MAX),
+        soc(INT_MAX),
+        all(from.all)
   {
     // Make sure that the originating open list makes sense
     if (ub1 < from.lb1 || // old lower bound is too high
@@ -1266,13 +1370,20 @@ struct PairwiseConstrainedSearch
 
   unsigned a1, a2;             // global agent numbers
   std::vector<environ *> envs; // environments for agents
+  std::vector<Heuristic<state> *> heus; // environments for agents
   //MultiEnv env;
   double socLim;             // Plateau for sum of costs
+  double firstsoc;                // soc of first solution
+  double soc;                // soc of first solution
+  bool foundInfeasible;
   double lb1, ub1, lb2, ub2; // Ind. lower and upper cost bounds
   state s1, g1, s2, g2;
   unsigned bf; // branching factor
-  //std::vector<IntervalTree<state>> intervals;
-  //IntervalTree<state> mutexes;
+  bool all; // Whether to store all solutions of cost
+  //std::vector<PairTree<Action<state>>> intervals;
+  std::vector<sorted_vector<std::pair<std::array<unsigned,3>,Action<state>>>> intervals;
+  std::vector<std::vector<unsigned>> finalcost;
+  //PairTree<ActionPair<state>> mutexes;
   const int MAXTIME=1000 * state::TIME_RESOLUTION_U;
   std::vector<double> radii;
 
@@ -1320,7 +1431,7 @@ struct PairwiseConstrainedSearch
                     const MultiAgentAStarOpenClosedData &i2) const
     {
       // Prioritize f-costs that are less than the bounds first
-      bool f1l(fless(ub1, i1.g1 + i1.h1) && fless(ub2, i1.g2 + i1.h2));
+      /*bool f1l(fless(ub1, i1.g1 + i1.h1) && fless(ub2, i1.g2 + i1.h2));
       bool f2l(fless(ub1, i2.g1 + i2.h1) && fless(ub2, i2.g2 + i2.h2));
       if (f1l)
       {
@@ -1337,7 +1448,7 @@ struct PairwiseConstrainedSearch
       else if (f2l)
       {
         return false;
-      }
+      }*/
       if (fequal(i1.g + i1.h, i2.g + i2.h))
       {
         return (fless(i1.g, i2.g));
@@ -1348,15 +1459,25 @@ struct PairwiseConstrainedSearch
 
   AStarOpenClosed<ActionPair<state>, AStarCompare, MultiAgentAStarOpenClosedData> open;
 
-  uint64_t GetHash(std::vector<Action<state>> const &node)
+  uint64_t GetHash(ActionPair<state> const &node)
   {
     // Implement the FNV-1a hash http://www.isthe.com/chongo/tech/comp/fnv/index.html
     uint64_t h(14695981039346656037UL); // Offset basis
+    uint64_t h1(0);
     unsigned i(0);
+    uint8_t c[sizeof(uint64_t)];
     for (auto const &v : node)
     {
-      uint64_t h1(envs[i++]->GetStateHash(v.second));
-      uint8_t c[sizeof(uint64_t)];
+      h1=envs[i]->GetStateHash(v.first);
+      memcpy(c, &h1, sizeof(uint64_t));
+      for (unsigned j(0); j < sizeof(uint64_t); ++j)
+      {
+        //hash[k*sizeof(uint64_t)+j]=((int)c[j])?c[j]:1; // Replace null-terminators in the middle of the string
+        h = h ^ c[j];          // Xor with octet
+        h = h * 1099511628211; // multiply by the FNV prime
+      }
+
+      h1=envs[i++]->GetStateHash(v.second);
       memcpy(c, &h1, sizeof(uint64_t));
       for (unsigned j(0); j < sizeof(uint64_t); ++j)
       {
@@ -1372,21 +1493,89 @@ struct PairwiseConstrainedSearch
   {
     AStarCompare::ub1 = ub1;
     AStarCompare::ub2 = ub2;
+    //check feasibility
+    paths.resize(0);
+    paths.push_back(std::vector<std::vector<state>>(2,std::vector<state>()));
+    paths[0][0].clear();
+    auto goal(g1);
+    goal.t=lb1;
+    astar.SetHeuristic(heus[0]);
+    astar.SetUpperLimit(ub1-1);
+    astar.SetLowerLimit(lb1);
+    astar.GetPath(envs[0],s1,goal,paths[0][0],lb1);
+    if(paths[0][0].empty())return;
+    auto len1(envs[0]->GetPathLength(paths[0][0]));
+    paths[0][0].clear();
+    if(len1>=ub1){
+      std::cout << "Best path length > " << ub1 << " -- infeasible\n";
+      return;
+    }
+
+    paths[0][1].clear();
+    goal=g2;
+    goal.t=lb2;
+    astar.SetHeuristic(heus[1]);
+    astar.SetUpperLimit(ub2-1);
+    astar.SetLowerLimit(lb2);
+    astar.GetPath(envs[1],s2,goal,paths[0][1],lb2);
+    if(paths[0][1].empty())return;
+    auto len2(envs[1]->GetPathLength(paths[0][1]));
+    paths[0][1].clear();
+    if(len2>=ub2){
+      std::cout << "Best path length > " << ub2 << " -- infeasible\n";
+      return;
+    }
+    paths.clear();
+
     bool go(doSingleSearchStep());
     while(go){
       go = doSingleSearchStep();
     }
+    // Now that we're finished, search the mutexes to find constraints
+    //for( auto const& m:mutexes){
+      //std::cout << m << "\n";
+    //}
+    for (auto const &sln : paths)
+    {
+      finalcost.resize(finalcost.size()+1);
+      unsigned i(0);
+      for (auto const &p : sln)
+      {
+        if (p.size())
+          finalcost.back().push_back(envs[i]->GetPathLength(p));
+        ++i;
+      }
+    }
+    if(finalcost.empty())return;
+    //std::cout << finalcost << "\n";
+    // TODO - If we ever plan to re-use this class, we won't be able
+    //        to delete the intervals inline like this...
+    auto finalsoc(finalcost[0][0]+finalcost[0][1]);
+    for(unsigned i(0); i<intervals.size(); ++i){
+      //std::cout << "Constraints for agent " << i << ":\n";
+      for(auto j(intervals[i].begin()); j!=intervals[i].end(); /*++j*/){
+        // We can only trust cost combinations that make sense
+        // if the upper bound on the constraint minus the lb on the other agent
+        // is more than the sum of costs, it can't be trusted, because we never
+        // looked deep enough into the structure.
+        auto lb(i ? lb2 : lb1);
+        if (j->first[0]<j->first[2] && j->first[1]<=j->first[0])
+        {
+          //std::cout << "  " << *j << "\n";
+          ++j;
+        }
+        else
+        {
+          //std::cout << "ignore " << *j << "\n";
+          intervals[i].erase(j);
+        }
+      }
+    }
+    
   }
 
-  void costs(std::vector<double> &out) const
-  {
-    out.resize(paths.size());
-    unsigned i(0);
-    for (auto const &p : paths)
-    {
-      out[i] = envs[i]->GetPathLength(p);
-      ++i;
-    }
+  bool foundInitialSolution() const{
+    return paths.size();
   }
 
   bool doSingleSearchStep()
@@ -1400,30 +1589,29 @@ struct PairwiseConstrainedSearch
     uint64_t nodeid = open.Close();
     // Note - this reference becomes invalid once we insert anything into open.
     auto &node(open.Lookup(nodeid));
-        //std::cout << "{d:" << node.data << "g:" << node.g1 << "+" << node.g2 << "=" << node.g << ",h" << node.h1 << "+" << node.h2 << "=" << node.h << ",p:" << node.parentID << "}\n";
+    //std::cout << "{d:" << node.data << "f1:" << node.g1 << "+" << node.h1 << "=" << (node.g1+node.h1) << ",f2:" << node.g2 << "+" << node.h2 << "=" << (node.g2+node.h2) << ",id:" << nodeid << ",p:" << node.parentID << " feasible: "<< node.data.feasible <<"}\n";
+    if (soc>firstsoc)
+    {
+      return false; // Return because a solution was already found and we have finished the plateau
+    }
 
+    auto f1(node.g1 + node.h1);
+    auto f2(node.g2 + node.h2);
+    if(!all)soc=f1+f2;
     // Check that we're below the bounds
-    if (ub1 < node.g1 + node.h1 || ub2 < node.g2 + node.h2)
+    if (ub1 < f1 || ub2 < f2)
     {
       //open.Reopen(nodeid);
+      //if(f1+f2>socLim && foundInfeasible)
+      //{
+        //return false;
+      //}
       return true;
     }
 
     // Add this node to the interval tree
     auto s(node.data);
     //std::cout << "pop " << s << "\n";
-    //intervals.insert(&s[0]);
-    //intervals.insert(&s[1]);
-    if (!s.feasible)
-    {
-      //mutexes.insert(&s);
-    }
-
-    if (s[0].t>socLim || s[1].t>socLim)
-    {
-      //open.Reopen(nodeid);
-      return false;
-    }
 
 
     auto G(node.g);
@@ -1453,18 +1641,13 @@ struct PairwiseConstrainedSearch
     successors.clear();
     successors.reserve(s.size());
 
-    // OD may increase the depth of search, but will decrease the branching factor.
-    // In our situation, we are sort of doing an exhaustive search and so it may not
-    // make a difference.
-    const bool OD(false); // Maybe make this a parameter later.
-    double md(DBL_MAX);   // Min depth of successors
     //Add in successors for parents who are equal to the min
     k = 0;
     for (auto const &a : s)
     {
-      static ActionPair<state> output;
+      static std::vector<Action<state>> output;
       output.clear();
-      if ((OD && (k == minindex /* || a.second->Depth()==0*/)) || (!OD && a.second.t <= sd))
+      if (a.second.t <= sd)
       {
         //std::cout << "Keep Successors of " << *a.second << "\n";
         std::vector<state> succ(envs[k]->branchingFactor());
@@ -1472,26 +1655,17 @@ struct PairwiseConstrainedSearch
         for (unsigned j(0); j < sz; ++j)
         {
           output.emplace_back(a.second, succ[j]);
-          md = min(md, succ[j].t);
         }
       }
       else
       {
         //std::cout << "Keep Just " << *a.second << "\n";
         output.push_back(a);
-        md = min(md, a.second.t);
       }
       if (output.empty())
       {
-        // This means that this agent has reached its goal.
-        // Stay at state...
-        //if(disappear){
-        //output.emplace_back(a.second,a.second); // Stay, but don't increase time
-        //}else{
-        auto to(a.second);
-        to.t = MAXTIME;
-        output.emplace_back(a.second, to);
-        //}
+        // All movements from this position at this time are blocked
+        return true;
       }
       //std::cout << "successor  of " << s << "gets("<<*a<< "): " << output << "\n";
       successors.push_back(output);
@@ -1499,189 +1673,452 @@ struct PairwiseConstrainedSearch
     }
     static std::vector<ActionPair<state>> crossProduct;
     crossProduct.clear();
-    crossProduct.reserve(bf);
-    static ActionPair<state> tmp;
-    tmp.clear();
-    tmp.feasible = s.feasible;
-
-    generatePermutations(successors, crossProduct, 0, tmp, sd, radii);
-
-    for (auto const &n : crossProduct)
+    crossProduct.reserve(successors[0].size()*successors[1].size());
+    ids[0].resize(successors[0].size());
+    ids[1].resize(successors[1].size());
+    for(auto& id:ids[1])
     {
-      //std::cout << "succ " << n << "\n";
-      if(/*!mutexprop &&*/ !tmp.feasible){
-        continue;
-      }
-      // Remember that in some cases part of a child node is a duplicate of a parent node,
-      // account for this in gcosts
-      bool a1done(envs[0]->GoalTest(n[0].second,g1));
-      bool a2done(envs[1]->GoalTest(n[1].second,g2));
-      bool a1wait(n[0].first.sameLoc(n[0].second));
-      bool a2wait(n[1].first.sameLoc(n[1].second));
-      auto ec1(s[0]==n[0]?0.0:envs[0]->GCost(n[0].first, n[0].second));
-      auto ec2(s[1]==n[1]?0.0:envs[1]->GCost(n[1].first, n[1].second));
-      if (a2done && a1done)
+      id.clear();
+    }
+    k=0;
+    unsigned i(0);
+    for (auto const &a1 : successors[0])
+    {
+      ids[0][i].clear();
+      auto h1(heus[0]->HCost(a1.second, g1));
+      auto ec1(s[0] == a1 ? 0.0 : envs[0]->GCost(a1.first, a1.second));
+      unsigned j(0);
+      for (auto const &a2 : successors[1])
       {
-        if (a1wait)
+        auto h2(heus[1]->HCost(a2.second, g2));
+        auto ec2(s[1] == a2 ? 0.0 : envs[1]->GCost(a2.first, a2.second));
+        crossProduct.emplace_back(a1, a2, s.feasible);
+        auto &n(crossProduct.back());
+            if (
+            n.first.first.t==40 &&
+            n.first.first.x == 3 &&
+            n.first.first.y == 1 &&
+            n.first.second.x == 3 &&
+            n.first.second.y == 0
+            )
+            {
+              unsigned ffff = 0;
+            }
+        if (s.feasible)
         {
-          // Both agents can't just sit at their goal
-          if (a2wait)
+          // Check for conflict...
+          if ((a1.first == a2.first) ||
+              (a1.second == a2.second) ||
+              (a1.first.sameLoc(a2.second) &&
+               a2.first.sameLoc(a1.second)))
           {
-            continue;
+            n.feasible = false;
           }
-          else if (G1 + state::TIME_RESOLUTION_D < lb1) // Make it cost to wait
+          else
           {
-            ec1 = state::TIME_RESOLUTION_D;
+            // Check general case - Agents in "free" motion
+            Vector2D A(a1.first.x, a1.first.y);
+            Vector2D B(a2.first.x, a2.first.y);
+            Vector2D VA(a1.second.x - a1.first.x, a1.second.y - a1.first.y);
+            VA.Normalize();
+            Vector2D VB(a2.second.x - a2.first.x, a2.second.y - a2.first.y);
+            VB.Normalize();
+            //std::cout<<"Checking:"<<current[j].first << "-->"<< current[j].second <<", " << positions[agent][i].first << "-->"<< positions[agent][i].second << "\n";
+            if (collisionImminent(A, VA, radii[0],
+                                  a1.first.t / state::TIME_RESOLUTION_D,
+                                  a1.second.t / state::TIME_RESOLUTION_D,
+                                  B, VB, radii[1],
+                                  a2.first.t / state::TIME_RESOLUTION_D,
+                                  a2.second.t / state::TIME_RESOLUTION_D))
+            {
+              n.feasible = false;
+            }
           }
         }
-        else if (a2wait && G2 + state::TIME_RESOLUTION_D < lb2)
+        bool a1done(envs[0]->GoalTest(n[0].second, g1));
+        bool a2done(envs[1]->GoalTest(n[1].second, g2));
+        bool a1wait(n[0].first.sameLoc(n[0].second));
+        bool a2wait(n[1].first.sameLoc(n[1].second));
+        if (a2done && a1done && a1wait && a2wait)
         {
-          ec2 = state::TIME_RESOLUTION_D;
+          continue; // Both agents can't just sit at their goal
         }
-      }
-      // Legit arrival at goal
-      // check goal
-      if (n.feasible &&                         // Reachable
-          G+ec1+ec2 >= socLim &&                    // Must be above the frontier
-          G1+ec1 >= lb1 &&               // Must be above lower bound
-          G2+ec2 >= lb2 &&               // Must be above lower bound
-          a1done && a2done) // at goal
-      {
-        // Extract the path back to the root.
-        auto tmpnode(nodeid);
-        paths.resize(open.Lookup(tmpnode).data.size());
-        paths[0].push_back(n[0].second);
-        paths[1].push_back(n[1].second);
-        do
-        {
-          for (unsigned i(0); i < open.Lookup(tmpnode).data.size(); ++i)
+        auto gg1(G1 + ec1);
+        auto gg2(G2 + ec2);
+        //if(n.feasible)
+        //std::cout << "a0 lb:" << lb1 <<": " << ub1 << "/a1 lb:" << lb2 <<": " << ub2 << " " << n[0]
+        //<< "(f="<< (gg1+h1) << ") feasible with " << n[1]  << "(f="<< (gg2+h2) << ")\n";
+        // Legit arrival at goal
+        // check goal
+        //if(soc>=gg1+gg2)
+        //{
+          if (G + ec1 + ec2 >= socLim && // Must be above the frontier
+              gg1 >= lb1 &&              // Must be above lower bound
+              gg2 >= lb2 &&              // Must be above lower bound
+              gg1 < ub1 &&               // Must be below upper bound
+              gg2 < ub2 &&               // Must be below upper bound
+              a1done && a2done)          // at goal
           {
-            if(paths[i].back()!=open.Lookup(tmpnode).data[i].second)
-              paths[i].push_back(open.Lookup(tmpnode).data[i].second);
-          }
-          tmpnode = open.Lookup(tmpnode).parentID;
-        } while (open.Lookup(tmpnode).parentID != tmpnode);
-        for (unsigned i(0); i < open.Lookup(tmpnode).data.size(); ++i)
-        {
-          if (paths[i].back() != open.Lookup(tmpnode).data[i].second)
-            paths[i].push_back(open.Lookup(tmpnode).data[i].second);
-          std::reverse(paths[i].begin(), paths[i].end());
-        }
+            if (n.feasible) // Reachable
+            {
+              if(all || firstsoc==INT_MAX)
+              {
+                paths.push_back(std::vector<std::vector<state>>(2));
+                // Extract the path back to the root.
+                auto tmpnode(nodeid);
+                paths.back()[0].push_back(n[0].second);
+                //std::cout << "*" << n[0].second << "\n";
+                paths.back()[1].push_back(n[1].second);
+                //std::cout << "      *" << n[1].second << "\n";
+                do
+                {
+                  //std::cout << open.Lookup(tmpnode).data << "\n";
+                  for (unsigned q(0); q < open.Lookup(tmpnode).data.size(); ++q)
+                  {
+                    if (paths.back()[q].back() != open.Lookup(tmpnode).data[q].second)
+                    {
+                      paths.back()[q].push_back(open.Lookup(tmpnode).data[q].second);
+                      //std::cout << (q ? "      " : "") << "*" << open.Lookup(tmpnode).data[q].second << "\n";
+                    }
+                    else
+                    {
+                      //std::cout << (q ? "      " : "") << " " << open.Lookup(tmpnode).data[q].second << "\n";
+                    }
+                  }
+                  tmpnode = open.Lookup(tmpnode).parentID;
+                } while (open.Lookup(tmpnode).parentID != tmpnode);
+                for (unsigned q(0); q < open.Lookup(tmpnode).data.size(); ++q)
+                {
+                  if (paths.back()[q].back() != open.Lookup(tmpnode).data[q].second)
+                  {
+                    paths.back()[q].push_back(open.Lookup(tmpnode).data[q].second);
+                    //std::cout << (q ? "      " : "") << "*" << open.Lookup(tmpnode).data[q].second << "\n";
+                  }
+                  else
+                  {
+                    //std::cout << (q ? "      " : "") << " " << open.Lookup(tmpnode).data[q].second << "\n";
+                  }
+                  std::reverse(paths.back()[q].begin(), paths.back()[q].end());
+                }
+              }
 
-        return false;
+              if (firstsoc == INT_MAX)
+              {
+                firstsoc = soc = gg1 + gg2;
+              }
+              else
+              {
+                soc = gg1 + gg2;
+              }
+              /*auto top(open.Lookup(open.Peek()));
+            if (top.g + top.h > soc)
+            {
+              return false;
+            }
+            else
+            {
+              return true;
+            }*/
+            }
+            else
+            {
+              // This indicates that we may never find a solution if we ever make it to
+              // the next cost plateau without finding a solution first
+              foundInfeasible=true;
+            }
+          }
+        //}
+        uint64_t hash(GetHash(n));
+        //std::cout << "hash " << hash << "\n";
+        if(hash==16264141909821118581UL)
+        {
+        unsigned xx = GetHash(n);
+        }
+        uint64_t theID(0);
+        switch (open.Lookup(hash, theID))
+        {
+        case kClosedList:
+          // Closed list guy is not feasible but this one is!
+          if (!open.Lookup(theID).data.feasible && n.feasible)
+          {
+            open.Lookup(theID).parentID = nodeid;
+            open.Lookup(theID).data.feasible = true;
+            open.Reopen(theID);
+          //std::cout << "Update " << n << " id:" << theID << " to feasible\n";
+          }
+          break;
+        case kOpenList:
+          // previously generated node is not feasible but this one is!
+          if (!open.Lookup(theID).data.feasible && n.feasible)
+          {
+            open.Lookup(theID).parentID = nodeid;
+            //open.Reopen(theID);
+            open.Lookup(theID).data.feasible = true;
+          //std::cout << "Update " << n << " id:" << theID << " to feasible\n";
+          }
+          break;
+        case kNotFound:
+          // Add to open :)
+          MultiAgentAStarOpenClosedData data(n, gg1, gg2, h1, h2,
+                                             nodeid, open.theHeap.size(), kOpenList);
+          open.AddOpenNode(data, hash);
+          open.Lookup(hash, theID);
+          //std::cout << "Add " << n << " id:" << theID << " g1:" << gg1 << " g2:" << gg2 << " h1:" << h1
+          //<< " h2:" << h2 << " f1:"<< gg1+h1 << " f2:" << gg2+h2 << "\n";
+          break;
+        }
+        ids[0][i].emplace(gg2+h2,k); // other's f-cost and my action
+        ids[1][j].emplace(gg1+h1,k); // other's f-cost and my action
+        //std::cout << "a " << "0x" << n.first << "(" << ids[0][i].back().first << ")=" << n.feasible << "\n";
+        //std::cout << "a " << "1x" << n.second << "(" << ids[1][j].back().first << ")=" << n.feasible << "\n";
+        ++j;
+        ++k;
       }
-      uint64_t hash(GetHash(n));
-      uint64_t theID(0);
-      switch (open.Lookup(hash, theID))
+      ++i;
+    }
+    k=0;
+    for (unsigned i(0); i < ids.size(); ++i)
+    {
+      for (unsigned a(0); a < ids[i].size(); ++a)
       {
-      case kClosedList:
-        // Closed list guy is not feasible but this one is!
-        if (!open.Lookup(theID).data.feasible && n.feasible)
+        unsigned minCost(INT_MAX);
+        unsigned maxCost(0);
+        unsigned minInclusive(INT_MAX);
+        unsigned maxInclusive(0);
+        if (i == 1 &&
+            crossProduct[ids[i][a].front().second].second.first.t == 0 &&
+            crossProduct[ids[i][a].front().second].second.first.x == 0 &&
+            crossProduct[ids[i][a].front().second].second.first.y == 1)// &&
+            //crossProduct[ids[i][a].front().second].first.second.x == 1 &&
+            //crossProduct[ids[i][a].front().second].first.second.y == 1)
         {
-          open.Lookup(theID).parentID = nodeid;
-          open.Lookup(theID).data.feasible = true;
-          open.Reopen(theID);
-          //mutexes.remove(&open.Lookup(theID).data);
-        }
-        break;
-      case kOpenList:
-        // previously generated node is not feasible but this one is!
-        if (!open.Lookup(theID).data.feasible && n.feasible)
+          unsigned ffff = 0;
+            }
+        if(ids[i][a].empty())continue;
+        auto val(std::find_if(
+            intervals[i].begin(), intervals[i].end(),
+            [&](std::pair<std::array<unsigned,3>, Action<state>> const &x) { return x.second == successors[i][a]; }));
+        // this is a new interval
+        if (val == intervals[i].end())
         {
-          open.Lookup(theID).parentID = nodeid;
-          //open.Reopen(theID);
-          open.Lookup(theID).data.feasible = true;
-          //mutexes.remove(&open.Lookup(theID).data);
+          // These are sorted by f-cost. They must be inclusively conflicting
+          // over an entire cost plateau in order to be a constraint.
+          if (!crossProduct[ids[i][a].front().second].feasible) // lowest f-cost action must be infeasible
+          {
+            // Loop over all f-costs of opposing agent - record continuous intervals
+            auto totalMax(ids[i][a].back().first);
+            minCost = ids[i][a].front().first;
+            bool allconflicting(true);
+            for (auto const &id : ids[i][a])
+            {
+              if (id.first > minCost && minInclusive == INT_MAX)
+              {
+                minInclusive = minCost;
+                //std::cout << "new lower bound: " << minCost << "\n";
+              }
+              if (id.first > maxCost)
+              {
+                maxInclusive = maxCost;
+                //std::cout << "new upper bound: " << maxCost << "\n";
+              }
+              if (!crossProduct[id.second].feasible)
+              {
+                maxCost = id.first;
+              }
+              else
+              {
+                allconflicting = false;
+                break;
+              }
+              ++k;
+            }
+            if (allconflicting)
+            {
+              maxInclusive = maxCost;
+              if (minInclusive == INT_MAX)
+              {
+                minInclusive = minCost;
+              }
+              //std::cout << "new upper bound: " << maxCost << "\n";
+            }
+
+            //std::cout << "Add interval: (" << i << ")" << successors[i][a] << "(" << minInclusive << "," << maxInclusive << "]\n";
+            std::array<unsigned,3> tmp={maxInclusive, minInclusive, totalMax};
+            intervals[i].emplace(tmp, successors[i][a]);
+          }
+          else
+          {
+            //std::cout << "No conflicts\n";
+            //std::cout << "Add interval: (" << i << ")" << successors[i][a] << "(" << minInclusive << "," << 0 << "]\n";
+            std::array<unsigned,3> tmp={0, minInclusive-1, minInclusive-1};
+            intervals[i].emplace(tmp, successors[i][a]);
+          }
         }
-        break;
-      case kNotFound:
-        // This is a pain, but if an agent has reached lb, it can wait at
-        // goal with no cost. Also, its last action cannot be a wait action.
-        // Add to open :)
-        MultiAgentAStarOpenClosedData data(n,
-                                           G1 + ec1,
-                                           G2 + ec2,
-                                           envs[0]->HCost(n[0].second, g1),
-                                           envs[0]->HCost(n[1].second, g2),
-                                           nodeid, open.theHeap.size(), kOpenList);
-        open.AddOpenNode(data, hash);
-        break;
+        else
+        { // have an existing interval
+          // If this is no longer infeasible, (this action is reachable via another route)
+          // we must remove the interval
+
+          {
+            //std::cout << "update " << *val << "(" << i << ") because " << successors[i?0:1] << "\n";
+            if (i==0 &&
+            crossProduct[ids[i][a].front().second].first.first.t==40 &&
+            crossProduct[ids[i][a].front().second].first.first.x == 3 &&
+            crossProduct[ids[i][a].front().second].first.first.y == 1 &&
+            crossProduct[ids[i][a].front().second].first.second.x == 3 &&
+            crossProduct[ids[i][a].front().second].first.second.y == 0
+            )
+            {
+              unsigned ffff = 0;
+            }
+            // Otherwise, we must narrow the interval of the constraint if needed
+            unsigned totalMax(ids[i][a].back().first);
+            minCost = std::min(val->first[1],ids[i][a].front().first);
+            maxCost=minCost;
+            bool allconflicting(true);
+            for (auto const &id : ids[i][a])
+            {
+              if (id.first > minCost && minInclusive == INT_MAX)
+              {
+                minInclusive = minCost;
+                //std::cout << "new lower bound: " << minCost << "\n";
+                maxInclusive = maxCost;
+                //std::cout << "new upper bound: " << maxCost << "\n";
+              }
+              if (id.first > maxCost)
+              {
+                maxInclusive = maxCost;
+                //std::cout << "new upper bound: " << maxCost << "\n";
+              }
+              if (!crossProduct[id.second].feasible)
+              {
+                maxCost = id.first;
+              }
+              else
+              {
+                allconflicting = false;
+                break;
+              }
+              ++k;
+            }
+            if (allconflicting)
+            {
+              maxInclusive = maxCost;
+              if (minInclusive == INT_MAX)
+              {
+                minInclusive = minCost;
+              }
+              //std::cout << "new upper bound: " << maxCost << "\n";
+            }
+            if(minInclusive<val->first[1]){
+              // Update min
+              //std::cout << "update lb of interval: " << successors[i][a] << "(" << minInclusive << "," << maxInclusive << "]\n";
+              val->first[1]=minInclusive;
+            }
+            bool update(false);
+            if(val->first[0]==val->first[2]){
+              if (maxInclusive > val->first[0])
+              {
+                update = true;
+                val->first[0] = maxInclusive;
+              }
+              if (totalMax > val->first[2])
+              {
+                val->first[2] = totalMax;
+              }
+            }
+            if (maxInclusive < val->first[0] && maxInclusive!=totalMax)
+            {
+              update = true;
+              val->first[0] = maxInclusive;
+            }
+            if (update)
+            {
+              //std::cout << "adjust upper bound from " << val->first << " to " << maxInclusive << "\n";
+              //std::cout << "update ub of interval: " << successors[i][a] << "(" << minInclusive << "," << maxInclusive << "]\n";
+              auto v(*val);
+              intervals[i].erase(val);
+              intervals[i].emplace(v.first, v.second);
+            }
+          }
+        }
       }
     }
     return true;
   }
-  std::vector<ActionPair<state>> successors;
-  std::vector<std::vector<state>> paths;
+  std::vector<std::vector<Action<state>>> successors;
+  std::vector<std::vector<std::vector<state>>> paths;
+  std::vector<std::vector<sorted_vector<std::pair<unsigned, unsigned>, true>>> ids;
 
-void generatePermutations(std::vector<ActionPair<state>> &positions,
-                          std::vector<ActionPair<state>> &result,
-                          int agent,
-                          ActionPair<state> const &current,
-                          uint32_t lastTime,
-                          std::vector<double> const &radii)
-{
-  if (agent == positions.size())
+  void generatePermutations(std::vector<std::vector<Action<state>>> &positions,
+                            std::vector<ActionPair<state>> &result,
+                            int agent,
+                            ActionPair<state> const &current,
+                            uint32_t lastTime,
+                            std::vector<double> const &radii)
   {
-    result.push_back(current);
-    return;
-  }
-
-  for (int i = 0; i < positions[agent].size(); ++i)
-  {
-    //std::cout << "AGENT "<< i<<":\n";
-    ActionPair<state> copy(current);
-    bool found(false);
-    for (int j(0); j < current.size(); ++j)
+    if (agent == positions.size())
     {
-      bool conflict(false);
-      // Sometimes, we add an instantaneous action at the goal to represent the
-      // agent disappearing at the goal. If we see this, the agent did not come into conflict
-      if (positions[agent][i].first != positions[agent][i].second &&
-          current[j].first != current[j].second)
+      result.push_back(current);
+      return;
+    }
+
+    for (int i = 0; i < positions[agent].size(); ++i)
+    {
+      //std::cout << "AGENT "<< i<<":\n";
+      ActionPair<state> copy(current);
+      bool found(false);
+      for (int j(0); j < current.size(); ++j)
       {
-        // Check easy case: agents crossing an edge in opposite directions, or
-        // leaving or arriving at a vertex at the same time
-        if ((positions[agent][i].first == current[j].first) ||
-            (positions[agent][i].second == current[j].second) ||
-            (positions[agent][i].first.sameLoc(current[j].second) &&
-             current[j].first.sameLoc(positions[agent][i].second)))
+        bool conflict(false);
+        // Sometimes, we add an instantaneous action at the goal to represent the
+        // agent disappearing at the goal. If we see this, the agent did not come into conflict
+        if (positions[agent][i].first != positions[agent][i].second &&
+            current[j].first != current[j].second)
         {
-          found = true;
-          conflict = true;
-        }
-        else
-        {
-          // Check general case - Agents in "free" motion
-          Vector2D A(positions[agent][i].first.x, positions[agent][i].first.y);
-          Vector2D B(current[j].first.x, current[j].first.y);
-          Vector2D VA(positions[agent][i].second.x - positions[agent][i].first.x, positions[agent][i].second.y - positions[agent][i].first.y);
-          VA.Normalize();
-          Vector2D VB(current[j].second.x - current[j].first.x, current[j].second.y - current[j].first.y);
-          VB.Normalize();
-          //std::cout<<"Checking:"<<current[j].first << "-->"<< current[j].second <<", " << positions[agent][i].first << "-->"<< positions[agent][i].second << "\n";
-          if (collisionImminent(A, VA, radii[agent], positions[agent][i].first.t / state::TIME_RESOLUTION_D, positions[agent][i].second.t / state::TIME_RESOLUTION_D, B, VB, radii[j], current[j].first.t / state::TIME_RESOLUTION_D, current[j].second.t / state::TIME_RESOLUTION_D))
+          // Check easy case: agents crossing an edge in opposite directions, or
+          // leaving or arriving at a vertex at the same time
+          if ((positions[agent][i].first == current[j].first) ||
+              (positions[agent][i].second == current[j].second) ||
+              (positions[agent][i].first.sameLoc(current[j].second) &&
+               current[j].first.sameLoc(positions[agent][i].second)))
           {
             found = true;
             conflict = true;
-            //checked.insert(hash);
+          }
+          else
+          {
+            // Check general case - Agents in "free" motion
+            Vector2D A(positions[agent][i].first.x, positions[agent][i].first.y);
+            Vector2D B(current[j].first.x, current[j].first.y);
+            Vector2D VA(positions[agent][i].second.x - positions[agent][i].first.x, positions[agent][i].second.y - positions[agent][i].first.y);
+            VA.Normalize();
+            Vector2D VB(current[j].second.x - current[j].first.x, current[j].second.y - current[j].first.y);
+            VB.Normalize();
+            //std::cout<<"Checking:"<<current[j].first << "-->"<< current[j].second <<", " << positions[agent][i].first << "-->"<< positions[agent][i].second << "\n";
+            if (collisionImminent(A, VA, radii[agent], positions[agent][i].first.t / state::TIME_RESOLUTION_D, positions[agent][i].second.t / state::TIME_RESOLUTION_D, B, VB, radii[j], current[j].first.t / state::TIME_RESOLUTION_D, current[j].second.t / state::TIME_RESOLUTION_D))
+            {
+              found = true;
+              conflict = true;
+              //checked.insert(hash);
+            }
           }
         }
       }
+      if (found)
+      {
+        copy.feasible = false;
+      }
+      copy.push_back(positions[agent][i]);
+      generatePermutations(positions, result, agent + 1, copy, lastTime, radii);
     }
-    if (found)
-    {
-      copy.feasible = false;
-    }
-    copy.push_back(positions[agent][i]);
-    generatePermutations(positions, result, agent + 1, copy, lastTime, radii);
-  }
 }
 
 };
-template <typename environ, typename state>
-double PairwiseConstrainedSearch<environ,state>::AStarCompare::ub1 = ub1;
-template <typename environ, typename state>
-double PairwiseConstrainedSearch<environ,state>::AStarCompare::ub2 = ub2;
+template <typename environ, typename state, typename action>
+double PairwiseConstrainedSearch<environ,state,action>::AStarCompare::ub1 = ub1;
+template <typename environ, typename state, typename action>
+double PairwiseConstrainedSearch<environ,state,action>::AStarCompare::ub2 = ub2;
 
 //template <typename environ, typename state>
 //inline std::ostream &operator<<(std::ostream &os, typename PairwiseConstrainedSearch<environ, state>::MultiAgentAStarOpenClosedData const &ma)

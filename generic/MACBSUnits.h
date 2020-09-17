@@ -3249,114 +3249,141 @@ assert(b1.t<=b[yTime].t && b2.t >= b[yTime].t);
                   static std::vector<std::vector<uint32_t>> somecosts(4);
                   somecosts.clear();
                   somecosts.resize(1);
+                  somecosts[0].push_back(0);
+                  somecosts[0].push_back(0);
                   bool blocked(false);
                       std::vector<EnvironmentContainer<state, action> *> ec(2);
                       ec[0] = currentEnvironment[x];
                       ec[1] = currentEnvironment[y];
                       std::vector<state> starts = {u1->GetWaypoint(0), u2->GetWaypoint(0)};
                       ICTSAlgorithm<state, action> ictsalgo(radi);
-                      ictsalgo.SetVerbose(true);
+                      ictsalgo.SetVerbose(false);
+                      ictsalgo.SetQuiet(true);//!Params::unquiet);
                       ictsalgo.GetSolutionCosts(ec, starts, goals, somecosts);
-                      if (somecosts.size() == 1 && somecosts[0][0] == origCost1 && somecosts[0][1] == origCost2) {
-                        // Do a 1x1 Biclique
+                      if (somecosts.empty() || somecosts.size() == 1 && somecosts[0][0] == origCost1 && somecosts[0][1] == origCost2)
+                      {
+                        // Do a 1xn Biclique
                         state const &a1(a[xTime]);
                         state const &a2(a[xNextTime]);
                         c1.c.clear();
                         c2.c.clear();
-                        c1.c.emplace_back((Constraint<state> *)new Collision<state>(a1, a2, radii[x]));
                         // TODO Change this to a time-range constraint
-                        c2.c.emplace_back((Constraint<state> *)new Identical<state>(a1, a2));
-                        break;
-                      } else {
-                      unsigned i(0);
-                      for (auto const &costs : somecosts) {
-                        // Get MDDs and mutexes again with new costs
-                        best1 = best2 = INT_MAX;
-                        // Re-initialize DAGs
-                        root[0] = root[1] = nullptr;
-                        dags[0].clear();
-                        dags[1].clear();
-                        cost1 = costs[0]; //==origCost1?origCost1:*costs[0]-epsilon;  // Minus epsilon so that we can guarantee a cardinal conflict
-                        minCost1 = cost1 - increment;
-                        cost2 = costs[1]; //==origCost2?origCost2:*costs[1]-epsilon;
-                        minCost2 = cost2 - increment;
-                        terminals[0].clear();
-                        terminals[1].clear();
-                        mutexes[0].clear();
-                        mutexes[1].clear();
-                        // Create MDDs
-                        while (!getMDD(u1->GetWaypoint(0), u1->GetWaypoint(1),
-                                       dags[0], root[0], terminals[0], minCost1, cost1,
-                                       best1, currentEnvironment[x]->environment.get(), blocked)) {
-                          if (blocked)
-                            break;
-                          minCost1 = cost1;
-                          cost1 += increment;
-                          root[0] = nullptr;
+                        c1.c.emplace_back((Constraint<state> *)new Identical<state>(a1, a2));
+                        c2.c.emplace_back((Constraint<state> *)new Collision<state>(a1, a2, radii[x]));
+                      }
+                      else
+                      {
+                        unsigned i(0);
+                        somecosts.resize(1);
+                        if ((somecosts[0][0] > origCost1 && somecosts[0][0] > somecosts[0][1]) || somecosts[0][1] == origCost2)
+                        {
+                          somecosts[0][0] -= 1; // Make it unsolvable
+                        }
+                        else
+                        {
+                          somecosts[0][1] -= 1; // Make it unsolvable
+                        }
+                        for (auto const &costs : somecosts)
+                        {
+                          // Get MDDs and mutexes again with new costs
+                          best1 = best2 = INT_MAX;
+                          // Re-initialize DAGs
+                          root[0] = root[1] = nullptr;
                           dags[0].clear();
-                          terminals[0].clear();
-                        }
-                        std::cout << "MDD1:\n"
-                                  << root[0] << "\n";
-                        while (!getMDD(u2->GetWaypoint(0), u2->GetWaypoint(1),
-                                       dags[1], root[1], terminals[1], minCost2, cost2,
-                                       best2, currentEnvironment[y]->environment.get(), blocked)) {
-                          if (blocked)
-                            break;
-                          minCost2 = cost2;
-                          cost2 += increment;
-                          root[1] = nullptr;
                           dags[1].clear();
+                          cost1 = costs[0]; //==origCost1?origCost1:*costs[0]-epsilon;  // Minus epsilon so that we can guarantee a cardinal conflict
+                          minCost1 = cost1;// - increment;
+                          cost2 = costs[1]; //==origCost2?origCost2:*costs[1]-epsilon;
+                          minCost2 = cost2;// - increment;
+                          terminals[0].clear();
                           terminals[1].clear();
-                        }
-                        std::cout << "MDD2:\n"
-                                  << root[1] << "\n";
-                        start[0] = {root[0], root[0]};
-                        start[1] = {root[1], root[1]};
-                        Solution<state> f;
-                        std::vector<unsigned> mc={minCost1,minCost2};
-                        hasSolution = getMutexes(start, goals, ec, toDelete, // actions, edges,
-                                                 terminals, mutexes,
-                                                 radi, mc, f, disappearAtGoal);
-                        std::cout << "Solution found: " << hasSolution << "\n";
-                        for (auto &d : toDelete) {
-                          delete d;
-                        }
-                        // Add min-cost constraints (forces paths to have minimum cost).
-                        state dummy(a.back());
-                        dummy.t = costs[0];
-                        c1.c.emplace_back((Constraint<state> *)new MinCost<state>(dummy));
-                        dummy = b.back();
-                        dummy.t = costs[1];
-                        c2.c.emplace_back((Constraint<state> *)new MinCost<state>(dummy));
-                        //assert(hasSolution); // Because we did a check for these costs already, there MUST be a solution at this cost
-                        // Set cardinal type
-                        // Remove redundancies: Any edge which has all parents mutexed can be removed.
-                        for (int i(0); i < mutexes.size(); ++i) {
-                          auto edge(mutexes[i].rbegin());
-                          while (edge != mutexes[i].rend()) {
-                            if (edge->first->parents.size()) {
-                              bool all(true);
-                              // Check that all parents of this edge are in the mutexed list
-                              for (auto const &p : edge->first->parents) {
-                                bool found(false);
-                                for (auto k : mutexes[i]) {
-                                  if (*edge == k)
-                                    continue;
-                                  if (k.first == p && k.second == edge->first) {
-                                    found = true;
+                          mutexes[0].clear();
+                          mutexes[1].clear();
+                          // Create MDDs
+                          while (!getMDD(u1->GetWaypoint(0), u1->GetWaypoint(1),
+                                         dags[0], root[0], terminals[0], minCost1, cost1,
+                                         best1, currentEnvironment[x]->environment.get(), blocked))
+                          {
+                            if (blocked)
+                              break;
+                            minCost1 = cost1;
+                            cost1 += increment;
+                            root[0] = nullptr;
+                            dags[0].clear();
+                            terminals[0].clear();
+                          }
+                          //std::cout << "MDD1:\n" << root[0] << "\n";
+                          while (!blocked && !getMDD(u2->GetWaypoint(0), u2->GetWaypoint(1),
+                                         dags[1], root[1], terminals[1], minCost2, cost2,
+                                         best2, currentEnvironment[y]->environment.get(), blocked))
+                          {
+                            if (blocked)
+                              break;
+                            minCost2 = cost2;
+                            cost2 += increment;
+                            root[1] = nullptr;
+                            dags[1].clear();
+                            terminals[1].clear();
+                          }
+                          if(!blocked){
+                          //std::cout << "MDD2:\n" << root[1] << "\n";
+                          start[0] = {root[0], root[0]};
+                          start[1] = {root[1], root[1]};
+                          Solution<state> f;
+                          std::vector<unsigned> mc = {minCost1, minCost2};
+                          // TODO: Inherited mutexes don't work without terminal/goal nodes!
+                          hasSolution = getMutexes(start, goals, ec, toDelete, // actions, edges,
+                                                   terminals, mutexes,
+                                                   radi, mc, f, disappearAtGoal);
+                          //std::cout << "Solution found: " << hasSolution << "\n";
+                          for (auto &d : toDelete)
+                          {
+                            delete d;
+                          }
+                          // Add min-cost constraints (forces paths to have minimum cost).
+                          // Note: min-cost constraints are only for after-goal conflicts
+                          //state dummy(a.back());
+                          //dummy.t = costs[0];
+                          //c1.c.emplace_back((Constraint<state> *)new MinCost<state>(dummy));
+                          //dummy = b.back();
+                          //dummy.t = costs[1];
+                          //c2.c.emplace_back((Constraint<state> *)new MinCost<state>(dummy));
+                          //assert(hasSolution); // Because we did a check for these costs already, there MUST be a solution at this cost
+                          // Set cardinal type
+                          // Remove redundancies: Any edge which has all parents mutexed can be removed.
+                          for (int i(0); i < mutexes.size(); ++i)
+                          {
+                            auto edge(mutexes[i].rbegin());
+                            while (edge != mutexes[i].rend())
+                            {
+                              if (edge->first->parents.size())
+                              {
+                                bool all(true);
+                                // Check that all parents of this edge are in the mutexed list
+                                for (auto const &p : edge->first->parents)
+                                {
+                                  bool found(false);
+                                  for (auto k : mutexes[i])
+                                  {
+                                    if (*edge == k)
+                                      continue;
+                                    if (k.first == p && k.second == edge->first)
+                                    {
+                                      found = true;
+                                      break;
+                                    }
+                                  }
+                                  if (!found)
+                                  {
+                                    all = false;
                                     break;
                                   }
                                 }
-                                if (!found) {
-                                  all = false;
-                                  break;
-                                }
-                              }
-                              if (all) {
-                                // convert to regular iterator
-                                edge = Util::make_reverse_iter(mutexes[i].erase((++edge).base())--);
-                              } else {
+                                if (all)
+                                {
+                                  // convert to regular iterator
+                                  edge = Util::make_reverse_iter(mutexes[i].erase((++edge).base())--);
+                                } else {
                                 ++edge;
                               }
                             } else {
@@ -3364,21 +3391,43 @@ assert(b1.t<=b[yTime].t && b2.t >= b[yTime].t);
                             }
                           }
                         }
+                        }
 
                           if(conflicts.size()<=i){conflicts.resize(i+1);}
                           max1 = std::max(max1,somecosts[i][0]);
                           max2 = std::max(max2,somecosts[i][1]);
-                          conflicts[i].replanBoth=true;
-                          for (auto const &l : mutexes[0]) {
-                            conflicts[i].c.emplace_back((Constraint<state> *)new Identical<state>(l.first->n, l.second->n));
-                            std::cout << "Add constraint to env 0: " << l.first->n << "-->" << l.second->n << "\n";
-                            //env[0]->AddConstraint(constraints[0].back().get());
-                          }
-                          for (auto const &l : mutexes[1]) {
-                            conflicts[i].c.emplace_back((Constraint<state> *)new Identical<state>(l.first->n, l.second->n));
-                            std::cout << "Add constraint to env 1: " << l.first->n << "-->" << l.second->n << "\n";
-                            //env[1]->AddConstraint(constraints[1].back().get());
-                          }
+                      if (mutexes[0].empty() || mutexes[1].empty()){
+                        // Do a 1xn Biclique
+                        state const &a1(a[xTime]);
+                        state const &a2(a[xNextTime]);
+                        c1.c.clear();
+                        c2.c.clear();
+                        // TODO Change this to a time-range constraint
+                        c1.c.emplace_back((Constraint<state> *)new Identical<state>(a1, a2));
+                        c2.c.emplace_back((Constraint<state> *)new Collision<state>(a1, a2, radii[x]));
+                        break;
+                      }
+                      else
+                      {
+                        c1.replanBoth = false;
+                        for (auto const &l : mutexes[0])
+                        {
+                          c1.c.emplace_back((Constraint<state> *)new Identical<state>(l.first->n, l.second->n));
+                          //std::cout << "Add constraint to env 0: " << l.first->n << "-->" << l.second->n << "\n";
+                          //env[0]->AddConstraint(constraints[0].back().get());
+                        }
+                        if (conflicts.size() <= i)
+                        {
+                          conflicts.resize(i + 1);
+                        }
+                        c2.replanBoth = false;
+                        for (auto const &l : mutexes[1])
+                        {
+                          c2.c.emplace_back((Constraint<state> *)new Identical<state>(l.first->n, l.second->n));
+                          //std::cout << "Add constraint to env 1: " << l.first->n << "-->" << l.second->n << "\n";
+                          //env[1]->AddConstraint(constraints[1].back().get());
+                        }
+                      }
                         ++i;
                       }
                       conf = NON_CARDINAL;
@@ -3642,7 +3691,7 @@ assert(b1.t<=b[yTime].t && b2.t >= b[yTime].t);
                         }
                         // In case left was empty...
                         if(left.empty()){
-                          std::cout << "BICLIQUE: " << left.size() << " " << right.size() << "\n";
+                          //std::cout << "BICLIQUE: " << left.size() << " " << right.size() << "\n";
                           assert(false&&"left side of biclique was empty");
                           auto intvl(getForbiddenInterval(a1,a2,a1.t/state::TIME_RESOLUTION_D,a2.t/state::TIME_RESOLUTION_D,
                                                           radii[x],b1,b2,b1.t/state::TIME_RESOLUTION_D,b2.t/state::TIME_RESOLUTION_D,radii[y]));
@@ -3690,7 +3739,7 @@ assert(b1.t<=b[yTime].t && b2.t >= b[yTime].t);
                           c2.c.emplace_back((Constraint<state>*) new TimeRange<state>(src, dest));
                         }
                         if(right.empty()){
-                          std::cout << "BICLIQUE: " << left.size() << " " << right.size() << "\n";
+                          //std::cout << "BICLIQUE: " << left.size() << " " << right.size() << "\n";
                           assert(false&&"right side of biclique was empty");
                           auto intvl(getForbiddenInterval(b1,b2,b1.t/state::TIME_RESOLUTION_D,b2.t/state::TIME_RESOLUTION_D,
                                                           radii[x],a1,a2,a1.t/state::TIME_RESOLUTION_D,a2.t/state::TIME_RESOLUTION_D,radii[y]));

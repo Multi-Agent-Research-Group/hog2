@@ -1951,7 +1951,6 @@ bool CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
               con.costs[0].first = mins[conflictset[i]];
               con.costs[0].second = maxs[conflictset[i]];
               tree.emplace_back(tree[incumbent], con, incumbent, true);
-              tree[last].path.resize(2);
               // We can fill in the paths...
               unsigned j(0);
               for (auto const &a : conflictset)
