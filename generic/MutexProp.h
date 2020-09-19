@@ -1302,7 +1302,6 @@ struct PairwiseConstrainedSearch
         socLim(socLb),
         firstsoc(INT_MAX),
         soc(INT_MAX),
-        foundInfeasible(false),
         bf(1),
         all(storeAll)
   {
@@ -1346,7 +1345,6 @@ struct PairwiseConstrainedSearch
         bf(from.bf),
         open(from.open), // Make a full copy of open
         socLim(soclb),
-        foundInfeasible(false),
         firstsoc(INT_MAX),
         soc(INT_MAX),
         all(from.all)
@@ -1375,8 +1373,8 @@ struct PairwiseConstrainedSearch
   double socLim;             // Plateau for sum of costs
   double firstsoc;                // soc of first solution
   double soc;                // soc of first solution
-  bool foundInfeasible;
   double lb1, ub1, lb2, ub2; // Ind. lower and upper cost bounds
+  double maxTotal;
   state s1, g1, s2, g2;
   unsigned bf; // branching factor
   bool all; // Whether to store all solutions of cost
@@ -1500,32 +1498,44 @@ struct PairwiseConstrainedSearch
     auto goal(g1);
     goal.t=lb1;
     astar.SetHeuristic(heus[0]);
+    astar.SetUpperLimit(ub1);
+    if(ub1!=lb1)
+    {
     astar.SetUpperLimit(ub1-1);
+    }
     astar.SetLowerLimit(lb1);
     astar.GetPath(envs[0],s1,goal,paths[0][0],lb1);
-    if(paths[0][0].empty())return;
-    auto len1(envs[0]->GetPathLength(paths[0][0]));
-    paths[0][0].clear();
-    if(len1>=ub1){
-      std::cout << "Best path length > " << ub1 << " -- infeasible\n";
+    if(paths[0][0].empty())
+    {
       return;
     }
+    auto len1(envs[0]->GetPathLength(paths[0][0]));
+    paths[0][0].clear();
 
     paths[0][1].clear();
     goal=g2;
     goal.t=lb2;
     astar.SetHeuristic(heus[1]);
-    astar.SetUpperLimit(ub2-1);
+    astar.SetUpperLimit(ub2);
+    if(ub2!=lb2)
+    {
+      astar.SetUpperLimit(ub2 - 1);
+    }
     astar.SetLowerLimit(lb2);
     astar.GetPath(envs[1],s2,goal,paths[0][1],lb2);
-    if(paths[0][1].empty())return;
-    auto len2(envs[1]->GetPathLength(paths[0][1]));
-    paths[0][1].clear();
-    if(len2>=ub2){
-      std::cout << "Best path length > " << ub2 << " -- infeasible\n";
+    if(paths[0][1].empty())
+    {
       return;
     }
+    auto len2(envs[1]->GetPathLength(paths[0][1]));
+    paths[0][1].clear();
     paths.clear();
+
+    // If either of the upper bounds is unlimited, we could run forever
+    // As a termination heuristic, we will assume that if an agent were
+    // to make it to its goal, it may have to wait for the other agent
+    // to traverse its entire path first.
+    maxTotal=len1+len2;
 
     bool go(doSingleSearchStep());
     while(go){
@@ -1535,7 +1545,7 @@ struct PairwiseConstrainedSearch
     //for( auto const& m:mutexes){
       //std::cout << m << "\n";
     //}
-    for (auto const &sln : paths)
+    /*for (auto const &sln : paths)
     {
       finalcost.resize(finalcost.size()+1);
       unsigned i(0);
@@ -1545,7 +1555,7 @@ struct PairwiseConstrainedSearch
           finalcost.back().push_back(envs[i]->GetPathLength(p));
         ++i;
       }
-    }
+    }*/
     if(finalcost.empty())return;
     //std::cout << finalcost << "\n";
     // TODO - If we ever plan to re-use this class, we won't be able
@@ -1599,13 +1609,13 @@ struct PairwiseConstrainedSearch
     auto f2(node.g2 + node.h2);
     if(!all)soc=f1+f2;
     // Check that we're below the bounds
-    if (ub1 < f1 || ub2 < f2)
+    //if (ub1 < f1 || ub2 < f2)
+    //{
+      //return true;
+    //}
+    // Early termination criteria so we don't run forever.
+    if(f1>maxTotal+1 || f2>maxTotal+1)
     {
-      //open.Reopen(nodeid);
-      //if(f1+f2>socLim && foundInfeasible)
-      //{
-        //return false;
-      //}
       return true;
     }
 
@@ -1694,16 +1704,6 @@ struct PairwiseConstrainedSearch
         auto ec2(s[1] == a2 ? 0.0 : envs[1]->GCost(a2.first, a2.second));
         crossProduct.emplace_back(a1, a2, s.feasible);
         auto &n(crossProduct.back());
-            if (
-            n.first.first.t==40 &&
-            n.first.first.x == 3 &&
-            n.first.first.y == 1 &&
-            n.first.second.x == 3 &&
-            n.first.second.y == 0
-            )
-            {
-              unsigned ffff = 0;
-            }
         if (s.feasible)
         {
           // Check for conflict...
@@ -1752,17 +1752,22 @@ struct PairwiseConstrainedSearch
         // check goal
         //if(soc>=gg1+gg2)
         //{
+        if(a1done && a2done) // At goal
+        {
+          //std::cout << "  {g:" << n << "f1:" << gg1 << "+" << h1 << "=" << (gg1 + h1) << ",f2:" << gg2 << "+" << h2 << "=" << (gg2+ h2)  << " feasible: " << n.feasible << "}\n";
+          if (n.feasible) // Reachable
+            int fffff=987;
           if (G + ec1 + ec2 >= socLim && // Must be above the frontier
               gg1 >= lb1 &&              // Must be above lower bound
               gg2 >= lb2 &&              // Must be above lower bound
               gg1 < ub1 &&               // Must be below upper bound
-              gg2 < ub2 &&               // Must be below upper bound
-              a1done && a2done)          // at goal
+              gg2 < ub2)                 // Must be below upper bound
           {
             if (n.feasible) // Reachable
             {
-              if(all || firstsoc==INT_MAX)
+              if (all || firstsoc == INT_MAX)
               {
+                // TODO: CAT check (if found duplicate)
                 paths.push_back(std::vector<std::vector<state>>(2));
                 // Extract the path back to the root.
                 auto tmpnode(nodeid);
@@ -1800,6 +1805,27 @@ struct PairwiseConstrainedSearch
                   }
                   std::reverse(paths.back()[q].begin(), paths.back()[q].end());
                 }
+                std::vector<unsigned> fincosts(2);
+                fincosts[0] = envs[0]->GetPathLength(paths.back()[0]);
+                fincosts[1] = envs[1]->GetPathLength(paths.back()[1]);
+                if (all)
+                {
+                  auto ix(std::find(finalcost.begin(), finalcost.end(), fincosts));
+                  if (ix == finalcost.end())
+                  {
+                    finalcost.push_back(fincosts);
+                  }
+                  else
+                  {
+                    //TODO: here is where we would perform the CAT check.
+                    // For now, this is a duplicate, so we throw it out. :(
+                    paths.pop_back();
+                  }
+                }
+                else
+                {
+                  finalcost.push_back(fincosts);
+                }
               }
 
               if (firstsoc == INT_MAX)
@@ -1820,41 +1846,51 @@ struct PairwiseConstrainedSearch
               return true;
             }*/
             }
-            else
-            {
-              // This indicates that we may never find a solution if we ever make it to
-              // the next cost plateau without finding a solution first
-              foundInfeasible=true;
-            }
           }
+        }
         //}
         uint64_t hash(GetHash(n));
         //std::cout << "hash " << hash << "\n";
-        if(hash==16264141909821118581UL)
-        {
-        unsigned xx = GetHash(n);
-        }
         uint64_t theID(0);
         switch (open.Lookup(hash, theID))
         {
         case kClosedList:
           // Closed list guy is not feasible but this one is!
-          if (!open.Lookup(theID).data.feasible && n.feasible)
+          {
+          auto const& cand(open.Lookup(theID));
+          if (n.feasible && (!open.Lookup(theID).data.feasible || gg1+gg2<=open.Lookup(theID).g))
           {
             open.Lookup(theID).parentID = nodeid;
+            open.Lookup(theID).g=gg1+gg2;
+            open.Lookup(theID).h=h1+h2;
+            open.Lookup(theID).g1=gg1;
+            open.Lookup(theID).h1=h1;
+            open.Lookup(theID).g2=gg2;
+            open.Lookup(theID).h2=h2;
             open.Lookup(theID).data.feasible = true;
+
             open.Reopen(theID);
           //std::cout << "Update " << n << " id:" << theID << " to feasible\n";
+          }
           }
           break;
         case kOpenList:
           // previously generated node is not feasible but this one is!
-          if (!open.Lookup(theID).data.feasible && n.feasible)
+          {
+          auto const& cand1(open.Lookup(theID));
+          // Replace if infeasible or has better cost
+          if (n.feasible && (!open.Lookup(theID).data.feasible || gg1+gg2<=open.Lookup(theID).g))
           {
             open.Lookup(theID).parentID = nodeid;
-            //open.Reopen(theID);
+            open.Lookup(theID).g=gg1+gg2;
+            open.Lookup(theID).h=h1+h2;
+            open.Lookup(theID).g1=gg1;
+            open.Lookup(theID).h1=h1;
+            open.Lookup(theID).g2=gg2;
+            open.Lookup(theID).h2=h2;
             open.Lookup(theID).data.feasible = true;
           //std::cout << "Update " << n << " id:" << theID << " to feasible\n";
+          }
           }
           break;
         case kNotFound:
@@ -1885,15 +1921,6 @@ struct PairwiseConstrainedSearch
         unsigned maxCost(0);
         unsigned minInclusive(INT_MAX);
         unsigned maxInclusive(0);
-        if (i == 1 &&
-            crossProduct[ids[i][a].front().second].second.first.t == 0 &&
-            crossProduct[ids[i][a].front().second].second.first.x == 0 &&
-            crossProduct[ids[i][a].front().second].second.first.y == 1)// &&
-            //crossProduct[ids[i][a].front().second].first.second.x == 1 &&
-            //crossProduct[ids[i][a].front().second].first.second.y == 1)
-        {
-          unsigned ffff = 0;
-            }
         if(ids[i][a].empty())continue;
         auto val(std::find_if(
             intervals[i].begin(), intervals[i].end(),
@@ -1961,16 +1988,6 @@ struct PairwiseConstrainedSearch
 
           {
             //std::cout << "update " << *val << "(" << i << ") because " << successors[i?0:1] << "\n";
-            if (i==0 &&
-            crossProduct[ids[i][a].front().second].first.first.t==40 &&
-            crossProduct[ids[i][a].front().second].first.first.x == 3 &&
-            crossProduct[ids[i][a].front().second].first.first.y == 1 &&
-            crossProduct[ids[i][a].front().second].first.second.x == 3 &&
-            crossProduct[ids[i][a].front().second].first.second.y == 0
-            )
-            {
-              unsigned ffff = 0;
-            }
             // Otherwise, we must narrow the interval of the constraint if needed
             unsigned totalMax(ids[i][a].back().first);
             minCost = std::min(val->first[1],ids[i][a].front().first);

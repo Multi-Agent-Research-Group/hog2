@@ -1035,7 +1035,7 @@ bool CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
       0, INT_MAX, 0, INT_MAX,
       starts[0], goals[0], radi[0],
       starts[1], goals[1], radi[1],
-      0); // Solution must be greater cost than soc
+      0,true); // Solution must be greater cost than soc
   srch2.getRangesAndConstraints();
 
   somecosts.resize(1); // Throw away all but one for now...
@@ -1795,7 +1795,7 @@ bool CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
       mins[conflictset[1]],maxs[conflictset[1]],
       GetUnit(conflictset[0])->GetWaypoint(0), GetUnit(conflictset[0])->GetWaypoint(1), radii[0],
       GetUnit(conflictset[1])->GetWaypoint(0), GetUnit(conflictset[1])->GetWaypoint(1), radii[1],
-      orig[0]+orig[1]); // Solution must be greater cost than soc
+      orig[0]+orig[1],true); // Solution must be greater cost than soc
     srch.getRangesAndConstraints();
     std::vector< std::vector< std::pair< std::array<unsigned,3>,Action<state> > const* > > cons(2);
     
@@ -1804,6 +1804,8 @@ bool CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
       // Infeasible
       if (verbose)
         std::cout << "TREE[" << incumbent << "] infeasible\n";
+      Pop();
+      return true;
     }
     else
     {
@@ -1833,58 +1835,57 @@ bool CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
         // The last cost combination has unlimited bounds
         if (s == srch.finalcost.size() - 1)
         {
-          con.costs = {{0, UINT_MAX}, {0, UINT_MAX}};
+          con.costs = {{mins[conflictset[0]], UINT_MAX}, {mins[conflictset[1]], UINT_MAX}};
         }
         else
         {
-          con.costs = {{srch.finalcost[s][0], srch.finalcost[s][0]},
-                       {srch.finalcost[s][1], srch.finalcost[s][1]}};
+          con.costs = {{srch.finalcost[s][0], srch.finalcost[s][0]+1},
+                       {srch.finalcost[s][1], srch.finalcost[s][1]+1}};
         }
-        if (srch.finalcost[s][0] > orig[0] || srch.finalcost[s][1] > orig[1])
+        // TODO: UPDATE in other ALGO... (removed bypass)
+        if (cons[0].size() && cons[1].size())
         {
-          if (cons[0].size() && cons[1].size())
+          // Notify the user of the conflict
+          if (!quiet)
+            std::cout << "TREE " << incumbent << "(" << node.parent << ")\n";
+
+          if (Params::verbose)
           {
-            // Notify the user of the conflict
-            if (!quiet)
-              std::cout << "TREE " << incumbent << "(" << node.parent << ")\n";
+            std::cout << "  child node " << s << ": " << srch.finalcost[s] << "\n";
+          }
+          auto last(tree.size());
 
-            if (Params::verbose)
+          // The last cost combination has unlimited bounds
+          if (s != srch.finalcost.size() - 1)
+          {
+            // Add constraints
+            for (unsigned j(0); j < 2; ++j)
             {
-              std::cout << "  child node " << s << ": " << srch.finalcost[s] << "\n";
-            }
-            auto last(tree.size());
-
-            // The last cost combination has unlimited bounds
-            if (s != srch.finalcost.size() - 1)
-            {
-              // Add constraints
-              for (unsigned j(0); j < 2; ++j)
+              for (auto const &act : cons[j])
               {
-                for (auto const &act : cons[j])
-                {
-                  con.c[j].emplace_back((Constraint<state> *)new ContingentIdentical<state>(act->second.first, act->second.second, conflictset[j], conflictset[j ? 0 : 1], act->first[1], act->first[1]));
-                }
+                con.c[j].emplace_back((Constraint<state> *)new ContingentIdentical<state>(act->second.first, act->second.second, conflictset[j], conflictset[j ? 0 : 1], act->first[1], act->first[1]));
               }
             }
-            tree.emplace_back(tree[incumbent], con, incumbent, true);
-            // We can fill in the paths...
-            unsigned j(0);
-            for (auto const &a : conflictset)
-            {
-              tree[last].path[j].reset(new std::vector<state>(srch.paths[s][j]));
-              tree[last].paths[a] = tree[last].path[j].get();
-              tree[last].clearcct(a); // Clear the cct for this unit so that we can re-count collisions
-              ++j;
-            }
-            auto cost(srch.finalcost[s][0] + srch.finalcost[s][1]);
-
-            if (Params::verbose)
-            {
-              std::cout << "New CT NODE: " << incumbent << ">" << last << " replanned: " << conflictset << " cost: " << cost << " " << numconflicts << " <";
-              std::cout << tree[last].con.costs << "\n";
-            }
-            openList.emplace(last, cost, numconflicts);
           }
+          tree.emplace_back(tree[incumbent], con, incumbent, true);
+          // We can fill in the paths...
+          unsigned j(0);
+          for (auto const &a : conflictset)
+          {
+            tree[last].path[j].reset(new std::vector<state>(srch.paths[s][j]));
+            tree[last].paths[a] = tree[last].path[j].get();
+            tree[last].clearcct(a); // Clear the cct for this unit so that we can re-count collisions
+            ++j;
+          }
+          auto cost(srch.finalcost[s][0] + srch.finalcost[s][1]);
+
+          if (Params::verbose)
+          {
+            std::cout << "New CT NODE: " << incumbent << ">" << last << " replanned: " << conflictset << " cost: " << cost << " " << numconflicts << " <";
+            std::cout << tree[last].con.costs << "\n";
+          }
+          openList.emplace(last, cost, numconflicts);
+        }
           else
           {
             // CBS Split
@@ -1927,7 +1928,7 @@ bool CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
               }
               auto last(tree.size());
 
-              Conflict<state> con({conflictset[i]});
+              Conflict<state> con(conflictset);
               if (cons[i].empty())
               {
                 // Resort to old-school CBS constraints
@@ -1947,9 +1948,19 @@ bool CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
                   con.c[0].emplace_back((Constraint<state> *)new Identical<state>(act->second.first, act->second.second, conflictset[i]));
                 }
               }
-              con.costs.resize(1);
-              con.costs[0].first = mins[conflictset[i]];
-              con.costs[0].second = maxs[conflictset[i]];
+              // Note: We're splitting here - this  *seems* ok as long as we limit
+              // this explicit cost. (it remains a 2-way CBS split this way).
+              // If we want to go above these costs, then it would become a k-way
+              // split ~ We can't do that unless all constraints in the split are
+              // mutually disjunct.
+              // Good news is that these constraints are valid regardless of whether
+              // other agents increase cost. Bad news is, this node won't have any
+              // successors if we have to increase cost for either of these agents.
+              con.costs.resize(2);
+              con.costs[0].first = srch.finalcost[s][0];
+              con.costs[0].second = srch.finalcost[s][0]+1;
+              con.costs[1].first = srch.finalcost[s][1];
+              con.costs[1].second = srch.finalcost[s][1]+1;
               tree.emplace_back(tree[incumbent], con, incumbent, true);
               tree[last].path.resize(2);
               // We can fill in the paths...
@@ -1969,93 +1980,6 @@ bool CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
               openList.emplace(last, cost, numconflicts);
             }
           }
-        }
-        else
-        {
-          // Bypass
-          if (!quiet)
-            std::cout << "TREE " << incumbent << "(" << tree[incumbent].parent << ") OVERRIDE(bypass)\n";
-          // Override with new paths...
-          if (node.con.units.empty())
-          {
-            // Override paths
-            node.path.resize(conflictset.size());
-            unsigned i(0);
-            for (auto const &a : conflictset)
-            {
-              node.path[i].reset(new std::vector<state>(srch.paths[s][i]));
-              node.paths[a] = node.path[i].get();
-              node.clearcct(a); // Clear the cct for this unit so that we can re-count collisions
-              node.con.c.resize(i + 1);
-              for (auto const &act : cons[i])
-              {
-                node.con.c[i].emplace_back((Constraint<state> *)new ContingentIdentical<state>(act->second.first, act->second.second, conflictset[i], conflictset[i ? 0 : 1], act->first[1], act->first[0]));
-              }
-              ++i;
-            }
-            node.con.checks.push_back(conflictset);
-          }
-          else
-          {
-            unsigned j(0);
-            node.con.checks.push_back(conflictset);
-            for (auto const &u : conflictset)
-            {
-              auto ix(Util::indexOf(node.con.units, u));
-              if (ix == -1)
-              {
-                // Add bypassed path
-                node.path.emplace_back(new std::vector<state>(srch.paths[s][j]));
-                node.paths[u] = node.path.back().get();
-                node.clearcct(u); // Clear the cct for this unit so that we can re-count collisions
-                // Add constraints
-                node.con.units.push_back(u);
-                node.con.c.resize(node.con.c.size() + 1);
-                for (auto &act : cons[j])
-                {
-                  node.con.c.back().emplace_back((Constraint<state> *)new ContingentIdentical<state>(act->second.first, act->second.second, conflictset[j], conflictset[j ? 0 : 1], act->first[1], act->first[0]));
-                }
-                // I don't think we need to update any costs...
-                // node.con.costs.push_back(srch.finalcost[s][j]);
-              }
-              else
-              {
-                // Replace with bypassed path
-                node.path[ix].reset(new std::vector<state>(srch.paths[s][j]));
-                node.paths[u] = node.path[ix].get();
-                node.clearcct(u); // Clear the cct for this unit so that we can re-count collisions
-                // Merge in constraints
-                for (auto &act : cons[j])
-                {
-                  node.con.c[ix].emplace_back((Constraint<state> *)new ContingentIdentical<state>(act->second.first, act->second.second, conflictset[j], conflictset[j ? 0 : 1], act->first[1], act->first[0]));
-                }
-                // I don't think we need to update any costs...
-                //node.con.costs[ix].first = std::max(node.con.costs[ix].first, cstconflicts[0].costs[j].first);
-                //node.con.costs[ix].second = std::min(node.con.costs[ix].second, conflicts[0].costs[j].second);
-              }
-              ++j;
-            }
-          }
-          double cost = 0;
-          if (Params::verbose)
-            for (int y = 0; y < node.paths.size(); y++)
-            {
-              std::cout << "agent: " << y << "\n";
-              for (auto const &p : *node.paths[y])
-              {
-                std::cout << p << "\n";
-              }
-              auto cc(GetEnv(y)->GetPathLength(*node.paths[y]));
-              std::cout << cc << "\n";
-              cost += cc;
-            }
-          // Insert back into OPEN
-          if (Params::verbose)
-          {
-            std::cout << "reinsert: " << incumbent << "\n";
-          }
-          openList.emplace(incumbent, cost, numconflicts);
-        }
       }
     }
   }
@@ -3106,7 +3030,7 @@ void CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
           {
             y=ys[tree[n].parent]+0.2;
             float ix(indexOf(n,child[tree[n].parent]));
-            x=xs[tree[n].parent]+(ix* (1/(width/depth[i].size())));
+            x=xs[tree[n].parent]+(ix* (1/(width/depth[i].size())))/2.0;
           }
             xs[n] = x;
             ys[n] = y;
@@ -3129,7 +3053,16 @@ void CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
         glColor3f(1, 1, 1);
         //DrawBox(x,y,0,.1);
         //glColor3f(1, 1, 1);
-        DrawRect(xs[i], ys[i], 0, .06, .03);
+        DrawRect(xs[i], ys[i], 0, .06, .04);
+        glColor3f(0, 0, 0);
+        if(tree[i].con.units.empty())
+          DrawFmtTextCentered(xs[i], ys[i] - .03, -.01, .04, "%d", i);
+        else if(tree[i].con.units.size()==1)
+          DrawFmtTextCentered(xs[i], ys[i] - .03, -.01, .04, "%d - %d", i, tree[i].con.units[0]);
+        else if(tree[i].con.units.size()==2)
+        DrawFmtTextCentered(xs[i], ys[i] - .03, -.01, .04, "%d - %d,%d", i, tree[i].con.units[0], tree[i].con.units[1]);
+        else if(tree[i].con.units.size()==3)
+        DrawFmtTextCentered(xs[i], ys[i] - .03, -.01, .04, "%d - %d,%d,%d", i, tree[i].con.units[0], tree[i].con.units[1], tree[i].con.units[2]);
         // Add cost vector
         unsigned j(0);
         //std::cout << "FOOOOO " << xs[i] << " " << ys[i] << "\n";
@@ -3142,7 +3075,14 @@ void CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
           unit->GetColor(r, g, b);
           glColor3f(r, g, b);
           //std::cout << "         " << (xs[i]-(.1*(tree[i].con.costs.size()-1)) + .05 * j) << " " << ys[i] << "\n";
-          DrawFmtTextCentered(xs[i]-(.03*(tree[i].con.costs.size()-1)/2.0) + .03 * j++, ys[i], -.01, 0.04, "(%.1f,%.1f)",tree[i].con.costs[j].first / state::TIME_RESOLUTION, tree[i].con.costs[j].second / state::TIME_RESOLUTION);
+          DrawFmtTextCentered(xs[i],
+          ys[i]+j*.02-.01,
+          -.01,
+          0.04,
+          "(%.1f,%.1f)",
+          tree[i].con.costs[j].first / state::TIME_RESOLUTION,
+          tree[i].con.costs[j].second==UINT_MAX?HUGE_VAL:(tree[i].con.costs[j].second / state::TIME_RESOLUTION));
+          ++j;
         }
       }
   /*
