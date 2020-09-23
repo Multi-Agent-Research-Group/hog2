@@ -1735,49 +1735,65 @@ struct PairwiseConstrainedSearch
             }
           }
         }
-        bool a1done(envs[0]->GoalTest(n[0].second, g1));
-        bool a2done(envs[1]->GoalTest(n[1].second, g2));
-        bool a1wait(n[0].first.sameLoc(n[0].second));
-        bool a2wait(n[1].first.sameLoc(n[1].second));
-        if (a2done && a1done && a1wait && a2wait)
-        {
-          continue; // Both agents can't just sit at their goal
-        }
         auto gg1(G1 + ec1);
         auto gg2(G2 + ec2);
-        //if(n.feasible)
-        //std::cout << "a0 lb:" << lb1 <<": " << ub1 << "/a1 lb:" << lb2 <<": " << ub2 << " " << n[0]
-        //<< "(f="<< (gg1+h1) << ") feasible with " << n[1]  << "(f="<< (gg2+h2) << ")\n";
-        // Legit arrival at goal
-        // check goal
-        //if(soc>=gg1+gg2)
-        //{
-        if(a1done && a2done) // At goal
+        if(gg1+h1 < ub1 && gg2+h2 < ub2)
         {
-          //std::cout << "  {g:" << n << "f1:" << gg1 << "+" << h1 << "=" << (gg1 + h1) << ",f2:" << gg2 << "+" << h2 << "=" << (gg2+ h2)  << " feasible: " << n.feasible << "}\n";
-          if (n.feasible) // Reachable
-            int fffff=987;
-          if (G + ec1 + ec2 >= socLim && // Must be above the frontier
-              gg1 >= lb1 &&              // Must be above lower bound
-              gg2 >= lb2 &&              // Must be above lower bound
-              gg1 < ub1 &&               // Must be below upper bound
-              gg2 < ub2)                 // Must be below upper bound
+          bool a1done(envs[0]->GoalTest(n[0].second, g1));
+          bool a2done(envs[1]->GoalTest(n[1].second, g2));
+          bool a1wait(n[0].first.sameLoc(n[0].second));
+          bool a2wait(n[1].first.sameLoc(n[1].second));
+          if (a2done && a1done && a1wait && a2wait)
           {
+            continue; // Both agents can't just sit at their goal
+          }
+          //if(n.feasible)
+          //std::cout << "a0 lb:" << lb1 <<": " << ub1 << "/a1 lb:" << lb2 <<": " << ub2 << " " << n[0]
+          //<< "(f="<< (gg1+h1) << ") feasible with " << n[1]  << "(f="<< (gg2+h2) << ")\n";
+          // Legit arrival at goal
+          // check goal
+          //if(soc>=gg1+gg2)
+          //{
+          if (a1done && a2done) // At goal
+          {
+            //std::cout << "  {g:" << n << "f1:" << gg1 << "+" << h1 << "=" << (gg1 + h1) << ",f2:" << gg2 << "+" << h2 << "=" << (gg2+ h2)  << " feasible: " << n.feasible << "}\n";
             if (n.feasible) // Reachable
+              int fffff = 987;
+            if (G + ec1 + ec2 >= socLim && // Must be above the frontier
+                gg1 >= lb1 &&              // Must be above lower bound
+                gg2 >= lb2 &&              // Must be above lower bound
+                gg1 < ub1 &&               // Must be below upper bound
+                gg2 < ub2)                 // Must be below upper bound
             {
-              if (all || firstsoc == INT_MAX)
+              if (n.feasible) // Reachable
               {
-                // TODO: CAT check (if found duplicate)
-                paths.push_back(std::vector<std::vector<state>>(2));
-                // Extract the path back to the root.
-                auto tmpnode(nodeid);
-                paths.back()[0].push_back(n[0].second);
-                //std::cout << "*" << n[0].second << "\n";
-                paths.back()[1].push_back(n[1].second);
-                //std::cout << "      *" << n[1].second << "\n";
-                do
+                if (all || firstsoc == INT_MAX)
                 {
-                  //std::cout << open.Lookup(tmpnode).data << "\n";
+                  // TODO: CAT check (if found duplicate)
+                  paths.push_back(std::vector<std::vector<state>>(2));
+                  // Extract the path back to the root.
+                  auto tmpnode(nodeid);
+                  paths.back()[0].push_back(n[0].second);
+                  //std::cout << "*" << n[0].second << "\n";
+                  paths.back()[1].push_back(n[1].second);
+                  //std::cout << "      *" << n[1].second << "\n";
+                  do
+                  {
+                    //std::cout << open.Lookup(tmpnode).data << "\n";
+                    for (unsigned q(0); q < open.Lookup(tmpnode).data.size(); ++q)
+                    {
+                      if (paths.back()[q].back() != open.Lookup(tmpnode).data[q].second)
+                      {
+                        paths.back()[q].push_back(open.Lookup(tmpnode).data[q].second);
+                        //std::cout << (q ? "      " : "") << "*" << open.Lookup(tmpnode).data[q].second << "\n";
+                      }
+                      else
+                      {
+                        //std::cout << (q ? "      " : "") << " " << open.Lookup(tmpnode).data[q].second << "\n";
+                      }
+                    }
+                    tmpnode = open.Lookup(tmpnode).parentID;
+                  } while (open.Lookup(tmpnode).parentID != tmpnode);
                   for (unsigned q(0); q < open.Lookup(tmpnode).data.size(); ++q)
                   {
                     if (paths.back()[q].back() != open.Lookup(tmpnode).data[q].second)
@@ -1789,54 +1805,40 @@ struct PairwiseConstrainedSearch
                     {
                       //std::cout << (q ? "      " : "") << " " << open.Lookup(tmpnode).data[q].second << "\n";
                     }
+                    std::reverse(paths.back()[q].begin(), paths.back()[q].end());
                   }
-                  tmpnode = open.Lookup(tmpnode).parentID;
-                } while (open.Lookup(tmpnode).parentID != tmpnode);
-                for (unsigned q(0); q < open.Lookup(tmpnode).data.size(); ++q)
-                {
-                  if (paths.back()[q].back() != open.Lookup(tmpnode).data[q].second)
+                  std::vector<unsigned> fincosts(2);
+                  fincosts[0] = envs[0]->GetPathLength(paths.back()[0]);
+                  fincosts[1] = envs[1]->GetPathLength(paths.back()[1]);
+                  if (all)
                   {
-                    paths.back()[q].push_back(open.Lookup(tmpnode).data[q].second);
-                    //std::cout << (q ? "      " : "") << "*" << open.Lookup(tmpnode).data[q].second << "\n";
+                    auto ix(std::find(finalcost.begin(), finalcost.end(), fincosts));
+                    if (ix == finalcost.end())
+                    {
+                      finalcost.push_back(fincosts);
+                    }
+                    else
+                    {
+                      //TODO: here is where we would perform the CAT check.
+                      // For now, this is a duplicate, so we throw it out. :(
+                      paths.pop_back();
+                    }
                   }
                   else
-                  {
-                    //std::cout << (q ? "      " : "") << " " << open.Lookup(tmpnode).data[q].second << "\n";
-                  }
-                  std::reverse(paths.back()[q].begin(), paths.back()[q].end());
-                }
-                std::vector<unsigned> fincosts(2);
-                fincosts[0] = envs[0]->GetPathLength(paths.back()[0]);
-                fincosts[1] = envs[1]->GetPathLength(paths.back()[1]);
-                if (all)
-                {
-                  auto ix(std::find(finalcost.begin(), finalcost.end(), fincosts));
-                  if (ix == finalcost.end())
                   {
                     finalcost.push_back(fincosts);
                   }
-                  else
-                  {
-                    //TODO: here is where we would perform the CAT check.
-                    // For now, this is a duplicate, so we throw it out. :(
-                    paths.pop_back();
-                  }
+                }
+
+                if (firstsoc == INT_MAX)
+                {
+                  firstsoc = soc = gg1 + gg2;
                 }
                 else
                 {
-                  finalcost.push_back(fincosts);
+                  soc = gg1 + gg2;
                 }
-              }
-
-              if (firstsoc == INT_MAX)
-              {
-                firstsoc = soc = gg1 + gg2;
-              }
-              else
-              {
-                soc = gg1 + gg2;
-              }
-              /*auto top(open.Lookup(open.Peek()));
+                /*auto top(open.Lookup(open.Peek()));
             if (top.g + top.h > soc)
             {
               return false;
@@ -1845,63 +1847,64 @@ struct PairwiseConstrainedSearch
             {
               return true;
             }*/
+              }
             }
           }
-        }
-        //}
-        uint64_t hash(GetHash(n));
-        //std::cout << "hash " << hash << "\n";
-        uint64_t theID(0);
-        switch (open.Lookup(hash, theID))
-        {
-        case kClosedList:
-          // Closed list guy is not feasible but this one is!
+          //}
+          uint64_t hash(GetHash(n));
+          //std::cout << "hash " << hash << "\n";
+          uint64_t theID(0);
+          switch (open.Lookup(hash, theID))
           {
-          auto const& cand(open.Lookup(theID));
-          if (n.feasible && (!open.Lookup(theID).data.feasible || gg1+gg2<=open.Lookup(theID).g))
-          {
-            open.Lookup(theID).parentID = nodeid;
-            open.Lookup(theID).g=gg1+gg2;
-            open.Lookup(theID).h=h1+h2;
-            open.Lookup(theID).g1=gg1;
-            open.Lookup(theID).h1=h1;
-            open.Lookup(theID).g2=gg2;
-            open.Lookup(theID).h2=h2;
-            open.Lookup(theID).data.feasible = true;
+          case kClosedList:
+            // Closed list guy is not feasible but this one is!
+            {
+              auto const &cand(open.Lookup(theID));
+              if (n.feasible && (!open.Lookup(theID).data.feasible || gg1 + gg2 <= open.Lookup(theID).g))
+              {
+                open.Lookup(theID).parentID = nodeid;
+                open.Lookup(theID).g = gg1 + gg2;
+                open.Lookup(theID).h = h1 + h2;
+                open.Lookup(theID).g1 = gg1;
+                open.Lookup(theID).h1 = h1;
+                open.Lookup(theID).g2 = gg2;
+                open.Lookup(theID).h2 = h2;
+                open.Lookup(theID).data.feasible = true;
 
-            open.Reopen(theID);
-          //std::cout << "Update " << n << " id:" << theID << " to feasible\n";
+                open.Reopen(theID);
+                //std::cout << "Update " << n << " id:" << theID << " to feasible\n";
+              }
+            }
+            break;
+          case kOpenList:
+            // previously generated node is not feasible but this one is!
+            {
+              auto const &cand1(open.Lookup(theID));
+              // Replace if infeasible or has better cost
+              if (n.feasible && (!open.Lookup(theID).data.feasible || gg1 + gg2 <= open.Lookup(theID).g))
+              {
+                open.Lookup(theID).parentID = nodeid;
+                open.Lookup(theID).g = gg1 + gg2;
+                open.Lookup(theID).h = h1 + h2;
+                open.Lookup(theID).g1 = gg1;
+                open.Lookup(theID).h1 = h1;
+                open.Lookup(theID).g2 = gg2;
+                open.Lookup(theID).h2 = h2;
+                open.Lookup(theID).data.feasible = true;
+                //std::cout << "Update " << n << " id:" << theID << " to feasible\n";
+              }
+            }
+            break;
+          case kNotFound:
+            // Add to open :)
+            MultiAgentAStarOpenClosedData data(n, gg1, gg2, h1, h2,
+                                               nodeid, open.theHeap.size(), kOpenList);
+            open.AddOpenNode(data, hash);
+            open.Lookup(hash, theID);
+            //std::cout << "Add " << n << " id:" << theID << " g1:" << gg1 << " g2:" << gg2 << " h1:" << h1
+            //<< " h2:" << h2 << " f1:"<< gg1+h1 << " f2:" << gg2+h2 << "\n";
+            break;
           }
-          }
-          break;
-        case kOpenList:
-          // previously generated node is not feasible but this one is!
-          {
-          auto const& cand1(open.Lookup(theID));
-          // Replace if infeasible or has better cost
-          if (n.feasible && (!open.Lookup(theID).data.feasible || gg1+gg2<=open.Lookup(theID).g))
-          {
-            open.Lookup(theID).parentID = nodeid;
-            open.Lookup(theID).g=gg1+gg2;
-            open.Lookup(theID).h=h1+h2;
-            open.Lookup(theID).g1=gg1;
-            open.Lookup(theID).h1=h1;
-            open.Lookup(theID).g2=gg2;
-            open.Lookup(theID).h2=h2;
-            open.Lookup(theID).data.feasible = true;
-          //std::cout << "Update " << n << " id:" << theID << " to feasible\n";
-          }
-          }
-          break;
-        case kNotFound:
-          // Add to open :)
-          MultiAgentAStarOpenClosedData data(n, gg1, gg2, h1, h2,
-                                             nodeid, open.theHeap.size(), kOpenList);
-          open.AddOpenNode(data, hash);
-          open.Lookup(hash, theID);
-          //std::cout << "Add " << n << " id:" << theID << " g1:" << gg1 << " g2:" << gg2 << " h1:" << h1
-          //<< " h2:" << h2 << " f1:"<< gg1+h1 << " f2:" << gg2+h2 << "\n";
-          break;
         }
         ids[0][i].emplace(gg2+h2,k); // other's f-cost and my action
         ids[1][j].emplace(gg1+h1,k); // other's f-cost and my action
