@@ -24,7 +24,7 @@
 
 #include <array>
 #include <vector>
-#include <utility>
+#include <memory>
 
 template <typename T, size_t N>
 inline std::ostream& operator <<(std::ostream & out, std::array<T,N> const& v){

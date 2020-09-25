@@ -1297,6 +1297,7 @@ struct PairwiseConstrainedSearch
         s2(start2),
         g2(goal2),
         intervals(2),
+        ivix(2),
         ids(2),
         radii(2),
         socLim(socLb),
@@ -1342,6 +1343,8 @@ struct PairwiseConstrainedSearch
         g2(from.g2),
         envs(from.envs),
         heus(from.heus),
+        intervals(from.intervals),
+        ivix(from.ivix),
         bf(from.bf),
         open(from.open), // Make a full copy of open
         socLim(soclb),
@@ -1378,8 +1381,9 @@ struct PairwiseConstrainedSearch
   state s1, g1, s2, g2;
   unsigned bf; // branching factor
   bool all; // Whether to store all solutions of cost
-  //std::vector<PairTree<Action<state>>> intervals;
-  std::vector<sorted_vector<std::pair<std::array<unsigned,3>,Action<state>>>> intervals;
+
+  std::vector<std::vector<std::pair<std::array<unsigned,3>,Action<state>>>> intervals;
+  std::vector<std::unordered_map<uint64_t,unsigned>> ivix;
   std::vector<std::vector<unsigned>> finalcost;
   //PairTree<ActionPair<state>> mutexes;
   const int MAXTIME=1000 * state::TIME_RESOLUTION_U;
@@ -1457,6 +1461,32 @@ struct PairwiseConstrainedSearch
 
   AStarOpenClosed<ActionPair<state>, AStarCompare, MultiAgentAStarOpenClosedData> open;
 
+  uint64_t GetHash(Action<state> const &v)
+  {
+    // Implement the FNV-1a hash http://www.isthe.com/chongo/tech/comp/fnv/index.html
+    uint64_t h(14695981039346656037UL); // Offset basis
+    uint64_t h1(0);
+    unsigned i(0);
+    uint8_t c[sizeof(uint64_t)];
+    h1 = envs[i]->GetStateHash(v.first);
+    memcpy(c, &h1, sizeof(uint64_t));
+    for (unsigned j(0); j < sizeof(uint64_t); ++j)
+    {
+      //hash[k*sizeof(uint64_t)+j]=((int)c[j])?c[j]:1; // Replace null-terminators in the middle of the string
+      h = h ^ c[j];          // Xor with octet
+      h = h * 1099511628211; // multiply by the FNV prime
+    }
+
+    h1 = envs[i++]->GetStateHash(v.second);
+    memcpy(c, &h1, sizeof(uint64_t));
+    for (unsigned j(0); j < sizeof(uint64_t); ++j)
+    {
+      //hash[k*sizeof(uint64_t)+j]=((int)c[j])?c[j]:1; // Replace null-terminators in the middle of the string
+      h = h ^ c[j];          // Xor with octet
+      h = h * 1099511628211; // multiply by the FNV prime
+    }
+    return h;
+  }
   uint64_t GetHash(ActionPair<state> const &node)
   {
     // Implement the FNV-1a hash http://www.isthe.com/chongo/tech/comp/fnv/index.html
@@ -1879,7 +1909,7 @@ struct PairwiseConstrainedSearch
           case kOpenList:
             // previously generated node is not feasible but this one is!
             {
-              auto const &cand1(open.Lookup(theID));
+              //auto const &cand1(open.Lookup(theID));
               // Replace if infeasible or has better cost
               if (n.feasible && (!open.Lookup(theID).data.feasible || gg1 + gg2 <= open.Lookup(theID).g))
               {
@@ -1916,20 +1946,19 @@ struct PairwiseConstrainedSearch
       ++i;
     }
     k=0;
-    for (unsigned i(0); i < ids.size(); ++i)
+    for (unsigned i(0); i < ids.size(); ++i) // Agent num
     {
-      for (unsigned a(0); a < ids[i].size(); ++a)
+      for (unsigned a(0); a < ids[i].size(); ++a) // Action num
       {
         unsigned minCost(INT_MAX);
         unsigned maxCost(0);
         unsigned minInclusive(INT_MAX);
         unsigned maxInclusive(0);
         if(ids[i][a].empty())continue;
-        auto val(std::find_if(
-            intervals[i].begin(), intervals[i].end(),
-            [&](std::pair<std::array<unsigned,3>, Action<state>> const &x) { return x.second == successors[i][a]; }));
-        // this is a new interval
-        if (val == intervals[i].end())
+        auto hash(GetHash(successors[i][a]));
+        auto ivl(ivix[i].find(hash));
+        // This is a new interval
+        if (ivl == ivix[i].end())
         {
           // These are sorted by f-cost. They must be inclusively conflicting
           // over an entire cost plateau in order to be a constraint.
@@ -1974,26 +2003,29 @@ struct PairwiseConstrainedSearch
 
             //std::cout << "Add interval: (" << i << ")" << successors[i][a] << "(" << minInclusive << "," << maxInclusive << "]\n";
             std::array<unsigned,3> tmp={maxInclusive, minInclusive, totalMax};
-            intervals[i].emplace(tmp, successors[i][a]);
+            ivix[i][hash]=intervals[i].size();
+            intervals[i].emplace_back(tmp, successors[i][a]);
           }
           else
           {
             //std::cout << "No conflicts\n";
             //std::cout << "Add interval: (" << i << ")" << successors[i][a] << "(" << minInclusive << "," << 0 << "]\n";
             std::array<unsigned,3> tmp={0, minInclusive-1, minInclusive-1};
-            intervals[i].emplace(tmp, successors[i][a]);
+            ivix[i][hash]=intervals[i].size();
+            intervals[i].emplace_back(tmp, successors[i][a]);
           }
         }
         else
         { // have an existing interval
           // If this is no longer infeasible, (this action is reachable via another route)
           // we must remove the interval
+          auto& val(intervals[i][ivl->second]);
 
           {
             //std::cout << "update " << *val << "(" << i << ") because " << successors[i?0:1] << "\n";
             // Otherwise, we must narrow the interval of the constraint if needed
             unsigned totalMax(ids[i][a].back().first);
-            minCost = std::min(val->first[1],ids[i][a].front().first);
+            minCost = std::min(val.first[1],ids[i][a].front().first);
             maxCost=minCost;
             bool allconflicting(true);
             for (auto const &id : ids[i][a])
@@ -2030,36 +2062,36 @@ struct PairwiseConstrainedSearch
               }
               //std::cout << "new upper bound: " << maxCost << "\n";
             }
-            if(minInclusive<val->first[1]){
+            if(minInclusive<val.first[1]){
               // Update min
               //std::cout << "update lb of interval: " << successors[i][a] << "(" << minInclusive << "," << maxInclusive << "]\n";
-              val->first[1]=minInclusive;
+              val.first[1]=minInclusive;
             }
             bool update(false);
-            if(val->first[0]==val->first[2]){
-              if (maxInclusive > val->first[0])
+            if(val.first[0]==val.first[2]){
+              if (maxInclusive > val.first[0])
               {
                 update = true;
-                val->first[0] = maxInclusive;
+                val.first[0] = maxInclusive;
               }
-              if (totalMax > val->first[2])
+              if (totalMax > val.first[2])
               {
-                val->first[2] = totalMax;
+                val.first[2] = totalMax;
               }
             }
-            if (maxInclusive < val->first[0] && maxInclusive!=totalMax)
+            if (maxInclusive < val.first[0] && maxInclusive!=totalMax)
             {
               update = true;
-              val->first[0] = maxInclusive;
+              val.first[0] = maxInclusive;
             }
-            if (update)
-            {
+            //if (update)
+            //{
               //std::cout << "adjust upper bound from " << val->first << " to " << maxInclusive << "\n";
               //std::cout << "update ub of interval: " << successors[i][a] << "(" << minInclusive << "," << maxInclusive << "]\n";
-              auto v(*val);
-              intervals[i].erase(val);
-              intervals[i].emplace(v.first, v.second);
-            }
+              //auto v(*val);
+              //intervals[i].erase(val);
+              //intervals[i].emplace(v.first, v.second);
+            //}
           }
         }
       }

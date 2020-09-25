@@ -786,7 +786,7 @@ double Grid3DEnvironment::GCost(const xyztLoc &l, const t3DDirection &act) const
 
 double Grid3DEnvironment::GCost(const xyztLoc &l1, const xyztLoc &l2) const
 {
-  const double multiplier(xyztLoc::TIME_RESOLUTION_D);
+  //const double multiplier(xyztLoc::TIME_RESOLUTION_D);
   if(l1.sameLoc(getGoal()) && l1.sameLoc(l2)){return 0.0;}
   if(uniquecosts){
     if(l1.sameLoc(l2)){return (l1.x+l1.y+l1.z+1)%xyztLoc::TIME_RESOLUTION_U;}
@@ -794,26 +794,11 @@ double Grid3DEnvironment::GCost(const xyztLoc &l1, const xyztLoc &l2) const
     uint64_t v2(GetStateHash(l2));
     return (v1<v2?v1*map->GetMapHeight()*map->GetMapWidth()+v2:v2*map->GetMapHeight()*map->GetMapWidth()+v1)%(maxcost*xyztLoc::TIME_RESOLUTION_U);
   }
-  static const float SQRT_2(round(sqrt(2)*multiplier));
-  static const float SQRT_3(round(sqrt(3)*multiplier));
-  static const float SQRT_5(round(sqrt(5)*multiplier));
-  static const float SQRT_6(round(sqrt(6)*multiplier));
-  static const float SQRT_8(round(sqrt(8)*multiplier));
-  static const float SQRT_10(round(sqrt(10)*multiplier));
-  static const float SQRT_11(round(sqrt(11)*multiplier));
-  static const float SQRT_12(round(sqrt(12)*multiplier));
-  static const float SQRT_13(round(sqrt(13)*multiplier));
-  static const float SQRT_15(round(sqrt(15)*multiplier));
-  static const float SQRT_17(round(sqrt(17)*multiplier));
-  static const float SQRT_18(round(sqrt(18)*multiplier));
-  static const float SQRT_19(round(sqrt(19)*multiplier));
-  static const float SQRT_22(round(sqrt(22)*multiplier));
-  static const float SQRT_27(round(sqrt(27)*multiplier));
   switch(connectedness){
     case 1:{
              unsigned v(abs(l1.x-l2.x)+abs(l1.y-l2.y)+abs(l1.z-l2.z));
              switch(v){
-               case 0: return l1.sameLoc(getGoal()) && l1.sameLoc(l2)?0:multiplier;
+               case 0: return multiplier;
                case 1: return multiplier;
                case 2: return SQRT_2;
                case 3: return SQRT_3;

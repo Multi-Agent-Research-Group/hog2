@@ -280,6 +280,22 @@ protected:
         static double h26(const xyztLoc &l1, const xyztLoc &l2);
         static double _h124(unsigned dx,unsigned dy, unsigned dz, double result=0);
         static double h124(const xyztLoc &l1, const xyztLoc &l2);
+  const float multiplier=xyztLoc::TIME_RESOLUTION;
+  const float SQRT_2=round(sqrt(2)*multiplier);
+  const float SQRT_3=round(sqrt(3)*multiplier);
+  const float SQRT_5=round(sqrt(5)*multiplier);
+  const float SQRT_6=round(sqrt(6)*multiplier);
+  const float SQRT_8=round(sqrt(8)*multiplier);
+  const float SQRT_10=round(sqrt(10)*multiplier);
+  const float SQRT_11=round(sqrt(11)*multiplier);
+  const float SQRT_12=round(sqrt(12)*multiplier);
+  const float SQRT_13=round(sqrt(13)*multiplier);
+  const float SQRT_15=round(sqrt(15)*multiplier);
+  const float SQRT_17=round(sqrt(17)*multiplier);
+  const float SQRT_18=round(sqrt(18)*multiplier);
+  const float SQRT_19=round(sqrt(19)*multiplier);
+  const float SQRT_22=round(sqrt(22)*multiplier);
+  const float SQRT_27=round(sqrt(27)*multiplier);
 };
 
 /*class AbsGrid3DEnvironment : public Grid3DEnvironment
