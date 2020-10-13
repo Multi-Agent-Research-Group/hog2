@@ -27,6 +27,7 @@ PROJECTS = \
   apps/icts \
   apps/MACBS \
   apps/CBICS \
+  apps/CBICS1 \
   apps/NSF \
   apps/MAAStar \
   test/utils \

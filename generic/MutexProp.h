@@ -35,7 +35,7 @@
 #include "MultiAgentStructures.h"
 #include "Utilities.h"
 #include "sorted_vector.h"
-#include "TemporalAStar2.h"
+#include "TemporalAStarPair.h"
 
 template<typename T>
 void clear(std::vector<T>& v){
@@ -1265,12 +1265,10 @@ struct PairwiseConstrainedSearch
 {
   //typedef MultiCostLimitedEnvironment<Action<state>, unsigned, environ> MultiEnv;
 
-  TemporalAStar<state,action,environ> astar;
+  TemporalAStarPair<state,action,environ> astar;
   // Initial constructor
   // Adds a single state to the open list and sets the lower bound on cost to 0
-  PairwiseConstrainedSearch(unsigned agent1,
-                            unsigned agent2,
-                            environ *env1,
+  PairwiseConstrainedSearch(environ *env1,
                             environ *env2,
                             Heuristic<state> *heu1,
                             Heuristic<state> *heu2,
@@ -1286,9 +1284,7 @@ struct PairwiseConstrainedSearch
                             double r2,
                             double socLb,
                             bool storeAll=false)
-      : a1(agent1),
-        a2(agent2),
-        lb1(lower1),
+      : lb1(lower1),
         ub1(upper1),
         lb2(lower2),
         ub2(upper2),
@@ -1317,7 +1313,7 @@ struct PairwiseConstrainedSearch
                                    heus[0]->HCost(s1, g1),
                                    heus[1]->HCost(s2, g2),
                          0,open.theHeap.size(), kOpenList);
-    open.AddOpenNode(data,GetHash(s));
+    open.AddOpenNode(data,GetHash(s,0,0));
     for (auto const &e : envs)
     {
       bf *= e->branchingFactor();
@@ -1331,9 +1327,7 @@ struct PairwiseConstrainedSearch
                             double lower2,
                             double upper2,
                             double soclb)
-      : a1(from.a1),
-        a2(from.a2),
-        lb1(lower1),
+      : lb1(lower1),
         ub1(upper1),
         lb2(lower2),
         ub2(upper2),
@@ -1369,7 +1363,6 @@ struct PairwiseConstrainedSearch
     }
   }
 
-  unsigned a1, a2;             // global agent numbers
   std::vector<environ *> envs; // environments for agents
   std::vector<Heuristic<state> *> heus; // environments for agents
   //MultiEnv env;
@@ -1461,7 +1454,7 @@ struct PairwiseConstrainedSearch
 
   AStarOpenClosed<ActionPair<state>, AStarCompare, MultiAgentAStarOpenClosedData> open;
 
-  uint64_t GetHash(Action<state> const &v)
+  uint64_t GetHash(Action<state> const &v, uint64_t gg1)
   {
     // Implement the FNV-1a hash http://www.isthe.com/chongo/tech/comp/fnv/index.html
     uint64_t h(14695981039346656037UL); // Offset basis
@@ -1485,9 +1478,16 @@ struct PairwiseConstrainedSearch
       h = h ^ c[j];          // Xor with octet
       h = h * 1099511628211; // multiply by the FNV prime
     }
+    memcpy(c, &gg1, sizeof(uint64_t));
+    for (unsigned j(0); j < sizeof(uint64_t); ++j)
+    {
+      //hash[k*sizeof(uint64_t)+j]=((int)c[j])?c[j]:1; // Replace null-terminators in the middle of the string
+      h = h ^ c[j];          // Xor with octet
+      h = h * 1099511628211; // multiply by the FNV prime
+    }
     return h;
   }
-  uint64_t GetHash(ActionPair<state> const &node)
+  uint64_t GetHash(ActionPair<state> const &node, uint32_t gg1, uint32_t gg2)
   {
     // Implement the FNV-1a hash http://www.isthe.com/chongo/tech/comp/fnv/index.html
     uint64_t h(14695981039346656037UL); // Offset basis
@@ -1513,6 +1513,14 @@ struct PairwiseConstrainedSearch
         h = h ^ c[j];          // Xor with octet
         h = h * 1099511628211; // multiply by the FNV prime
       }
+    }
+    h1 = gg1<<32 + gg2;
+    memcpy(c, &h1, sizeof(uint64_t));
+    for (unsigned j(0); j < sizeof(uint64_t); ++j)
+    {
+      //hash[k*sizeof(uint64_t)+j]=((int)c[j])?c[j]:1; // Replace null-terminators in the middle of the string
+      h = h ^ c[j];          // Xor with octet
+      h = h * 1099511628211; // multiply by the FNV prime
     }
     return h;
   }
@@ -1552,6 +1560,7 @@ struct PairwiseConstrainedSearch
       astar.SetUpperLimit(ub2 - 1);
     }
     astar.SetLowerLimit(lb2);
+    //astar.SetVerbose(true);
     astar.GetPath(envs[1],s2,goal,paths[0][1],lb2);
     if(paths[0][1].empty())
     {
@@ -1629,7 +1638,7 @@ struct PairwiseConstrainedSearch
     uint64_t nodeid = open.Close();
     // Note - this reference becomes invalid once we insert anything into open.
     auto &node(open.Lookup(nodeid));
-    //std::cout << "{d:" << node.data << "f1:" << node.g1 << "+" << node.h1 << "=" << (node.g1+node.h1) << ",f2:" << node.g2 << "+" << node.h2 << "=" << (node.g2+node.h2) << ",id:" << nodeid << ",p:" << node.parentID << " feasible: "<< node.data.feasible <<"}\n";
+    std::cout << "{d:" << node.data << "f1:" << node.g1 << "+" << node.h1 << "=" << (node.g1+node.h1) << ",f2:" << node.g2 << "+" << node.h2 << "=" << (node.g2+node.h2) << ",id:" << nodeid << ",p:" << node.parentID << " feasible: "<< node.data.feasible <<"}\n";
     if (soc>firstsoc)
     {
       return false; // Return because a solution was already found and we have finished the plateau
@@ -1682,6 +1691,7 @@ struct PairwiseConstrainedSearch
     successors.reserve(s.size());
 
     //Add in successors for parents who are equal to the min
+    std::vector<std::vector<unsigned>> ecs(2);
     k = 0;
     for (auto const &a : s)
     {
@@ -1695,12 +1705,14 @@ struct PairwiseConstrainedSearch
         for (unsigned j(0); j < sz; ++j)
         {
           output.emplace_back(a.second, succ[j]);
+          ecs[k].push_back(envs[k]->GCost(a.second, succ[j]));
         }
       }
       else
       {
         //std::cout << "Keep Just " << *a.second << "\n";
         output.push_back(a);
+        ecs[k].push_back(envs[k]->GCost(a.first, a.second));
       }
       if (output.empty())
       {
@@ -1726,12 +1738,12 @@ struct PairwiseConstrainedSearch
     {
       ids[0][i].clear();
       auto h1(heus[0]->HCost(a1.second, g1));
-      auto ec1(s[0] == a1 ? 0.0 : envs[0]->GCost(a1.first, a1.second));
       unsigned j(0);
+      auto const& ec1(ecs[0][i]);
       for (auto const &a2 : successors[1])
       {
         auto h2(heus[1]->HCost(a2.second, g2));
-        auto ec2(s[1] == a2 ? 0.0 : envs[1]->GCost(a2.first, a2.second));
+        auto const &ec2(ecs[1][j]);
         crossProduct.emplace_back(a1, a2, s.feasible);
         auto &n(crossProduct.back());
         if (s.feasible)
@@ -1765,6 +1777,7 @@ struct PairwiseConstrainedSearch
             }
           }
         }
+        //std::cout << "  " << n << " "<<n.feasible << "\n";
         auto gg1(G1 + ec1);
         auto gg2(G2 + ec2);
         if(gg1+h1 < ub1 && gg2+h2 < ub2)
@@ -1881,7 +1894,7 @@ struct PairwiseConstrainedSearch
             }
           }
           //}
-          uint64_t hash(GetHash(n));
+          uint64_t hash(GetHash(n,gg1,gg2));
           //std::cout << "hash " << hash << "\n";
           uint64_t theID(0);
           switch (open.Lookup(hash, theID))
@@ -1889,48 +1902,57 @@ struct PairwiseConstrainedSearch
           case kClosedList:
             // Closed list guy is not feasible but this one is!
             {
-              auto const &cand(open.Lookup(theID));
-              if (n.feasible && (!open.Lookup(theID).data.feasible || gg1 + gg2 <= open.Lookup(theID).g))
+              if (n.feasible)
               {
-                open.Lookup(theID).parentID = nodeid;
-                open.Lookup(theID).g = gg1 + gg2;
-                open.Lookup(theID).h = h1 + h2;
-                open.Lookup(theID).g1 = gg1;
-                open.Lookup(theID).h1 = h1;
-                open.Lookup(theID).g2 = gg2;
-                open.Lookup(theID).h2 = h2;
-                open.Lookup(theID).data.feasible = true;
+                auto &cand(open.Lookup(theID));
+                if (!cand.data.feasible || gg1 + gg2 <= cand.g)
+                {
+                  cand.parentID = nodeid;
+                  cand.g = gg1 + gg2;
+                  cand.h = h1 + h2;
+                  cand.g1 = gg1;
+                  cand.h1 = h1;
+                  cand.g2 = gg2;
+                  cand.h2 = h2;
+                  cand.data.feasible = true;
 
-                open.Reopen(theID);
-                //std::cout << "Update " << n << " id:" << theID << " to feasible\n";
+                  open.Reopen(theID);
+                  //std::cout << "Update " << n << " id:" << theID << " to feasible\n";
+                }
               }
             }
             break;
           case kOpenList:
             // previously generated node is not feasible but this one is!
             {
-              //auto const &cand1(open.Lookup(theID));
               // Replace if infeasible or has better cost
-              if (n.feasible && (!open.Lookup(theID).data.feasible || gg1 + gg2 <= open.Lookup(theID).g))
+              if (n.feasible)
               {
-                open.Lookup(theID).parentID = nodeid;
-                open.Lookup(theID).g = gg1 + gg2;
-                open.Lookup(theID).h = h1 + h2;
-                open.Lookup(theID).g1 = gg1;
-                open.Lookup(theID).h1 = h1;
-                open.Lookup(theID).g2 = gg2;
-                open.Lookup(theID).h2 = h2;
-                open.Lookup(theID).data.feasible = true;
-                //std::cout << "Update " << n << " id:" << theID << " to feasible\n";
+                auto &cand(open.Lookup(theID));
+                if (!cand.data.feasible || gg1 + gg2 <= cand.g)
+                {
+                  cand.parentID = nodeid;
+                  cand.g = gg1 + gg2;
+                  cand.h = h1 + h2;
+                  cand.g1 = gg1;
+                  cand.h1 = h1;
+                  cand.g2 = gg2;
+                  cand.h2 = h2;
+                  cand.data.feasible = true;
+                  //std::cout << "Update " << n << " id:" << theID << " to feasible\n";
+                }
               }
             }
             break;
           case kNotFound:
             // Add to open :)
+            if(gg1+h1<ub1 && gg2+h2<ub2)
+            {
             MultiAgentAStarOpenClosedData data(n, gg1, gg2, h1, h2,
                                                nodeid, open.theHeap.size(), kOpenList);
             open.AddOpenNode(data, hash);
-            open.Lookup(hash, theID);
+            //open.Lookup(hash, theID);
+            }
             //std::cout << "Add " << n << " id:" << theID << " g1:" << gg1 << " g2:" << gg2 << " h1:" << h1
             //<< " h2:" << h2 << " f1:"<< gg1+h1 << " f2:" << gg2+h2 << "\n";
             break;
@@ -1955,7 +1977,7 @@ struct PairwiseConstrainedSearch
         unsigned minInclusive(INT_MAX);
         unsigned maxInclusive(0);
         if(ids[i][a].empty())continue;
-        auto hash(GetHash(successors[i][a]));
+        auto hash(GetHash(successors[i][a],(i?G2:G1)+ecs[i][a]));
         auto ivl(ivix[i].find(hash));
         // This is a new interval
         if (ivl == ivix[i].end())

@@ -157,6 +157,7 @@
                     "-verbose",
                     //"-nogui",
                     "-noid",
+                    "-sep", "0",
                     "-cat"],
             "stopAtEntry": false,
             "environment": [],

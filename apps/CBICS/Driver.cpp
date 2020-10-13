@@ -172,6 +172,18 @@ void processSolution(double elapsed){
   std::cout << CBICSGroup::collchecks << ",";
   std::cout << total << ",";
   std::cout << CBICSGroup::constraintsz/std::max(1ul,CBICSGroup::constrainttot)<< std::endl;
+    std::vector<unsigned> hh;
+    for(auto const& vv:CBICSGroup::hist){
+      if(vv.second+1>hh.size())
+      {
+        hh.resize(vv.second+1);
+      }
+      hh[vv.second] += 1;
+    }
+    for(unsigned i(0); i<hh.size(); ++i)
+      if(hh[i])
+        std::cout << i << ": " << hh[i] << ", ";
+    std::cout << "\n";
   if (!gui && elapsed<0)
     exit(1);
 }
@@ -265,6 +277,7 @@ void InstallHandlers()
   InstallCommandLineHandler(MyCLHandler, "-wait", "-wait <time units>", "The duration of wait actions");
   InstallCommandLineHandler(MyCLHandler, "-dimensions", "-dimensions width,length,height", "Set the length,width and height of the environment (max 65K,65K,1024).");
   InstallCommandLineHandler(MyCLHandler, "-nagents", "-nagents <number>", "Select the number of agents.");
+  InstallCommandLineHandler(MyCLHandler, "-sep", "-sep <number>", "Separation in partitions.");
   InstallCommandLineHandler(MyCLHandler, "-nsubgoals", "-nsubgoals <number>,<number>", "Select the min,max number of subgoals per agent.");
   InstallCommandLineHandler(MyCLHandler, "-seed", "-seed <number>", "Seed for random number generator (defaults to clock)");
   InstallCommandLineHandler(MyCLHandler, "-mapdir", "-mapdir <dir>", "Directory of maps, e.g. DAO maps");
@@ -1311,6 +1324,11 @@ int MyCLHandler(char *argument[], int maxNumArgs){
       }
       agent++;
     }
+    return 2;
+  }
+  if(strcmp(argument[0], "-sep") == 0)
+  {
+    Params::sep = atoi(argument[1])*xyztLoc::TIME_RESOLUTION_U;
     return 2;
   }
   if(strcmp(argument[0], "-nagents") == 0)
