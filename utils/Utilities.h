@@ -29,6 +29,16 @@
 #include <sys/resource.h>
 
 namespace Util{
+  template <template <typename, typename> class Container,
+            typename Value,
+            typename Allocator = std::allocator<Value>>
+  inline Value sum(Container<Value, Allocator> const &v)
+  {
+    Value result(0);
+    for(auto const& vv:v){result+=vv;}
+    return result;
+  }
+
 
 template <typename I>
 constexpr std::reverse_iterator<I> make_reverse_iter(I i){

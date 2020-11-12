@@ -1443,6 +1443,8 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
         }
         if (Params::verbose) {
           std::cout << "New CT NODE: " << bestNode << ">" << last << " replanned: " << conflicts[0].unit1 << " cost: " << cost << " " << nc1 << "\n";
+          std::cout << "edge " << "(" << bestNode << "," << last << ")\n";
+          std::cout << "label \"" << last << "\\n" << (conflicts[0].c.size()>1?"m":"r") << "\"\n";
         }
         openList.emplace(last, cost, nc1, (numConflicts.second & LEFT_CARDINAL)==LEFT_CARDINAL);
       }
@@ -1468,6 +1470,8 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
         }
         if (Params::verbose) {
           std::cout << "New CT NODE: " << bestNode << ">" << last << " replanned: " << conflicts[1].unit1 << " cost: " << cost << " " << nc1 << "\n";
+          std::cout << "edge " << "(" << bestNode << "," << last << ")\n";
+          std::cout << "label \"" << last << "\\n" << (conflicts[1].c.size()>1?"m":"r") << "\"\n";
         }
         openList.emplace(last, cost, nc1, (numConflicts.second & RIGHT_CARDINAL)==RIGHT_CARDINAL);
       }

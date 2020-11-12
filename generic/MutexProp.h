@@ -1425,28 +1425,13 @@ struct PairwiseConstrainedSearch
     bool operator()(const MultiAgentAStarOpenClosedData &i1,
                     const MultiAgentAStarOpenClosedData &i2) const
     {
-      // Prioritize f-costs that are less than the bounds first
-      /*bool f1l(fless(ub1, i1.g1 + i1.h1) && fless(ub2, i1.g2 + i1.h2));
-      bool f2l(fless(ub1, i2.g1 + i2.h1) && fless(ub2, i2.g2 + i2.h2));
-      if (f1l)
-      {
-        if (f2l)
-        {
-          if (fequal(i1.g + i1.h, i2.g + i2.h))
-          {
-            return (fless(i1.g, i2.g));
-          }
-          return (fgreater(i1.g + i1.h, i2.g + i2.h));
-        }
-        return true;
-      }
-      else if (f2l)
-      {
-        return false;
-      }*/
       if (fequal(i1.g + i1.h, i2.g + i2.h))
       {
-        return (fless(i1.g, i2.g));
+        if (i1.data.feasible == i2.data.feasible)
+        {
+          return (fless(i1.g, i2.g));
+        }
+        return i1.data.feasible < i2.data.feasible;
       }
       return (fgreater(i1.g + i1.h, i2.g + i2.h));
     }
@@ -1454,7 +1439,48 @@ struct PairwiseConstrainedSearch
 
   AStarOpenClosed<ActionPair<state>, AStarCompare, MultiAgentAStarOpenClosedData> open;
 
-  uint64_t GetHash(Action<state> const &v, uint64_t gg1)
+  // Get hash for a single two-agent state
+  uint64_t GetHash(state const &first,
+                   state const &second,
+                   uint64_t gg1,
+                   uint64_t gg2,
+                   bool feasible)
+  {
+    // Implement the FNV-1a hash http://www.isthe.com/chongo/tech/comp/fnv/index.html
+    uint64_t h(14695981039346656037UL); // Offset basis
+    uint64_t h1(0);
+    unsigned i(0);
+    uint8_t c[sizeof(uint64_t)];
+    h1 = envs[i]->GetStateHash(first);
+    memcpy(c, &h1, sizeof(uint64_t));
+    for (unsigned j(0); j < sizeof(uint64_t); ++j)
+    {
+      //hash[k*sizeof(uint64_t)+j]=((int)c[j])?c[j]:1; // Replace null-terminators in the middle of the string
+      h = h ^ c[j];          // Xor with octet
+      h = h * 1099511628211; // multiply by the FNV prime
+    }
+
+    h1 = envs[i++]->GetStateHash(second);
+    memcpy(c, &h1, sizeof(uint64_t));
+    for (unsigned j(0); j < sizeof(uint64_t); ++j)
+    {
+      //hash[k*sizeof(uint64_t)+j]=((int)c[j])?c[j]:1; // Replace null-terminators in the middle of the string
+      h = h ^ c[j];          // Xor with octet
+      h = h * 1099511628211; // multiply by the FNV prime
+    }
+    h1 = (gg1<<33 + gg2<<1) +feasible;
+    memcpy(c, &h1, sizeof(uint64_t));
+    for (unsigned j(0); j < sizeof(uint64_t); ++j)
+    {
+      //hash[k*sizeof(uint64_t)+j]=((int)c[j])?c[j]:1; // Replace null-terminators in the middle of the string
+      h = h ^ c[j];          // Xor with octet
+      h = h * 1099511628211; // multiply by the FNV prime
+    }
+    return h;
+  }
+
+  // Get hash for a single-agent action
+  uint64_t GetHash(Action<state> const &v)//, uint64_t gg1)
   {
     // Implement the FNV-1a hash http://www.isthe.com/chongo/tech/comp/fnv/index.html
     uint64_t h(14695981039346656037UL); // Offset basis
@@ -1478,15 +1504,17 @@ struct PairwiseConstrainedSearch
       h = h ^ c[j];          // Xor with octet
       h = h * 1099511628211; // multiply by the FNV prime
     }
-    memcpy(c, &gg1, sizeof(uint64_t));
+    /*memcpy(c, &gg1, sizeof(uint64_t));
     for (unsigned j(0); j < sizeof(uint64_t); ++j)
     {
       //hash[k*sizeof(uint64_t)+j]=((int)c[j])?c[j]:1; // Replace null-terminators in the middle of the string
       h = h ^ c[j];          // Xor with octet
       h = h * 1099511628211; // multiply by the FNV prime
-    }
+    }*/
     return h;
   }
+
+  // Get hash for a two-agent action
   uint64_t GetHash(ActionPair<state> const &node, uint32_t gg1, uint32_t gg2)
   {
     // Implement the FNV-1a hash http://www.isthe.com/chongo/tech/comp/fnv/index.html
@@ -1575,6 +1603,7 @@ struct PairwiseConstrainedSearch
     // to make it to its goal, it may have to wait for the other agent
     // to traverse its entire path first.
     maxTotal=len1+len2;
+    //cd maxTotal*=maxTotal;
 
     bool go(doSingleSearchStep());
     while(go){
@@ -1610,12 +1639,12 @@ struct PairwiseConstrainedSearch
         auto lb(i ? lb2 : lb1);
         if (j->first[0]<j->first[2] && j->first[1]<=j->first[0])
         {
-          //std::cout << "  " << *j << "\n";
+          //std::cout << i << "  " << *j << "\n";
           ++j;
         }
         else
         {
-          //std::cout << "ignore " << *j << "\n";
+          //std::cout << "ignore "<< i << " " << *j << "\n";
           intervals[i].erase(j);
         }
       }
@@ -1638,20 +1667,23 @@ struct PairwiseConstrainedSearch
     uint64_t nodeid = open.Close();
     // Note - this reference becomes invalid once we insert anything into open.
     auto &node(open.Lookup(nodeid));
-    std::cout << "{d:" << node.data << "f1:" << node.g1 << "+" << node.h1 << "=" << (node.g1+node.h1) << ",f2:" << node.g2 << "+" << node.h2 << "=" << (node.g2+node.h2) << ",id:" << nodeid << ",p:" << node.parentID << " feasible: "<< node.data.feasible <<"}\n";
+    //std::cout << "{d:" << node.data << "f1:" << node.g1 << "+" << node.h1 << "=" << (node.g1+node.h1) << ",f2:" << node.g2 << "+" << node.h2 << "=" << (node.g2+node.h2) << ",id:" << nodeid << ",p:" << node.parentID << " feasible: "<< node.data.feasible <<"}\n";
     if (soc>firstsoc)
     {
       return false; // Return because a solution was already found and we have finished the plateau
     }
 
-    auto f1(node.g1 + node.h1);
-    auto f2(node.g2 + node.h2);
-    if(!all)soc=f1+f2;
+    auto G1(node.g1);
+    auto G2(node.g2);
+    auto f1(G1 + node.h1);
+    auto f2(G2 + node.h2);
+    //if(!all)soc=f1+f2;
     // Check that we're below the bounds
     //if (ub1 < f1 || ub2 < f2)
     //{
       //return true;
     //}
+    auto s(node.data);
     // Early termination criteria so we don't run forever.
     if(f1>maxTotal+1 || f2>maxTotal+1)
     {
@@ -1659,13 +1691,16 @@ struct PairwiseConstrainedSearch
     }
 
     // Add this node to the interval tree
-    auto s(node.data);
+    auto shash(GetHash(s.first.second,s.second.second,G1,G2,s.feasible));
+    if(seen.find(shash)==seen.end()){
+      seen.insert(shash);
+    }else{
+      return true;
+    }
     //std::cout << "pop " << s << "\n";
 
 
     auto G(node.g);
-    auto G1(node.g1);
-    auto G2(node.g2);
 
     // First:
     // Find minimum time of current edges
@@ -1788,6 +1823,7 @@ struct PairwiseConstrainedSearch
           bool a2wait(n[1].first.sameLoc(n[1].second));
           if (a2done && a1done && a1wait && a2wait)
           {
+            ++j;
             continue; // Both agents can't just sit at their goal
           }
           //if(n.feasible)
@@ -1822,31 +1858,35 @@ struct PairwiseConstrainedSearch
                   //std::cout << "      *" << n[1].second << "\n";
                   do
                   {
+                    auto const& tmpn(open.Lookup(tmpnode));
                     //std::cout << open.Lookup(tmpnode).data << "\n";
-                    for (unsigned q(0); q < open.Lookup(tmpnode).data.size(); ++q)
+                    for (unsigned q(0); q < tmpn.data.size(); ++q)
                     {
-                      if (paths.back()[q].back() != open.Lookup(tmpnode).data[q].second)
+                      auto g(envs[q]->GCost(tmpn.data[q].first, tmpn.data[q].second));
+                      if (paths.back()[q].back() != tmpn.data[q].second)
                       {
-                        paths.back()[q].push_back(open.Lookup(tmpnode).data[q].second);
-                        //std::cout << (q ? "      " : "") << "*" << open.Lookup(tmpnode).data[q].second << "\n";
+                        paths.back()[q].push_back(tmpn.data[q].second);
+                        //std::cout << (q ? "                  " : "") <<tmpnode<< "*" << tmpn.data[q] << " ng: " << (q?tmpn.g2:tmpn.g1) << " ec: " << g << "\n";
                       }
                       else
                       {
-                        //std::cout << (q ? "      " : "") << " " << open.Lookup(tmpnode).data[q].second << "\n";
+                        //std::cout << (q ? "                  " : "") <<tmpnode<< " " << tmpn.data[q] << " ng: " << (q?tmpn.g2:tmpn.g1) << " ec: " << g << "\n";
                       }
                     }
-                    tmpnode = open.Lookup(tmpnode).parentID;
+                    tmpnode = tmpn.parentID;
                   } while (open.Lookup(tmpnode).parentID != tmpnode);
+                  auto const &tmpn(open.Lookup(tmpnode));
                   for (unsigned q(0); q < open.Lookup(tmpnode).data.size(); ++q)
                   {
+                    auto g(envs[q]->GCost(tmpn.data[q].first, tmpn.data[q].second));
                     if (paths.back()[q].back() != open.Lookup(tmpnode).data[q].second)
                     {
                       paths.back()[q].push_back(open.Lookup(tmpnode).data[q].second);
-                      //std::cout << (q ? "      " : "") << "*" << open.Lookup(tmpnode).data[q].second << "\n";
+                      //std::cout << (q ? "                  " : "") <<tmpnode<< "*" << tmpn.data[q] << " ng: " << (q?tmpn.g2:tmpn.g1) << " ec: " << g << "\n";
                     }
                     else
                     {
-                      //std::cout << (q ? "      " : "") << " " << open.Lookup(tmpnode).data[q].second << "\n";
+                      //std::cout << (q ? "                  " : "") <<tmpnode<< " " << tmpn.data[q] << " ng: " << (q?tmpn.g2:tmpn.g1) << " ec: " << g << "\n";
                     }
                     std::reverse(paths.back()[q].begin(), paths.back()[q].end());
                   }
@@ -1859,6 +1899,9 @@ struct PairwiseConstrainedSearch
                     if (ix == finalcost.end())
                     {
                       finalcost.push_back(fincosts);
+                      if(gg1+gg2>soc){
+                        return false;
+                      }
                     }
                     else
                     {
@@ -1890,6 +1933,7 @@ struct PairwiseConstrainedSearch
             {
               return true;
             }*/
+            if(!all)return false;
               }
             }
           }
@@ -1977,7 +2021,7 @@ struct PairwiseConstrainedSearch
         unsigned minInclusive(INT_MAX);
         unsigned maxInclusive(0);
         if(ids[i][a].empty())continue;
-        auto hash(GetHash(successors[i][a],(i?G2:G1)+ecs[i][a]));
+        auto hash(GetHash(successors[i][a]));//,(i?G2:G1)+ecs[i][a]));
         auto ivl(ivix[i].find(hash));
         // This is a new interval
         if (ivl == ivix[i].end())
@@ -2123,6 +2167,7 @@ struct PairwiseConstrainedSearch
   std::vector<std::vector<Action<state>>> successors;
   std::vector<std::vector<std::vector<state>>> paths;
   std::vector<std::vector<sorted_vector<std::pair<unsigned, unsigned>, true>>> ids;
+  std::unordered_set<uint64_t> seen;
 
   void generatePermutations(std::vector<std::vector<Action<state>>> &positions,
                             std::vector<ActionPair<state>> &result,

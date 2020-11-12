@@ -153,7 +153,7 @@ void processSolution(double elapsed){
   }
   fflush(stdout);
   std::cout
-    << "elapsed,collisions,cost,planTime,replanTime,maplanTime,collisionTime,expansions,CATcollchecks,collchecks,actions,maxCSet,meanCSet\n";
+    << "elapsed,expanded,generated,cost,planTime,replanTime,maplanTime,collisionTime,expansions,CATcollchecks,collchecks,actions,maxCSet,meanCSet\n";
   if (verify && elapsed > 0)
     std::cout << (valid ? "VALID" : "INVALID") << std::endl;
   if (elapsed < 0) {
@@ -162,6 +162,7 @@ void processSolution(double elapsed){
   } else {
     std::cout << seed << ":" << elapsed << ",";
   }
+  std::cout << CBICSGroup::hlExpansions << ",";
   std::cout << nodes << ",";
   std::cout << cost / xyztLoc::TIME_RESOLUTION_D << ",";
   std::cout << CBICSGroup::planTime << ",";
@@ -190,6 +191,7 @@ void processSolution(double elapsed){
 
 int main(int argc, char* argv[])
 {
+  __asm__(".symver realpath,realpath@GLIBCXX_3.4.19");
   //load3DCollisionTable();
   InstallHandlers();
   ProcessCommandLineArgs(argc, argv);
@@ -282,6 +284,7 @@ void InstallHandlers()
   InstallCommandLineHandler(MyCLHandler, "-seed", "-seed <number>", "Seed for random number generator (defaults to clock)");
   InstallCommandLineHandler(MyCLHandler, "-mapdir", "-mapdir <dir>", "Directory of maps, e.g. DAO maps");
   InstallCommandLineHandler(MyCLHandler, "-nobypass", "-nobypass", "Turn off bypass option");
+  InstallCommandLineHandler(MyCLHandler, "-disjunct", "-disjunct", "Force disjunctive splits (mprop)");
   InstallCommandLineHandler(MyCLHandler, "-noid", "-noid", "Turn off independence detection");
   InstallCommandLineHandler(MyCLHandler, "-record", "-record", "Record frames");
   InstallCommandLineHandler(MyCLHandler, "-cutoffs", "-cutoffs <n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>", "Number of conflicts to tolerate before switching to less constrained layer of environment. Environments are ordered as: CardinalGrid,OctileGrid,Cardinal3D,Octile3D,H4,H8,Simple,Cardinal,Octile,48Highway");
@@ -673,6 +676,9 @@ int MyCLHandler(char *argument[], int maxNumArgs){
   {
     randomalg = true;
     return 1;
+  }
+  if(strcmp(argument[0], "-disjunct") == 0){
+    Params::disjunct=true;
   }
   if(strcmp(argument[0], "-mapdir") == 0){
     mapdir=argument[1];
