@@ -1,7 +1,14 @@
 {
     "version": "0.2.0",
     "configurations": [
-
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "args": [".","stuff"],
+            "console": "integratedTerminal"
+        },
         {
             "name": "MACBS maze-5",
             "cwd":"${workspaceFolder}/build/gmake/",
@@ -182,7 +189,7 @@
                    "-killmem", "16000",
                     "-nagents", "3",
                     "-envfile", "${workspaceFolder}/movement/env5.csv",
-                    "-scenfile", "${workspaceFolder}/benchmarks/scen-hard/H2.scen",
+                    "-scenfile", "${workspaceFolder}/benchmarks/scen-hard/H.scen",
                     "-nobypass",
                     "-resolution", "10",
                     "-ctype", "10",
@@ -192,8 +199,10 @@
                     //"-quiet",
                     "-nogui",
                     "-disjunct",
+                    //"-preproc",
+                    //"-nolimits",
                     "-noid",
-                    "-sep", "0",
+                    "-sep", "2",
                     "-cat"],
             "stopAtEntry": false,
             "environment": [],
@@ -1140,10 +1149,12 @@
                     "-radius", ".35",
                     "-verify",
                     "-verbose",
-                    "-nogui",
+                    //"-nogui",
                     "-disjunct",
+                    "-nolimits",
+                    "-preproc",
                     "-noid",
-                    "-sep", "1",
+                    "-sep", "0",
                     "-cat"],
             "stopAtEntry": false,
             "environment": [],

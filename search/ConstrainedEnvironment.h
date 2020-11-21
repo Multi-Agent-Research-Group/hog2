@@ -28,6 +28,8 @@
 #include "Vector2D.h"
 #include <typeinfo>
 
+typedef unsigned agent_t;
+
 /*
 struct Action{
   public:

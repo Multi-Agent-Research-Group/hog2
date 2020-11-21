@@ -285,6 +285,9 @@ void InstallHandlers()
   InstallCommandLineHandler(MyCLHandler, "-mapdir", "-mapdir <dir>", "Directory of maps, e.g. DAO maps");
   InstallCommandLineHandler(MyCLHandler, "-nobypass", "-nobypass", "Turn off bypass option");
   InstallCommandLineHandler(MyCLHandler, "-disjunct", "-disjunct", "Force disjunctive splits (mprop)");
+  InstallCommandLineHandler(MyCLHandler, "-nolimits", "-nolimits", "Ignore limits in pairwise search");
+  InstallCommandLineHandler(MyCLHandler, "-preproc", "-preproc", "Do preprocessing");
+  InstallCommandLineHandler(MyCLHandler, "-precon", "-precon", "Add constraints from preprocessing");
   InstallCommandLineHandler(MyCLHandler, "-noid", "-noid", "Turn off independence detection");
   InstallCommandLineHandler(MyCLHandler, "-record", "-record", "Record frames");
   InstallCommandLineHandler(MyCLHandler, "-cutoffs", "-cutoffs <n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>,<n>", "Number of conflicts to tolerate before switching to less constrained layer of environment. Environments are ordered as: CardinalGrid,OctileGrid,Cardinal3D,Octile3D,H4,H8,Simple,Cardinal,Octile,48Highway");
@@ -676,6 +679,15 @@ int MyCLHandler(char *argument[], int maxNumArgs){
   {
     randomalg = true;
     return 1;
+  }
+  if(strcmp(argument[0], "-precon") == 0){
+    Params::precon=true;
+  }
+  if(strcmp(argument[0], "-preproc") == 0){
+    Params::preproc=true;
+  }
+  if(strcmp(argument[0], "-nolimits") == 0){
+    Params::nolimits=true;
   }
   if(strcmp(argument[0], "-disjunct") == 0){
     Params::disjunct=true;
