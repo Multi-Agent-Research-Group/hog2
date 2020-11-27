@@ -102,7 +102,7 @@ class Constraint : public DrawableConstraint{
     virtual bool ConflictsWith(Constraint const& x) const {return ConflictsWith(x.start_state, x.end_state);}
     virtual void OpenGLDraw(MapInterface*) const {}
     virtual void print(std::ostream& os)const{
-      os << "{" << start() << "-->" << end() << "}";
+      os << "[" << start() << "," << end() << "]";
     }
 
     bool operator==(Constraint const& other) const {

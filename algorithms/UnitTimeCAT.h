@@ -4,6 +4,7 @@
 #include "ConflictAvoidanceTable.h"
 #include <set>
 
+
 template <typename state, typename action>
 class UnitTimeCAT : public ConflictAvoidanceTable<state,action>{
 public:

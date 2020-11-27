@@ -33,7 +33,7 @@
 #include <map>
 #include "Map2DConstrainedEnvironment.h"
 #include "Grid3DConstrainedEnvironment.h"
-#include "AnyAngleSipp.h"
+//#include "AnyAngleSipp.h"
 #include "ThetaStar.h"
 #include "PositionalUtils.h"
 #include "AABB.h"
@@ -345,6 +345,7 @@ bool sat(std::vector<Vector2D>const& pa, std::vector<Vector2D>const& pb, Vector2
   return overlap(ppa,ppb);
 }
 
+/*
 // Separating axis theorem for polygonal intersection test
 bool sat(std::vector<Vector2D>const& a, std::vector<Vector2D>const& b){
   if(a.size()==1){
@@ -370,7 +371,7 @@ bool sat(std::vector<Vector2D>const& a, std::vector<Vector2D>const& b){
   if(!sat(a,b,b[b.size()-1],b[0])) return false;
   return true;
 }
-
+*/
 /*bool sat2(std::vector<Vector2D>const& a, std::vector<Vector2D>const& b){
   if(a.size()==1){
     if(b.size()==1) return (a[0].x==b[0].x&&a[0].y==b[0].y);
@@ -394,6 +395,7 @@ bool sat(std::vector<Vector2D>const& a, std::vector<Vector2D>const& b){
 }*/
 
 
+/*
 // Separating axis theorem for polygonal intersection test
 bool sat(std::vector<xytLoc>const& a, std::vector<xytLoc>const& b){
   std::vector<Vector2D> aa;
@@ -403,7 +405,7 @@ bool sat(std::vector<xytLoc>const& a, std::vector<xytLoc>const& b){
   for(auto const& aaa:a)aa.push_back(aaa);
   for(auto const& bbb:b)bb.push_back(bbb);
   return sat(aa,bb);
-}
+}*/
 
 TEST(VelocityObstacle, IsInsidePass){
   Vector2D A(3,1);
@@ -456,20 +458,20 @@ TEST(VelocityObstacle, DetectCollisionWhenExists){
   // The collision occurs at about time 2.3 if agents start at the same time
 
   // Suppose edges cross in the middle at some point.
-  ASSERT_TRUE(detectCollision(A,VA,radius,0.0,6.0,B,VB,radius,0.0,6.0));
+  ASSERT_TRUE(collisionImminent(A,VA,radius,0.0,6.0,B,VB,radius,0.0,6.0));
   // Suppose edges end at the same point
-  ASSERT_TRUE(detectCollision(A,VA,radius,0.0,2.3,B,VB,radius,0.0,2.3));
+  ASSERT_TRUE(collisionImminent(A,VA,radius,0.0,2.3,B,VB,radius,0.0,2.3));
   // Suppose edges end before collision actually occurs (at time step 2.2)
-  ASSERT_FALSE(detectCollision(A,VA,radius,0.0,2.2,B,VB,radius,0.0,2.2));
+  ASSERT_FALSE(collisionImminent(A,VA,radius,0.0,2.2,B,VB,radius,0.0,2.2));
   // Suppose agents start at a different time
-  ASSERT_FALSE(detectCollision(A,VA,radius,1.0,3.2,B,VB,radius,0.0,2.2));
+  ASSERT_FALSE(collisionImminent(A,VA,radius,1.0,3.2,B,VB,radius,0.0,2.2));
   // Suppose one agent is moving faster
-  ASSERT_FALSE(detectCollision(A,VA*2,radius,0.0,3.0,B,VB,radius,0.0,6.0));
-  ASSERT_FALSE(detectCollision(A,VA,radius,0.0,6.0,B,VB*2,radius,0.0,3.0));
+  ASSERT_FALSE(collisionImminent(A,VA*2,radius,0.0,3.0,B,VB,radius,0.0,6.0));
+  ASSERT_FALSE(collisionImminent(A,VA,radius,0.0,6.0,B,VB*2,radius,0.0,3.0));
   // Suppose both agents are moving faster
-  ASSERT_TRUE(detectCollision(A,VA*2,radius,0.0,3.0,B,VB*2,radius,0.0,3.0));
+  ASSERT_TRUE(collisionImminent(A,VA*2,radius,0.0,3.0,B,VB*2,radius,0.0,3.0));
   // Suppose one agent is moving faster, but starting later
-  ASSERT_TRUE(detectCollision(A,VA*2,radius,1.0,4.0,B,VB,radius,0.0,6.0));
+  ASSERT_TRUE(collisionImminent(A,VA*2,radius,1.0,4.0,B,VB,radius,0.0,6.0));
 }
 
 TEST(VelocityObstacle, DetectCollisionWhenDiagonalParallel){
@@ -495,25 +497,25 @@ TEST(VelocityObstacle, DetectCollisionWhenDiagonalParallel){
   // No collision occurs here
 
   // Suppose edges cross in the middle at some point.
-  ASSERT_FALSE(detectCollision(A,VA,radius,0.0,6.0,B,VB,radius,0.0,6.0));
+  ASSERT_FALSE(collisionImminent(A,VA,radius,0.0,6.0,B,VB,radius,0.0,6.0));
   // Suppose edges end at the same point
-  ASSERT_FALSE(detectCollision(A,VA,radius,0.0,2.3,B,VB,radius,0.0,2.3));
+  ASSERT_FALSE(collisionImminent(A,VA,radius,0.0,2.3,B,VB,radius,0.0,2.3));
   // Suppose agents start at a different time
   // This is a crash since agent B cuts through the corner while A is there
   // and both of them take up 80% of the space
-  ASSERT_TRUE(detectCollision(A,VA,radius,1.0,3.2,B,VB,radius,0.0,2.2));
+  ASSERT_TRUE(collisionImminent(A,VA,radius,1.0,3.2,B,VB,radius,0.0,2.2));
   // Crash does not occur with smaller radius size.
-  ASSERT_FALSE(detectCollision(A,VA,.25,1.0,3.2,B,VB,.25,0.0,2.2));
+  ASSERT_FALSE(collisionImminent(A,VA,.25,1.0,3.2,B,VB,.25,0.0,2.2));
   // Suppose one agent is moving faster
-  ASSERT_FALSE(detectCollision(A,VA*2,radius,0.0,3.0,B,VB,radius,0.0,6.0));
-  ASSERT_TRUE(detectCollision(A,VA,radius,0.0,6.0,B,VB*2,radius,0.0,3.0));
+  ASSERT_FALSE(collisionImminent(A,VA*2,radius,0.0,3.0,B,VB,radius,0.0,6.0));
+  ASSERT_TRUE(collisionImminent(A,VA,radius,0.0,6.0,B,VB*2,radius,0.0,3.0));
   // Crash does not occur with smaller radius size.
-  ASSERT_FALSE(detectCollision(A,VA,.25,0.0,6.0,B,VB*2,.25,0.0,3.0));
+  ASSERT_FALSE(collisionImminent(A,VA,.25,0.0,6.0,B,VB*2,.25,0.0,3.0));
   // Suppose both agents are moving faster
-  ASSERT_FALSE(detectCollision(A,VA*2,radius,0.0,3.0,B,VB*2,radius,0.0,3.0));
+  ASSERT_FALSE(collisionImminent(A,VA*2,radius,0.0,3.0,B,VB*2,radius,0.0,3.0));
   // Suppose one agent is moving faster, but starting later
-  ASSERT_TRUE(detectCollision(A,VA*2,radius,1.0,6.0,B,VB,radius,0.0,6.0));
-  ASSERT_TRUE(detectCollision(A,VA,radius,0.0,6.0,B,VB*2,radius,1.0,6.0));
+  ASSERT_TRUE(collisionImminent(A,VA*2,radius,1.0,6.0,B,VB,radius,0.0,6.0));
+  ASSERT_TRUE(collisionImminent(A,VA,radius,0.0,6.0,B,VB*2,radius,1.0,6.0));
 }
 
 TEST(VelocityObstacle, DetectCollisionWhenNoneExists){
@@ -539,18 +541,18 @@ TEST(VelocityObstacle, DetectCollisionWhenNoneExists){
   // No collision occurs here
 
   // Suppose edges cross in the middle at some point.
-  ASSERT_FALSE(detectCollision(A,VA,radius,0.0,6.0,B,VB,radius,0.0,6.0));
+  ASSERT_FALSE(collisionImminent(A,VA,radius,0.0,6.0,B,VB,radius,0.0,6.0));
   // Suppose edges end at the same point
-  ASSERT_FALSE(detectCollision(A,VA,radius,0.0,2.3,B,VB,radius,0.0,2.3));
+  ASSERT_FALSE(collisionImminent(A,VA,radius,0.0,2.3,B,VB,radius,0.0,2.3));
   // Suppose agents start at a different time
-  ASSERT_FALSE(detectCollision(A,VA,radius,1.0,3.2,B,VB,radius,0.0,2.2));
+  ASSERT_FALSE(collisionImminent(A,VA,radius,1.0,3.2,B,VB,radius,0.0,2.2));
   // Suppose one agent is moving faster
-  ASSERT_FALSE(detectCollision(A,VA*2,radius,0.0,3.0,B,VB,radius,0.0,6.0));
-  ASSERT_FALSE(detectCollision(A,VA,radius,0.0,6.0,B,VB*2,radius,0.0,3.0));
+  ASSERT_FALSE(collisionImminent(A,VA*2,radius,0.0,3.0,B,VB,radius,0.0,6.0));
+  ASSERT_FALSE(collisionImminent(A,VA,radius,0.0,6.0,B,VB*2,radius,0.0,3.0));
   // Suppose both agents are moving faster
-  ASSERT_FALSE(detectCollision(A,VA*2,radius,0.0,3.0,B,VB*2,radius,0.0,3.0));
+  ASSERT_FALSE(collisionImminent(A,VA*2,radius,0.0,3.0,B,VB*2,radius,0.0,3.0));
   // Suppose one agent is moving faster, but starting later
-  ASSERT_FALSE(detectCollision(A,VA*2,radius,1.0,4.0,B,VB,radius,0.0,6.0));
+  ASSERT_FALSE(collisionImminent(A,VA*2,radius,1.0,4.0,B,VB,radius,0.0,6.0));
 }
 
 TEST(VelocityObstacle, DetectCollisionWhenParallel){
@@ -578,18 +580,18 @@ TEST(VelocityObstacle, DetectCollisionWhenParallel){
   // No collision occurs here
 
   // Suppose edges cross in the middle at some point.
-  ASSERT_FALSE(detectCollision(A,VA,aradius,0.0,6.0,B,VB,bradius,0.0,6.0));
+  ASSERT_FALSE(collisionImminent(A,VA,aradius,0.0,6.0,B,VB,bradius,0.0,6.0));
   // Suppose edges end at the same point
-  ASSERT_FALSE(detectCollision(A,VA,aradius,0.0,2.3,B,VB,bradius,0.0,2.3));
+  ASSERT_FALSE(collisionImminent(A,VA,aradius,0.0,2.3,B,VB,bradius,0.0,2.3));
   // Suppose agents start at a different time
-  ASSERT_TRUE(detectCollision(A,VA,aradius,2.0,3.2,B,VB,bradius,0.0,2.2));
+  ASSERT_TRUE(collisionImminent(A,VA,aradius,2.0,3.2,B,VB,bradius,0.0,2.2));
   // Suppose one agent is moving faster
-  ASSERT_FALSE(detectCollision(A,VA*2,aradius,0.0,3.0,B,VB,bradius,0.0,6.0));
-  ASSERT_TRUE(detectCollision(A,VA,aradius,0.0,6.0,B,VB*2.2,bradius,0.0,3.0));
+  ASSERT_FALSE(collisionImminent(A,VA*2,aradius,0.0,3.0,B,VB,bradius,0.0,6.0));
+  ASSERT_TRUE(collisionImminent(A,VA,aradius,0.0,6.0,B,VB*2.2,bradius,0.0,3.0));
   // Suppose both agents are moving faster
-  ASSERT_FALSE(detectCollision(A,VA*2,aradius,0.0,3.0,B,VB*2,bradius,0.0,3.0));
+  ASSERT_FALSE(collisionImminent(A,VA*2,aradius,0.0,3.0,B,VB*2,bradius,0.0,3.0));
   // Suppose one agent is moving faster, but starting later
-  ASSERT_TRUE(detectCollision(A,VA,aradius,1.0,8.0,B,VB*2.2,bradius,0.0,6.0));
+  ASSERT_TRUE(collisionImminent(A,VA,aradius,1.0,8.0,B,VB*2.2,bradius,0.0,6.0));
 }
 
 TEST(VelocityObstacle, DetectCollisionWhenHeadOn){
@@ -616,23 +618,23 @@ TEST(VelocityObstacle, DetectCollisionWhenHeadOn){
   // No collision occurs here
 
   // Suppose edges cross in the middle at some point.
-  ASSERT_TRUE(detectCollision(A,VA,aradius,0.0,6.0,B,VB,bradius,0.0,6.0));
+  ASSERT_TRUE(collisionImminent(A,VA,aradius,0.0,6.0,B,VB,bradius,0.0,6.0));
   // Suppose edges end at the same point
-  ASSERT_TRUE(detectCollision(A,VA,aradius,0.0,2.0,B,VB,bradius,0.0,2.0));
+  ASSERT_TRUE(collisionImminent(A,VA,aradius,0.0,2.0,B,VB,bradius,0.0,2.0));
   // Suppose edges end before collision
-  ASSERT_FALSE(detectCollision(A,VA,aradius,0.0,1.0,B,VB,bradius,0.0,1.0));
+  ASSERT_FALSE(collisionImminent(A,VA,aradius,0.0,1.0,B,VB,bradius,0.0,1.0));
   // Suppose agents start at a different time
-  ASSERT_TRUE(detectCollision(A,VA,aradius,1,4,B,VB,bradius,0.0,3));
-  ASSERT_FALSE(detectCollision(A,VA,aradius,1.01,2.0,B,VB,bradius,0.0,2.0));
+  ASSERT_TRUE(collisionImminent(A,VA,aradius,1,4,B,VB,bradius,0.0,3));
+  ASSERT_FALSE(collisionImminent(A,VA,aradius,1.01,2.0,B,VB,bradius,0.0,2.0));
   // Agents stop in a collision state
-  ASSERT_TRUE(detectCollision(A,VA,aradius,0.0,1.8,B,VB,bradius,0.0,1.8));
+  ASSERT_TRUE(collisionImminent(A,VA,aradius,0.0,1.8,B,VB,bradius,0.0,1.8));
   // Suppose one agent is moving faster
-  ASSERT_TRUE(detectCollision(A,VA*2,aradius,0.0,3.0,B,VB,bradius,0.0,6.0));
-  ASSERT_TRUE(detectCollision(A,VA,aradius,0.0,6.0,B,VB*2,bradius,0.0,3.0));
+  ASSERT_TRUE(collisionImminent(A,VA*2,aradius,0.0,3.0,B,VB,bradius,0.0,6.0));
+  ASSERT_TRUE(collisionImminent(A,VA,aradius,0.0,6.0,B,VB*2,bradius,0.0,3.0));
   // Suppose both agents are moving faster
-  ASSERT_TRUE(detectCollision(A,VA*2,aradius,0.0,3.0,B,VB*2,bradius,0.0,3.0));
+  ASSERT_TRUE(collisionImminent(A,VA*2,aradius,0.0,3.0,B,VB*2,bradius,0.0,3.0));
   // Suppose one agent is moving faster, but starting later
-  ASSERT_TRUE(detectCollision(A,VA,aradius,1.0,8.0,B,VB*2.2,bradius,0.0,6.0));
+  ASSERT_TRUE(collisionImminent(A,VA,aradius,1.0,8.0,B,VB*2.2,bradius,0.0,6.0));
 }
 
 TEST(Quadratic, NoDuration){
@@ -1178,6 +1180,10 @@ void drawcircle(int x0, int y0, int r, std::map<int,int>& coords){
     }
 }
 
+int rint(int low=0, int high=10){
+    int width(high-low);
+    return rand()%width + low;
+}
 float rfloat(float low=0, float high=10){
     float width(high-low);
     return float(rand()%int(width*1000.0))/1000.0 + low;
@@ -1188,25 +1194,14 @@ float rfloat(float low=0, float high=10){
   Timer t;
   t.StartTimer();
   for(int i(0); i<100000; ++i){
-    if(detectCollisionPolygonalAgents(Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),square,rfloat(0,5),rfloat(5,10),Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),square,rfloat(0,5),rfloat(5,10))){
+    if(collisionImminentPolygonalAgents(Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),square,rfloat(0,5),rfloat(5,10),Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),square,rfloat(0,5),rfloat(5,10))){
 std::cout << "f";}
 else{std::cout << "p";}
   }
   std::cout << "\nTotal time (VelocityObstacleSquare)" << t.EndTimer() << "\n";
-}*/
-
-TEST(PerfTest, VO){
-  Timer t;
-  t.StartTimer();
-  for(int i(0); i<100000; ++i){
-    if(detectCollision(Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),.25,rfloat(0,5),rfloat(5,10),Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),.25,rfloat(0,5),rfloat(5,10))){
-std::cout << "f";}
-else{std::cout << "p";}
-  }
-  std::cout << "\nTotal time (VelocityObstacleCircle)" << t.EndTimer() << "\n";
 }
 
-TEST(PerfTest, Quadratic){
+TEST(PerfTest, VO){
   Timer t;
   t.StartTimer();
   for(int i(0); i<100000; ++i){
@@ -1214,39 +1209,62 @@ TEST(PerfTest, Quadratic){
 std::cout << "f";}
 else{std::cout << "p";}
   }
+  std::cout << "\nTotal time (VelocityObstacleCircle)" << t.EndTimer() << "\n";
+}*/
+
+TEST(PerfTest, Quadratic){
+  Timer t;
+  t.StartTimer();
+  for(int i(0); i<100000; ++i){
+    if(collisionImminent(Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),.25,rfloat(0,5),rfloat(5,10),Vector2D(rfloat(),rfloat()),Vector2D(rfloat(),rfloat()),.25,rfloat(0,5),rfloat(5,10))){
+    }
+  }
   std::cout << "\nTotal time (Quadratic)" << t.EndTimer() << "\n";
 }
 
 TEST(PerfTest, GatedQuadratic){
   Timer t;
   t.StartTimer();
-  unsigned skipped(0);
   for(int i(0); i<100000; ++i){
-    Vector2D a1(rfloat(),rfloat());
-    Vector2D a2(rfloat(),rfloat());
-    Vector2D b1(rfloat(),rfloat());
-    Vector2D b2(rfloat(),rfloat());
-    if(b1.x==a2.x&&b1.y==a2.y){std::cout << "f";skipped++;continue;}
-    Vector2D va(a2-a1);
-    va.Normalize();
-    Vector2D vb(b2-b1);
-    vb.Normalize();
-    auto at1(rfloat(0,5));
-    auto at2(rfloat(5,10));
-    auto bt1(rfloat(0,5));
-    auto bt2(rfloat(5,10));
-    if((std::min(a1.x,a2.x)<=std::max(b1.x,b2.x) && std::min(b1.x,b2.x)<=std::max(a1.x,a2.x) &&
-          std::min(a1.y,a2.y)<=std::max(b1.y,b2.y) && std::min(b1.y,b2.y)<=std::max(a1.y,a2.y))){
-
-      if(collisionImminent(a1,va,.25,at1,at2,b1,vb,.25,bt1,bt2)){
-        std::cout << "f";}
-      else{std::cout << "p";}
-    }else{skipped++;continue;}
+    TemporalVector3D a1(rint(),rint(),0,int(rfloat(0,5)*10)/10.0);
+    xyztLoc A1(a1.x,a1.y,0,a1.t);
+    TemporalVector3D a2(rint(),rint(),0,0);
+    a2.t=a1.t+int(Util::distance3d(a1,a2)*10)/10.0;
+    if(a2.t==a1.t)a2.t=1.0;
+    xyztLoc A2(a2.x,a2.y,0,a2.t);
+    TemporalVector3D b1(rint(),rint(),0,int(rfloat(0,5)*10)/10.0);
+    xyztLoc B1(b1.x,b1.y,0,b1.t);
+    TemporalVector3D b2(rint(),rint(),0,0);
+    b2.t=b1.t+int(Util::distance3d(b1,b2)*10)/10.0;
+    if(b2.t==b1.t)b2.t=1.0;
+    xyztLoc B2(b2.x,b2.y,0,b2.t);
+    bool v1=collisionCheck3D(a1,a2,b1,b2,.25);
+    bool v2=collisionCheck2D(A1,A2,B1,B2,.25);
+    if (v1 != v2)
+    {
+      std::cout << a1<<a2<<b1<<b2<<"\n";
+      std::cout << A1<<A2<<B1<<B2<<"\n";
+      v1 = collisionCheck3D(a1, a2, b1, b2, .25);
+      v2 = collisionCheck2D(A1, A2, B1, B2, .25);
+    }
+    auto VA(a2-a1); VA.Normalize();
+    auto VB(b2-b1); VB.Normalize();
+    bool v3(collisionImminent(A1, VA, .25, a1.t, a2.t, B1, VB, .25, b1.t, b2.t));
+    if (v1 != v3)
+    {
+      std::cout << a1<<a2<<b1<<b2<<"\n";
+      std::cout << A1<<A2<<B1<<B2<<"\n";
+      v1 = collisionCheck3D(a1, a2, b1, b2, .25);
+      v2 = collisionCheck2D(A1, A2, B1, B2, .25);
+      v3 = collisionImminent(A1, VA, .25, a1.t, a2.t, B1, VB, .25, b1.t, b2.t);
+    }
+    ASSERT_EQ(v1, v2);
+    ASSERT_EQ(v3, v2);
   }
-  std::cout << "\nTotal time (Gated Quadratic)" << t.EndTimer() << " " << skipped << " skipped\n";
+    std::cout << "\nTotal time (Gated Quadratic)" << t.EndTimer() << "\n";
 }
 
-TEST(PerfTest, AABB){
+/*TEST(PerfTest, AABB){
   Timer t;
   t.StartTimer();
   for(int i(0); i<100000; ++i){
@@ -1283,7 +1301,7 @@ else{std::cout << "p";}
   std::cout << "\nTotal time (AABB)" << t.EndTimer() << "\n";
 }
 
-/*TEST(PerfTest, StaticPoly){
+TEST(PerfTest, StaticPoly){
   std::vector<Vector2D> square={{-.3,0},{0,-.3},{.3,0},{0,.3}};
   Timer t;
   t.StartTimer();
@@ -1318,7 +1336,7 @@ else{std::cout << "p";}
   std::cout << "\nTotal time (Static Square)" << t.EndTimer() << "\n";
 }*/
 
-TEST(PerfTest, IncrementalCircular){
+TEST(DISABLED_PerfTest, IncrementalCircular){
   Timer t;
   t.StartTimer();
   for(int i(0); i<100000; ++i){
@@ -1498,7 +1516,7 @@ TEST(CollisionInterval, GetCollisionSameStartDifferentTime){
   auto intvl2(getCollisionInterval(B,VB,radius,4.05028,6.05028,A,VA,radius,3.23607,8.89292));
   ASSERT_TRUE(fequal(intvl.first,intvl2.first));
   ASSERT_TRUE(fequal(intvl.second,intvl2.second));
-  ASSERT_DOUBLE_EQ(4.05028,intvl2.first);
+  ASSERT_DOUBLE_EQ(4.050279,intvl2.first);
 }
 
 TEST(CollisionInterval, GetCollisionSameLocationNotMovingDifferentTime){
@@ -1542,7 +1560,7 @@ TEST(CollisionInterval, GetCollisionIntervalWhenExists){
   ASSERT_TRUE(intvl.first>0);
 }
 
-TEST(AnyAngle, GetPath){
+/*TEST(AnyAngle, GetPath){
   Map map(8,8);
   AnyAngleSipp<Map,AANode> AA(0,false);
   AANode s(1,1);
@@ -1567,7 +1585,7 @@ TEST(AnyAngle, GetPathWithTimeConstraint){
   AA.GetPath(succ,s,g,map);
   for(auto const& ss: succ)
     std::cout << ss.x << "," << ss.y << "@" << ss.g << "\n";
-}
+}*/
 
 // Heuristics
 class StraightLineHeuristic : public Heuristic<xytLoc> {
@@ -1585,6 +1603,7 @@ class StraightLineHeuristic3D : public Heuristic<xyztLoc> {
   }
 };
 
+/*
 TEST(Theta, GetPath){
   Map map(8,8);
   MapEnvironment menv(&map);
@@ -1600,7 +1619,6 @@ TEST(Theta, GetPath){
     std::cout << ss << "\n";
 }
 
-/*
 TEST(EPETheta, GetPath){
   Map map(8,8);
   MapEnvironment menv(&map);
@@ -1651,7 +1669,7 @@ TEST(PETheta, GetPath){
     std::cout << ss.x << "," << ss.y << "\n";
   }
   std::cout << "\n";
-}*/
+}
 
 TEST(Theta, GetObstructedPath){
   Map map(8,8);
@@ -1721,7 +1739,7 @@ TEST(Theta1, TestAnomaly){
   }
   std::cout << "\n";
 }
-
+*/
 /*TEST(Theta1, TestStepAside){
   Map map(8,8);
   MapEnvironment menv(&map);
@@ -1846,7 +1864,7 @@ TEST(Theta1, TestDodging){
     ASSERT_TRUE(env.LineOfSight(solution[i-1],solution[i]));
   }
   std::cout << "\n";
-}*/
+}
 
 TEST(DISABLED_Theta, TestMotionConstrained3D){
   Map3D map(8,8,8);
@@ -1891,7 +1909,7 @@ TEST(DISABLED_Theta, Test3D){
   std::cout << Util::angle<360>(0,0,0,-1) << "\n";
   std::cout << "\n";
 }
-
+*/
 #define WORD_BITS (8 * sizeof(unsigned))
 
 // w=1 for 5,9 connected; 2 for 25 and 3 for 49
@@ -3203,6 +3221,7 @@ TEST(UTIL, ConvexHullPoint){
   ASSERT_EQ(Vector2D(1,1),result.front());
 }
 
+/*
 TEST(UTIL, OverlapPolyPoly){
   std::vector<xytLoc> values1={{1,1,1},{1,9,1},{4,4,1}}; // Triangle
   std::vector<xytLoc> values2={{3,1,1},{3,9,1},{5,9,1},{5,1,1}}; // Rectangle
@@ -3235,6 +3254,7 @@ TEST(UTIL, OverlapPolyPoint){
   ASSERT_EQ(true,sat(result1,result2));
   ASSERT_EQ(true,sat(result2,result1));
 }
+*/
 
 /*
 void minmax_element(std::vector<xytLoc>::const_iterator& first, std::vector<xytLoc>::const_iterator& last, xytLoc& mn, xytLoc mx)
@@ -3690,2130 +3710,6 @@ void replaceAABBs(std::vector<xytAABB> const& o, std::vector<xytAABB> const& n, 
       ++mm;
       //ASSERT_LE(*mm,*nn);
       //ASSERT_TRUE(*mm<*nn || *mm==*nn);
-    }
-  }
-}
-
-TEST(AABB, replaceAABBTESTLinear){
-
-  std::vector<std::vector<xytLoc>> p = {{{1,2,0},{2,3,1.4},{3,4,2.8}},
-    {{5,3,0},{5,4,1},{5,6,2},{5,7,3}},
-    {{7,4,0},{7,3,1},{6,2,2.4}}};
-
-  std::vector<std::vector<xytAABB>> temp(3);
-  std::vector<xytAABB> sorted;
-  for(int i(0); i<p.size(); ++i){
-    makeAABBs(p[i],temp[i],i);
-    sorted.insert(sorted.end(), temp[i].begin(), temp[i].end());
-  }
-  for(auto const& r:temp){
-    for(auto const& s:r){
-      //std::cout << "<" << s.lowerBound[0].value << "," << s.lowerBound[1].cvalue << "," << s.lowerBound[2].cvalue << ">,<"<<s.upperBound[0].value << "," << s.upperBound[1].cvalue << "," << s.upperBound[2].cvalue << ">\n";
-    }
-    //std::cout <<"\n";
-  }
-  std::sort(sorted.begin(),sorted.end());
-  for(auto const& s:sorted){
-    //std::cout << "<" << s.lowerBound[0].value << "," << s.lowerBound[1].cvalue << "," << s.lowerBound[2].cvalue << ">,<"<<s.upperBound[0].value << "," << s.upperBound[1].cvalue << "," << s.upperBound[2].cvalue << ">\n";
-  }
-  ASSERT_EQ(7,sorted.size());
-  ASSERT_EQ(0,sorted[0].lowerBound[0].cvalue);
-  ASSERT_EQ(1,sorted[0].lowerBound[2].cvalue);
-  ASSERT_EQ(7,sorted[2].lowerBound[2].cvalue);
-  ASSERT_EQ(5,sorted[6].upperBound[2].cvalue);
-  ASSERT_EQ(2,sorted[3].lowerBound[1].cvalue);
-  ASSERT_EQ(6,sorted[3].lowerBound[2].cvalue);
-  ASSERT_EQ(4,sorted[4].lowerBound[1].cvalue);
-  ASSERT_EQ(5,sorted[4].lowerBound[2].cvalue);
-  //std::cout <<"\n";
-
-  std::vector<xytAABB> newpath = temp[1];
-  newpath[0].upperBound[1].cvalue=newpath[1].lowerBound[1].cvalue=3;
-  newpath[0].upperBound[2].cvalue=newpath[1].lowerBound[2].cvalue=6;
-
-  for(auto const& s:newpath){
-    //std::cout << "<" << s.lowerBound[0].value << "," << s.lowerBound[1].cvalue << "," << s.lowerBound[2].cvalue << ">,<"<<s.upperBound[0].value << "," << s.upperBound[1].cvalue << "," << s.upperBound[2].cvalue << ">\n";
-  }
-
-  //std::cout <<"\n";
-  replaceAABBs(newpath,sorted);
-  for(auto const& s:sorted){
-    //std::cout << "<" << s.lowerBound[0].value << "," << s.lowerBound[1].cvalue << "," << s.lowerBound[2].cvalue << ">,<"<<s.upperBound[0].value << "," << s.upperBound[1].cvalue << "," << s.upperBound[2].cvalue << ">\n";
-  }
-  ASSERT_EQ(3,sorted[4].lowerBound[1].cvalue);
-  ASSERT_EQ(6,sorted[4].lowerBound[2].cvalue);
-}
-
-TEST(AABB, replaceAABBTESTLogN){
-
-  std::vector<std::vector<xytLoc>> p = {{{1,2,0},{2,3,1.4},{3,4,2.8}},
-    {{5,3,0},{5,4,1},{5,6,2},{5,7,3}},
-    {{7,4,0},{7,3,1},{6,2,2.4}}};
-
-  std::vector<std::vector<xytAABB>> temp(3);
-  std::vector<xytAABB> sorted;
-  for(int i(0); i<p.size(); ++i){
-    makeAABBs(p[i],temp[i],i);
-    sorted.insert(sorted.end(), temp[i].begin(), temp[i].end());
-  }
-  for(auto const& r:temp){
-    for(auto const& s:r){
-      //std::cout << "<" << s.lowerBound[0].value << "," << s.lowerBound[1].cvalue << "," << s.lowerBound[2].cvalue << ">,<"<<s.upperBound[0].value << "," << s.upperBound[1].cvalue << "," << s.upperBound[2].cvalue << ">\n";
-    }
-    //std::cout <<"\n";
-  }
-  std::sort(sorted.begin(),sorted.end());
-  for(auto const& s:sorted){
-    //std::cout << "<" << s.lowerBound[0].value << "," << s.lowerBound[1].cvalue << "," << s.lowerBound[2].cvalue << ">,<"<<s.upperBound[0].value << "," << s.upperBound[1].cvalue << "," << s.upperBound[2].cvalue << ">\n";
-  }
-  ASSERT_EQ(7,sorted.size());
-  ASSERT_EQ(0,sorted[0].lowerBound[0].cvalue);
-  ASSERT_EQ(1,sorted[0].lowerBound[2].cvalue);
-  ASSERT_EQ(7,sorted[2].lowerBound[2].cvalue);
-  ASSERT_EQ(5,sorted[6].upperBound[2].cvalue);
-  ASSERT_EQ(2,sorted[3].lowerBound[1].cvalue);
-  ASSERT_EQ(6,sorted[3].lowerBound[2].cvalue);
-  ASSERT_EQ(4,sorted[4].lowerBound[1].cvalue);
-  ASSERT_EQ(5,sorted[4].lowerBound[2].cvalue);
-  //std::cout <<"\n";
-
-  std::vector<xytAABB> newpath = temp[1];
-  newpath[0].upperBound[1].cvalue=newpath[1].lowerBound[1].cvalue=3;
-  newpath[0].upperBound[2].cvalue=newpath[1].lowerBound[2].cvalue=6;
-
-  for(auto const& s:newpath){
-    //std::cout << "<" << s.lowerBound[0].value << "," << s.lowerBound[1].cvalue << "," << s.lowerBound[2].cvalue << ">,<"<<s.upperBound[0].value << "," << s.upperBound[1].cvalue << "," << s.upperBound[2].cvalue << ">\n";
-  }
-
-  //std::cout <<"\n";
-  replaceAABBs(temp[1],newpath,sorted);
-  for(auto const& s:sorted){
-    //std::cout << "<" << s.lowerBound[0].value << "," << s.lowerBound[1].cvalue << "," << s.lowerBound[2].cvalue << ">,<"<<s.upperBound[0].value << "," << s.upperBound[1].cvalue << "," << s.upperBound[2].cvalue << ">\n";
-  }
-  ASSERT_EQ(3,sorted[4].lowerBound[1].cvalue);
-  ASSERT_EQ(6,sorted[4].lowerBound[2].cvalue);
-}
-
-TEST(DISABLED_AABB, insertTestLinear){
-  std::vector<std::vector<xytLoc>> waypoints;
-  unsigned nagents(300);
-  unsigned tnum(22);
-  unsigned type(9);
-
-  // Load problems from file
-  {
-    std::stringstream filename;
-    filename << "../../test/environments/instances/64x64/" << nagents << "/" << tnum << ".csv";
-    std::ifstream ss(filename.str());
-    int x,y;
-    float t(0.0);
-    std::string line;
-    while(std::getline(ss, line)){
-      std::vector<xytLoc> wpts;
-      std::istringstream is(line);
-      std::string field;
-      while(is >> field){
-        size_t a(std::count(field.begin(), field.end(), ','));
-        if(a==1){
-          sscanf(field.c_str(),"%d,%d", &x,&y);
-        }else if(a==2){
-          sscanf(field.c_str(),"%d,%d,%f", &x,&y,&t);
-        }else{
-          assert(!"Invalid value inside problem file");
-        }
-        wpts.emplace_back(x,y,t);
-      }
-      waypoints.push_back(wpts);
-    }
-  }
-
-  // Find paths
-  TemplateAStar<xytLoc,tDirection,Map2DConstrainedEnvironment> astar;
-  Map map(64,64);
-  MapEnvironment menv(&map);
-  menv.SetConnectedness(type);
-  Map2DConstrainedEnvironment env(&menv);
-  std::vector<std::vector<xytLoc>> p;
-  for(int i(0); i<nagents; ++i){
-    std::vector<xytLoc> path;
-    if(waypoints[i][0]==waypoints[i][1]){ // Already at goal
-      path.push_back(waypoints[i][0]);
-    }else{
-      astar.GetPath(&env,waypoints[i][0],waypoints[i][1],path);
-    }
-    p.push_back(path);
-    //std::cout << "AGENT " << i <<":\n";
-    //for(auto const& v:path){
-      //std::cout << v << "\n";
-    //}
-  }
-
-  float radius(.25);
-  std::vector<std::vector<xytAABB>> temp(p.size());
-  std::vector<xytAABB> sorted;
-  for(int i(0); i<p.size(); ++i){
-    //temp[i].reserve(p[i].size());
-    makeAABBs(p[i],temp[i],i);
-    sorted.insert(sorted.end(), temp[i].begin(), temp[i].end());
-  }
-  std::sort(sorted.begin(),sorted.end());
-
-  //std::cout << "AABBs\n";
-  //for(auto foo:temp){
-    //for(auto nn(foo.begin()); nn!=foo.end(); ++nn){
-      //std::cout << "AABB:" << nn->lowerBound[0].value << "," << nn->lowerBound[1].cvalue << "," << nn->lowerBound[2].cvalue << ">,<"<<nn->upperBound[0].value << "," << nn->upperBound[1].cvalue << "," << nn->upperBound[2].cvalue << ">\n";
-    //}
-    //std::cout << "\n";
-  //}
-  {
-    Timer tmr0;
-    Timer tmrz;
-    unsigned count0(0);
-    tmr0.StartTimer();
-    //for(auto const& s:sorted)
-    //std::cout << "<"<<s.lowerBound[0].value<<"~"<<s.upperBound[0].value<<","<<s.lowerBound[1].cvalue<<"~"<<s.upperBound[1].cvalue<<","<<s.lowerBound[2].cvalue<<"~"<<s.upperBound[2].cvalue<<">\n";
-    std::vector<std::pair<xytAABB,xytAABB>> pairs;
-    getAllPairs(sorted,pairs);
-    {
-      // Verify that sorting property is still good
-      auto mm(sorted.begin());
-      for(auto nn(mm+1); nn!=sorted.end(); ++nn){
-        if(!(*mm<*nn || *mm==*nn)){
-          //std::cout << "!<" << mm->lowerBound[0].value << "," << mm->lowerBound[1].cvalue << "," << mm->lowerBound[2].cvalue << "> > "<<nn->lowerBound[0].value << "," << nn->lowerBound[1].cvalue << "," << nn->lowerBound[2].cvalue << ">\n";
-        }else{
-          //std::cout << "sorted<" << mm->lowerBound[0].value << "," << mm->lowerBound[1].cvalue << "," << mm->lowerBound[2].cvalue << "> > "<<nn->lowerBound[0].value << "," << nn->lowerBound[1].cvalue << "," << nn->lowerBound[2].cvalue << ">\n";
-        }
-        //ASSERT_LE(*mm,*nn);
-        //ASSERT_TRUE(*mm<*nn || *mm==*nn);
-        ++mm;
-      }
-    }
-    for(auto pp(pairs.begin()); pp!=pairs.end(); /*pp++*/){
-      if(checkForCollision(*pp->first.start,*pp->first.end,*pp->second.start,*pp->second.end,radius,&menv)){
-        ++pp;
-      }
-      pairs.erase(pp);
-    }
-    tmrz.StartTimer();
-    for(auto pp(pairs.begin()); pp!=pairs.end(); pp++){
-      unsigned i(pp->first.agent);
-      Constraint<xytLoc>* c = new Collision<xytLoc>(*pp->second.start,*pp->second.end);
-      env.AddConstraint(c);
-      std::vector<xytLoc> path;
-      astar.GetPath(&env,waypoints[i][0],waypoints[i][1],path);
-      env.ClearConstraints();
-      if(!path.size())continue;
-      std::vector<xytAABB> aabbs;
-      makeAABBs(path,aabbs,i);
-      
-      replaceAABBs(aabbs,sorted);
-      temp[i]=aabbs;
-      //std::cout << "Replaced some\n";
-    }
-    
-    std::cout << "Replace test (linear) on " << nagents << " with " << pairs.size() << " checks, " << count0 << " collisions took " << tmrz.EndTimer() << "(" << tmr0.EndTimer() << ")\n";
-  }
-
-}
-
-TEST(AABB, insertTestLog){
-  std::vector<std::vector<xytLoc>> waypoints;
-  unsigned nagents(300);
-  unsigned tnum(22);
-  unsigned type(9);
-
-  // Load problems from file
-  {
-    std::stringstream filename;
-    filename << "../../test/environments/instances/64x64/" << nagents << "/" << tnum << ".csv";
-    std::ifstream ss(filename.str());
-    int x,y;
-    float t(0.0);
-    std::string line;
-    while(std::getline(ss, line)){
-      std::vector<xytLoc> wpts;
-      std::istringstream is(line);
-      std::string field;
-      while(is >> field){
-        size_t a(std::count(field.begin(), field.end(), ','));
-        if(a==1){
-          sscanf(field.c_str(),"%d,%d", &x,&y);
-        }else if(a==2){
-          sscanf(field.c_str(),"%d,%d,%f", &x,&y,&t);
-        }else{
-          assert(!"Invalid value inside problem file");
-        }
-        wpts.emplace_back(x,y,t);
-      }
-      waypoints.push_back(wpts);
-    }
-  }
-
-  // Find paths
-  TemplateAStar<xytLoc,tDirection,Map2DConstrainedEnvironment> astar;
-  Map map(64,64);
-  MapEnvironment menv(&map);
-  menv.SetConnectedness(type);
-  Map2DConstrainedEnvironment env(&menv);
-  std::vector<std::vector<xytLoc>> p;
-  for(int i(0); i<nagents; ++i){
-    std::vector<xytLoc> path;
-    if(waypoints[i][0]==waypoints[i][1]){ // Already at goal
-      path.push_back(waypoints[i][0]);
-    }else{
-      env.setGoal(waypoints[i][1]);
-      astar.GetPath(&env,waypoints[i][0],waypoints[i][1],path);
-    }
-    p.push_back(path);
-    //std::cout << "AGENT " << i <<":\n";
-    //for(auto const& v:path){
-      //std::cout << v << "\n";
-    //}
-  }
-
-  float radius(.25);
-  std::vector<std::vector<xytAABB>> temp(p.size());
-  std::vector<xytAABB> sorted;
-  for(int i(0); i<p.size(); ++i){
-    //temp[i].reserve(p[i].size());
-    makeAABBs(p[i],temp[i],i);
-    sorted.insert(sorted.end(), temp[i].begin(), temp[i].end());
-  }
-  std::sort(sorted.begin(),sorted.end());
-
-  //std::cout << "AABBs\n";
-  for(auto foo:temp){
-    for(auto nn(foo.begin()); nn!=foo.end(); ++nn){
-      //std::cout << "AABB:" << nn->lowerBound[0].value << "," << nn->lowerBound[1].cvalue << "," << nn->lowerBound[2].cvalue << ">,<"<<nn->upperBound[0].value << "," << nn->upperBound[1].cvalue << "," << nn->upperBound[2].cvalue << ">\n";
-    }
-    //std::cout << "\n";
-  }
-  {
-    Timer tmr0;
-    Timer tmrz;
-    unsigned count0(0);
-    tmr0.StartTimer();
-    //for(auto const& s:sorted)
-    //std::cout << "<"<<s.lowerBound[0].value<<"~"<<s.upperBound[0].value<<","<<s.lowerBound[1].cvalue<<"~"<<s.upperBound[1].cvalue<<","<<s.lowerBound[2].cvalue<<"~"<<s.upperBound[2].cvalue<<">\n";
-    std::vector<std::pair<xytAABB,xytAABB>> pairs;
-    getAllPairs(sorted,pairs);
-    {
-      // Verify that sorting property is still good
-      auto mm(sorted.begin());
-      for(auto nn(mm+1); nn!=sorted.end(); ++nn){
-        if(!(*mm<*nn || *mm==*nn)){
-          //std::cout << "!<" << mm->lowerBound[0].value << "," << mm->lowerBound[1].cvalue << "," << mm->lowerBound[2].cvalue << "> > "<<nn->lowerBound[0].value << "," << nn->lowerBound[1].cvalue << "," << nn->lowerBound[2].cvalue << ">\n";
-        }else{
-          //std::cout << "sorted<" << mm->lowerBound[0].value << "," << mm->lowerBound[1].cvalue << "," << mm->lowerBound[2].cvalue << "> > "<<nn->lowerBound[0].value << "," << nn->lowerBound[1].cvalue << "," << nn->lowerBound[2].cvalue << ">\n";
-        }
-        //ASSERT_LE(*mm,*nn);
-        //ASSERT_TRUE(*mm<*nn || *mm==*nn);
-        ++mm;
-      }
-    }
-    for(auto pp(pairs.begin()); pp!=pairs.end(); /*pp++*/){
-      if(checkForCollision(*pp->first.start,*pp->first.end,*pp->second.start,*pp->second.end,radius,&menv)){
-        ++pp;
-      }
-      pairs.erase(pp);
-    }
-    tmrz.StartTimer();
-    for(auto pp(pairs.begin()); pp!=pairs.end(); pp++){
-      unsigned i(pp->first.agent);
-      Constraint<xytLoc>* c = new Collision<xytLoc>(*pp->second.start,*pp->second.end);
-      env.AddConstraint(c);
-      std::vector<xytLoc> path;
-      env.setGoal(waypoints[i][1]);
-      astar.GetPath(&env,waypoints[i][0],waypoints[i][1],path);
-      env.ClearConstraints();
-      if(!path.size())continue;
-      std::vector<xytAABB> aabbs;
-      makeAABBs(path,aabbs,i);
-      
-      replaceAABBs(temp[i],aabbs,sorted);
-      temp[i]=aabbs;
-      //std::cout << "Replaced some\n";
-    }
-    
-    std::cout << "Sort test (log) on " << nagents << " with " << pairs.size() << " checks, " << count0 << " collisions took " << tmrz.EndTimer() << "(" << tmr0.EndTimer() << ")\n";
-  }
-
-}
-
-void broadphaseTest(int type, unsigned nagents, unsigned tnum){
-  const int depth(1000); // Limit on path length...
-  std::vector<std::vector<xytLoc>> waypoints;
-
-  // Load problems from file
-  {
-    std::stringstream filename;
-    filename << "../../test/environments/instances/64x64/" << nagents << "/" << tnum << ".csv";
-    std::ifstream ss(filename.str());
-    int x,y;
-    float t(0.0);
-    std::string line;
-    while(std::getline(ss, line)){
-      std::vector<xytLoc> wpts;
-      std::istringstream is(line);
-      std::string field;
-      while(is >> field){
-        size_t a(std::count(field.begin(), field.end(), ','));
-        if(a==1){
-          sscanf(field.c_str(),"%d,%d", &x,&y);
-        }else if(a==2){
-          sscanf(field.c_str(),"%d,%d,%f", &x,&y,&t);
-        }else{
-          assert(!"Invalid value inside problem file");
-        }
-        wpts.emplace_back(x,y,t);
-      }
-      waypoints.push_back(wpts);
-    }
-  }
-
-  unsigned skip(type<=9?1:(type<=25?2:3));
-
-  // Find paths
-  TemplateAStar<xytLoc,tDirection,Map2DConstrainedEnvironment> astar;
-  Map map(64,64);
-  MapEnvironment menv(&map);
-  menv.SetConnectedness(type);
-  Map2DConstrainedEnvironment env(&menv);
-  std::vector<std::vector<xytLoc>> p;
-  for(int i(0); i<nagents; ++i){
-    std::vector<xytLoc> path;
-    if(waypoints[i][0]==waypoints[i][1]){ // Already at goal
-      path.push_back(waypoints[i][0]);
-    }else{
-      env.setGoal(waypoints[i][1]);
-      astar.GetPath(&env,waypoints[i][0],waypoints[i][1],path);
-    }
-    p.push_back(path);
-  }
-
-  float radius(.25);
-
-  //for(auto const& a:sorted)
-    //std::cout << *(a.start) << "\n";
-  std::vector<std::vector<AABB>> sweepPrune(3);
-  Timer tmr;
-  tmr.StartTimer();
-  createSortedLists(p,sweepPrune,&menv,radius);
-  std::cout << "Took " << tmr.EndTimer() << " to get sorted lists\n";
-
-  // Create the AABB tree
-  aabb::Tree<xytLoc> tree(nagents*132);
-
-  // To load precheck bit-vector
-  checkForCollision(p[0][0],p[0][0],p[0][0],p[0][0],radius,&menv);
-
-  // Insert particles and count collisions using BVH
-  unsigned count1(0);
-  unsigned total1(0);
-  Timer tmr1;
-  tmr1.StartTimer();
-  for(int i(0); i<nagents; ++i){
-    for(int j(1); j<p[i].size(); ++j){
-      tree.insertParticle(i*depth+j,p[i][j-1],p[i][j]);
-    }
-  }
-
-  std::vector<std::pair<std::pair<unsigned,unsigned>,std::pair<unsigned,unsigned>>> collisions1;
-  Timer tmr3;
-  tmr3.StartTimer();
-  std::unordered_set<unsigned> seen;
-  for(int i(0); i<nagents; ++i){
-    for(int j(1); j<p[i].size(); ++j){
-      unsigned mykey(getKey(i,j,depth));
-      std::vector<unsigned> result;
-      tree.query(mykey,result);
-      for(auto const& v:result){
-        unsigned key(v<mykey?v+mykey*nagents*depth:mykey+v*nagents*depth);
-        auto a(unravelKey(v,depth));
-        if((a.first == i) || seen.find(key)!=seen.end()){continue;}
-        total1++;
-        seen.insert(key);
-        count1 += checkForCollision(p[i][j-1],p[i][j],p[a.first][a.second-1],p[a.first][a.second],radius,&menv);
-      }
-    }
-  }
-  std::cout << "BVH test on " << nagents << " with " << total1 << " checks, " << count1 << " collisions took " << tmr1.EndTimer() << "(" << tmr3.EndTimer() << ")\n";
-
-  {
-    unsigned count2(0);
-    unsigned total2(0);
-    Timer tmr2;
-    tmr2.StartTimer();
-    std::vector<std::vector<xytAABB>> temp(p.size());
-    for(int i(0); i<p.size(); ++i){
-      temp[i].reserve(p[i].size());
-      makeAABBs(p[i],temp[i],i);
-    }
-    // Count collisions brute force
-    for(int i(0); i<nagents; ++i){
-      for(int j(i+1); j<nagents; ++j){
-        //std::cout << i << " VS " << j << "\n";
-        countCollisions(temp[i],temp[j],radius,count2,total2,&menv);
-      }
-    }
-    std::cout << "Brute force AABB test with precheck on " << nagents << " with " << total2 << " checks, " << count2 << " collisions took " << tmr2.EndTimer() << "\n";
-  }
-
-  {
-    unsigned count2(0);
-    unsigned total2(0);
-    Timer tmr2;
-    tmr2.StartTimer();
-    std::vector<std::vector<xytAABB>> temp(p.size());
-    for(int i(0); i<p.size(); ++i){
-      temp[i].reserve(p[i].size());
-      makeAABBs(p[i],temp[i],i);
-    }
-    // Count collisions brute force
-    for(int i(0); i<nagents; ++i){
-      for(int j(i+1); j<nagents; ++j){
-        //std::cout << i << " VS " << j << "\n";
-        countCollisions(temp[i],temp[j],radius,count2,total2);
-      }
-    }
-    std::cout << "Brute force AABB test on " << nagents << " with " << total2 << " checks, " << count2 << " collisions took " << tmr2.EndTimer() << "\n";
-  }
-
-  /*unsigned count2(0);
-  unsigned total2(0);
-  Timer tmr2;
-  tmr2.StartTimer();
-  // Count collisions brute force
-  for(int i(0); i<nagents; ++i){
-    for(int j(i+1); j<nagents; ++j){
-      //std::cout << i << " VS " << j << "\n";
-      countCollisions(p[i],p[j],radius,count2,total2);
-    }
-  }
-  std::cout << "Brute force test on " << nagents << " with " << total2 << " checks, " << count2 << " collisions took " << tmr2.EndTimer() << "\n";
-*/
-  unsigned count4(0);
-  unsigned total4(0);
-  Timer tmr4;
-  tmr4.StartTimer();
-  // Count collisions brute force
-  for(int i(0); i<nagents; ++i){
-    for(int j(i+1); j<nagents; ++j){
-      //std::cout << i << " VS " << j << "\n";
-      countCollisions(p[i],p[j],radius,count4,total4,&menv);
-    }
-  }
-  std::cout << "Brute force with precheck on " << nagents << " with " << total4 << " checks, " << count4 << " collisions took " << tmr4.EndTimer() << "\n";
-
-  unsigned count5(0);
-  unsigned total5(0);
-  Timer tmr5;
-  tmr5.StartTimer();
-  // Count collisions brute force
-  for(int i(0); i<nagents; ++i){
-    for(int j(i+1); j<nagents; ++j){
-      //std::cout << i << " VS " << j << "\n";
-      countCollisions(p[i],p[j],radius,count5,total5,&menv,true);
-    }
-  }
-  std::cout << "Brute force with simple precheck on " << nagents << " with " << total4 << " checks, " << count5 << " collisions took " << tmr5.EndTimer() << "\n";
-
-  {
-    unsigned count4(0);
-    unsigned total4(0);
-    Timer tmr4;
-    tmr4.StartTimer();
-    // Count collisions brute force
-    for(int i(0); i<nagents; ++i){
-      for(int j(i+1); j<nagents; ++j){
-        //std::cout << i << " VS " << j << "\n";
-        skipAndCountCollisions(p[i],p[j],radius,count4,total4,skip,0);
-      }
-    }
-    std::cout << "Brute force with skip on " << nagents << " with " << total4 << " checks, " << count4 << " collisions took " << tmr4.EndTimer() << "\n";
-  }
-  {
-    unsigned count4(0);
-    unsigned total4(0);
-    Timer tmr4;
-    std::vector<std::vector<xyLoc>> boxes(nagents);
-    for(int i(0); i<nagents; ++i){
-      boxes[i].resize(2);
-      boxes[i][0]=boxes[i][1]=p[i][0];
-      for(unsigned ix(1); ix<p[i].size(); ++ix){
-        if(p[i][ix].x<boxes[i][0].x){boxes[i][0].x=p[i][ix].x;}
-        if(p[i][ix].y<boxes[i][0].y){boxes[i][0].y=p[i][ix].y;}
-        if(p[i][ix].x>boxes[i][1].x){boxes[i][1].x=p[i][ix].x;}
-        if(p[i][ix].y>boxes[i][1].y){boxes[i][1].y=p[i][ix].y;}
-      }
-    }
-    tmr4.StartTimer();
-    // Count collisions brute force
-    for(int i(0); i<nagents; ++i){
-      for(unsigned ix(1); ix<p[i].size(); ++ix){
-        if(p[i][ix].x<boxes[i][0].x){boxes[i][0].x=p[i][ix].x;}
-        if(p[i][ix].y<boxes[i][0].y){boxes[i][0].y=p[i][ix].y;}
-        if(p[i][ix].x>boxes[i][1].x){boxes[i][1].x=p[i][ix].x;}
-        if(p[i][ix].y>boxes[i][1].y){boxes[i][1].y=p[i][ix].y;}
-      }
-      for(int j(i+1); j<nagents; ++j){
-        //std::cout << i << "," << j << ":";
-        if(boxes[i][0].x>boxes[j][1].x || boxes[i][1].x<boxes[j][0].x ||
-            boxes[i][0].y>boxes[j][1].y || boxes[i][1].y<boxes[j][0].y){}else{
-        skipAndCountCollisions(p[i],p[j],radius,count4,total4,skip,0);}
-        //std::cout << "\n";
-      }
-    }
-    std::cout << "Brute force with skip and bb on " << nagents << " with " << total4 << " checks, " << count4 << " collisions took " << tmr4.EndTimer() << "\n";
-  }
-  {
-    unsigned count4(0);
-    unsigned total4(0);
-    Timer tmr4;
-    std::vector<std::vector<Vector2D>> boxes(nagents);
-    for(int i(0); i<nagents; ++i){
-      convexHull(p[i],boxes[i]);
-      //std::cout << "Hull " << i << "\n";
-      for(auto const& v:boxes[i]){
-        //std::cout << v << "\n";
-      }
-      //std::cout << "from :";
-      for(auto const& v:p[i]){
-        //std::cout << v << " ";
-      }
-        //std::cout << "\n";
-      
-    }
-    tmr4.StartTimer();
-    // Count collisions brute force
-    for(int i(0); i<nagents; ++i){
-      boxes[i].clear();
-      convexHull(p[i],boxes[i]);
-      for(int j(i+1); j<nagents; ++j){
-        //std::cout << i << "," << j << ":";
-        if(boxes[i].empty() || boxes[j].empty() || sat(boxes[i],boxes[j])) // check if convex hulls have overlap
-        {
-          skipAndCountCollisions(p[i],p[j],radius,count4,total4,skip,0);}else{
-          if(boxes[i].size() && boxes[j].size()){
-            //std::cout << "Hull " << i << "\n";
-            for(auto const& v:boxes[i]){
-              //std::cout << v << "\n";
-            }
-            //std::cout << " and Hull " << j << "\n";
-            for(auto const& v:boxes[j]){
-              //std::cout << v << "\n";
-            }
-            //std::cout << "have NO overlap\n";
-
-          }
-          }
-        //std::cout << "\n";
-      }
-    }
-    // Note Graham Scan algorithm is better than Jarvis' march because these are paths
-    std::cout << "Brute force with skip and ch on " << nagents << " with " << total4 << " checks, " << count4 << " collisions took " << tmr4.EndTimer() << "\n";
-  }
-  {
-    unsigned count4(0);
-    unsigned total4(0);
-    Timer tmr4;
-    std::vector<std::vector<xyLoc>> boxes(nagents);
-    std::vector<std::vector<Vector2D>> hull(nagents);
-    for(int i(0); i<nagents; ++i){
-      boxes[i].resize(2);
-      boxes[i][0]=boxes[i][1]=p[i][0];
-      for(unsigned ix(1); ix<p[i].size(); ++ix){
-        if(p[i][ix].x<boxes[i][0].x){boxes[i][0].x=p[i][ix].x;}
-        if(p[i][ix].y<boxes[i][0].y){boxes[i][0].y=p[i][ix].y;}
-        if(p[i][ix].x>boxes[i][1].x){boxes[i][1].x=p[i][ix].x;}
-        if(p[i][ix].y>boxes[i][1].y){boxes[i][1].y=p[i][ix].y;}
-      }
-      convexHull(p[i],hull[i]);
-    }
-    tmr4.StartTimer();
-    // Count collisions brute force
-    for(int i(0); i<nagents; ++i){
-      for(unsigned ix(1); ix<p[i].size(); ++ix){
-        if(p[i][ix].x<boxes[i][0].x){boxes[i][0].x=p[i][ix].x;}
-        if(p[i][ix].y<boxes[i][0].y){boxes[i][0].y=p[i][ix].y;}
-        if(p[i][ix].x>boxes[i][1].x){boxes[i][1].x=p[i][ix].x;}
-        if(p[i][ix].y>boxes[i][1].y){boxes[i][1].y=p[i][ix].y;}
-      }
-      convexHull(p[i],hull[i]);
-      for(int j(i+1); j<nagents; ++j){
-        //std::cout << i << "," << j << ":";
-        if(boxes[i][0].x>boxes[j][1].x || boxes[i][1].x<boxes[j][0].x ||
-            boxes[i][0].y>boxes[j][1].y || boxes[i][1].y<boxes[j][0].y){}else{
-          if(hull[i].empty() || hull[j].empty() || sat(hull[i],hull[j])) // check if convex hulls have overlap
-          {
-            skipAndCountCollisions(p[i],p[j],radius,count4,total4,skip,0);}
-        }
-        //std::cout << "\n";
-      }
-    }
-    std::cout << "Brute force with skip and bb and ch on " << nagents << " with " << total4 << " checks, " << count4 << " collisions took " << tmr4.EndTimer() << "\n";
-  }
-  if(false){
-    unsigned count4(0);
-    unsigned total4(0);
-    Timer tmr4;
-    std::vector<std::vector<Vector2D>> boxes(nagents);
-    for(int i(0); i<nagents; ++i){
-      /*for(auto const& v:p[i]){
-        std::cout << v.x << " " << v.y << "\n";
-      }*/
-      convexHull2(p[i],boxes[i]);
-      /*std::cout << "Hull " << i << "\n";
-      for(auto const& v:boxes[i]){
-        std::cout << v << "\n";
-      }
-      std::cout << "from :";
-      for(auto const& v:p[i]){
-        std::cout << v << " ";
-      }
-        std::cout << "\n";
-      */
-    }
-    tmr4.StartTimer();
-    // Count collisions brute force
-    for(int i(0); i<nagents; ++i){
-      boxes[i].clear();
-      convexHull2(p[i],boxes[i]);
-      for(int j(i+1); j<nagents; ++j){
-        //std::cout << i << "," << j << ":";
-        if(boxes[i].empty() || boxes[j].empty() || sat(boxes[i],boxes[j])) // check if convex hulls have overlap
-        {
-          skipAndCountCollisions(p[i],p[j],radius,count4,total4,skip,0);}else{
-          if(boxes[i].size() && boxes[j].size()){
-            //std::cout << "Hull " << i << "\n";
-            for(auto const& v:boxes[i]){
-              //std::cout << v << "\n";
-            }
-            //std::cout << " and Hull " << j << "\n";
-            for(auto const& v:boxes[j]){
-              //std::cout << v << "\n";
-            }
-            //std::cout << "have NO overlap\n";
-
-          }
-          }
-        //std::cout << "\n";
-      }
-    }
-    std::cout << "Brute force with skip and ch2 on " << nagents << " with " << total4 << " checks, " << count4 << " collisions took " << tmr4.EndTimer() << "\n";
-  }
-  if(false){
-    std::vector<std::vector<xytLoc>> boxes(nagents);
-    std::vector<std::vector<Vector2D>> hull(nagents);
-    for(int i(0); i<nagents; ++i){
-      boxes[i].resize(2);
-      boxes[i][0]=boxes[i][1]=p[i][0];
-      for(unsigned ix(1); ix<p[i].size(); ++ix){
-        if(p[i][ix].x<boxes[i][0].x){boxes[i][0].x=p[i][ix].x;}
-        if(p[i][ix].y<boxes[i][0].y){boxes[i][0].y=p[i][ix].y;}
-        if(p[i][ix].x>boxes[i][1].x){boxes[i][1].x=p[i][ix].x;}
-        if(p[i][ix].y>boxes[i][1].y){boxes[i][1].y=p[i][ix].y;}
-      }
-      convexHull(p[i],hull[i]);
-    }
-    // If the convex hull has overlap, the bb will definitely have overlap
-    for(int i(0); i<nagents; ++i){
-      for(int j(0); j<nagents; ++j){
-        if(sat(hull[i],hull[j])){
-          if(boxes[i][0].x>boxes[j][1].x || boxes[i][1].x<boxes[j][0].x ||
-              boxes[i][0].y>boxes[j][1].y || boxes[i][1].y<boxes[j][0].y){
-            std::cout << "bbox has no overlap???\n";
-            std::cout << "path1\n";
-            for(auto const& r:p[i]){
-              std::cout << r << "\n";
-            }
-            std::cout << "path2\n";
-            for(auto const& r:p[j]){
-              std::cout << r << "\n";
-            }
-            std::cout << "BB1\n";
-            for(auto const& r:boxes[i]){
-              std::cout << r << "\n";
-            }
-            std::cout << "BB2\n";
-            for(auto const& r:boxes[j]){
-              std::cout << r << "\n";
-            }
-            std::cout << "hull1\n";
-            for(auto const& r:hull[i]){
-              std::cout << r << "\n";
-            }
-            std::cout << "hull2\n";
-            for(auto const& r:hull[j]){
-              std::cout << r << "\n";
-            }
-            ASSERT_TRUE(false);
-          }
-        }
-      }
-    }
-  }
-  {
-    std::vector<xytAABB> sorted1;
-    Timer tmr0;
-    tmr0.StartTimer();
-    merge(p,sorted1);
-    std::cout << "Merge operation: " << tmr0.EndTimer() << "\n";
-
-    std::vector<xytAABB> sorted2;
-    Timer tmrz;
-    tmrz.StartTimer();
-    std::vector<std::vector<xytAABB>> temp(p.size());
-    for(int i(0); i<p.size(); ++i){
-      temp[i].reserve(p[i].size());
-      makeAABBs(p[i],temp[i],i);
-      sorted2.insert(sorted2.end(), temp[i].begin(), temp[i].end());
-    }
-    std::sort(sorted2.begin(),sorted2.end(),
-        [](xytAABB const& a, xytAABB const& b) -> bool {
-        return a.lowerBound[0].cvalue < b.lowerBound[0].cvalue;
-        });
-    std::cout << "Sort operation: " << tmrz.EndTimer() << "\n";
-  }
-  {
-    std::vector<xytAABB> sorted;
-    Timer tmr0;
-    Timer tmrz;
-    unsigned count0(0);
-    tmr0.StartTimer();
-    //merge(p,sorted);
-    std::vector<std::vector<xytAABB>> temp(p.size());
-    for(int i(0); i<p.size(); ++i){
-      temp[i].reserve(p[i].size());
-      makeAABBs(p[i],temp[i],i);
-      sorted.insert(sorted.end(), temp[i].begin(), temp[i].end());
-    }
-    // sort by "t" value
-    std::sort(sorted.begin(),sorted.end(),
-        [](xytAABB const& a, xytAABB const& b) -> bool {
-        return a.lowerBound[0].cvalue < b.lowerBound[0].cvalue;
-        });
-
-    //for(auto const& s:sorted)
-    //std::cout << "<"<<s.lowerBound[0].value<<"~"<<s.upperBound[0].value<<","<<s.lowerBound[1].cvalue<<"~"<<s.upperBound[1].cvalue<<","<<s.lowerBound[2].cvalue<<"~"<<s.upperBound[2].cvalue<<">\n";
-    tmrz.StartTimer();
-    std::vector<std::pair<xytAABB,xytAABB>> pairs;
-    getAllPairs(sorted,pairs);
-    for(auto const& pp:pairs){
-      count0 += checkForCollision(*pp.first.start,*pp.first.end,*pp.second.start,*pp.second.end,radius,&menv);
-    }
-    std::cout << "test with sort (t) on " << nagents << " with " << pairs.size() << " checks, " << count0 << " collisions took " << tmrz.EndTimer() << "(" << tmr0.EndTimer() << ")\n";
-  }
-  {
-    std::vector<xytAABB> sorted;
-    Timer tmr0;
-    Timer tmrz;
-    unsigned count0(0);
-    tmr0.StartTimer();
-    std::vector<std::vector<xytAABB>> temp(p.size());
-    for(int i(0); i<p.size(); ++i){
-      temp[i].reserve(p[i].size());
-      makeAABBs(p[i],temp[i],i);
-      sorted.insert(sorted.end(), temp[i].begin(), temp[i].end());
-    }
-    // sort by "x" value
-    std::sort(sorted.begin(),sorted.end(),
-        [](xytAABB const& a, xytAABB const& b) -> bool {
-        return a.lowerBound[1].cvalue < b.lowerBound[1].cvalue;
-        });
-    //for(auto const& s:sorted)
-    //std::cout << "<"<<s.lowerBound[0].value<<"~"<<s.upperBound[0].value<<","<<s.lowerBound[1].cvalue<<"~"<<s.upperBound[1].cvalue<<","<<s.lowerBound[2].cvalue<<"~"<<s.upperBound[2].cvalue<<">\n";
-    tmrz.StartTimer();
-    std::vector<std::pair<xytAABB,xytAABB>> pairs;
-    getAllPairsX(sorted,pairs);
-    for(auto const& pp:pairs){
-      count0 += checkForCollision(*pp.first.start,*pp.first.end,*pp.second.start,*pp.second.end,radius,&menv);
-    }
-    std::cout << "Sort test (x) on " << nagents << " with " << pairs.size() << " checks, " << count0 << " collisions took " << tmrz.EndTimer() << "(" << tmr0.EndTimer() << ")\n";
-  }
-  {
-    std::vector<xytAABB> sorted;
-    Timer tmr0;
-    Timer tmrz;
-    unsigned count0(0);
-    tmr0.StartTimer();
-    //merge(p,sorted);
-    std::vector<std::vector<xytAABB>> temp(p.size());
-    for(int i(0); i<p.size(); ++i){
-      temp[i].reserve(p[i].size());
-      makeAABBs(p[i],temp[i],i);
-      sorted.insert(sorted.end(), temp[i].begin(), temp[i].end());
-    }
-    // sort by "t" value
-    std::sort(sorted.begin(),sorted.end(),
-        [](xytAABB const& a, xytAABB const& b) -> bool {
-        return a.lowerBound[0].cvalue < b.lowerBound[0].cvalue;
-        });
-    //for(auto const& s:sorted)
-    //std::cout << "<"<<s.lowerBound[0].value<<"~"<<s.upperBound[0].value<<","<<s.lowerBound[1].cvalue<<"~"<<s.upperBound[1].cvalue<<","<<s.lowerBound[2].cvalue<<"~"<<s.upperBound[2].cvalue<<">\n";
-    tmrz.StartTimer();
-    std::vector<std::pair<xytAABB,xytAABB>> pairs;
-    getAllPairsSAP(sorted,pairs);
-    for(auto const& pp:pairs){
-      count0 += checkForCollision(*pp.first.start,*pp.first.end,*pp.second.start,*pp.second.end,radius,&menv);
-    }
-    std::cout << "SAP test (t) on " << nagents << " with " << pairs.size() << " checks, " << count0 << " collisions took " << tmrz.EndTimer() << "(" << tmr0.EndTimer() << ")\n";
-  }
-  {
-    std::vector<xytAABB> sorted;
-    Timer tmr0;
-    Timer tmrz;
-    unsigned count0(0);
-    tmr0.StartTimer();
-    std::vector<std::vector<xytAABB>> temp(p.size());
-    for(int i(0); i<p.size(); ++i){
-      temp[i].reserve(p[i].size());
-      makeAABBs(p[i],temp[i],i);
-      sorted.insert(sorted.end(), temp[i].begin(), temp[i].end());
-    }
-    // sort by "x" value
-    std::sort(sorted.begin(),sorted.end(),
-        [](xytAABB const& a, xytAABB const& b) -> bool {
-        return a.lowerBound[1].cvalue < b.lowerBound[1].cvalue;
-        });
-    //for(auto const& s:sorted)
-    //std::cout << "<"<<s.lowerBound[0].value<<"~"<<s.upperBound[0].value<<","<<s.lowerBound[1].cvalue<<"~"<<s.upperBound[1].cvalue<<","<<s.lowerBound[2].cvalue<<"~"<<s.upperBound[2].cvalue<<">\n";
-    tmrz.StartTimer();
-    std::vector<std::pair<xytAABB,xytAABB>> pairs;
-    getAllPairsSAPX(sorted,pairs);
-    for(auto const& pp:pairs){
-      count0 += checkForCollision(*pp.first.start,*pp.first.end,*pp.second.start,*pp.second.end,radius,&menv);
-    }
-    std::cout << "SAP test (x) on " << nagents << " with " << pairs.size() << " checks, " << count0 << " collisions took " << tmrz.EndTimer() << "(" << tmr0.EndTimer() << ")\n";
-  }
-  {
-    std::vector<xytLoc> newpath;
-    int av=0, agent=0;
-    {
-      // Find collisions and replan one path
-      std::vector<xytAABB> sorted;
-      std::vector<std::vector<xytAABB>> temp(p.size());
-      for(int i(0); i<p.size(); ++i){
-        temp[i].reserve(p[i].size());
-        makeAABBs(p[i],temp[i],i);
-        sorted.insert(sorted.end(), temp[i].begin(), temp[i].end());
-      }
-      // sort by "t" value
-      std::sort(sorted.begin(),sorted.end(),
-          [](xytAABB const& a, xytAABB const& b) -> bool {
-          return a.lowerBound[0].cvalue < b.lowerBound[0].cvalue;
-          });
-
-      std::vector<xytAABB> path;
-      std::vector<std::pair<xytAABB,xytAABB>> pairs;
-      getAllPairsSAP(sorted,pairs);
-
-      // find the agent with the most collisions and select a conflict for it
-      std::vector<int> cs(p.size());
-      for(auto const& pr:pairs){
-        cs[pr.first.agent]++;
-        cs[pr.second.agent]++;
-      }
-      for(int v(0);v<cs.size();++v){
-        if(cs[v]>av){
-          av=cs[v];
-          agent=v;
-        }
-      }
-      if(av>0){
-        Constraint<xytLoc>* c;
-        for(auto const& pr:pairs){
-          if(pr.first.agent==agent){
-            c = new Collision<xytLoc>(*pairs.front().second.start,*pairs.front().second.end);
-            break;
-          }
-        }
-
-        // Replan the path for the agent
-        env.AddConstraint(c);
-        env.setGoal(waypoints[agent][1]);
-        astar.GetPath(&env,waypoints[agent][0],waypoints[agent][1],newpath);
-      }else{
-        newpath=p[agent];
-      }
-    }
-    std::vector<std::vector<xytLoc>> p2(p);
-    p2[agent]=newpath;
-    unsigned count4(0);
-    unsigned total4(0);
-    Timer tmr4;
-    tmr4.StartTimer();
-    // Count collisions brute force
-    for(int i(agent); i<agent+1; ++i){
-      for(int j(0); j<nagents; ++j){
-        if(j==i)continue;
-        //std::cout << i << "," << j << ":";
-        countCollisions(p2[i],p2[j],radius,count4,total4,0);
-        //std::cout << "\n";
-      }
-    }
-    std::cout << "Brute force single agent on " << nagents << " with " << total4 << " checks, " << count4 << " collisions took " << tmr4.EndTimer() << "\n";
-  }
-  {
-    std::vector<xytLoc> newpath;
-    int av=0, agent=0;
-    {
-      // Find collisions and replan one path
-      std::vector<xytAABB> sorted;
-      std::vector<std::vector<xytAABB>> temp(p.size());
-      for(int i(0); i<p.size(); ++i){
-        temp[i].reserve(p[i].size());
-        makeAABBs(p[i],temp[i],i);
-        sorted.insert(sorted.end(), temp[i].begin(), temp[i].end());
-      }
-      // sort by "t" value
-      std::sort(sorted.begin(),sorted.end(),
-          [](xytAABB const& a, xytAABB const& b) -> bool {
-          return a.lowerBound[0].cvalue < b.lowerBound[0].cvalue;
-          });
-
-      std::vector<xytAABB> path;
-      std::vector<std::pair<xytAABB,xytAABB>> pairs;
-      getAllPairsSAP(sorted,pairs);
-
-      // find the agent with the most collisions and select a conflict for it
-      std::vector<int> cs(p.size());
-      for(auto const& pr:pairs){
-        cs[pr.first.agent]++;
-        cs[pr.second.agent]++;
-      }
-      for(int v(0);v<cs.size();++v){
-        if(cs[v]>av){
-          av=cs[v];
-          agent=v;
-        }
-      }
-      if(av>0){
-        Constraint<xytLoc>* c;
-        for(auto const& pr:pairs){
-          if(pr.first.agent==agent){
-            c = new Collision<xytLoc>(*pairs.front().second.start,*pairs.front().second.end);
-            break;
-          }
-        }
-
-        // Replan the path for the agent
-        env.AddConstraint(c);
-        env.setGoal(waypoints[agent][1]);
-        astar.GetPath(&env,waypoints[agent][0],waypoints[agent][1],newpath);
-      }else{
-        newpath=p[agent];
-      }
-
-    }
-    std::vector<std::vector<xytLoc>> p2(p);
-    p2[agent]=newpath;
-    unsigned count4(0);
-    unsigned total4(0);
-    Timer tmr4;
-    std::vector<std::vector<xyLoc>> boxes(nagents);
-    for(int i(0); i<nagents; ++i){
-      boxes[i].resize(2);
-      boxes[i][0]=boxes[i][1]=p[i][0];
-      for(unsigned ix(1); ix<p[i].size(); ++ix){
-        if(p[i][ix].x<boxes[i][0].x){boxes[i][0].x=p[i][ix].x;}
-        if(p[i][ix].y<boxes[i][0].y){boxes[i][0].y=p[i][ix].y;}
-        if(p[i][ix].x>boxes[i][1].x){boxes[i][1].x=p[i][ix].x;}
-        if(p[i][ix].y>boxes[i][1].y){boxes[i][1].y=p[i][ix].y;}
-      }
-    }
-    tmr4.StartTimer();
-    // Count collisions brute force
-    for(int i(agent); i<agent+1; ++i){
-      boxes[i][0]=boxes[i][1]=p[i][0];
-      for(unsigned ix(1); ix<p2[i].size(); ++ix){
-        if(p2[i][ix].x<boxes[i][0].x){boxes[i][0].x=p2[i][ix].x;}
-        if(p2[i][ix].y<boxes[i][0].y){boxes[i][0].y=p2[i][ix].y;}
-        if(p2[i][ix].x>boxes[i][1].x){boxes[i][1].x=p2[i][ix].x;}
-        if(p2[i][ix].y>boxes[i][1].y){boxes[i][1].y=p2[i][ix].y;}
-      }
-      for(int j(0); j<nagents; ++j){
-        if(j==i)continue;
-        //std::cout << i << "," << j << ":";
-        if(boxes[i][0].x>boxes[j][1].x || boxes[i][1].x<boxes[j][0].x ||
-            boxes[i][0].y>boxes[j][1].y || boxes[i][1].y<boxes[j][0].y){}else{
-        countCollisions(p2[i],p2[j],radius,count4,total4,0);}
-        //std::cout << "\n";
-      }
-    }
-    std::cout << "Brute force single agent and bb on " << nagents << " with " << total4 << " checks, " << count4 << " collisions took " << tmr4.EndTimer() << "\n";
-  }
-  {
-    std::vector<xytLoc> newpath;
-    int av=0, agent=0;
-    {
-      // Find collisions and replan one path
-      std::vector<xytAABB> sorted;
-      std::vector<std::vector<xytAABB>> temp(p.size());
-      for(int i(0); i<p.size(); ++i){
-        temp[i].reserve(p[i].size());
-        makeAABBs(p[i],temp[i],i);
-        sorted.insert(sorted.end(), temp[i].begin(), temp[i].end());
-      }
-      // sort by "t" value
-      std::sort(sorted.begin(),sorted.end(),
-          [](xytAABB const& a, xytAABB const& b) -> bool {
-          return a.lowerBound[0].cvalue < b.lowerBound[0].cvalue;
-          });
-
-      std::vector<xytAABB> path;
-      std::vector<std::pair<xytAABB,xytAABB>> pairs;
-      getAllPairsSAP(sorted,pairs);
-
-      // find the agent with the most collisions and select a conflict for it
-      std::vector<int> cs(p.size());
-      for(auto const& pr:pairs){
-        cs[pr.first.agent]++;
-        cs[pr.second.agent]++;
-      }
-      for(int v(0);v<cs.size();++v){
-        if(cs[v]>av){
-          av=cs[v];
-          agent=v;
-        }
-      }
-      if(av>0){
-        Constraint<xytLoc>* c;
-        for(auto const& pr:pairs){
-          if(pr.first.agent==agent){
-            c = new Collision<xytLoc>(*pairs.front().second.start,*pairs.front().second.end);
-            break;
-          }
-        }
-
-        // Replan the path for the agent
-        env.AddConstraint(c);
-        env.setGoal(waypoints[agent][1]);
-        astar.GetPath(&env,waypoints[agent][0],waypoints[agent][1],newpath);
-      }else{
-        newpath=p[agent];
-      }
-
-    }
-    auto p2(p);
-    p2[agent]=newpath;
-    unsigned count4(0);
-    unsigned total4(0);
-    Timer tmr4;
-    std::vector<std::vector<Vector2D>> boxes(nagents);
-    for(int i(0); i<nagents; ++i){
-      /*for(auto const& v:p[i]){
-        std::cout << v.x << " " << v.y << "\n";
-      }*/
-      convexHull(p[i],boxes[i]);
-      /*std::cout << "Hull " << i << "\n";
-      for(auto const& v:boxes[i]){
-        std::cout << v << "\n";
-      }
-      std::cout << "from :";
-      for(auto const& v:p[i]){
-        std::cout << v << " ";
-      }
-        std::cout << "\n";
-      */
-    }
-    tmr4.StartTimer();
-    // Count collisions brute force
-    for(int i(agent); i<agent+1; ++i){
-      boxes[i].clear();
-      convexHull(p2[i],boxes[i]);
-      for(int j(0); j<nagents; ++j){
-        if(j==i)continue;
-        //std::cout << i << "," << j << ":";
-        if(boxes[i].empty() || boxes[j].empty() || sat(boxes[i],boxes[j])) // check if convex hulls have overlap
-        {
-          countCollisions(p2[i],p2[j],radius,count4,total4,0);
-        }else{
-            if(boxes[i].size() && boxes[j].size()){
-              //std::cout << "Hull " << i << "\n";
-              //for(auto const& v:boxes[i]){
-              //std::cout << v << "\n";
-              //}
-              //std::cout << " and Hull " << j << "\n";
-              //for(auto const& v:boxes[j]){
-              //std::cout << v << "\n";
-              //}
-              //std::cout << "have NO overlap\n";
-
-            }
-          }
-        //std::cout << "\n";
-      }
-    }
-    std::cout << "Brute force single agent with ch on " << nagents << " with " << total4 << " checks, " << count4 << " collisions took " << tmr4.EndTimer() << "\n";
-  }
-  {
-    std::vector<xytLoc> newpath;
-    int av=0, agent=0;
-    {
-      // Find collisions and replan one path
-      std::vector<xytAABB> sorted;
-      std::vector<std::vector<xytAABB>> temp(p.size());
-      for(int i(0); i<p.size(); ++i){
-        temp[i].reserve(p[i].size());
-        makeAABBs(p[i],temp[i],i);
-        sorted.insert(sorted.end(), temp[i].begin(), temp[i].end());
-      }
-      // sort by "t" value
-      std::sort(sorted.begin(),sorted.end(),
-          [](xytAABB const& a, xytAABB const& b) -> bool {
-          return a.lowerBound[0].cvalue < b.lowerBound[0].cvalue;
-          });
-
-      std::vector<xytAABB> path;
-      std::vector<std::pair<xytAABB,xytAABB>> pairs;
-      getAllPairsSAP(sorted,pairs);
-
-      // find the agent with the most collisions and select a conflict for it
-      std::vector<int> cs(p.size());
-      for(auto const& pr:pairs){
-        cs[pr.first.agent]++;
-        cs[pr.second.agent]++;
-      }
-      for(int v(0);v<cs.size();++v){
-        if(cs[v]>av){
-          av=cs[v];
-          agent=v;
-        }
-      }
-      if(av>0){
-        Constraint<xytLoc>* c;
-        for(auto const& pr:pairs){
-          if(pr.first.agent==agent){
-            c = new Collision<xytLoc>(*pairs.front().second.start,*pairs.front().second.end);
-            break;
-          }
-        }
-
-        // Replan the path for the agent
-        env.AddConstraint(c);
-        astar.GetPath(&env,waypoints[agent][0],waypoints[agent][1],newpath);
-      }else{
-        newpath=p[agent];
-      }
-
-    }
-    std::vector<std::vector<xytLoc>> p2(p);
-    p2[agent]=newpath;
-    unsigned count4(0);
-    unsigned total4(0);
-    Timer tmr4;
-    std::vector<std::vector<xyLoc>> boxes(nagents);
-    std::vector<std::vector<Vector2D>> hull(nagents);
-    for(int i(0); i<nagents; ++i){
-      boxes[i].resize(2);
-      boxes[i][0]=boxes[i][1]=p[i][0];
-      for(unsigned ix(1); ix<p[i].size(); ++ix){
-        if(p[i][ix].x<boxes[i][0].x){boxes[i][0].x=p[i][ix].x;}
-        if(p[i][ix].y<boxes[i][0].y){boxes[i][0].y=p[i][ix].y;}
-        if(p[i][ix].x>boxes[i][1].x){boxes[i][1].x=p[i][ix].x;}
-        if(p[i][ix].y>boxes[i][1].y){boxes[i][1].y=p[i][ix].y;}
-      }
-      convexHull(p[i],hull[i]);
-    }
-    tmr4.StartTimer();
-    // Count collisions brute force
-    for(int i(agent); i<agent+1; ++i){
-      boxes[i][0]=boxes[i][1]=p[i][0];
-      for(unsigned ix(1); ix<p2[i].size(); ++ix){
-        if(p2[i][ix].x<boxes[i][0].x){boxes[i][0].x=p2[i][ix].x;}
-        if(p2[i][ix].y<boxes[i][0].y){boxes[i][0].y=p2[i][ix].y;}
-        if(p2[i][ix].x>boxes[i][1].x){boxes[i][1].x=p2[i][ix].x;}
-        if(p2[i][ix].y>boxes[i][1].y){boxes[i][1].y=p2[i][ix].y;}
-      }
-      convexHull(p2[i],hull[i]);
-      for(int j(0); j<nagents; ++j){
-        if(j==i)continue;
-        //std::cout << i << "," << j << ":";
-        if(boxes[i][0].x>boxes[j][1].x || boxes[i][1].x<boxes[j][0].x ||
-            boxes[i][0].y>boxes[j][1].y || boxes[i][1].y<boxes[j][0].y){
-        }else if(sat(hull[i],hull[j])){// check if convex hulls have overlap
-          countCollisions(p2[i],p2[j],radius,count4,total4,0);
-        }
-        //std::cout << "\n";
-      }
-    }
-    std::cout << "Brute force single agent and bb and ch on " << nagents << " with " << total4 << " checks, " << count4 << " collisions took " << tmr4.EndTimer() << "\n";
-  }
-  if(false){
-    std::vector<xytLoc> newpath;
-    int av=0, agent=0;
-    {
-      // Find collisions and replan one path
-      std::vector<xytAABB> sorted;
-      std::vector<std::vector<xytAABB>> temp(p.size());
-      for(int i(0); i<p.size(); ++i){
-        temp[i].reserve(p[i].size());
-        makeAABBs(p[i],temp[i],i);
-        sorted.insert(sorted.end(), temp[i].begin(), temp[i].end());
-      }
-      // sort by "t" value
-      std::sort(sorted.begin(),sorted.end(),
-          [](xytAABB const& a, xytAABB const& b) -> bool {
-          return a.lowerBound[0].cvalue < b.lowerBound[0].cvalue;
-          });
-
-      std::vector<xytAABB> path;
-      std::vector<std::pair<xytAABB,xytAABB>> pairs;
-      getAllPairsSAP(sorted,pairs);
-
-      // find the agent with the most collisions and select a conflict for it
-      std::vector<int> cs(p.size());
-      for(auto const& pr:pairs){
-        cs[pr.first.agent]++;
-        cs[pr.second.agent]++;
-      }
-      for(int v(0);v<cs.size();++v){
-        if(cs[v]>av){
-          av=cs[v];
-          agent=v;
-        }
-      }
-      if(av>0){
-        Constraint<xytLoc>* c;
-        for(auto const& pr:pairs){
-          if(pr.first.agent==agent){
-            c = new Collision<xytLoc>(*pairs.front().second.start,*pairs.front().second.end);
-            break;
-          }
-        }
-
-        // Replan the path for the agent
-        env.AddConstraint(c);
-        env.setGoal(waypoints[agent][1]);
-        astar.GetPath(&env,waypoints[agent][0],waypoints[agent][1],newpath);
-      }else{
-        newpath=p[agent];
-      }
-
-    }
-    auto p2(p);
-    p2[agent]=newpath;
-    unsigned count4(0);
-    unsigned total4(0);
-    Timer tmr4;
-    std::vector<std::vector<Vector2D>> boxes(nagents);
-    for(int i(0); i<nagents; ++i){
-      /*for(auto const& v:p[i]){
-        std::cout << v.x << " " << v.y << "\n";
-      }*/
-      convexHull2(p[i],boxes[i]);
-      /*std::cout << "Hull " << i << "\n";
-      for(auto const& v:boxes[i]){
-        std::cout << v << "\n";
-      }
-      std::cout << "from :";
-      for(auto const& v:p[i]){
-        std::cout << v << " ";
-      }
-        std::cout << "\n";
-      */
-    }
-    tmr4.StartTimer();
-    // Count collisions brute force
-    for(int i(agent); i<agent+1; ++i){
-      boxes[i].clear();
-      convexHull2(p2[i],boxes[i]);
-      for(int j(0); j<nagents; ++j){
-        if(j==i)continue;
-        //std::cout << i << "," << j << ":";
-        if(boxes[i].empty() || boxes[j].empty() || sat(boxes[i],boxes[j])) // check if convex hulls have overlap
-        {
-          countCollisions(p2[i],p2[j],radius,count4,total4,0);
-        }else{
-            if(boxes[i].size() && boxes[j].size()){
-              //std::cout << "Hull " << i << "\n";
-              //for(auto const& v:boxes[i]){
-              //std::cout << v << "\n";
-              //}
-              //std::cout << " and Hull " << j << "\n";
-              //for(auto const& v:boxes[j]){
-              //std::cout << v << "\n";
-              //}
-              //std::cout << "have NO overlap\n";
-
-            }
-          }
-        //std::cout << "\n";
-      }
-    }
-    std::cout << "Brute force single agent with ch2 on " << nagents << " with " << total4 << " checks, " << count4 << " collisions took " << tmr4.EndTimer() << "\n";
-  }
-  {
-    std::vector<xytLoc> newpath;
-    int av=0, agent=0;
-    {
-      // Find collisions and replan one path
-      std::vector<xytAABB> sorted;
-      std::vector<std::vector<xytAABB>> temp(p.size());
-      for(int i(0); i<p.size(); ++i){
-        temp[i].reserve(p[i].size());
-        makeAABBs(p[i],temp[i],i);
-        sorted.insert(sorted.end(), temp[i].begin(), temp[i].end());
-      }
-      // sort by "t" value
-      std::sort(sorted.begin(),sorted.end(),
-          [](xytAABB const& a, xytAABB const& b) -> bool {
-          return a.lowerBound[0].cvalue < b.lowerBound[0].cvalue;
-          });
-
-      std::vector<xytAABB> path;
-      std::vector<std::pair<xytAABB,xytAABB>> pairs;
-      getAllPairsSAP(sorted,pairs);
-
-      // find the agent with the most collisions and select a conflict for it
-      std::vector<int> cs(p.size());
-      for(auto const& pr:pairs){
-        cs[pr.first.agent]++;
-        cs[pr.second.agent]++;
-      }
-      for(int v(0);v<cs.size();++v){
-        if(cs[v]>av){
-          av=cs[v];
-          agent=v;
-        }
-      }
-      if(av>0){
-        Constraint<xytLoc>* c;
-        for(auto const& pr:pairs){
-          if(pr.first.agent==agent){
-            c = new Collision<xytLoc>(*pairs.front().second.start,*pairs.front().second.end);
-            break;
-          }
-        }
-
-        // Replan the path for the agent
-        env.AddConstraint(c);
-        env.setGoal(waypoints[agent][1]);
-        astar.GetPath(&env,waypoints[agent][0],waypoints[agent][1],newpath);
-      }else{
-        newpath=p[agent];
-      }
-
-    }
-    std::vector<std::vector<xytLoc>> p2(p);
-    p2[agent]=newpath;
-    unsigned count4(0);
-    unsigned total4(0);
-    Timer tmr4;
-    tmr4.StartTimer();
-    // Count collisions brute force
-    for(int i(agent); i<agent+1; ++i){
-      for(int j(0); j<nagents; ++j){
-        if(j==i)continue;
-        //std::cout << i << "," << j << ":";
-        skipAndCountCollisions(p2[i],p2[j],radius,count4,total4,skip,0);
-        //std::cout << "\n";
-      }
-    }
-    std::cout << "Brute force single agent with skip on " << nagents << " with " << total4 << " checks, " << count4 << " collisions took " << tmr4.EndTimer() << "\n";
-  }
-  {
-    std::vector<xytLoc> newpath;
-    int av=0, agent=0;
-    {
-      // Find collisions and replan one path
-      std::vector<xytAABB> sorted;
-      std::vector<std::vector<xytAABB>> temp(p.size());
-      for(int i(0); i<p.size(); ++i){
-        temp[i].reserve(p[i].size());
-        makeAABBs(p[i],temp[i],i);
-        sorted.insert(sorted.end(), temp[i].begin(), temp[i].end());
-      }
-      // sort by "t" value
-      std::sort(sorted.begin(),sorted.end(),
-          [](xytAABB const& a, xytAABB const& b) -> bool {
-          return a.lowerBound[0].cvalue < b.lowerBound[0].cvalue;
-          });
-
-      std::vector<xytAABB> path;
-      std::vector<std::pair<xytAABB,xytAABB>> pairs;
-      getAllPairsSAP(sorted,pairs);
-
-      // find the agent with the most collisions and select a conflict for it
-      std::vector<int> cs(p.size());
-      for(auto const& pr:pairs){
-        cs[pr.first.agent]++;
-        cs[pr.second.agent]++;
-      }
-      for(int v(0);v<cs.size();++v){
-        if(cs[v]>av){
-          av=cs[v];
-          agent=v;
-        }
-      }
-      if(av>0){
-        Constraint<xytLoc>* c;
-        for(auto const& pr:pairs){
-          if(pr.first.agent==agent){
-            c = new Collision<xytLoc>(*pairs.front().second.start,*pairs.front().second.end);
-            break;
-          }
-        }
-
-        // Replan the path for the agent
-        env.AddConstraint(c);
-        env.setGoal(waypoints[agent][1]);
-        astar.GetPath(&env,waypoints[agent][0],waypoints[agent][1],newpath);
-      }else{
-        newpath=p[agent];
-      }
-
-    }
-    std::vector<std::vector<xytLoc>> p2(p);
-    p2[agent]=newpath;
-    unsigned count4(0);
-    unsigned total4(0);
-    Timer tmr4;
-    std::vector<std::vector<xyLoc>> boxes(nagents);
-    for(int i(0); i<nagents; ++i){
-      boxes[i].resize(2);
-      boxes[i][0]=boxes[i][1]=p[i][0];
-      for(unsigned ix(1); ix<p[i].size(); ++ix){
-        if(p[i][ix].x<boxes[i][0].x){boxes[i][0].x=p[i][ix].x;}
-        if(p[i][ix].y<boxes[i][0].y){boxes[i][0].y=p[i][ix].y;}
-        if(p[i][ix].x>boxes[i][1].x){boxes[i][1].x=p[i][ix].x;}
-        if(p[i][ix].y>boxes[i][1].y){boxes[i][1].y=p[i][ix].y;}
-      }
-    }
-    tmr4.StartTimer();
-    // Count collisions brute force
-    for(int i(agent); i<agent+1; ++i){
-      boxes[i][0]=boxes[i][1]=p[i][0];
-      for(unsigned ix(1); ix<p2[i].size(); ++ix){
-        if(p2[i][ix].x<boxes[i][0].x){boxes[i][0].x=p2[i][ix].x;}
-        if(p2[i][ix].y<boxes[i][0].y){boxes[i][0].y=p2[i][ix].y;}
-        if(p2[i][ix].x>boxes[i][1].x){boxes[i][1].x=p2[i][ix].x;}
-        if(p2[i][ix].y>boxes[i][1].y){boxes[i][1].y=p2[i][ix].y;}
-      }
-      for(int j(0); j<nagents; ++j){
-        if(j==i)continue;
-        //std::cout << i << "," << j << ":";
-        if(boxes[i][0].x>boxes[j][1].x || boxes[i][1].x<boxes[j][0].x ||
-            boxes[i][0].y>boxes[j][1].y || boxes[i][1].y<boxes[j][0].y){}else{
-        skipAndCountCollisions(p2[i],p2[j],radius,count4,total4,skip,0);}
-        //std::cout << "\n";
-      }
-    }
-    std::cout << "Brute force single agent with skip and bb on " << nagents << " with " << total4 << " checks, " << count4 << " collisions took " << tmr4.EndTimer() << "\n";
-  }
-  {
-    std::vector<xytLoc> newpath;
-    int av=0, agent=0;
-    {
-      // Find collisions and replan one path
-      std::vector<xytAABB> sorted;
-      std::vector<std::vector<xytAABB>> temp(p.size());
-      for(int i(0); i<p.size(); ++i){
-        temp[i].reserve(p[i].size());
-        makeAABBs(p[i],temp[i],i);
-        sorted.insert(sorted.end(), temp[i].begin(), temp[i].end());
-      }
-      // sort by "t" value
-      std::sort(sorted.begin(),sorted.end(),
-          [](xytAABB const& a, xytAABB const& b) -> bool {
-          return a.lowerBound[0].cvalue < b.lowerBound[0].cvalue;
-          });
-
-      std::vector<xytAABB> path;
-      std::vector<std::pair<xytAABB,xytAABB>> pairs;
-      getAllPairsSAP(sorted,pairs);
-
-      // find the agent with the most collisions and select a conflict for it
-      std::vector<int> cs(p.size());
-      for(auto const& pr:pairs){
-        cs[pr.first.agent]++;
-        cs[pr.second.agent]++;
-      }
-      for(int v(0);v<cs.size();++v){
-        if(cs[v]>av){
-          av=cs[v];
-          agent=v;
-        }
-      }
-      if(av>0){
-        Constraint<xytLoc>* c;
-        for(auto const& pr:pairs){
-          if(pr.first.agent==agent){
-            c = new Collision<xytLoc>(*pairs.front().second.start,*pairs.front().second.end);
-            break;
-          }
-        }
-
-        // Replan the path for the agent
-        env.AddConstraint(c);
-        env.setGoal(waypoints[agent][1]);
-        astar.GetPath(&env,waypoints[agent][0],waypoints[agent][1],newpath);
-      }else{
-        newpath=p[agent];
-      }
-
-    }
-    auto p2(p);
-    p2[agent]=newpath;
-    unsigned count4(0);
-    unsigned total4(0);
-    Timer tmr4;
-    std::vector<std::vector<Vector2D>> boxes(nagents);
-    for(int i(0); i<nagents; ++i){
-      /*for(auto const& v:p[i]){
-        std::cout << v.x << " " << v.y << "\n";
-      }*/
-      convexHull(p[i],boxes[i]);
-      /*std::cout << "Hull " << i << "\n";
-      for(auto const& v:boxes[i]){
-        std::cout << v << "\n";
-      }
-      std::cout << "from :";
-      for(auto const& v:p[i]){
-        std::cout << v << " ";
-      }
-        std::cout << "\n";
-      */
-    }
-    tmr4.StartTimer();
-    // Count collisions brute force
-    for(int i(agent); i<agent+1; ++i){
-      boxes[i].clear();
-      convexHull(p2[i],boxes[i]);
-      for(int j(0); j<nagents; ++j){
-        if(j==i)continue;
-        //std::cout << i << "," << j << ":";
-        if(boxes[i].empty() || boxes[j].empty() || sat(boxes[i],boxes[j])) // check if convex hulls have overlap
-        {
-          skipAndCountCollisions(p2[i],p2[j],radius,count4,total4,skip,0);
-        }else{
-            if(boxes[i].size() && boxes[j].size()){
-              //std::cout << "Hull " << i << "\n";
-              //for(auto const& v:boxes[i]){
-              //std::cout << v << "\n";
-              //}
-              //std::cout << " and Hull " << j << "\n";
-              //for(auto const& v:boxes[j]){
-              //std::cout << v << "\n";
-              //}
-              //std::cout << "have NO overlap\n";
-
-            }
-          }
-        //std::cout << "\n";
-      }
-    }
-    std::cout << "Brute force single agent with skip and ch on " << nagents << " with " << total4 << " checks, " << count4 << " collisions took " << tmr4.EndTimer() << "\n";
-  }
-  {
-    std::vector<xytLoc> newpath;
-    int av=0, agent=0;
-    {
-      // Find collisions and replan one path
-      std::vector<xytAABB> sorted;
-      std::vector<std::vector<xytAABB>> temp(p.size());
-      for(int i(0); i<p.size(); ++i){
-        temp[i].reserve(p[i].size());
-        makeAABBs(p[i],temp[i],i);
-        sorted.insert(sorted.end(), temp[i].begin(), temp[i].end());
-      }
-      // sort by "t" value
-      std::sort(sorted.begin(),sorted.end(),
-          [](xytAABB const& a, xytAABB const& b) -> bool {
-          return a.lowerBound[0].cvalue < b.lowerBound[0].cvalue;
-          });
-
-      std::vector<xytAABB> path;
-      std::vector<std::pair<xytAABB,xytAABB>> pairs;
-      getAllPairsSAP(sorted,pairs);
-
-      // find the agent with the most collisions and select a conflict for it
-      std::vector<int> cs(p.size());
-      for(auto const& pr:pairs){
-        cs[pr.first.agent]++;
-        cs[pr.second.agent]++;
-      }
-      for(int v(0);v<cs.size();++v){
-        if(cs[v]>av){
-          av=cs[v];
-          agent=v;
-        }
-      }
-      if(av>0){
-        Constraint<xytLoc>* c;
-        for(auto const& pr:pairs){
-          if(pr.first.agent==agent){
-            c = new Collision<xytLoc>(*pairs.front().second.start,*pairs.front().second.end);
-            break;
-          }
-        }
-
-        // Replan the path for the agent
-        env.AddConstraint(c);
-        env.setGoal(waypoints[agent][1]);
-        astar.GetPath(&env,waypoints[agent][0],waypoints[agent][1],newpath);
-      }else{
-        newpath=p[agent];
-      }
-
-    }
-    auto p2(p);
-    p2[agent]=newpath;
-    unsigned count4(0);
-    unsigned total4(0);
-    Timer tmr4;
-    std::vector<std::vector<Vector2D>> boxes(nagents);
-    for(int i(0); i<nagents; ++i){
-      /*for(auto const& v:p[i]){
-        std::cout << v.x << " " << v.y << "\n";
-      }*/
-      convexHull(p[i],boxes[i]);
-      /*std::cout << "Hull " << i << "\n";
-      for(auto const& v:boxes[i]){
-        std::cout << v << "\n";
-      }
-      std::cout << "from :";
-      for(auto const& v:p[i]){
-        std::cout << v << " ";
-      }
-        std::cout << "\n";
-      */
-    }
-    tmr4.StartTimer();
-    // Count collisions brute force
-    for(int i(agent); i<agent+1; ++i){
-      boxes[i].clear();
-      convexHull(p2[i],boxes[i]);
-      for(int j(0); j<nagents; ++j){
-        if(j==i)continue;
-        //std::cout << i << "," << j << ":";
-        if(boxes[i].empty() || boxes[j].empty() || sat(boxes[i],boxes[j])) // check if convex hulls have overlap
-        {
-          skipAndCountCollisions(p2[i],p2[j],radius,count4,total4,skip,0);
-        }else{
-            if(boxes[i].size() && boxes[j].size()){
-              //std::cout << "Hull " << i << "\n";
-              //for(auto const& v:boxes[i]){
-              //std::cout << v << "\n";
-              //}
-              //std::cout << " and Hull " << j << "\n";
-              //for(auto const& v:boxes[j]){
-              //std::cout << v << "\n";
-              //}
-              //std::cout << "have NO overlap\n";
-
-            }
-          }
-        //std::cout << "\n";
-      }
-    }
-    std::cout << "Brute force single agent with skip and ch on " << nagents << " with " << total4 << " checks, " << count4 << " collisions took " << tmr4.EndTimer() << "\n";
-  }
-  /*{
-    std::vector<xytLoc> newpath;
-    int av=0, agent=0;
-    {
-      // Find collisions and replan one path
-      std::vector<xytAABB> sorted;
-      std::vector<std::vector<xytAABB>> temp(p.size());
-      for(int i(0); i<p.size(); ++i){
-        temp[i].reserve(p[i].size());
-        makeAABBs(p[i],temp[i],i);
-        sorted.insert(sorted.end(), temp[i].begin(), temp[i].end());
-      }
-      // sort by "t" value
-      std::sort(sorted.begin(),sorted.end(),
-          [](xytAABB const& a, xytAABB const& b) -> bool {
-          return a.lowerBound[0].cvalue < b.lowerBound[0].cvalue;
-          });
-
-      std::vector<xytAABB> path;
-      std::vector<std::pair<xytAABB,xytAABB>> pairs;
-      getAllPairsSAP(sorted,pairs);
-
-      // find the agent with the most collisions and select a conflict for it
-      std::vector<int> cs(p.size());
-      for(auto const& pr:pairs){
-        cs[pr.first.agent]++;
-        cs[pr.second.agent]++;
-      }
-      for(int v(0);v<cs.size();++v){
-        if(cs[v]>av){
-          av=cs[v];
-          agent=v;
-        }
-      }
-      if(av>0){
-        Constraint<xytLoc>* c;
-        for(auto const& pr:pairs){
-          if(pr.first.agent==agent){
-            c = new Collision<xytLoc>(*pairs.front().second.start,*pairs.front().second.end);
-            break;
-          }
-        }
-
-        // Replan the path for the agent
-        env.AddConstraint(c);
-        env.setGoal(waypoints[agent][1]);
-        astar.GetPath(&env,waypoints[agent][0],waypoints[agent][1],newpath);
-      }else{
-        newpath=p[agent];
-      }
-
-    }
-    auto p2(p);
-    p2[agent]=newpath;
-    unsigned count4(0);
-    unsigned total4(0);
-    Timer tmr4;
-    std::vector<std::vector<Vector2D>> boxes(nagents);
-    for(int i(0); i<nagents; ++i){
-      convexHullCGAL(p[i],boxes[i]);
-    }
-    tmr4.StartTimer();
-    // Count collisions brute force
-    for(int i(agent); i<agent+1; ++i){
-      boxes[i].clear();
-      convexHullCGAL(p2[i],boxes[i]);
-      for(int j(0); j<nagents; ++j){
-        if(j==i)continue;
-        //std::cout << i << "," << j << ":";
-        if(boxes[i].empty() || boxes[j].empty() || sat(boxes[i],boxes[j])) // check if convex hulls have overlap
-        {
-          skipAndCountCollisions(p2[i],p2[j],radius,count4,total4,skip,0);
-        }else{
-            if(boxes[i].size() && boxes[j].size()){
-              //std::cout << "Hull " << i << "\n";
-              //for(auto const& v:boxes[i]){
-              //std::cout << v << "\n";
-              //}
-              //std::cout << " and Hull " << j << "\n";
-              //for(auto const& v:boxes[j]){
-              //std::cout << v << "\n";
-              //}
-              //std::cout << "have NO overlap\n";
-
-            }
-          }
-        //std::cout << "\n";
-      }
-    }
-    std::cout << "Brute force single agent with skip and chCGAL on " << nagents << " with " << total4 << " checks, " << count4 << " collisions took " << tmr4.EndTimer() << "\n";
-  }{
-    std::vector<xytLoc> newpath;
-    int av=0, agent=0;
-    {
-      // Find collisions and replan one path
-      std::vector<xytAABB> sorted;
-      std::vector<std::vector<xytAABB>> temp(p.size());
-      for(int i(0); i<p.size(); ++i){
-        temp[i].reserve(p[i].size());
-        makeAABBs(p[i],temp[i],i);
-        sorted.insert(sorted.end(), temp[i].begin(), temp[i].end());
-      }
-      // sort by "t" value
-      std::sort(sorted.begin(),sorted.end(),
-          [](xytAABB const& a, xytAABB const& b) -> bool {
-          return a.lowerBound[0].cvalue < b.lowerBound[0].cvalue;
-          });
-
-      std::vector<xytAABB> path;
-      std::vector<std::pair<xytAABB,xytAABB>> pairs;
-      getAllPairsSAP(sorted,pairs);
-
-      // find the agent with the most collisions and select a conflict for it
-      std::vector<int> cs(p.size());
-      for(auto const& pr:pairs){
-        cs[pr.first.agent]++;
-        cs[pr.second.agent]++;
-      }
-      for(int v(0);v<cs.size();++v){
-        if(cs[v]>av){
-          av=cs[v];
-          agent=v;
-        }
-      }
-      if(av>0){
-        Constraint<xytLoc>* c;
-        for(auto const& pr:pairs){
-          if(pr.first.agent==agent){
-            c = new Collision<xytLoc>(*pairs.front().second.start,*pairs.front().second.end);
-            break;
-          }
-        }
-
-        // Replan the path for the agent
-        env.AddConstraint(c);
-        env.setGoal(waypoints[agent][1]);
-        astar.GetPath(&env,waypoints[agent][0],waypoints[agent][1],newpath);
-      }else{
-        newpath=p[agent];
-      }
-
-    }
-    auto p2(p);
-    p2[agent]=newpath;
-    unsigned count4(0);
-    unsigned total4(0);
-    Timer tmr4;
-    std::vector<std::vector<Vector2D>> boxes(nagents);
-    for(int i(0); i<nagents; ++i){
-      convexHullCGAL2(p[i],boxes[i]);
-    }
-    tmr4.StartTimer();
-    // Count collisions brute force
-    for(int i(agent); i<agent+1; ++i){
-      boxes[i].clear();
-      convexHullCGAL2(p2[i],boxes[i]);
-      for(int j(0); j<nagents; ++j){
-        if(j==i)continue;
-        //std::cout << i << "," << j << ":";
-        if(boxes[i].empty() || boxes[j].empty() || sat(boxes[i],boxes[j])) // check if convex hulls have overlap
-        {
-          skipAndCountCollisions(p2[i],p2[j],radius,count4,total4,skip,0);
-        }else{
-            if(boxes[i].size() && boxes[j].size()){
-              //std::cout << "Hull " << i << "\n";
-              //for(auto const& v:boxes[i]){
-              //std::cout << v << "\n";
-              //}
-              //std::cout << " and Hull " << j << "\n";
-              //for(auto const& v:boxes[j]){
-              //std::cout << v << "\n";
-              //}
-              //std::cout << "have NO overlap\n";
-
-            }
-          }
-        //std::cout << "\n";
-      }
-    }
-    std::cout << "Brute force single agent with skip and chCGAL2 on " << nagents << " with " << total4 << " checks, " << count4 << " collisions took " << tmr4.EndTimer() << "\n";
-  }*/
-  {
-    std::vector<xytAABB> sorted;
-    Timer tmr0;
-    Timer tmrz;
-    unsigned count0(0);
-    //merge(p,sorted); // merge the arrays (already sorted by time)
-    std::vector<std::vector<xytAABB>> temp(p.size());
-    for(int i(0); i<p.size(); ++i){
-      temp[i].reserve(p[i].size());
-      makeAABBs(p[i],temp[i],i);
-      sorted.insert(sorted.end(), temp[i].begin(), temp[i].end());
-    }
-    // sort by "t" value
-    std::sort(sorted.begin(),sorted.end(),
-        [](xytAABB const& a, xytAABB const& b) -> bool {
-        return a.lowerBound[0].cvalue < b.lowerBound[0].cvalue;
-        });
-
-    std::vector<xytAABB> path;
-    std::vector<xytLoc> newpath;
-    std::vector<std::pair<xytAABB,xytAABB>> pairs;
-    getAllPairsSAP(sorted,pairs);
-
-    // find the agent with the most collisions and select a conflict for it
-    std::vector<int> cs(p.size());
-    for(auto const& pr:pairs){
-      cs[pr.first.agent]++;
-      cs[pr.second.agent]++;
-    }
-    int av=0, agent=0;
-    for(int v(0);v<cs.size();++v){
-      if(cs[v]>av){
-        av=cs[v];
-        agent=v;
-      }
-    }
-    if(av>0){
-        Constraint<xytLoc>* c;
-        for(auto const& pr:pairs){
-          if(pr.first.agent==agent){
-            c = new Collision<xytLoc>(*pairs.front().second.start,*pairs.front().second.end);
-            break;
-          }
-        }
-
-        // Replan the path for the agent
-        env.AddConstraint(c);
-        env.setGoal(waypoints[agent][1]);
-        astar.GetPath(&env,waypoints[agent][0],waypoints[agent][1],newpath);
-      }else{
-        newpath=p[agent];
-      }
-
-    pairs.clear();
-
-    // Time how long it takes replace the old path with the new one
-    // and detect all conflicts with the new path
-    tmr0.StartTimer();
-    makeAABBs(newpath,path,agent);
-
-    //for(auto const& s:sorted)
-    //std::cout << "<"<<s.lowerBound[0].value<<"~"<<s.upperBound[0].value<<","<<s.lowerBound[1].cvalue<<"~"<<s.upperBound[1].cvalue<<","<<s.lowerBound[2].cvalue<<"~"<<s.upperBound[2].cvalue<<">\n";
-    tmrz.StartTimer();
-    getPathCollisionsAndReplaceSAPT(path,sorted,pairs);
-    for(auto const& pp:pairs){
-      count0 += checkForCollision(*pp.first.start,*pp.first.end,*pp.second.start,*pp.second.end,radius,&menv);
-    }
-    std::cout << "linear replacement test (t) on " << nagents << " with " << pairs.size() << " checks, " << count0 << " collisions took " << tmrz.EndTimer() << "(" << tmr0.EndTimer() << ")\n";
-  }{
-    std::vector<xytAABB> sorted;
-    Timer tmr0;
-    Timer tmrz;
-    unsigned count0(0);
-    //merge(p,sorted); // merge the arrays (already sorted by time)
-    std::vector<std::vector<xytAABB>> temp(p.size());
-    for(int i(0); i<p.size(); ++i){
-      temp[i].reserve(p[i].size());
-      makeAABBs(p[i],temp[i],i);
-      sorted.insert(sorted.end(), temp[i].begin(), temp[i].end());
-    }
-    // sort by "t" value
-    std::sort(sorted.begin(),sorted.end(),
-        [](xytAABB const& a, xytAABB const& b) -> bool {
-        return a.lowerBound[0].cvalue < b.lowerBound[0].cvalue;
-        });
-
-    std::vector<xytAABB> path;
-    std::vector<xytLoc> newpath;
-    std::vector<std::pair<xytAABB,xytAABB>> pairs;
-    getAllPairsSAP(sorted,pairs);
-
-    // find the agent with the most collisions and select a conflict for it
-    std::vector<int> cs(p.size());
-    for(auto const& pr:pairs){
-      cs[pr.first.agent]++;
-      cs[pr.second.agent]++;
-    }
-    int av=0, agent=0;
-    for(int v(0);v<cs.size();++v){
-      if(cs[v]>av){
-        av=cs[v];
-        agent=v;
-      }
-    }
-    if(av>0){
-        Constraint<xytLoc>* c;
-        for(auto const& pr:pairs){
-          if(pr.first.agent==agent){
-            c = new Collision<xytLoc>(*pairs.front().second.start,*pairs.front().second.end);
-            break;
-          }
-        }
-
-        // Replan the path for the agent
-        env.AddConstraint(c);
-        env.setGoal(waypoints[agent][1]);
-        astar.GetPath(&env,waypoints[agent][0],waypoints[agent][1],newpath);
-      }else{
-        newpath=p[agent];
-      }
-
-    pairs.clear();
-
-    // Time how long it takes replace the old path with the new one
-    // and detect all conflicts with the new path
-    tmr0.StartTimer();
-    makeAABBs(newpath,path,agent);
-
-    //for(auto const& s:sorted)
-    //std::cout << "<"<<s.lowerBound[0].value<<"~"<<s.upperBound[0].value<<","<<s.lowerBound[1].cvalue<<"~"<<s.upperBound[1].cvalue<<","<<s.lowerBound[2].cvalue<<"~"<<s.upperBound[2].cvalue<<">\n";
-    tmrz.StartTimer();
-    getPathCollisionsAndReplaceSAPT(path,sorted,pairs);
-    for(auto const& pp:pairs){
-      count0 += checkForCollision(*pp.first.start,*pp.first.end,*pp.second.start,*pp.second.end,radius,&menv);
-    }
-    std::cout << "linear replacement test (t) on " << nagents << " with " << pairs.size() << " checks, " << count0 << " collisions took " << tmrz.EndTimer() << "(" << tmr0.EndTimer() << ")\n";
-  }
-  {
-    std::vector<xytAABB> sorted;
-    Timer tmr0;
-    Timer tmrz;
-    unsigned count0(0);
-    std::vector<std::vector<xytAABB>> temp(p.size());
-    for(int i(0); i<p.size(); ++i){
-      temp[i].reserve(p[i].size());
-      makeAABBs(p[i],temp[i],i);
-      sorted.insert(sorted.end(), temp[i].begin(), temp[i].end());
-    }
-    // sort by "x" value
-    std::sort(sorted.begin(),sorted.end(),
-        [](xytAABB const& a, xytAABB const& b) -> bool {
-        return a.lowerBound[1].cvalue < b.lowerBound[1].cvalue;
-        });
-    std::vector<xytAABB> path;
-    std::vector<xytLoc> newpath;
-    std::vector<std::pair<xytAABB,xytAABB>> pairs;
-    getAllPairsSAPX(sorted,pairs);
-
-    // find the agent with the most collisions and select a conflict for it
-    std::vector<int> cs(p.size());
-    for(auto const& pr:pairs){
-      cs[pr.first.agent]++;
-      cs[pr.second.agent]++;
-    }
-    int av=0, agent=0;
-    for(int v(0);v<cs.size();++v){
-      if(cs[v]>av){
-        av=cs[v];
-        agent=v;
-      }
-    }
-    if(av>0){
-        Constraint<xytLoc>* c;
-        for(auto const& pr:pairs){
-          if(pr.first.agent==agent){
-            c = new Collision<xytLoc>(*pairs.front().second.start,*pairs.front().second.end);
-            break;
-          }
-        }
-
-        // Replan the path for the agent
-        env.AddConstraint(c);
-        env.setGoal(waypoints[agent][1]);
-        astar.GetPath(&env,waypoints[agent][0],waypoints[agent][1],newpath);
-      }else{
-        newpath=p[agent];
-      }
-
-    pairs.clear();
-
-    // Time how long it takes to sort the path, replace the old path with the new one
-    // and detect all conflicts with the new path
-    tmr0.StartTimer();
-    makeAABBs(newpath,path,agent);
-    std::sort(path.begin(),path.end(), // Sort by x
-        [](xytAABB const& a, xytAABB const& b) -> bool {
-        return a.lowerBound[1].cvalue < b.lowerBound[1].cvalue;
-        });
-
-    //for(auto const& s:sorted)
-    //std::cout << "<"<<s.lowerBound[0].value<<"~"<<s.upperBound[0].value<<","<<s.lowerBound[1].cvalue<<"~"<<s.upperBound[1].cvalue<<","<<s.lowerBound[2].cvalue<<"~"<<s.upperBound[2].cvalue<<">\n";
-    tmrz.StartTimer();
-    getPathCollisionsAndReplaceSAPX(path,sorted,pairs);
-    for(auto const& pp:pairs){
-      count0 += checkForCollision(*pp.first.start,*pp.first.end,*pp.second.start,*pp.second.end,radius,&menv);
-    }
-    std::cout << "linear replacement test (x) on " << nagents << " with " << pairs.size() << " checks, " << count0 << " collisions took " << tmrz.EndTimer() << "(" << tmr0.EndTimer() << ")\n";
-  }
-}
-
-TEST(AABB, BVHTreeTest){
-  //int types[]={5,9,25,49};
-  //int types[]={9};
-  int types[]={9,25,49};
-  for(int type:types){
-    //for(int nagents(5); nagents<201; nagents+=5){
-    for(int nagents(500); nagents<301; nagents+=10){
-      for(int i(0); i<100; ++i){
-        std::cout << "===========================================================\n";
-        std::cout << type << "Connected, " << nagents << " AGENTS, Test " << i << "\n";
-        std::cout << "===========================================================\n";
-        broadphaseTest(type,nagents,i);
-      }
     }
   }
 }

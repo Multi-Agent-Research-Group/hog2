@@ -248,7 +248,6 @@ void GetFullPath(CBSUnit<state, action, comparison, conflicttable, searchalgo>* 
 
   // Perform search for all legs
   unsigned offset(0);
-  comparison::currentEnv = (ConstrainedEnvironment<state, action>*) env.environment.get();
   if (comparison::useCAT) {
     comparison::openList = astar.GetOpenList();
     comparison::currentAgent = agent;
@@ -1831,7 +1830,7 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
   if(comparison::useCAT && this->GetNumMembers() < 2){
     tree[0].cat = conflicttable();
   // We add the optimal path to the root of the tree
-    tree[0].cat.insert(*tree[0].paths.back(), currentEnvironment[theUnit]->environment.get(), tree[0].paths.size() - 1);
+    tree[0].cat.set(&tree[0].paths);
   }
   //StayAtGoal(0); // Do this every time a unit is added because these updates are taken into consideration by the CAT
 
@@ -1894,7 +1893,7 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
   if(comparison::useCAT && this->GetNumMembers() < 2){
     tree[0].cat = conflicttable();
   // We add the optimal path to the root of the tree
-    tree[0].cat.insert(*tree[0].paths.back(), currentEnvironment[theUnit]->environment.get(), tree[0].paths.size() - 1);
+    tree[0].cat.set(&tree[0].paths);
   }
   //StayAtGoal(0); // Do this every time a unit is added because these updates are taken into consideration by the CAT
 
@@ -2205,14 +2204,9 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
     //astar.GetPath(currentEnvironment[theUnit]->environment, start, goal, thePath);
     //std::vector<state> thePath(tree[location].paths[theUnit]);
     comparison::openList = astar.GetOpenList();
-    comparison::currentEnv = (ConstrainedEnvironment<state, action>*) currentEnvironment[theUnit]->environment.get();
     comparison::currentAgent = theUnit;
     comparison::CAT = &(tree[location].cat);
     comparison::CAT->set(&tree[location].paths);
-
-    if (comparison::useCAT) {
-      comparison::CAT->remove(*tree[location].paths[theUnit], currentEnvironment[theUnit]->environment.get(), theUnit);
-    }
 
     unsigned minTime(0);
     // If this is the last waypoint, the plan needs to extend so that the agent sits at the final goal
@@ -2258,11 +2252,6 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
         Util::convexHull<state>(*tree[location].paths[theUnit],*tree[location].polygons[theUnit]);
       }
     }
-
-    // Add the path back to the tree (new constraint included)
-    //tree[location].paths[theUnit].resize(0);
-    if (comparison::useCAT)
-      comparison::CAT->insert(*tree[location].paths[theUnit], currentEnvironment[theUnit]->environment.get(), theUnit);
 
     /*for(int i(0); i<thePath.size(); ++i) {
       tree[location].paths[theUnit].push_back(thePath[i]);
@@ -2313,11 +2302,6 @@ void CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
           tree[location].satisfiable = false;
           break;
         }
-
-        // Add the path back to the tree (new constraint included)
-        //tree[location].paths[theUnit].resize(0);
-        if (comparison::useCAT)
-          comparison::CAT->insert(*tree[location].paths[theUnit], currentEnvironment[theUnit]->environment.get(), theUnit);
       }
     } else {
       tree[location].satisfiable = false;
@@ -2481,14 +2465,6 @@ bool CBSGroup<state, action, comparison, conflicttable, maplanner, singleHeurist
   CBSUnit<state, action, comparison, conflicttable, searchalgo> *c(
       (CBSUnit<state, action, comparison, conflicttable, searchalgo>*) this->GetMember(x));
 
-/*
-  comparison::currentEnv = (ConstrainedEnvironment<state, action>*) currentEnvironment[x]->environment;
-  comparison::currentAgent = x;
-
-  if (comparison::useCAT) {
-    comparison::CAT->remove(*location.paths[x], currentEnvironment[x]->environment, x);
-  }
-*/
   static std::vector<state> thePath;
   thePath.resize(0);
   GetFullPath<state,action,comparison,conflicttable,searchalgo,singleHeuristic>(c, astar, *currentEnvironment[x], thePath, location.wpts[x], location.paths[y]->back().t, x, replanTime, TOTAL_EXPANSIONS);

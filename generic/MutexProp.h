@@ -385,9 +385,9 @@ template <typename state> class ActionPairCIter;
 template<typename state>
 class ActionPair: public std::pair<Action<state>,Action<state>>{
   public:
-    ActionPair():std::pair<Action<state>,Action<state>>(),t(0),sz(0),feasible(true){}
-    ActionPair(Action<state>const&a,Action<state> const&b,bool f=true):std::pair<Action<state>,Action<state>>(a,b),t(std::min(a.t,b.t)),sz(2),feasible(f){}
-    ActionPair(state const& a, state const& b, state const& c, state const& d):std::pair<Action<state>,Action<state>>(Action<state>(a,b),Action<state>(c,d)),t(std::min(b.t,d.t)),sz(2),feasible(true){}
+    ActionPair():std::pair<Action<state>,Action<state>>(),t(0),sz(0),feasible(true),nc(-1){}
+    ActionPair(Action<state>const&a,Action<state> const&b,bool f=true):std::pair<Action<state>,Action<state>>(a,b),t(std::min(a.t,b.t)),nc(-1),sz(2),feasible(f){}
+    ActionPair(state const& a, state const& b, state const& c, state const& d):std::pair<Action<state>,Action<state>>(Action<state>(a,b),Action<state>(c,d)),t(std::min(b.t,d.t)),nc(-1),sz(2),feasible(true){}
     friend class ActionPairIter<state>;
     friend class ActionPairCIter<state>;
 
@@ -413,6 +413,7 @@ class ActionPair: public std::pair<Action<state>,Action<state>>{
 
     size_t sz;
     uint32_t t;
+    int32_t nc;
     bool feasible; // Infeasible because of itself or parents
 };
 
@@ -1256,6 +1257,128 @@ bool disappear=true, bool OD=false){
   return result;
 }
 
+template <typename state>
+class MultiAgentAStarOpenClosedData : public AStarOpenClosedData<ActionPair<state>>
+{
+  public:
+    MultiAgentAStarOpenClosedData() : AStarOpenClosedData<ActionPair<state>>() {}
+    MultiAgentAStarOpenClosedData(const ActionPair<state> &theData,
+                                  double gg1,
+                                  double gg2,
+                                  double hh1,
+                                  double hh2,
+                                  uint64_t parent,
+                                  uint64_t openLoc,
+                                  dataLocation location)
+        : AStarOpenClosedData<ActionPair<state>>(theData, gg1 + gg2, hh1 + hh2, parent, openLoc, location), g1(gg1), g2(gg2), h1(hh1), h2(hh2) {}
+    MultiAgentAStarOpenClosedData(const ActionPair<state> &theData,
+                                  double g,
+                                  double h,
+                                  uint64_t parent,
+                                  uint64_t openLoc,
+                                  dataLocation location)
+         {assert(!"ERROR!: 6-argument ctor is not allowed! Use the 8-arg ctor.");}
+    double g1, g2, h1, h2;
+  };
+
+
+  // This comparison function will push candidates that are above the limits to the back.
+  // This is tricky because:
+  //    waiting at the goal adds no additional cost
+  //    we have to watch whether individual f-costs go above the limit, if they do
+  //    then there is no feasible solution inside the limits
+  // What about re-using the open list? (continuing the search where we left off)
+  //    1) the primary prioritization has now changed because of the limits so
+  //       we have to ensure that new limits are geq old limits.
+  //    2) we may be working in an old plateau still - that means that we have to ignore
+  //       everything until we reach a new plateau
+  // So we need both individual limits (for prioritization) and SOC limit (for plateau)
+  // individual lower-bounds do not sort open, but serve as goal test criteria.
+  /*struct AStarCompare
+  {
+    static double ub1;
+    static double ub2;
+    bool operator()(const MultiAgentAStarOpenClosedData &i1,
+                    const MultiAgentAStarOpenClosedData &i2) const
+    {
+      if (fequal(i1.g + i1.h, i2.g + i2.h))
+      {
+        if (i1.data.feasible == i2.data.feasible)
+        {
+          return (fless(i1.g, i2.g));
+        }
+        return i1.data.feasible < i2.data.feasible;
+      }
+      return (fgreater(i1.g + i1.h, i2.g + i2.h));
+    }
+  };*/
+
+// Check if an openlist node conflicts with a node from an existing path
+template<typename state>
+unsigned checkForTheConflict(state const*const parent, state const*const node, state const*const pathParent, state const*const pathNode, float rad1){
+  if (collisionCheck2D(*parent, *node, *pathParent, *pathNode, rad1, rad1))
+  {
+    return 1;
+  }
+  return 0;
+}
+
+template <typename state>
+class CATTieBreaking
+{
+public:
+  bool operator()(const MultiAgentAStarOpenClosedData<state> &ci1, const MultiAgentAStarOpenClosedData<state> &ci2) const
+  {
+    // Sort according to F-cost
+    if (fequal(ci1.g + ci1.h, ci2.g + ci2.h))
+    {
+      // Tie break toward feasible solutions
+      if (ci1.data.feasible == ci2.data.feasible)
+      {
+        // Tie break toward fewer number of conflicts
+        if (ci1.data.nc == ci2.data.nc)
+        {
+          // Tie break toward greater gcost
+          if (fequal(ci1.g, ci2.g))
+          {
+            if (randomalg && ci1.data.t == ci2.data.t)
+            {
+              return rand() % 2;
+            }
+            // Tie-break toward greater time (relevant for waiting at goal)
+            return ci1.data.t < ci2.data.t;
+          }
+          return (fless(ci1.g, ci2.g));
+        }
+        return ci1.data.nc > ci2.data.nc;
+      }
+      return ci1.data.feasible < ci2.data.feasible;
+    }
+    return fgreater(ci1.g + ci1.h, ci2.g + ci2.h);
+  }
+  static AStarOpenClosed<state, TemporalAStarPairCompare<state>, AStarOpenClosedData<state>> *openList;
+  static std::vector<uint32_t> currentAgents;
+  static unsigned collchecks;
+  static bool randomalg;
+  static bool useCAT;
+  static UniversalConflictAvoidanceTable<state> CAT; // Conflict Avoidance Table
+  static double agentRadius;
+};
+
+template <typename state>
+AStarOpenClosed<state,TemporalAStarPairCompare<state>,AStarOpenClosedData<state>>* CATTieBreaking<state>::openList=0;
+template <typename state>
+std::vector<uint32_t> CATTieBreaking<state>::currentAgents(2);
+template <typename state>
+unsigned CATTieBreaking<state>::collchecks=0;
+template <typename state>
+bool CATTieBreaking<state>::randomalg=false;
+template <typename state>
+bool CATTieBreaking<state>::useCAT=false;
+template <typename state>
+double CATTieBreaking<state>::agentRadius=0.25;
+template <typename state>
+UniversalConflictAvoidanceTable<state> CATTieBreaking<state>::CAT;
 
 // A structure which represents the current state of a pairwise search
 // It is clonable so that the search can be continued where left off
@@ -1309,10 +1432,11 @@ struct PairwiseConstrainedSearch
     //env = MultiEnv(envs);
     //open.Reset(env->GetMaxHash());
     ActionPair<state> s(s1,s1, s2,s2);
-    MultiAgentAStarOpenClosedData data(s,0,0,
+    MultiAgentAStarOpenClosedData<state> data(s,0,0,
                                    heus[0]->HCost(s1, g1),
                                    heus[1]->HCost(s2, g2),
                          0,open.theHeap.size(), kOpenList);
+    data.data.nc = 0; // We assume that the root has no conflicts with other agents
     open.AddOpenNode(data,GetHash(s,0,0));
     for (auto const &e : envs)
     {
@@ -1382,62 +1506,7 @@ struct PairwiseConstrainedSearch
   const int MAXTIME=1000 * state::TIME_RESOLUTION_U;
   std::vector<double> radii;
 
-  class MultiAgentAStarOpenClosedData : public AStarOpenClosedData<ActionPair<state>>
-  {
-  public:
-    MultiAgentAStarOpenClosedData() : AStarOpenClosedData<ActionPair<state>>() {}
-    MultiAgentAStarOpenClosedData(const ActionPair<state> &theData,
-                                  double gg1,
-                                  double gg2,
-                                  double hh1,
-                                  double hh2,
-                                  uint64_t parent,
-                                  uint64_t openLoc,
-                                  dataLocation location)
-        : AStarOpenClosedData<ActionPair<state>>(theData, gg1 + gg2, hh1 + hh2, parent, openLoc, location), g1(gg1), g2(gg2), h1(hh1), h2(hh2) {}
-    MultiAgentAStarOpenClosedData(const ActionPair<state> &theData,
-                                  double g,
-                                  double h,
-                                  uint64_t parent,
-                                  uint64_t openLoc,
-                                  dataLocation location)
-         {assert(!"ERROR!: 6-argument ctor is not allowed! Use the 8-arg ctor.");}
-    double g1, g2, h1, h2;
-  };
-
-
-  // This comparison function will push candidates that are above the limits to the back.
-  // This is tricky because:
-  //    waiting at the goal adds no additional cost
-  //    we have to watch whether individual f-costs go above the limit, if they do
-  //    then there is no feasible solution inside the limits
-  // What about re-using the open list? (continuing the search where we left off)
-  //    1) the primary prioritization has now changed because of the limits so
-  //       we have to ensure that new limits are geq old limits.
-  //    2) we may be working in an old plateau still - that means that we have to ignore
-  //       everything until we reach a new plateau
-  // So we need both individual limits (for prioritization) and SOC limit (for plateau)
-  // individual lower-bounds do not sort open, but serve as goal test criteria.
-  struct AStarCompare
-  {
-    static double ub1;
-    static double ub2;
-    bool operator()(const MultiAgentAStarOpenClosedData &i1,
-                    const MultiAgentAStarOpenClosedData &i2) const
-    {
-      if (fequal(i1.g + i1.h, i2.g + i2.h))
-      {
-        if (i1.data.feasible == i2.data.feasible)
-        {
-          return (fless(i1.g, i2.g));
-        }
-        return i1.data.feasible < i2.data.feasible;
-      }
-      return (fgreater(i1.g + i1.h, i2.g + i2.h));
-    }
-  };
-
-  AStarOpenClosed<ActionPair<state>, AStarCompare, MultiAgentAStarOpenClosedData> open;
+  AStarOpenClosed<ActionPair<state>, CATTieBreaking<state>, MultiAgentAStarOpenClosedData<state>> open;
 
   // Get hash for a single two-agent state
   uint64_t GetHash(state const &first,
@@ -1555,8 +1624,6 @@ struct PairwiseConstrainedSearch
 
   void getRangesAndConstraints()
   {
-    AStarCompare::ub1 = ub1;
-    AStarCompare::ub2 = ub2;
     //check feasibility
     paths.resize(0);
     paths.push_back(std::vector<std::vector<state>>(2,std::vector<state>()));
@@ -1781,6 +1848,30 @@ struct PairwiseConstrainedSearch
         auto const &ec2(ecs[1][j]);
         crossProduct.emplace_back(a1, a2, s.feasible);
         auto &n(crossProduct.back());
+        if (CATTieBreaking<state>::useCAT)
+        {
+          // Compute cumulative conflicts
+          static std::vector<state const *> matches;
+          matches.clear();
+          //std::cout << "Getting NC for " << i1.data << ":\n";
+          CATTieBreaking<state>::CAT.get(n.t, std::max(n.first.second.t, n.second.second.t), matches, CATTieBreaking<state>::currentAgents);
+
+          // Get number of conflicts in the parent
+          unsigned nc1(s.nc);
+          //std::cout << "  matches " << matches.size() << "\n";
+
+          // Count number of conflicts
+          for (unsigned m(1); m < matches.size(); ++m)
+          {
+            nc1 += collisionCheck2D(n.first.first, n.first.second, *matches[m - 1], *matches[m], radii[0],radii[0]);
+            nc1 += collisionCheck2D(n.second.first, n.second.second, *matches[m - 1], *matches[m], radii[1],radii[1]);
+            //if(!nc2){std::cout << "NO ";}
+            //std::cout << "conflict(2): " << i2.data << " " << n << "\n";
+          }
+          // Set the number of conflicts in the data object
+          n.nc = nc1;
+        }
+
         if (s.feasible)
         {
           // Check for conflict...
@@ -1793,20 +1884,10 @@ struct PairwiseConstrainedSearch
           }
           else
           {
-            // Check general case - Agents in "free" motion
-            Vector2D A(a1.first.x, a1.first.y);
-            Vector2D B(a2.first.x, a2.first.y);
-            Vector2D VA(a1.second.x - a1.first.x, a1.second.y - a1.first.y);
-            VA.Normalize();
-            Vector2D VB(a2.second.x - a2.first.x, a2.second.y - a2.first.y);
-            VB.Normalize();
             //std::cout<<"Checking:"<<current[j].first << "-->"<< current[j].second <<", " << positions[agent][i].first << "-->"<< positions[agent][i].second << "\n";
-            if (collisionImminent(A, VA, radii[0],
-                                  a1.first.t / state::TIME_RESOLUTION_D,
-                                  a1.second.t / state::TIME_RESOLUTION_D,
-                                  B, VB, radii[1],
-                                  a2.first.t / state::TIME_RESOLUTION_D,
-                                  a2.second.t / state::TIME_RESOLUTION_D))
+            if (collisionCheck2D(a1.first, a1.second,
+                                 a2.first, a2.second,
+                                 radii[0], radii[1]))
             {
               n.feasible = false;
             }
@@ -1992,7 +2073,7 @@ struct PairwiseConstrainedSearch
             // Add to open :)
             if(gg1+h1<ub1 && gg2+h2<ub2)
             {
-            MultiAgentAStarOpenClosedData data(n, gg1, gg2, h1, h2,
+            MultiAgentAStarOpenClosedData<state> data(n, gg1, gg2, h1, h2,
                                                nodeid, open.theHeap.size(), kOpenList);
             open.AddOpenNode(data, hash);
             //open.Lookup(hash, theID);
@@ -2234,10 +2315,6 @@ struct PairwiseConstrainedSearch
 }
 
 };
-template <typename environ, typename state, typename action>
-double PairwiseConstrainedSearch<environ,state,action>::AStarCompare::ub1 = ub1;
-template <typename environ, typename state, typename action>
-double PairwiseConstrainedSearch<environ,state,action>::AStarCompare::ub2 = ub2;
 
 //template <typename environ, typename state>
 //inline std::ostream &operator<<(std::ostream &os, typename PairwiseConstrainedSearch<environ, state>::MultiAgentAStarOpenClosedData const &ma)

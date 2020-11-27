@@ -24,7 +24,7 @@
 
 #include "ConflictAvoidanceTable.h"
 #include "BucketHash.h"
-#include <set>
+
 
 struct IntervalData{
   IntervalData(uint64_t h1, uint64_t h2, uint8_t a):hash1(h1),hash2(h2),agent(a){}

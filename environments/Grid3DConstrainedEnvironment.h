@@ -134,7 +134,7 @@ unsigned checkForTheConflict(state const*const parent, state const*const node, s
 }
 
 
-template <typename state, typename action>
+template <typename state>
 class TieBreaking3D {
   public:
 
@@ -142,64 +142,57 @@ class TieBreaking3D {
   {
     if (fequal(ci1.g+ci1.h, ci2.g+ci2.h)) // F-cost equal
     {
-
-      if(useCAT && CAT){
+      if(useCAT && CAT)
+      {
         // Make them non-const :)
         AStarOpenClosedData<state>& i1(const_cast<AStarOpenClosedData<state>&>(ci1));
         AStarOpenClosedData<state>& i2(const_cast<AStarOpenClosedData<state>&>(ci2));
         // Compute cumulative conflicts (if not already done)
-        ConflictSet matches;
-        if(i1.data.nc ==-1){
-          //std::cout << "Getting NC for " << i1.data << ":\n";
-          CAT->get(i1.data.t,i1.data.t+xyztLoc::TIME_RESOLUTION_U,matches);
-
+        std::vector<state const*> matches;
+        if(i1.data.nc ==-1)
+        {
           // Get number of conflicts in the parent
           state const*const parent1(i1.parentID?&(openList->Lookat(i1.parentID).data):nullptr);
-          unsigned nc1(parent1?parent1->nc:0);
-          //std::cout << "  matches " << matches.size() << "\n";
+          if(parent1)
+          {
+            //std::cout << "Getting NC for " << i1.data << ":\n";
+            CAT->get(parent1->t, i1.data.t, matches, currentAgent);
+            unsigned nc1(parent1 ? parent1->nc : 0);
+            //std::cout << "  matches " << matches.size() << "\n";
 
-          // Count number of conflicts
-          for(auto const& m: matches){
-            if(currentAgent == m.agent) continue;
-            state p;
-            currentEnv->GetStateFromHash(m.hash1,p);
-            //p.t=m.start;
-            state n;
-            currentEnv->GetStateFromHash(m.hash2,n);
-            //n.t=m.stop;
-            collchecks++;
-            nc1+=checkForConflict(parent1,&i1.data,&p,&n,agentRadius);
-            //if(!nc1){std::cout << "NO ";}
-            //std::cout << "conflict(1): " << i1.data << " " << n << "\n";
+            // Count number of conflicts
+            for (unsigned m(1); m < matches.size(); ++m)
+            {
+              collchecks++;
+              nc1 += checkForConflict(parent1, &i1.data, matches[m - 1], matches[m], agentRadius);
+              //if(!nc1){std::cout << "NO ";}
+              //std::cout << "conflict(1): " << i1.data << " " << n << "\n";
+            }
+            // Set the number of conflicts in the data object
+            i1.data.nc = nc1;
           }
-          // Set the number of conflicts in the data object
-          i1.data.nc=nc1;
         }
         if(i2.data.nc ==-1){
           //std::cout << "Getting NC for " << i2.data << ":\n";
-          CAT->get(i2.data.t,i2.data.t+xyztLoc::TIME_RESOLUTION_U,matches);
-
           // Get number of conflicts in the parent
           state const*const parent2(i2.parentID?&(openList->Lookat(i2.parentID).data):nullptr);
-          unsigned nc2(parent2?parent2->nc:0);
-          //std::cout << "  matches " << matches.size() << "\n";
+          if(parent2)
+          {
+            CAT->get(parent2->t, i2.data.t, matches, currentAgent);
+            unsigned nc2(parent2 ? parent2->nc : 0);
+            //std::cout << "  matches " << matches.size() << "\n";
 
-          // Count number of conflicts
-          for(auto const& m: matches){
-            if(currentAgent == m.agent) continue;
-            state p;
-            currentEnv->GetStateFromHash(m.hash2,p);
-            //p.t=m.start;
-            state n;
-            currentEnv->GetStateFromHash(m.hash2,n);
-            //n.t=m.stop;
-            collchecks++;
-            nc2+=checkForConflict(parent2,&i2.data,&p,&n,agentRadius);
-            //if(!nc2){std::cout << "NO ";}
-            //std::cout << "conflict(2): " << i2.data << " " << n << "\n";
+            // Count number of conflicts
+            for (unsigned m(1); m < matches.size(); ++m)
+            {
+              collchecks++;
+              nc2 += checkForConflict(parent2, &i2.data, matches[m - 1], matches[m], agentRadius);
+              //if(!nc2){std::cout << "NO ";}
+              //std::cout << "conflict(2): " << i2.data << " " << n << "\n";
+            }
+            // Set the number of conflicts in the data object
+            i2.data.nc = nc2;
           }
-          // Set the number of conflicts in the data object
-          i2.data.nc=nc2;
         }
         if(fequal(i1.data.nc,i2.data.nc)){
           if(fequal(ci1.g,ci2.g)){
@@ -221,34 +214,31 @@ class TieBreaking3D {
         return (fless(ci1.g, ci2.g));  // Tie-break toward greater g-cost
       }
     }
-    return (fgreater(ci1.g+ci1.h, ci2.g+ci2.h));
+    return fgreater(ci1.g+ci1.h, ci2.g+ci2.h);
   }
     static OpenClosedInterface<state,AStarOpenClosedData<state>>* openList;
-    static ConstrainedEnvironment<state,action>* currentEnv;
     static uint8_t currentAgent;
     static unsigned collchecks;
     static bool randomalg;
     static bool useCAT;
-    static NonUnitTimeCAT<state,action>* CAT; // Conflict Avoidance Table
+    static UniversalConflictAvoidanceTable<state>* CAT; // Conflict Avoidance Table
     static double agentRadius;
 };
 
-template <typename state, typename action>
-OpenClosedInterface<state,AStarOpenClosedData<state>>* TieBreaking3D<state,action>::openList=0;
-template <typename state, typename action>
-ConstrainedEnvironment<state,action>* TieBreaking3D<state,action>::currentEnv=0;
-template <typename state, typename action>
-uint8_t TieBreaking3D<state,action>::currentAgent=0;
-template <typename state, typename action>
-unsigned TieBreaking3D<state,action>::collchecks=0;
-template <typename state, typename action>
-bool TieBreaking3D<state,action>::randomalg=false;
-template <typename state, typename action>
-bool TieBreaking3D<state,action>::useCAT=false;
-template <typename state, typename action>
-double TieBreaking3D<state,action>::agentRadius=0.25;
-template <typename state, typename action>
-NonUnitTimeCAT<state,action>* TieBreaking3D<state,action>::CAT=0;
+template <typename state>
+OpenClosedInterface<state,AStarOpenClosedData<state>>* TieBreaking3D<state>::openList=0;
+template <typename state>
+uint8_t TieBreaking3D<state>::currentAgent=0;
+template <typename state>
+unsigned TieBreaking3D<state>::collchecks=0;
+template <typename state>
+bool TieBreaking3D<state>::randomalg=false;
+template <typename state>
+bool TieBreaking3D<state>::useCAT=false;
+template <typename state>
+double TieBreaking3D<state>::agentRadius=0.25;
+template <typename state>
+UniversalConflictAvoidanceTable<state>* TieBreaking3D<state>::CAT=0;
 
 template <typename state, typename action>
 class UnitTieBreaking3D {

@@ -86,14 +86,11 @@ typedef UnitSimulation<xyztLoc, t3DDirection, ConstrainedEnvironment<xyztLoc,t3D
 UnitSim *sim = 0;
 //typedef CBSUnit<xyztLoc,t3DDirection,UnitTieBreaking3D<xyztLoc,t3DDirection>,UnitTimeCAT<xyztLoc,t3DDirection>> MACBSUnit;
 //typedef CBSGroup<xyztLoc,t3DDirection,UnitTieBreaking3D<xyztLoc,t3DDirection>,UnitTimeCAT<xyztLoc,t3DDirection>,ICTSAlgorithm<xyztLoc,t3DDirection>> MACBSGroup;
-typedef CBSUnit<xyztLoc,t3DDirection,TieBreaking3D<xyztLoc,t3DDirection>,NonUnitTimeCAT<xyztLoc,t3DDirection>> MACBSUnit;
-typedef CBSGroup<xyztLoc,t3DDirection,TieBreaking3D<xyztLoc,t3DDirection>,NonUnitTimeCAT<xyztLoc,t3DDirection>,ICTSAlgorithm<xyztLoc,t3DDirection>,Map3dPerfectHeuristic<xyztLoc,t3DDirection>> MACBSGroup;
+typedef CBSUnit<xyztLoc,t3DDirection,TieBreaking3D<xyztLoc>,UniversalConflictAvoidanceTable<xyztLoc>> MACBSUnit;
+typedef CBSGroup<xyztLoc,t3DDirection,TieBreaking3D<xyztLoc>,UniversalConflictAvoidanceTable<xyztLoc>,ICTSAlgorithm<xyztLoc,t3DDirection>,Map3dPerfectHeuristic<xyztLoc,t3DDirection>> MACBSGroup;
 std::unordered_map<unsigned,MACBSGroup*> groups;
 std::vector<unsigned> rgroups;
 std::vector<MACBSUnit*> units;
-
-template<>
-double NonUnitTimeCAT<xyztLoc, t3DDirection>::bucketWidth=xyztLoc::TIME_RESOLUTION_D;
 
 bool gui=true;
 int animate(0);
@@ -172,7 +169,7 @@ void processSolution(double elapsed){
   std::cout << MACBSGroup::maplanTime << ",";
   std::cout << MACBSGroup::collisionTime << ",";
   std::cout << MACBSGroup::TOTAL_EXPANSIONS << ",";
-  std::cout << TieBreaking3D<xyztLoc,t3DDirection>::collchecks << ",";
+  std::cout << TieBreaking3D<xyztLoc>::collchecks << ",";
   std::cout << MACBSGroup::collchecks << ",";
   std::cout << total << ",";
   std::cout << MACBSGroup::constraintsz/std::max(1ul,MACBSGroup::constrainttot)<< std::endl;
@@ -404,9 +401,9 @@ void InitHeadless(){
   UnitTieBreaking3D<xyztLoc,t3DDirection>::randomalg=randomalg;
   UnitTieBreaking3D<xyztLoc,t3DDirection>::useCAT=useCAT;
   UnitTieBreaking3D<xyztLoc,t3DDirection>::agentRadius=agentRadius;
-  TieBreaking3D<xyztLoc,t3DDirection>::randomalg=randomalg;
-  TieBreaking3D<xyztLoc,t3DDirection>::useCAT=useCAT;
-  TieBreaking3D<xyztLoc,t3DDirection>::agentRadius=agentRadius;
+  TieBreaking3D<xyztLoc>::randomalg=randomalg;
+  TieBreaking3D<xyztLoc>::useCAT=useCAT;
+  TieBreaking3D<xyztLoc>::agentRadius=agentRadius;
 
   if(gui){
     sim = new UnitSim(ace);
@@ -1150,7 +1147,6 @@ int MyCLHandler(char *argument[], int maxNumArgs){
   if(strcmp(argument[0], "-resolution") == 0)
   {
     xyztLoc::TIME_RESOLUTION_U=xyztLoc::TIME_RESOLUTION=xyztLoc::TIME_RESOLUTION_D=atof(argument[1]);
-    NonUnitTimeCAT<xyztLoc, t3DDirection>::bucketWidth=xyztLoc::TIME_RESOLUTION_D;
     return 2;
   }
   if(strcmp(argument[0], "-radius") == 0)

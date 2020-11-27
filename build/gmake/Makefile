@@ -27,11 +27,11 @@ PROJECTS = \
   apps/icts \
   apps/MACBS \
   apps/CBICS \
-  apps/CBICS1 \
   apps/NSF \
   apps/MAAStar \
   test/utils \
   #test/collisiondetection \
+  #apps/CBICS1 \
   #search \
   #apps/experimental \
   #apps/mapUtils \
