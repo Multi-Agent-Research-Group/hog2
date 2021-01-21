@@ -127,6 +127,7 @@ void processSolution(double elapsed){
             valid = false;
             std::cout << "ERROR: Solution invalid; collision at: " << x << ":" << *ap << "-->" << *a << ", " << y << ":"
               << *bp << "-->" << *b << std::endl;
+          (collisionCheck3D(*ap, *a, *bp, *b, units[x]->radius, units[y]->radius));
           }
           if (a->t < b->t) {
             ++a;
@@ -276,14 +277,17 @@ void InstallHandlers()
   InstallCommandLineHandler(MyCLHandler, "-wait", "-wait <time units>", "The duration of wait actions");
   InstallCommandLineHandler(MyCLHandler, "-dimensions", "-dimensions width,length,height", "Set the length,width and height of the environment (max 65K,65K,1024).");
   InstallCommandLineHandler(MyCLHandler, "-nagents", "-nagents <number>", "Select the number of agents.");
-  InstallCommandLineHandler(MyCLHandler, "-sep", "-sep <number>", "Separation in partitions.");
   InstallCommandLineHandler(MyCLHandler, "-nsubgoals", "-nsubgoals <number>,<number>", "Select the min,max number of subgoals per agent.");
   InstallCommandLineHandler(MyCLHandler, "-seed", "-seed <number>", "Seed for random number generator (defaults to clock)");
   InstallCommandLineHandler(MyCLHandler, "-mapdir", "-mapdir <dir>", "Directory of maps, e.g. DAO maps");
   InstallCommandLineHandler(MyCLHandler, "-nobypass", "-nobypass", "Turn off bypass option");
+  InstallCommandLineHandler(MyCLHandler, "-sep", "-sep <number>", "Separation in partitions.");
   InstallCommandLineHandler(MyCLHandler, "-disjunct", "-disjunct", "Force disjunctive splits (mprop)");
   InstallCommandLineHandler(MyCLHandler, "-nolimits", "-nolimits", "Ignore limits in pairwise search");
   InstallCommandLineHandler(MyCLHandler, "-preproc", "-preproc", "Do preprocessing");
+  InstallCommandLineHandler(MyCLHandler, "-ac3", "-ac3", "Do arc-consistency preprocessing");
+  InstallCommandLineHandler(MyCLHandler, "-priorityBounds", "-priorityBounds", "Prioritize high-level open list to break ties toward number of agents with more finite bounds");
+  InstallCommandLineHandler(MyCLHandler, "-priorityDepth", "-priorityDepth", "Prioritize high-level open list to break ties toward nodes that ate deeper in the tree.");
   InstallCommandLineHandler(MyCLHandler, "-precon", "-precon", "Add constraints from preprocessing");
   InstallCommandLineHandler(MyCLHandler, "-noid", "-noid", "Turn off independence detection");
   InstallCommandLineHandler(MyCLHandler, "-record", "-record", "Record frames");
@@ -424,8 +428,8 @@ void InitHeadless(){
     CBICSGroup* group=groups[0];
     group->agents.resize(num_agents);
     std::iota(group->agents.begin(),group->agents.end(),0); // Add agents 0, 1, ...
-    rgroups.resize(1);
-    rgroups[0]=0;
+    rgroups.resize(num_agents);
+    //rgroups[0]=0;
     if(!gui){
       Timer::Timeout func(std::bind(processSolution, std::placeholders::_1));
       CBICSGroup::timer->StartTimeout(std::chrono::seconds(killtime),func);
@@ -529,16 +533,16 @@ bool detectIndependence(){
           unsigned origgroup(rgroups[j]);
           unsigned k(0);
           for(auto ag:groups[rgroups[j]]->agents){
-            if(Params::verbose)std::cout << "Inserting agent " << ag << " into group "<<rgroups[i]<<" for agent " << i << "("<<(uint64_t)units[ag]<<") from group "<<origgroup<<"\n";
+            if(!quiet)std::cout << "Inserting agent " << ag << " into group "<<rgroups[i]<<" for agent " << i << "("<<(uint64_t)units[ag]<<") from group "<<origgroup<<"\n";
             groups[rgroups[i]]->agents.push_back(ag);
             groups[rgroups[i]]->AddUnit(units[ag],solution[ag]);
             rgroups[ag]=rgroups[i];
             //maxnagents=std::max(group[i]->agents.size(),maxnagents);
           }
           groups[rgroups[i]]->Init();
-          if(Params::verbose)std::cout << "Group " << rgroups[i] << " now has: \n";
+          if(!quiet)std::cout << "Group " << rgroups[i] << " now has: \n";
           k=0;
-          if(Params::verbose)for(auto ag:groups[rgroups[i]]->agents){
+          if(!quiet)for(auto ag:groups[rgroups[i]]->agents){
             std::cout << "  "<<ag<<"-"<<(uint64_t)groups[rgroups[i]]->GetMember(k++)<<"\n";
           }
           if(Params::verbose)std::cout << groups[rgroups[i]]->donePlanning() << " done\n";
@@ -676,6 +680,15 @@ int MyCLHandler(char *argument[], int maxNumArgs){
   {
     randomalg = true;
     return 1;
+  }
+  if(strcmp(argument[0], "-ac3") == 0){
+    Params::ac3=true;
+  }
+  if(strcmp(argument[0], "-priorityBounds") == 0){
+    Params::priorityBounds=true;
+  }
+  if(strcmp(argument[0], "-priorityDepth") == 0){
+    Params::priorityDepth=true;
   }
   if(strcmp(argument[0], "-precon") == 0){
     Params::precon=true;

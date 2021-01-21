@@ -616,6 +616,7 @@ void generatePermutations(std::vector<MultiEdge>& positions, std::vector<MultiEd
       collChecks++;
       if(collisionImminent(A,VA,agentRadius,positions[agent][i].first->depth*TOMSECS,positions[agent][i].second->depth*TOMSECS,B,VB,agentRadius,current[j].first->depth*TOMSECS,current[j].second->depth*TOMSECS)){
         if(verbose)std::cout << "Collision averted: " << *positions[agent][i].first << "-->" << *positions[agent][i].second << " " << *current[j].first << "-->" << *current[j].second << "\n";
+      collisionImminent(A,VA,agentRadius,positions[agent][i].first->depth*TOMSECS,positions[agent][i].second->depth*TOMSECS,B,VB,agentRadius,current[j].first->depth*TOMSECS,current[j].second->depth*TOMSECS);
         found=true;
         //checked.insert(hash);
         collTime+=collTimer.EndTimer();
@@ -878,15 +879,16 @@ bool jointDFS(MultiEdge const& s, uint32_t d, Solution solution, std::vector<Sol
   uint32_t cost(INF);
   if(!checkOnly){
     cost=computeSolutionCost(solution);
-  }else{
-    k=0;
-    for(auto const& g:s){
-      solution[k].reserve(2);
-      solution[k].push_back(g.first);
-      solution[k].push_back(g.second);
-      ++k;
-    }
-    cost=computeSolutionCost(solution);
+    if(best<cost) return true;
+  //}else{
+    //k=0;
+    //for(auto const& g:s){
+      //solution[k].reserve(2);
+      //solution[k].push_back(g.first);
+      //solution[k].push_back(g.second);
+      //++k;
+    //}
+    //cost=computeSolutionCost(solution);
   }
 
   if(best<cost) return false;
@@ -1040,6 +1042,7 @@ bool jointDFS(MultiState const& s, std::vector<Solution>& solutions, std::vector
       solution.push_back({n});
     }
   }
+  //if(checkOnly)solution.resize(s.size());
   transTable.clear();
   jointdepth=0;
   jointbranchingfactor=0;
@@ -1300,7 +1303,7 @@ struct ICTSNode{
           for(int agent(0); agent<answers[num].size(); ++agent){
             std::cout << "  " << agent << ":\n";
             for(auto a(answers[num][agent].begin()); a!=answers[num][agent].end(); ++a){
-              std::cout  << "  " << std::string((*a)->depth/INFLATION,' ') << **a << "\n";
+              std::cout  << "  " << std::string(std::min(100.0,(*a)->depth/INFLATION),' ') << **a << "\n";
             }
             std::cout << "\n";
           }

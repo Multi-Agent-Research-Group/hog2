@@ -560,6 +560,7 @@ class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
         }
       }
     }
+    virtual double GetMapSize() const = 0;
     virtual void AddPositiveConstraint(Constraint<State> const* c){pconstraints.insert(c);}
     //virtual void AddConstraints(std::vector<std::unique_ptr<Constraint<State> const>> const& cs){constraints.insert(cs);}
     /** Clear the constraints */

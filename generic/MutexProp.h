@@ -19,6 +19,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  */
+#ifndef MUTEX_PROP_H
+#define MUTEX_PROP_H
 #include <iostream>
 #include <iomanip>
 #include <set>
@@ -1282,6 +1284,34 @@ class MultiAgentAStarOpenClosedData : public AStarOpenClosedData<ActionPair<stat
   };
 
 
+template <typename state>
+class MultiAgentIDAData
+{
+public:
+  MultiAgentIDAData() {}
+  MultiAgentIDAData(const ActionPair<state> &theData,
+                    double gg1,
+                    double gg2,
+                    double hh1,
+                    double hh2,
+                    MultiAgentIDAData* parent,
+                    unsigned location)
+      : data(theData),
+        g1(gg1),
+        g2(gg2),
+        h1(hh1),
+        h2(hh2),
+        id(location),
+        marked(false)
+  {
+    parents.push_back(parent);
+  }
+  state data;
+  std::vector<MultiAgentIDAData*> parents;
+  unsigned g1, g2, h1, h2, id;
+  bool marked;
+};
+
   // This comparison function will push candidates that are above the limits to the back.
   // This is tricky because:
   //    waiting at the goal adds no additional cost
@@ -1357,6 +1387,7 @@ public:
     return fgreater(ci1.g + ci1.h, ci2.g + ci2.h);
   }
   static AStarOpenClosed<state, TemporalAStarPairCompare<state>, AStarOpenClosedData<state>> *openList;
+  //static BucketOpenClosed<state, TemporalAStarPairCompare<state>, AStarOpenClosedData<state>> *openList;
   static std::vector<uint32_t> currentAgents;
   static unsigned collchecks;
   static bool randomalg;
@@ -1407,36 +1438,36 @@ struct PairwiseConstrainedSearch
                             double r2,
                             double socLb,
                             bool storeAll=false)
-      : lb1(lower1),
-        ub1(upper1),
-        lb2(lower2),
-        ub2(upper2),
-        s1(start1),
-        g1(goal1),
-        s2(start2),
-        g2(goal2),
-        intervals(2),
+                            //bool waitAtGoalNeverCosts=false)
+      : intervals(2),
         ivix(2),
         ids(2),
         radii(2),
         socLim(socLb),
+        lastPlateau(0),
         firstsoc(INT_MAX),
         soc(INT_MAX),
         bf(1),
         all(storeAll)
+        //waitcosts(!waitAtGoalNeverCosts)
   {
+    lb={lower1,lower2};
+    ub={upper1,upper2};
+    start={start1,start2};
+    goal={goal1,goal2};
     radii[0]=r1;
     radii[1]=r2;
     envs = {env1, env2};
     heus = {heu1, heu2};
     //env = MultiEnv(envs);
     //open.Reset(env->GetMaxHash());
-    ActionPair<state> s(s1,s1, s2,s2);
+    ActionPair<state> s(start[0],start[0], start[1],start[1]);
     MultiAgentAStarOpenClosedData<state> data(s,0,0,
-                                   heus[0]->HCost(s1, g1),
-                                   heus[1]->HCost(s2, g2),
+                                   heus[0]->HCost(start[0], goal[0]),
+                                   heus[1]->HCost(start[1], goal[1]),
                          0,open.theHeap.size(), kOpenList);
     data.data.nc = 0; // We assume that the root has no conflicts with other agents
+    open.Reset();
     open.AddOpenNode(data,GetHash(s,0,0));
     for (auto const &e : envs)
     {
@@ -1444,69 +1475,49 @@ struct PairwiseConstrainedSearch
     }
   }
 
-  // Copy constructor
-  PairwiseConstrainedSearch(PairwiseConstrainedSearch const &from,
-                            double lower1,
-                            double upper1,
-                            double lower2,
-                            double upper2,
-                            double soclb)
-      : lb1(lower1),
-        ub1(upper1),
-        lb2(lower2),
-        ub2(upper2),
-        s1(from.s1),
-        g1(from.g1),
-        s2(from.s2),
-        g2(from.g2),
-        envs(from.envs),
-        heus(from.heus),
-        intervals(from.intervals),
-        ivix(from.ivix),
-        bf(from.bf),
-        open(from.open), // Make a full copy of open
-        socLim(soclb),
-        firstsoc(INT_MAX),
-        soc(INT_MAX),
-        all(from.all)
+  void reset()
   {
-    // Make sure that the originating open list makes sense
-    if (ub1 < from.lb1 || // old lower bound is too high
-        ub2 < from.lb2)   // old lower bound is too high
-      assert(false);
-
-    // Remove and re-insert all nodes which have changed priority...
-    for (auto const &id : open.theHeap)
-    {
-      auto i1(open.Lookup(id));
-      if (greater(from.ub1, i1.g1 + i1.h1) && greater(from.ub2, i1.g2 + i1.h2) &&
-          fless(ub1, i1.g1 + i1.h1) && fless(ub2, i1.g2 + i1.h2))
-      {
-        open.KeyChanged(id);
-      }
-    }
+    finalcost.clear();
+    seen.clear();
+    open.Reset();
+    ActionPair<state> s(start[0],start[0], start[1],start[1]);
+    MultiAgentAStarOpenClosedData<state> data(s,0,0,
+                                   heus[0]->HCost(start[0], goal[0]),
+                                   heus[1]->HCost(start[1], goal[1]),
+                         0,open.theHeap.size(), kOpenList);
+    data.data.nc = 0; // We assume that the root has no conflicts with other agents
+    intervals[0].push_back({{0,INT_MAX-1,INT_MAX-1}, Action<state>(start[0],start[0])});
+    intervals[1].push_back({{0,INT_MAX-1,INT_MAX-1}, Action<state>(start[1],start[1])});
+    open.AddOpenNode(data,GetHash(s,0,0));
   }
 
-  std::vector<environ *> envs; // environments for agents
-  std::vector<Heuristic<state> *> heus; // environments for agents
+  std::array<environ *,2> envs; // environments for agents
+  std::array<Heuristic<state> *,2> heus; // environments for agents
   //MultiEnv env;
+  double lastPlateau;
   double socLim;             // Plateau for sum of costs
   double firstsoc;                // soc of first solution
   double soc;                // soc of first solution
-  double lb1, ub1, lb2, ub2; // Ind. lower and upper cost bounds
+  std::array<double,2> lb;
+  std::array<double,2> ub;
+  std::array<state,2> goal;
+  std::array<state,2> start;
+
   double maxTotal;
-  state s1, g1, s2, g2;
   unsigned bf; // branching factor
   bool all; // Whether to store all solutions of cost
+  //bool waitcosts; // Whether waiting at the goal costs if you move off again
 
-  std::vector<std::vector<std::pair<std::array<unsigned,3>,Action<state>>>> intervals;
+  std::vector<std::deque<std::pair<std::array<unsigned,3>,Action<state>>>> intervals;
   std::vector<std::unordered_map<uint64_t,unsigned>> ivix;
   std::vector<std::vector<unsigned>> finalcost;
   //PairTree<ActionPair<state>> mutexes;
   const int MAXTIME=1000 * state::TIME_RESOLUTION_U;
   std::vector<double> radii;
 
-  AStarOpenClosed<ActionPair<state>, CATTieBreaking<state>, MultiAgentAStarOpenClosedData<state>> open;
+  static AStarOpenClosed<ActionPair<state>, CATTieBreaking<state>, MultiAgentAStarOpenClosedData<state>> open;
+  //BucketOpenClosed<ActionPair<state>, CATTieBreaking<state>, MultiAgentAStarOpenClosedData<state>> open;
+
 
   // Get hash for a single two-agent state
   uint64_t GetHash(state const &first,
@@ -1537,7 +1548,7 @@ struct PairwiseConstrainedSearch
       h = h ^ c[j];          // Xor with octet
       h = h * 1099511628211; // multiply by the FNV prime
     }
-    h1 = (gg1<<33 + gg2<<1) +feasible;
+    h1 = gg1*0x100000000 + gg2*2 +feasible;
     memcpy(c, &h1, sizeof(uint64_t));
     for (unsigned j(0); j < sizeof(uint64_t); ++j)
     {
@@ -1611,7 +1622,10 @@ struct PairwiseConstrainedSearch
         h = h * 1099511628211; // multiply by the FNV prime
       }
     }
-    h1 = gg1<<32 + gg2;
+//#pragma GCC push_options
+//#pragma GCC optimize ("O0")
+   h1 = (gg1*0xffffffff) + gg2;
+//#pragma GCC pop_options
     memcpy(c, &h1, sizeof(uint64_t));
     for (unsigned j(0); j < sizeof(uint64_t); ++j)
     {
@@ -1624,20 +1638,30 @@ struct PairwiseConstrainedSearch
 
   void getRangesAndConstraints()
   {
-    //check feasibility
+    // =======================
+    // Constraint-based feasibility checks.
+    // Plan each agent singly.
+    // If the search fails, the problem is unsolvable,
+    // either due to being overconstrained, or just an
+    // unsolvable instance
+    // =======================
     paths.resize(0);
     paths.push_back(std::vector<std::vector<state>>(2,std::vector<state>()));
     paths[0][0].clear();
-    auto goal(g1);
-    goal.t=lb1;
+    auto tmpgoal(goal[0]);
+    tmpgoal.t=lb[0];
     astar.SetHeuristic(heus[0]);
-    astar.SetUpperLimit(ub1);
-    if(ub1!=lb1)
+    astar.SetUpperLimit(ub[0]);
+    if(ub[0]!=lb[0])
     {
-    astar.SetUpperLimit(ub1-1);
+    astar.SetUpperLimit(ub[0]-1);
     }
-    astar.SetLowerLimit(lb1);
-    astar.GetPath(envs[0],s1,goal,paths[0][0],lb1);
+    astar.SetLowerLimit(lb[0]);
+    //Timer tmr;
+    //tmr.StartTimer();
+    //astar.SetVerbose(true);
+    astar.GetPath(envs[0],start[0],tmpgoal,paths[0][0],lb[0]);
+    //std::cout << "s1 took: " << tmr.EndTimer() << "\n";
     if(paths[0][0].empty())
     {
       return;
@@ -1646,17 +1670,19 @@ struct PairwiseConstrainedSearch
     paths[0][0].clear();
 
     paths[0][1].clear();
-    goal=g2;
-    goal.t=lb2;
+    tmpgoal=goal[1];
+    tmpgoal.t=lb[1];
     astar.SetHeuristic(heus[1]);
-    astar.SetUpperLimit(ub2);
-    if(ub2!=lb2)
+    astar.SetUpperLimit(ub[1]);
+    if(ub[1]!=lb[1])
     {
-      astar.SetUpperLimit(ub2 - 1);
+      astar.SetUpperLimit(ub[1] - 1);
     }
-    astar.SetLowerLimit(lb2);
+    astar.SetLowerLimit(lb[1]);
     //astar.SetVerbose(true);
-    astar.GetPath(envs[1],s2,goal,paths[0][1],lb2);
+    //tmr.StartTimer();
+    astar.GetPath(envs[1],start[1],tmpgoal,paths[0][1],lb[1]);
+    //std::cout << "s2 took: " << tmr.EndTimer() << "\n";
     if(paths[0][1].empty())
     {
       return;
@@ -1669,13 +1695,45 @@ struct PairwiseConstrainedSearch
     // As a termination heuristic, we will assume that if an agent were
     // to make it to its goal, it may have to wait for the other agent
     // to traverse its entire path first.
-    maxTotal=len1+len2;
+    maxTotal=envs[0]->GetMapSize()*state::TIME_RESOLUTION_U;
+    if(maxTotal<socLim)
+    {
+      maxTotal=socLim;
+    }
+    //maxTotal=len1+len2;
     //cd maxTotal*=maxTotal;
 
-    bool go(doSingleSearchStep());
-    while(go){
-      go = doSingleSearchStep();
+    // =======================
+    // Cost limit Feasibility check...
+    // We only have to do this if one of the agents has an upper
+    // bound.
+    // =======================
+    //tmr.StartTimer();
+    if (false && (ub[0] != UINT_MAX || ub[1] != UINT_MAX))
+    {
+      bool go(doSingleSearchStep());
+      while (go)
+      {
+        go = doSingleSearchStep();
+      }
+      //std::cout << "p1 took: " << tmr.EndTimer() << "\n";
+      if (finalcost.empty())
+      {
+        return;
+      }
+      reset();
     }
+
+    // =======================
+    // Do full joint-agent planning and mutex-propagation
+    // at the same time
+    // =======================
+    //tmr.StartTimer();
+    bool go(doSingleSearchStepWithMutexes());
+    while(go){
+      go = doSingleSearchStepWithMutexes();
+    }
+    //std::cout << "p2 took: " << tmr.EndTimer() << "\n";
     // Now that we're finished, search the mutexes to find constraints
     //for( auto const& m:mutexes){
       //std::cout << m << "\n";
@@ -1695,16 +1753,36 @@ struct PairwiseConstrainedSearch
     //std::cout << finalcost << "\n";
     // TODO - If we ever plan to re-use this class, we won't be able
     //        to delete the intervals inline like this...
+
+    // ===============================
+    // Finally, filter down the list of mprop constraints
+    // Only those which were completely infeasible for one
+    // or more complete cost levels are retained
+    // ===============================
     auto finalsoc(finalcost[0][0]+finalcost[0][1]);
+    std::array<unsigned,2> mins={UINT_MAX,UINT_MAX};
+    for (unsigned i(0); i < finalcost.size() - 1; ++i)
+    {
+      if (finalcost[i][0] < mins[0])
+      {
+        mins[0] = finalcost[i][0];
+      }
+      if (finalcost[i][1] < mins[1])
+      {
+        mins[1] = finalcost[i][1];
+      }
+    }
     for(unsigned i(0); i<intervals.size(); ++i){
+      unsigned other(i?0:1);
       //std::cout << "Constraints for agent " << i << ":\n";
       for(auto j(intervals[i].begin()); j!=intervals[i].end(); /*++j*/){
         // We can only trust cost combinations that make sense
         // if the upper bound on the constraint minus the lb on the other agent
         // is more than the sum of costs, it can't be trusted, because we never
         // looked deep enough into the structure.
-        auto lb(i ? lb2 : lb1);
-        if (j->first[0]<j->first[2] && j->first[1]<=j->first[0])
+        if (j->first[0]<j->first[2] &&
+        j->first[1]<=j->first[0] &&
+        j->first[0]>=mins[other])
         {
           //std::cout << i << "  " << *j << "\n";
           ++j;
@@ -1712,17 +1790,67 @@ struct PairwiseConstrainedSearch
         else
         {
           //std::cout << "ignore "<< i << " " << *j << "\n";
-          intervals[i].erase(j);
+          j=intervals[i].erase(j);
         }
       }
     }
-    
+  }
+
+  //From https://www.geeksforgeeks.org/longest-repeating-and-non-overlapping-substring/
+  std::string longestRepeatedSubstring(std::string str)
+  {
+    int n = str.length();
+    int LCSRe[n + 1][n + 1];
+
+    // Setting all to 0
+    memset(LCSRe, 0, sizeof(LCSRe));
+
+    string res;         // To store result
+    int res_length = 0; // To store length of result
+
+    // building table in bottom-up manner
+    int i, index = 0;
+    for (i = 1; i <= n; i++)
+    {
+      for (int j = i + 1; j <= n; j++)
+      {
+        // (j-i) > LCSRe[i-1][j-1] to remove
+        // overlapping
+        if (str[i - 1] == str[j - 1] &&
+            LCSRe[i - 1][j - 1] < (j - i))
+        {
+          LCSRe[i][j] = LCSRe[i - 1][j - 1] + 1;
+
+          // updating maximum length of the
+          // substring and updating the finishing
+          // index of the suffix
+          if (LCSRe[i][j] > res_length)
+          {
+            res_length = LCSRe[i][j];
+            index = max(i, index);
+          }
+        }
+        else
+          LCSRe[i][j] = 0;
+      }
+    }
+
+    // If we have non-empty result, then insert all
+    // characters from first character to last
+    // character of string
+    if (res_length > 0)
+      for (i = index - res_length + 1; i <= index; i++)
+        res.push_back(str[i - 1]);
+
+    return res;
   }
 
   bool foundInitialSolution() const{
     return paths.size();
   }
 
+  // Simply finds the first solution within the constraints
+  // Does not retain info required for mutex propagation
   bool doSingleSearchStep()
   {
     if (!open.OpenSize())
@@ -1734,40 +1862,36 @@ struct PairwiseConstrainedSearch
     uint64_t nodeid = open.Close();
     // Note - this reference becomes invalid once we insert anything into open.
     auto &node(open.Lookup(nodeid));
-    //std::cout << "{d:" << node.data << "f1:" << node.g1 << "+" << node.h1 << "=" << (node.g1+node.h1) << ",f2:" << node.g2 << "+" << node.h2 << "=" << (node.g2+node.h2) << ",id:" << nodeid << ",p:" << node.parentID << " feasible: "<< node.data.feasible <<"}\n";
-    if (soc>firstsoc)
-    {
-      return false; // Return because a solution was already found and we have finished the plateau
-    }
 
-    auto G1(node.g1);
-    auto G2(node.g2);
-    auto f1(G1 + node.h1);
-    auto f2(G2 + node.h2);
+    std::array<double, 2> G = {node.g1, node.g2};
+    //auto f1(G[0] + node.h1);
+    //auto f2(G[1] + node.h2);
     //if(!all)soc=f1+f2;
     // Check that we're below the bounds
-    //if (ub1 < f1 || ub2 < f2)
+    //if (ub[0] < f1 || ub[1] < f2)
     //{
-      //return true;
+    //return true;
     //}
     auto s(node.data);
     // Early termination criteria so we don't run forever.
-    if(f1>maxTotal+1 || f2>maxTotal+1)
+    if (G[0] + node.h1 > maxTotal + 1 || G[1] + node.h2 > maxTotal + 1)
     {
       return true;
     }
 
     // Add this node to the interval tree
-    auto shash(GetHash(s.first.second,s.second.second,G1,G2,s.feasible));
-    if(seen.find(shash)==seen.end()){
+    auto shash(GetHash(s.first.second, s.second.second, G[0], G[1], s.feasible));
+    if (seen.find(shash) == seen.end())
+    {
       seen.insert(shash);
-    }else{
+    }
+    else
+    {
       return true;
     }
-    //std::cout << "pop " << s << "\n";
+    //std::cout <<std::fixed <<"pop " << s << " f: " << node.h+node.g << "\n";
 
-
-    auto G(node.g);
+    //auto G(node.g);
 
     // First:
     // Find minimum time of current edges
@@ -1802,19 +1926,308 @@ struct PairwiseConstrainedSearch
       if (a.second.t <= sd)
       {
         //std::cout << "Keep Successors of " << *a.second << "\n";
-        std::vector<state> succ(envs[k]->branchingFactor());
+        std::vector<state> succ(envs[k]->branchingFactor()*2);
         auto sz(envs[k]->GetSuccessors(a.second, &succ[0]));
         for (unsigned j(0); j < sz; ++j)
         {
-          output.emplace_back(a.second, succ[j]);
+          // We assume here that GCost will never charge for waiting at the goal
+          // Wait actions at the goal cost (unless we're at the end)
+          //if (waitcosts && G[k] < lb[k] && envs[k]->GoalTest(a.second,goal[k]) && envs[k]->GoalTest(succ[j],goal[k]))
+          //{
+          //ecs[k].push_back(succ[j].t - a.second.t);
+          //}
+          //else
+          //{
           ecs[k].push_back(envs[k]->GCost(a.second, succ[j]));
+          //}
+          output.emplace_back(a.second, succ[j]);
         }
       }
       else
       {
-        //std::cout << "Keep Just " << *a.second << "\n";
+        // We assume here that GCost will never charge for waiting at the goal
+        // Wait actions at the goal cost (unless we're at the end)
+        //if (waitcosts && G[k] < lb[k] && envs[k]->GoalTest(a.first,goal[k]) && envs[k]->GoalTest(a.second,goal[k]))
+        //{
+        //ecs[k].push_back(a.second.t-a.first.t);
+        //}
+        //else
+        //{
+        // We are re-using this, so don't add the edge cost again...
+        ecs[k].push_back(0); //envs[k]->GCost(a.first, a.second));
+        //ecs[k].push_back(envs[k]->GCost(a.first, a.second));
+        //}
         output.push_back(a);
-        ecs[k].push_back(envs[k]->GCost(a.first, a.second));
+      }
+      if (output.empty())
+      {
+        // All movements from this position at this time are blocked
+        return true;
+      }
+      //std::cout << "successor  of " << s << "gets("<<*a<< "): " << output << "\n";
+      successors.push_back(output);
+      ++k;
+    }
+    static std::vector<ActionPair<state>> crossProduct;
+    crossProduct.clear();
+    crossProduct.reserve(successors[0].size() * successors[1].size());
+    unsigned i(0);
+    for (auto const &a1 : successors[0])
+    {
+      auto h1(heus[0]->HCost(a1.second, goal[0]));
+      unsigned j(0);
+      auto const &ec1(ecs[0][i]);
+      for (auto const &a2 : successors[1])
+      {
+        auto h2(heus[1]->HCost(a2.second, goal[1]));
+        auto const &ec2(ecs[1][j]);
+        crossProduct.emplace_back(a1, a2, s.feasible);
+        auto &n(crossProduct.back());
+
+          // Check for conflict...
+          if ((a1.first == a2.first) ||
+              (a1.second == a2.second) ||
+              (a1.first.sameLoc(a2.second) &&
+               a2.first.sameLoc(a1.second)))
+          {
+            n.feasible = false;
+          }
+          else
+          {
+            //std::cout<<"Checking:"<<current[j].first << "-->"<< current[j].second <<", " << positions[agent][i].first << "-->"<< positions[agent][i].second << "\n";
+            //assert(collisionCheck3D(a1.first, a1.second,
+                                 //a2.first, a2.second,
+                                 //radii[0], radii[1])==
+            //collisionCheck2D(a1.first, a1.second,
+                                 //a2.first, a2.second,
+                                 //radii[0], radii[1]));
+            if (collisionCheck2D(a1.first, a1.second,
+                                 a2.first, a2.second,
+                                 radii[0], radii[1]))
+            {
+              n.feasible = false;
+            }
+          }
+          if(!n.feasible){++j;continue;}
+        //std::cout << "  succ: " << n << " "<<n.feasible << "\n";
+        auto gg1(G[0] + ec1);
+        auto gg2(G[1] + ec2);
+        // Make sure this node will come in under the upper bound
+        if (gg1 + h1 < ub[0] && gg2 + h2 < ub[1])
+        {
+          bool a1done(envs[0]->GoalTest(n[0].second, goal[0]));
+          bool a2done(envs[1]->GoalTest(n[1].second, goal[1]));
+          bool a1wait(n[0].first.sameLoc(n[0].second));
+          bool a2wait(n[1].first.sameLoc(n[1].second));
+          // Make sure both aren't waiting at the goal
+          if (!(a2done && a1done && a1wait && a2wait))
+          {
+            //if(n.feasible)
+            //std::cout << "a0 lb:" << lb[0] <<": " << ub[0] << "/a1 lb:" << lb[1] <<": " << ub[1] << " " << n[0]
+            //<< "(f="<< (gg1+h1) << ") feasible with " << n[1]  << "(f="<< (gg2+h2) << ")\n";
+            // Legit arrival at goal
+            // check goal
+            //if(soc>=gg1+gg2)
+            //{
+            if (a1done && a2done) // At goal
+            {
+              //std::cout << "  {g:" << n << "f1:" << gg1 << "+" << h1 << "=" << (gg1 + h1) << ",f2:" << gg2 << "+" << h2 << "=" << (gg2+ h2)  << " feasible: " << n.feasible << "}\n";
+              if (G[0] + G[1] + ec1 + ec2 >= socLim && // Must be above the frontier
+                  gg1 >= lb[0] &&                      // Must be above lower bound
+                  gg2 >= lb[1] &&                      // Must be above lower bound
+                  gg1 < ub[0] &&                       // Must be below upper bound
+                  gg2 < ub[1])                         // Must be below upper bound
+              {
+                finalcost.push_back({gg1, gg2});
+                return false;
+              }
+            }
+            //}
+            uint64_t hash(GetHash(n, gg1, gg2));
+            //std::cout << "hash " << hash << "\n";
+            uint64_t theID(0);
+            switch (open.Lookup(hash, theID))
+            {
+            case kClosedList:
+              // Closed list guy is not feasible but this one is!
+              {
+                // This should never happen in this context
+                auto &cand(open.Lookup(theID));
+                if (gg1 + gg2 <= cand.g)
+                {
+                  cand.parentID = nodeid;
+                  cand.g = gg1 + gg2;
+                  cand.h = h1 + h2;
+                  cand.g1 = gg1;
+                  cand.h1 = h1;
+                  cand.g2 = gg2;
+                  cand.h2 = h2;
+                  cand.data.feasible = true;
+
+                  open.Reopen(theID);
+                  //std::cout << "Update " << n << " id:" << theID << " to feasible\n";
+                }
+              }
+              break;
+            case kOpenList:
+              // previously generated node is not feasible but this one is!
+              {
+                // Replace if infeasible or has better cost
+                auto &cand(open.Lookup(theID));
+                if (gg1 + gg2 <= cand.g)
+                {
+                  cand.parentID = nodeid;
+                  cand.g = gg1 + gg2;
+                  cand.h = h1 + h2;
+                  cand.g1 = gg1;
+                  cand.h1 = h1;
+                  cand.g2 = gg2;
+                  cand.h2 = h2;
+                  cand.data.feasible = true;
+                  open.KeyChanged(theID);
+                  //std::cout << "Update " << n << " id:" << theID << " to feasible\n";
+                }
+              }
+              break;
+            case kNotFound:
+              // Add to open :)
+              if (gg1 + h1 < ub[0] && gg2 + h2 < ub[1])
+              {
+                //MultiAgentAStarOpenClosedData<state> data(n, gg1, gg2, h1, h2,
+                                                          //nodeid, open.theHeap.size(), kOpenList);
+                open.EmplaceOpenNode(hash, n, gg1, gg2, h1, h2,nodeid, open.theHeap.size(), kOpenList);
+                //open.Lookup(hash, theID);
+              }
+              //std::cout << std::fixed << "  Add " << n << " id:" << theID << " f: " << (gg1+h1+gg2+h2) << " g1:" << gg1 << " g2:" << gg2 << " h1:" << h1
+              //<< " h2:" << h2 << " f1:"<< gg1+h1 << " f2:" << gg2+h2 << "\n";
+              break;
+            }
+          }
+        }
+        ++j;
+      }
+      ++i;
+    }
+    return true;
+  }
+
+  // This search includes infeasible nodes and tracks mutexes
+  // It is exponential in nature - running doSingleSearchStep() to completion
+  // before this is recommended
+
+  bool doSingleSearchStepWithMutexes()
+  {
+    if (!open.OpenSize())
+    {
+      return false;
+    }
+
+    // Get next candidate off open
+    uint64_t nodeid = open.Close();
+    // Note - this reference becomes invalid once we insert anything into open.
+    auto &node(open.Lookup(nodeid));
+    auto F(node.g+node.h);
+    //std::cout << "{d:" << node.data << "f1:" << node.g1 << "+" << node.h1 << "=" << (node.g1+node.h1) << ",f2:" << node.g2 << "+" << node.h2 << "=" << (node.g2+node.h2) << ",id:" << nodeid << ",p:" << node.parentID << " feasible: "<< node.data.feasible <<"}\n";
+    if (soc>firstsoc)
+    {
+      return false; // Return because a solution was already found and we have finished the plateau
+    }
+
+    std::array<double,2> G={node.g1,node.g2};
+    //auto f1(G[0] + node.h1);
+    //auto f2(G[1] + node.h2);
+    //if(!all)soc=f1+f2;
+    // Check that we're below the bounds
+    //if (ub[0] < f1 || ub[1] < f2)
+    //{
+      //return true;
+    //}
+    auto s(node.data);
+    // Early termination criteria so we don't run forever.
+    if(G[0]+node.h1>maxTotal+1 || G[1]+node.h2>maxTotal+1)
+    {
+      return true;
+    }
+
+    // Add this node to the interval tree
+    auto shash(GetHash(s.first.second,s.second.second,G[0],G[1],s.feasible));
+    if(seen.find(shash)==seen.end()){
+      seen.insert(shash);
+    }else{
+      //std::cout << std::fixed << "Already saw equivalent " << shash << s << "feasible: " << s.feasible << " f: " << node.h+node.g << " g1:" << node.g1 << " g2:" << node.g2 << " h1:" << node.h1
+                //<< " h2:" << node.h2 << " f1:" << node.g1 + node.h1 << " f2:" << node.g2 + node.h2 << "\n";
+      return true;
+    }
+    //std::cout << std::fixed << "Pop " << shash << s << "feasible: " << s.feasible << " f: " << node.h+node.g << " g1:" << node.g1 << " g2:" << node.g2 << " h1:" << node.h1
+              //<< " h2:" << node.h2 << " f1:" << node.g1 + node.h1 << " f2:" << node.g2 + node.h2 << "\n";
+
+    //auto G(node.g);
+
+    // First:
+    // Find minimum time of current edges
+    double sd(DBL_MAX);
+    unsigned minindex(0);
+    double k(0);
+    for (auto const &a : s)
+    {
+      if (a.second.t < sd)
+      {
+        sd = a.second.t;
+        minindex = k;
+      }
+      k++;
+    }
+    if (sd == DBL_MAX)
+    {
+      sd = s[minindex].second.t;
+    } // Can happen at root node
+
+    //Get successors into a vector
+    successors.clear();
+    successors.reserve(s.size());
+
+    //Add in successors for parents who are equal to the min
+    std::vector<std::vector<unsigned>> ecs(2);
+    k = 0;
+    for (auto const &a : s)
+    {
+      static std::vector<Action<state>> output;
+      output.clear();
+      if (a.second.t <= sd)
+      {
+        //std::cout << "Keep Successors of " << *a.second << "\n";
+        std::vector<state> succ(envs[k]->branchingFactor()*2);
+        auto sz(envs[k]->GetSuccessors(a.second, &succ[0]));
+        for (unsigned j(0); j < sz; ++j)
+        {
+          // We assume here that GCost will never charge for waiting at the goal
+          // Wait actions at the goal cost (unless we're at the end)
+          //if (waitcosts && G[k] < lb[k] && envs[k]->GoalTest(a.second,goal[k]) && envs[k]->GoalTest(succ[j],goal[k]))
+          //{
+            //ecs[k].push_back(succ[j].t - a.second.t);
+          //}
+          //else
+          //{
+            ecs[k].push_back(envs[k]->GCost(a.second, succ[j]));
+          //}
+          output.emplace_back(a.second, succ[j]);
+        }
+      }
+      else
+      {
+        // We assume here that GCost will never charge for waiting at the goal
+        // Wait actions at the goal cost (unless we're at the end)
+        //if (waitcosts && G[k] < lb[k] && envs[k]->GoalTest(a.first,goal[k]) && envs[k]->GoalTest(a.second,goal[k]))
+        //{
+          //ecs[k].push_back(a.second.t-a.first.t);
+        //}
+        //else
+        //{
+          // We are re-using this, so don't add the edge cost again...
+          ecs[k].push_back(0);//envs[k]->GCost(a.first, a.second));
+          //ecs[k].push_back(envs[k]->GCost(a.first, a.second));
+        //}
+        output.push_back(a);
       }
       if (output.empty())
       {
@@ -1839,12 +2252,12 @@ struct PairwiseConstrainedSearch
     for (auto const &a1 : successors[0])
     {
       ids[0][i].clear();
-      auto h1(heus[0]->HCost(a1.second, g1));
+      auto h1(heus[0]->HCost(a1.second, goal[0]));
       unsigned j(0);
       auto const& ec1(ecs[0][i]);
       for (auto const &a2 : successors[1])
       {
-        auto h2(heus[1]->HCost(a2.second, g2));
+        auto h2(heus[1]->HCost(a2.second, goal[1]));
         auto const &ec2(ecs[1][j]);
         crossProduct.emplace_back(a1, a2, s.feasible);
         auto &n(crossProduct.back());
@@ -1863,8 +2276,8 @@ struct PairwiseConstrainedSearch
           // Count number of conflicts
           for (unsigned m(1); m < matches.size(); ++m)
           {
-            nc1 += collisionCheck2D(n.first.first, n.first.second, *matches[m - 1], *matches[m], radii[0],radii[0]);
-            nc1 += collisionCheck2D(n.second.first, n.second.second, *matches[m - 1], *matches[m], radii[1],radii[1]);
+            nc1 += collisionCheck2D(n.first.first, n.first.second, *matches[m - 1], *matches[m], radii[0], radii[0]);
+            nc1 += collisionCheck2D(n.second.first, n.second.second, *matches[m - 1], *matches[m], radii[1], radii[1]);
             //if(!nc2){std::cout << "NO ";}
             //std::cout << "conflict(2): " << i2.data << " " << n << "\n";
           }
@@ -1894,118 +2307,117 @@ struct PairwiseConstrainedSearch
           }
         }
         //std::cout << "  " << n << " "<<n.feasible << "\n";
-        auto gg1(G1 + ec1);
-        auto gg2(G2 + ec2);
-        if(gg1+h1 < ub1 && gg2+h2 < ub2)
+        auto gg1(G[0] + ec1);
+        auto gg2(G[1] + ec2);
+        // Make sure this node will come in under the upper bound
+        if (gg1 + h1 < ub[0] && gg2 + h2 < ub[1])
         {
-          bool a1done(envs[0]->GoalTest(n[0].second, g1));
-          bool a2done(envs[1]->GoalTest(n[1].second, g2));
+          bool a1done(envs[0]->GoalTest(n[0].second, goal[0]));
+          bool a2done(envs[1]->GoalTest(n[1].second, goal[1]));
           bool a1wait(n[0].first.sameLoc(n[0].second));
           bool a2wait(n[1].first.sameLoc(n[1].second));
-          if (a2done && a1done && a1wait && a2wait)
+          // Make sure both aren't waiting at the goal
+          if (!(a2done && a1done && a1wait && a2wait))
           {
-            ++j;
-            continue; // Both agents can't just sit at their goal
-          }
-          //if(n.feasible)
-          //std::cout << "a0 lb:" << lb1 <<": " << ub1 << "/a1 lb:" << lb2 <<": " << ub2 << " " << n[0]
-          //<< "(f="<< (gg1+h1) << ") feasible with " << n[1]  << "(f="<< (gg2+h2) << ")\n";
-          // Legit arrival at goal
-          // check goal
-          //if(soc>=gg1+gg2)
-          //{
-          if (a1done && a2done) // At goal
-          {
-            //std::cout << "  {g:" << n << "f1:" << gg1 << "+" << h1 << "=" << (gg1 + h1) << ",f2:" << gg2 << "+" << h2 << "=" << (gg2+ h2)  << " feasible: " << n.feasible << "}\n";
-            if (n.feasible) // Reachable
-              int fffff = 987;
-            if (G + ec1 + ec2 >= socLim && // Must be above the frontier
-                gg1 >= lb1 &&              // Must be above lower bound
-                gg2 >= lb2 &&              // Must be above lower bound
-                gg1 < ub1 &&               // Must be below upper bound
-                gg2 < ub2)                 // Must be below upper bound
+            //if(n.feasible)
+            //std::cout << "a0 lb:" << lb[0] <<": " << ub[0] << "/a1 lb:" << lb[1] <<": " << ub[1] << " " << n[0]
+            //<< "(f="<< (gg1+h1) << ") feasible with " << n[1]  << "(f="<< (gg2+h2) << ")\n";
+            // Legit arrival at goal
+            // check goal
+            //if(soc>=gg1+gg2)
+            //{
+            if (a1done && a2done) // At goal
             {
-              if (n.feasible) // Reachable
+              //std::cout << "  {g:" << n << "f1:" << gg1 << "+" << h1 << "=" << (gg1 + h1) << ",f2:" << gg2 << "+" << h2 << "=" << (gg2+ h2)  << " feasible: " << n.feasible << "}\n";
+              if (G[0] + G[1] + ec1 + ec2 >= socLim && // Must be above the frontier
+                  gg1 >= lb[0] &&                      // Must be above lower bound
+                  gg2 >= lb[1] &&                      // Must be above lower bound
+                  gg1 < ub[0] &&                       // Must be below upper bound
+                  gg2 < ub[1])                         // Must be below upper bound
               {
-                if (all || firstsoc == INT_MAX)
+                if (n.feasible) // Reachable
                 {
-                  // TODO: CAT check (if found duplicate)
-                  paths.push_back(std::vector<std::vector<state>>(2));
-                  // Extract the path back to the root.
-                  auto tmpnode(nodeid);
-                  paths.back()[0].push_back(n[0].second);
-                  //std::cout << "*" << n[0].second << "\n";
-                  paths.back()[1].push_back(n[1].second);
-                  //std::cout << "      *" << n[1].second << "\n";
-                  do
+                  if (all || firstsoc == INT_MAX)
                   {
-                    auto const& tmpn(open.Lookup(tmpnode));
-                    //std::cout << open.Lookup(tmpnode).data << "\n";
-                    for (unsigned q(0); q < tmpn.data.size(); ++q)
+                    //std::cout << "Solution found: " << gg1 << "+" << gg2 << "=" << gg1+gg2 << "\n";
+                    // TODO: CAT check (if found duplicate)
+                    paths.push_back(std::vector<std::vector<state>>(2));
+                    // Extract the path back to the root.
+                    auto tmpnode(nodeid);
+                    paths.back()[0].push_back(n[0].second);
+                    //std::cout << "*" << n[0].second << "\n";
+                    paths.back()[1].push_back(n[1].second);
+                    //std::cout << "      *" << n[1].second << "\n";
+                    do
                     {
-                      auto g(envs[q]->GCost(tmpn.data[q].first, tmpn.data[q].second));
-                      if (paths.back()[q].back() != tmpn.data[q].second)
+                      auto const &tmpn(open.Lookup(tmpnode));
+                      //std::cout << open.Lookup(tmpnode).data << "\n";
+                      for (unsigned q(0); q < tmpn.data.size(); ++q)
                       {
-                        paths.back()[q].push_back(tmpn.data[q].second);
-                        //std::cout << (q ? "                  " : "") <<tmpnode<< "*" << tmpn.data[q] << " ng: " << (q?tmpn.g2:tmpn.g1) << " ec: " << g << "\n";
+                        auto gg(envs[q]->GCost(tmpn.data[q].first, tmpn.data[q].second));
+                        if (paths.back()[q].back() != tmpn.data[q].second)
+                        {
+                          paths.back()[q].push_back(tmpn.data[q].second);
+                          //std::cout << (q ? "                  " : "") <<tmpnode<< "*" << tmpn.data[q] << " ng: " << (q?tmpn.g2:tmpn.g1) << " ec: " << gg << "\n";
+                        }
+                        else
+                        {
+                          //std::cout << (q ? "                  " : "") <<tmpnode<< " " << tmpn.data[q] << " ng: " << (q?tmpn.g2:tmpn.g1) << " ec: " << gg << "\n";
+                        }
+                      }
+                      tmpnode = tmpn.parentID;
+                    } while (open.Lookup(tmpnode).parentID != tmpnode);
+                    auto const &tmpn(open.Lookup(tmpnode));
+                    for (unsigned q(0); q < open.Lookup(tmpnode).data.size(); ++q)
+                    {
+                      auto gg(envs[q]->GCost(tmpn.data[q].first, tmpn.data[q].second));
+                      if (paths.back()[q].back() != open.Lookup(tmpnode).data[q].second)
+                      {
+                        paths.back()[q].push_back(open.Lookup(tmpnode).data[q].second);
+                        //std::cout << (q ? "                  " : "") <<tmpnode<< "*" << tmpn.data[q] << " ng: " << (q?tmpn.g2:tmpn.g1) << " ec: " << gg << "\n";
                       }
                       else
                       {
-                        //std::cout << (q ? "                  " : "") <<tmpnode<< " " << tmpn.data[q] << " ng: " << (q?tmpn.g2:tmpn.g1) << " ec: " << g << "\n";
+                        //std::cout << (q ? "                  " : "") <<tmpnode<< " " << tmpn.data[q] << " ng: " << (q?tmpn.g2:tmpn.g1) << " ec: " << gg << "\n";
+                      }
+                      std::reverse(paths.back()[q].begin(), paths.back()[q].end());
+                    }
+                    std::vector<unsigned> fincosts(2);
+                    fincosts[0] = envs[0]->GetPathLength(paths.back()[0]);
+                    fincosts[1] = envs[1]->GetPathLength(paths.back()[1]);
+                    if (all)
+                    {
+                      auto ix(std::find(finalcost.begin(), finalcost.end(), fincosts));
+                      if (ix == finalcost.end())
+                      {
+                        finalcost.push_back(fincosts);
+                        if (gg1 + gg2 > soc)
+                        {
+                          return false;
+                        }
+                      }
+                      else
+                      {
+                        //TODO: here is where we would perform the CAT check.
+                        // For now, this is a duplicate, so we throw it out. :(
+                        paths.pop_back();
                       }
                     }
-                    tmpnode = tmpn.parentID;
-                  } while (open.Lookup(tmpnode).parentID != tmpnode);
-                  auto const &tmpn(open.Lookup(tmpnode));
-                  for (unsigned q(0); q < open.Lookup(tmpnode).data.size(); ++q)
-                  {
-                    auto g(envs[q]->GCost(tmpn.data[q].first, tmpn.data[q].second));
-                    if (paths.back()[q].back() != open.Lookup(tmpnode).data[q].second)
-                    {
-                      paths.back()[q].push_back(open.Lookup(tmpnode).data[q].second);
-                      //std::cout << (q ? "                  " : "") <<tmpnode<< "*" << tmpn.data[q] << " ng: " << (q?tmpn.g2:tmpn.g1) << " ec: " << g << "\n";
-                    }
                     else
-                    {
-                      //std::cout << (q ? "                  " : "") <<tmpnode<< " " << tmpn.data[q] << " ng: " << (q?tmpn.g2:tmpn.g1) << " ec: " << g << "\n";
-                    }
-                    std::reverse(paths.back()[q].begin(), paths.back()[q].end());
-                  }
-                  std::vector<unsigned> fincosts(2);
-                  fincosts[0] = envs[0]->GetPathLength(paths.back()[0]);
-                  fincosts[1] = envs[1]->GetPathLength(paths.back()[1]);
-                  if (all)
-                  {
-                    auto ix(std::find(finalcost.begin(), finalcost.end(), fincosts));
-                    if (ix == finalcost.end())
                     {
                       finalcost.push_back(fincosts);
-                      if(gg1+gg2>soc){
-                        return false;
-                      }
                     }
-                    else
-                    {
-                      //TODO: here is where we would perform the CAT check.
-                      // For now, this is a duplicate, so we throw it out. :(
-                      paths.pop_back();
-                    }
+                  }
+
+                  if (firstsoc == INT_MAX)
+                  {
+                    firstsoc = soc = gg1 + gg2;
                   }
                   else
                   {
-                    finalcost.push_back(fincosts);
+                    soc = gg1 + gg2;
                   }
-                }
-
-                if (firstsoc == INT_MAX)
-                {
-                  firstsoc = soc = gg1 + gg2;
-                }
-                else
-                {
-                  soc = gg1 + gg2;
-                }
-                /*auto top(open.Lookup(open.Peek()));
+                  /*auto top(open.Lookup(open.Peek()));
             if (top.g + top.h > soc)
             {
               return false;
@@ -2014,73 +2426,124 @@ struct PairwiseConstrainedSearch
             {
               return true;
             }*/
-            if(!all)return false;
+                  if (!all)
+                  {
+                    return false;
+                  }
+                }
+                else if(false)
+                {
+                  std::cout << "INFEASIBLE Solution found: " << gg1 << "+" << gg2 << "=" << gg1 + gg2 << "\n";
+                  // TODO: CAT check (if found duplicate)
+                  std::vector<std::vector<state>> path(2);
+                  std::vector<std::vector<bool>> feas(2);
+                  // Extract the path back to the root.
+                  auto tmpnode(nodeid);
+                  path[0].push_back(n[0].second);
+                  path[1].push_back(n[1].second);
+                  feas[0].push_back(n.feasible);
+                  feas[1].push_back(n.feasible);
+                  do
+                  {
+                    auto const &tmpn(open.Lookup(tmpnode));
+                    for (unsigned q(0); q < tmpn.data.size(); ++q)
+                    {
+                      if (path[q].back() != tmpn.data[q].second)
+                      {
+                        path[q].push_back(tmpn.data[q].second);
+                        feas[q].push_back(tmpn.data.feasible);
+                      }
+                    }
+                    tmpnode = tmpn.parentID;
+                  } while (open.Lookup(tmpnode).parentID != tmpnode);
+                  auto const &tmpn(open.Lookup(tmpnode));
+                  for (unsigned q(0); q < open.Lookup(tmpnode).data.size(); ++q)
+                  {
+                    if (path[q].back() != open.Lookup(tmpnode).data[q].second)
+                    {
+                      path[q].push_back(open.Lookup(tmpnode).data[q].second);
+                      feas[q].push_back(open.Lookup(tmpnode).data.feasible);
+                    }
+                    std::reverse(path[q].begin(), path[q].end());
+                    std::reverse(feas[q].begin(), feas[q].end());
+                    for(unsigned r(0); r<path[q].size(); ++r){
+                      std::cout << path[q][r] << feas[q][r] << "\n";
+                    }
+                  }
+                }
               }
             }
-          }
-          //}
-          uint64_t hash(GetHash(n,gg1,gg2));
-          //std::cout << "hash " << hash << "\n";
-          uint64_t theID(0);
-          switch (open.Lookup(hash, theID))
-          {
-          case kClosedList:
-            // Closed list guy is not feasible but this one is!
+            //}
+            uint64_t hash(GetHash(n, gg1, gg2));
+            //std::cout << "hash " << hash << "\n";
+            uint64_t theID(0);
+            switch (open.Lookup(hash, theID))
             {
-              if (n.feasible)
+            case kClosedList:
+              // Closed list guy is not feasible but this one is!
               {
-                auto &cand(open.Lookup(theID));
-                if (!cand.data.feasible || gg1 + gg2 <= cand.g)
+                if (n.feasible)
                 {
-                  cand.parentID = nodeid;
-                  cand.g = gg1 + gg2;
-                  cand.h = h1 + h2;
-                  cand.g1 = gg1;
-                  cand.h1 = h1;
-                  cand.g2 = gg2;
-                  cand.h2 = h2;
-                  cand.data.feasible = true;
+                  auto &cand(open.Lookup(theID));
+                  if (!cand.data.feasible || gg1 + gg2 <= cand.g)
+                  {
+                    cand.parentID = nodeid;
+                    cand.g = gg1 + gg2;
+                    cand.h = h1 + h2;
+                    cand.g1 = gg1;
+                    cand.h1 = h1;
+                    cand.g2 = gg2;
+                    cand.h2 = h2;
+                    cand.data.feasible = true;
 
-                  open.Reopen(theID);
-                  //std::cout << "Update " << n << " id:" << theID << " to feasible\n";
+                    open.Reopen(theID);
+                    //std::cout << "Update " << hash << n << " id:" << theID << " to feasible\n";
+                  }
                 }
               }
-            }
-            break;
-          case kOpenList:
-            // previously generated node is not feasible but this one is!
-            {
-              // Replace if infeasible or has better cost
-              if (n.feasible)
+              break;
+            case kOpenList:
+              // previously generated node is not feasible but this one is!
               {
-                auto &cand(open.Lookup(theID));
-                if (!cand.data.feasible || gg1 + gg2 <= cand.g)
+                // Replace if infeasible or has better cost
+                if (n.feasible)
                 {
-                  cand.parentID = nodeid;
-                  cand.g = gg1 + gg2;
-                  cand.h = h1 + h2;
-                  cand.g1 = gg1;
-                  cand.h1 = h1;
-                  cand.g2 = gg2;
-                  cand.h2 = h2;
-                  cand.data.feasible = true;
-                  //std::cout << "Update " << n << " id:" << theID << " to feasible\n";
+                  auto &cand(open.Lookup(theID));
+                  if (!cand.data.feasible || gg1 + gg2 <= cand.g)
+                  {
+                    cand.parentID = nodeid;
+                    cand.g = gg1 + gg2;
+                    cand.h = h1 + h2;
+                    cand.g1 = gg1;
+                    cand.h1 = h1;
+                    cand.g2 = gg2;
+                    cand.h2 = h2;
+                    cand.data.feasible = true;
+                    open.KeyChanged(theID);
+                    //std::cout << "Update " << hash << n << " id:" << theID << " to feasible\n";
+                  }
                 }
               }
+              break;
+            case kNotFound:
+              // Add to open :)
+              if (gg1 + h1 < ub[0] && gg2 + h2 < ub[1])
+              {
+                //MultiAgentAStarOpenClosedData<state> data(n, gg1, gg2, h1, h2,
+                //nodeid, open.theHeap.size(), kOpenList);
+                //open.AddOpenNode(data, hash);
+                open.EmplaceOpenNode(hash, n, gg1, gg2, h1, h2, nodeid, open.theHeap.size(), kOpenList);
+                open.Lookup(hash, theID);
+                //std::cout << std::fixed << "  Add " << hash << n << "feasible: " << n.feasible << " id:" << theID << " f: " << (gg1 + h1 + gg2 + h2) << " g1:" << gg1 << " g2:" << gg2 << " h1:" << h1
+                          //<< " h2:" << h2 << " f1:" << gg1 + h1 << " f2:" << gg2 + h2 << "\n";
+              //}
+              //else
+              //{
+                //std::cout << std::fixed << "  Skip " << hash << n << "feasible: " << n.feasible << " id:" << theID << " f: " << (gg1 + h1 + gg2 + h2) << " g1:" << gg1 << " g2:" << gg2 << " h1:" << h1
+                          //<< " h2:" << h2 << " f1:" << gg1 + h1 << " f2:" << gg2 + h2 << "\n";
+              }
+              break;
             }
-            break;
-          case kNotFound:
-            // Add to open :)
-            if(gg1+h1<ub1 && gg2+h2<ub2)
-            {
-            MultiAgentAStarOpenClosedData<state> data(n, gg1, gg2, h1, h2,
-                                               nodeid, open.theHeap.size(), kOpenList);
-            open.AddOpenNode(data, hash);
-            //open.Lookup(hash, theID);
-            }
-            //std::cout << "Add " << n << " id:" << theID << " g1:" << gg1 << " g2:" << gg2 << " h1:" << h1
-            //<< " h2:" << h2 << " f1:"<< gg1+h1 << " f2:" << gg2+h2 << "\n";
-            break;
           }
         }
         ids[0][i].emplace(gg2+h2,k); // other's f-cost and my action
@@ -2092,6 +2555,42 @@ struct PairwiseConstrainedSearch
       }
       ++i;
     }
+        //std::cout << "Combined G: " << G << "\n-\n";
+        /*unsigned max1(0);
+        unsigned max2(0);
+        for(auto const& ii:intervals[0])
+        {
+          if(ii.first[0] && ii.first[0]!=ii.first[2])
+          {
+            max1 = std::max(max1, ii.first[0]);
+            //std::cout << ii.first << "\n";
+          }
+        }
+        //std::cout << "-\n";
+        for(auto const& ii:intervals[1])
+        {
+          if(ii.first[0] && ii.first[0]!=ii.first[2])
+          {
+            max2 = std::max(max1, ii.first[0]);
+            //std::cout << ii.first << "\n";
+          }
+        }
+        std::cout << "maxs: " << max1 << ", " << max2 << "\n";
+        for(auto const& ii:intervals[0])
+        {
+          if(ii.first[0]==max1 && ii.first[0]!=ii.first[2])
+          {
+            std::cout << ii << "\n";
+          }
+        }
+        for(auto const& ii:intervals[1])
+        {
+          if(ii.first[0]==max2 && ii.first[0]!=ii.first[2])
+          {
+            std::cout << ii << "\n";
+          }
+        }*/
+
     k=0;
     for (unsigned i(0); i < ids.size(); ++i) // Agent num
     {
@@ -2102,7 +2601,7 @@ struct PairwiseConstrainedSearch
         unsigned minInclusive(INT_MAX);
         unsigned maxInclusive(0);
         if(ids[i][a].empty())continue;
-        auto hash(GetHash(successors[i][a]));//,(i?G2:G1)+ecs[i][a]));
+        auto hash(GetHash(successors[i][a]));//,G[i]+ecs[i][a]));
         auto ivl(ivix[i].find(hash));
         // This is a new interval
         if (ivl == ivix[i].end())
@@ -2157,9 +2656,10 @@ struct PairwiseConstrainedSearch
           {
             //std::cout << "No conflicts\n";
             //std::cout << "Add interval: (" << i << ")" << successors[i][a] << "(" << minInclusive << "," << 0 << "]\n";
-            std::array<unsigned,3> tmp={0, minInclusive-1, minInclusive-1};
-            ivix[i][hash]=intervals[i].size();
-            intervals[i].emplace_back(tmp, successors[i][a]);
+            ivix[i][hash]=0;
+            //std::array<unsigned,3> tmp={0, minInclusive-1, minInclusive-1};
+            //ivix[i][hash]=intervals[i].size();
+            //intervals[i].emplace_back(tmp, successors[i][a]);
           }
         }
         else
@@ -2168,6 +2668,7 @@ struct PairwiseConstrainedSearch
           // we must remove the interval
           auto& val(intervals[i][ivl->second]);
 
+          if (val.first[0] >= val.first[1])
           {
             //std::cout << "update " << *val << "(" << i << ") because " << successors[i?0:1] << "\n";
             // Otherwise, we must narrow the interval of the constraint if needed
@@ -2315,9 +2816,1066 @@ struct PairwiseConstrainedSearch
 }
 
 };
+template <typename environ, typename state, typename action>
+AStarOpenClosed<ActionPair<state>, CATTieBreaking<state>, MultiAgentAStarOpenClosedData<state>> PairwiseConstrainedSearch<environ,state,action>::open;
 
 //template <typename environ, typename state>
 //inline std::ostream &operator<<(std::ostream &os, typename PairwiseConstrainedSearch<environ, state>::MultiAgentAStarOpenClosedData const &ma)
 //{
   //return os;
 //}
+#ifdef FOO
+template <typename environ, typename state>
+struct PairwiseConstrainedSearch2
+{
+  //typedef MultiCostLimitedEnvironment<Action<state>, unsigned, environ> MultiEnv;
+
+  TemporalAStarPair<state,int,environ> astar;
+  // Initial constructor
+  // Adds a single state to the open list and sets the lower bound on cost to 0
+  PairwiseConstrainedSearch2(environ *env1,
+                             environ *env2,
+                             Heuristic<state> *heu1,
+                             Heuristic<state> *heu2,
+                             double lower1,
+                             double upper1,
+                             double lower2,
+                             double upper2,
+                             state const &start1,
+                             state const &goal1,
+                             double r1,
+                             state const &start2,
+                             state const &goal2,
+                             double r2,
+                             double socLb,
+                             bool storeAll = false)
+      //bool waitAtGoalNeverCosts=false)
+      : intervals(2),
+        ivix(2),
+        ids(2),
+        radii(2),
+        socLim(socLb),
+        firstsoc(INT_MAX),
+        soc(INT_MAX),
+        bf(1),
+        all(storeAll),
+        currList(new std::vector<MultiAgentIDAData<state>>()),
+        nextList(new std::vector<MultiAgentIDAData<state>>())
+  //waitcosts(!waitAtGoalNeverCosts)
+  {
+    lb={lower1,lower2};
+    ub={upper1,upper2};
+    start={start1,start2};
+    goal={goal1,goal2};
+    radii[0]=r1;
+    radii[1]=r2;
+    envs = {env1, env2};
+    heus = {heu1, heu2};
+    //env = MultiEnv(envs);
+    //open.Reset(env->GetMaxHash());
+    for (auto const &e : envs)
+    {
+      bf *= e->branchingFactor();
+    }
+  }
+
+  void reset()
+  {
+    finalcost.clear();
+    seen.clear();
+    intervals[0].push_back({{0,INT_MAX-1,INT_MAX-1}, Action<state>(start[0],start[0])});
+    intervals[1].push_back({{0,INT_MAX-1,INT_MAX-1}, Action<state>(start[1],start[1])});
+  }
+
+  std::array<environ *,2> envs; // environments for agents
+  std::array<Heuristic<state> *,2> heus; // environments for agents
+  //MultiEnv env;
+  unsigned currFLimit;
+  unsigned nextFLimit;
+  std::vector<MultiAgentIDAData<state>*>* currList;
+  std::vector<MultiAgentIDAData<state>*>* nextList;
+  std::vector<MultiAgentIDAData<state>*> closedList;
+  std::vector<MultiAgentIDAData<state>*> costList;
+  std::vector<MultiAgentIDAData<state>> elements;
+
+  double socLim;             // Plateau for sum of costs
+  double firstsoc;                // soc of first solution
+  double soc;                // soc of first solution
+  std::array<double,2> lb;
+  std::array<double,2> ub;
+  std::array<state,2> goal;
+  std::array<state,2> start;
+
+  double maxTotal;
+  unsigned bf; // branching factor
+  bool all; // Whether to store all solutions of cost
+  //bool waitcosts; // Whether waiting at the goal costs if you move off again
+
+  std::vector<std::deque<std::pair<std::array<unsigned,3>,Action<state>>>> intervals;
+  std::vector<std::unordered_map<uint64_t,unsigned>> ivix;
+  std::vector<std::vector<unsigned>> finalcost;
+  //PairTree<ActionPair<state>> mutexes;
+  const int MAXTIME=1000 * state::TIME_RESOLUTION_U;
+  std::vector<double> radii;
+
+  static AStarOpenClosed<ActionPair<state>, CATTieBreaking<state>, MultiAgentAStarOpenClosedData<state>> open;
+  //BucketOpenClosed<ActionPair<state>, CATTieBreaking<state>, MultiAgentAStarOpenClosedData<state>> open;
+
+
+  // Get hash for a single two-agent state
+  uint64_t GetHash(state const &first,
+                   state const &second,
+                   uint64_t gg1,
+                   uint64_t gg2,
+                   bool feasible)
+  {
+    // Implement the FNV-1a hash http://www.isthe.com/chongo/tech/comp/fnv/index.html
+    uint64_t h(14695981039346656037UL); // Offset basis
+    uint64_t h1(0);
+    unsigned i(0);
+    uint8_t c[sizeof(uint64_t)];
+    h1 = envs[i]->GetStateHash(first);
+    memcpy(c, &h1, sizeof(uint64_t));
+    for (unsigned j(0); j < sizeof(uint64_t); ++j)
+    {
+      //hash[k*sizeof(uint64_t)+j]=((int)c[j])?c[j]:1; // Replace null-terminators in the middle of the string
+      h = h ^ c[j];          // Xor with octet
+      h = h * 1099511628211; // multiply by the FNV prime
+    }
+
+    h1 = envs[i++]->GetStateHash(second);
+    memcpy(c, &h1, sizeof(uint64_t));
+    for (unsigned j(0); j < sizeof(uint64_t); ++j)
+    {
+      //hash[k*sizeof(uint64_t)+j]=((int)c[j])?c[j]:1; // Replace null-terminators in the middle of the string
+      h = h ^ c[j];          // Xor with octet
+      h = h * 1099511628211; // multiply by the FNV prime
+    }
+    h1 = (gg1<<33 + gg2<<1) +feasible;
+    memcpy(c, &h1, sizeof(uint64_t));
+    for (unsigned j(0); j < sizeof(uint64_t); ++j)
+    {
+      //hash[k*sizeof(uint64_t)+j]=((int)c[j])?c[j]:1; // Replace null-terminators in the middle of the string
+      h = h ^ c[j];          // Xor with octet
+      h = h * 1099511628211; // multiply by the FNV prime
+    }
+    return h;
+  }
+
+  // Get hash for a single-agent action
+  uint64_t GetHash(Action<state> const &v)//, uint64_t gg1)
+  {
+    // Implement the FNV-1a hash http://www.isthe.com/chongo/tech/comp/fnv/index.html
+    uint64_t h(14695981039346656037UL); // Offset basis
+    uint64_t h1(0);
+    unsigned i(0);
+    uint8_t c[sizeof(uint64_t)];
+    h1 = envs[i]->GetStateHash(v.first);
+    memcpy(c, &h1, sizeof(uint64_t));
+    for (unsigned j(0); j < sizeof(uint64_t); ++j)
+    {
+      //hash[k*sizeof(uint64_t)+j]=((int)c[j])?c[j]:1; // Replace null-terminators in the middle of the string
+      h = h ^ c[j];          // Xor with octet
+      h = h * 1099511628211; // multiply by the FNV prime
+    }
+
+    h1 = envs[i++]->GetStateHash(v.second);
+    memcpy(c, &h1, sizeof(uint64_t));
+    for (unsigned j(0); j < sizeof(uint64_t); ++j)
+    {
+      //hash[k*sizeof(uint64_t)+j]=((int)c[j])?c[j]:1; // Replace null-terminators in the middle of the string
+      h = h ^ c[j];          // Xor with octet
+      h = h * 1099511628211; // multiply by the FNV prime
+    }
+    /*memcpy(c, &gg1, sizeof(uint64_t));
+    for (unsigned j(0); j < sizeof(uint64_t); ++j)
+    {
+      //hash[k*sizeof(uint64_t)+j]=((int)c[j])?c[j]:1; // Replace null-terminators in the middle of the string
+      h = h ^ c[j];          // Xor with octet
+      h = h * 1099511628211; // multiply by the FNV prime
+    }*/
+    return h;
+  }
+
+  // Get hash for a two-agent action
+  uint64_t GetHash(ActionPair<state> const &node, uint32_t gg1, uint32_t gg2)
+  {
+    // Implement the FNV-1a hash http://www.isthe.com/chongo/tech/comp/fnv/index.html
+    uint64_t h(14695981039346656037UL); // Offset basis
+    uint64_t h1(0);
+    unsigned i(0);
+    uint8_t c[sizeof(uint64_t)];
+    for (auto const &v : node)
+    {
+      h1=envs[i]->GetStateHash(v.first);
+      memcpy(c, &h1, sizeof(uint64_t));
+      for (unsigned j(0); j < sizeof(uint64_t); ++j)
+      {
+        //hash[k*sizeof(uint64_t)+j]=((int)c[j])?c[j]:1; // Replace null-terminators in the middle of the string
+        h = h ^ c[j];          // Xor with octet
+        h = h * 1099511628211; // multiply by the FNV prime
+      }
+
+      h1=envs[i++]->GetStateHash(v.second);
+      memcpy(c, &h1, sizeof(uint64_t));
+      for (unsigned j(0); j < sizeof(uint64_t); ++j)
+      {
+        //hash[k*sizeof(uint64_t)+j]=((int)c[j])?c[j]:1; // Replace null-terminators in the middle of the string
+        h = h ^ c[j];          // Xor with octet
+        h = h * 1099511628211; // multiply by the FNV prime
+      }
+    }
+//#pragma GCC push_options
+//#pragma GCC optimize ("O0")
+   h1 = (gg1*0xffffffff) + gg2;
+//#pragma GCC pop_options
+    memcpy(c, &h1, sizeof(uint64_t));
+    for (unsigned j(0); j < sizeof(uint64_t); ++j)
+    {
+      //hash[k*sizeof(uint64_t)+j]=((int)c[j])?c[j]:1; // Replace null-terminators in the middle of the string
+      h = h ^ c[j];          // Xor with octet
+      h = h * 1099511628211; // multiply by the FNV prime
+    }
+    return h;
+  }
+
+  void getRangesAndConstraints()
+  {
+    // =======================
+    // Constraint-based feasibility checks.
+    // Plan each agent singly.
+    // If the search fails, the problem is unsolvable,
+    // either due to being overconstrained, or just an
+    // unsolvable instance
+    // =======================
+    paths.resize(0);
+    paths.push_back(std::vector<std::vector<state>>(2, std::vector<state>()));
+    paths[0][0].clear();
+    auto tmpgoal(goal[0]);
+    tmpgoal.t = lb[0];
+    astar.SetHeuristic(heus[0]);
+    astar.SetUpperLimit(ub[0]);
+    if (ub[0] != lb[0])
+    {
+      astar.SetUpperLimit(ub[0] - 1);
+    }
+    astar.SetLowerLimit(lb[0]);
+    //Timer tmr;
+    //tmr.StartTimer();
+    //astar.SetVerbose(true);
+    astar.GetPath(envs[0], start[0], tmpgoal, paths[0][0], lb[0]);
+    //std::cout << "s1 took: " << tmr.EndTimer() << "\n";
+    if (paths[0][0].empty())
+    {
+      return;
+    }
+    auto len1(envs[0]->GetPathLength(paths[0][0]));
+    paths[0][0].clear();
+
+    paths[0][1].clear();
+    tmpgoal = goal[1];
+    tmpgoal.t = lb[1];
+    astar.SetHeuristic(heus[1]);
+    astar.SetUpperLimit(ub[1]);
+    if (ub[1] != lb[1])
+    {
+      astar.SetUpperLimit(ub[1] - 1);
+    }
+    astar.SetLowerLimit(lb[1]);
+    //astar.SetVerbose(true);
+    //tmr.StartTimer();
+    astar.GetPath(envs[1], start[1], tmpgoal, paths[0][1], lb[1]);
+    //std::cout << "s2 took: " << tmr.EndTimer() << "\n";
+    if (paths[0][1].empty())
+    {
+      return;
+    }
+    auto len2(envs[1]->GetPathLength(paths[0][1]));
+    paths[0][1].clear();
+    paths.clear();
+
+    // If either of the upper bounds is unlimited, we could run forever
+    // As a termination heuristic, we will assume that if an agent were
+    // to make it to its goal, it may have to wait for the other agent
+    // to traverse its entire path first.
+    maxTotal = envs[0]->GetMapSize() * state::TIME_RESOLUTION_U;
+    if (maxTotal < socLim)
+    {
+      maxTotal = socLim;
+    }
+    //maxTotal=len1+len2;
+    //cd maxTotal*=maxTotal;
+
+    // =======================
+    // Do full joint-agent planning and mutex-propagation
+    // at the same time
+    // =======================
+    //tmr.StartTimer();
+    ActionPair<state> s(start[0], start[0], start[1], start[1]);
+    MultiAgentIDAData<state> data(s, 0, 0,
+                                  heus[0]->HCost(start[0], goal[0]),
+                                  heus[1]->HCost(start[1], goal[1]),
+                                  0, 0);
+    data.data.nc = 0; // We assume that the root has no conflicts with other agents
+    currList->clear();
+    currList->push_back(data);
+    {
+      while (currList.size() > 0)
+      {
+        auto currOpenNode(currList->back());
+        currList->pop_back();
+        if (currOpenNode == 0)
+        {
+          //checkIteration();
+          if (currList->empty())
+          {
+            auto tmp(currList);
+            currList = nextList;
+            nextList = tmp;
+            currFLimit = nextFLimit;
+            nextFLimit = INT_MAX;
+          }
+          continue;
+        }
+        auto currF(currOpenNode->f());
+        if (currF > currFLimit)
+        {
+          nextFLimit = std::min(nextFLimit, currF);
+          nextList->push_back(currOpenNode);
+          //checkIteration();
+          if (currList->empty())
+          {
+            auto tmp(currList);
+            currList = nextList;
+            nextList = tmp;
+            currFLimit = nextFLimit;
+            nextFLimit = INT_MAX;
+          }
+          continue;
+        }
+
+        // Add to closed list
+        auto ref(table.find(currOpenNode->id));
+        assert(ref!=table.end()){
+        }
+        uint64_t hash(GetHash(*currOpenNode, currOpenNode->g1, currOpenNode->g2));
+        currOpenNode->id=closedList.size();
+        closedList.push_back(currOpenNode);
+
+        // For each successor
+    auto F(currOpenNode->g+currOpenNode->h);
+
+    //std::cout << "{d:" << node.data << "f1:" << node.g1 << "+" << node.h1 << "=" << (node.g1+node.h1) << ",f2:" << node.g2 << "+" << node.h2 << "=" << (node.g2+node.h2) << ",id:" << nodeid << ",p:" << node.parentID << " feasible: "<< node.data.feasible <<"}\n";
+    if (soc>firstsoc)
+    {
+      return false; // Return because a solution was already found and we have finished the plateau
+    }
+
+    std::array<double,2> G={currOpenNode->g1,currOpenNode->g2};
+    //auto f1(G[0] + currOpenNode->h1);
+    //auto f2(G[1] + currOpenNode->h2);
+    //if(!all)soc=f1+f2;
+    // Check that we're below the bounds
+    //if (ub[0] < f1 || ub[1] < f2)
+    //{
+      //return true;
+    //}
+    auto s(currOpenNode->data);
+    // Early termination criteria so we don't run forever.
+    if(G[0]+currOpenNode->h1>maxTotal+1 || G[1]+currOpenNode->h2>maxTotal+1)
+    {
+      return true;
+    }
+
+    // Add this node to the interval tree
+    auto shash(GetHash(s.first.second,s.second.second,G[0],G[1],s.feasible));
+    if(seen.find(shash)==seen.end()){
+      seen.insert(shash);
+    }else{
+      return true;
+    }
+    //std::cout <<std::fixed <<"pop " << s << " f: " << currOpenNode->h+currOpenNode->g << "\n";
+
+
+    //auto G(currOpenNode->g);
+
+    // First:
+    // Find minimum time of current edges
+    double sd(DBL_MAX);
+    unsigned minindex(0);
+    double k(0);
+    for (auto const &a : s)
+    {
+      if (a.second.t < sd)
+      {
+        sd = a.second.t;
+        minindex = k;
+      }
+      k++;
+    }
+    if (sd == DBL_MAX)
+    {
+      sd = s[minindex].second.t;
+    } // Can happen at root node
+
+    //Get successors into a vector
+    successors.clear();
+    successors.reserve(s.size());
+
+    //Add in successors for parents who are equal to the min
+    std::vector<std::vector<unsigned>> ecs(2);
+    k = 0;
+    for (auto const &a : s)
+    {
+      static std::vector<Action<state>> output;
+      output.clear();
+      if (a.second.t <= sd)
+      {
+        //std::cout << "Keep Successors of " << *a.second << "\n";
+        std::vector<state> succ(envs[k]->branchingFactor()*2);
+        auto sz(envs[k]->GetSuccessors(a.second, &succ[0]));
+        for (unsigned j(0); j < sz; ++j)
+        {
+          // We assume here that GCost will never charge for waiting at the goal
+          // Wait actions at the goal cost (unless we're at the end)
+          //if (waitcosts && G[k] < lb[k] && envs[k]->GoalTest(a.second,goal[k]) && envs[k]->GoalTest(succ[j],goal[k]))
+          //{
+            //ecs[k].push_back(succ[j].t - a.second.t);
+          //}
+          //else
+          //{
+            ecs[k].push_back(envs[k]->GCost(a.second, succ[j]));
+          //}
+          output.emplace_back(a.second, succ[j]);
+        }
+      }
+      else
+      {
+        // We assume here that GCost will never charge for waiting at the goal
+        // Wait actions at the goal cost (unless we're at the end)
+        //if (waitcosts && G[k] < lb[k] && envs[k]->GoalTest(a.first,goal[k]) && envs[k]->GoalTest(a.second,goal[k]))
+        //{
+          //ecs[k].push_back(a.second.t-a.first.t);
+        //}
+        //else
+        //{
+          // We are re-using this, so don't add the edge cost again...
+          ecs[k].push_back(0);//envs[k]->GCost(a.first, a.second));
+          //ecs[k].push_back(envs[k]->GCost(a.first, a.second));
+        //}
+        output.push_back(a);
+      }
+      if (output.empty())
+      {
+        // All movements from this position at this time are blocked
+        return true;
+      }
+      //std::cout << "successor  of " << s << "gets("<<*a<< "): " << output << "\n";
+      successors.push_back(output);
+      ++k;
+    }
+    static std::vector<ActionPair<state>> crossProduct;
+    crossProduct.clear();
+    crossProduct.reserve(successors[0].size()*successors[1].size());
+    ids[0].resize(successors[0].size());
+    ids[1].resize(successors[1].size());
+    for(auto& id:ids[1])
+    {
+      id.clear();
+    }
+    k=0;
+    unsigned i(0);
+    for (auto const &a1 : successors[0])
+    {
+      ids[0][i].clear();
+      auto h1(heus[0]->HCost(a1.second, goal[0]));
+      unsigned j(0);
+      auto const& ec1(ecs[0][i]);
+      for (auto const &a2 : successors[1])
+      {
+        auto h2(heus[1]->HCost(a2.second, goal[1]));
+        auto const &ec2(ecs[1][j]);
+        crossProduct.emplace_back(a1, a2, s.feasible);
+        auto &n(crossProduct.back());
+        if (CATTieBreaking<state>::useCAT)
+        {
+          // Compute cumulative conflicts
+          static std::vector<state const *> matches;
+          matches.clear();
+          //std::cout << "Getting NC for " << i1.data << ":\n";
+          CATTieBreaking<state>::CAT.get(n.t, std::max(n.first.second.t, n.second.second.t), matches, CATTieBreaking<state>::currentAgents);
+
+          // Get number of conflicts in the parent
+          unsigned nc1(s.nc);
+          //std::cout << "  matches " << matches.size() << "\n";
+
+          // Count number of conflicts
+          for (unsigned m(1); m < matches.size(); ++m)
+          {
+            nc1 += collisionCheck2D(n.first.first, n.first.second, *matches[m - 1], *matches[m], radii[0], radii[0]);
+            nc1 += collisionCheck2D(n.second.first, n.second.second, *matches[m - 1], *matches[m], radii[1], radii[1]);
+            //if(!nc2){std::cout << "NO ";}
+            //std::cout << "conflict(2): " << i2.data << " " << n << "\n";
+          }
+          // Set the number of conflicts in the data object
+          n.nc = nc1;
+        }
+
+        if (s.feasible)
+        {
+          // Check for conflict...
+          if ((a1.first == a2.first) ||
+              (a1.second == a2.second) ||
+              (a1.first.sameLoc(a2.second) &&
+               a2.first.sameLoc(a1.second)))
+          {
+            n.feasible = false;
+          }
+          else
+          {
+            //std::cout<<"Checking:"<<current[j].first << "-->"<< current[j].second <<", " << positions[agent][i].first << "-->"<< positions[agent][i].second << "\n";
+            if (collisionCheck2D(a1.first, a1.second,
+                                 a2.first, a2.second,
+                                 radii[0], radii[1]))
+            {
+              n.feasible = false;
+            }
+          }
+        }
+        //std::cout << "  " << n << " "<<n.feasible << "\n";
+        auto gg1(G[0] + ec1);
+        auto gg2(G[1] + ec2);
+        // Make sure this node will come in under the upper bound
+        if (gg1 + h1 < ub[0] && gg2 + h2 < ub[1])
+        {
+          bool a1done(envs[0]->GoalTest(n[0].second, goal[0]));
+          bool a2done(envs[1]->GoalTest(n[1].second, goal[1]));
+          bool a1wait(n[0].first.sameLoc(n[0].second));
+          bool a2wait(n[1].first.sameLoc(n[1].second));
+          // Make sure both aren't waiting at the goal
+          if (!(a2done && a1done && a1wait && a2wait))
+          {
+            //if(n.feasible)
+            //std::cout << "a0 lb:" << lb[0] <<": " << ub[0] << "/a1 lb:" << lb[1] <<": " << ub[1] << " " << n[0]
+            //<< "(f="<< (gg1+h1) << ") feasible with " << n[1]  << "(f="<< (gg2+h2) << ")\n";
+            // Legit arrival at goal
+            // check goal
+            //if(soc>=gg1+gg2)
+            //{
+            if (a1done && a2done) // At goal
+            {
+              //std::cout << "  {g:" << n << "f1:" << gg1 << "+" << h1 << "=" << (gg1 + h1) << ",f2:" << gg2 << "+" << h2 << "=" << (gg2+ h2)  << " feasible: " << n.feasible << "}\n";
+              if (G[0] + G[1] + ec1 + ec2 >= socLim && // Must be above the frontier
+                  gg1 >= lb[0] &&                      // Must be above lower bound
+                  gg2 >= lb[1] &&                      // Must be above lower bound
+                  gg1 < ub[0] &&                       // Must be below upper bound
+                  gg2 < ub[1])                         // Must be below upper bound
+              {
+                if (n.feasible) // Reachable
+                {
+                  if (all || firstsoc == INT_MAX)
+                  {
+                    // TODO: CAT check (if found duplicate)
+                    paths.push_back(std::vector<std::vector<state>>(2));
+                    // Extract the path back to the root.
+                    auto tmpnode(nodeid);
+                    paths.back()[0].push_back(n[0].second);
+                    //std::cout << "*" << n[0].second << "\n";
+                    paths.back()[1].push_back(n[1].second);
+                    //std::cout << "      *" << n[1].second << "\n";
+                    do
+                    {
+                      auto const &tmpn(open.Lookup(tmpnode));
+                      //std::cout << open.Lookup(tmpnode).data << "\n";
+                      for (unsigned q(0); q < tmpn.data.size(); ++q)
+                      {
+                        //auto gg(envs[q]->GCost(tmpn.data[q].first, tmpn.data[q].second));
+                        if (paths.back()[q].back() != tmpn.data[q].second)
+                        {
+                          paths.back()[q].push_back(tmpn.data[q].second);
+                          //std::cout << (q ? "                  " : "") <<tmpnode<< "*" << tmpn.data[q] << " ng: " << (q?tmpn.g2:tmpn.g1) << " ec: " << gg << "\n";
+                        }
+                        else
+                        {
+                          //std::cout << (q ? "                  " : "") <<tmpnode<< " " << tmpn.data[q] << " ng: " << (q?tmpn.g2:tmpn.g1) << " ec: " << gg << "\n";
+                        }
+                      }
+                      tmpnode = tmpn.parentID;
+                    } while (open.Lookup(tmpnode).parentID != tmpnode);
+                    auto const &tmpn(open.Lookup(tmpnode));
+                    for (unsigned q(0); q < open.Lookup(tmpnode).data.size(); ++q)
+                    {
+                      //auto gg(envs[q]->GCost(tmpn.data[q].first, tmpn.data[q].second));
+                      if (paths.back()[q].back() != open.Lookup(tmpnode).data[q].second)
+                      {
+                        paths.back()[q].push_back(open.Lookup(tmpnode).data[q].second);
+                        //std::cout << (q ? "                  " : "") <<tmpnode<< "*" << tmpn.data[q] << " ng: " << (q?tmpn.g2:tmpn.g1) << " ec: " << gg << "\n";
+                      }
+                      else
+                      {
+                        //std::cout << (q ? "                  " : "") <<tmpnode<< " " << tmpn.data[q] << " ng: " << (q?tmpn.g2:tmpn.g1) << " ec: " << gg << "\n";
+                      }
+                      std::reverse(paths.back()[q].begin(), paths.back()[q].end());
+                    }
+                    std::vector<unsigned> fincosts(2);
+                    fincosts[0] = envs[0]->GetPathLength(paths.back()[0]);
+                    fincosts[1] = envs[1]->GetPathLength(paths.back()[1]);
+                    if (all)
+                    {
+                      auto ix(std::find(finalcost.begin(), finalcost.end(), fincosts));
+                      if (ix == finalcost.end())
+                      {
+                        finalcost.push_back(fincosts);
+                        if (gg1 + gg2 > soc)
+                        {
+                          return false;
+                        }
+                      }
+                      else
+                      {
+                        //TODO: here is where we would perform the CAT check.
+                        // For now, this is a duplicate, so we throw it out. :(
+                        paths.pop_back();
+                      }
+                    }
+                    else
+                    {
+                      finalcost.push_back(fincosts);
+                    }
+                  }
+
+                  if (firstsoc == INT_MAX)
+                  {
+                    firstsoc = soc = gg1 + gg2;
+                  }
+                  else
+                  {
+                    soc = gg1 + gg2;
+                  }
+                  /*auto top(open.Lookup(open.Peek()));
+            if (top.g + top.h > soc)
+            {
+              return false;
+            }
+            else
+            {
+              return true;
+            }*/
+                  if (!all)
+                  {
+                    return false;
+                  }
+                }
+              }
+            }
+            //}
+            uint64_t hash(GetHash(n, gg1, gg2));
+            //std::cout << "hash " << hash << "\n";
+            uint64_t theID(0);
+            switch (open.Lookup(hash, theID))
+            {
+            case kClosedList:
+              // Closed list guy is not feasible but this one is!
+              {
+                if (n.feasible)
+                {
+                  auto &cand(open.Lookup(theID));
+                  if (!cand.data.feasible || gg1 + gg2 <= cand.g)
+                  {
+                    cand.parentID = nodeid;
+                    cand.g = gg1 + gg2;
+                    cand.h = h1 + h2;
+                    cand.g1 = gg1;
+                    cand.h1 = h1;
+                    cand.g2 = gg2;
+                    cand.h2 = h2;
+                    cand.data.feasible = true;
+
+                    open.Reopen(theID);
+                    //std::cout << "Update " << n << " id:" << theID << " to feasible\n";
+                  }
+                }
+              }
+              break;
+            case kOpenList:
+              // previously generated node is not feasible but this one is!
+              {
+                // Replace if infeasible or has better cost
+                if (n.feasible)
+                {
+                  auto &cand(open.Lookup(theID));
+                  if (!cand.data.feasible || gg1 + gg2 <= cand.g)
+                  {
+                    cand.parentID = nodeid;
+                    cand.g = gg1 + gg2;
+                    cand.h = h1 + h2;
+                    cand.g1 = gg1;
+                    cand.h1 = h1;
+                    cand.g2 = gg2;
+                    cand.h2 = h2;
+                    cand.data.feasible = true;
+                    open.KeyChanged(theID);
+                    //std::cout << "Update " << n << " id:" << theID << " to feasible\n";
+                  }
+                }
+              }
+              break;
+            case kNotFound:
+              // Add to open :)
+              if (gg1 + h1 < ub[0] && gg2 + h2 < ub[1])
+              {
+                //MultiAgentAStarOpenClosedData<state> data(n, gg1, gg2, h1, h2,
+                                                          //nodeid, open.theHeap.size(), kOpenList);
+                //open.AddOpenNode(data, hash);
+                open.EmplaceOpenNode(hash, n, gg1, gg2, h1, h2,nodeid, open.theHeap.size(), kOpenList);
+                //open.Lookup(hash, theID);
+              }
+              //std::cout << std::fixed << "  Add " << n << " id:" << theID << " f: " << (gg1+h1+gg2+h2) << " g1:" << gg1 << " g2:" << gg2 << " h1:" << h1
+              //<< " h2:" << h2 << " f1:"<< gg1+h1 << " f2:" << gg2+h2 << "\n";
+              break;
+            }
+          }
+        }
+        ids[0][i].emplace(gg2+h2,k); // other's f-cost and my action
+        ids[1][j].emplace(gg1+h1,k); // other's f-cost and my action
+        //std::cout << "a " << "0x" << n.first << "(" << ids[0][i].back().first << ")=" << n.feasible << "\n";
+        //std::cout << "a " << "1x" << n.second << "(" << ids[1][j].back().first << ")=" << n.feasible << "\n";
+        ++j;
+        ++k;
+      }
+      ++i;
+    }
+
+
+      }
+
+    }
+    if(finalcost.empty())return;
+    //std::cout << finalcost << "\n";
+    // TODO - If we ever plan to re-use this class, we won't be able
+    //        to delete the intervals inline like this...
+
+    // ===============================
+    // Finally, filter down the list of mprop constraints
+    // Only those which were completely infeasible for one
+    // or more complete cost levels are retained
+    // ===============================
+    auto finalsoc(finalcost[0][0]+finalcost[0][1]);
+    std::array<unsigned,2> mins={UINT_MAX,UINT_MAX};
+    for (unsigned i(0); i < finalcost.size() - 1; ++i)
+    {
+      if (finalcost[i][0] < mins[0])
+      {
+        mins[0] = finalcost[i][0];
+      }
+      if (finalcost[i][1] < mins[1])
+      {
+        mins[1] = finalcost[i][1];
+      }
+    }
+    for(unsigned i(0); i<intervals.size(); ++i){
+      unsigned other(i?0:1);
+      //std::cout << "Constraints for agent " << i << ":\n";
+      for(auto j(intervals[i].begin()); j!=intervals[i].end(); /*++j*/){
+        // We can only trust cost combinations that make sense
+        // if the upper bound on the constraint minus the lb on the other agent
+        // is more than the sum of costs, it can't be trusted, because we never
+        // looked deep enough into the structure.
+        if (j->first[0]<j->first[2] &&
+        j->first[1]<=j->first[0] &&
+        j->first[0]>=mins[other])
+        {
+          //std::cout << i << "  " << *j << "\n";
+          ++j;
+        }
+        else
+        {
+          //std::cout << "ignore "<< i << " " << *j << "\n";
+          j=intervals[i].erase(j);
+        }
+      }
+    }
+  }
+
+  bool foundInitialSolution() const{
+    return paths.size();
+  }
+
+  // This search includes infeasible nodes and tracks mutexes
+  // It is exponential in nature - running doSingleSearchStep() to completion
+  // before this is recommended
+
+  bool doSingleSearchStepWithMutexes()
+  {
+    if (!open.OpenSize())
+    {
+      return false;
+    }
+
+    // Get next candidate off open
+    uint64_t nodeid = open.Close();
+    // Note - this reference becomes invalid once we insert anything into open.
+    auto &node(open.Lookup(nodeid));
+        //std::cout << "Combined G: " << G << "\n-\n";
+        /*unsigned max1(0);
+        unsigned max2(0);
+        for(auto const& ii:intervals[0])
+        {
+          if(ii.first[0] && ii.first[0]!=ii.first[2])
+          {
+            max1 = std::max(max1, ii.first[0]);
+            //std::cout << ii.first << "\n";
+          }
+        }
+        //std::cout << "-\n";
+        for(auto const& ii:intervals[1])
+        {
+          if(ii.first[0] && ii.first[0]!=ii.first[2])
+          {
+            max2 = std::max(max1, ii.first[0]);
+            //std::cout << ii.first << "\n";
+          }
+        }
+        std::cout << "maxs: " << max1 << ", " << max2 << "\n";
+        for(auto const& ii:intervals[0])
+        {
+          if(ii.first[0]==max1 && ii.first[0]!=ii.first[2])
+          {
+            std::cout << ii << "\n";
+          }
+        }
+        for(auto const& ii:intervals[1])
+        {
+          if(ii.first[0]==max2 && ii.first[0]!=ii.first[2])
+          {
+            std::cout << ii << "\n";
+          }
+        }*/
+
+    k=0;
+    for (unsigned i(0); i < ids.size(); ++i) // Agent num
+    {
+      for (unsigned a(0); a < ids[i].size(); ++a) // Action num
+      {
+        unsigned minCost(INT_MAX);
+        unsigned maxCost(0);
+        unsigned minInclusive(INT_MAX);
+        unsigned maxInclusive(0);
+        if(ids[i][a].empty())continue;
+        auto hash(GetHash(successors[i][a]));//,G[i]+ecs[i][a]));
+        auto ivl(ivix[i].find(hash));
+        // This is a new interval
+        if (ivl == ivix[i].end())
+        {
+          // These are sorted by f-cost. They must be inclusively conflicting
+          // over an entire cost plateau in order to be a constraint.
+          if (!crossProduct[ids[i][a].front().second].feasible) // lowest f-cost action must be infeasible
+          {
+            // Loop over all f-costs of opposing agent - record continuous intervals
+            auto totalMax(ids[i][a].back().first);
+            minCost = ids[i][a].front().first;
+            bool allconflicting(true);
+            for (auto const &id : ids[i][a])
+            {
+              if (id.first > minCost && minInclusive == INT_MAX)
+              {
+                minInclusive = minCost;
+                //std::cout << "new lower bound: " << minCost << "\n";
+              }
+              if (id.first > maxCost)
+              {
+                maxInclusive = maxCost;
+                //std::cout << "new upper bound: " << maxCost << "\n";
+              }
+              if (!crossProduct[id.second].feasible)
+              {
+                maxCost = id.first;
+              }
+              else
+              {
+                allconflicting = false;
+                break;
+              }
+              ++k;
+            }
+            if (allconflicting)
+            {
+              maxInclusive = maxCost;
+              if (minInclusive == INT_MAX)
+              {
+                minInclusive = minCost;
+              }
+              //std::cout << "new upper bound: " << maxCost << "\n";
+            }
+
+            //std::cout << "Add interval: (" << i << ")" << successors[i][a] << "(" << minInclusive << "," << maxInclusive << "]\n";
+            std::array<unsigned,3> tmp={maxInclusive, minInclusive, totalMax};
+            ivix[i][hash]=intervals[i].size();
+            intervals[i].emplace_back(tmp, successors[i][a]);
+          }
+          else
+          {
+            //std::cout << "No conflicts\n";
+            //std::cout << "Add interval: (" << i << ")" << successors[i][a] << "(" << minInclusive << "," << 0 << "]\n";
+            ivix[i][hash]=0;
+            //std::array<unsigned,3> tmp={0, minInclusive-1, minInclusive-1};
+            //ivix[i][hash]=intervals[i].size();
+            //intervals[i].emplace_back(tmp, successors[i][a]);
+          }
+        }
+        else
+        { // have an existing interval
+          // If this is no longer infeasible, (this action is reachable via another route)
+          // we must remove the interval
+          auto& val(intervals[i][ivl->second]);
+
+          if (val.first[0] >= val.first[1])
+          {
+            //std::cout << "update " << *val << "(" << i << ") because " << successors[i?0:1] << "\n";
+            // Otherwise, we must narrow the interval of the constraint if needed
+            unsigned totalMax(ids[i][a].back().first);
+            minCost = std::min(val.first[1],ids[i][a].front().first);
+            maxCost=minCost;
+            bool allconflicting(true);
+            for (auto const &id : ids[i][a])
+            {
+              if (id.first > minCost && minInclusive == INT_MAX)
+              {
+                minInclusive = minCost;
+                //std::cout << "new lower bound: " << minCost << "\n";
+                maxInclusive = maxCost;
+                //std::cout << "new upper bound: " << maxCost << "\n";
+              }
+              if (id.first > maxCost)
+              {
+                maxInclusive = maxCost;
+                //std::cout << "new upper bound: " << maxCost << "\n";
+              }
+              if (!crossProduct[id.second].feasible)
+              {
+                maxCost = id.first;
+              }
+              else
+              {
+                allconflicting = false;
+                break;
+              }
+              ++k;
+            }
+            if (allconflicting)
+            {
+              maxInclusive = maxCost;
+              if (minInclusive == INT_MAX)
+              {
+                minInclusive = minCost;
+              }
+              //std::cout << "new upper bound: " << maxCost << "\n";
+            }
+            if(minInclusive<val.first[1]){
+              // Update min
+              //std::cout << "update lb of interval: " << successors[i][a] << "(" << minInclusive << "," << maxInclusive << "]\n";
+              val.first[1]=minInclusive;
+            }
+            bool update(false);
+            if(val.first[0]==val.first[2]){
+              if (maxInclusive > val.first[0])
+              {
+                update = true;
+                val.first[0] = maxInclusive;
+              }
+              if (totalMax > val.first[2])
+              {
+                val.first[2] = totalMax;
+              }
+            }
+            if (maxInclusive < val.first[0] && maxInclusive!=totalMax)
+            {
+              update = true;
+              val.first[0] = maxInclusive;
+            }
+            //if (update)
+            //{
+              //std::cout << "adjust upper bound from " << val->first << " to " << maxInclusive << "\n";
+              //std::cout << "update ub of interval: " << successors[i][a] << "(" << minInclusive << "," << maxInclusive << "]\n";
+              //auto v(*val);
+              //intervals[i].erase(val);
+              //intervals[i].emplace(v.first, v.second);
+            //}
+          }
+        }
+      }
+    }
+    return true;
+  }
+  std::vector<std::vector<Action<state>>> successors;
+  std::vector<std::vector<std::vector<state>>> paths;
+  std::vector<std::vector<sorted_vector<std::pair<unsigned, unsigned>, true>>> ids;
+  std::unordered_set<uint64_t> seen;
+
+  void generatePermutations(std::vector<std::vector<Action<state>>> &positions,
+                            std::vector<ActionPair<state>> &result,
+                            int agent,
+                            ActionPair<state> const &current,
+                            uint32_t lastTime,
+                            std::vector<double> const &radii)
+  {
+    if (agent == positions.size())
+    {
+      result.push_back(current);
+      return;
+    }
+
+    for (int i = 0; i < positions[agent].size(); ++i)
+    {
+      //std::cout << "AGENT "<< i<<":\n";
+      ActionPair<state> copy(current);
+      bool found(false);
+      for (int j(0); j < current.size(); ++j)
+      {
+        bool conflict(false);
+        // Sometimes, we add an instantaneous action at the goal to represent the
+        // agent disappearing at the goal. If we see this, the agent did not come into conflict
+        if (positions[agent][i].first != positions[agent][i].second &&
+            current[j].first != current[j].second)
+        {
+          // Check easy case: agents crossing an edge in opposite directions, or
+          // leaving or arriving at a vertex at the same time
+          if ((positions[agent][i].first == current[j].first) ||
+              (positions[agent][i].second == current[j].second) ||
+              (positions[agent][i].first.sameLoc(current[j].second) &&
+               current[j].first.sameLoc(positions[agent][i].second)))
+          {
+            found = true;
+            conflict = true;
+          }
+          else
+          {
+            // Check general case - Agents in "free" motion
+            Vector2D A(positions[agent][i].first.x, positions[agent][i].first.y);
+            Vector2D B(current[j].first.x, current[j].first.y);
+            Vector2D VA(positions[agent][i].second.x - positions[agent][i].first.x, positions[agent][i].second.y - positions[agent][i].first.y);
+            VA.Normalize();
+            Vector2D VB(current[j].second.x - current[j].first.x, current[j].second.y - current[j].first.y);
+            VB.Normalize();
+            //std::cout<<"Checking:"<<current[j].first << "-->"<< current[j].second <<", " << positions[agent][i].first << "-->"<< positions[agent][i].second << "\n";
+            if (collisionImminent(A, VA, radii[agent], positions[agent][i].first.t / state::TIME_RESOLUTION_D, positions[agent][i].second.t / state::TIME_RESOLUTION_D, B, VB, radii[j], current[j].first.t / state::TIME_RESOLUTION_D, current[j].second.t / state::TIME_RESOLUTION_D))
+            {
+              found = true;
+              conflict = true;
+              //checked.insert(hash);
+            }
+          }
+        }
+      }
+      if (found)
+      {
+        copy.feasible = false;
+      }
+      copy.push_back(positions[agent][i]);
+      generatePermutations(positions, result, agent + 1, copy, lastTime, radii);
+    }
+}
+
+};
+#endif
+#endif

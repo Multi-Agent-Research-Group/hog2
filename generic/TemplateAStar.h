@@ -306,7 +306,7 @@ bool TemplateAStar<state,action,environment,openList>::InitializeSearch(environm
 	//	openQueue.reset();
 	//	assert(openQueue.size() == 0);
 	//	assert(closedList.size() == 0);
-	openClosedList.Reset(env->GetMaxHash());
+	openClosedList.Reset();//env->GetMaxHash());
 	ResetNodeCount();
 	start = from;
 	goal = to;

@@ -32,7 +32,6 @@ void __stdcall glVertex3dv( const GLdouble *v )
     glVertex3d(*v,*(v+1),Z);//(-4.7,-1.3,1,-4.7,-1.4,0)
 }
 
-
 struct node_t{
   node_t():x(-1),y(-1),t(-1),id(-1),nc(0U){}
   node_t(unsigned xx, unsigned yy, unsigned i, unsigned tt=0):x(xx),y(yy),id(i),t(tt),nc(0){}
@@ -48,8 +47,8 @@ struct node_t{
   unsigned x : 13;
   unsigned y : 13;
   unsigned nc: 6;
-  unsigned t : 20;
-  unsigned id: 12;
+  unsigned t : 22;
+  unsigned id: 10;
   static float TIME_RESOLUTION;
   static double TIME_RESOLUTION_D;
   static unsigned TIME_RESOLUTION_U;
@@ -59,7 +58,8 @@ float node_t::TIME_RESOLUTION=1000.0f;
 unsigned node_t::TIME_RESOLUTION_U=1000u;
 
 static inline std::ostream& operator<<(std::ostream& out, node_t const& val){
-  out << "{\"x\"=" << val.x << ", \"y\":" << val.y << ", \"t\":" << val.t/node_t::TIME_RESOLUTION_D << ", \"id\":" << val.id << '}';
+  //out << "{\"x\"=" << val.x << ", \"y\":" << val.y << ", \"t\":" << val.t/node_t::TIME_RESOLUTION_D << ", \"id\":" << val.id << '}';
+  out << "{\"t\":" << val.t/node_t::TIME_RESOLUTION_D << ", \"id\":" << val.id << '}';
   return out;
 }
 
@@ -72,11 +72,12 @@ struct edge_t{
   size_t operator()(edge_t const&pt)const{return pt.a1+pt.a2*0xffff;}
   bool operator<(edge_t const&pt)const{return pt.a1==a1?a2<pt.a2:a1<pt.a1;}
   static uint64_t getKey(unsigned a1, unsigned a2){return a1<a2?a1*0xffff+a2:a2*0xffff+a1;}
+  static std::pair<uint16_t,uint16_t> getNodes(uint64_t val){return {val/0xffff,val%0xffff};}
 };
 
 class DigraphEnvironment: public ConstrainedEnvironment<node_t, int>{
   public:
-  DigraphEnvironment(char const* vfile, char const* efile, char const* afile, bool bidir=true, bool selfloops=true){
+  DigraphEnvironment(char const* vfile, char const* efile, char const* afile, bool bidir=false, bool selfloops=true){
   //VALGRIND_CHECK_VALUE_IS_DEFINED(nodes);
   //VALGRIND_CHECK_VALUE_IS_DEFINED(adj);
   //VALGRIND_CHECK_VALUE_IS_DEFINED(weight);
@@ -105,12 +106,12 @@ class DigraphEnvironment: public ConstrainedEnvironment<node_t, int>{
       height=std::max(height,nodes[n].y);
       if(selfloops){
         adj[n].push_back(n); // Self-loop
-        weight[edge_t::getKey(n,n)]=node_t::TIME_RESOLUTION_U;
+        weight[edge_t::getKey(n,n)]=20*node_t::TIME_RESOLUTION_U;
         auto const& v(weight.find(edge_t::getKey(n,n)));
         assert(v!=weight.end());
       }
     }
-    assert(weight.find(edge_t::getKey(88,88))!=weight.end());
+    //assert(weight.find(edge_t::getKey(88,88))!=weight.end());
     std::ifstream es(efile);
     while(std::getline(es, line)){
       std::istringstream is(line);
@@ -126,11 +127,12 @@ class DigraphEnvironment: public ConstrainedEnvironment<node_t, int>{
         adj[n2].push_back(n1);
       auto dist(Util::distance(nodes[n1].x,nodes[n1].y,nodes[n2].x,nodes[n2].y)*node_t::TIME_RESOLUTION_D);
       auto hash(edge_t::getKey(n1,n2));
-      if(weight.find(edge_t::getKey(n1,n2))!=weight.end()){
-        assert(!"already inserted");
+      if (weight.find(edge_t::getKey(n1, n2)) == weight.end())
+      {
+        //std::cout << e.a1 << "," << e.a2 << ":" << dist << "[" << node_t::TIME_RESOLUTION_D <<"\n";
+        // Round up to the nearest 10 m
+        weight[hash] = ceil(dist / 10.0) * 10.0;
       }
-      //std::cout << e.a1 << "," << e.a2 << ":" << dist << "[" << node_t::TIME_RESOLUTION_D <<"\n";
-      weight[hash]=dist;
     }
     //for(auto const& e:weight){
       //std::cout << e.first/0xffff << "," << e.first%0xffff << ":" << e.second << "[" << node_t::TIME_RESOLUTION_D <<"\n";
@@ -142,14 +144,19 @@ class DigraphEnvironment: public ConstrainedEnvironment<node_t, int>{
       }
     }*/
     map.reset(new Map(width,height));
+    bf=0;
+    for(auto const& a:adj){
+      bf=std::max(bf,unsigned(a.size()));
+    }
   }
   static std::vector<node_t> nodes;
   static std::vector<std::vector<uint16_t>> adj;
   static std::unordered_map<uint64_t,uint32_t> weight;
-  static unsigned width, height;
+  static unsigned width, height, bf;
   static std::unique_ptr<Map> map;
   static FeatureList features;
   node_t goal;
+  node_t start;
   bool ignoreTime=false;
 
   inline void SetIgnoreTime(bool v){ignoreTime=v;}
@@ -168,6 +175,8 @@ class DigraphEnvironment: public ConstrainedEnvironment<node_t, int>{
     assert(false);
     // Not implemented
   }
+
+  virtual void SetStart(node_t const& s){start=s;}
 
   virtual void GetReverseActions(const node_t &node, std::vector<int>& actions) const{
     assert(false);
@@ -409,6 +418,7 @@ void GLDrawLine(const node_t &x, const node_t &y) const
   glVertex3f(xx, yy, zz);
   glEnd();
 }
+virtual unsigned branchingFactor() { return bf; }
 
 virtual unsigned GetSuccessors(const node_t &node, node_t* neighbors) const{
   unsigned sz(0);
@@ -417,12 +427,19 @@ virtual unsigned GetSuccessors(const node_t &node, node_t* neighbors) const{
   node_t wait(node);
   for(auto const& a:adj[node.id]){
     auto const& v(weight.find(edge_t::getKey(node.id,a)));
+    auto ids(edge_t::getNodes(v->first));
+    if(ids.first==ids.second){ // Only allow waiting at the goal
+      if(ids.second!=goal.id && ids.second!=start.id)
+      {
+        continue;
+      }
+    }
     assert(v!=weight.end());
     node_t nn(nodes[a],node.t+v->second);
     if(!ViolatesConstraint(node,nn)){
       neighbors[sz++]=nn;
     }
-    WaitTimes(node,nn,times);
+    /*WaitTimes(node,nn,times);
     for(auto const& t:times){
       wait.t=node.t+t;
       if(!ViolatesConstraint(node,wait)){
@@ -432,7 +449,7 @@ virtual unsigned GetSuccessors(const node_t &node, node_t* neighbors) const{
         std::cout << "Can't WAIT " << node << "-->" << wait << "\n";
       }
     }
-    times.clear();
+    times.clear();*/
   }
   return sz;
 }
@@ -448,11 +465,26 @@ virtual double GCost(const node_t& node, const int& ignored) const{
 // Staying at the goal costs nothing
 virtual double GCost(const node_t& node1, const node_t& node2)const{
   assert(node1.id==node2.id || std::find(adj[node1.id].begin(),adj[node1.id].end(),node2.id)!=adj[node1.id].end());
-  return node1.id==node2.id ? node1.id==goal.id ? 0 : node_t::TIME_RESOLUTION_D : weight.find(edge_t::getKey(node1.id,node2.id))->second;
+  if(node1.id==node2.id && node1.id==goal.id) return 0;
+  return weight.find(edge_t::getKey(node1.id,node2.id))->second;
 }
 
 virtual double HCost(const node_t& node1, const node_t& node2)const{
   return Util::distance(node1.x,node1.y,node2.x,node2.y);
+}
+
+virtual double GetMapSize() const
+{
+  static double sz(0);
+  if(!sz){
+    for(auto const& [k,v]:weight){
+      auto kk(edge_t::getNodes(k));
+      if(kk.first!=kk.second){
+        sz+=v;
+      }
+    }
+  }
+  return std::min(sz/2,double(width+height));
 }
 
 bool collisionCheck(const node_t &s1, const node_t &d1, float r1, const node_t &s2, const node_t &d2, float r2){
@@ -475,120 +507,110 @@ std::vector<std::vector<uint16_t>> DigraphEnvironment::adj;
 std::unordered_map<uint64_t,uint32_t> DigraphEnvironment::weight;
 unsigned DigraphEnvironment::width=0;
 unsigned DigraphEnvironment::height=0;
+unsigned DigraphEnvironment::bf=0;
 std::unique_ptr<Map> DigraphEnvironment::map;
 
-template <typename state, typename action>
-class TieBreaking3D {
-  public:
-
-    bool operator()(const AStarOpenClosedData<state> &ci1, const AStarOpenClosedData<state> &ci2) const
+template <typename state>
+class TieBreaking3D
+{
+public:
+  bool operator()(const AStarOpenClosedData<state> &ci1, const AStarOpenClosedData<state> &ci2) const
+  {
+    if (useCAT && CAT)
     {
-      if (fequal(ci1.g+ci1.h, ci2.g+ci2.h)) // F-cost equal
+      // Make them non-const :)
+      AStarOpenClosedData<state> &i1(const_cast<AStarOpenClosedData<state> &>(ci1));
+      AStarOpenClosedData<state> &i2(const_cast<AStarOpenClosedData<state> &>(ci2));
+      // Compute cumulative conflicts (if not already done)
+      std::vector<state const *> matches;
+      if (i1.data.nc == -1)
       {
+        // Get number of conflicts in the parent
+        state const *const parent1(i1.parentID ? &(openList->Lookat(i1.parentID).data) : nullptr);
+        if (parent1)
+        {
+          //std::cout << "Getting NC for " << i1.data << ":\n";
+          CAT->get(parent1->t, i1.data.t, matches, currentAgent);
+          signed nc1(parent1 ? parent1->nc : 0);
+          //std::cout << "  matches " << matches.size() << "\n";
 
-        if(useCAT && CAT){
-          // Make them non-const :)
-          AStarOpenClosedData<state>& i1(const_cast<AStarOpenClosedData<state>&>(ci1));
-          AStarOpenClosedData<state>& i2(const_cast<AStarOpenClosedData<state>&>(ci2));
-          // Compute cumulative conflicts (if not already done)
-          ConflictSet matches;
-          if(i1.data.nc ==-1){
-            //std::cout << "Getting NC for " << i1.data << ":\n";
-            CAT->get(i1.data.t,i1.data.t+node_t::TIME_RESOLUTION_U,matches);
-
-            // Get number of conflicts in the parent
-            state const*const parent1(i1.parentID?&(openList->Lookat(i1.parentID).data):nullptr);
-            unsigned nc1(parent1?parent1->nc:0);
-            //std::cout << "  matches " << matches.size() << "\n";
-
-            // Count number of conflicts
-            for(auto const& m: matches){
-              if(currentAgent == m.agent) continue;
-              state p;
-              currentEnv->GetStateFromHash(m.hash1,p);
-              //p.t=m.start;
-              state n;
-              currentEnv->GetStateFromHash(m.hash2,n);
-              //n.t=m.stop;
-              collchecks++;
-              nc1+=checkForConflict(parent1,&i1.data,&p,&n,agentRadius);
-              //if(!nc1){std::cout << "NO ";}
-              //std::cout << "conflict(1): " << i1.data << " " << n << "\n";
-            }
-            // Set the number of conflicts in the data object
-            i1.data.nc=nc1;
+          // Count number of conflicts
+          for (unsigned m(1); m < matches.size(); ++m)
+          {
+            collchecks++;
+            nc1 += checkForConflict(parent1, &i1.data, matches[m - 1], matches[m], agentRadius);
+            //if(!nc1){std::cout << "NO ";}
+            //std::cout << "conflict(1): " << i1.data << " " << n << "\n";
           }
-          if(i2.data.nc ==-1){
-            //std::cout << "Getting NC for " << i2.data << ":\n";
-            CAT->get(i2.data.t,i2.data.t+node_t::TIME_RESOLUTION_U,matches);
-
-            // Get number of conflicts in the parent
-            state const*const parent2(i2.parentID?&(openList->Lookat(i2.parentID).data):nullptr);
-            unsigned nc2(parent2?parent2->nc:0);
-            //std::cout << "  matches " << matches.size() << "\n";
-
-            // Count number of conflicts
-            for(auto const& m: matches){
-              if(currentAgent == m.agent) continue;
-              state p;
-              currentEnv->GetStateFromHash(m.hash2,p);
-              //p.t=m.start;
-              state n;
-              currentEnv->GetStateFromHash(m.hash2,n);
-              //n.t=m.stop;
-              collchecks++;
-              nc2+=checkForConflict(parent2,&i2.data,&p,&n,agentRadius);
-              //if(!nc2){std::cout << "NO ";}
-              //std::cout << "conflict(2): " << i2.data << " " << n << "\n";
-            }
-            // Set the number of conflicts in the data object
-            i2.data.nc=nc2;
-          }
-          if(fequal(i1.data.nc,i2.data.nc)){
-            if(fequal(ci1.g,ci2.g)){
-              if(randomalg && ci1.data.t==ci2.data.t){
-                return rand()%2;
-              }
-              return ci1.data.t<ci2.data.t;  // Tie-break toward greater time (relevant for waiting at goal)
-            }
-            return (fless(ci1.g, ci2.g));  // Tie-break toward greater g-cost
-          }
-          return fgreater(i1.data.nc,i2.data.nc);
-        }else{
-          if(fequal(ci1.g,ci2.g)){
-            if(randomalg && ci1.data.t==ci2.data.t){
-              return rand()%2;
-            }
-            return ci1.data.t<ci2.data.t;  // Tie-break toward greater time (relevant for waiting at goal)
-          }
-          return (fless(ci1.g, ci2.g));  // Tie-break toward greater g-cost
+          // Set the number of conflicts in the data object
+          i1.data.nc = nc1;
         }
       }
-      return (fgreater(ci1.g+ci1.h, ci2.g+ci2.h));
+      if (i2.data.nc == -1)
+      {
+        //std::cout << "Getting NC for " << i2.data << ":\n";
+        // Get number of conflicts in the parent
+        state const *const parent2(i2.parentID ? &(openList->Lookat(i2.parentID).data) : nullptr);
+        if (parent2)
+        {
+          CAT->get(parent2->t, i2.data.t, matches, currentAgent);
+          unsigned nc2(parent2 ? parent2->nc : 0);
+          //std::cout << "  matches " << matches.size() << "\n";
+
+          // Count number of conflicts
+          for (unsigned m(1); m < matches.size(); ++m)
+          {
+            collchecks++;
+            nc2 += checkForConflict(parent2, &i2.data, matches[m - 1], matches[m], agentRadius);
+            //if(!nc2){std::cout << "NO ";}
+            //std::cout << "conflict(2): " << i2.data << " " << n << "\n";
+          }
+          // Set the number of conflicts in the data object
+          i2.data.nc = nc2;
+        }
+      }
     }
-    static OpenClosedInterface<state,AStarOpenClosedData<state>>* openList;
-    static ConstrainedEnvironment<state,action>* currentEnv;
-    static uint8_t currentAgent;
-    static unsigned collchecks;
-    static bool randomalg;
-    static bool useCAT;
-    static NonUnitTimeCAT<state,action>* CAT; // Conflict Avoidance Table
+    if (fequal(ci1.g + ci1.h, ci2.g + ci2.h)) // F-cost equal
+    {
+      if (fequal(ci1.data.nc, ci2.data.nc))
+      {
+        if (fequal(ci1.g, ci2.g))
+        {
+          if (randomalg && ci1.data.t == ci2.data.t)
+          {
+            return rand() % 2;
+          }
+          return ci1.data.t < ci2.data.t; // Tie-break toward greater time (relevant for waiting at goal)
+        }
+        return (fless(ci1.g, ci2.g)); // Tie-break toward greater g-cost
+      }
+      return fgreater(ci1.data.nc, ci2.data.nc);
+    }
+    return fgreater(ci1.g + ci1.h, ci2.g + ci2.h);
+  }
+  static OpenClosedInterface<state, AStarOpenClosedData<state>> *openList;
+  static uint8_t currentAgent;
+  static unsigned collchecks;
+  static bool randomalg;
+  static bool useCAT;
+  static UniversalConflictAvoidanceTable<state> *CAT; // Conflict Avoidance Table
+  static double agentRadius;
 };
 
-template <typename state, typename action>
-OpenClosedInterface<state,AStarOpenClosedData<state>>* TieBreaking3D<state,action>::openList=0;
-template <typename state, typename action>
-ConstrainedEnvironment<state,action>* TieBreaking3D<state,action>::currentEnv=0;
-template <typename state, typename action>
-uint8_t TieBreaking3D<state,action>::currentAgent=0;
-template <typename state, typename action>
-unsigned TieBreaking3D<state,action>::collchecks=0;
-template <typename state, typename action>
-bool TieBreaking3D<state,action>::randomalg=false;
-template <typename state, typename action>
-bool TieBreaking3D<state,action>::useCAT=false;
-template <typename state, typename action>
-NonUnitTimeCAT<state,action>* TieBreaking3D<state,action>::CAT=0;
+template <typename state>
+OpenClosedInterface<state,AStarOpenClosedData<state>>* TieBreaking3D<state>::openList=0;
+template <typename state>
+uint8_t TieBreaking3D<state>::currentAgent=0;
+template <typename state>
+unsigned TieBreaking3D<state>::collchecks=0;
+template <typename state>
+bool TieBreaking3D<state>::randomalg=false;
+template <typename state>
+bool TieBreaking3D<state>::useCAT=false;
+template <typename state>
+double TieBreaking3D<state>::agentRadius=0.25;
+template <typename state>
+UniversalConflictAvoidanceTable<state>* TieBreaking3D<state>::CAT=0;
 
 template <typename state, typename action>
 class UnitTieBreaking3D {
@@ -616,10 +638,10 @@ class UnitTieBreaking3D {
               if(currentAgent == agent) continue;
               state const* p(0);
               if(i1.data.t!=0)
-                p=&(CAT->get(agent,(i1.data.t-node_t::TIME_RESOLUTION_U)/node_t::TIME_RESOLUTION_D));
-              state const& n=CAT->get(agent,i1.data.t/node_t::TIME_RESOLUTION_D);
+                p=&(CAT->get(agent,(i1.data.t-xyztLoc::TIME_RESOLUTION_U)/xyztLoc::TIME_RESOLUTION_D));
+              state const& n=CAT->get(agent,i1.data.t/xyztLoc::TIME_RESOLUTION_D);
               collchecks++;
-              nc1+=checkForTheConflict(parent1,&i1.data,p,&n);
+              nc1+=checkForTheConflict(parent1,&i1.data,p,&n,agentRadius);
             }
             // Set the number of conflicts in the data object
             i1.data.nc=nc1;
@@ -637,10 +659,10 @@ class UnitTieBreaking3D {
               if(currentAgent == agent) continue;
               state const* p(0);
               if(i2.data.t!=0)
-                p=&(CAT->get(agent,(i2.data.t-node_t::TIME_RESOLUTION_U)/node_t::TIME_RESOLUTION_D));
-              state const& n=CAT->get(agent,i2.data.t/node_t::TIME_RESOLUTION_D);
+                p=&(CAT->get(agent,(i2.data.t-xyztLoc::TIME_RESOLUTION_U)/xyztLoc::TIME_RESOLUTION_D));
+              state const& n=CAT->get(agent,i2.data.t/xyztLoc::TIME_RESOLUTION_D);
               collchecks++;
-              nc2+=checkForTheConflict(parent2,&i2.data,p,&n);
+              nc2+=checkForTheConflict(parent2,&i2.data,p,&n,agentRadius);
             }
             // Set the number of conflicts in the data object
             i2.data.nc=nc2;

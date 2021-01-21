@@ -138,7 +138,7 @@ void parseAptFile(std::string const& fname, FeatureList& features, float ytrans=
             name.append(" ");
             name.append(tmp);
           }
-          std::cout << "Parsing file for "<<name <<"\n";
+          //std::cout << "Parsing file for "<<name <<"\n";
         }
         break;
       case apt_rwy_new:
@@ -270,7 +270,7 @@ void parseAptFile(std::string const& fname, FeatureList& features, float ytrans=
         }
         break;
       default:
-        std::cout << "Ignoring line in apt file: \""<<line<<"\"\n";
+        //std::cout << "Ignoring line in apt file: \""<<line<<"\"\n";
         break;
     }
   }

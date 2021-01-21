@@ -305,7 +305,7 @@ void InstallHandlers()
   InstallCommandLineHandler(MyCLHandler, "-random", "-random", "Randomize conflict resolution order");
   InstallCommandLineHandler(MyCLHandler, "-greedyCT", "-greedyCT", "Greedy sort high-level search by number of conflicts (GCBS)");
   InstallCommandLineHandler(MyCLHandler, "-xor", "-xor", "Use XOR constraints");
-  InstallCommandLineHandler(MyCLHandler, "-ctype", "-ctype", "Constraint type: \n\t1: identical constraints\n\t2: Pyramid constraints\n\t3: Collision constraints (sub-optimal)\n\t4: Time range constraints (sub-optimal)\n\t5: Mutual Conflict set constraints\n\t6: Overlap Constraints\n\t7:Box constraints (sub-optimal)\n\t8:1xn TimeRange\n\t9:nxm TimeRange");
+  InstallCommandLineHandler(MyCLHandler, "-ctype", "-ctype", "Constraint type: \n\t1: identical constraints\n\t2: Pyramid constraints\n\t3: Collision constraints (sub-optimal)\n\t4: Time range constraints (sub-optimal)\n\t5: Mutual Conflict set constraints\n\t6: Overlap Constraints\n\t7:Box constraints (sub-optimal)\n\t8:1xn TimeRange\n\t9:nxm TimeRange\n\t10:mutex-prop");
   InstallCommandLineHandler(MyCLHandler, "-pc", "-pc", "prioritize conflicts");
   InstallCommandLineHandler(MyCLHandler, "-apriori", "-apriori", "Use a-priori computed conflict detection");
   InstallCommandLineHandler(MyCLHandler, "-extended", "-extended", "Use extended area a-priori computed conflict detection");
@@ -419,8 +419,8 @@ void InitHeadless(){
     MACBSGroup* group=groups[0];
     group->agents.resize(num_agents);
     std::iota(group->agents.begin(),group->agents.end(),0); // Add agents 0, 1, ...
-    rgroups.resize(1);
-    rgroups[0]=0;
+    rgroups.resize(num_agents);
+    //rgroups[0]=0;
     if(!gui){
       Timer::Timeout func(std::bind(processSolution, std::placeholders::_1));
       MACBSGroup::timer->StartTimeout(std::chrono::seconds(killtime),func);

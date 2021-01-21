@@ -22,6 +22,7 @@ public:
 	~BucketOpenClosed();
 	void Reset();
 	uint64_t AddOpenNode(const state &val, uint64_t hash, double g, double h, uint64_t parent=kTAStarNoNode);
+	uint64_t AddOpenNode(const dataStructure &val, uint64_t hash);
 	uint64_t AddClosedNode(state &val, uint64_t hash, double g, double h, uint64_t parent=kTAStarNoNode);
 	void KeyChanged(uint64_t objKey);
 	//void IncreaseKey(uint64_t objKey);
@@ -38,6 +39,7 @@ public:
 	size_t size() const { return elements.size(); }
 	//	void verifyData();
 	void Print();
+	std::vector<dataStructure > elements;
 private:
 	void FindNewMin();
 	uint64_t Add(uint64_t key, uint64_t fCost);
@@ -53,7 +55,6 @@ private:
 	// storing the element id; looking up with...hash?
 	typedef std::unordered_map<uint64_t, uint64_t, AHash64> IndexTable;
 	IndexTable table;
-	std::vector<dataStructure > elements;
 };
 
 template<typename state, typename CmpKey, class dataStructure>
@@ -100,6 +101,26 @@ void BucketOpenClosed<state, CmpKey, dataStructure>::Reset()
 /**
  * Add object into open list.
  */
+template<typename state, typename CmpKey, class dataStructure>
+uint64_t BucketOpenClosed<state, CmpKey, dataStructure>::AddOpenNode(const dataStructure &val, uint64_t hash)
+{
+	// should do lookup here...
+	if (table.find(hash) != table.end())
+	{
+		//return -1; // TODO: find correct id and return
+		assert(false);
+	}
+	openCount++;
+	uint64_t loc = Add(elements.size(), val.g+val.h);
+	elements.push_back(val);
+	if (val.parentID == kTAStarNoNode)
+		elements.back().parentID = elements.size()-1;
+	table[hash] = elements.size()-1; // hashing to element list location
+	FindNewMin();
+	//printf("Added node to buckets %llu/%llu\n", newg+newh, newh);
+	return elements.size()-1;
+}
+
 template<typename state, typename CmpKey, class dataStructure>
 uint64_t BucketOpenClosed<state, CmpKey, dataStructure>::AddOpenNode(const state &val, uint64_t hash, double g, double h, uint64_t parent)
 {

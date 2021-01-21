@@ -43,16 +43,17 @@ public:
         void setSoftConstraintEffectiveness(double){}
 	double GetPathLength(std::vector<xytLoc> &neighbors);
         virtual bool collisionCheck(const xytLoc &s1, const xytLoc &d1, float r1, const xytLoc &s2, const xytLoc &d2, float r2);
-	
-	virtual bool InvertAction(tDirection &a) const;
-	
-	/** Heuristic value between two arbitrary nodes. **/
-	virtual double HCost(const xytLoc &node1, const xytLoc &node2) const;
-	virtual double GCost(const xytLoc &node1, const xytLoc &node2) const { return fequal(node1.t,node2.t)?0.0:mapEnv->GCost(node1,node2); }
-	virtual double GCost(const xytLoc &node, const tDirection &act) const { return  mapEnv->GCost(node,act); }
-	virtual bool GoalTest(const xytLoc &node, const xytLoc &goal) const;
-	
-	virtual uint64_t GetStateHash(const xytLoc &node) const;
+
+        virtual double GetMapSize() const { return GetMap()->GetMapWidth() * GetMap()->GetMapHeight(); }
+        virtual bool InvertAction(tDirection &a) const;
+
+        /** Heuristic value between two arbitrary nodes. **/
+        virtual double HCost(const xytLoc &node1, const xytLoc &node2) const;
+        virtual double GCost(const xytLoc &node1, const xytLoc &node2) const { return fequal(node1.t, node2.t) ? 0.0 : mapEnv->GCost(node1, node2); }
+        virtual double GCost(const xytLoc &node, const tDirection &act) const { return mapEnv->GCost(node, act); }
+        virtual bool GoalTest(const xytLoc &node, const xytLoc &goal) const;
+
+        virtual uint64_t GetStateHash(const xytLoc &node) const;
         virtual void GetStateFromHash(uint64_t hash, xytLoc &s) const;
 	virtual uint64_t GetActionHash(tDirection act) const;
 

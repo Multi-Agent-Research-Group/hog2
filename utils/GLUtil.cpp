@@ -866,13 +866,13 @@ void DrawText(double x, double y, double z, double scale, const char *str)
 void DrawTextCentered(double x, double y, double z, double scale, const char *str)
 {
 	glPushMatrix();
+	glScalef(scale/300, scale/300.0, 1);
 	
 	int width = 10;
 	for (int which = 0; which < strlen(str); which++)
 		width += glutStrokeWidth(GLUT_STROKE_ROMAN, str[which]);
 	
 	glTranslatef(x, y, z);
-	glScalef(scale/300, scale/300.0, 1);
 	glRotatef(180, 0.0, 0.0, 1.0);
 	glRotatef(180, 0.0, 1.0, 0.0);
 	glDisable(GL_LIGHTING);

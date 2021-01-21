@@ -39,6 +39,7 @@ class Grid3DConstrainedEnvironment : public ConstrainedEnvironment<xyztLoc, t3DD
     virtual void GetReverseActions(const xyztLoc &nodeID, std::vector<t3DDirection> &actions) const;
 
     virtual bool InvertAction(t3DDirection &a) const;
+    virtual double GetMapSize() const{return GetMap()->GetMapWidth()*GetMap()->GetMapHeight();}
 
     /** Heuristic value between two arbitrary nodes. **/
     virtual double HCost(const xyztLoc &node1, const xyztLoc &node2) const;
@@ -133,96 +134,91 @@ unsigned checkForTheConflict(state const*const parent, state const*const node, s
   return 0;
 }
 
-
 template <typename state>
-class TieBreaking3D {
-  public:
-
+class TieBreaking3D
+{
+public:
   bool operator()(const AStarOpenClosedData<state> &ci1, const AStarOpenClosedData<state> &ci2) const
   {
-    if (fequal(ci1.g+ci1.h, ci2.g+ci2.h)) // F-cost equal
+    if (useCAT && CAT)
     {
-      if(useCAT && CAT)
+      // Make them non-const :)
+      AStarOpenClosedData<state> &i1(const_cast<AStarOpenClosedData<state> &>(ci1));
+      AStarOpenClosedData<state> &i2(const_cast<AStarOpenClosedData<state> &>(ci2));
+      // Compute cumulative conflicts (if not already done)
+      std::vector<state const *> matches;
+      if (i1.data.nc == -1)
       {
-        // Make them non-const :)
-        AStarOpenClosedData<state>& i1(const_cast<AStarOpenClosedData<state>&>(ci1));
-        AStarOpenClosedData<state>& i2(const_cast<AStarOpenClosedData<state>&>(ci2));
-        // Compute cumulative conflicts (if not already done)
-        std::vector<state const*> matches;
-        if(i1.data.nc ==-1)
+        // Get number of conflicts in the parent
+        state const *const parent1(i1.parentID ? &(openList->Lookat(i1.parentID).data) : nullptr);
+        if (parent1)
         {
-          // Get number of conflicts in the parent
-          state const*const parent1(i1.parentID?&(openList->Lookat(i1.parentID).data):nullptr);
-          if(parent1)
-          {
-            //std::cout << "Getting NC for " << i1.data << ":\n";
-            CAT->get(parent1->t, i1.data.t, matches, currentAgent);
-            unsigned nc1(parent1 ? parent1->nc : 0);
-            //std::cout << "  matches " << matches.size() << "\n";
+          //std::cout << "Getting NC for " << i1.data << ":\n";
+          CAT->get(parent1->t, i1.data.t, matches, currentAgent);
+          signed nc1(parent1 ? parent1->nc : 0);
+          //std::cout << "  matches " << matches.size() << "\n";
 
-            // Count number of conflicts
-            for (unsigned m(1); m < matches.size(); ++m)
-            {
-              collchecks++;
-              nc1 += checkForConflict(parent1, &i1.data, matches[m - 1], matches[m], agentRadius);
-              //if(!nc1){std::cout << "NO ";}
-              //std::cout << "conflict(1): " << i1.data << " " << n << "\n";
-            }
-            // Set the number of conflicts in the data object
-            i1.data.nc = nc1;
-          }
-        }
-        if(i2.data.nc ==-1){
-          //std::cout << "Getting NC for " << i2.data << ":\n";
-          // Get number of conflicts in the parent
-          state const*const parent2(i2.parentID?&(openList->Lookat(i2.parentID).data):nullptr);
-          if(parent2)
+          // Count number of conflicts
+          for (unsigned m(1); m < matches.size(); ++m)
           {
-            CAT->get(parent2->t, i2.data.t, matches, currentAgent);
-            unsigned nc2(parent2 ? parent2->nc : 0);
-            //std::cout << "  matches " << matches.size() << "\n";
+            collchecks++;
+            nc1 += checkForConflict(parent1, &i1.data, matches[m - 1], matches[m], agentRadius);
+            //if(!nc1){std::cout << "NO ";}
+            //std::cout << "conflict(1): " << i1.data << " " << n << "\n";
+          }
+          // Set the number of conflicts in the data object
+          i1.data.nc = nc1;
+        }
+      }
+      if (i2.data.nc == -1)
+      {
+        //std::cout << "Getting NC for " << i2.data << ":\n";
+        // Get number of conflicts in the parent
+        state const *const parent2(i2.parentID ? &(openList->Lookat(i2.parentID).data) : nullptr);
+        if (parent2)
+        {
+          CAT->get(parent2->t, i2.data.t, matches, currentAgent);
+          unsigned nc2(parent2 ? parent2->nc : 0);
+          //std::cout << "  matches " << matches.size() << "\n";
 
-            // Count number of conflicts
-            for (unsigned m(1); m < matches.size(); ++m)
-            {
-              collchecks++;
-              nc2 += checkForConflict(parent2, &i2.data, matches[m - 1], matches[m], agentRadius);
-              //if(!nc2){std::cout << "NO ";}
-              //std::cout << "conflict(2): " << i2.data << " " << n << "\n";
-            }
-            // Set the number of conflicts in the data object
-            i2.data.nc = nc2;
+          // Count number of conflicts
+          for (unsigned m(1); m < matches.size(); ++m)
+          {
+            collchecks++;
+            nc2 += checkForConflict(parent2, &i2.data, matches[m - 1], matches[m], agentRadius);
+            //if(!nc2){std::cout << "NO ";}
+            //std::cout << "conflict(2): " << i2.data << " " << n << "\n";
           }
+          // Set the number of conflicts in the data object
+          i2.data.nc = nc2;
         }
-        if(fequal(i1.data.nc,i2.data.nc)){
-          if(fequal(ci1.g,ci2.g)){
-            if(randomalg && ci1.data.t==ci2.data.t){
-              return rand()%2;
-            }
-            return ci1.data.t<ci2.data.t;  // Tie-break toward greater time (relevant for waiting at goal)
-          }
-          return (fless(ci1.g, ci2.g));  // Tie-break toward greater g-cost
-        }
-        return fgreater(i1.data.nc,i2.data.nc);
-      }else{
-        if(fequal(ci1.g,ci2.g)){
-          if(randomalg && ci1.data.t==ci2.data.t){
-            return rand()%2;
-          }
-          return ci1.data.t<ci2.data.t;  // Tie-break toward greater time (relevant for waiting at goal)
-        }
-        return (fless(ci1.g, ci2.g));  // Tie-break toward greater g-cost
       }
     }
-    return fgreater(ci1.g+ci1.h, ci2.g+ci2.h);
+    if (fequal(ci1.g + ci1.h, ci2.g + ci2.h)) // F-cost equal
+    {
+      if (fequal(ci1.data.nc, ci2.data.nc))
+      {
+        if (fequal(ci1.g, ci2.g))
+        {
+          if (randomalg && ci1.data.t == ci2.data.t)
+          {
+            return rand() % 2;
+          }
+          return ci1.data.t < ci2.data.t; // Tie-break toward greater time (relevant for waiting at goal)
+        }
+        return (fless(ci1.g, ci2.g)); // Tie-break toward greater g-cost
+      }
+      return fgreater(ci1.data.nc, ci2.data.nc);
+    }
+    return fgreater(ci1.g + ci1.h, ci2.g + ci2.h);
   }
-    static OpenClosedInterface<state,AStarOpenClosedData<state>>* openList;
-    static uint8_t currentAgent;
-    static unsigned collchecks;
-    static bool randomalg;
-    static bool useCAT;
-    static UniversalConflictAvoidanceTable<state>* CAT; // Conflict Avoidance Table
-    static double agentRadius;
+  static OpenClosedInterface<state, AStarOpenClosedData<state>> *openList;
+  static uint8_t currentAgent;
+  static unsigned collchecks;
+  static bool randomalg;
+  static bool useCAT;
+  static UniversalConflictAvoidanceTable<state> *CAT; // Conflict Avoidance Table
+  static double agentRadius;
 };
 
 template <typename state>

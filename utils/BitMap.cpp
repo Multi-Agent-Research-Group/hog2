@@ -70,7 +70,7 @@ void BitMapPic::Load(const char *file)
 	
 	if (f == 0)
 	{
-		printf("Unable to find file\n");
+		//printf("Unable to find file\n");
 		width = 0;
 		height = 0;
 		image.resize(0);

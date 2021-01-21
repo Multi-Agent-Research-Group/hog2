@@ -66,6 +66,7 @@ public:
 	virtual bool IsGoalStored() const
 	{ return bValidSearchGoal; }
 
+    virtual void SetStart(state const& s){}
         virtual void setGoal(state const &s) {
           if (!bValidSearchGoal) {
             StoreGoal(s);
@@ -102,7 +103,7 @@ public:
 
 	virtual uint64_t GetActionHash(action act) const = 0;
 
-	virtual double GetPathLength(std::vector<state> const& neighbors);
+	virtual double GetPathLength(std::vector<state> const& neighbors)const;
 
 	virtual OccupancyInterface<state,action> *GetOccupancyInfo()
 	{ return 0; }
@@ -149,7 +150,7 @@ action SearchEnvironment<state,action>::GetAction(const state &s1, const state &
 }
 
 template <class state, class action>
-double SearchEnvironment<state,action>::GetPathLength(std::vector<state> const& neighbors)
+double SearchEnvironment<state,action>::GetPathLength(std::vector<state> const& neighbors) const
 {
 	double length = 0;
 	for (unsigned int x = 1; x < neighbors.size(); x++)

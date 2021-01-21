@@ -310,7 +310,7 @@ bool TemporalAStar<state,action,environment,openList>::InitializeSearch(environm
 	//	openQueue.reset();
 	//	assert(openQueue.size() == 0);
 	//	assert(closedList.size() == 0);
-	openClosedList.Reset(env->GetMaxHash());
+	openClosedList.Reset();//env->GetMaxHash());
 	ResetNodeCount();
 	start = from;
 	goal = to;
@@ -340,7 +340,7 @@ std::vector<state> &thePath, unsigned minTime)
 	//	openQueue.reset();
 	//	assert(openQueue.size() == 0);
 	//	assert(closedList.size() == 0);
-	openClosedList.Reset(env->GetMaxHash());
+	openClosedList.Reset();//env->GetMaxHash());
 	ResetNodeCount();
 	goal = to;
 	

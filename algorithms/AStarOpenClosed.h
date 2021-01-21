@@ -55,9 +55,12 @@ public:
 	~AStarOpenClosed();
 	void SaveToFile(char const*const filename) const;
 	void LoadFromFile(char const*const filename);
-	void Reset(int val=0);
+	void Reset();
 	uint64_t AddOpenNode(dataStructure& val, uint64_t hash);
 	uint64_t AddClosedNode(dataStructure& val, uint64_t hash);
+	template <typename... _Args>
+	uint64_t EmplaceOpenNode(uint64_t hash, _Args&&... __args);
+
 	uint64_t AddOpenNode(const state &val, uint64_t hash, double g, double h, uint64_t parent=kTAStarNoNode);
 	uint64_t AddClosedNode(state &val, uint64_t hash, double g, double h, uint64_t parent=kTAStarNoNode);
 	void KeyChanged(uint64_t objKey);
@@ -143,7 +146,7 @@ void AStarOpenClosed<state, CmpKey, dataStructure>::LoadFromFile(char const*cons
  * Remove all objects from queue.
  */
 template<typename state, typename CmpKey, class dataStructure>
-void AStarOpenClosed<state, CmpKey, dataStructure>::Reset(int)
+void AStarOpenClosed<state, CmpKey, dataStructure>::Reset()
 {
 	table.clear();
 	elements.clear();
@@ -174,6 +177,30 @@ uint64_t AStarOpenClosed<state, CmpKey, dataStructure>::AddOpenNode(dataStructur
 	theHeap.push_back(elements.size()-1); // adding element id to back of heap
 	HeapifyUp(theHeap.size()-1); // heapify from back of the heap
 	return elements.size()-1;
+}
+
+template<typename state, typename CmpKey, class dataStructure>
+template <typename... _Args>
+uint64_t AStarOpenClosed<state, CmpKey, dataStructure>::EmplaceOpenNode(uint64_t hash, _Args&&... __args)
+{
+	// should do lookup here...
+	if (table.find(hash) != table.end())
+	{
+		uint64_t id;
+		Lookup(hash, id);
+		//std::cerr << "Hash for " << val.data << " conflicts with " << Lookup(id).data << "\n";
+		//return -1; // TODO: find correct id and return
+		assert(false && "Found the hash in the table already!");
+	}
+	elements.emplace_back(__args...);
+	elements.back().openLocation = theHeap.size();
+	elements.back().where = kOpenList;
+	if (elements.back().parentID == kTAStarNoNode)
+		elements.back().parentID = elements.size() - 1;
+	table[hash] = elements.size() - 1;		// hashing to element list location
+	theHeap.push_back(elements.size() - 1); // adding element id to back of heap
+	HeapifyUp(theHeap.size() - 1);			// heapify from back of the heap
+	return elements.size() - 1;
 }
 
 /**

@@ -210,6 +210,13 @@ double Grid3DConstrainedEnvironment::GetPathLength(std::vector<xyztLoc> const& n
       //break;
     //}
   }
+  //for(int j(neighbors.size()-1); j>0; --j){
+    //cost+=GCost(neighbors[j-1],neighbors[j]);
+    //if(!neighbors[j-1].sameLoc(neighbors[j])&&GoalTest(neighbors[j],getGoal())){
+     // cost = neighbors[j].t;
+      //break;
+    //}
+  //}
   return cost;
 }
 

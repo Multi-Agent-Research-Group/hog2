@@ -190,7 +190,7 @@ private:
         unsigned lowerlimit;
 	
 	double weight; 
-	bool goalSteps;
+	bool goalSteps=false;
 	uint64_t uniqueNodesExpanded;
 	Heuristic<state> *theHeuristic;
         double (environment::*HCostFunc)(const state&, const state&) const;
@@ -340,7 +340,7 @@ bool TemporalAStarPair<state,action,environment,openList>::InitializeSearch(envi
 	//	openQueue.reset();
 	//	assert(openQueue.size() == 0);
 	//	assert(closedList.size() == 0);
-	openClosedList.Reset(env->GetMaxHash());
+	openClosedList.Reset();//env->GetMaxHash());
 	ResetNodeCount();
 	start = from;
 	goal = to;
@@ -370,7 +370,7 @@ std::vector<state> &thePath, unsigned minTime)
 	//	openQueue.reset();
 	//	assert(openQueue.size() == 0);
 	//	assert(closedList.size() == 0);
-	openClosedList.Reset(env->GetMaxHash());
+	openClosedList.Reset();//env->GetMaxHash());
 	ResetNodeCount();
 	goal = to;
 	

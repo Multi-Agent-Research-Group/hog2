@@ -36,6 +36,7 @@ static const bool verbose = false;
 
 void InitTextures()
 {
+return;
 	if (wall == -1)
 	{
 		BitMapPic p("eia.bmp");
@@ -181,9 +182,9 @@ Map::Map(std::istringstream &/*data*/)
 
 Map::~Map()
 {
-	for (int x = 0; x < width; x++)
-		delete [] land[x];
-	delete [] land;
+	//for (int x = 0; x < width; x++)
+		//delete [] land[x];
+	//delete [] land;
 	land = 0;
 }
 

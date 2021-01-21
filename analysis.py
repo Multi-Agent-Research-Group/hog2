@@ -19,20 +19,20 @@ def autolabel(rects,ax,err):
 
 width=0.35
 title=sys.argv[2]
-f = glob.glob(sys.argv[1]+'/output.*.cbics.*.txt')
+f = glob.glob(sys.argv[1]+'/output.*.cb*.txt')
 f.sort()
-tests={5:{},9:{}}
+tests={'5':{},'9':{},'x':{},'25':{}}
 #tests={9:{}}
 for ff in f:
   c=ff.split(".")
   s=c[5]
   #if 'p' not in s or 'n' in s:
   #if not 'm' in s:
-  if 'p' in s or '1' in s:
+  #if 'p' in s or '1' in s:
   #if 'n' in s:
   #if '1' in s:
-    continue
-  bf=int(c[2])
+    #continue
+  bf=c[2]
   n=c[4]
   if bf not in tests:
     continue
@@ -43,6 +43,7 @@ for ff in f:
   expanded=[]
   generated=[]
   with open(ff,'r') as fp:
+    print(ff)
     for line in fp:
       if ":" in line and "," in line:
         l=line.split(':')
@@ -62,7 +63,62 @@ for ff in f:
     Z[i,:len(row)]=row
   tests[bf][n][s]['times']=np.mean(Z,axis=0)
   tests[bf][n][s]['timesd']=np.std(Z,axis=0)
-  tests[bf][n][s]['success']=np.sum(Z < 30.0,axis=0)/10
+  tests[bf][n][s]['success']=np.sum(Z < 30.0,axis=0)/len(Z)
+  Z=np.zeros((len(expanded),maxlen))
+  for i, row in enumerate(expanded):
+    Z[i,:len(row)]=row
+  tests[bf][n][s]['expanded']=np.nan_to_num(np.true_divide(np.sum(Z,axis=0),np.sum(Z !=0,axis=0)))
+  tests[bf][n][s]['expsd']=np.nan_to_num(np.nanstd(np.where(np.isclose(Z,0),np.nan, Z),axis=0))
+  Z=np.zeros((len(generated),maxlen))
+  for i, row in enumerate(generated):
+    Z[i,:len(row)]=row
+  tests[bf][n][s]['generated']=np.nan_to_num(np.true_divide(np.sum(Z,axis=0),np.sum(Z !=0,axis=0)))
+
+f = glob.glob(sys.argv[1]+'/output.*.icts.*.txt')
+for ff in f:
+  c=ff.split(".")
+  s=c[5]
+  #if 'p' not in s or 'n' in s:
+  #if not 'm' in s:
+  #if 'p' in s or '1' in s:
+  #if 'n' in s:
+  #if '1' in s:
+    #continue
+  bf=c[2]
+  n=c[4]
+  if bf not in tests:
+    continue
+  if n not in tests[bf]:
+    tests[bf][n]={}
+  tests[bf][n][s]={}
+  times=[]
+  expanded=[]
+  generated=[]
+  with open(ff,'r') as fp:
+    print(ff)
+    for line in fp:
+      if ":" in line and "," in line:
+        l=line.split(':')
+        try:
+          trial=int(l[0])
+        except:
+          continue
+        if len(times)<trial:
+          times.append([])
+          expanded.append([])
+          generated.append([])
+        stats=l[1].split(',')
+        times[-1].append(float(stats[0]))
+        expanded[-1].append(float(stats[3]))
+        generated[-1].append(float(stats[3]))
+  # pad the arrays
+  maxlen=max([len(z) for z in times])
+  Z=np.ones((len(times),maxlen))*30.0
+  for i, row in enumerate(times):
+    Z[i,:len(row)]=row
+  tests[bf][n][s]['times']=np.mean(Z,axis=0)
+  tests[bf][n][s]['timesd']=np.std(Z,axis=0)
+  tests[bf][n][s]['success']=np.sum(Z < 30.0,axis=0)/len(Z)
   Z=np.zeros((len(expanded),maxlen))
   for i, row in enumerate(expanded):
     Z[i,:len(row)]=row
@@ -81,7 +137,7 @@ for ff in f:
   s=c[5]
   if 'p' in s:
     continue
-  bf=int(c[2])
+  bf=c[2]
   n=c[4]
   if bf not in tests:
     continue
@@ -131,9 +187,11 @@ for ff in f:
 #print([k for k in tests[5].keys()])
 
 for bf,b in tests.items():
+  print(bf)
   groups=list(tests[bf][list(tests[bf].keys())[0]].keys())
 
   for n,d in b.items():
+    print(bf,n)
     fig, (ax1, ax2, ax3) = plt.subplots(1,3)
     fig.set_size_inches(20,12)
     fig.suptitle(n+" - bf={}".format(bf))
@@ -142,9 +200,19 @@ for bf,b in tests.items():
     ax3.set_title('Success Rate')
 
     for i,s in enumerate(d):
-      ax1.plot(np.arange(len(d[s]['expanded'])),d[s]['expanded'],label=s,linewidth=10-i)#,yerr=d[s]['expsd'])
-      ax2.plot(np.arange(len(d[s]['times'])),d[s]['times'],label=s,linewidth=10-i)#,yerr=d[s]['timesd'])
-      ax3.plot(np.arange(len(d[s]['success'])),d[s]['success'],label=s,linewidth=10-i)
+      print(s)
+      foo=np.array([(p,q) for p,q in zip(np.arange(len(d[s]['expanded']))+2,d[s]['expanded']) if p%5==0])
+      ax1.plot(np.arange(len(d[s]['expanded']))+2,d[s]['expanded'],label=s,linewidth=10-i)#,yerr=d[s]['expsd'])
+      foo3=np.array([(p,q) for p,q in zip(np.arange(len(d[s]['times']))+2,d[s]['times']) if p%5==0])
+      ax2.plot(np.arange(len(d[s]['times']))+2,d[s]['times'],label=s,linewidth=10-i)#,yerr=d[s]['timesd'])
+      foo2=[str((p,round(q*100))) for p,q in zip(np.arange(len(d[s]['success']))+2,d[s]['success']) if p%5==0]
+      print(' '.join([str(i[1]) for i in (foo3)]))
+      print(' '.join([str(i[1]) for i in (foo)]))
+      print(' '.join([str(round(i[1]*1000,3)) for i in (foo3/foo)]))
+      print(' '.join([str(round(i[1]*1000,3)) for i in (foo/foo3)]))
+      #print(' '.join(foo2))
+      print(' '.join(foo2))
+      ax3.plot(np.arange(len(d[s]['success']))+2,d[s]['success'],label=s,linewidth=10-i)
     ax3.legend(bbox_to_anchor=(1.1, 1.05),fontsize=16)
     #ax1.set_xticklabels(groups,fontsize=16)
     #ax2.set_xticklabels(groups,fontsize=16)
@@ -155,6 +223,7 @@ for bf,b in tests.items():
 
   fig.tight_layout()
   plt.show()
+
   #plt.subplots_adjust(left=0,right=1,bottom=0,top=1,wspace=1,hspace=1)
   #fig.savefig('origalgo-{}-{}.png'.format(title,bf))
   #plt.close(fig)

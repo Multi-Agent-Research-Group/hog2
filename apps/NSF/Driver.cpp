@@ -84,14 +84,14 @@ typedef UnitSimulation<node_t, int, ConstrainedEnvironment<node_t,int>> UnitSim;
 UnitSim *sim = 0;
 //typedef CBSUnit<node_t,int,UnitTieBreaking3D<node_t,int>,UnitTimeCAT<node_t,int>> MACBSUnit;
 //typedef CBSGroup<node_t,int,UnitTieBreaking3D<node_t,int>,UnitTimeCAT<node_t,int>,ICTSAlgorithm<node_t,int>> MACBSGroup;
-typedef CBSUnit<node_t,int,TieBreaking3D<node_t,int>,NonUnitTimeCAT<node_t,int>> MACBSUnit;
-typedef CBSGroup<node_t,int,TieBreaking3D<node_t,int>,NonUnitTimeCAT<node_t,int>,ICTSAlgorithm<node_t,int>,GraphPerfectHeuristic> MACBSGroup;
+typedef CBSUnit<node_t,int,TieBreaking3D<node_t>,UniversalConflictAvoidanceTable<node_t>> MACBSUnit;
+typedef CBSGroup<node_t,int,TieBreaking3D<node_t>,UniversalConflictAvoidanceTable<node_t>,ICTSAlgorithm<node_t,int>,GraphPerfectHeuristic> MACBSGroup;
 std::unordered_map<unsigned,std::unique_ptr<MACBSGroup>> groups;
 std::vector<unsigned> rgroups;
 std::vector<MACBSUnit*> units;
 
-template<>
-double NonUnitTimeCAT<node_t, int>::bucketWidth=node_t::TIME_RESOLUTION_D;
+//template<>
+//double UniversalConflictAvoidanceTable<node_t>::bucketWidth=node_t::TIME_RESOLUTION_D;
 
 bool gui=true;
 int animate(0);
@@ -126,7 +126,7 @@ void processSolution(double elapsed){
         auto bp(solution[y].begin());
         auto b(bp + 1);
         while (a != solution[x].end() && b != solution[y].end()) {
-          if (collisionCheck3D(*ap, *a, *bp, *b, agentRadius)){
+          if (collisionCheck3D(*ap, *a, *bp, *b, agentRadius,agentRadius)){
             valid = false;
             std::cout << "ERROR: Solution invalid; collision at: " << x << ":" << *ap << "-->" << *a << ", " << y << ":"
               << *bp << "-->" << *b << std::endl;
@@ -153,7 +153,7 @@ void processSolution(double elapsed){
   }
   fflush(stdout);
   std::cout
-    << "elapsed,planTime,replanTime,bypassplanTime,maplanTime,collisionTime,expansions,CATcollchecks,collchecks,collisions,cost,actions,maxCSet,meanCSet\n";
+    << "elapsed,expanded,generated,planTime,replanTime,bypassplanTime,maplanTime,collisionTime,expansions,CATcollchecks,collchecks,cost,actions,maxCSet,meanCSet\n";
   if (verify && elapsed > 0)
     std::cout << (valid ? "VALID" : "INVALID") << std::endl;
   if (elapsed < 0) {
@@ -162,20 +162,21 @@ void processSolution(double elapsed){
   } else {
     std::cout << seed << ":" << elapsed << ",";
   }
+  std::cout << nodes << ",";
+  std::cout << nodes << ",";
   std::cout << MACBSGroup::planTime << ",";
   std::cout << MACBSGroup::replanTime << ",";
   std::cout << MACBSGroup::bypassplanTime << ",";
   std::cout << MACBSGroup::maplanTime << ",";
   std::cout << MACBSGroup::collisionTime << ",";
   std::cout << MACBSGroup::TOTAL_EXPANSIONS << ",";
-  std::cout << TieBreaking3D<node_t,int>::collchecks << ",";
+  std::cout << TieBreaking3D<node_t>::collchecks << ",";
   std::cout << MACBSGroup::collchecks << ",";
-  std::cout << nodes << ",";
   std::cout << cost / node_t::TIME_RESOLUTION_D << ",";
   std::cout << total << ",";
   std::cout << MACBSGroup::constraintsz/std::max(1ul,MACBSGroup::constrainttot)<< std::endl;
-  if (!gui)
-    exit(0);
+  if (!gui && elapsed<0)
+    exit(1);
 }
 
 int main(int argc, char* argv[])
@@ -304,7 +305,7 @@ void InstallHandlers()
   InstallCommandLineHandler(MyCLHandler, "-random", "-random", "Randomize conflict resolution order");
   InstallCommandLineHandler(MyCLHandler, "-greedyCT", "-greedyCT", "Greedy sort high-level search by number of conflicts (GCBS)");
   InstallCommandLineHandler(MyCLHandler, "-xor", "-xor", "Use XOR constraints");
-  InstallCommandLineHandler(MyCLHandler, "-ctype", "-ctype", "Constraint type: \n\t1: identical constraints\n\t2: Pyramid constraints\n\t3: Collision constraints (sub-optimal)\n\t4: Time range constraints (sub-optimal)\n\t5: Mutual Conflict set constraints\n\t6: Overlap Constraints\n\t7:Box constraints (sub-optimal)\n\t8:1xn TimeRange");
+  InstallCommandLineHandler(MyCLHandler, "-ctype", "-ctype", "Constraint type: \n\t1: identical constraints\n\t2: Pyramid constraints\n\t3: Collision constraints (sub-optimal)\n\t4: Time range constraints (sub-optimal)\n\t5: Mutual Conflict set constraints\n\t6: Overlap Constraints\n\t7:Box constraints (sub-optimal)\n\t8:1xn TimeRange\n\t9:nxm TimeRange\n\t10:mutex-prop");
   InstallCommandLineHandler(MyCLHandler, "-pc", "-pc", "prioritize conflicts");
   InstallCommandLineHandler(MyCLHandler, "-cct", "-cct", "Conflict count table");
   InstallCommandLineHandler(MyCLHandler, "-uniqcost", "-uniqcost <value>", "Use randomized unique costs up to <value>");
@@ -396,8 +397,8 @@ void InitHeadless(){
   ace=(DigraphEnvironment*)environs[0].rbegin()->environment.get();
   UnitTieBreaking3D<node_t,int>::randomalg=randomalg;
   UnitTieBreaking3D<node_t,int>::useCAT=useCAT;
-  TieBreaking3D<node_t,int>::randomalg=randomalg;
-  TieBreaking3D<node_t,int>::useCAT=useCAT;
+  TieBreaking3D<node_t>::randomalg=randomalg;
+  TieBreaking3D<node_t>::useCAT=useCAT;
 
   if(gui){
     sim = new UnitSim(ace);
@@ -413,8 +414,9 @@ void InitHeadless(){
     MACBSGroup* group=groups[0].get();
     group->agents.resize(num_agents);
     std::iota(group->agents.begin(),group->agents.end(),0); // Add agents 0, 1, ...
-    rgroups.resize(1);
-    rgroups[0]=0;
+    rgroups.resize(num_agents);
+    //rgroups.resize(1);
+    //rgroups[0]=0;
     if(!gui){
       Timer::Timeout func(std::bind(processSolution, std::placeholders::_1));
       MACBSGroup::timer->StartTimeout(std::chrono::seconds(killtime),func);
@@ -434,7 +436,7 @@ void InitHeadless(){
           std::cout << a << " ";
         std::cout << std::endl;
       }
-      units.push_back(new MACBSUnit(waypoints[i],softEff));
+      units.push_back(new MACBSUnit(waypoints[i],agentRadius));
       units[i]->SetColor(rand() % 1000 / 1000.0, rand() % 1000 / 1000.0, rand() % 1000 / 1000.0); // Each unit gets a random color
       group->AddUnit(units[i]); // Add to the group
       if(Params::verbose)std::cout << "initial path for agent " << i << ":\n";
@@ -496,10 +498,11 @@ bool detectIndependence(){
       auto a(1);
       auto b(1);
       while(a < solution[i].size() && b < solution[j].size()) {
-        if(collisionCheck3D(solution[i][a-1], solution[i][a], solution[j][b-1], solution[j][b], agentRadius)){
+        if(collisionCheck3D(solution[i][a-1], solution[i][a], solution[j][b-1], solution[j][b], agentRadius,agentRadius)){
           independent = false;
           if(Params::verbose)std::cout << "NOT INDEPENDENT: " << i << ":" << solution[i][a-1] << "-->" << solution[i][a] << ", " << j << ":"
             << solution[j][b-1] << "-->" << solution[j][b] << std::endl;
+          collisionCheck3D(solution[i][a - 1], solution[i][a], solution[j][b - 1], solution[j][b], agentRadius,agentRadius);
           if(rgroups[i]==rgroups[j]){
             break; // This can happen if both collide with a common agent
           }
@@ -734,6 +737,12 @@ int MyCLHandler(char *argument[], int maxNumArgs){
         Params::mutualtimerange=true;
         Params::extrinsicconstraints=true;
         break;
+      case 9:
+        Params::mutualtimerange=true;
+        break;
+      case 10:
+        Params::mutexprop=true;
+        break;
       default:
         Params::identicalconstraints=true;
         break;
@@ -828,7 +837,7 @@ int MyCLHandler(char *argument[], int maxNumArgs){
   if(strcmp(argument[0], "-resolution") == 0)
   {
     node_t::TIME_RESOLUTION_U=node_t::TIME_RESOLUTION=node_t::TIME_RESOLUTION_D=atof(argument[1]);
-    NonUnitTimeCAT<node_t, int>::bucketWidth=node_t::TIME_RESOLUTION_D;
+    //UniversalConflictAvoidanceTable<node_t>::bucketWidth=node_t::TIME_RESOLUTION_D;
     return 2;
   }
   if(strcmp(argument[0], "-radius") == 0)
@@ -900,6 +909,7 @@ int MyCLHandler(char *argument[], int maxNumArgs){
       wpts.push_back(((DigraphEnvironment*)environs[0][0].environment.get())->nodes[b]);
       waypoints.push_back(wpts);
       ((DigraphEnvironment*)environs[agents][0].environment.get())->goal=waypoints[agents][1];
+      ((DigraphEnvironment*)environs[agents][0].environment.get())->StoreGoal(waypoints[agents][1]);
       agents++;
       if(num_agents>0 && agents==num_agents){num_agents=agents;break;}
     }
