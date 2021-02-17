@@ -31,6 +31,13 @@ struct PairMap{
   void set(std::vector<I> const& v, T const& val){
     set(v[0],v[1],val);
   }
+  void setAll(T const& v){
+    vals.assign(v);
+  }
+  void clear(){
+    vals.resize(0);
+    vals.resize(n);
+  }
   // Reverse operation (in case needed later.)
   // i = n - 2 - floor(sqrt(-8*k + 4*n*(n-1)-7)/2.0 - 0.5)
   // j = k + i + 1 - n*(n-1)/2 + (n-i)*((n-i)-1)/2

@@ -201,17 +201,17 @@ for bf,b in tests.items():
 
     for i,s in enumerate(d):
       print(s)
-      foo=np.array([(p,q) for p,q in zip(np.arange(len(d[s]['expanded']))+2,d[s]['expanded']) if p%5==0])
+      foo=np.array([(p,q) for p,q in zip(np.arange(len(d[s]['expanded']))+2,d[s]['expanded']) if p%2==0])
       ax1.plot(np.arange(len(d[s]['expanded']))+2,d[s]['expanded'],label=s,linewidth=10-i)#,yerr=d[s]['expsd'])
-      foo3=np.array([(p,q) for p,q in zip(np.arange(len(d[s]['times']))+2,d[s]['times']) if p%5==0])
+      foo3=np.array([(p,q) for p,q in zip(np.arange(len(d[s]['times']))+2,d[s]['times']) if p%2==0])
       ax2.plot(np.arange(len(d[s]['times']))+2,d[s]['times'],label=s,linewidth=10-i)#,yerr=d[s]['timesd'])
-      foo2=[str((p,round(q*100))) for p,q in zip(np.arange(len(d[s]['success']))+2,d[s]['success']) if p%5==0]
-      print(' '.join([str(i[1]) for i in (foo3)]))
+      foo2=[str((p,round(q*100))) for p,q in zip(np.arange(len(d[s]['success']))+2,d[s]['success']) if p%2==0]
+      #print(' '.join([str(i[1]) for i in (foo3)]))
       print(' '.join([str(i[1]) for i in (foo)]))
-      print(' '.join([str(round(i[1]*1000,3)) for i in (foo3/foo)]))
-      print(' '.join([str(round(i[1]*1000,3)) for i in (foo/foo3)]))
+      #print(' '.join([str(round(i[1]*1000,3)) for i in (foo3/foo)]))
+      #print(' '.join([str(round(i[1]*1000,3)) for i in (foo/foo3)]))
       #print(' '.join(foo2))
-      print(' '.join(foo2))
+      print(' '.join([f.split()[1][:-1] for f in foo2]))
       ax3.plot(np.arange(len(d[s]['success']))+2,d[s]['success'],label=s,linewidth=10-i)
     ax3.legend(bbox_to_anchor=(1.1, 1.05),fontsize=16)
     #ax1.set_xticklabels(groups,fontsize=16)

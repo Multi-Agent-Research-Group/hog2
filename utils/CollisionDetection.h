@@ -1273,35 +1273,54 @@ static std::pair<float,float> getDelay(float fx1, // focal point 1 x coord
   return {(v1 - v2 + v3)/(2*c1), (v1 + v2 + v3)/(2*c1)};
 }
 
-static std::pair<float,float>
-getForbiddenIntervalIncremental(Vector3D const& A,
-                     Vector3D const& VA,
-                     float startTimeA,
-                     float endTimeA,
-                     float radiusA,
-                     Vector3D const& B,
-                     Vector3D const& VB,
-                     float startTimeB,
-                     float endTimeB,
-                     float radiusB,
-                     float delayStart,
-                     float delayEnd,
-                     float res=0.0001){
-  float dur(endTimeA-startTimeA);
-  float durB(endTimeB-startTimeB);
-    for(float i(delayStart+res); i<delayEnd; i+=res){
-      if(collisionImminent(A,VA,radiusA,i,i+dur,B,VB,radiusB,0,durB)){
-        delayStart=i-res;
-        break;
-      }
+static std::pair<float, float>
+getForbiddenIntervalIncremental(Vector3D const &A,
+                                Vector3D const &VA,
+                                float startTimeA,
+                                float endTimeA,
+                                float radiusA,
+                                Vector3D const &B,
+                                Vector3D const &VB,
+                                float startTimeB,
+                                float endTimeB,
+                                float radiusB,
+                                float delayStart,
+                                float delayEnd,
+                                float conflictingDelayTime,
+                                float res = 0.001)
+{
+  float dur(endTimeA - startTimeA);
+  float durB(endTimeB - startTimeB);
+  // First, find a position that is in conflict - do a binary search...
+  assert(collisionImminent(A, VA, radiusA, conflictingDelayTime, conflictingDelayTime + dur, B, VB, radiusB, 0, durB));
+  float left(delayStart);
+  float right(conflictingDelayTime);
+  while(right-left>res){
+    float tm((left+right)/2);
+    if (collisionImminent(A, VA, radiusA, tm, tm + dur, B, VB, radiusB, 0, durB))
+    {
+      right = tm;
     }
-    for(float i(delayEnd-res); i>delayStart; i-=res){
-      if(collisionImminent(A,VA,radiusA,i,i+dur,B,VB,radiusB,0,durB)){
-        delayEnd=i-res;
-        break;
-      } 
+    else
+    {
+      left = tm;
     }
-    return {delayStart,delayEnd};
+  }
+  delayStart=left;
+  left = conflictingDelayTime;
+  right = delayEnd;
+  while(right-left>res){
+    float tm((left+right)/2);
+    if (collisionImminent(A, VA, radiusA, tm, tm + dur, B, VB, radiusB, 0, durB))
+    {
+      left = tm;
+    }
+    else
+    {
+      right = tm;
+    }
+  }
+  return {delayStart, right};
 }
 
 // General case for interval - does not consider the corner cases... (use getForbiddenInterval())
@@ -1319,6 +1338,7 @@ getForbiddenIntervalGeneralCase(Vector3D const& A,
                      float rA,
                      float rB,
                      float rsq, // Adjusted for minus epsilon
+                     float conflictingDelayTime, // help for incremental search case
                      float res=0.001){
   float r(rA+rB);
   float AVA(A*VA);
@@ -1356,7 +1376,7 @@ getForbiddenIntervalGeneralCase(Vector3D const& A,
   float db2a(Util::distanceOfPointToLine(A,A2,B2));
   if(da1b<r || da2b<r || db1a<r || db2a<r){
     //std::cout << da1b << " " << da2b << " " << db1a << " " << db2a << "\n";
-    return getForbiddenIntervalIncremental(A,VA,0,dur,rA,B,VB,0,durB,rB,-delayEnd,-delayStart,res);
+    return getForbiddenIntervalIncremental(A,VA,0,dur,rA,B,VB,0,durB,rB,-delayEnd,-delayStart,conflictingDelayTime,res);
     //std::cout << "SPECIAL CASE\n";
     //for(float i(delayStart+res); i<delayEnd; i+=res){
       //if(collisionImminent(A,VA,r/2.0,0,dur,B,VB,r/2.0,i,i+durB)){
@@ -1483,7 +1503,7 @@ getForbiddenInterval(Vector3D const& A,
       //std::cout << "v " << v << " dur " << dur << "\n";
       //std::cout << "i " << startTimeB+(dist-v-dur) << "," << startTimeB+(dist+v) << "\n";
       //return {std::max(startTimeB-dur,startTimeB+(dist-v-dur)),std::min(startTimeB+(dist+v),endTimeB)}; // Distance from line is close enough to crash.
-      return getForbiddenIntervalIncremental(A,VA,0,dur,radiusA,B,VB,0,durB,radiusB,std::max(startTimeB-dur,startTimeB+(dist-v-dur)),std::min(startTimeB+(dist+v),endTimeB),res);
+      return getForbiddenIntervalIncremental(A,VA,0,dur,radiusA,B,VB,0,durB,radiusB,std::max(startTimeB-dur,startTimeB+(dist-v-dur)),std::min(startTimeB+(dist+v),endTimeB),startTimeA-startTimeB,res);
     }else{ return {std::numeric_limits<float>::infinity(),-std::numeric_limits<float>::infinity()};} // never conflicting
   }else if(VB.x==0 && VB.y==0){
     float d(Util::distanceOfPointToLine(A,A2,B));
@@ -1492,7 +1512,7 @@ getForbiddenInterval(Vector3D const& A,
       //float v(sqrt(rsq-d)); // translational distance between centers at start of impact
       //float dist(sqrt(DAB.sq()-d)); // distance traveled by either agent
       float durB(endTimeB-startTimeB);
-      return getForbiddenIntervalIncremental(A,VA,0,dur,radiusA,B,VB,0,durB,radiusB,startTimeA-std::max(dur,durB),endTimeB,res);
+      return getForbiddenIntervalIncremental(A,VA,0,dur,radiusA,B,VB,0,durB,radiusB,startTimeA-std::max(dur,durB),endTimeB,startTimeA-startTimeB,res);
       //std::cout << v << " " << dist << "\n";
       //std::cout << (startTimeB-durB) << " " << (startTimeB+(-durB+dist+v)) << "," << (startTimeB+(dist+v)) << " " << (endTimeB) << "\n";
       //std::cout << (startTimeA-durB) << " " << (startTimeA+(dist-v)) << "," << (startTimeA+(dist+v)) << " " << (endTimeB) << "\n";
@@ -1503,17 +1523,17 @@ getForbiddenInterval(Vector3D const& A,
   // Are motions exactly parallel or opposing?
   if(nva==nvb || nva==-nvb){
     float durB(endTimeB-startTimeB);
-    return getForbiddenIntervalIncremental(A,VA,0,dur,radiusA,B,VB,0,durB,radiusB,-std::max(dur,durB),std::max(dur,durB),res);
+    return getForbiddenIntervalIncremental(A,VA,0,dur,radiusA,B,VB,0,durB,radiusB,-std::max(dur,durB),std::max(dur,durB),startTimeA-startTimeB,res);
   }
 
   // General case
   float durB(endTimeB-startTimeB);
   if(durB<dur){
     //std::cout << "SWAPPED!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n";
-    auto intvl(getForbiddenIntervalGeneralCase(B,B2,VB,durB,A,A2,VA,dur,DAB,DVAB,radiusA,radiusB,rsq));
+    auto intvl(getForbiddenIntervalGeneralCase(B,B2,VB,durB,A,A2,VA,dur,DAB,DVAB,radiusA,radiusB,rsq,startTimeB-startTimeA));
     return {-intvl.second,-intvl.first};
   }
-  return getForbiddenIntervalGeneralCase(A,A2,VA,dur,B,B2,VB,durB,DAB,DVAB,radiusA,radiusB,rsq);
+  return getForbiddenIntervalGeneralCase(A,A2,VA,dur,B,B2,VB,durB,DAB,DVAB,radiusA,radiusB,rsq,startTimeA-startTimeB);
 }
 
 // Get mirrored move number assuming that the start point is mirrored

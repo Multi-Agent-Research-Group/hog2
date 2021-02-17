@@ -73,7 +73,7 @@ namespace std
 template<typename state, typename action>
 class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
   public:
-    ICTSAlgorithm(std::vector<float> const& radi):radii(radi),jointTime(0),pairwiseTime(0),mddTime(0),verbose(false),quiet(false),verify(false),jointnodes(0),step(state::TIME_RESOLUTION_U),suboptimal(false),pairwise(true){}
+    ICTSAlgorithm(std::vector<float> const& radi, uint32_t s=state::TIME_RESOLUTION_U):radii(radi),jointTime(0),pairwiseTime(0),mddTime(0),verbose(false),quiet(false),verify(false),jointnodes(0),step(s),suboptimal(false),pairwise(true){}
     std::vector<float> radii;
     float jointTime;
     float pairwiseTime;
@@ -171,10 +171,24 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
       return cost;
     }
 
-    static uint64_t computeSolutionCost(MDDSolution const& solution, bool ignoreWaitAtGoal=true){
+    uint64_t computeSolutionCost(MDDSolution const &solution, bool ignoreWaitAtGoal = true)
+    {
       uint64_t cost(0);
-      for(auto const& path:solution){
-        cost+=computePathCost(path,ignoreWaitAtGoal);
+      unsigned a(0);
+      for (auto const &path : solution)
+      {
+        std::vector<state> p;
+        p.reserve(path.size());
+        for (auto const &node : path)
+        {
+          if (node->n != p.back())
+          {
+            p.push_back(node->n);
+          }
+          //cost+=computePathCost(path,ignoreWaitAtGoal);
+        }
+        cost += envs[a]->GetPathLength(p);
+        ++a;
       }
       return cost;
     }
@@ -837,7 +851,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
     void SetQuiet(bool v){quiet=v;}
     virtual unsigned GetNodesExpanded()const{return Node::count;}
 
-    bool GetSolutionCosts(std::vector<EnvironmentContainer<state,action>*> const& env, MultiAgentState<state> const& start, MultiAgentState<state> const& goal, std::vector<std::vector<uint32_t>>& costs){
+    bool GetSolutionCosts(std::vector<EnvironmentContainer<state,action>*> const& env, MultiAgentState<state> const& start, MultiAgentState<state> const& goal, std::vector<std::vector<uint32_t>>& costs, std::vector<Solution<state>>* solutions=nullptr){
       bool found(false);
       for(int i(0);i<env.size(); ++i){
         envs.push_back(env[i]->environment.get());
@@ -863,10 +877,10 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
         // It is impossible for a better solution to be further down in the tree - 
         // no node of cost>=best can possibly produce a child with better cost
         if(verbose)std::cout << "TOP: " << q.top()->lb() << " BEST: " << bestCost << "\n";
-        if(q.top()->lb()>bestCost){
-          found=true;
-          break;
-        }
+        //if(q.top()->lb()>bestCost){
+          //found=true;
+          //break;
+        //}
         // This node could contain a solution since its lb is <=
         toDelete.push_back(q.popTop());
         ICTSNode* parent(toDelete.back().get());
@@ -883,6 +897,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
           std::cout << "\n";
           std::cout << "SIC: " << parent->lb() << std::endl;
         }
+        bool above(found && !q.empty() && q.top()->lb()>bestCost);
         std::vector<MDDSolution> answers;
         // If we found an answer set and any of the answers are not in conflict
         // with other paths in the solution, we can quit if the answer has a cost
@@ -890,31 +905,60 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
         // continue the ICT search until the next plateau
         std::vector<uint32_t> slnCosts(start.size(),INFTY);
         uint64_t cost(INFTY);
-        if(parent->isValid(answers,cost,slnCosts,true)){
-          auto cost(std::accumulate(slnCosts.begin(),slnCosts.end(),0));
-          for(auto const& a:answers){
-            if(cost<bestCost){
+        if(parent->isValid(answers,cost,slnCosts)){
+          uint64_t scost(std::accumulate(slnCosts.begin(),slnCosts.end(),0));
+          for (auto const &a : answers)
+          {
+            if (scost < bestCost)
+            {
               costs.resize(1);
-              sizes=&costs[0];
-              bestCost=cost;
+              sizes = &costs[0];
+              bestCost = scost;
               sizes->resize(0);
-              sizes->insert(sizes->begin(),slnCosts.begin(),slnCosts.end());
-            }else if(cost==bestCost){
-              costs.resize(costs.size()+1);
-              sizes=&costs[costs.size()-1];
+              solutions->resize(0);
+              sizes->insert(sizes->end(), slnCosts.begin(), slnCosts.end());
+            }
+            else
+            {
+              costs.resize(costs.size() + 1);
+              sizes = &costs[costs.size() - 1];
               sizes->resize(0);
-              sizes->insert(sizes->begin(),slnCosts.begin(),slnCosts.end());
+              sizes->insert(sizes->end(), slnCosts.begin(), slnCosts.end());
+            }
+            if (solutions)
+            {
+              unsigned i(0);
+              Solution<state> solution;
+              for (auto const &path : a)
+              {
+                std::vector<state> p;
+                p.reserve(path.size());
+                for (auto const &node : path)
+                {
+                  if (node->n != p.back())
+                  {
+                    p.push_back(node->n);
+                  }
+                }
+                solution.push_back(p);
+                ++i;
+              }
+              bestCost = std::min(bestCost, scost);
+              solutions->push_back(solution);
             }
           }
           // We can exit now if we've finished exploring the plateau
-          if(suboptimal||q.empty()||q.top()->lb()>bestCost){
+          if(suboptimal||q.empty()||q.top()->lb()>=bestCost){
             found = true;
             /*for(auto & m:parent->root){
               std::cout << "icts-MDD:\n" << m << "\n";
             }*/
+            if(above)
             break;
           }
-        }else{
+        }
+        // Even produce children of feasible solutions...
+        {
           if(cost>=INFTY){
             bool blocked(false);
             for (int i(0); i < parent->sizes.size(); ++i)
@@ -1003,7 +1047,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
             if (node->isValid(answers, cost, slnCosts))
             {
               for(auto const& a:answers){
-                auto cost(computeSolutionCost(a));
+                auto scost(computeSolutionCost(a));
                 solution.resize(0);
                 for(auto const& path:a){
                   std::vector<state> p;
@@ -1012,7 +1056,7 @@ class ICTSAlgorithm: public MAPFAlgorithm<state,action>{
                   }
                   solution.push_back(p);
                 }
-                bestCost=std::min(bestCost,cost);
+                bestCost=std::min(bestCost,scost);
                 answerkey=node->key();
               }
               if(bestCost<=prevBest||suboptimal){return;}

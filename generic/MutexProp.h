@@ -30,7 +30,7 @@
 #include <iterator>
 #include <algorithm>
 #include <functional>
-#include "PairTree.h"
+#include "PairMap.h"
 #include "CollisionDetection.h"
 #include "TemplateAStar.h"
 #include "Heuristic.h"
@@ -38,6 +38,7 @@
 #include "Utilities.h"
 #include "sorted_vector.h"
 #include "TemporalAStarPair.h"
+#include "ICTSAlgorithm.h"
 
 template<typename T>
 void clear(std::vector<T>& v){
@@ -1437,6 +1438,7 @@ struct PairwiseConstrainedSearch
                             state const &goal2,
                             double r2,
                             double socLb,
+                            bool timeReasoning=false,
                             bool storeAll=false)
                             //bool waitAtGoalNeverCosts=false)
       : intervals(2),
@@ -1448,6 +1450,7 @@ struct PairwiseConstrainedSearch
         firstsoc(INT_MAX),
         soc(INT_MAX),
         bf(1),
+        timerange(timeReasoning),
         all(storeAll)
         //waitcosts(!waitAtGoalNeverCosts)
   {
@@ -1491,6 +1494,7 @@ struct PairwiseConstrainedSearch
     open.AddOpenNode(data,GetHash(s,0,0));
   }
 
+  static bool cardinalcheck;
   std::array<environ *,2> envs; // environments for agents
   std::array<Heuristic<state> *,2> heus; // environments for agents
   //MultiEnv env;
@@ -1505,10 +1509,11 @@ struct PairwiseConstrainedSearch
 
   double maxTotal;
   unsigned bf; // branching factor
+  bool timerange; // Whether to reason about mutually conflicting time ranges
   bool all; // Whether to store all solutions of cost
   //bool waitcosts; // Whether waiting at the goal costs if you move off again
 
-  std::vector<std::deque<std::pair<std::array<unsigned,3>,Action<state>>>> intervals;
+  std::vector<std::deque<std::pair<std::array<unsigned,5>,Action<state>>>> intervals;
   std::vector<std::unordered_map<uint64_t,unsigned>> ivix;
   std::vector<std::vector<unsigned>> finalcost;
   //PairTree<ActionPair<state>> mutexes;
@@ -1636,6 +1641,116 @@ struct PairwiseConstrainedSearch
     return h;
   }
 
+  // Get cost ranges. No mutex propagation.
+  void getRanges(std::vector<EnvironmentContainer<state, action> *> const &ec,
+                 std::vector<unsigned> const &origCosts)
+  {
+    static std::vector<std::vector<uint32_t>> somecosts;
+    somecosts.clear();
+    somecosts.reserve(2);
+    somecosts.resize(1);
+    somecosts[0].push_back(lb[0] - origCosts[0]);
+    somecosts[0].push_back(lb[1] - origCosts[1]);
+
+    std::vector<state> starts(start.begin(),start.end()); // Cast from array to vector
+    std::vector<state> goals(goal.begin(),goal.end());
+    //static std::vector<unsigned> maxs;
+    //maxs = origCost;
+    static std::vector<unsigned> best;
+    best.assign(2, INT_MAX);
+
+    ICTSAlgorithm<state, action> ictsalgo(std::vector<float>(radii.begin(),radii.end()),ceil(ec[0]->environment->WaitTime()/2.0));
+    ictsalgo.SetVerbose(false);
+    ictsalgo.SetQuiet(true); //!Params::unquiet);
+    paths.resize(0);
+    ictsalgo.GetSolutionCosts(ec, starts, goals, somecosts, &paths);
+    finalcost=somecosts;
+  }
+  void getRanges()
+  {
+    paths.resize(0);
+    paths.push_back(std::vector<std::vector<state>>(2,std::vector<state>()));
+    paths[0][0].clear();
+    auto tmpgoal(goal[0]);
+    tmpgoal.t=lb[0];
+    astar.SetHeuristic(heus[0]);
+    astar.SetUpperLimit(ub[0]);
+    if(ub[0]!=lb[0])
+    {
+    astar.SetUpperLimit(ub[0]-1);
+    }
+    astar.SetLowerLimit(lb[0]);
+    //Timer tmr;
+    //tmr.StartTimer();
+    //astar.SetVerbose(true);
+    astar.GetPath(envs[0],start[0],tmpgoal,paths[0][0],lb[0]);
+    //std::cout << "s1 took: " << tmr.EndTimer() << "\n";
+    if(paths[0][0].empty())
+    {
+      return;
+    }
+    auto len1(envs[0]->GetPathLength(paths[0][0]));
+    paths[0][0].clear();
+
+    paths[0][1].clear();
+    tmpgoal=goal[1];
+    tmpgoal.t=lb[1];
+    astar.SetHeuristic(heus[1]);
+    astar.SetUpperLimit(ub[1]);
+    if(ub[1]!=lb[1])
+    {
+      astar.SetUpperLimit(ub[1] - 1);
+    }
+    astar.SetLowerLimit(lb[1]);
+    //astar.SetVerbose(true);
+    //tmr.StartTimer();
+    astar.GetPath(envs[1],start[1],tmpgoal,paths[0][1],lb[1]);
+    //std::cout << "s2 took: " << tmr.EndTimer() << "\n";
+    if(paths[0][1].empty())
+    {
+      return;
+    }
+    auto len2(envs[1]->GetPathLength(paths[0][1]));
+    paths[0][1].clear();
+    paths.clear();
+
+    // If either of the upper bounds is unlimited, we could run forever
+    // As a termination heuristic, we will assume that if an agent were
+    // to make it to its goal, it may have to wait for the other agent
+    // to traverse its entire path first.
+    maxTotal=envs[0]->GetMapSize()*state::TIME_RESOLUTION_U;
+    if(maxTotal<socLim)
+    {
+      maxTotal=socLim;
+    }
+    //maxTotal=len1+len2;
+    //cd maxTotal*=maxTotal;
+
+    // =======================
+    // Cost limit Feasibility check...
+    // We only have to do this if one of the agents has an upper
+    // bound.
+    // =======================
+    //tmr.StartTimer();
+    bool go(doSingleSearchStep());
+    while (go)
+    {
+      go = doSingleSearchStep();
+    }
+
+    if(finalcost.empty())return;
+    //std::cout << finalcost << "\n";
+    // TODO - If we ever plan to re-use this class, we won't be able
+    //        to delete the intervals inline like this...
+
+    // ===============================
+    // Finally, filter down the list of mprop constraints
+    // Only those which were completely infeasible for one
+    // or more complete cost levels are retained
+    // ===============================
+    auto finalsoc(finalcost[0][0]+finalcost[0][1]);
+  }
+
   void getRangesAndConstraints()
   {
     // =======================
@@ -1709,8 +1824,10 @@ struct PairwiseConstrainedSearch
     // bound.
     // =======================
     //tmr.StartTimer();
-    if (false && (ub[0] != UINT_MAX || ub[1] != UINT_MAX))
-    {
+    if(cardinalcheck){
+      auto origall(all);
+      all = false;
+      // Check if cost increase is necessary.
       bool go(doSingleSearchStep());
       while (go)
       {
@@ -1719,6 +1836,17 @@ struct PairwiseConstrainedSearch
       //std::cout << "p1 took: " << tmr.EndTimer() << "\n";
       if (finalcost.empty())
       {
+        return;
+      }
+      all = origall;
+      if(finalcost[0][0]+finalcost[0][1]<=socLim)
+      {
+        reset();
+        go =doSingleSearchStep();
+        while (go)
+        {
+          go = doSingleSearchStep();
+        }
         return;
       }
       reset();
@@ -1983,7 +2111,32 @@ struct PairwiseConstrainedSearch
         auto const &ec2(ecs[1][j]);
         crossProduct.emplace_back(a1, a2, s.feasible);
         auto &n(crossProduct.back());
+        if (CATTieBreaking<state>::useCAT)
+        {
+          // Compute cumulative conflicts
+          static std::vector<state const *> matches;
+          matches.clear();
+          //std::cout << "Getting NC for " << i1.data << ":\n";
+          CATTieBreaking<state>::CAT.get(n.t, std::max(n.first.second.t, n.second.second.t), matches, CATTieBreaking<state>::currentAgents);
 
+          // Get number of conflicts in the parent
+          unsigned nc1(s.nc);
+          //std::cout << "  matches " << matches.size() << "\n";
+
+          // Count number of conflicts
+          for (unsigned m(1); m < matches.size(); ++m)
+          {
+            nc1 += collisionCheck2D(n.first.first, n.first.second, *matches[m - 1], *matches[m], radii[0], radii[0]);
+            nc1 += collisionCheck2D(n.second.first, n.second.second, *matches[m - 1], *matches[m], radii[1], radii[1]);
+            //if(!nc2){std::cout << "NO ";}
+            //std::cout << "conflict(2): " << i2.data << " " << n << "\n";
+          }
+          // Set the number of conflicts in the data object
+          n.nc = nc1;
+        }
+
+        if (s.feasible)
+        {
           // Check for conflict...
           if ((a1.first == a2.first) ||
               (a1.second == a2.second) ||
@@ -1995,12 +2148,6 @@ struct PairwiseConstrainedSearch
           else
           {
             //std::cout<<"Checking:"<<current[j].first << "-->"<< current[j].second <<", " << positions[agent][i].first << "-->"<< positions[agent][i].second << "\n";
-            //assert(collisionCheck3D(a1.first, a1.second,
-                                 //a2.first, a2.second,
-                                 //radii[0], radii[1])==
-            //collisionCheck2D(a1.first, a1.second,
-                                 //a2.first, a2.second,
-                                 //radii[0], radii[1]));
             if (collisionCheck2D(a1.first, a1.second,
                                  a2.first, a2.second,
                                  radii[0], radii[1]))
@@ -2008,7 +2155,8 @@ struct PairwiseConstrainedSearch
               n.feasible = false;
             }
           }
-          if(!n.feasible){++j;continue;}
+        }
+        if(!n.feasible){++j;continue;}
         //std::cout << "  succ: " << n << " "<<n.feasible << "\n";
         auto gg1(G[0] + ec1);
         auto gg2(G[1] + ec2);
@@ -2038,8 +2186,102 @@ struct PairwiseConstrainedSearch
                   gg1 < ub[0] &&                       // Must be below upper bound
                   gg2 < ub[1])                         // Must be below upper bound
               {
-                finalcost.push_back({gg1, gg2});
-                return false;
+                if (n.feasible) // Reachable
+                {
+                  if (all || firstsoc == INT_MAX)
+                  {
+                    //std::cout << "Solution found: " << gg1 << "+" << gg2 << "=" << gg1+gg2 << "\n";
+                    // TODO: CAT check (if found duplicate)
+                    paths.push_back(std::vector<std::vector<state>>(2));
+                    // Extract the path back to the root.
+                    auto tmpnode(nodeid);
+                    paths.back()[0].push_back(n[0].second);
+                    //std::cout << "*" << n[0].second << "\n";
+                    paths.back()[1].push_back(n[1].second);
+                    //std::cout << "      *" << n[1].second << "\n";
+                    do
+                    {
+                      auto const &tmpn(open.Lookup(tmpnode));
+                      //std::cout << open.Lookup(tmpnode).data << "\n";
+                      for (unsigned q(0); q < tmpn.data.size(); ++q)
+                      {
+                        auto gg(envs[q]->GCost(tmpn.data[q].first, tmpn.data[q].second));
+                        if (paths.back()[q].back() != tmpn.data[q].second)
+                        {
+                          paths.back()[q].push_back(tmpn.data[q].second);
+                          //std::cout << (q ? "                  " : "") <<tmpnode<< "*" << tmpn.data[q] << " ng: " << (q?tmpn.g2:tmpn.g1) << " ec: " << gg << "\n";
+                        }
+                        else
+                        {
+                          //std::cout << (q ? "                  " : "") <<tmpnode<< " " << tmpn.data[q] << " ng: " << (q?tmpn.g2:tmpn.g1) << " ec: " << gg << "\n";
+                        }
+                      }
+                      tmpnode = tmpn.parentID;
+                    } while (open.Lookup(tmpnode).parentID != tmpnode);
+                    auto const &tmpn(open.Lookup(tmpnode));
+                    for (unsigned q(0); q < open.Lookup(tmpnode).data.size(); ++q)
+                    {
+                      auto gg(envs[q]->GCost(tmpn.data[q].first, tmpn.data[q].second));
+                      if (paths.back()[q].back() != open.Lookup(tmpnode).data[q].second)
+                      {
+                        paths.back()[q].push_back(open.Lookup(tmpnode).data[q].second);
+                        //std::cout << (q ? "                  " : "") <<tmpnode<< "*" << tmpn.data[q] << " ng: " << (q?tmpn.g2:tmpn.g1) << " ec: " << gg << "\n";
+                      }
+                      else
+                      {
+                        //std::cout << (q ? "                  " : "") <<tmpnode<< " " << tmpn.data[q] << " ng: " << (q?tmpn.g2:tmpn.g1) << " ec: " << gg << "\n";
+                      }
+                      std::reverse(paths.back()[q].begin(), paths.back()[q].end());
+                    }
+                    std::vector<unsigned> fincosts(2);
+                    fincosts[0] = envs[0]->GetPathLength(paths.back()[0]);
+                    fincosts[1] = envs[1]->GetPathLength(paths.back()[1]);
+                    if (all)
+                    {
+                      auto ix(std::find(finalcost.begin(), finalcost.end(), fincosts));
+                      if (ix == finalcost.end())
+                      {
+                        finalcost.push_back(fincosts);
+                        if (gg1 + gg2 > soc)
+                        {
+                          return false;
+                        }
+                      }
+                      else
+                      {
+                        //TODO: here is where we would perform the CAT check.
+                        // For now, this is a duplicate, so we throw it out. :(
+                        paths.pop_back();
+                      }
+                    }
+                    else
+                    {
+                      finalcost.push_back(fincosts);
+                    }
+                  }
+
+                  if (firstsoc == INT_MAX)
+                  {
+                    firstsoc = soc = gg1 + gg2;
+                  }
+                  else
+                  {
+                    soc = gg1 + gg2;
+                  }
+                  /*auto top(open.Lookup(open.Peek()));
+            if (top.g + top.h > soc)
+            {
+              return false;
+            }
+            else
+            {
+              return true;
+            }*/
+                  if (!all)
+                  {
+                    return false;
+                  }
+                }
               }
             }
             //}
@@ -2168,6 +2410,10 @@ struct PairwiseConstrainedSearch
     double sd(DBL_MAX);
     unsigned minindex(0);
     double k(0);
+    bool doCtime(!s.feasible && timerange);
+    std::array<std::pair<double,double>,2> pivl;
+    std::array<unsigned,2> pshift = {s.first.second.t-s.first.first.t,s.second.second.t-s.second.first.t};
+    pivl[0] = pivl[1] = {0,INT_MAX};
     for (auto const &a : s)
     {
       if (a.second.t < sd)
@@ -2175,7 +2421,34 @@ struct PairwiseConstrainedSearch
         sd = a.second.t;
         minindex = k;
       }
+      if (doCtime)
+      {
+        auto phash(GetHash(a)); //,G[i]+ecs[i][a]));
+        auto pivld(ivix[k].find(phash));
+        if (pivld != ivix[k].end())
+        {
+          doCtime = false;
+          pivl[k].first = intervals[k][pivld->second].first[3];
+          pivl[k].second = intervals[k][pivld->second].first[4];
+        }
+      }
       k++;
+    }
+    if (doCtime)
+    {
+      auto intvl(getForbiddenInterval(
+          s.first.first,
+          s.first.second,
+          s.first.first.t,
+          s.first.second.t,
+          radii[0],
+          s.second.first,
+          s.second.second,
+          s.second.first.t,
+          s.second.second.t,
+          radii[1]));
+      pivl[0] = {s.second.first.t + intvl.first, s.second.first.t + intvl.second};
+      pivl[1] = {s.first.first.t - intvl.second, s.first.first.t - intvl.first};
     }
     if (sd == DBL_MAX)
     {
@@ -2227,6 +2500,7 @@ struct PairwiseConstrainedSearch
           ecs[k].push_back(0);//envs[k]->GCost(a.first, a.second));
           //ecs[k].push_back(envs[k]->GCost(a.first, a.second));
         //}
+        pshift[k]=0; // This action is being reused, so the parent is itself
         output.push_back(a);
       }
       if (output.empty())
@@ -2238,6 +2512,9 @@ struct PairwiseConstrainedSearch
       successors.push_back(output);
       ++k;
     }
+    static std::vector<std::array<unsigned,4>> unsafeTimes;
+    unsafeTimes.clear();
+    unsafeTimes.reserve(successors[0].size()*successors[1].size());
     static std::vector<ActionPair<state>> crossProduct;
     crossProduct.clear();
     crossProduct.reserve(successors[0].size()*successors[1].size());
@@ -2305,7 +2582,54 @@ struct PairwiseConstrainedSearch
               n.feasible = false;
             }
           }
+          if(timerange)
+          {
+            if (!n.feasible)
+            {
+              // Compute the forbidden interval
+              auto intvl(getForbiddenInterval(
+                  n.first.first,
+                  n.first.second,
+                  n.first.first.t,
+                  n.first.second.t,
+                  radii[0],
+                  n.second.first,
+                  n.second.second,
+                  n.second.first.t,
+                  n.second.second.t,
+                  radii[1]));
+              unsafeTimes.push_back({n.second.first.t + intvl.first,
+                                     n.second.first.t + intvl.second,
+                                     n.first.first.t - intvl.second,
+                                     n.first.first.t - intvl.first});
+            }
+            else
+            {
+              // Placeholder...
+              unsafeTimes.push_back({0, INT_MAX, 0, INT_MAX});
+            }
+          }
+          else
+          {
+              unsafeTimes.push_back({0, INT_MAX, 0, INT_MAX});
+          }
         }
+        else
+        {
+          // Fill with time-offset parent conflict time
+          if (timerange)
+          {
+            unsafeTimes.push_back({pivl[0].first + pshift[0],
+                                   pivl[0].second + pshift[0],
+                                   pivl[1].first + pshift[1],
+                                   pivl[1].second + pshift[1]});
+          }
+          else
+          {
+            unsafeTimes.push_back({0, INT_MAX, 0, INT_MAX});
+          }
+        }
+
         //std::cout << "  " << n << " "<<n.feasible << "\n";
         auto gg1(G[0] + ec1);
         auto gg2(G[1] + ec2);
@@ -2600,6 +2924,9 @@ struct PairwiseConstrainedSearch
         unsigned maxCost(0);
         unsigned minInclusive(INT_MAX);
         unsigned maxInclusive(0);
+        // Get the current unsafe interval...
+        unsigned minTime(unsafeTimes[ids[i][a].front().second][i*2]);
+        unsigned maxTime(unsafeTimes[ids[i][a].front().second][i*2+1]);
         if(ids[i][a].empty())continue;
         auto hash(GetHash(successors[i][a]));//,G[i]+ecs[i][a]));
         auto ivl(ivix[i].find(hash));
@@ -2626,9 +2953,24 @@ struct PairwiseConstrainedSearch
                 maxInclusive = maxCost;
                 //std::cout << "new upper bound: " << maxCost << "\n";
               }
+              // NOTE: if f-cost increases too much, the interval goes to nothing.
+              // We need to try and preserve the interval per the upper f-cost
+              // Problem is, if the upper cost ever decreases, we can't retrieve
+              // the interval for the  lower cost... We'll see what happens.
               if (!crossProduct[id.second].feasible)
               {
+                // There are two cases:
+                // (1) the pair is infeasible due to a direct conflict
+                // (2) the pair is infeasible due to a propagated conflict
+                //
+                // Case 1: compute the unsafe interval (save if necessary)
+                // Case 2: The unsafe interval is carried forward from the parent
                 maxCost = id.first;
+                if (allconflicting && timerange) // If everything so far was conflicting...
+                {
+                  minTime = std::max(unsafeTimes[id.second][i * 2], minTime);
+                  maxTime = std::min(unsafeTimes[id.second][i * 2 + 1], maxTime);
+                }
               }
               else
               {
@@ -2648,7 +2990,7 @@ struct PairwiseConstrainedSearch
             }
 
             //std::cout << "Add interval: (" << i << ")" << successors[i][a] << "(" << minInclusive << "," << maxInclusive << "]\n";
-            std::array<unsigned,3> tmp={maxInclusive, minInclusive, totalMax};
+            std::array<unsigned,5> tmp={maxInclusive, minInclusive, totalMax, minTime, maxTime};
             ivix[i][hash]=intervals[i].size();
             intervals[i].emplace_back(tmp, successors[i][a]);
           }
@@ -2662,7 +3004,7 @@ struct PairwiseConstrainedSearch
             //intervals[i].emplace_back(tmp, successors[i][a]);
           }
         }
-        else
+        else if(ivl->second)
         { // have an existing interval
           // If this is no longer infeasible, (this action is reachable via another route)
           // we must remove the interval
@@ -2670,6 +3012,8 @@ struct PairwiseConstrainedSearch
 
           if (val.first[0] >= val.first[1])
           {
+            minTime=std::max(minTime,val.first[3]);
+            maxTime=std::min(maxTime,val.first[4]);
             //std::cout << "update " << *val << "(" << i << ") because " << successors[i?0:1] << "\n";
             // Otherwise, we must narrow the interval of the constraint if needed
             unsigned totalMax(ids[i][a].back().first);
@@ -2693,6 +3037,11 @@ struct PairwiseConstrainedSearch
               if (!crossProduct[id.second].feasible)
               {
                 maxCost = id.first;
+                if (allconflicting) // If everything so far was conflicting...
+                {
+                  minTime = std::max(unsafeTimes[id.second][i * 2], minTime);
+                  maxTime = std::min(unsafeTimes[id.second][i * 2 + 1], maxTime);
+                }
               }
               else
               {
@@ -2732,6 +3081,8 @@ struct PairwiseConstrainedSearch
               update = true;
               val.first[0] = maxInclusive;
             }
+            val.first[3] = minTime;
+            val.first[4] = maxTime;
             //if (update)
             //{
               //std::cout << "adjust upper bound from " << val->first << " to " << maxInclusive << "\n";
@@ -2818,6 +3169,8 @@ struct PairwiseConstrainedSearch
 };
 template <typename environ, typename state, typename action>
 AStarOpenClosed<ActionPair<state>, CATTieBreaking<state>, MultiAgentAStarOpenClosedData<state>> PairwiseConstrainedSearch<environ,state,action>::open;
+template <typename environ, typename state, typename action>
+bool PairwiseConstrainedSearch<environ,state,action>::cardinalcheck = false;
 
 //template <typename environ, typename state>
 //inline std::ostream &operator<<(std::ostream &os, typename PairwiseConstrainedSearch<environ, state>::MultiAgentAStarOpenClosedData const &ma)

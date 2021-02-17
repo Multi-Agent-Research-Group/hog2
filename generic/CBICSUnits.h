@@ -101,12 +101,17 @@ struct Params {
   static bool mutexprop; // Use mutex propagation logic
   static bool pairwise; // Only evaluate conflict groups of size 2...
   static bool disjunct;
+  static bool time;
   static bool nolimits;
   static bool preproc;
   static bool precon;
   static bool ac3;
+  static bool tight_lowerbound;
+  static bool no_lowerbound;
+  static bool contingent_loaded;
   static bool priorityBounds;
   static bool priorityDepth;
+  static bool cardinalcheck;
   static std::vector<unsigned> array;
   static std::vector<unsigned> indices;
   static std::vector<float> ivls;
@@ -116,6 +121,9 @@ unsigned Params::conn = 1;
 unsigned Params::sep = 0;
 bool Params::greedyCT = false;
 bool Params::skip = false;
+bool Params::no_lowerbound = false;
+bool Params::tight_lowerbound = false;
+bool Params::contingent_loaded = false;
 bool Params::prioritizeConf = false;
 bool Params::crossconstraints = false;
 bool Params::identicalconstraints = true;
@@ -138,12 +146,14 @@ bool Params::conditional = false;
 bool Params::mutexprop = false;
 bool Params::pairwise = true;
 bool Params::disjunct = false;
+bool Params::time = false;
 bool Params::nolimits = false;
 bool Params::preproc = false;
 bool Params::precon = false;
 bool Params::ac3 = false;
 bool Params::priorityBounds = false;
 bool Params::priorityDepth = false;
+bool Params::cardinalcheck = false;
 std::vector<unsigned> Params::array;
 std::vector<unsigned> Params::indices;
 std::vector<float> Params::ivls;
@@ -570,14 +580,14 @@ template <typename state, typename conflicttable>
 struct CBSTreeNode
 {
   CBSTreeNode()
-      : path(), parent(0), depth(0), satisfiable(true), cat(), cct(), costs() {}
+      : path(), parent(0), depth(0), satisfiable(true), cat(), cct(), costs(), disjunct(false){}
   // Copy ctor takes over memory for path member
 
   CBSTreeNode(CBSTreeNode<state, conflicttable> const &from)
       : wpts(from.wpts), path(from.path.size()),
         paths(from.paths), con(from.con), parent(from.parent), depth(from.depth),
         satisfiable(from.satisfiable), cat(from.cat), cct(from.cct),
-        costs(from.costs)
+        costs(from.costs), disjunct(false)
   {
     // Hand ownership of re-planned paths over to this new node
 
@@ -596,7 +606,8 @@ struct CBSTreeNode
   bool s)
       : wpts(from.wpts), path(std::min(2UL,c.units.size())),
         paths(from.paths), con(c), parent(p), depth(from.depth+1),
-        satisfiable(s), cat(from.cat), cct(from.cct), costs(from.costs)
+        satisfiable(s), cat(from.cat), cct(from.cct), costs(from.costs),
+        disjunct(false)
   {
     for (unsigned i(0); i<path.size(); ++i)
     {
@@ -715,6 +726,7 @@ struct CBSTreeNode
   unsigned parent;
   unsigned depth;
   bool satisfiable;
+  bool disjunct;
   conflicttable cat; // Conflict avoidance table
 };
 
@@ -781,7 +793,7 @@ public:
 private:
 
   unsigned LoadConstraintsForNode(int location, agent_t agent);
-  void LoadConstraints(std::vector<agent_t> const& agents, unsigned location, std::vector<unsigned> const& costs);
+  std::pair<unsigned,unsigned> LoadConstraints(std::vector<agent_t> const& agents, unsigned location, std::vector<unsigned> const& costs);
   void Replan(int location, unsigned a, std::pair<unsigned,unsigned> const& limits, std::vector<unsigned> const& costs);
 
   bool IsCardinal(int x, state const&, state const&, int y, state const&, state const&, bool asym=false);
@@ -801,7 +813,7 @@ private:
       
   void SetEnvironment(unsigned agent);
   void ClearEnvironmentConstraints(unsigned agent);
-  void AddEnvironmentConstraint(Constraint<state>* c, unsigned agent, bool negative);
+  bool AddEnvironmentConstraint(Constraint<state>* c, unsigned agent, bool negative);
 
   double time;
 
@@ -869,6 +881,7 @@ public:
   static uint64_t constraintsz;
   static uint64_t constrainttot;
   static std::unordered_map<uint64_t,unsigned> hist;
+  std::vector<unsigned> rootCosts;
 };
 
 template<typename state, typename action, typename comparison, typename conflicttable, class singleHeuristic, class searchalgo>
@@ -963,7 +976,7 @@ void CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
 }
 
 template <typename state, typename action, typename comparison, typename conflicttable, class singleHeuristic, class searchalgo>
-void CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searchalgo>::AddEnvironmentConstraint(
+bool CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searchalgo>::AddEnvironmentConstraint(
     Constraint<state> *c, unsigned agent, bool negative)
 {
   //if(verbose)std::cout << "Add constraint " << c.start_state << "-->" << c.end_state << "\n";
@@ -976,16 +989,17 @@ void CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
         auto goal(this->GetEnv(agent)->getGoal());
         goal.t = c->start_state.t;
         this->GetEnv(agent)->setGoal(goal);
+        return true;
       }
     }
     else
     {
-      this->GetEnv(agent)->AddConstraint(c);
+      return this->GetEnv(agent)->AddConstraint(c);
     }
   }
   else
   {
-    this->GetEnv(agent)->AddPositiveConstraint(c);
+    return this->GetEnv(agent)->AddPositiveConstraint(c);
   }
 }
 
@@ -1820,6 +1834,8 @@ bool CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
       ++i;
     }
   }
+
+  bool grandparentIsDisjunct(tree[node].disjunct && tree[tree[node].parent].disjunct);
   unsigned updated(0);
   while(node&&updated<cs){
     unsigned i(0);
@@ -1868,25 +1884,29 @@ bool CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
       }
       origcosts[a] = mins[a] = GetEnv(a)->GetPathLength(*tree[incumbent].paths[a]);
     }else{
-      // Check if the current path violates any constraints.
-      for (unsigned p(1); p < tree[incumbent].paths[a]->size(); ++p)
+      auto numloaded(LoadConstraints({a}, incumbent, {maxs[a]}));
+      if (numloaded.first)
       {
-        if (GetEnv(a)->ViolatesConstraint(
-                tree[incumbent].paths[a]->at(p - 1),
-                tree[incumbent].paths[a]->at(p)))
+        // Check if the current path violates any constraints.
+        for (unsigned p(1); p < tree[incumbent].paths[a]->size(); ++p)
         {
-          Replan(incumbent,
-                 a, tree[incumbent].con.costs[i],
-                 maxs);
-          if (!tree[incumbent].satisfiable)
+          if (GetEnv(a)->ViolatesConstraint(
+                  tree[incumbent].paths[a]->at(p - 1),
+                  tree[incumbent].paths[a]->at(p)))
           {
-            if (Params::verbose)
-              std::cout << "TREE[" << incumbent << "] violated constraint and is unsatisfiable\n";
-            Pop();
-            return true;
+            Replan(incumbent,
+                   a, tree[incumbent].con.costs[i],
+                   maxs);
+            if (!tree[incumbent].satisfiable)
+            {
+              if (Params::verbose)
+                std::cout << "TREE[" << incumbent << "] violated constraint and is unsatisfiable\n";
+              Pop();
+              return true;
+            }
+            origcosts[a] = mins[a] = GetEnv(a)->GetPathLength(*tree[incumbent].paths[a]);
+            break;
           }
-          origcosts[a] = mins[a] = GetEnv(a)->GetPathLength(*tree[incumbent].paths[a]);
-          break;
         }
       }
     }
@@ -1894,9 +1914,6 @@ bool CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
 
   if (Params::verbose){
     PrintNode(incumbent, currentCost, depth, mins,maxs,incumbent);
-    if(mins[0]==40 && maxs[0]==41 && mins[1]>60 && mins[2]>60){
-      int fff=0;
-    }
     for (auto const &a : this->agents)
     {
       std::cout << "\nConstraints for agent: "<<a<<":\n";
@@ -1921,16 +1938,16 @@ bool CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
                 ContingentIdentical<state> const &cc((ContingentIdentical<state> &)*c);
                 if (maxs[cc.refAgent]-1 < cc.lb || maxs[cc.refAgent]-1 > cc.ub)
                 {
-                  //std::cout << "    Ignoring:   " << cc.start_state << "-->" << cc.end_state << " "<<cc.a<<" " << cc.refAgent << " [" << cc.lb << "," << cc.ub << "]\n";
+                  //std::cout << "    "<<location<<" Ignoring:("<<cc.a<<") " << cc.start_state << "-->" << cc.end_state << " "<<cc.a<<" " << cc.refAgent << " [" << cc.lb << "," << cc.ub << "]\n";
                 }else{
-                std::cout << "    Contingent:("<<cc.a<<") " << cc.start_state << "-->" << cc.end_state << " "<<cc.a<<" " << cc.refAgent << " [" << cc.lb << "," << cc.ub << "]\n";
+                std::cout << "    "<<location<<" Contingent:("<<cc.a<<") " << cc.start_state << "-->" << cc.end_state << " "<<cc.a<<" " << cc.refAgent << " [" << cc.lb << "," << cc.ub << "]\n";
                 }
               }else if (typeid(*c) == typeid(Identical<state>))
               {
-                  std::cout << "    Identical:(" << c->a << ") " << c->start_state << "-->" << c->end_state << "\n";
+                  std::cout << "    "<<location<<" Identical:(" << c->a << ") " << c->start_state << "-->" << c->end_state << "\n";
               }else if (typeid(*c) == typeid(Collision<state>))
               {
-                  std::cout << "    Collision:(" << c->a << ") " << c->start_state << "-->" << c->end_state << "\n";
+                  std::cout << "    "<<location<<" Collision:(" << c->a << ") " << c->start_state << "-->" << c->end_state << "\n";
               }
             }
           }
@@ -1972,46 +1989,12 @@ bool CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
   // If no conflicts are found in this node, then the path is done
   if(numconflicts)
   {
-    if (false && Params::ac3)
-    {
-      // Get unique cost combinations
-      for (auto const &[k, v] : tree[incumbent].cct)
-      {
-        std::vector<agent_t> pair = {k.a1, k.a2};
-        //auto costs(mins);
-        //costs[pair[0]] = maxs[pair[0]] - 1;
-        //costs[pair[1]] = maxs[pair[1]] - 1;
-        LoadConstraints(pair, incumbent, maxs);
-
-        PairwiseConstrainedSearch<ConstrainedEnvironment<state, action>, state, action> srch(
-            GetEnv(pair[0]),
-            GetEnv(pair[1]),
-            GetHeuristic(pair[0]),
-            GetHeuristic(pair[1]),
-            Params::nolimits ? 0 : mins[pair[0]],
-            Params::nolimits ? UINT_MAX : maxs[pair[0]],
-            Params::nolimits ? 0 : mins[pair[1]],
-            Params::nolimits ? UINT_MAX : maxs[pair[1]],
-            GetUnit(pair[0])->GetWaypoint(0), GetUnit(pair[0])->GetWaypoint(1), radii[0],
-            GetUnit(pair[1])->GetWaypoint(0), GetUnit(pair[1])->GetWaypoint(1), radii[1],
-            Params::nolimits ? 0 : tree[incumbent].costs.get(pair), !Params::disjunct); // Solution must be greater cost than soc
-        if (CATTieBreaking<state>::useCAT)
-        {
-          CATTieBreaking<state>::openList = srch.astar.GetOpenList();
-          CATTieBreaking<state>::currentAgents = pair;
-          CATTieBreaking<state>::CAT.set(&tree[incumbent].paths);
-        }
-        Timer tmr;
-        tmr.StartTimer();
-        srch.getRangesAndConstraints();
-      }
-    }
     // Load constraints, assuming one of the two agents being replanned may change
     // up to the upper bound.
     //auto costs(maxs);
     //costs[conflictset[0]] = maxs[conflictset[0]] - 1;
     //costs[conflictset[1]] = maxs[conflictset[1]] - 1;
-    LoadConstraints(conflictset, incumbent, maxs);
+    auto numloaded(LoadConstraints(conflictset, incumbent, maxs));
 
     // currentCost lies somewhere inbetween the sums of upper and lower bounds
     // Therefore, the current bound is not min[0]+min[1], nor orig[0]+orig[1]
@@ -2039,7 +2022,7 @@ bool CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
         Params::nolimits?UINT_MAX:maxs[conflictset[1]],
         GetUnit(conflictset[0])->GetWaypoint(0), GetUnit(conflictset[0])->GetWaypoint(1), radii[0],
         GetUnit(conflictset[1])->GetWaypoint(0), GetUnit(conflictset[1])->GetWaypoint(1), radii[1],
-        Params::nolimits?0:priorCombined, true); // Solution must be greater cost than soc
+        Params::nolimits?0:priorCombined, Params::time, true); // Solution must be greater cost than soc
     if (CATTieBreaking<state>::useCAT)
     {
       CATTieBreaking<state>::openList = srch.astar.GetOpenList();
@@ -2047,13 +2030,188 @@ bool CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
       CATTieBreaking<state>::CAT.set(&tree[incumbent].paths);
     }
     Timer tmr;
-    if(Params::verbose)tmr.StartTimer();
-    srch.getRangesAndConstraints();
-    if(Params::verbose)std::cout << "Node " << incumbent << " took " << tmr.EndTimer() << " to find " << (srch.intervals[0].size()+srch.intervals[1].size()) << "\n";
+    if(!quiet)tmr.StartTimer();
+    if (!quiet)
+      std::cout << "numloaded " << numloaded << " numconflicts " << numconflicts << "\n";
+    if (grandparentIsDisjunct)
+    {
+      unsigned costs[2];
+      unsigned num(0);
+      for (unsigned i(0); i < 2; ++i)
+      {
+        auto other(i ? 0 : 1);
+        auto last = tree.size();
+        Conflict<state> con({conflictset[i]});
+        if (i)
+        {
+          con.c[i].emplace_back((Constraint<state> *)new Identical<state>(tree[incumbent].paths[conflictset[i]]->at(stateIndices[i]), tree[incumbent].paths[conflictset[i]]->at(stateIndices[i] + 1), conflictset[i]));
+          //std::cout << "agent " << conflictset[i] << " gets Identical " << tree[incumbent].paths[conflictset[i]]->at(stateIndices[i]) << "-->" << tree[incumbent].paths[conflictset[i]]->at(stateIndices[i]+1) << "\n";
+        }
+        else
+        {
+          con.c[i].emplace_back((Constraint<state> *)new Collision<state>(tree[incumbent].paths[conflictset[other]]->at(stateIndices[other]), tree[incumbent].paths[conflictset[other]]->at(stateIndices[other] + 1), radii[i], conflictset[i]));
+          //std::cout << "agent " << conflictset[i] << " gets Collision " << tree[incumbent].paths[conflictset[other]]->at(stateIndices[other]) << "-->" << tree[incumbent].paths[conflictset[other]]->at(stateIndices[other]+1) << " ref " << other << "\n";
+        }
+        tree.emplace_back(tree[incumbent], con, priorCombined, incumbent, true);
+        // replan
+        auto tops(maxs);
+        tops[conflictset[other]] = con.costs[other].second - 1;
+        Replan(last,
+               conflictset[i],
+               {mins[conflictset[i]], maxs[conflictset[i]]},
+               tops);
+        costs[i] = tree[last].con.costs[0].first = GetEnv(conflictset[i])->GetPathLength(*tree[last].paths[conflictset[i]]);
+        tree[last].con.costs[0].second = maxs[conflictset[i]];
+        if (!tree[last].satisfiable || tree[last].con.costs[0].first >= tree[last].con.costs[0].second)
+        {
+          tree.pop_back();
+          continue;
+        }
+        auto combined(costs[i] + mins[conflictset[other]]);
+        tree[last].costs.set(conflictset, combined);
+        unsigned cost(currentCost);
+        bool bogus(false);
+        if (combined > priorCombined)
+        {
+          if (tree[last].con.costs[i].second < UINT_MAX)
+          {
+            // Update the combined costs
+            auto origmins(mins);
+            for (unsigned j(0); j < agents.size(); ++j)
+            {
+              if (j == conflictset[i])
+                continue;
+              auto prior(tree[incumbent].costs.get(j, conflictset[i]));
+              if (prior > mins[j] + tree[last].con.costs[i].second - 1)
+              {
+                mins[j] = std::max(prior - (tree[last].con.costs[i].second - 1), mins[j]);
+                if (mins[j] >= maxs[j])
+                {
+                  // We've just proved that the cost range is infeasible.
+                  // Prune this node!
+                  //std::cout << "Do not create child - infeasible cost " << mins[i] << ">" << maxs[i] << " for agent " << i << "\n";
+                  bogus = true;
+                  break;
+                }
+                if (tree[last].con.units.size() == 2)
+                {
+                  tree[last].con.units.push_back(j);
+                  tree[last].con.costs.emplace_back(mins[j], maxs[j]);
+                }
+                else
+                {
+                  auto toUpdate(std::find(tree[last].con.units.begin() + 2, tree[last].con.units.end(), j));
+                  if (toUpdate == tree[last].con.units.end())
+                  {
+                    tree[last].con.units.push_back(j);
+                    tree[last].con.costs.emplace_back(mins[j], maxs[j]);
+                  }
+                  else
+                  {
+                    auto idx(toUpdate - tree[last].con.units.begin());
+                    if (mins[j] > tree[last].con.costs[idx].second)
+                      tree[last].con.costs[idx].first = mins[j];
+                  }
+                }
+              }
+            }
+            // Recompute sum-of costs
+            cost = combined;
+            for (unsigned j(0); j < agents.size(); ++j)
+            {
+              if (j != conflictset[0] && j != conflictset[1])
+                cost += mins[j];
+            }
+            cost = std::max(cost, currentCost);
+            mins = origmins;
+          }
+          else
+          {
+            cost += combined - priorCombined;
+          }
+        }
+        if (bogus)
+        {
+          tree.pop_back();
+          continue;
+        }
+        else
+        {
+          // Increase the combined costs if needed
+          for (unsigned j(0); j < agents.size(); ++j)
+          {
+            if (j == conflictset[0] || j == conflictset[1])
+              continue;
+            //cost += std::max(mins[j],origcosts[j]);
+            auto sum(tree[last].con.costs[i].first + mins[j]);
+            if (sum > tree[last].costs.get(conflictset[i], j))
+            {
+              tree[last].costs.set(conflictset[i], j, sum);
+            }
+          }
+        }
+        unsigned b(0);
+        if (Params::priorityBounds)
+        {
+          for (unsigned k(0); k < agents.size(); ++k)
+          {
+            if (maxs[k] < UINT_MAX)
+            {
+              ++b;
+            }
+          }
+        }
+        openList.emplace(last, cost, numconflicts, Params::priorityDepth ? depth + 1 : 0, b);
+        ++num;
+      }
+      if (num == 1 && tree[tree.size()-1].con.units[0] == conflictset[1])
+      {
+        // Replace the constraint type with a collision checker
+        tree[tree.size()-1].con.c[0].clear();
+        tree[tree.size()-1].con.c[0].emplace_back((Constraint<state> *)new Collision<state>(tree[incumbent].paths[conflictset[0]]->at(stateIndices[0]), tree[incumbent].paths[conflictset[0]]->at(stateIndices[0] + 1), radii[1], conflictset[1]));
+      }
+    }
+    //else if(numloaded.second || incumbent==0)
+    //else if (numloaded || maxs[conflictset[0]] < UINT_MAX || maxs[conflictset[1]] < UINT_MAX || incumbent==0)
+    else if (Params::no_lowerbound ||
+             (Params::tight_lowerbound && mins[conflictset[0]] <= tree[0].con.costs[conflictset[0]].first ||
+              maxs[conflictset[1]] <= tree[0].con.costs[conflictset[1]].first) ||
+             (Params::contingent_loaded && numloaded.second) ||
+             incumbent == 0)
+    {
+      srch.getRangesAndConstraints();
+      if (!quiet)
+        std::cout << "reg\n";
+    }
+    else
+    {
+      //srch.getRangesAndConstraints();
+      //tmr.StartTimer();
+      //std::cout << "Compare ";
+      //srch.getRangesAndConstraints();
+      //std::cout << tmr.EndTimer() << " vs ";
+      //srch.reset();
+      //tmr.StartTimer();
+      //std::vector<EnvironmentContainer<state, action> *> ec;
+      //ec.reserve(2);
+      //for (auto const &a : conflictset)
+      //{
+        //ec.push_back(GetUnit(a)->env);
+      //}
+      srch.getRanges();
+      if (!quiet)
+        std::cout << "fast\n";
+      //std::cout << tmr.EndTimer() << " vs ";
+      //srch.reset();
+      //tmr.StartTimer();
+      //srch.getRanges(ec, {rootCosts[conflictset[0]], rootCosts[conflictset[1]]});
+      //std::cout << tmr.EndTimer() << ". \n ";
+    }
+    if(!quiet)std::cout << "Node " << incumbent << " took " << tmr.EndTimer() << " to find " << (srch.intervals[0].size()+srch.intervals[1].size()) << "\n";
     if (srch.finalcost.empty())
     {
       // Infeasible
-      if (Params::verbose)
+      if (!quiet)
         std::cout << "TREE[" << incumbent << "] infeasible\n";
       Pop();
       return true;
@@ -2063,7 +2221,7 @@ bool CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
       auto &node(tree[incumbent]);
       //std::sort(srch.finalcost.begin(), srch.finalcost.end()-1);
       if (!quiet)
-        std::cout << "TREE[" << incumbent << "](" << node.parent << "): " << mins << "/" << maxs << " " << tree[incumbent].con.units << "=" << (incumbent?tree[incumbent].costs.get(tree[incumbent].con.units):0) << " ("<<conflictset<<")" << srch.finalcost << "\n";
+        std::cout << "TREE[" << incumbent << "](" << node.parent << "): " << mins << "("<< currentCost <<")/" << maxs << " " << tree[incumbent].con.units << "=" << (incumbent?tree[incumbent].costs.get(tree[incumbent].con.units):0) << " ("<<conflictset<<")" << srch.finalcost << "\n";
       //std::cout << srch.finalcost << "\n";
       std::deque<Conflict<state>> conflicts;
       std::vector<unsigned>srchref;
@@ -2267,7 +2425,7 @@ bool CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
       {
         auto origmins(mins);
         auto combined(srch.finalcost[srchref[s]][0] + srch.finalcost[srchref[s]][1]);
-        std::vector<std::vector<std::pair<std::array<unsigned, 3>, Action<state>> const *>> cons(2);
+        std::vector<std::vector<std::pair<std::array<unsigned, 5>, Action<state>> const *>> cons(2);
         // Filter the constraints for the costs
         for (unsigned i(0); i < 2; ++i)
         {
@@ -2322,7 +2480,18 @@ bool CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
             {
               for (auto const &act : cons[j])
               {
-                con.c[j].emplace_back((Constraint<state> *)new ContingentIdentical<state>(act->second.first, act->second.second, conflictset[j], conflictset[j ? 0 : 1], act->first[1], act->first[0]));
+                if (Params::time && act->second.first.t >= act->first[3] && act->second.first.t <= act->first[4])
+                {
+                  auto a1(act->second.first);
+                  a1.t = act->first[3];
+                  auto a2(act->second.second);
+                  a2.t = act->first[4];
+                  con.c[j].emplace_back((Constraint<state> *)new ContingentTimeRange<state>(a1, a2, conflictset[j], conflictset[j ? 0 : 1], act->first[1], act->first[0]));
+                }
+                else
+                {
+                  con.c[j].emplace_back((Constraint<state> *)new ContingentIdentical<state>(act->second.first, act->second.second, conflictset[j], conflictset[j ? 0 : 1], act->first[1], act->first[0]));
+                }
               }
             }
           //}
@@ -2341,7 +2510,7 @@ bool CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
                 auto prior(tree[incumbent].costs.get(i, conflictset[ix]));
                 if (prior > mins[i] + con.costs[ix].second-1)
                 {
-                  mins[i] = prior - (con.costs[ix].second - 1);
+                  mins[i] = std::max(prior - (con.costs[ix].second - 1), mins[i]);
                   if (mins[i] > maxs[i])
                   {
                     // We've just proved that the cost range is infeasible.
@@ -2398,10 +2567,13 @@ bool CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
                 }
               }
             }
-            costmax=std::max(costmax,cost);
             if(s==srchref.size()-1 && srchref.size()!=1)
             {
-              cost=costmax;
+              cost=std::max(cost,costmax + 1);
+            }
+            else
+            {
+              costmax = std::max(costmax, cost);
             }
 
             // We can fill in the paths...
@@ -2530,9 +2702,22 @@ bool CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
           else if(srch.finalcost[srchref[s]][0]>mins[conflictset[0]] ||
           srch.finalcost[srchref[s]][1]>mins[conflictset[1]])
           {
+            // TODO - We should probably call Replan before this check
+            // alternatively, just create a separate path of logic for
+            // the 1-agent nodes.
             cardinal=true;
           }
           
+          unsigned ident(1);
+          /*if (tree[tree[incumbent].parent].con.c[0].size() == 1){
+          std::cout << typeid(*tree[tree[incumbent].parent].con.c[0][0].get()).name() << " == ? " << typeid(Identical<state>).name() << "\n";
+        }
+          if (tree[tree[incumbent].parent].con.c[0].size() == 1 &&
+          tree[tree[incumbent].parent].con.units[0] == conflictset[0] &&
+              typeid(*tree[tree[incumbent].parent].con.c[0][0].get()) == typeid(Identical<state>))
+          {
+            ident = 1;
+          }*/
           // Create the two nodes
           for (int i(0); i < 2; ++i)
           {
@@ -2543,13 +2728,15 @@ bool CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
             if (cons[i].empty())
             {
               // Resort to old-school CBS constraints
-              if (i)
+              if (i==ident)
               {
-                tmpcon.c[i].emplace_back((Constraint<state> *)new Identical<state>(tree[incumbent].paths[conflictset[1]]->at(stateIndices[1]), tree[incumbent].paths[conflictset[1]]->at(stateIndices[1] + 1), conflictset[i]));
+                tmpcon.c[i].emplace_back((Constraint<state> *)new Identical<state>(tree[incumbent].paths[conflictset[i]]->at(stateIndices[i]), tree[incumbent].paths[conflictset[i]]->at(stateIndices[i] + 1), conflictset[i]));
+                //std::cout << "agent " << conflictset[i] << " gets Identical " << tree[incumbent].paths[conflictset[i]]->at(stateIndices[i]) << "-->" << tree[incumbent].paths[conflictset[i]]->at(stateIndices[i]+1) << "\n";
               }
               else
               {
-                tmpcon.c[i].emplace_back((Constraint<state> *)new Collision<state>(tree[incumbent].paths[conflictset[1]]->at(stateIndices[1]), tree[incumbent].paths[conflictset[1]]->at(stateIndices[1] + 1), radii[i], conflictset[i]));
+                tmpcon.c[i].emplace_back((Constraint<state> *)new Collision<state>(tree[incumbent].paths[conflictset[other]]->at(stateIndices[other]), tree[incumbent].paths[conflictset[other]]->at(stateIndices[other] + 1), radii[i], conflictset[i]));
+                //std::cout << "agent " << conflictset[i] << " gets Collision " << tree[incumbent].paths[conflictset[other]]->at(stateIndices[other]) << "-->" << tree[incumbent].paths[conflictset[other]]->at(stateIndices[other]+1) << " ref " << other << "\n";
               }
             }
             else
@@ -2613,7 +2800,7 @@ bool CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
                   auto prior(tree[incumbent].costs.get(i, conflictset[ix]));
                   if (prior > mins[i] + tmpcon.costs[ix].second - 1)
                   {
-                    mins[i] = prior - (tmpcon.costs[ix].second - 1);
+                    mins[i] = std::max(prior - (con.costs[ix].second - 1), mins[i]);
                     if (mins[i] > maxs[i])
                     {
                       // We've just proved that the cost range is infeasible.
@@ -2727,17 +2914,18 @@ bool CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
                 PrintNode(last, cost, depth + 1, mins, maxs);
               }
               //cost=(tree[last].sumPairs()/(agents.size()-1));
-            unsigned b(0);
-            if(Params::priorityBounds)
-            {
-              for (unsigned k(0); k < agents.size(); ++k)
+              unsigned b(0);
+              if(Params::priorityBounds)
               {
-                if (maxs[k] < UINT_MAX)
+                for (unsigned k(0); k < agents.size(); ++k)
                 {
-                  ++b;
+                  if (maxs[k] < UINT_MAX)
+                  {
+                    ++b;
+                  }
                 }
               }
-            }
+              tree[last].disjunct = true;
               openList.emplace(last, cost, numconflicts, Params::priorityDepth?depth + 1:0, b);
             }
           }
@@ -2757,6 +2945,10 @@ bool CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
     }
     if (cost < bestCost)
     {
+      if (!quiet)
+      {
+        std::cout << "Found incumbent " << incumbent << " cost " << cost << "\n";
+      }
       if(Params::verbose)PrintNode(incumbent, currentCost, depth, mins, maxs, incumbent);
       bestNode = incumbent;
       bestCost = cost;
@@ -3025,12 +3217,14 @@ void CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
   bestNode=INT_MAX;
   bestCost=INT_MAX;
   incumbent=0;
-  
+
   uint32_t startCost(0);
   uint32_t maxLen(0);
+  rootCosts.reserve(agents.size());
   for (unsigned a(0); a<agents.size(); ++a)
   {
     tree[0].con.costs.emplace_back(GetEnv(a)->GetPathLength(*tree[0].paths[a]), UINT_MAX);
+    rootCosts.push_back(tree[0].con.costs.back().first);
     startCost += tree[0].con.costs.back().first;
     maxLen = std::max(tree[0].paths[a]->back().t, maxLen);
   }
@@ -3068,11 +3262,7 @@ void CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
     {
       for (unsigned j(i + 1); j < agents.size(); ++j)
       {
-        if (tree[0].cct.find({i, j}) == tree[0].cct.end())
-        {
-          tree[0].costs.set(i, j, origcosts[i].first + origcosts[j].first);
-        }
-        else
+        if (tree[0].cct.find({i, j}) != tree[0].cct.end())
         {
           PairwiseConstrainedSearch<ConstrainedEnvironment<state, action>, state, action> srch(
               GetEnv(i), GetEnv(j),
@@ -3080,14 +3270,14 @@ void CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
               0, UINT_MAX, 0, UINT_MAX,
               GetUnit(i)->GetWaypoint(0), GetUnit(i)->GetWaypoint(1), radii[0],
               GetUnit(j)->GetWaypoint(0), GetUnit(j)->GetWaypoint(1), radii[1],
-              0, true); // Solution must be greater cost than soc
+              0, false,true); // Solution must be greater cost than soc
           if (CATTieBreaking<state>::useCAT)
           {
             CATTieBreaking<state>::openList = srch.astar.GetOpenList();
             CATTieBreaking<state>::currentAgents = conflictset;
             CATTieBreaking<state>::CAT.set(&tree[0].paths);
           }
-          srch.getRangesAndConstraints();
+          srch.getRanges();
 
           if (!srch.finalcost.empty())
           {
@@ -3138,8 +3328,18 @@ void CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
           }
           else
           {
-            tree[0].costs.set(i, j, tree[0].con.costs[i].first + tree[0].con.costs[j].first);
+            //tree[0].costs.set(i, j, tree[0].con.costs[i].first + tree[0].con.costs[j].first);
           }
+        }
+      }
+    }
+    for (unsigned i(0); i < agents.size() - 1; ++i)
+    {
+      for (unsigned j(i + 1); j < agents.size(); ++j)
+      {
+        if (tree[0].costs.get(i, j) == 0)
+        {
+          tree[0].costs.set(i, j, tree[0].con.costs[i].first + tree[0].con.costs[j].first);
         }
       }
     }
@@ -3175,7 +3375,7 @@ void CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
       //*tree[0].paths[largesti.first] = lpaths.first;
       //*tree[0].paths[largesti.second] = lpaths.second;
     //}
-    startCost = 0;
+    startCost=0;
     for (unsigned i(0); i < agents.size(); ++i)
     {
       startCost+=tree[0].con.costs[i].first;
@@ -3432,12 +3632,15 @@ unsigned CBSGroup<state, action, comparison, conflicttable, singleHeuristic, sea
 }
 
 template <typename state, typename action, typename comparison, typename conflicttable, class singleHeuristic, class searchalgo>
-void CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searchalgo>::LoadConstraints(std::vector<agent_t> const &agents,unsigned location, std::vector<unsigned> const& costs)
+std::pair<unsigned,unsigned> CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searchalgo>::LoadConstraints(std::vector<agent_t> const &agents,unsigned location, std::vector<unsigned> const& costs)
 {
   //std::cout <<"costs"<<costs<<"\n";
   for(auto const& a:agents){
     ClearEnvironmentConstraints(a);
   }
+  // Number of contingent constraints added
+  unsigned totalAdded(0);
+  unsigned contingentAdded(0);
   // This is the set of agents for which constraints are invalid
   //std::set<unsigned> invalid;
   auto loc(location);
@@ -3452,6 +3655,9 @@ void CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
       for (agent_t j(0); j<agents.size(); ++j)
       {
         auto a(agents[j]);
+        unsigned added(0);
+        unsigned filtered(0);
+        unsigned duplicated(0);
         //auto other(agents[j?0:1]);
         // This node has constraints for the agent
         if (a == tree[loc].con.units[i])
@@ -3462,33 +3668,81 @@ void CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
             bool ok(true);
             if (typeid(*c) == typeid(ContingentIdentical<state>))
             {
-              ContingentIdentical<state>const& cc((ContingentIdentical<state>&)*c);
+              ContingentIdentical<state> const &cc((ContingentIdentical<state> &)*c);
               // Don't load constraints based on agents currently being replanned...
-              if(//cc.refAgent!=other ||
-              (costs[cc.refAgent]-1<cc.lb || 
-              costs[cc.refAgent]-1>cc.ub)){
+              if ( //cc.refAgent!=other ||
+                  (costs[cc.refAgent] - 1 < cc.lb ||
+                   costs[cc.refAgent] - 1 > cc.ub))
+              {
                 //std::cout << "  No: " << a << " ref: " << cc.refAgent << " "
-                          //<< costs[cc.refAgent] << "<" << cc.lb << "||"
-                          //<< costs[cc.refAgent] << ">" << cc.ub << "\n";
-                ok=false;
-              //}else{
-                  //std::cout << "Constraint " << a << " can't do " << *c.get() << " ref: " << cc.refAgent << ".cost("<<costs[cc.refAgent]<<") in: " << cc.lb<<","<<cc.ub <<  " ("<<loc<<")\n";
+                //<< costs[cc.refAgent] << "<" << cc.lb << "||"
+                //<< costs[cc.refAgent] << ">" << cc.ub << "\n";
+                ok = false;
               }
-            //}else{
-              //if (typeid(*c) == typeid(Collision<state>))
-                //std::cout << "Constraint " << a << " avoid " << *c.get() << "("<<loc<<")\n";
-              //else
-                //std::cout << "Constraint " << a << " can't " << *c.get() << "(" <<loc<<")\n";
+              else
+              {
+                ++contingentAdded;
+                if (!quiet)
+                {
+                  std::cout << loc << " Constraint " << a << " can't do " << *c.get() << " ref: " << cc.refAgent << ".cost(" << costs[cc.refAgent] << ") in: " << cc.lb << "," << cc.ub << " (" << loc << ")\n";
+                }
+              }
             }
-            if(ok){
-              AddEnvironmentConstraint(c.get(), a, true);
+            else if (typeid(*c) == typeid(ContingentTimeRange<state>))
+            {
+              ContingentTimeRange<state> const &cc((ContingentTimeRange<state> &)*c);
+              // Don't load constraints based on agents currently being replanned...
+              if ( //cc.refAgent!=other ||
+                  (costs[cc.refAgent] - 1 < cc.lb ||
+                   costs[cc.refAgent] - 1 > cc.ub))
+              {
+                //std::cout << "  No: " << a << " ref: " << cc.refAgent << " "
+                //<< costs[cc.refAgent] << "<" << cc.lb << "||"
+                //<< costs[cc.refAgent] << ">" << cc.ub << "\n";
+                ok = false;
+              }
+              else
+              {
+                ++contingentAdded;
+                if (!quiet)
+                {
+                  std::cout << "Time " << a << " can't do " << *c.get() << " ref: " << cc.refAgent << ".cost(" << costs[cc.refAgent] << ") in: " << cc.lb << "," << cc.ub << " (" << loc << ")\n";
+                }
+              }
             }
+            else if(!quiet)
+            {
+              if (typeid(*c) == typeid(Collision<state>))
+                std::cout << loc << " Constraint " << a << " avoid " << *c.get() << "(" << loc << ")\n";
+              else
+                std::cout << loc << " Constraint " << a << " can't " << *c.get() << "(" << loc << ")\n";
+            }
+            if (ok)
+            {
+              if (AddEnvironmentConstraint(c.get(), a, true))
+              {
+                ++added;
+                ++totalAdded;
+              }
+              else
+              {
+                ++duplicated;
+              }
+              
+            }
+            else
+            {
+              ++filtered;
+            }
+            
           }
+          //std::cout << "Node: " << loc << ": Added " << added << " Filtered " << filtered << " Duplicated " << duplicated << " of " << tree[loc].con.c[i].size() << " for agent " << a << "\n";
         }
       }
     }
     loc = tree[loc].parent;
   }
+  //std::cout << "\n";
   /*{
     bool keep(true);
     for (auto const &v : invalid)
@@ -3525,6 +3779,7 @@ void CBSGroup<state, action, comparison, conflicttable, singleHeuristic, searcha
 
     location = tree[location].parent;
   }*/
+  return {totalAdded,contingentAdded};
 }
 
 /** Replan a node given a constraint */

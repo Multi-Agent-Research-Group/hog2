@@ -77,7 +77,9 @@ struct edge_t{
 
 class DigraphEnvironment: public ConstrainedEnvironment<node_t, int>{
   public:
-  DigraphEnvironment(char const* vfile, char const* efile, char const* afile, bool bidir=false, bool selfloops=true){
+  DigraphEnvironment(char const* vfile, char const* efile, char const* afile, bool bidir=false, bool selfloops=true)
+  {
+    WaitTime(20);
   //VALGRIND_CHECK_VALUE_IS_DEFINED(nodes);
   //VALGRIND_CHECK_VALUE_IS_DEFINED(adj);
   //VALGRIND_CHECK_VALUE_IS_DEFINED(weight);
@@ -106,7 +108,7 @@ class DigraphEnvironment: public ConstrainedEnvironment<node_t, int>{
       height=std::max(height,nodes[n].y);
       if(selfloops){
         adj[n].push_back(n); // Self-loop
-        weight[edge_t::getKey(n,n)]=20*node_t::TIME_RESOLUTION_U;
+        weight[edge_t::getKey(n,n)]=20;
         auto const& v(weight.find(edge_t::getKey(n,n)));
         assert(v!=weight.end());
       }

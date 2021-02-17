@@ -300,6 +300,34 @@ class ContingentIdentical : public Constraint<State> {
 };
 
 template<typename State>
+class ContingentTimeRange : public Constraint<State> {
+  public:
+    ContingentTimeRange():Constraint<State>(){}
+    // Pass in: start,end with start/end coords and start/end times of collision...
+    // The times do NOT correspond to the actual action times, but the time interval to avoid
+    ContingentTimeRange(State const& start, State const& end, bool neg=true):Constraint<State>(start,end,0,neg){}
+    ContingentTimeRange(State const& start, State const& end, unsigned a, bool neg=true):Constraint<State>(start,end,a,neg){}
+    ContingentTimeRange(State const& start, State const& end, unsigned a, unsigned ref, unsigned lower, unsigned upper, bool neg=true):
+    Constraint<State>(start,end,a,neg,Constraint<State>::CTYPE::VERTEX),
+    refAgent(ref),lb(lower),ub(upper) {}
+    virtual ~ContingentTimeRange(){}
+    // Check whether the opposing action has a conflict with this one
+    virtual double ConflictTime(State const& from, State const& to) const {return (from.sameLoc(this->start_state)
+		    && to.sameLoc(this->end_state)
+		    && from.t >= this->start_state.t
+		    && from.t <= this->end_state.t)?std::max(double(from.t)/State::TIME_RESOLUTION_D,1.0/State::TIME_RESOLUTION_D):0; }
+    virtual bool ConflictsWith(State const& from, State const& to) const {
+      return (from.sameLoc(this->start_state)
+          && to.sameLoc(this->end_state)
+          && from.t >= this->start_state.t
+          && from.t <= this->end_state.t);
+    }
+    unsigned refAgent;
+    unsigned lb,ub; // Upper and lower cost bound for refAgent for which this constraint is valid
+};
+
+
+template<typename State>
 class Identical : public Constraint<State> {
   public:
     Identical():Constraint<State>(){}
@@ -552,16 +580,18 @@ template<typename State, typename Action>
 class ConstrainedEnvironment : public SearchEnvironment<State, Action> {
   public:
     /** Add a constraint to the model */
-    virtual void AddConstraint(Constraint<State> const* c){
+    virtual bool AddConstraint(Constraint<State> const* c){
       if(!constraints.insert(c)){
-        if(typeid(*c).name()[0]=='P'){
+        if(typeid(*c).name()[0]=='P'){ // Probabilistic constraint
           constraints.remove(c); // Replace with new value
           constraints.insert(c);
         }
+        return false;
       }
+      return true;
     }
     virtual double GetMapSize() const = 0;
-    virtual void AddPositiveConstraint(Constraint<State> const* c){pconstraints.insert(c);}
+    virtual bool AddPositiveConstraint(Constraint<State> const* c){return pconstraints.insert(c).second;}
     //virtual void AddConstraints(std::vector<std::unique_ptr<Constraint<State> const>> const& cs){constraints.insert(cs);}
     /** Clear the constraints */
     virtual void ClearConstraints(){constraints.clear();pconstraints.clear();edgeConstraints.clear();vertexConstraints.clear();}

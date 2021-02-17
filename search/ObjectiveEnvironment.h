@@ -41,7 +41,7 @@ public:
         virtual double WaitTime()const{return waitTime;}
         virtual void WaitTime(double w){waitTime=w;}
 protected:
-  double waitTime; // Length of a wait action (in the resolution of "state")
+  double waitTime=1; // Length of a wait action (in the resolution of "state")
 };
 
 #endif
