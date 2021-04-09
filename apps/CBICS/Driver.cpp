@@ -107,7 +107,7 @@ void processSolution(double elapsed){
 
     if(!quiet){
       if(solution[x].size()) {
-        std::cout << "Agent " << x << " (" << environs[0].environment->GetPathLength(solution[x]) << "): " << "\n";
+        std::cout << "Agent " << x << " (" << environs[x].environment->GetPathLength(solution[x]) << "): " << "\n";
         for (auto &a : solution[x]) {
           std::cout << "  " << a << "\n";
         }

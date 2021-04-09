@@ -60,6 +60,23 @@ inline std::ostream &operator<<(std::ostream &out, std::vector<T> const &v)
   return out;
 }
 
+template <typename T>
+inline std::ostream &operator<<(std::ostream &out, std::deque<T> const &v)
+{
+  if (v.empty())
+  {
+    out << "[]";
+  }
+  else
+  {
+    out << "[" << *v.cbegin();
+    for (auto e(v.cbegin() + 1); e != v.end(); ++e)
+      out << "," << *e;
+    out << "]";
+  }
+  return out;
+}
+
 template <typename T, typename U>
 inline std::ostream& operator <<(std::ostream & out, std::pair<T,U> const& v){
   out<<"("<<v.first << "," << v.second << ")";

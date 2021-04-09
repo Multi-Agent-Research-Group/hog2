@@ -305,7 +305,18 @@ void InstallHandlers()
   InstallCommandLineHandler(MyCLHandler, "-random", "-random", "Randomize conflict resolution order");
   InstallCommandLineHandler(MyCLHandler, "-greedyCT", "-greedyCT", "Greedy sort high-level search by number of conflicts (GCBS)");
   InstallCommandLineHandler(MyCLHandler, "-xor", "-xor", "Use XOR constraints");
-  InstallCommandLineHandler(MyCLHandler, "-ctype", "-ctype", "Constraint type: \n\t1: identical constraints\n\t2: Pyramid constraints\n\t3: Collision constraints (sub-optimal)\n\t4: Time range constraints (sub-optimal)\n\t5: Mutual Conflict set constraints\n\t6: Overlap Constraints\n\t7:Box constraints (sub-optimal)\n\t8:1xn TimeRange\n\t9:nxm TimeRange\n\t10:mutex-prop");
+  InstallCommandLineHandler(MyCLHandler, "-ctype", "-ctype", "Constraint type: \n"
+  "\t1: identical constraints\n"
+  "\t2: Pyramid constraints\n"
+  "\t3: Collision constraints (sub-optimal)\n"
+  "\t4: Time range constraints (sub-optimal)\n"
+  "\t5: (mxn) Mutual Conflict set constraints\n"
+  "\t6: Overlap Constraints\n"
+  "\t7: Box constraints (sub-optimal)\n"
+  "\t8: 1xn\n"
+  "\t9: 1xn TimeRange\n"
+  "\t10: nxm TimeRange\n"
+  "\t11: mutex-prop");
   InstallCommandLineHandler(MyCLHandler, "-pc", "-pc", "prioritize conflicts");
   InstallCommandLineHandler(MyCLHandler, "-cct", "-cct", "Conflict count table");
   InstallCommandLineHandler(MyCLHandler, "-uniqcost", "-uniqcost <value>", "Use randomized unique costs up to <value>");
@@ -733,14 +744,20 @@ int MyCLHandler(char *argument[], int maxNumArgs){
         Params::extrinsicconstraints=true;
         break;
       case 8:
+        Params::asym=true;
+        Params::crossconstraints=true;
+        Params::extrinsicconstraints=true;
+        break;
+      case 9:
+        Params::asym=true;
         Params::crossconstraints=true;
         Params::mutualtimerange=true;
         Params::extrinsicconstraints=true;
         break;
-      case 9:
+      case 10:
         Params::mutualtimerange=true;
         break;
-      case 10:
+      case 11:
         Params::mutexprop=true;
         break;
       default:
