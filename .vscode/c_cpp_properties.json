@@ -8,7 +8,7 @@
             "includePath": [
                 "/opt/ros/melodic/include/**",
                 "/usr/include/**",
-                "/home/thayne/hog2/**"
+                "/home/rajat/hog2/**"
             ],
             "name": "ROS"
         }

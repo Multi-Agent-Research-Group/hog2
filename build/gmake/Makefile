@@ -25,12 +25,13 @@ PROJECTS = \
   shared \
   utils \
   apps/icts \
+  apps/epea \
   apps/MACBS \
-  apps/CBICS \
-  apps/APT \
-  apps/NSF \
+  apps/MAAStar \
+#   apps/CBICS \
+#   apps/APT \
+#   apps/NSF \
   test/utils \
-  #apps/MAAStar \
   #test/collisiondetection \
   #apps/CBICS1 \
   #search \
