@@ -19,7 +19,10 @@
 
 using namespace Graphics2D;
 
-MapEnvironment::MapEnvironment(Map *_m, bool useOccupancy):start(nullptr),h(nullptr),map(_m),oi(useOccupancy?new BaseMapOccupancyInterface(map):nullptr),DIAGONAL_COST(sqrt(2)),connectedness(8),fullBranching(false){
+MapEnvironment::MapEnvironment(Map *_m, bool useOccupancy):start(nullptr),h(nullptr),map(_m),oi(useOccupancy?new BaseMapOccupancyInterface(map):nullptr),DIAGONAL_COST(sqrt(2)),connectedness(8),fullBranching(false)
+{
+	possible_delta_f_map = std::vector<std::vector<int>>(GetMaxHash(),std::vector<int>());
+	neighbors_delta_f_map = std::vector<std::unordered_map<int,std::vector<xyLoc>>>(GetMaxHash(),std::unordered_map<int,std::vector<xyLoc>>());
 }
 
 MapEnvironment::MapEnvironment(MapEnvironment *me)
@@ -36,7 +39,7 @@ MapEnvironment::MapEnvironment(MapEnvironment *me)
 
 MapEnvironment::~MapEnvironment()
 {
-//	delete map;
+//  delete map;
 	delete oi;
 }
 
@@ -52,7 +55,7 @@ void MapEnvironment::SetGraphHeuristic(GraphHeuristic *gh)
 
 void MapEnvironment::GetSuccessors(const xyLoc &loc, std::vector<xyLoc> &neighbors) const
 {
-        neighbors.reserve(connectedness);
+				neighbors.reserve(connectedness);
 	//neighbors.resize(0);
 	bool u=false, d=false, /*l=false, r=false,*/ u2=false, d2=false, l2=false, r2=false, /*ur=false, ul=false, dr=false, dl=false,*/ u2l=false, d2l=false, u2r=false, d2r=false, ul2=false, ur2=false, dl2=false, dr2=false, u2r2=false, u2l2=false, d2r2=false, d2l2=false;
 	// 
@@ -60,253 +63,288 @@ void MapEnvironment::GetSuccessors(const xyLoc &loc, std::vector<xyLoc> &neighbo
 	{
 		d = true;
 		neighbors.emplace_back(loc.x, loc.y+1);
-                if(connectedness>9 && map->IsTraversable(loc.x, loc.y+2)){
-                  d2=true;
-                  if(fullBranching)neighbors.emplace_back(loc.x, loc.y+2);
-                }
+								if(connectedness>9 && map->IsTraversable(loc.x, loc.y+2)){
+									d2=true;
+									if(fullBranching)neighbors.emplace_back(loc.x, loc.y+2);
+								}
 	}
 	if ((map->CanStep(loc.x, loc.y, loc.x, loc.y-1)))
 	{
 		u = true;
 		neighbors.emplace_back(loc.x, loc.y-1);
-                if(connectedness>9 && map->IsTraversable(loc.x, loc.y-2)){
-                  u2=true;
-                  if(fullBranching)neighbors.emplace_back(loc.x, loc.y-2);
-                }
+								if(connectedness>9 && map->IsTraversable(loc.x, loc.y-2)){
+									u2=true;
+									if(fullBranching)neighbors.emplace_back(loc.x, loc.y-2);
+								}
 	}
 	if ((map->CanStep(loc.x, loc.y, loc.x-1, loc.y)))
-        {
-          //l=true;
-          neighbors.emplace_back(loc.x-1, loc.y);
-          if (connectedness>5){
-            // Left is open ...
-            if(connectedness>9 && map->IsTraversable(loc.x-2, loc.y)){ // left 2
-              l2=true;
-              if(fullBranching)neighbors.emplace_back(loc.x-2, loc.y);
-            }
-            if(u && (map->CanStep(loc.x, loc.y, loc.x-1, loc.y-1))){
-              //ul=true;
-              neighbors.emplace_back(loc.x-1, loc.y-1);
-              if(connectedness>9){
-                // Left, Up, Left2 and UpLeft are open...
-                if(l2 && map->IsTraversable(loc.x-2, loc.y-1)){
-                  ul2=true;
-                  neighbors.emplace_back(loc.x-2, loc.y-1);
-                }
-                // Left, Up2, Up and UpLeft are open...
-                if(u2 && map->IsTraversable(loc.x-1, loc.y-2)){
-                  u2l=true;
-                  neighbors.emplace_back(loc.x-1, loc.y-2);
-                }
-                if(ul2 && u2l && map->IsTraversable(loc.x-2, loc.y-2)){
-                  u2l2=true;
-                  if(fullBranching)neighbors.emplace_back(loc.x-2, loc.y-2);
-                }
-              }
-            }
+				{
+					//l=true;
+					neighbors.emplace_back(loc.x-1, loc.y);
+					if (connectedness>5){
+						// Left is open ...
+						if(connectedness>9 && map->IsTraversable(loc.x-2, loc.y)){ // left 2
+							l2=true;
+							if(fullBranching)neighbors.emplace_back(loc.x-2, loc.y);
+						}
+						if(u && (map->CanStep(loc.x, loc.y, loc.x-1, loc.y-1))){
+							//ul=true;
+							neighbors.emplace_back(loc.x-1, loc.y-1);
+							if(connectedness>9){
+								// Left, Up, Left2 and UpLeft are open...
+								if(l2 && map->IsTraversable(loc.x-2, loc.y-1)){
+									ul2=true;
+									neighbors.emplace_back(loc.x-2, loc.y-1);
+								}
+								// Left, Up2, Up and UpLeft are open...
+								if(u2 && map->IsTraversable(loc.x-1, loc.y-2)){
+									u2l=true;
+									neighbors.emplace_back(loc.x-1, loc.y-2);
+								}
+								if(ul2 && u2l && map->IsTraversable(loc.x-2, loc.y-2)){
+									u2l2=true;
+									if(fullBranching)neighbors.emplace_back(loc.x-2, loc.y-2);
+								}
+							}
+						}
 
-            if (d && (map->CanStep(loc.x, loc.y, loc.x-1, loc.y+1))){
-              neighbors.emplace_back(loc.x-1, loc.y+1);
-              //dl=true;
-              if(connectedness>9){
-                // Left, Down, Left2 and UpLeft are open...
-                if(l2 && map->IsTraversable(loc.x-2, loc.y+1)){
-                  dl2=true;
-                  neighbors.emplace_back(loc.x-2, loc.y+1);
-                }
-                // Left, Up2, Up and UpLeft are open...
-                if(d2 && map->IsTraversable(loc.x-1, loc.y+2)){
-                  d2l=true;
-                  neighbors.emplace_back(loc.x-1, loc.y+2);
-                }
-                if(dl2 && d2l && map->IsTraversable(loc.x-2, loc.y+2)){
-                  d2l2=true;
-                  if(fullBranching)neighbors.emplace_back(loc.x-2, loc.y+2);
-                }
-              }
-            } // down && downleft
-          } // connectedness>5
-        } // left
+						if (d && (map->CanStep(loc.x, loc.y, loc.x-1, loc.y+1))){
+							neighbors.emplace_back(loc.x-1, loc.y+1);
+							//dl=true;
+							if(connectedness>9){
+								// Left, Down, Left2 and UpLeft are open...
+								if(l2 && map->IsTraversable(loc.x-2, loc.y+1)){
+									dl2=true;
+									neighbors.emplace_back(loc.x-2, loc.y+1);
+								}
+								// Left, Up2, Up and UpLeft are open...
+								if(d2 && map->IsTraversable(loc.x-1, loc.y+2)){
+									d2l=true;
+									neighbors.emplace_back(loc.x-1, loc.y+2);
+								}
+								if(dl2 && d2l && map->IsTraversable(loc.x-2, loc.y+2)){
+									d2l2=true;
+									if(fullBranching)neighbors.emplace_back(loc.x-2, loc.y+2);
+								}
+							}
+						} // down && downleft
+					} // connectedness>5
+				} // left
 
 	if ((map->CanStep(loc.x, loc.y, loc.x+1, loc.y)))
-        {
-          //r=true;
-          neighbors.emplace_back(loc.x+1, loc.y);
-          if (connectedness>5){
-            // Right is open ...
-            if(connectedness>9 && map->IsTraversable(loc.x+2, loc.y)){ // right 2
-              r2=true;
-              if(fullBranching)neighbors.emplace_back(loc.x+2, loc.y);
-            }
-            if(u && (map->CanStep(loc.x, loc.y, loc.x+1, loc.y-1))){
-              //ur=true;
-              neighbors.emplace_back(loc.x+1, loc.y-1);
-              if(connectedness>9){
-                // Right, Up, Right2 and UpRight are open...
-                if(r2 && map->IsTraversable(loc.x+2, loc.y-1)){
-                  ur2=true;
-                  neighbors.emplace_back(loc.x+2, loc.y-1);
-                }
-                // Right, Up2, Up and UpRight are open...
-                if(u2 && map->IsTraversable(loc.x+1, loc.y-2)){
-                  u2r=true;
-                  neighbors.emplace_back(loc.x+1, loc.y-2);
-                }
-                if(ur2 && u2r && map->IsTraversable(loc.x+2, loc.y-2)){
-                  u2r2=true;
-                  if(fullBranching)neighbors.emplace_back(loc.x+2, loc.y-2);
-                }
-              }
-            }
+				{
+					//r=true;
+					neighbors.emplace_back(loc.x+1, loc.y);
+					if (connectedness>5){
+						// Right is open ...
+						if(connectedness>9 && map->IsTraversable(loc.x+2, loc.y)){ // right 2
+							r2=true;
+							if(fullBranching)neighbors.emplace_back(loc.x+2, loc.y);
+						}
+						if(u && (map->CanStep(loc.x, loc.y, loc.x+1, loc.y-1))){
+							//ur=true;
+							neighbors.emplace_back(loc.x+1, loc.y-1);
+							if(connectedness>9){
+								// Right, Up, Right2 and UpRight are open...
+								if(r2 && map->IsTraversable(loc.x+2, loc.y-1)){
+									ur2=true;
+									neighbors.emplace_back(loc.x+2, loc.y-1);
+								}
+								// Right, Up2, Up and UpRight are open...
+								if(u2 && map->IsTraversable(loc.x+1, loc.y-2)){
+									u2r=true;
+									neighbors.emplace_back(loc.x+1, loc.y-2);
+								}
+								if(ur2 && u2r && map->IsTraversable(loc.x+2, loc.y-2)){
+									u2r2=true;
+									if(fullBranching)neighbors.emplace_back(loc.x+2, loc.y-2);
+								}
+							}
+						}
 
-            if (d && (map->CanStep(loc.x, loc.y, loc.x+1, loc.y+1))){
-              //dr=true;
-              neighbors.emplace_back(loc.x+1, loc.y+1);
-              if(connectedness>9){
-                // Right, Down, Right2 and UpRight are open...
-                if(r2 && map->IsTraversable(loc.x+2, loc.y+1)){
-                  dr2=true;
-                  neighbors.emplace_back(loc.x+2, loc.y+1);
-                }
-                // Right, Up2, Up and UpRight are open...
-                if(d2 && map->IsTraversable(loc.x+1, loc.y+2)){
-                  d2r=true;
-                  neighbors.emplace_back(loc.x+1, loc.y+2);
-                }
-                if(dr2 && d2r && map->IsTraversable(loc.x+2, loc.y+2)){
-                  d2r2=true;
-                  if(fullBranching)neighbors.emplace_back(loc.x+2, loc.y+2);
-                }
-              }
-            } // down && downright
-          } // connectedness>5
-        } // right
+						if (d && (map->CanStep(loc.x, loc.y, loc.x+1, loc.y+1))){
+							//dr=true;
+							neighbors.emplace_back(loc.x+1, loc.y+1);
+							if(connectedness>9){
+								// Right, Down, Right2 and UpRight are open...
+								if(r2 && map->IsTraversable(loc.x+2, loc.y+1)){
+									dr2=true;
+									neighbors.emplace_back(loc.x+2, loc.y+1);
+								}
+								// Right, Up2, Up and UpRight are open...
+								if(d2 && map->IsTraversable(loc.x+1, loc.y+2)){
+									d2r=true;
+									neighbors.emplace_back(loc.x+1, loc.y+2);
+								}
+								if(dr2 && d2r && map->IsTraversable(loc.x+2, loc.y+2)){
+									d2r2=true;
+									if(fullBranching)neighbors.emplace_back(loc.x+2, loc.y+2);
+								}
+							}
+						} // down && downright
+					} // connectedness>5
+				} // right
 
-        if(connectedness>25){
-          if(fullBranching){
-            if(d2 && map->IsTraversable(loc.x, loc.y+3))
-              neighbors.emplace_back(loc.x, loc.y+3);
-            if(u2 && map->IsTraversable(loc.x, loc.y-3))
-              neighbors.emplace_back(loc.x, loc.y-3);
-            if(r2 && map->IsTraversable(loc.x+3, loc.y))
-              neighbors.emplace_back(loc.x+3, loc.y);
-            if(l2 && map->IsTraversable(loc.x-3, loc.y))
-              neighbors.emplace_back(loc.x-3, loc.y);
-          }
+				if(connectedness>25){
+					if(fullBranching){
+						if(d2 && map->IsTraversable(loc.x, loc.y+3))
+							neighbors.emplace_back(loc.x, loc.y+3);
+						if(u2 && map->IsTraversable(loc.x, loc.y-3))
+							neighbors.emplace_back(loc.x, loc.y-3);
+						if(r2 && map->IsTraversable(loc.x+3, loc.y))
+							neighbors.emplace_back(loc.x+3, loc.y);
+						if(l2 && map->IsTraversable(loc.x-3, loc.y))
+							neighbors.emplace_back(loc.x-3, loc.y);
+					}
 
-          // ul3
-          //if(l2 && map->IsTraversable(loc.x-2, loc.y-1) && map->IsTraversable(loc.x-3, loc.y-1))
-          if(l2 && ul2 && map->IsTraversable(loc.x-3, loc.y-1))
-            neighbors.emplace_back(loc.x-3, loc.y-1);
-          // dl3
-          //if(l2 && map->IsTraversable(loc.x-2, loc.y+1) && map->IsTraversable(loc.x-3, loc.y+1))
-          if(l2 && dl2  && map->IsTraversable(loc.x-3, loc.y+1))
-            neighbors.emplace_back(loc.x-3, loc.y+1);
-          // ur3
-          //if(r2 && map->IsTraversable(loc.x+2, loc.y-1) && map->IsTraversable(loc.x+3, loc.y-1))
-          if(r2 && ur2 && map->IsTraversable(loc.x+3, loc.y-1))
-            neighbors.emplace_back(loc.x+3, loc.y-1);
-          // dr3
-          //if(r2 && map->IsTraversable(loc.x+2, loc.y+1) && map->IsTraversable(loc.x+3, loc.y+1))
-          if(r2 && dr2 && map->IsTraversable(loc.x+3, loc.y+1))
-            neighbors.emplace_back(loc.x+3, loc.y+1);
-            
-          // u3l
-          //if(u2 && map->IsTraversable(loc.x-1, loc.y-2) && map->IsTraversable(loc.x-1, loc.y-3))
-          if(u2 && u2l && map->IsTraversable(loc.x-1, loc.y-3))
-            neighbors.emplace_back(loc.x-1, loc.y-3);
-          // d3l
-          //if(d2 && map->IsTraversable(loc.x-1, loc.y+2) && map->IsTraversable(loc.x-1, loc.y+3))
-          if(d2 && d2l && map->IsTraversable(loc.x-1, loc.y+3))
-            neighbors.emplace_back(loc.x-1, loc.y+3);
-          // u3r
-          //if(u2 && map->IsTraversable(loc.x+1, loc.y-2) && map->IsTraversable(loc.x+1, loc.y-3))
-          if(u2 && u2r && map->IsTraversable(loc.x+1, loc.y-3))
-            neighbors.emplace_back(loc.x+1, loc.y-3);
-          // d3r
-          //if(d2 && map->IsTraversable(loc.x+1, loc.y+2) && map->IsTraversable(loc.x+1, loc.y+3))
-          if(d2 && d2r && map->IsTraversable(loc.x+1, loc.y+3))
-            neighbors.emplace_back(loc.x+1, loc.y+3);
-            
-          // u2l3
-          if(u2l2 && map->IsTraversable(loc.x-3,loc.y-1) && map->IsTraversable(loc.x-3, loc.y-2))
-            neighbors.emplace_back(loc.x-3, loc.y-2);
-          // d2l3
-          if(d2l2 && map->IsTraversable(loc.x-3,loc.y+1) && map->IsTraversable(loc.x-3, loc.y+2))
-            neighbors.emplace_back(loc.x-3, loc.y+2);
-          // u2r3
-          if(u2r2 && map->IsTraversable(loc.x+3,loc.y-1) && map->IsTraversable(loc.x+3, loc.y-2))
-            neighbors.emplace_back(loc.x+3, loc.y-2);
-          // d2r3
-          if(d2r2 && map->IsTraversable(loc.x+3,loc.y+1) && map->IsTraversable(loc.x+3, loc.y+2))
-            neighbors.emplace_back(loc.x+3, loc.y+2);
-            
-          // u3l2
-          if(u2l2 && map->IsTraversable(loc.x-1,loc.y-3) && map->IsTraversable(loc.x-2, loc.y-3))
-            neighbors.emplace_back(loc.x-2, loc.y-3);
-          // d3l2
-          if(d2l2 && map->IsTraversable(loc.x-1,loc.y+3) && map->IsTraversable(loc.x-2, loc.y+3))
-            neighbors.emplace_back(loc.x-2, loc.y+3);
-          // u3r2
-          if(u2r2 && map->IsTraversable(loc.x+1,loc.y-3) && map->IsTraversable(loc.x+2, loc.y-3))
-            neighbors.emplace_back(loc.x+2, loc.y-3);
-          // d3r2
-          if(d2r2 && map->IsTraversable(loc.x+1,loc.y+3) && map->IsTraversable(loc.x+2, loc.y+3))
-            neighbors.emplace_back(loc.x+2, loc.y+3);
-            
-          if(fullBranching){
-            // u3l3
-            if(u2l2 && map->IsTraversable(loc.x-2,loc.y-3) && map->IsTraversable(loc.x-3,loc.y-2) && map->IsTraversable(loc.x-3, loc.y-3))
-              neighbors.emplace_back(loc.x-3, loc.y-3);
-            // d3l3
-            if(d2l2 && map->IsTraversable(loc.x-2,loc.y+3) && map->IsTraversable(loc.x-3,loc.y+2) && map->IsTraversable(loc.x-3, loc.y+3))
-              neighbors.emplace_back(loc.x-3, loc.y+3);
-            // u3r3
-            if(u2r2 && map->IsTraversable(loc.x+2,loc.y-3) && map->IsTraversable(loc.x+3,loc.y-2) && map->IsTraversable(loc.x+3, loc.y-3))
-              neighbors.emplace_back(loc.x+3, loc.y-3);
-            // d3r3
-            if(d2r2 && map->IsTraversable(loc.x+2,loc.y+3) && map->IsTraversable(loc.x+3,loc.y+2) && map->IsTraversable(loc.x+3, loc.y+3))
-              neighbors.emplace_back(loc.x+3, loc.y+3);
-          }
-        }
-        if(connectedness%2) // Is waiting allowed?
-        {
+					// ul3
+					//if(l2 && map->IsTraversable(loc.x-2, loc.y-1) && map->IsTraversable(loc.x-3, loc.y-1))
+					if(l2 && ul2 && map->IsTraversable(loc.x-3, loc.y-1))
+						neighbors.emplace_back(loc.x-3, loc.y-1);
+					// dl3
+					//if(l2 && map->IsTraversable(loc.x-2, loc.y+1) && map->IsTraversable(loc.x-3, loc.y+1))
+					if(l2 && dl2  && map->IsTraversable(loc.x-3, loc.y+1))
+						neighbors.emplace_back(loc.x-3, loc.y+1);
+					// ur3
+					//if(r2 && map->IsTraversable(loc.x+2, loc.y-1) && map->IsTraversable(loc.x+3, loc.y-1))
+					if(r2 && ur2 && map->IsTraversable(loc.x+3, loc.y-1))
+						neighbors.emplace_back(loc.x+3, loc.y-1);
+					// dr3
+					//if(r2 && map->IsTraversable(loc.x+2, loc.y+1) && map->IsTraversable(loc.x+3, loc.y+1))
+					if(r2 && dr2 && map->IsTraversable(loc.x+3, loc.y+1))
+						neighbors.emplace_back(loc.x+3, loc.y+1);
+						
+					// u3l
+					//if(u2 && map->IsTraversable(loc.x-1, loc.y-2) && map->IsTraversable(loc.x-1, loc.y-3))
+					if(u2 && u2l && map->IsTraversable(loc.x-1, loc.y-3))
+						neighbors.emplace_back(loc.x-1, loc.y-3);
+					// d3l
+					//if(d2 && map->IsTraversable(loc.x-1, loc.y+2) && map->IsTraversable(loc.x-1, loc.y+3))
+					if(d2 && d2l && map->IsTraversable(loc.x-1, loc.y+3))
+						neighbors.emplace_back(loc.x-1, loc.y+3);
+					// u3r
+					//if(u2 && map->IsTraversable(loc.x+1, loc.y-2) && map->IsTraversable(loc.x+1, loc.y-3))
+					if(u2 && u2r && map->IsTraversable(loc.x+1, loc.y-3))
+						neighbors.emplace_back(loc.x+1, loc.y-3);
+					// d3r
+					//if(d2 && map->IsTraversable(loc.x+1, loc.y+2) && map->IsTraversable(loc.x+1, loc.y+3))
+					if(d2 && d2r && map->IsTraversable(loc.x+1, loc.y+3))
+						neighbors.emplace_back(loc.x+1, loc.y+3);
+						
+					// u2l3
+					if(u2l2 && map->IsTraversable(loc.x-3,loc.y-1) && map->IsTraversable(loc.x-3, loc.y-2))
+						neighbors.emplace_back(loc.x-3, loc.y-2);
+					// d2l3
+					if(d2l2 && map->IsTraversable(loc.x-3,loc.y+1) && map->IsTraversable(loc.x-3, loc.y+2))
+						neighbors.emplace_back(loc.x-3, loc.y+2);
+					// u2r3
+					if(u2r2 && map->IsTraversable(loc.x+3,loc.y-1) && map->IsTraversable(loc.x+3, loc.y-2))
+						neighbors.emplace_back(loc.x+3, loc.y-2);
+					// d2r3
+					if(d2r2 && map->IsTraversable(loc.x+3,loc.y+1) && map->IsTraversable(loc.x+3, loc.y+2))
+						neighbors.emplace_back(loc.x+3, loc.y+2);
+						
+					// u3l2
+					if(u2l2 && map->IsTraversable(loc.x-1,loc.y-3) && map->IsTraversable(loc.x-2, loc.y-3))
+						neighbors.emplace_back(loc.x-2, loc.y-3);
+					// d3l2
+					if(d2l2 && map->IsTraversable(loc.x-1,loc.y+3) && map->IsTraversable(loc.x-2, loc.y+3))
+						neighbors.emplace_back(loc.x-2, loc.y+3);
+					// u3r2
+					if(u2r2 && map->IsTraversable(loc.x+1,loc.y-3) && map->IsTraversable(loc.x+2, loc.y-3))
+						neighbors.emplace_back(loc.x+2, loc.y-3);
+					// d3r2
+					if(d2r2 && map->IsTraversable(loc.x+1,loc.y+3) && map->IsTraversable(loc.x+2, loc.y+3))
+						neighbors.emplace_back(loc.x+2, loc.y+3);
+						
+					if(fullBranching){
+						// u3l3
+						if(u2l2 && map->IsTraversable(loc.x-2,loc.y-3) && map->IsTraversable(loc.x-3,loc.y-2) && map->IsTraversable(loc.x-3, loc.y-3))
+							neighbors.emplace_back(loc.x-3, loc.y-3);
+						// d3l3
+						if(d2l2 && map->IsTraversable(loc.x-2,loc.y+3) && map->IsTraversable(loc.x-3,loc.y+2) && map->IsTraversable(loc.x-3, loc.y+3))
+							neighbors.emplace_back(loc.x-3, loc.y+3);
+						// u3r3
+						if(u2r2 && map->IsTraversable(loc.x+2,loc.y-3) && map->IsTraversable(loc.x+3,loc.y-2) && map->IsTraversable(loc.x+3, loc.y-3))
+							neighbors.emplace_back(loc.x+3, loc.y-3);
+						// d3r3
+						if(d2r2 && map->IsTraversable(loc.x+2,loc.y+3) && map->IsTraversable(loc.x+3,loc.y+2) && map->IsTraversable(loc.x+3, loc.y+3))
+							neighbors.emplace_back(loc.x+3, loc.y+3);
+					}
+				}
+				if(connectedness%2) // Is waiting allowed?
+				{
 		neighbors.push_back(loc);
-        }
+				}
 }
 
-bool MapEnvironment::GetNextSuccessor(const xyLoc &currOpenNode, const xyLoc &goal,
-									  xyLoc &next, double &currHCost, uint64_t &special,
-									  bool &validMove)
+bool MapEnvironment::GetDeltaFs(const xyLoc &currOpenNode, const xyLoc &goal, const int &delta_f, 
+	std::vector<int> &possible_delta_fs)
 {
-  // In the case of 5-connectedness; next successor does not look at waiting in place
-  if (connectedness==4)
-    return GetNext4Successor(currOpenNode, goal, next, currHCost, special, validMove);
-  if (connectedness==5)
-    return GetNext5Successor(currOpenNode, goal, next, currHCost, special, validMove);
+	int hash_val = GetStateHash(currOpenNode);
+	if(possible_delta_f_map[hash_val].size()==0)
+	{
+		// should be only called the same number of times as size of the graph
+		std::vector<xyLoc> successors;
+		GetSuccessors(currOpenNode,successors);
+		for(int i=0; i<successors.size(); i++)
+		{
+			int succ_delta_f =  GCost(currOpenNode,successors[i]) + HCost(successors[i],goal) - HCost(currOpenNode,goal);
+			if(std::find(possible_delta_f_map[hash_val].begin(),possible_delta_f_map[hash_val].end(),succ_delta_f)
+				== possible_delta_f_map[hash_val].end())
+			{
+				possible_delta_f_map[hash_val].push_back(succ_delta_f);	
+			}
+			neighbors_delta_f_map[hash_val][succ_delta_f].push_back(successors[i]);
+		}
+	}
+	
+	int i=0;
+	for(; i<possible_delta_f_map[hash_val].size(); i++)
+		if(possible_delta_f_map[hash_val][i] <= delta_f)
+			possible_delta_fs.push_back(possible_delta_f_map[hash_val][i]);
+	possible_delta_fs.push_back(possible_delta_f_map[hash_val][i]); // one extra used for calculating next delta f
+}
 
-  // In the case of 9-connectedness; next successor does not look at waiting in place
-  return GetNext8Successor(currOpenNode, goal, next, currHCost, special, validMove);
+bool MapEnvironment::GetDeltaFSuccessors(const xyLoc &currOpenNode, const xyLoc &goal, const int &delta_f, 
+	std::vector<xyLoc> &neighbors)
+{
+	neighbors = neighbors_delta_f_map[GetStateHash(currOpenNode)][delta_f];
+}
+
+
+bool MapEnvironment::GetNextSuccessor(const xyLoc &currOpenNode, const xyLoc &goal,
+										xyLoc &next, double &currHCost, uint64_t &special,
+										bool &validMove)
+{
+	// In the case of 5-connectedness; next successor does not look at waiting in place
+	if (connectedness==4)
+		return GetNext4Successor(currOpenNode, goal, next, currHCost, special, validMove);
+	if (connectedness==5)
+		return GetNext5Successor(currOpenNode, goal, next, currHCost, special, validMove);
+
+	// In the case of 9-connectedness; next successor does not look at waiting in place
+	return GetNext8Successor(currOpenNode, goal, next, currHCost, special, validMove);
 
 }
 
 bool MapEnvironment::GetNext5Successor(const xyLoc &currOpenNode, const xyLoc &goal,
-									   xyLoc &next, double &currHCost, uint64_t &special,
-									  bool &validMove)
+										 xyLoc &next, double &currHCost, uint64_t &special,
+										bool &validMove)
 {
 	if (special < 4) // Non-wait action
 		return GetNext4Successor(currOpenNode,goal,next,currHCost,special,validMove);
-        // Wait action
+				// Wait action
 	validMove = true;
-        //currHCost+=0;
-        next = xyLoc(currOpenNode); // Copy it
-        special++;
+				//currHCost+=0;
+				next = xyLoc(currOpenNode); // Copy it
+				special++;
 	return false;
 }
 
 bool MapEnvironment::GetNext4Successor(const xyLoc &currOpenNode, const xyLoc &goal,
-									   xyLoc &next, double &currHCost, uint64_t &special,
-									  bool &validMove)
+										 xyLoc &next, double &currHCost, uint64_t &special,
+										bool &validMove)
 {
 	validMove = false;
 	if (special > 3)
@@ -376,22 +414,22 @@ bool MapEnvironment::GetNext4Successor(const xyLoc &currOpenNode, const xyLoc &g
 	else if (currOpenNode.x < goal.x && currOpenNode.y < goal.y)
 	{ theEntry = 7; }
 
-        int diffx(currOpenNode.x-goal.x); diffx*=diffx;
-        int diffy(currOpenNode.y-goal.y); diffy*=diffy;
-        int selector(int(diffx<diffy));
-        if(!selector && diffx==diffy && start){
-          diffx = currOpenNode.x-start->x; diffx*=diffx;
-          diffy = currOpenNode.y-start->y; diffy*=diffy;
-          selector=int(diffx>diffy);
-        }
+				int diffx(currOpenNode.x-goal.x); diffx*=diffx;
+				int diffy(currOpenNode.y-goal.y); diffy*=diffy;
+				int selector(int(diffx<diffy));
+				if(!selector && diffx==diffy && start){
+					diffx = currOpenNode.x-start->x; diffx*=diffx;
+					diffy = currOpenNode.y-start->y; diffy*=diffy;
+					selector=int(diffx>diffy);
+				}
 
-//	std::cout << special << " h from " << currHCost << " to "
-//	<< currHCost + hIncrease[theEntry][special] << std::endl;
+//  std::cout << special << " h from " << currHCost << " to "
+//  << currHCost + hIncrease[theEntry][special] << std::endl;
 	switch (special) {
 		case 0:
 			next = currOpenNode;
 
-                        //prefer to close the greatest gap (x or y) first
+												//prefer to close the greatest gap (x or y) first
 			currHCost += hIncrease[theEntry][special];
 			ApplyAction(next, order[selector][theEntry][special]);
 			special++;
@@ -443,8 +481,8 @@ bool MapEnvironment::GetNext4Successor(const xyLoc &currOpenNode, const xyLoc &g
 }
 
 bool MapEnvironment::GetNext8Successor(const xyLoc &currOpenNode, const xyLoc &goal,
-									   xyLoc &next, double &currHCost, uint64_t &special,
-									   bool &validMove)
+										 xyLoc &next, double &currHCost, uint64_t &special,
+										 bool &validMove)
 {
 	// in addition to the 16 obvious cases, when diagonal movess cross the 
 	// diagonals we have separate cases. Thus, we don't implement this for now.
@@ -453,129 +491,129 @@ bool MapEnvironment::GetNext8Successor(const xyLoc &currOpenNode, const xyLoc &g
 	// map representation
 	assert(false);
 	
-//	// it must be 1.5 for this code to be correct...
-//	assert(DIAGONAL_COST == 1.5);
-//	validMove = false;
-//	if (special > 7) // moves
-//		return false;
-//	// pass back next h-cost?
-//	// 4 connected:
-//	// case 2: above and right: Up, Right, Left, Down
-//	// case 3: directly right: Right, Down, Up, Left
-//	// case 4: below and right: Right, Down, Up, Left
-//	// case 5: directly below: Down, Left, Right, Up
-//	// case 6: below and left: Down, Left, Right, Up
-//	// case 7: directly left: Left, Up, Down, Right
-//	// case 8: above and left: Left, Up, Down, Right
-//	
-//	// 1,2. same y and different x (+/-)
-//	// 3,4. same x and different y (+/-)
-//	// 5,6,7,8. same x/y difference (+/-) combinations
-//	int theEntry = 0;
-//	const tDirection order[8][8] =
-//	{
-//		// directly above
-//		{kN, kNW, kNE, kE, kW, kS, kSE, kSW},
-//		// more above to the right
-//		{kN, kNE, kE, kNW, kW, kS, kSE, kSW},
-//		// diagonally right
-//		{kNE, kN, kE, kNW, kSE, kS, kW, kSW},
-//		// more right and above
-//		{kE, kNE, kN, kS, kSE, kW, kNW, kSW},
+//  // it must be 1.5 for this code to be correct...
+//  assert(DIAGONAL_COST == 1.5);
+//  validMove = false;
+//  if (special > 7) // moves
+//    return false;
+//  // pass back next h-cost?
+//  // 4 connected:
+//  // case 2: above and right: Up, Right, Left, Down
+//  // case 3: directly right: Right, Down, Up, Left
+//  // case 4: below and right: Right, Down, Up, Left
+//  // case 5: directly below: Down, Left, Right, Up
+//  // case 6: below and left: Down, Left, Right, Up
+//  // case 7: directly left: Left, Up, Down, Right
+//  // case 8: above and left: Left, Up, Down, Right
+//  
+//  // 1,2. same y and different x (+/-)
+//  // 3,4. same x and different y (+/-)
+//  // 5,6,7,8. same x/y difference (+/-) combinations
+//  int theEntry = 0;
+//  const tDirection order[8][8] =
+//  {
+//    // directly above
+//    {kN, kNW, kNE, kE, kW, kS, kSE, kSW},
+//    // more above to the right
+//    {kN, kNE, kE, kNW, kW, kS, kSE, kSW},
+//    // diagonally right
+//    {kNE, kN, kE, kNW, kSE, kS, kW, kSW},
+//    // more right and above
+//    {kE, kNE, kN, kS, kSE, kW, kNW, kSW},
 //
-//		{kE, kN, kS, kW},
-//		
-//		{kN, kW, kE, kS},
-//		{kW, kS, kN, kE},
-//		{kN, kE, kW, kS},
-//		{kS, kE, kW, kN},
-//	};
-//	const double hIncrease[8][8] = 
-//	{
-//		// directly above
-//		{1.0, 0.0, 0.5, 0.0, 0.5, 1.0, 0.0, 0.0},
-//		// more above to the right
-//		{0.0, 0.5, 0.5, 0.5, 0.5, 0.0, 1.0, 0.0},
-//		// diagonally right
-//		{0.5, 0.0, 1.5, 0.0, 0.0, 0.0, 1.0, 0.0},
-//		// more right and above
-//		{0.0, 0.5, 0.5, 0.5, 0.5, 0.0, 1.0, 0.0},
-//		{0.0, 1.0, 0.0, 0.0},
-//		{0.0, 1.0, 0.0, 0.0},
-//		{0.0, 1.0, 0.0, 0.0},
-//		{0.0, 1.0, 0.0, 0.0},
-//	};
-//	
-//	if      (currOpenNode.x == goal.x && currOpenNode.y > goal.y)
-//	{ theEntry = 0; }
-//	else if (currOpenNode.x == goal.x && currOpenNode.y < goal.y)
-//	{ theEntry = 1; }
-//	else if (currOpenNode.x > goal.x && currOpenNode.y == goal.y)
-//	{ theEntry = 2; }
-//	else if (currOpenNode.x < goal.x && currOpenNode.y == goal.y)
-//	{ theEntry = 3; }
-//	else if (currOpenNode.x > goal.x && currOpenNode.y > goal.y)
-//	{ theEntry = 4; }
-//	else if (currOpenNode.x > goal.x && currOpenNode.y < goal.y)
-//	{ theEntry = 5; }
-//	else if (currOpenNode.x < goal.x && currOpenNode.y > goal.y)
-//	{ theEntry = 6; }
-//	else if (currOpenNode.x < goal.x && currOpenNode.y < goal.y)
-//	{ theEntry = 7; }
-//	
-//	//	std::cout << special << " h from " << currHCost << " to "
-//	//	<< currHCost + hIncrease[theEntry][special] << std::endl;
-//	switch (special) {
-//		case 0:
-//			next = currOpenNode;
-//			currHCost += hIncrease[theEntry][special];
-//			ApplyAction(next, order[theEntry][special]);
-//			special++;
-//			if (map->CanStep(currOpenNode.x, currOpenNode.y, next.x, next.y))
-//			{
-//				//std::cout << "Next successor of " << currOpenNode << " is " << next << std::endl;
-//				validMove = true;
-//				return true;
-//			}
-//		case 1:
-//			next = currOpenNode;
-//			currHCost += hIncrease[theEntry][special];
-//			ApplyAction(next, order[theEntry][special]);
-//			special++;
-//			if (map->CanStep(currOpenNode.x, currOpenNode.y, next.x, next.y))
-//			{
-//				//std::cout << "Next successor of " << currOpenNode << " is " << next << std::endl;
-//				validMove = true;
-//				return true;
-//			}
-//		case 2:
-//			next = currOpenNode;
-//			currHCost += 1;
-//			currHCost += hIncrease[theEntry][special];
-//			ApplyAction(next, order[theEntry][special]);
-//			special++;
-//			if (map->CanStep(currOpenNode.x, currOpenNode.y, next.x, next.y))
-//			{
-//				//std::cout << "Next successor of " << currOpenNode << " is " << next << std::endl;
-//				validMove = true;
-//				return true;
-//			}
-//		case 3:
-//			next = currOpenNode;
-//			currHCost += hIncrease[theEntry][special];
-//			ApplyAction(next, order[theEntry][special]);
-//			special++;
-//			if (map->CanStep(currOpenNode.x, currOpenNode.y, next.x, next.y))
-//			{
-//				//std::cout << "Next successor of " << currOpenNode << " is " << next << std::endl;
-//				validMove = true;
-//				return false;
-//			}
-//		default:
-//			return false;
-//	}
-//	
-//	return false;
+//    {kE, kN, kS, kW},
+//    
+//    {kN, kW, kE, kS},
+//    {kW, kS, kN, kE},
+//    {kN, kE, kW, kS},
+//    {kS, kE, kW, kN},
+//  };
+//  const double hIncrease[8][8] = 
+//  {
+//    // directly above
+//    {1.0, 0.0, 0.5, 0.0, 0.5, 1.0, 0.0, 0.0},
+//    // more above to the right
+//    {0.0, 0.5, 0.5, 0.5, 0.5, 0.0, 1.0, 0.0},
+//    // diagonally right
+//    {0.5, 0.0, 1.5, 0.0, 0.0, 0.0, 1.0, 0.0},
+//    // more right and above
+//    {0.0, 0.5, 0.5, 0.5, 0.5, 0.0, 1.0, 0.0},
+//    {0.0, 1.0, 0.0, 0.0},
+//    {0.0, 1.0, 0.0, 0.0},
+//    {0.0, 1.0, 0.0, 0.0},
+//    {0.0, 1.0, 0.0, 0.0},
+//  };
+//  
+//  if      (currOpenNode.x == goal.x && currOpenNode.y > goal.y)
+//  { theEntry = 0; }
+//  else if (currOpenNode.x == goal.x && currOpenNode.y < goal.y)
+//  { theEntry = 1; }
+//  else if (currOpenNode.x > goal.x && currOpenNode.y == goal.y)
+//  { theEntry = 2; }
+//  else if (currOpenNode.x < goal.x && currOpenNode.y == goal.y)
+//  { theEntry = 3; }
+//  else if (currOpenNode.x > goal.x && currOpenNode.y > goal.y)
+//  { theEntry = 4; }
+//  else if (currOpenNode.x > goal.x && currOpenNode.y < goal.y)
+//  { theEntry = 5; }
+//  else if (currOpenNode.x < goal.x && currOpenNode.y > goal.y)
+//  { theEntry = 6; }
+//  else if (currOpenNode.x < goal.x && currOpenNode.y < goal.y)
+//  { theEntry = 7; }
+//  
+//  //  std::cout << special << " h from " << currHCost << " to "
+//  //  << currHCost + hIncrease[theEntry][special] << std::endl;
+//  switch (special) {
+//    case 0:
+//      next = currOpenNode;
+//      currHCost += hIncrease[theEntry][special];
+//      ApplyAction(next, order[theEntry][special]);
+//      special++;
+//      if (map->CanStep(currOpenNode.x, currOpenNode.y, next.x, next.y))
+//      {
+//        //std::cout << "Next successor of " << currOpenNode << " is " << next << std::endl;
+//        validMove = true;
+//        return true;
+//      }
+//    case 1:
+//      next = currOpenNode;
+//      currHCost += hIncrease[theEntry][special];
+//      ApplyAction(next, order[theEntry][special]);
+//      special++;
+//      if (map->CanStep(currOpenNode.x, currOpenNode.y, next.x, next.y))
+//      {
+//        //std::cout << "Next successor of " << currOpenNode << " is " << next << std::endl;
+//        validMove = true;
+//        return true;
+//      }
+//    case 2:
+//      next = currOpenNode;
+//      currHCost += 1;
+//      currHCost += hIncrease[theEntry][special];
+//      ApplyAction(next, order[theEntry][special]);
+//      special++;
+//      if (map->CanStep(currOpenNode.x, currOpenNode.y, next.x, next.y))
+//      {
+//        //std::cout << "Next successor of " << currOpenNode << " is " << next << std::endl;
+//        validMove = true;
+//        return true;
+//      }
+//    case 3:
+//      next = currOpenNode;
+//      currHCost += hIncrease[theEntry][special];
+//      ApplyAction(next, order[theEntry][special]);
+//      special++;
+//      if (map->CanStep(currOpenNode.x, currOpenNode.y, next.x, next.y))
+//      {
+//        //std::cout << "Next successor of " << currOpenNode << " is " << next << std::endl;
+//        validMove = true;
+//        return false;
+//      }
+//    default:
+//      return false;
+//  }
+//  
+//  return false;
 }
 
 void MapEnvironment::GetActions(const xyLoc &loc, std::vector<tDirection> &actions) const
@@ -613,8 +651,8 @@ void MapEnvironment::GetActions(const xyLoc &loc, std::vector<tDirection> &actio
 		}
 		actions.push_back(kE);
 	}
-        if(connectedness%2)
-          actions.push_back(kStay);
+				if(connectedness%2)
+					actions.push_back(kStay);
 // TODO: add 24 and 48 cases.
 }
 
@@ -758,222 +796,222 @@ void MapEnvironment::ApplyAction(xyLoc &s, tDirection dir) const
 
 		default: break;
 	}
-//	if (map->CanStep(s.x, s.y, old.x, old.y) &&
-//		((!oi) || (oi && !(oi->GetStateOccupied(s)))))
-//	{
-//		return;
-//	}
-//	s = old;
+//  if (map->CanStep(s.x, s.y, old.x, old.y) &&
+//    ((!oi) || (oi && !(oi->GetStateOccupied(s)))))
+//  {
+//    return;
+//  }
+//  s = old;
 }
 
 double MapEnvironment::_h4(unsigned dx, unsigned dy, double result){
-  return dx+dy+result;
+	return dx+dy+result;
 }
 
 double MapEnvironment::h4(const xyLoc &l1, const xyLoc &l2){
-  return _h4(abs(l1.x-l2.x),abs(l1.y-l2.y));
+	return _h4(abs(l1.x-l2.x),abs(l1.y-l2.y));
 }
 
 double MapEnvironment::_h8(unsigned dx,unsigned dy,double result){
-  static double const SQRT_2(std::sqrt(2.0));
-  if(dx>dy){ // Swap
-    unsigned tmp(dx); dx=dy; dy=tmp;
-  }
-  if(dy>=dx){
-    result += dx*SQRT_2;
-      dy -= dx;
-      dx = 0;
-  }
-  return _h4(dy,dx,result);
+	static double const SQRT_2(std::sqrt(2.0));
+	if(dx>dy){ // Swap
+		unsigned tmp(dx); dx=dy; dy=tmp;
+	}
+	if(dy>=dx){
+		result += dx*SQRT_2;
+			dy -= dx;
+			dx = 0;
+	}
+	return _h4(dy,dx,result);
 }
 
 double MapEnvironment::h8(const xyLoc &l1, const xyLoc &l2){
-  return _h8(abs(l1.x-l2.x),abs(l1.y-l2.y));
+	return _h8(abs(l1.x-l2.x),abs(l1.y-l2.y));
 }
 
 double MapEnvironment::_h24(unsigned dx,unsigned dy,double result){
-  static double const SQRT_5(sqrt(5));
-  if(dx>dy){ // Swap
-    unsigned tmp(dx); dx=dy; dy=tmp;
-  }
-  if(dy>1){
-    unsigned diff(dy-dx);
-    if(diff >=1){
-      unsigned s5=std::min(diff,dx);
-      result += s5*SQRT_5;
-      dy -= s5*2; //up/down 2
-      dx -= s5; //over 1
-    }
-  }
-  return _h8(dy,dx,result);
+	static double const SQRT_5(sqrt(5));
+	if(dx>dy){ // Swap
+		unsigned tmp(dx); dx=dy; dy=tmp;
+	}
+	if(dy>1){
+		unsigned diff(dy-dx);
+		if(diff >=1){
+			unsigned s5=std::min(diff,dx);
+			result += s5*SQRT_5;
+			dy -= s5*2; //up/down 2
+			dx -= s5; //over 1
+		}
+	}
+	return _h8(dy,dx,result);
 }
 
 double MapEnvironment::h24(const xyLoc &l1, const xyLoc &l2){
-  return _h24(abs(l1.x-l2.x),abs(l1.y-l2.y));
+	return _h24(abs(l1.x-l2.x),abs(l1.y-l2.y));
 }
 
 double MapEnvironment::_h48(unsigned dx,unsigned dy,double result){
-  static double const SQRT_2(std::sqrt(2.0));
-  static double const SQRT_5(std::sqrt(5.0));
-  static double const SQRT_10(sqrt(10));
-  static double const SQRT_13(sqrt(13));
-  if(dx==dy) return dx*SQRT_2;
-  if(dx>dy){ // Swap
-    unsigned tmp(dx); dx=dy; dy=tmp;
-  }
-  if(2*dx==dy) return dx*SQRT_5;
-  if(3*dx==dy) return dx*SQRT_10;
-  if(3*dx==2*dy) return (dx/2)*SQRT_13;
-  unsigned steps(dy/3);
-  unsigned ss2(dy/2);
-  if(steps>=dx){
-    //std::cout << dx << " " << dy << " " << "case 1\n";
-    result += SQRT_10*dx;
-    dy-=dx*3;
-    dx=0;
-  }else if(dx>2*steps){
-    //std::cout << steps << "-" << (dx%steps) << "+" << (dy%steps) << " " << dx << " " << dy << " " << "case 2\n";
-    unsigned ddx(dx-2*steps);
-    unsigned ddy(dy-3*steps);
-    if(ddx>ddy)
-      steps-=ddx-ddy;
-    result += steps*SQRT_13;
-    dx-=2*steps;
-    dy-=steps*3;
-  }else if(steps<dx && ss2>=dx){
-    //std::cout << dx << " " << dy << " " << "case n\n";
-    unsigned ddx(dx-steps);
-    unsigned ddy(dy-3*steps);
-    steps-=(2*ddx-ddy);
-    result += steps*SQRT_10;
-    dx-=steps;
-    dy-=steps*3;
-  }else if(ss2<dx && 2*steps>=dx){
-    //std::cout << dx << " " << dy << " " << "case p\n";
-    unsigned ddx(2*steps-dx);
-    unsigned ddy(dy-3*steps);
-    steps-=(2*ddx+ddy);
-    result += steps*SQRT_13;
-    dx-=steps*2;
-    dy-=steps*3;
-  }
-  return _h24(dy,dx,result);
+	static double const SQRT_2(std::sqrt(2.0));
+	static double const SQRT_5(std::sqrt(5.0));
+	static double const SQRT_10(sqrt(10));
+	static double const SQRT_13(sqrt(13));
+	if(dx==dy) return dx*SQRT_2;
+	if(dx>dy){ // Swap
+		unsigned tmp(dx); dx=dy; dy=tmp;
+	}
+	if(2*dx==dy) return dx*SQRT_5;
+	if(3*dx==dy) return dx*SQRT_10;
+	if(3*dx==2*dy) return (dx/2)*SQRT_13;
+	unsigned steps(dy/3);
+	unsigned ss2(dy/2);
+	if(steps>=dx){
+		//std::cout << dx << " " << dy << " " << "case 1\n";
+		result += SQRT_10*dx;
+		dy-=dx*3;
+		dx=0;
+	}else if(dx>2*steps){
+		//std::cout << steps << "-" << (dx%steps) << "+" << (dy%steps) << " " << dx << " " << dy << " " << "case 2\n";
+		unsigned ddx(dx-2*steps);
+		unsigned ddy(dy-3*steps);
+		if(ddx>ddy)
+			steps-=ddx-ddy;
+		result += steps*SQRT_13;
+		dx-=2*steps;
+		dy-=steps*3;
+	}else if(steps<dx && ss2>=dx){
+		//std::cout << dx << " " << dy << " " << "case n\n";
+		unsigned ddx(dx-steps);
+		unsigned ddy(dy-3*steps);
+		steps-=(2*ddx-ddy);
+		result += steps*SQRT_10;
+		dx-=steps;
+		dy-=steps*3;
+	}else if(ss2<dx && 2*steps>=dx){
+		//std::cout << dx << " " << dy << " " << "case p\n";
+		unsigned ddx(2*steps-dx);
+		unsigned ddy(dy-3*steps);
+		steps-=(2*ddx+ddy);
+		result += steps*SQRT_13;
+		dx-=steps*2;
+		dy-=steps*3;
+	}
+	return _h24(dy,dx,result);
 }
 
 double MapEnvironment::h48(const xyLoc &l1, const xyLoc &l2){
-  return _h48(abs(l1.x-l2.x),abs(l1.y-l2.y));
+	return _h48(abs(l1.x-l2.x),abs(l1.y-l2.y));
 }
 
 
 double MapEnvironment::HCost(const xyLoc &l1, const xyLoc &l2)const{
-  //if(l1.sameLoc(l2))return 1.0;
-  switch(connectedness){
-  case 4:
-  case 5:
-    return h4(l1,l2);
-  case 8:
-  case 9:
-    return h8(l1,l2);
-  case 24:
-  case 25:
-    return h24(l1,l2);
-  case 48:
-  case 49:
-    return h48(l1,l2);
-  default: return Util::distance(l1,l2);
-  }
+	//if(l1.sameLoc(l2))return 1.0;
+	switch(connectedness){
+	case 4:
+	case 5:
+		return h4(l1,l2);
+	case 8:
+	case 9:
+		return h8(l1,l2);
+	case 24:
+	case 25:
+		return h24(l1,l2);
+	case 48:
+	case 49:
+		return h48(l1,l2);
+	default: return Util::distance(l1,l2);
+	}
 }
 
 double MapEnvironment::GCost(const xyLoc &l, const tDirection &act) const
 {
-  static double const SQRT_5(std::sqrt(5.0));
-  static double const SQRT_10(sqrt(10));
-  static double const SQRT_13(sqrt(13));
-  double multiplier = 1.0;
-  //	if (map->GetTerrainType(l.x, l.y) == kSwamp)
-  //	{
-  //		multiplier = 3.0;
-  //	}
-  switch (act)
-  {
-    case kN: return 1.0*multiplier;
-    case kS: return 1.0*multiplier;
-    case kE: return 1.0*multiplier;
-    case kW: return 1.0*multiplier;
-    case kNW: return DIAGONAL_COST*multiplier;
-    case kSW: return DIAGONAL_COST*multiplier;
-    case kNE: return DIAGONAL_COST*multiplier;
-    case kSE: return DIAGONAL_COST*multiplier;
+	static double const SQRT_5(std::sqrt(5.0));
+	static double const SQRT_10(sqrt(10));
+	static double const SQRT_13(sqrt(13));
+	double multiplier = 1.0;
+	//  if (map->GetTerrainType(l.x, l.y) == kSwamp)
+	//  {
+	//    multiplier = 3.0;
+	//  }
+	switch (act)
+	{
+		case kN: return 1.0*multiplier;
+		case kS: return 1.0*multiplier;
+		case kE: return 1.0*multiplier;
+		case kW: return 1.0*multiplier;
+		case kNW: return DIAGONAL_COST*multiplier;
+		case kSW: return DIAGONAL_COST*multiplier;
+		case kNE: return DIAGONAL_COST*multiplier;
+		case kSE: return DIAGONAL_COST*multiplier;
 
-    case kNN: return 2.0*multiplier;
-    case kNNE: return SQRT_5*multiplier;
-    case kNEE: return SQRT_5*multiplier;
-    case kNNEE: return 2.0*DIAGONAL_COST*multiplier;
-    case kEE: return 2.0*multiplier;
-    case kSSE: return SQRT_5*multiplier;
-    case kSEE: return SQRT_5*multiplier;
-    case kSSEE: return 2.0*DIAGONAL_COST*multiplier;
-    case kSS: return 2.0*multiplier;
-    case kSSW: return SQRT_5*multiplier;
-    case kSWW: return SQRT_5*multiplier;
-    case kSSWW: return 2.0*DIAGONAL_COST*multiplier;
-    case kWW: return 2.0*multiplier;
-    case kNNW: return SQRT_5*multiplier;
-    case kNWW: return SQRT_5*multiplier;
-    case kNNWW: return 2.0*DIAGONAL_COST*multiplier;
+		case kNN: return 2.0*multiplier;
+		case kNNE: return SQRT_5*multiplier;
+		case kNEE: return SQRT_5*multiplier;
+		case kNNEE: return 2.0*DIAGONAL_COST*multiplier;
+		case kEE: return 2.0*multiplier;
+		case kSSE: return SQRT_5*multiplier;
+		case kSEE: return SQRT_5*multiplier;
+		case kSSEE: return 2.0*DIAGONAL_COST*multiplier;
+		case kSS: return 2.0*multiplier;
+		case kSSW: return SQRT_5*multiplier;
+		case kSWW: return SQRT_5*multiplier;
+		case kSSWW: return 2.0*DIAGONAL_COST*multiplier;
+		case kWW: return 2.0*multiplier;
+		case kNNW: return SQRT_5*multiplier;
+		case kNWW: return SQRT_5*multiplier;
+		case kNNWW: return 2.0*DIAGONAL_COST*multiplier;
 
-    case kNNN: return 3.0*multiplier;
-    case kNNNE: return SQRT_10*multiplier;
-    case kNEEE: return SQRT_10*multiplier;
-    case kNNNEE: return SQRT_13*multiplier;
-    case kNNEEE: return SQRT_13*multiplier;
-    case kNNNEEE: return 3.0*DIAGONAL_COST*multiplier;
-    case kEEE: return 3.0*multiplier;
-    case kSSSE: return SQRT_10*multiplier;
-    case kSEEE: return SQRT_10*multiplier;
-    case kSSEEE: return SQRT_13*multiplier;
-    case kSSSEE: return SQRT_13*multiplier;
-    case kSSSEEE: return 3.0*DIAGONAL_COST*multiplier;
-    case kSSS: return 3.0*multiplier;
-    case kSSSW: return SQRT_10*multiplier;
-    case kSWWW: return SQRT_10*multiplier;
-    case kSSWWW: return SQRT_13*multiplier;
-    case kSSSWW: return SQRT_13*multiplier;
-    case kSSSWWW: return 3.0*DIAGONAL_COST*multiplier;
-    case kWWW: return 3.0*multiplier;
-    case kNNNW: return SQRT_10*multiplier;
-    case kNWWW: return SQRT_10*multiplier;
-    case kNNNWW: return SQRT_13*multiplier;
-    case kNNWWW: return SQRT_13*multiplier;
-    case kNNNWWW: return 3.0*DIAGONAL_COST*multiplier;
-    default: return multiplier;
-  }
-  return 0;
+		case kNNN: return 3.0*multiplier;
+		case kNNNE: return SQRT_10*multiplier;
+		case kNEEE: return SQRT_10*multiplier;
+		case kNNNEE: return SQRT_13*multiplier;
+		case kNNEEE: return SQRT_13*multiplier;
+		case kNNNEEE: return 3.0*DIAGONAL_COST*multiplier;
+		case kEEE: return 3.0*multiplier;
+		case kSSSE: return SQRT_10*multiplier;
+		case kSEEE: return SQRT_10*multiplier;
+		case kSSEEE: return SQRT_13*multiplier;
+		case kSSSEE: return SQRT_13*multiplier;
+		case kSSSEEE: return 3.0*DIAGONAL_COST*multiplier;
+		case kSSS: return 3.0*multiplier;
+		case kSSSW: return SQRT_10*multiplier;
+		case kSWWW: return SQRT_10*multiplier;
+		case kSSWWW: return SQRT_13*multiplier;
+		case kSSSWW: return SQRT_13*multiplier;
+		case kSSSWWW: return 3.0*DIAGONAL_COST*multiplier;
+		case kWWW: return 3.0*multiplier;
+		case kNNNW: return SQRT_10*multiplier;
+		case kNWWW: return SQRT_10*multiplier;
+		case kNNNWW: return SQRT_13*multiplier;
+		case kNNWWW: return SQRT_13*multiplier;
+		case kNNNWWW: return 3.0*DIAGONAL_COST*multiplier;
+		default: return multiplier;
+	}
+	return 0;
 }
 
 double MapEnvironment::GCost(const xyLoc &l1, const xyLoc &l2) const
 {
-  static double multiplier = 1.0;
-  static double waitcost(1.0);
-  if(l1.sameLoc(l2)) return l1.sameLoc(getGoal())?0.0:multiplier*waitcost; // No cost for waiting at goal
-  //	if (map->GetTerrainType(l1.x, l1.y) == kSwamp)
-  //	{
-  //		multiplier = 3.0;
-  //	}
-  //if (l1 == l2) return 1.0;
-  //if (l1.x == l2.x) return abs(l1.y-l2.y)*multiplier;
-  //if (l1.y == l2.y) return abs(l1.x-l2.x)*multiplier;
-  //if (l1 == l2) return 0.0;
-  //if (abs(l1.x-l2.x)==1) return DIAGONAL_COST*multiplier;
-  return multiplier*Util::distance(l1,l2);
-  //	double h = HCost(l1, l2);
-  //	if (fgreater(h, DIAGONAL_COST))
-  //		return DBL_MAX;
-  //	return h;
+	static double multiplier = 1.0;
+	static double waitcost(1.0);
+	if(l1.sameLoc(l2)) return l1.sameLoc(getGoal())?0.0:multiplier*waitcost; // No cost for waiting at goal
+	//  if (map->GetTerrainType(l1.x, l1.y) == kSwamp)
+	//  {
+	//    multiplier = 3.0;
+	//  }
+	//if (l1 == l2) return 1.0;
+	//if (l1.x == l2.x) return abs(l1.y-l2.y)*multiplier;
+	//if (l1.y == l2.y) return abs(l1.x-l2.x)*multiplier;
+	//if (l1 == l2) return 0.0;
+	//if (abs(l1.x-l2.x)==1) return DIAGONAL_COST*multiplier;
+	return multiplier*Util::distance(l1,l2);
+	//  double h = HCost(l1, l2);
+	//  if (fgreater(h, DIAGONAL_COST))
+	//    return DBL_MAX;
+	//  return h;
 }
 
 bool MapEnvironment::LineOfSight(const xyLoc &node, const xyLoc &goal) const{
-  return map->LineOfSight(node.x,node.y,goal.x,goal.y);
+	return map->LineOfSight(node.x,node.y,goal.x,goal.y);
 }
 
 bool MapEnvironment::GoalTest(const xyLoc &node, const xyLoc &goal) const
@@ -990,7 +1028,7 @@ uint64_t MapEnvironment::GetStateHash(const xyLoc &node) const
 {
 	//return (((uint64_t)node.x)<<16)|node.y;
 	return node.y*map->GetMapWidth()+node.x;
-	//	return (node.x<<16)|node.y;
+	//  return (node.x<<16)|node.y;
 }
 
 uint64_t MapEnvironment::GetActionHash(tDirection act) const
@@ -1003,18 +1041,18 @@ void MapEnvironment::OpenGLDraw() const
 	//std::cout<<"drawing\n";
 	map->OpenGLDraw();
 	// Draw occupancy interface - occupied = white
-//	for (int i=0; i<map->GetMapWidth(); i++)
-//		for (int j=0; j<map->GetMapHeight(); j++)
-//		{
-//			xyLoc l;
-//			l.x = i;
-//			l.y = j;
-//			if (oi && oi->GetStateOccupied(l))
-//			{
-//				SetColor(1.0, 1.0, 1.0, 1.0);
-//				OpenGLDraw(l);//, 1.0, 1.0, 1.0);
-//			}
-//		}
+//  for (int i=0; i<map->GetMapWidth(); i++)
+//    for (int j=0; j<map->GetMapHeight(); j++)
+//    {
+//      xyLoc l;
+//      l.x = i;
+//      l.y = j;
+//      if (oi && oi->GetStateOccupied(l))
+//      {
+//        SetColor(1.0, 1.0, 1.0, 1.0);
+//        OpenGLDraw(l);//, 1.0, 1.0, 1.0);
+//      }
+//    }
 }
 	
 
@@ -1034,12 +1072,12 @@ void MapEnvironment::OpenGLDraw(const xyLoc &l1, const xyLoc &l2, float v) const
 {
 	GLdouble xx, yy, zz, rad;
 	GLdouble xx2, yy2, zz2;
-//	map->GetOpenGLCoord((float)((1-v)*l1.x+v*l2.x),
-//						(float)((1-v)*l1.y+v*l2.y), xx, yy, zz, rad);
-//	printf("%f between (%d, %d) and (%d, %d)\n", v, l1.x, l1.y, l2.x, l2.y);
+//  map->GetOpenGLCoord((float)((1-v)*l1.x+v*l2.x),
+//            (float)((1-v)*l1.y+v*l2.y), xx, yy, zz, rad);
+//  printf("%f between (%d, %d) and (%d, %d)\n", v, l1.x, l1.y, l2.x, l2.y);
 	map->GetOpenGLCoord(l1.x, l1.y, xx, yy, zz, rad);
 	map->GetOpenGLCoord(l2.x, l2.y, xx2, yy2, zz2, rad);
-	//	map->GetOpenGLCoord(perc*newState.x + (1-perc)*oldState.x, perc*newState.y + (1-perc)*oldState.y, xx, yy, zz, rad);
+	//  map->GetOpenGLCoord(perc*newState.x + (1-perc)*oldState.x, perc*newState.y + (1-perc)*oldState.y, xx, yy, zz, rad);
 	xx = (1-v)*xx+v*xx2;
 	yy = (1-v)*yy+v*yy2;
 	zz = (1-v)*zz+v*zz2;
@@ -1051,10 +1089,10 @@ void MapEnvironment::OpenGLDraw(const xyLoc &l1, const xyLoc &l2, float v) const
 
 //void MapEnvironment::OpenGLDraw(const xyLoc &l, GLfloat r, GLfloat g, GLfloat b) const
 //{
-//	GLdouble xx, yy, zz, rad;
-//	map->GetOpenGLCoord(l.x, l.y, xx, yy, zz, rad);
-//	glColor3f(r,g,b);
-//	DrawSphere(xx, yy, zz, rad);
+//  GLdouble xx, yy, zz, rad;
+//  map->GetOpenGLCoord(l.x, l.y, xx, yy, zz, rad);
+//  glColor3f(r,g,b);
+//  DrawSphere(xx, yy, zz, rad);
 //}
 
 
@@ -1154,24 +1192,24 @@ void MapEnvironment::GLDrawLine(const xyLoc &a, const xyLoc &b) const
 	glVertex3f(xx2, yy2, zz2-rad/2);
 	glEnd();
 
-//	glEnable(GL_BLEND);
-//	glBlendFunc(GL_SRC_ALPHA_SATURATE, GL_ONE);
+//  glEnable(GL_BLEND);
+//  glBlendFunc(GL_SRC_ALPHA_SATURATE, GL_ONE);
 	//glEnable(GL_POLYGON_SMOOTH);
-//	glBegin(GL_TRIANGLE_STRIP);
-//	//glBegin(GL_QUADS);
-//	glVertex3f(xx1+xoff, yy1+yoff, zz1-rad/2);
-//	glVertex3f(xx2+xoff, yy2+yoff, zz2-rad/2);
-//	glVertex3f(xx1-xoff, yy1-yoff, zz1-rad/2);
-//	glVertex3f(xx2-xoff, yy2-yoff, zz2-rad/2);
-//	glEnd();
+//  glBegin(GL_TRIANGLE_STRIP);
+//  //glBegin(GL_QUADS);
+//  glVertex3f(xx1+xoff, yy1+yoff, zz1-rad/2);
+//  glVertex3f(xx2+xoff, yy2+yoff, zz2-rad/2);
+//  glVertex3f(xx1-xoff, yy1-yoff, zz1-rad/2);
+//  glVertex3f(xx2-xoff, yy2-yoff, zz2-rad/2);
+//  glEnd();
 
-	//	glDisable(GL_POLYGON_SMOOTH);
+	//  glDisable(GL_POLYGON_SMOOTH);
 	//
-//	glBegin(GL_LINES);
-//	glVertex3f(xx, yy, zz-rad/2);
-//	map->GetOpenGLCoord(b.x, b.y, xx, yy, zz, rad);
-//	glVertex3f(xx, yy, zz-rad/2);
-//	glEnd();
+//  glBegin(GL_LINES);
+//  glVertex3f(xx, yy, zz-rad/2);
+//  map->GetOpenGLCoord(b.x, b.y, xx, yy, zz, rad);
+//  glVertex3f(xx, yy, zz-rad/2);
+//  glEnd();
 }
 
 void MapEnvironment::GLLabelState(const xyLoc &s, const char *str, double scale) const
@@ -1395,11 +1433,11 @@ std::string MapEnvironment::SVGLabelState(const xyLoc &l, const char *str, doubl
 	GetColor(c.r, c.g, c.b, t);
 	s += SVGDrawText(l.x+0.5+1, l.y+0.5+1+1, str, c, scale);
 	return s;
-//	std::string s;
-//	s =  "<text x=\"0\" y=\"15\" fill=\"black\">";
-//	s += str;
-//	s += "</text>";
-//	return s;
+//  std::string s;
+//  s =  "<text x=\"0\" y=\"15\" fill=\"black\">";
+//  s += str;
+//  s += "</text>";
+//  return s;
 }
 
 std::string MapEnvironment::SVGDrawLine(const xyLoc &p1, const xyLoc &p2, int width) const
@@ -1411,12 +1449,12 @@ std::string MapEnvironment::SVGDrawLine(const xyLoc &p1, const xyLoc &p2, int wi
 	GetColor(c.r, c.g, c.b, t);
 	return ::SVGDrawLine(p1.x+1, p1.y+1, p2.x+1, p2.y+1, width, c);
 
-//	s = "<line x1 = \"" + std::to_string(p1.x) + "\" ";
-//	s +=      "y1 = \"" + std::to_string(p1.y) + "\" ";
-//	s +=      "x2 = \"" + std::to_string(p2.x) + "\" ";
-//	s +=      "y2 = \"" + std::to_string(p2.y) + "\" ";
-//	s += "style=\"stroke:"+SVGGetRGB(c)+";stroke-width:"+std::to_string(width)+"\" />";
-//	return s;
+//  s = "<line x1 = \"" + std::to_string(p1.x) + "\" ";
+//  s +=      "y1 = \"" + std::to_string(p1.y) + "\" ";
+//  s +=      "x2 = \"" + std::to_string(p2.x) + "\" ";
+//  s +=      "y2 = \"" + std::to_string(p2.y) + "\" ";
+//  s += "style=\"stroke:"+SVGGetRGB(c)+";stroke-width:"+std::to_string(width)+"\" />";
+//  return s;
 }
 
 
@@ -1487,7 +1525,7 @@ void MapEnvironment::Draw() const
 		}
 	
 	// draw lines between different terrain types
-//	if (0)
+//  if (0)
 	for (int y = 0; y < map->GetMapHeight(); y++)
 	{
 		for (int x = 0; x < map->GetMapWidth(); x++)
@@ -1596,47 +1634,47 @@ void MapEnvironment::DrawLine(const xyLoc &a, const xyLoc &b, double width) cons
 
 //void MapEnvironment::OpenGLDraw(const xyLoc& initial, const tDirection &dir, GLfloat r, GLfloat g, GLfloat b) const
 //{
-//	xyLoc s = initial;
-//	GLdouble xx, yy, zz, rad;
-//	map->GetOpenGLCoord(s.x, s.y, xx, yy, zz, rad);
-//	
-//	glColor3f(r,g,b);
-//	glBegin(GL_LINE_STRIP);
-//	glVertex3f(xx, yy, zz-rad/2);
-//	
-//	
-//	switch (dir)
-//	{
-//		case kN: s.y-=1; break;
-//		case kS: s.y+=1; break;
-//		case kE: s.x+=1; break;
-//		case kW: s.x-=1; break;
-//		case kNW: s.y-=1; s.x-=1; break;
-//		case kSW: s.y+=1; s.x-=1; break;
-//		case kNE: s.y-=1; s.x+=1; break;
-//		case kSE: s.y+=1; s.x+=1; break;
-//		default: break;
-//	}
+//  xyLoc s = initial;
+//  GLdouble xx, yy, zz, rad;
+//  map->GetOpenGLCoord(s.x, s.y, xx, yy, zz, rad);
+//  
+//  glColor3f(r,g,b);
+//  glBegin(GL_LINE_STRIP);
+//  glVertex3f(xx, yy, zz-rad/2);
+//  
+//  
+//  switch (dir)
+//  {
+//    case kN: s.y-=1; break;
+//    case kS: s.y+=1; break;
+//    case kE: s.x+=1; break;
+//    case kW: s.x-=1; break;
+//    case kNW: s.y-=1; s.x-=1; break;
+//    case kSW: s.y+=1; s.x-=1; break;
+//    case kNE: s.y-=1; s.x+=1; break;
+//    case kSE: s.y+=1; s.x+=1; break;
+//    default: break;
+//  }
 //
-//	
-//	map->GetOpenGLCoord(s.x, s.y, xx, yy, zz, rad);
-//	glVertex3f(xx, yy, zz-rad/2);
-//	glEnd();
+//  
+//  map->GetOpenGLCoord(s.x, s.y, xx, yy, zz, rad);
+//  glVertex3f(xx, yy, zz-rad/2);
+//  glEnd();
 //}
 
 void MapEnvironment::GetNextState(const xyLoc &currents, tDirection dir, xyLoc &news) const
  {
 	news = currents;
- 	switch (dir)
+	switch (dir)
 	{
- 		case kN: news.y-=1; break;
- 		case kS: news.y+=1; break;
- 		case kE: news.x+=1; break;
- 		case kW: news.x-=1; break;
- 		case kNW: news.y-=1; news.x-=1; break;
- 		case kSW: news.y+=1; news.x-=1; break;
- 		case kNE: news.y-=1; news.x+=1; break;
- 		case kSE: news.y+=1; news.x+=1; break;
+		case kN: news.y-=1; break;
+		case kS: news.y+=1; break;
+		case kE: news.x+=1; break;
+		case kW: news.x-=1; break;
+		case kNW: news.y-=1; news.x-=1; break;
+		case kSW: news.y+=1; news.x-=1; break;
+		case kNE: news.y-=1; news.x+=1; break;
+		case kSE: news.y+=1; news.x+=1; break;
 
 		case kNN: news.y-=2; break;
 		case kNNE: news.y-=2; news.x+=1; break;
@@ -1679,8 +1717,8 @@ void MapEnvironment::GetNextState(const xyLoc &currents, tDirection dir, xyLoc &
 		case kNNNWW: news.y-=3; news.x-=2; break;
 		case kNNWWW: news.y-=2; news.x-=3; break;
 		case kNNNWWW: news.y-=3; news.x-=3; break;
- 		default: break;
-	}	
+		default: break;
+	} 
 }
 
 double MapEnvironment::GetPathLength(std::vector<xyLoc> &neighbors)
@@ -1706,228 +1744,228 @@ unsigned MapEnvironment::bitarray25r_5[25*25*25/WORD_BITS+1]={};
 unsigned MapEnvironment::bitarray49r_5[49*49*49/WORD_BITS+1]={};
 
 bool MapEnvironment::collisionPreCheck(xyLoc const& s1, xyLoc const& d1, double r1, xyLoc const& s2, xyLoc const& d2, double r2, bool simple){
-  uint16_t ssx(abs(s1.x-s2.x));
-  uint16_t sdx(abs(s1.x-d2.x));
-  uint16_t ssy(abs(s1.y-s2.y));
-  uint16_t sdy(abs(s1.y-d2.y));
+	uint16_t ssx(abs(s1.x-s2.x));
+	uint16_t sdx(abs(s1.x-d2.x));
+	uint16_t ssy(abs(s1.y-s2.y));
+	uint16_t sdy(abs(s1.y-d2.y));
 
-  switch(connectedness){
-    case 4:
-    case 5:
-    case 8:
-    case 9:
-      if(ssx<2 && ssy<2 && sdx <3 && sdy<3){
-        if(simple)
-          return true;
-        return getPreCheck9(index9(s1,d1,s2,d2),std::max(r1,r2));
-      }
-      if(sdx<2 && sdy<2 && ssx <3 && ssy<3){
-        if(simple)
-          return true;
-        return getPreCheck9(index9(s1,d1,d2,s2),std::max(r1,r2));
-      }
-      return false;
-      break;
-    case 24:
-    case 25:
-      if(ssx<3 && ssy<3 && sdx <5 && sdy<5){
-        if(simple)
-          return true;
-        return getPreCheck25(index25(s1,d1,s2,d2),std::max(r1,r2));
-      }
-      if(sdx<3 && sdy<3 && ssx <5 && ssy<5){
-        if(simple)
-          return true;
-        return getPreCheck25(index25(s1,d1,d2,s2),std::max(r1,r2));
-      }
-      return false;
-      break;
-    case 48:
-    case 49:
-      if(ssx<4 && ssy<4 && sdx <7 && sdy<7){
-        if(simple)
-          return true;
-        return getPreCheck49(index49(s1,d1,s2,d2),std::max(r1,r2));
-      }
-      if(sdx<4 && sdy<4 && ssx <7 && ssy<7){
-        if(simple)
-          return true;
-        return getPreCheck49(index49(s1,d1,d2,s2),std::max(r1,r2));
-      }
-      return false;
-      break;
-    default:
-      return true;
-      break;
-  };
+	switch(connectedness){
+		case 4:
+		case 5:
+		case 8:
+		case 9:
+			if(ssx<2 && ssy<2 && sdx <3 && sdy<3){
+				if(simple)
+					return true;
+				return getPreCheck9(index9(s1,d1,s2,d2),std::max(r1,r2));
+			}
+			if(sdx<2 && sdy<2 && ssx <3 && ssy<3){
+				if(simple)
+					return true;
+				return getPreCheck9(index9(s1,d1,d2,s2),std::max(r1,r2));
+			}
+			return false;
+			break;
+		case 24:
+		case 25:
+			if(ssx<3 && ssy<3 && sdx <5 && sdy<5){
+				if(simple)
+					return true;
+				return getPreCheck25(index25(s1,d1,s2,d2),std::max(r1,r2));
+			}
+			if(sdx<3 && sdy<3 && ssx <5 && ssy<5){
+				if(simple)
+					return true;
+				return getPreCheck25(index25(s1,d1,d2,s2),std::max(r1,r2));
+			}
+			return false;
+			break;
+		case 48:
+		case 49:
+			if(ssx<4 && ssy<4 && sdx <7 && sdy<7){
+				if(simple)
+					return true;
+				return getPreCheck49(index49(s1,d1,s2,d2),std::max(r1,r2));
+			}
+			if(sdx<4 && sdy<4 && ssx <7 && ssy<7){
+				if(simple)
+					return true;
+				return getPreCheck49(index49(s1,d1,d2,s2),std::max(r1,r2));
+			}
+			return false;
+			break;
+		default:
+			return true;
+			break;
+	};
 }
 
 bool MapEnvironment::getPreCheck9(size_t idx, double radius){
-  // Initialize if not already done
-  if(fgreater(radius,.25)){
-    if(!bitarray9r_5[0]){ // Center bit should always be 1 if initialized
-      bool orig(fullBranching);
-      fullBranching=true;
-      Map* origMap(map);
-      Map tempMap(13,13);
-      map=&tempMap;
-      std::vector<xyLoc> n;
-      xyLoc center(6,6);
-      GetSuccessors(center,n);
-      for(auto const& m:n){
-        for(auto const& o:n){
-          std::vector<xyLoc> p;
-          GetSuccessors(o,p);
-          for(auto const& q:p){
-            if(Util::fatLinesIntersect<Vector2D>(center,m,.5,o,q,.5)){
-              set(bitarray9r_5,index9(center,m,o,q));
-            }
-          }
-        }
-      }
-      // Set back to original values
-      fullBranching=orig;
-      map=origMap;
-    }
-    return get(bitarray9r_5,idx);
-  }
-  if(!get(bitarray9r_25,M_CENTER_IDX9)){
-    bool orig(fullBranching);
-    fullBranching=true;
-    Map* origMap(map);
-    Map tempMap(13,13);
-    map=&tempMap;
-    std::vector<xyLoc> n;
-    xyLoc center(6,6);
-    GetSuccessors(center,n);
-    for(auto const& m:n){
-      for(auto const& o:n){
-        std::vector<xyLoc> p;
-        GetSuccessors(o,p);
-        for(auto const& q:p){
-          if(Util::fatLinesIntersect<Vector2D>(center,m,.25,o,q,.25)){
-            set(bitarray9r_25,index9(center,m,o,q));
-          }
-        }
-      }
-    }
-    // Set back to original values
-    fullBranching=orig;
-    map=origMap;
-  }
-  return get(bitarray9r_25,idx);
+	// Initialize if not already done
+	if(fgreater(radius,.25)){
+		if(!bitarray9r_5[0]){ // Center bit should always be 1 if initialized
+			bool orig(fullBranching);
+			fullBranching=true;
+			Map* origMap(map);
+			Map tempMap(13,13);
+			map=&tempMap;
+			std::vector<xyLoc> n;
+			xyLoc center(6,6);
+			GetSuccessors(center,n);
+			for(auto const& m:n){
+				for(auto const& o:n){
+					std::vector<xyLoc> p;
+					GetSuccessors(o,p);
+					for(auto const& q:p){
+						if(Util::fatLinesIntersect<Vector2D>(center,m,.5,o,q,.5)){
+							set(bitarray9r_5,index9(center,m,o,q));
+						}
+					}
+				}
+			}
+			// Set back to original values
+			fullBranching=orig;
+			map=origMap;
+		}
+		return get(bitarray9r_5,idx);
+	}
+	if(!get(bitarray9r_25,M_CENTER_IDX9)){
+		bool orig(fullBranching);
+		fullBranching=true;
+		Map* origMap(map);
+		Map tempMap(13,13);
+		map=&tempMap;
+		std::vector<xyLoc> n;
+		xyLoc center(6,6);
+		GetSuccessors(center,n);
+		for(auto const& m:n){
+			for(auto const& o:n){
+				std::vector<xyLoc> p;
+				GetSuccessors(o,p);
+				for(auto const& q:p){
+					if(Util::fatLinesIntersect<Vector2D>(center,m,.25,o,q,.25)){
+						set(bitarray9r_25,index9(center,m,o,q));
+					}
+				}
+			}
+		}
+		// Set back to original values
+		fullBranching=orig;
+		map=origMap;
+	}
+	return get(bitarray9r_25,idx);
 }
 
 bool MapEnvironment::getPreCheck25(size_t idx, double radius){
-  // Initialize if not already done
-  if(fgreater(radius,.25)){
-    if(!get(bitarray25r_5,M_CENTER_IDX25)){ // Center bit should always be 1 if initialized
-      bool orig(fullBranching);
-      fullBranching=true;
-      Map* origMap(map);
-      Map tempMap(13,13);
-      map=&tempMap;
-      std::vector<xyLoc> n;
-      xyLoc center(6,6);
-      GetSuccessors(center,n);
-      for(auto const& m:n){
-        for(auto const& o:n){
-          std::vector<xyLoc> p;
-          GetSuccessors(o,p);
-          for(auto const& q:p){
-            if(Util::fatLinesIntersect<Vector2D>(center,m,.5,o,q,.5)){
-              set(bitarray25r_5,index25(center,m,o,q));
-            }
-          }
-        }
-      }
-      // Set back to original values
-      fullBranching=orig;
-      map=origMap;
-    }
-    return get(bitarray25r_5,idx);
-  }
-  if(!get(bitarray25r_25,M_CENTER_IDX25)){
-    bool orig(fullBranching);
-    fullBranching=true;
-    Map* origMap(map);
-    Map tempMap(13,13);
-    map=&tempMap;
-    std::vector<xyLoc> n;
-    xyLoc center(6,6);
-    GetSuccessors(center,n);
-    for(auto const& m:n){
-      for(auto const& o:n){
-        std::vector<xyLoc> p;
-        GetSuccessors(o,p);
-        for(auto const& q:p){
-          if(Util::fatLinesIntersect<Vector2D>(center,m,.25,o,q,.25)){
-            set(bitarray25r_25,index25(center,m,o,q));
-          }
-        }
-      }
-    }
-    // Set back to original values
-    fullBranching=orig;
-    map=origMap;
-  }
-  return get(bitarray25r_25,idx);
+	// Initialize if not already done
+	if(fgreater(radius,.25)){
+		if(!get(bitarray25r_5,M_CENTER_IDX25)){ // Center bit should always be 1 if initialized
+			bool orig(fullBranching);
+			fullBranching=true;
+			Map* origMap(map);
+			Map tempMap(13,13);
+			map=&tempMap;
+			std::vector<xyLoc> n;
+			xyLoc center(6,6);
+			GetSuccessors(center,n);
+			for(auto const& m:n){
+				for(auto const& o:n){
+					std::vector<xyLoc> p;
+					GetSuccessors(o,p);
+					for(auto const& q:p){
+						if(Util::fatLinesIntersect<Vector2D>(center,m,.5,o,q,.5)){
+							set(bitarray25r_5,index25(center,m,o,q));
+						}
+					}
+				}
+			}
+			// Set back to original values
+			fullBranching=orig;
+			map=origMap;
+		}
+		return get(bitarray25r_5,idx);
+	}
+	if(!get(bitarray25r_25,M_CENTER_IDX25)){
+		bool orig(fullBranching);
+		fullBranching=true;
+		Map* origMap(map);
+		Map tempMap(13,13);
+		map=&tempMap;
+		std::vector<xyLoc> n;
+		xyLoc center(6,6);
+		GetSuccessors(center,n);
+		for(auto const& m:n){
+			for(auto const& o:n){
+				std::vector<xyLoc> p;
+				GetSuccessors(o,p);
+				for(auto const& q:p){
+					if(Util::fatLinesIntersect<Vector2D>(center,m,.25,o,q,.25)){
+						set(bitarray25r_25,index25(center,m,o,q));
+					}
+				}
+			}
+		}
+		// Set back to original values
+		fullBranching=orig;
+		map=origMap;
+	}
+	return get(bitarray25r_25,idx);
 }
 
 bool MapEnvironment::getPreCheck49(size_t idx, double radius){
-  // Initialize if not already done
-  if(fgreater(radius,.25)){
-    if(!get(bitarray49r_5,M_CENTER_IDX49)){ // Center bit should always be 1 if initialized
-      bool orig(fullBranching);
-      fullBranching=true;
-      Map* origMap(map);
-      Map tempMap(13,13);
-      map=&tempMap;
-      std::vector<xyLoc> n;
-      xyLoc center(6,6);
-      GetSuccessors(center,n);
-      for(auto const& m:n){
-        for(auto const& o:n){
-          std::vector<xyLoc> p;
-          GetSuccessors(o,p);
-          for(auto const& q:p){
-            if(Util::fatLinesIntersect<Vector2D>(center,m,.5,o,q,.5)){
-              set(bitarray49r_5,index49(center,m,o,q));
-            }
-          }
-        }
-      }
-      // Set back to original values
-      fullBranching=orig;
-      map=origMap;
-    }
-    return get(bitarray49r_5,idx);
-  }
-  if(!get(bitarray49r_25,M_CENTER_IDX49)){
-    bool orig(fullBranching);
-    fullBranching=true;
-    Map* origMap(map);
-    Map tempMap(13,13);
-    map=&tempMap;
-    std::vector<xyLoc> n;
-    xyLoc center(6,6);
-    GetSuccessors(center,n);
-    for(auto const& m:n){
-      for(auto const& o:n){
-        std::vector<xyLoc> p;
-        GetSuccessors(o,p);
-        for(auto const& q:p){
-          if(Util::fatLinesIntersect<Vector2D>(center,m,.25,o,q,.25)){
-            set(bitarray49r_25,index49(center,m,o,q));
-          }
-        }
-      }
-    }
-    // Set back to original values
-    fullBranching=orig;
-    map=origMap;
-  }
-  return get(bitarray49r_25,idx);
+	// Initialize if not already done
+	if(fgreater(radius,.25)){
+		if(!get(bitarray49r_5,M_CENTER_IDX49)){ // Center bit should always be 1 if initialized
+			bool orig(fullBranching);
+			fullBranching=true;
+			Map* origMap(map);
+			Map tempMap(13,13);
+			map=&tempMap;
+			std::vector<xyLoc> n;
+			xyLoc center(6,6);
+			GetSuccessors(center,n);
+			for(auto const& m:n){
+				for(auto const& o:n){
+					std::vector<xyLoc> p;
+					GetSuccessors(o,p);
+					for(auto const& q:p){
+						if(Util::fatLinesIntersect<Vector2D>(center,m,.5,o,q,.5)){
+							set(bitarray49r_5,index49(center,m,o,q));
+						}
+					}
+				}
+			}
+			// Set back to original values
+			fullBranching=orig;
+			map=origMap;
+		}
+		return get(bitarray49r_5,idx);
+	}
+	if(!get(bitarray49r_25,M_CENTER_IDX49)){
+		bool orig(fullBranching);
+		fullBranching=true;
+		Map* origMap(map);
+		Map tempMap(13,13);
+		map=&tempMap;
+		std::vector<xyLoc> n;
+		xyLoc center(6,6);
+		GetSuccessors(center,n);
+		for(auto const& m:n){
+			for(auto const& o:n){
+				std::vector<xyLoc> p;
+				GetSuccessors(o,p);
+				for(auto const& q:p){
+					if(Util::fatLinesIntersect<Vector2D>(center,m,.25,o,q,.25)){
+						set(bitarray49r_25,index49(center,m,o,q));
+					}
+				}
+			}
+		}
+		// Set back to original values
+		fullBranching=orig;
+		map=origMap;
+	}
+	return get(bitarray49r_25,idx);
 }
 
 /************************************************************/

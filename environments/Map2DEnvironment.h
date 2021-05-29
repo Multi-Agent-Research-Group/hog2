@@ -49,6 +49,9 @@ public:
         virtual std::string name()const{std::stringstream ss; ss<<"Map2DEnvironment("<<(int)connectedness<<"-connected)"; return ss.str();}
 	virtual void GetSuccessors(const xyLoc &nodeID, std::vector<xyLoc> &neighbors) const;
 	virtual void GetReverseSuccessors(const xyLoc &nodeID, std::vector<xyLoc> &neighbors) const{GetSuccessors(nodeID,neighbors);}
+	
+	bool GetDeltaFs(const xyLoc &currOpenNode, const xyLoc &goal, const int &delta_f, std::vector<int> &possible_delta_fs);
+	bool GetDeltaFSuccessors(const xyLoc &currOpenNode, const xyLoc &goal, const int &delta_f, std::vector<xyLoc> &neighbors);
 	bool GetNextSuccessor(const xyLoc &currOpenNode, const xyLoc &goal, xyLoc &next, double &currHCost, uint64_t &special, bool &validMove);
 	bool GetNext4Successor(const xyLoc &currOpenNode, const xyLoc &goal, xyLoc &next, double &currHCost, uint64_t &special, bool &validMove);
 	bool GetNext5Successor(const xyLoc &currOpenNode, const xyLoc &goal, xyLoc &next, double &currHCost, uint64_t &special, bool &validMove);
@@ -209,11 +212,14 @@ public:
 
         GraphHeuristic *h;
         xyLoc const* start;
-	Map *map;
-	BaseMapOccupancyInterface *oi;
-	double DIAGONAL_COST;
-	uint8_t connectedness;
+		Map *map;
+		BaseMapOccupancyInterface *oi;
+		double DIAGONAL_COST;
+		uint8_t connectedness;
         bool fullBranching;
+
+        std::vector<std::vector<int> > possible_delta_f_map;
+        std::vector<std::unordered_map<int,std::vector<xyLoc>>> neighbors_delta_f_map;
 };
 
 class AbsMapEnvironment : public MapEnvironment

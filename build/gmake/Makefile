@@ -25,7 +25,7 @@ PROJECTS = \
   shared \
   utils \
   apps/icts \
-  apps/epea \
+#   apps/epea \
   apps/MACBS \
   apps/MAAStar \
 #   apps/CBICS \
