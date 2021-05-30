@@ -107,6 +107,14 @@ public:
 
 	virtual void GetNextState(const xyLoc &currents, tDirection dir, xyLoc &news) const;
 
+	void SetMultiplier(const int &_multiplier)
+	{
+		multiplier = _multiplier;
+		waitcost = 1;
+	}
+
+	TemporalVector3D getPosition(const xyLoc &source, const xyLoc &target, const int &timesteps);
+
 	void StoreGoal(xyLoc &) {} // stores the locations for the given goal state
 	void ClearGoal() {}
 	bool IsGoalStored() const {return false;}
@@ -217,6 +225,9 @@ public:
 		double DIAGONAL_COST;
 		uint8_t connectedness;
         bool fullBranching;
+
+        int multiplier;
+        int waitcost;
 
         std::vector<std::vector<int> > possible_delta_f_map;
         std::vector<std::unordered_map<int,std::vector<xyLoc>>> neighbors_delta_f_map;

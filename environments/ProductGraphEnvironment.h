@@ -36,7 +36,7 @@ class MAState : public std::vector<state>{};
 
 // Note state must have fields: source,target,t_value
 // Actual Environment
-template<typename state, typename action, typename environment>
+template<typename position, typename state, typename action, typename environment>
 class ProductGraphEnvironment : public SearchEnvironment<MAState<state>, std::vector<action> >
 {
 	public:
@@ -47,12 +47,14 @@ class ProductGraphEnvironment : public SearchEnvironment<MAState<state>, std::ve
 		ProductGraphEnvironment(std::vector<environment const*> const& base):env(base){
 			heuristics.reserve(env.size());
 			for(auto const& e:base){
-				heuristics.push_back((Heuristic<typename state::first_type> const*)e);
+				heuristics.push_back((Heuristic<position> const*)e);
 			}
 		}
-		ProductGraphEnvironment(std::vector<environment const*> const& base, std::vector<Heuristic<typename state::first_type> const*> const& h):env(base),heuristics(h){}
+		ProductGraphEnvironment(std::vector<environment const*> const& base, std::vector<Heuristic<position> const*> const& h):env(base),heuristics(h){}
 
-		virtual void GetSuccessors(const MAState<state> &nodeID, std::vector<MAState<state>> &neighbors) const;
+		void GetDeltaFSuccessors(const MAState<state> &s, const int &delta_f, std::vector<MAState<state>> &neighbors, int &next_delta_f);
+
+		virtual void GetSuccessors(const MAState<state> &nodeID, std::vector<MAState<state>> &neighbors) const{assert(false);}
 
 		virtual void GetActions(const MAState<state> &nodeID, std::vector<MultiAgentAction> &actions) const{assert(false);}
 
@@ -79,8 +81,8 @@ class ProductGraphEnvironment : public SearchEnvironment<MAState<state>, std::ve
 
 		// Hashing
 		virtual uint64_t GetStateHash(MAState<state> const& node) const;
-		virtual uint64_t GetStateHash(state const& node) const{return env[0]->GetStateHash(getPosition(state));}
-		virtual uint64_t GetStateHash(unsigned agent, state const& node) const{return env[agent]->GetStateHash(getPosition(node));}
+		virtual uint64_t GetStateHash(state const& node) const{assert(false);}
+		virtual uint64_t GetStateHash(unsigned agent, state const& node) const{assert(false);}
 		virtual uint64_t GetActionHash(MultiAgentAction act) const{assert(false);}
 
 		// Drawing
@@ -101,11 +103,13 @@ class ProductGraphEnvironment : public SearchEnvironment<MAState<state>, std::ve
 
 		//mutable std::vector<MultiAgentAction> internalActions;
 
-		static void generatePermutations(const MAState<state> &s, const std::vector<std::vector<typename state::first_type>>& positions, std::vector<MAState<state>>& result, int agent, MAState<state>& current);
-		static void generateCombinations(const std::vector<std::vector<int>>& possible_delta_fs, const int &extra_delta_f,std::vector<std::vector<int>>& result,  int &next_delta_f, int agent, std::vector<int>& current, int &current_extra_delta_f);
+		void generatePermutations(const MAState<state> &s, const std::vector<std::vector<position>>& positions, std::vector<MAState<state>>& result, int agent, MAState<state>& current);
+		void generateCombinations(const std::vector<std::vector<int>>& possible_delta_fs, const int &extra_delta_f,std::vector<std::vector<int>>& result,  int &next_delta_f, int agent, std::vector<int>& current, int &current_extra_delta_f);
+		int getTimeSteps(const state &a, const state &b);
+		state executeTimesteps(const state &a, const state &b, const int &timesteps);
 	private:
 		std::vector<environment const*> env;
-		std::vector<Heuristic<typename state::first_type> const*> heuristics;
+		std::vector<Heuristic<position> const*> heuristics;
 };
 
 template<typename state>
@@ -116,9 +120,49 @@ static std::ostream& operator <<(std::ostream& os, MAState<state> const& s){
 	return os;
 }
 
-template<typename state, typename action, typename environment>
-void ProductGraphEnvironment<state,action,environment>::generatePermutations(
-	const MAState<state> &s, const std::vector<std::vector<typename state::first_type>>& positions, 
+template<typename position, typename state, typename action, typename environment>
+int ProductGraphEnvironment<position,state,action,environment>::getTimeSteps(const state &a, const state &b)
+{
+	int timesteps = 0;
+	int agent = 0; // TODO: pass agent into function
+	timesteps += env[agent]->GCost(a.target,b.source);
+	if(a.t_value!=0)
+		timesteps += env[agent]->GCost(a.source,a.target) - a.t_value;
+	timesteps += b.t_value;
+	return timesteps;
+}
+
+template<typename position, typename state, typename action, typename environment>
+state ProductGraphEnvironment<position,state,action,environment>::executeTimesteps(const state &a, const state &b, const int &timesteps)
+{
+	int agent = 0; // TODO: pass agent into function
+	if(b.source != b.target)
+		assert(false);
+
+	int timesteps_left = timesteps;
+	if(a.t_value!=0)
+	{
+		int a_timesteps_left = env[agent]->GCost(a.source,a.target) - a.t_value;
+		if(a_timesteps_left>timesteps_left)
+			return state(a.source,a.target,a.t_value+timesteps_left);
+		else if(a_timesteps_left == timesteps_left)
+			return state(a.target,a.target,0);
+		timesteps_left -= a_timesteps_left;
+	}
+
+	int ab_timesteps = env[agent]->GCost(a.target,b.source);
+	if(ab_timesteps>timesteps_left)
+		return state(a.target,b.source,timesteps_left);
+	else if(ab_timesteps == timesteps_left)
+		return state(b.source,b.source,0);
+	timesteps_left -= ab_timesteps;
+
+	assert(false);
+}
+
+template<typename position, typename state, typename action, typename environment>
+void ProductGraphEnvironment<position,state,action,environment>::generatePermutations(
+	const MAState<state> &s, const std::vector<std::vector<position>>& positions, 
 	std::vector<MAState<state>>& result, int agent, MAState<state>& current)
 {
 	static double agentRadius=.25;
@@ -147,13 +191,17 @@ void ProductGraphEnvironment<state,action,environment>::generatePermutations(
 		}
 		for(int i = 0; i < positions[agent].size(); ++i) // choose an outedge 
 		{
-			xytLoc a1 = xytLoc(getPosition(s[agent]),0);
-			xytLoc b1 = xytLoc(positions[agent][i],getTimeSteps(t1));
+			state next_state(positions[agent][i], positions[agent][i], 0);
+			TemporalVector3D a1 = env[agent]->getPosition(s[agent].source,s[agent].target,s[agent].t_value);
+			TemporalVector3D b1 = env[agent]->getPosition(next_state.source,next_state.target,next_state.t_value);
+			a1.t=0; b1.t = getTimeSteps(s[agent],next_state);
+
 			bool found(false);
 			for(int j(0); j<current.size(); ++j)
 			{
-				xytLoc a2 = xytLoc(getPosition(s[j]), 0);
-				xytLoc b2 = xytLoc(getPosition(current[j],getTimeSteps(s[j],current[j])));
+				TemporalVector3D a2 = env[agent]->getPosition(s[j].source,s[j].target,s[j].t_value);
+				TemporalVector3D b2 = env[agent]->getPosition(current[j].source,current[j].target,current[j].t_value);
+				a1.t=0; b1.t = getTimeSteps(s[j],current[j]);
 				if(collisionCheck3D(a1,b1,a2,b2,agentRadius))
 				{
 					found=true;
@@ -162,14 +210,14 @@ void ProductGraphEnvironment<state,action,environment>::generatePermutations(
 			}
 			if(found) continue;
 			MAState<state> copy(current);
-			copy.emplace_back(positions[agent][i], positions[agent][i], 0);
+			copy.push_back(next_state);
 			generatePermutations(s,positions, result, agent + 1, copy);
 		}
 	}
 }
 
-template<typename state, typename action, typename environment>
-void ProductGraphEnvironment<state,action,environment>::generateCombinations(
+template<typename position, typename state, typename action, typename environment>
+void ProductGraphEnvironment<position,state,action,environment>::generateCombinations(
 	const std::vector<std::vector<int>>& possible_delta_fs, const int &extra_delta_f,
 	std::vector<std::vector<int>>& result,  int &next_delta_f, 
 	int agent, std::vector<int>& current, int &current_extra_delta_f)
@@ -194,8 +242,8 @@ void ProductGraphEnvironment<state,action,environment>::generateCombinations(
 	}
 }
 
-template<typename state, typename action, typename environment>
-void ProductGraphEnvironment<state,action,environment>::GetDeltaFSuccessors(const MAState<state> &s, const int &delta_f, std::vector<MAState<state>> &neighbors, int &next_delta_f) const
+template<typename position, typename state, typename action, typename environment>
+void ProductGraphEnvironment<position,state,action,environment>::GetDeltaFSuccessors(const MAState<state> &s, const int &delta_f, std::vector<MAState<state>> &neighbors, int &next_delta_f)
 {
 	int num_agents = s.size();
 	next_delta_f = INT_MAX;
@@ -203,7 +251,7 @@ void ProductGraphEnvironment<state,action,environment>::GetDeltaFSuccessors(cons
 
 	for(int i=0; i<num_agents; i++)
 		if(s[i].t_value == 0)
-			env[k]->GetDeltaFs(s[i].source,delta_f,possible_delta_fs[i]); // possible_delta_fs is sorted
+			env[i]->GetDeltaFs(s[i].source,delta_f,possible_delta_fs[i]); // possible_delta_fs is sorted
 		else
 			possible_delta_fs[i].push_back(0); // continue traversing the edge
 
@@ -222,7 +270,7 @@ void ProductGraphEnvironment<state,action,environment>::GetDeltaFSuccessors(cons
 
 	for(int i=0; i<delta_f_combinations.size(); i++)
 	{
-		std::vector<std::vector<typename state::first_type>> successors(num_agents,std::vector<typename state::first_type>());
+		std::vector<std::vector<position>> successors(num_agents,std::vector<position>());
 		for(int agent=0; agent<num_agents; agent++)
 			if(s[agent].t_value == 0)
 				env[agent]->GetDeltaFSuccessors(s[agent].source,delta_f_combinations[i][agent], successors[agent]);
@@ -231,8 +279,8 @@ void ProductGraphEnvironment<state,action,environment>::GetDeltaFSuccessors(cons
 	}
 }
 
-template<typename state, typename action, typename environment>
-double ProductGraphEnvironment<state,action,environment>::HCost(const MAState<state> &node1, const MAState<state> &node2) const
+template<typename position, typename state, typename action, typename environment>
+double ProductGraphEnvironment<position,state,action,environment>::HCost(const MAState<state> &node1, const MAState<state> &node2) const
 {
 	double total(0.0);
 	for(int i(0); i<node1.size(); ++i)
@@ -245,8 +293,8 @@ double ProductGraphEnvironment<state,action,environment>::HCost(const MAState<st
 	return total;
 }
 
-template<typename state, typename action, typename environment>
-double ProductGraphEnvironment<state,action,environment>::GCost(MAState<state> const& node1, MAState<state> const& node2) const {
+template<typename position, typename state, typename action, typename environment>
+double ProductGraphEnvironment<position,state,action,environment>::GCost(MAState<state> const& node1, MAState<state> const& node2) const {
 	double total(0.0);
 	for(int i(0); i<node1.size(); ++i)
 	{
@@ -258,8 +306,8 @@ double ProductGraphEnvironment<state,action,environment>::GCost(MAState<state> c
 	return total;
 }
 
-template<typename state, typename action, typename environment>
-bool ProductGraphEnvironment<state,action,environment>::GoalTest(const MAState<state> &node, const MAState<state> &goal) const
+template<typename position, typename state, typename action, typename environment>
+bool ProductGraphEnvironment<position,state,action,environment>::GoalTest(const MAState<state> &node, const MAState<state> &goal) const
 {
 	for(int i(0); i<node.size(); ++i)
 	{
@@ -269,8 +317,8 @@ bool ProductGraphEnvironment<state,action,environment>::GoalTest(const MAState<s
 	return true;
 }
 
-template<typename state, typename action, typename environment>
-double ProductGraphEnvironment<state,action,environment>::GetPathLength(const std::vector<MAState<state>> &sol) const
+template<typename position, typename state, typename action, typename environment>
+double ProductGraphEnvironment<position,state,action,environment>::GetPathLength(const std::vector<MAState<state>> &sol) const
 {
 	uint32_t cost(0);
 	for(int i=0; i<sol.size(); i++)
@@ -279,57 +327,67 @@ double ProductGraphEnvironment<state,action,environment>::GetPathLength(const st
 	return cost;
 }
 
-template<typename state, typename action, typename environment>
-uint64_t ProductGraphEnvironment<state,action,environment>::GetStateHash(const MAState<state> &node) const
+
+template<typename position, typename state, typename action, typename environment>
+uint64_t ProductGraphEnvironment<position,state,action,environment>::GetStateHash(const MAState<state> &node) const
 {
 	// Implement the FNV-1a hash http://www.isthe.com/chongo/tech/comp/fnv/index.html
 	uint64_t h(14695981039346656037UL); // Offset basis
 	unsigned i(0);
-	for(auto const& v : node){
-		uint64_t h1(env[i++]->GetStateHash(getPosition(v)));
-		uint8_t c[sizeof(uint64_t)];
-		memcpy(c,&h1,sizeof(uint64_t));
-		for(unsigned j(0); j<sizeof(uint64_t); ++j){
-			//hash[k*sizeof(uint64_t)+j]=((int)c[j])?c[j]:1; // Replace null-terminators in the middle of the string
-			h=h^c[j]; // Xor with octet
-			h=h*1099511628211; // multiply by the FNV prime
+	for(auto const& v : node)
+	{
+		std::vector<uint64_t> hash_elements;
+		hash_elements.push_back(env[i]->GetStateHash(v.source));
+		hash_elements.push_back(env[i]->GetStateHash(v.target));
+		hash_elements.push_back(v.t_value);
+		i++;
+		for(int hi=0; hi<hash_elements.size(); hi++)
+		{
+			uint64_t h1(hash_elements[hi]);
+			uint8_t c[sizeof(uint64_t)];
+			memcpy(c,&h1,sizeof(uint64_t));
+			for(unsigned j(0); j<sizeof(uint64_t); ++j){
+				//hash[k*sizeof(uint64_t)+j]=((int)c[j])?c[j]:1; // Replace null-terminators in the middle of the string
+				h=h^c[j]; // Xor with octet
+				h=h*1099511628211; // multiply by the FNV prime
+			}
 		}
 	}
 	return h;
 }
 
-template<typename state, typename action, typename environment>
-void ProductGraphEnvironment<state,action,environment>::OpenGLDraw() const
+template<typename position, typename state, typename action, typename environment>
+void ProductGraphEnvironment<position,state,action,environment>::OpenGLDraw() const
 {
 	env[0]->OpenGLDraw();
 }
 
-template<typename state, typename action, typename environment>
-void ProductGraphEnvironment<state,action,environment>::OpenGLDraw(const MAState<state> &l) const
+template<typename position, typename state, typename action, typename environment>
+void ProductGraphEnvironment<position,state,action,environment>::OpenGLDraw(const MAState<state> &l) const
 {
 	//TODO: Implement this
 }
 
-template<typename state, typename action, typename environment>
-void ProductGraphEnvironment<state,action,environment>::OpenGLDraw(const MAState<state>& o, const MAState<state> &n, float perc) const
+template<typename position, typename state, typename action, typename environment>
+void ProductGraphEnvironment<position,state,action,environment>::OpenGLDraw(const MAState<state>& o, const MAState<state> &n, float perc) const
 {
 	//TODO: Implement this
 }
 
-template<typename state, typename action, typename environment>
-void ProductGraphEnvironment<state,action,environment>::OpenGLDraw(const MAState<state> &, const ProductGraphEnvironment<state,action,environment>::MultiAgentAction &) const
+template<typename position, typename state, typename action, typename environment>
+void ProductGraphEnvironment<position,state,action,environment>::OpenGLDraw(const MAState<state> &, const ProductGraphEnvironment<position,state,action,environment>::MultiAgentAction &) const
 {
 	//TODO: Implement this
 }
 
-template<typename state, typename action, typename environment>
-void ProductGraphEnvironment<state,action,environment>::GLDrawLine(const MAState<state> &a, const MAState<state> &b) const
+template<typename position, typename state, typename action, typename environment>
+void ProductGraphEnvironment<position,state,action,environment>::GLDrawLine(const MAState<state> &a, const MAState<state> &b) const
 {
 	//TODO: Implement this
 }
 
-template<typename state, typename action, typename environment>
-void ProductGraphEnvironment<state,action,environment>::GLDrawPath(const std::vector<MAState<state>> &p) const
+template<typename position, typename state, typename action, typename environment>
+void ProductGraphEnvironment<position,state,action,environment>::GLDrawPath(const std::vector<MAState<state>> &p) const
 {
 	//TODO: Implement this
 }

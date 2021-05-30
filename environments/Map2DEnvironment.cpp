@@ -21,6 +21,8 @@ using namespace Graphics2D;
 
 MapEnvironment::MapEnvironment(Map *_m, bool useOccupancy):start(nullptr),h(nullptr),map(_m),oi(useOccupancy?new BaseMapOccupancyInterface(map):nullptr),DIAGONAL_COST(sqrt(2)),connectedness(8),fullBranching(false)
 {
+	multiplier = 1;
+	waitcost = 1;
 	possible_delta_f_map = std::vector<std::vector<int>>(GetMaxHash(),std::vector<int>());
 	neighbors_delta_f_map = std::vector<std::unordered_map<int,std::vector<xyLoc>>>(GetMaxHash(),std::unordered_map<int,std::vector<xyLoc>>());
 }
@@ -276,6 +278,15 @@ void MapEnvironment::GetSuccessors(const xyLoc &loc, std::vector<xyLoc> &neighbo
 				{
 		neighbors.push_back(loc);
 				}
+}
+
+TemporalVector3D MapEnvironment::getPosition(const xyLoc &source, const xyLoc &target, const int &timesteps)
+{
+	if(source==target)
+		return TemporalVector3D(source.x,source.y,0.0,0.0);
+	int timesteps_left = GCost(source,target) - timesteps;
+	return TemporalVector3D( ((source.x*timesteps_left + target.x*timesteps)*1.0)/(timesteps+timesteps_left),
+		((source.y*timesteps_left + target.y*timesteps)*1.0)/(timesteps+timesteps_left),0.0,0.0);
 }
 
 bool MapEnvironment::GetDeltaFs(const xyLoc &currOpenNode, const xyLoc &goal, const int &delta_f, 
@@ -927,7 +938,6 @@ double MapEnvironment::GCost(const xyLoc &l, const tDirection &act) const
 	static double const SQRT_5(std::sqrt(5.0));
 	static double const SQRT_10(sqrt(10));
 	static double const SQRT_13(sqrt(13));
-	double multiplier = 1.0;
 	//  if (map->GetTerrainType(l.x, l.y) == kSwamp)
 	//  {
 	//    multiplier = 3.0;
@@ -984,16 +994,14 @@ double MapEnvironment::GCost(const xyLoc &l, const tDirection &act) const
 		case kNNNWW: return SQRT_13*multiplier;
 		case kNNWWW: return SQRT_13*multiplier;
 		case kNNNWWW: return 3.0*DIAGONAL_COST*multiplier;
-		default: return multiplier;
+		default: return waitcost;
 	}
 	return 0;
 }
 
 double MapEnvironment::GCost(const xyLoc &l1, const xyLoc &l2) const
 {
-	static double multiplier = 1.0;
-	static double waitcost(1.0);
-	if(l1.sameLoc(l2)) return l1.sameLoc(getGoal())?0.0:multiplier*waitcost; // No cost for waiting at goal
+	if(l1.sameLoc(l2)) return l1.sameLoc(getGoal())?0.0:waitcost; // No cost for waiting at goal
 	//  if (map->GetTerrainType(l1.x, l1.y) == kSwamp)
 	//  {
 	//    multiplier = 3.0;
