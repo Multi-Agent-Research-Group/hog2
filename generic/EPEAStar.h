@@ -258,6 +258,85 @@ void EPEAStar<state,action,environment>::AddAdditionalStartState(state& newState
  * @return TRUE if there is no path or if we have found the goal, FALSE
  * otherwise
  */
+// template <class state, class action, class environment>
+// bool EPEAStar<state,action,environment>::DoSingleSearchStep(std::vector<state> &thePath)
+// {
+// 	if (openClosedList.OpenSize() == 0)
+// 	{
+// 		thePath.resize(0); // no path found!
+// 		//closedList.clear();
+// 		return true;
+// 	}
+// 	uint64_t nodeid = openClosedList.Peek();
+// 	const state &currOpenNode = openClosedList.Lookup(nodeid).data;
+	
+// 	if (!openClosedList.Lookup(nodeid).reopened)
+// 		uniqueNodesExpanded++;
+// 	nodesExpanded++;
+	
+// 	if ((stopAfterGoal) && (env->GoalTest(currOpenNode, goal)))
+// 	{
+// 		ExtractPathToStartFromID(nodeid, thePath);
+// 		// Path is backwards - reverse
+// 		reverse(thePath.begin(), thePath.end()); 
+// 		return true;
+// 	}
+// 	state next;
+	
+// 	bool validMove;
+// 	bool moreMoves = env->GetNextSuccessor(currOpenNode, goal, next,
+// 										   openClosedList.Lookup(nodeid).h,
+// 										   openClosedList.Lookup(nodeid).special,
+// 										   validMove);
+// 	if (!moreMoves)
+// 	{
+// 		openClosedList.Close();
+// 		//openClosedList.Print();
+// 	}
+// 	if (!validMove)
+// 	{
+// 		return false;
+// 	}
+// 	else if (moreMoves) {
+// 		openClosedList.KeyChanged(nodeid);
+// 		//openClosedList.Print();
+// 	}
+	
+// 	double edgeCost = env->GCost(currOpenNode, next);
+	
+// 	nodesTouched++;
+// 	//double edgeCost;
+	
+// 	uint64_t theID;
+// 	switch (openClosedList.Lookup(env->GetStateHash(next), theID))
+// 	{
+// 		case kClosedList:
+// 			if (reopenNodes)
+// 			{
+// 				// do something here...
+// 			}
+// 			break;
+// 		case kOpenList:
+// 			//edgeCost = env->GCost(openClosedList.Lookup(nodeid).data, neighbors[x]);
+// 			if (fless(openClosedList.Lookup(nodeid).g+edgeCost, openClosedList.Lookup(theID).g))
+// 			{
+// 				openClosedList.Lookup(theID).parentID = nodeid;
+// 				openClosedList.Lookup(theID).g = openClosedList.Lookup(nodeid).g+edgeCost;
+// 				openClosedList.KeyChanged(theID);
+// 				//openClosedList.Print();
+// 			}
+// 			break;
+// 		case kNotFound:
+// 			openClosedList.AddOpenNode(next,
+// 									   env->GetStateHash(next),
+// 									   openClosedList.Lookup(nodeid).g+edgeCost,
+// 									   weight*theHeuristic->HCost(next, goal),
+// 									   nodeid);
+// 			//openClosedList.Print();
+// 	}
+	
+// 	return false;
+// }
 template <class state, class action, class environment>
 bool EPEAStar<state,action,environment>::DoSingleSearchStep(std::vector<state> &thePath)
 {
@@ -281,60 +360,60 @@ bool EPEAStar<state,action,environment>::DoSingleSearchStep(std::vector<state> &
 		reverse(thePath.begin(), thePath.end()); 
 		return true;
 	}
-	state next;
+
+	double fCost = openClosedList.Lookup(nodeid).h+openClosedList.Lookup(nodeid).g;
+	double delta_f = openClosedList.Lookup(nodeid).h - theHeuristic->HCost(currOpenNode, goal);
 	
-	bool validMove;
-	bool moreMoves = env->GetNextSuccessor(currOpenNode, goal, next,
-										   openClosedList.Lookup(nodeid).h,
-										   openClosedList.Lookup(nodeid).special,
-										   validMove);
-	if (!moreMoves)
+	std::vector<state> succ;
+	double next_delta_f = 0;
+
+	env->GetDeltaFSuccessors(currOpenNode, delta_f, succ, next_delta_f);
+
+	if(next_delta_f < 0.0) // no more neighbors present
 	{
-		openClosedList.Close();
-		//openClosedList.Print();
-	}
-	if (!validMove)
-	{
-		return false;
-	}
-	else if (moreMoves) {
+		openClosedList.Lookup(nodeid).h += next_delta_f-delta_f;
 		openClosedList.KeyChanged(nodeid);
-		//openClosedList.Print();
 	}
-	
-	double edgeCost = env->GCost(currOpenNode, next);
-	
-	nodesTouched++;
-	//double edgeCost;
-	
-	uint64_t theID;
-	switch (openClosedList.Lookup(env->GetStateHash(next), theID))
+	else
+		openClosedList.Close();
+
+	for (unsigned int x = 0; x < succ.size(); x++)
 	{
-		case kClosedList:
-			if (reopenNodes)
-			{
-				// do something here...
-			}
-			break;
-		case kOpenList:
-			//edgeCost = env->GCost(openClosedList.Lookup(nodeid).data, neighbors[x]);
-			if (fless(openClosedList.Lookup(nodeid).g+edgeCost, openClosedList.Lookup(theID).g))
-			{
-				openClosedList.Lookup(theID).parentID = nodeid;
-				openClosedList.Lookup(theID).g = openClosedList.Lookup(nodeid).g+edgeCost;
-				openClosedList.KeyChanged(theID);
+		double edgeCost = env->GCost(openClosedList.Lookup(nodeid).data, succ[x]);
+		double newFCost = openClosedList.Lookup(nodeid).g+edgeCost+weight*theHeuristic->HCost(succ[x], goal);	
+
+		uint64_t theID;
+		switch (openClosedList.Lookup(env->GetStateHash(succ[x]), theID))
+		{
+			case kClosedList:
+				if (reopenNodes)
+				{
+					// do something here...
+				}
+				break;
+			case kOpenList:
+				//edgeCost = env->GCost(openClosedList.Lookup(nodeid).data, neighbors[x]);
+				if (fless(openClosedList.Lookup(nodeid).g+edgeCost, openClosedList.Lookup(theID).g))
+				{
+					openClosedList.Lookup(theID).parentID = nodeid;
+					openClosedList.Lookup(theID).g = openClosedList.Lookup(nodeid).g+edgeCost;
+					openClosedList.KeyChanged(theID);
+					//openClosedList.Print();
+				}
+				break;
+			case kNotFound:
+				
+				if (fequal(newFCost, fCost))
+				{
+					openClosedList.AddOpenNode(succ[x],
+											   env->GetStateHash(succ[x]),
+											   openClosedList.Lookup(nodeid).g+edgeCost,
+											   weight*theHeuristic->HCost(succ[x], goal),
+											   nodeid);
+				}
 				//openClosedList.Print();
-			}
-			break;
-		case kNotFound:
-			openClosedList.AddOpenNode(next,
-									   env->GetStateHash(next),
-									   openClosedList.Lookup(nodeid).g+edgeCost,
-									   weight*theHeuristic->HCost(next, goal),
-									   nodeid);
-			//openClosedList.Print();
+		}
 	}
-	
 	return false;
 }
 
